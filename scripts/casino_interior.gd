@@ -10,6 +10,7 @@ const ROULETTE := preload("res://scripts/roulette_panel.gd")
 const BLACKJACK := preload("res://scripts/blackjack_panel.gd")
 const BACCARA := preload("res://scripts/baccara_panel.gd")
 const DICE := preload("res://scripts/dice_panel.gd")
+const CRAPS := preload("res://scripts/craps_panel.gd")
 ## Niveau du plancher de l'étage.
 const UP := 6.1
 const KC := "res://assets/kenney/characters/"
@@ -771,7 +772,8 @@ func _craps_table(pos: Vector3) -> void:
 	_person("stickman", Vector3(0, 0, -1.7), 0.0, "idle", "noeud")
 	_person("character-male-f.glb", Vector3(-1.4, 0, 1.6), 180.0)
 	_person("character-female-c.glb", Vector3(1.2, 0, 1.6), 180.0)
-	_bill(_label("Craps · bientôt", Vector3(0, 2.6, 0), 0.0, 64, Color(0.85, 0.8, 0.7), root))
+	_bill(_label("Craps", Vector3(0, 2.6, 0), 0.0, 72, Color(1.0, 0.85, 0.5), root))
+	_interactive(root, "craps", "E : jouer au craps", Vector3(4.8, 2.0, 3.0), Vector3(0, 1.0, 0.6))
 
 
 # --- Les salles à seuils -------------------------------------------------------------
@@ -1027,6 +1029,9 @@ func _on_interact(target: Node) -> void:
 		"blackjack":
 			var b: PanelContainer = BLACKJACK.new()
 			_open_panel(b)
+		"craps":
+			var cp: PanelContainer = CRAPS.new()
+			_open_panel(cp)
 		"dice":
 			var g: PanelContainer = DICE.new()
 			_open_panel(g)
