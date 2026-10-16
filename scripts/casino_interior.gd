@@ -12,6 +12,7 @@ const BACCARA := preload("res://scripts/baccara_panel.gd")
 const DICE := preload("res://scripts/dice_panel.gd")
 const CRAPS := preload("res://scripts/craps_panel.gd")
 const WHEEL := preload("res://scripts/wheel_panel.gd")
+const POKER := preload("res://scripts/poker_panel.gd")
 ## Niveau du plancher de l'étage.
 const UP := 6.1
 const KC := "res://assets/kenney/characters/"
@@ -798,6 +799,7 @@ func _build_ambassadeurs() -> void:
 		var a := TAU * k / 6.0
 		_person(regulars[k], Vector3(20.0 + sin(a) * 1.9, 0, -4.0 + cos(a) * 1.9), rad_to_deg(a) + 180.0)
 	_bill(_label("Poker des Ambassadeurs", Vector3(20.0, 2.8, -4.0), -90.0, 64))
+	_interactive(poker, "poker", "E : prendre la chaise libre au poker", Vector3(4.0, 2.0, 4.0), Vector3(0, 1.0, 0))
 	for z in [-10.0, 2.0]:
 		_table_base(_node(Vector3(23.0, 0, z)), Vector3(3.0, 0.9, 1.6))
 	_barrier("ambassadeurs", Vector3(14.0, 0, -4.0), 90.0, 5.0)
@@ -1147,6 +1149,9 @@ func _on_interact(target: Node) -> void:
 		"blackjack":
 			var b: PanelContainer = BLACKJACK.new()
 			_open_panel(b)
+		"poker":
+			var pk: PanelContainer = POKER.new()
+			_open_panel(pk)
 		"roue":
 			var w: PanelContainer = WHEEL.new()
 			w.mode = "roue"

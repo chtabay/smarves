@@ -10,6 +10,7 @@ const LOTO := preload("res://scripts/loto_panel.gd")
 const ROULETTE := preload("res://scripts/roulette_panel.gd")
 const WHEEL := preload("res://scripts/wheel_panel.gd")
 const BLACKJACK := preload("res://scripts/blackjack_panel.gd")
+const POKER := preload("res://scripts/poker_panel.gd")
 
 ## Où regarde la caméra quand on joue dans chaque lieu de la place : [cible, distance, lacet, tangage].
 const FOCUS := {
@@ -646,6 +647,11 @@ func _game_panel(id: String) -> Control:
 			z.verb = "franchit la ligne"
 			z.runners = [["Zébulon", 2.0], ["Zéphyr", 3.0], ["Zoé", 4.0]]
 			return z
+		"passelourdin":
+			var pk: PanelContainer = POKER.new()
+			pk.title = "La partie des rochers de Passelourdin"
+			pk.regulars = [["le Notaire", 0.6, 0.6], ["la Meunière", 0.3, 0.4], ["Gégé", 0.2, 0.9], ["l'Inconnu", 0.8, 0.7], ["le Docteur", 0.45, 0.3]]
+			return pk
 		"moulin":
 			var b: PanelContainer = BLACKJACK.new()
 			b.title = "Le blackjack du Moulin des Dames"

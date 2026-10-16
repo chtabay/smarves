@@ -22,6 +22,41 @@ const INTEREST_RATE := 0.03  # par période
 const LOAN_FEE := 0.05       # frais de dossier
 
 
+const SAVE_PATH := "user://smarves.save"
+
+
+func _ready() -> void:
+	load_game()
+	changed.connect(save_game)
+
+
+## La partie est gardée sur la machine du joueur, et reprise au lancement suivant.
+func save_game() -> void:
+	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	if f == null:
+		return
+	f.store_string(JSON.stringify({"credits": credits, "won": won, "staked": staked,
+		"advances_left": advances_left, "debt": debt, "loans_taken": loans_taken}))
+
+
+func load_game() -> void:
+	# Les captures de vérification partent toujours d'une partie neuve.
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--capture="):
+			return
+	if not FileAccess.file_exists(SAVE_PATH):
+		return
+	var data = JSON.parse_string(FileAccess.get_file_as_string(SAVE_PATH))
+	if typeof(data) != TYPE_DICTIONARY:
+		return
+	credits = int(data.get("credits", credits))
+	won = int(data.get("won", won))
+	staked = int(data.get("staked", staked))
+	advances_left = int(data.get("advances_left", advances_left))
+	debt = int(data.get("debt", debt))
+	loans_taken = int(data.get("loans_taken", loans_taken))
+
+
 func spend(amount: int) -> bool:
 	if credits < amount:
 		return false
