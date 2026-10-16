@@ -530,9 +530,10 @@ func _garland(a: Vector3, b: Vector3, sag: float) -> void:
 
 # --- Les habitants ---------------------------------------------------------------------
 
-func _villager(model: String, pos: Vector3, rot_y: float, pose := "idle", route: Array = [], acc := "") -> Node3D:
+func _villager(model: String, pos: Vector3, rot_y: float, pose := "idle", route: Array = [], acc := "", spk := "habitant") -> Node3D:
 	var v: Node3D = VILLAGER.new()
 	v.accessory = acc
+	v.speaker = spk
 	v.model_path = KC + model
 	v.pose = pose
 	v.route.assign(route)
@@ -545,18 +546,18 @@ func _villager(model: String, pos: Vector3, rot_y: float, pose := "idle", route:
 
 func _build_villagers() -> void:
 	# En terrasse.
-	_villager("character-male-b.glb", Vector3(-5.85, 0.07, -2.2), 90.0, "sit")
-	_villager("character-female-c.glb", Vector3(-4.95, 0.07, -2.2), -90.0, "sit")
+	_villager("character-male-b.glb", Vector3(-5.85, 0.07, -2.2), 90.0, "sit", [], "", "dede")
+	_villager("character-female-c.glb", Vector3(-4.95, 0.07, -2.2), -90.0, "sit", [], "collier", "josiane")
 	_villager("character-male-d.glb", Vector3(-4.95, 0.07, 1.4), -90.0, "sit")
 	# Les boulistes.
-	_villager("character-male-f.glb", Vector3(2.6, 0, 3.0), 90.0)
+	_villager("character-male-f.glb", Vector3(2.6, 0, 3.0), 90.0, "idle", [], "chapeau", "lucien")
 	_villager("character-male-a.glb", Vector3(3.0, 0, 2.3), 70.0)
 	_villager("character-female-a.glb", Vector3(6.6, 0, 3.4), -100.0)
 	# Les spectateurs et les passants.
 	_villager("character-female-e.glb", Vector3(2.8, 0, 4.6), 160.0)
 	_villager("character-male-e.glb", Vector3(-2.0, 0, 1.0), 0.0, "idle",
 		[Vector3(-2.0, 0, 1.0), Vector3(2.0, 0, 0.6), Vector3(5.6, 0, -1.0), Vector3(1.0, 0, -3.0)])
-	_villager("m-brunet", Vector3(7.2, 0, 3.0), -90.0, "idle", [], "cravate")
+	_villager("m-brunet", Vector3(7.2, 0, 3.0), -90.0, "idle", [], "cravate", "brunet")
 	_villager("character-female-b.glb", Vector3(-3.0, 0, -3.2), 0.0, "idle",
 		[Vector3(-3.0, 0, -3.2), Vector3(-4.2, 0, 3.4), Vector3(0.0, 0, 3.6)])
 
@@ -604,7 +605,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		q.collide_with_areas = true
 		q.collide_with_bodies = false
 		var hit := get_world_3d().direct_space_state.intersect_ray(q)
-		if hit and hit.collider.has_meta("travel"):
+		if hit and hit.collider.has_meta("talk"):
+			var v: Node = hit.collider.get_parent()
+			v.say(Lines.line(v.speaker))
+		elif hit and hit.collider.has_meta("travel"):
 			travel(hit.collider.get_meta("travel"))
 		elif hit and hit.collider.has_meta("place"):
 			_enter(hit.collider.get_meta("place"))
@@ -798,7 +802,42 @@ func _announce(text: String) -> void:
 	tw.tween_property(_banner, "modulate:a", 0.0, 1.0)
 
 
+var _bark_timer := 3.0
+
+
+## De temps en temps, un habitant près de la caméra dit quelque chose : souvent une rumeur.
+func _bark(delta: float) -> void:
+	_bark_timer -= delta
+	if _bark_timer > 0.0:
+		return
+	_bark_timer = randf_range(9.0, 16.0)
+	var near: Array[Node3D] = []
+	for v in villagers:
+		if v.global_position.distance_to(camera.target) < 13.0:
+			near.append(v)
+	if near.is_empty():
+		return
+	var v: Node3D = near.pick_random()
+	if randf() < 0.45:
+		# Une rumeur sur le prochain lieu à ouvrir, ou sur un lieu déjà ouvert.
+		var next := ""
+		for p in PLACES:
+			if Game.won < p.seuil:
+				next = p.id
+				break
+		var pool: Array = [next] if next != "" else []
+		for p in PLACES:
+			if Game.won >= p.seuil and Lines.RUMORS.has(p.id):
+				pool.append(p.id)
+		var key: String = pool.pick_random() if not pool.is_empty() else "casino"
+		if Lines.RUMORS.has(key):
+			v.say(Lines.RUMORS[key])
+			return
+	v.say(Lines.line(v.speaker))
+
+
 func _process(delta: float) -> void:
+	_bark(delta)
 	for i in moving_cars.size():
 		var car := moving_cars[i]
 		var dir := 1.0 if i == 0 else -1.0

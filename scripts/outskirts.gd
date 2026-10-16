@@ -109,7 +109,7 @@ func _bois(c: Vector3) -> void:
 		var model: String = ["trees_A_large", "trees_A_medium", "trees_B_large", "trees_B_medium", "tree_single_A", "tree_single_B"][rng.randi() % 6]
 		_p(KK + "medieval_decoration/nature/%s.gltf" % model, c + p, rng.randf_range(2.0, 2.8), rng.randf() * 360.0)
 	# Le gardien du bois et les parieurs.
-	main._villager("gardien-du-bois", c + Vector3(-1.2, 0, 4.6), -100.0, "idle", [], "chapeau")
+	main._villager("gardien-du-bois", c + Vector3(-1.2, 0, 4.6), -100.0, "idle", [], "chapeau", "gardien")
 	main._villager("parieur-bois-1", c + Vector3(-4.0, 0, 5.6), 180.0)
 	main._villager("parieur-bois-2", c + Vector3(-7.5, 0, 5.4), 160.0)
 	main._villager("promeneuse-bois", c + Vector3(0.5, 0, 2.0), 0.0, "idle", [c + Vector3(0.5, 0, 2.0), c + Vector3(-0.5, 0, -4.5)])
@@ -206,7 +206,7 @@ func _moulin(c: Vector3) -> void:
 		var x := rng.randf_range(-10.0, 10.0)
 		_p(KK + "medieval_decoration/nature/waterlily_%s.gltf" % ["A", "B"][rng.randi() % 2], c + Vector3(x, 0.04, rng.randf_range(2.2, 4.3)), 1.6, rng.randf() * 360.0)
 		_p(KK + "medieval_decoration/nature/waterplant_%s.gltf" % ["A", "B", "C"][rng.randi() % 3], c + Vector3(rng.randf_range(-10.0, 10.0), 0, [1.6, 4.8][rng.randi() % 2]), 2.0)
-	main._villager("meunier", c + Vector3(1.0, 0, 0.6), -60.0, "idle", [], "chapeau")
+	main._villager("meunier", c + Vector3(1.0, 0, 0.6), -60.0, "idle", [], "chapeau", "meunier")
 	main._villager("joueuse-moulin", c + Vector3(-4.6, 0, 0.9), 30.0)
 
 
@@ -250,4 +250,4 @@ func _passelourdin(c: Vector3) -> void:
 	_attraction("passelourdin", c + Vector3(0, 0, -1.0), Vector3(3.0, 2.0, 2.4), c + Vector3(0, 3.1, -1.0))
 	for k in 5:
 		var a := PI + PI * k / 4.0
-		main._villager("passelourdin-%d" % k, c + Vector3(cos(a) * 1.5, 0, -1.0 + sin(a) * 1.0), rad_to_deg(a) + 90.0, "idle", [], "chapeau" if k == 2 else "")
+		main._villager("passelourdin-%d" % k, c + Vector3(cos(a) * 1.5, 0, -1.0 + sin(a) * 1.0), rad_to_deg(a) + 90.0, "idle", [], "chapeau" if k == 2 else "", "inconnu" if k == 2 else "habitant")

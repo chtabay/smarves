@@ -263,9 +263,25 @@ func _interactive(node: Node3D, kind: String, prompt: String, size: Vector3, off
 	return a
 
 
+## La voix de chacun selon son rôle dans la maison.
+func _speaker_for(model: String) -> String:
+	if model.begins_with("hotesse"):
+		return "hotesse"
+	if model.begins_with("croupi") or model in ["stickman", "mlle-solange", "chef-de-partie"]:
+		return "croupier"
+	if model.begins_with("barman"):
+		return "barman"
+	if model == "caissier":
+		return "caissier"
+	if model == "portier-salon":
+		return "armand"
+	return "habitant"
+
+
 func _person(model: String, pos: Vector3, rot_y: float, pose := "idle", acc := "") -> Node3D:
 	var v: Node3D = VILLAGER.new()
 	v.accessory = acc
+	v.speaker = _speaker_for(model)
 	v.model_path = KC + model
 	v.pose = pose
 	v.position = pos
@@ -1125,11 +1141,14 @@ func _refresh_locks(silent := false) -> void:
 # --- Jeux et interactions ----------------------------------------------------------------
 
 func _on_interact(target: Node) -> void:
-	var kind: String = target.get_meta("interact")
+	var kind: String = str(target.get_meta("interact"))
 	match kind:
 		"exit":
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 			get_tree().change_scene_to_file("res://scenes/main.tscn")
+		"talk":
+			var v: Node = target.get_parent()
+			v.say(Lines.line(v.speaker))
 		"reception":
 			_announce("« Bienvenue au Casino de Smarves. Ici, chaque mise prépare votre avenir. »")
 		"cashier":
@@ -1216,7 +1235,32 @@ func _announce(text: String) -> void:
 	tw.tween_property(_banner, "modulate:a", 0.0, 1.0)
 
 
+var _bark_timer := 5.0
+
+
+## Les conversations de la salle : quelqu'un près de vous lâche une phrase, parfois une rumeur.
+func _bark(delta: float) -> void:
+	_bark_timer -= delta
+	if _bark_timer > 0.0 or player == null:
+		return
+	_bark_timer = randf_range(8.0, 14.0)
+	var near: Array = []
+	for n in get_children():
+		if n.has_method("say") and n.global_position.distance_to(player.global_position) < 8.0:
+			near.append(n)
+	if near.is_empty():
+		return
+	var v: Node = near.pick_random()
+	if randf() < 0.35:
+		for l in LOCKS:
+			if Game.won < l.seuil:
+				v.say("Il paraît que %s ouvre à %s crédits gagnés. Ce n'est rien, pour un investisseur." % [l.name.substr(0, 1).to_lower() + l.name.substr(1), Game.fmt(l.seuil)])
+				return
+	v.say(Lines.line(v.speaker))
+
+
 func _process(delta: float) -> void:
+	_bark(delta)
 	_shown = lerpf(_shown, Game.credits, 1.0 - exp(-10.0 * delta))
 	if absf(_shown - Game.credits) < 0.5:
 		_shown = Game.credits
