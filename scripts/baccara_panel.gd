@@ -10,6 +10,8 @@ const SUITS := ["♠", "♥", "♦", "♣"]
 const RANKS := ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "V", "D", "R"]
 
 var title := "Baccara"
+## Au Banco des salons particuliers, la Banque gagne sans commission.
+var commission := true
 var chip_index := 0
 var shoe: Array = []
 var bets := {"joueur": 0, "banquier": 0, "egalite": 0}
@@ -36,7 +38,7 @@ func _ready() -> void:
 	t.add_theme_color_override("font_color", Color(0.96, 0.8, 0.45))
 	v.add_child(t)
 	var rule := Label.new()
-	rule.text = "Joueur 1 contre 1  ·  Banquier 1 contre 1 moins 5 %  ·  Égalité 8 contre 1"
+	rule.text = "Joueur 1 contre 1  ·  Banquier 1 contre 1%s  ·  Égalité 8 contre 1" % (" moins 5 %" if commission else "")
 	rule.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	rule.add_theme_font_size_override("font_size", 14)
 	rule.add_theme_color_override("font_color", Color(0.7, 0.66, 0.6))
@@ -190,7 +192,7 @@ func _deal() -> void:
 		payout = bets.joueur * 2
 		msg = "Le Joueur gagne, %d à %d." % [pv, bv]
 	elif bv > pv:
-		payout = bets.banquier * 2 - int(round(bets.banquier * 0.05))
+		payout = bets.banquier * 2 - (int(round(bets.banquier * 0.05)) if commission else 0)
 		msg = "La Banque gagne, %d à %d." % [bv, pv]
 	else:
 		payout = bets.joueur + bets.banquier + bets.egalite * 9

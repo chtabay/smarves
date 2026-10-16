@@ -11,6 +11,7 @@ const BLACKJACK := preload("res://scripts/blackjack_panel.gd")
 const BACCARA := preload("res://scripts/baccara_panel.gd")
 const DICE := preload("res://scripts/dice_panel.gd")
 const CRAPS := preload("res://scripts/craps_panel.gd")
+const WHEEL := preload("res://scripts/wheel_panel.gd")
 ## Niveau du plancher de l'étage.
 const UP := 6.1
 const KC := "res://assets/kenney/characters/"
@@ -24,6 +25,9 @@ const LOCKS := [
 	{"id": "ambassadeurs", "name": "La Salle des Ambassadeurs", "seuil": 500, "host": "L'inspecteur de salle"},
 	{"id": "salon", "name": "Le Salon privé", "seuil": 5000, "host": "Monsieur Armand"},
 	{"id": "loggia", "name": "La Loggia", "seuil": 2000, "host": "Le chef de partie"},
+	{"id": "musique", "name": "Le Salon de musique", "seuil": 10000, "host": "Le pianiste"},
+	{"id": "fetes", "name": "La Salle des fêtes", "seuil": 50000, "on": "staked", "host": "Le maître de cérémonie"},
+	{"id": "particuliers", "name": "Les Salons particuliers", "seuil": 100000, "host": "Monsieur Castel"},
 ]
 
 ## Les pièces, pour afficher leur nom quand on y entre : [nom, x0, x1, z0, z1].
@@ -39,6 +43,9 @@ const ROOMS := [
 	["Restaurant Le Lustre", -7.0, 7.0, -14.0, -9.0, 1],
 	["La Loggia", 7.0, 14.0, -2.0, 6.0, 1],
 	["La galerie du hall", -10.0, 10.0, 6.0, 18.0, 1],
+	["La Salle des fêtes", 14.0, 26.0, -14.0, -7.0, 1],
+	["Le Salon de musique", 14.0, 26.0, -7.0, -1.0, 1],
+	["Les Salons particuliers", 14.0, 26.0, -1.0, 6.0, 1],
 ]
 
 var serif: SystemFont
@@ -866,7 +873,7 @@ func _build_upper() -> void:
 	_wall(Vector3(-14, 0, 6), Vector3(14, 0, 6), [[14.0, 3.0, 3.0]], 4.5, UP)
 	_wall(Vector3(-14, 0, -14), Vector3(14, 0, -14), [], 4.5, UP)
 	_wall(Vector3(-14, 0, -14), Vector3(-14, 0, 6), [], 4.5, UP)
-	_wall(Vector3(14, 0, -14), Vector3(14, 0, 6), [], 4.5, UP)
+	_wall(Vector3(14, 0, -14), Vector3(14, 0, 6), [[3.5, 1.8, 2.6], [9.5, 1.8, 2.6], [16.0, 1.8, 2.6]], 4.5, UP)
 	_wall(Vector3(-7, 0, -14), Vector3(-7, 0, 6), [[12.0, 3.0, 3.0]], 4.5, UP)
 	_wall(Vector3(7, 0, -2), Vector3(7, 0, 6), [[4.0, 2.2, 2.8]], 4.5, UP)
 	_wall(Vector3(7, 0, -2), Vector3(14, 0, -2), [], 4.5, UP)
@@ -877,14 +884,6 @@ func _build_upper() -> void:
 	_chandelier(Vector3(10.5, UP + 4.2, -8.0), 0.8)
 	for p in [Vector3(-4.0, UP, 1.0), Vector3(4.0, UP, 1.0)]:
 		_banquette(p, 0.0)
-	var closed_rooms := [["Salle des fêtes", "50 000 crédits misés", -11.5], ["Salon de musique", "10 000 crédits gagnés", -7.0], ["Salons particuliers", "100 000 crédits gagnés", -4.0]]
-	for d in closed_rooms:
-		var z: float = d[2]
-		_box(Vector3(0.12, 2.6, 1.6), Vector3(13.9, UP + 1.3, z), dark_wood)
-		_box(Vector3(0.14, 0.12, 1.8), Vector3(13.88, UP + 2.66, z), gold)
-		var l := _label("%s\nouvre à %s" % [d[0], d[1]], Vector3(13.8, UP + 3.3, z), -90.0, 40, Color(1.0, 0.88, 0.6))
-		l.outline_size = 6
-
 	# Le Bar du Fumoir : comptoir, fauteuils de cuir, fumée bleutée.
 	_box(Vector3(0.8, 1.1, 7.0), Vector3(-13.3, UP + 0.55, -5.0), dark_wood, true)
 	_box(Vector3(1.0, 0.07, 7.1), Vector3(-13.2, UP + 1.13, -5.0), marble_white)
@@ -928,6 +927,124 @@ func _build_upper() -> void:
 	_interactive(hasard, "dice", "E : jouer au Grand Hasard", Vector3(2.6, 2.0, 2.4), Vector3(0, 1.0, 0.5))
 	_chandelier(Vector3(10.5, UP + 4.2, 2.0), 0.7)
 	_barrier("loggia", Vector3(7.0, UP, 2.0), 90.0, 2.2)
+	_build_salons()
+
+
+# --- Les salons de l'étage, au-dessus des Ambassadeurs ------------------------------------
+
+func _build_salons() -> void:
+	_box(Vector3(12.0, 0.1, 20.0), Vector3(20.0, UP, -4.0), carpet_blue, true)
+	_box(Vector3(12.0, 0.1, 20.0), Vector3(20.0, UP + 4.55, -4.0), ceiling)
+	_wall(Vector3(26, 0, -14), Vector3(26, 0, 6), [], 4.5, UP)
+	_wall(Vector3(14, 0, -14), Vector3(26, 0, -14), [], 4.5, UP)
+	_wall(Vector3(14, 0, 6), Vector3(26, 0, 6), [], 4.5, UP)
+	_wall(Vector3(14, 0, -7), Vector3(26, 0, -7), [], 4.5, UP)
+	_wall(Vector3(14, 0, -1), Vector3(26, 0, -1), [], 4.5, UP)
+	_barrier("fetes", Vector3(14.0, UP, -10.5), 90.0, 1.8)
+	_barrier("musique", Vector3(14.0, UP, -4.5), 90.0, 1.8)
+	_barrier("particuliers", Vector3(14.0, UP, 2.0), 90.0, 1.8)
+
+	# La Salle des fêtes : la grande roue de la fortune et ses guirlandes.
+	_chandelier(Vector3(20.0, UP + 4.2, -10.5), 1.0)
+	var wheel := _node(Vector3(24.5, UP, -10.5))
+	_box(Vector3(0.6, 0.9, 1.2), Vector3(0, 0.45, 0), dark_wood, true, wheel)
+	var disc := MeshInstance3D.new()
+	var dc := CylinderMesh.new()
+	dc.top_radius = 1.5
+	dc.bottom_radius = 1.5
+	dc.height = 0.12
+	dc.radial_segments = 54
+	disc.mesh = dc
+	var dm := _std(Color.WHITE, 0.35)
+	dm.albedo_texture = _prize_texture()
+	disc.material_override = dm
+	disc.rotation_degrees = Vector3(0, 0, 90)
+	disc.position = Vector3(0, 2.5, 0)
+	wheel.add_child(disc)
+	var rim := MeshInstance3D.new()
+	var rt := TorusMesh.new()
+	rt.inner_radius = 1.48
+	rt.outer_radius = 1.62
+	rim.mesh = rt
+	rim.material_override = gold
+	rim.rotation_degrees = Vector3(0, 0, 90)
+	rim.position = Vector3(0, 2.5, 0)
+	wheel.add_child(rim)
+	for k in 18:
+		var a := TAU * k / 18.0
+		var bulb := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = 0.06
+		sm.height = 0.12
+		bulb.mesh = sm
+		bulb.material_override = brass_glow
+		bulb.position = Vector3(-0.08, 2.5 + sin(a) * 1.55, cos(a) * 1.55)
+		wheel.add_child(bulb)
+	_bill(_label("La Roue de la fortune", Vector3(0, 4.3, 0), 0.0, 56, Color(1.0, 0.85, 0.5), wheel))
+	_interactive(wheel, "roue", "E : faire tourner la roue", Vector3(2.0, 4.0, 3.4), Vector3(-1.2, 2.0, 0))
+	_person("maitre-ceremonie", Vector3(23.0, UP, -12.2), -60.0, "idle", "chapeau")
+	_person("invitee-fetes", Vector3(19.0, UP, -9.0), 120.0)
+	_person("invite-fetes", Vector3(18.0, UP, -12.0), 60.0)
+
+	# Le Salon de musique : piano à queue et table de la Boule.
+	_chandelier(Vector3(20.0, UP + 4.2, -4.0), 0.9)
+	var piano := _node(Vector3(24.0, UP, -5.5))
+	var black := _std(Color(0.02, 0.02, 0.025), 0.08)
+	_box(Vector3(1.5, 0.3, 2.0), Vector3(0, 0.85, 0), black, true, piano)
+	_cyl(0.75, 0.3, Vector3(0, 0.85, -1.0), black, piano)
+	for x in [-0.6, 0.6]:
+		_cyl(0.06, 0.7, Vector3(x, 0.35, 0.8), black, piano)
+	_cyl(0.06, 0.7, Vector3(0, 0.35, -1.5), black, piano)
+	_box(Vector3(1.4, 0.04, 0.22), Vector3(0, 0.82, 1.08), marble_white, false, piano)
+	var lid := _box(Vector3(1.5, 0.03, 2.4), Vector3(-0.55, 1.45, -0.3), black, false, piano)
+	lid.rotation_degrees.z = 40
+	_person("pianiste", Vector3(24.0, UP, -4.1), 180.0, "sit", "noeud")
+	var boule := _node(Vector3(18.5, UP, -4.0))
+	_table_base(boule, Vector3(2.4, 0.9, 1.4))
+	_bill(_label("La Boule", Vector3(0, 2.2, 0), 0.0, 56, Color(1.0, 0.85, 0.5), boule))
+	_interactive(boule, "boule", "E : jouer à la Boule", Vector3(2.6, 2.0, 2.4), Vector3(0, 1.0, 0.4))
+	_person("croupier-boule", Vector3(18.5, UP, -5.1), 0.0, "idle", "noeud")
+
+	# Les Salons particuliers : le Banco, à l'abri des regards.
+	_chandelier(Vector3(20.0, UP + 4.2, 2.5), 0.8)
+	var banco := _node(Vector3(20.5, UP, 2.5))
+	_table_base(banco, Vector3(3.0, 0.9, 1.6))
+	_bill(_label("Banco", Vector3(0, 2.2, 0), 0.0, 56, Color(1.0, 0.85, 0.5), banco))
+	_interactive(banco, "banco", "E : s'asseoir au Banco", Vector3(3.2, 2.0, 2.6), Vector3(0, 1.0, 0.5))
+	_person("croupier-banco", Vector3(20.5, UP, 1.3), 0.0, "idle", "noeud")
+	_person("baron", Vector3(22.4, UP, 3.2), -110.0, "idle", "chapeau")
+	for p in [Vector3(25.0, UP, 0.5), Vector3(25.0, UP, 4.5)]:
+		_banquette(p, -90.0)
+
+
+func _prize_texture() -> ImageTexture:
+	var size := 256
+	var img := Image.create(size, size, false, Image.FORMAT_RGB8)
+	var segs: Array = []
+	for k in WHEEL.ROUE_COUNTS:
+		for i in WHEEL.ROUE_COUNTS[k]:
+			segs.append(k)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 54
+	for i in range(segs.size() - 1, 0, -1):
+		var j := rng.randi() % (i + 1)
+		var tmp = segs[i]
+		segs[i] = segs[j]
+		segs[j] = tmp
+	var c := Vector2(size / 2.0, size / 2.0)
+	for y in size:
+		for x in size:
+			var d := Vector2(x, y) - c
+			var r := d.length() / (size / 2.0)
+			var col := Color(0.85, 0.66, 0.3)
+			if r > 0.2 and r < 0.98:
+				var a := fposmod(atan2(d.y, d.x), TAU)
+				var i := int(a / TAU * segs.size()) % segs.size()
+				col = WHEEL.ROUE_COLORS[segs[i]]
+				if fmod(a / TAU * segs.size(), 1.0) < 0.05:
+					col = Color(0.85, 0.66, 0.3)
+			img.set_pixel(x, y, col)
+	return ImageTexture.create_from_image(img)
 
 
 func _invisible() -> StandardMaterial3D:
@@ -976,7 +1093,7 @@ func _barrier(id: String, pos: Vector3, rot_y: float, width: float) -> void:
 	body.add_child(cs)
 	root.add_child(body)
 	var info := _lock_info(id)
-	var seal := _label("%s\nouvre à %s crédits gagnés" % [info.name, Game.fmt(info.seuil)], Vector3(0, 1.5, 0.05), 0.0, 44, Color(1.0, 0.88, 0.6), root)
+	var seal := _label("%s\nouvre à %s crédits %s" % [info.name, Game.fmt(info.seuil), "misés" if info.get("on", "won") == "staked" else "gagnés"], Vector3(0, 1.5, 0.05), 0.0, 44, Color(1.0, 0.88, 0.6), root)
 	seal.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
 	barriers[id] = root
 
@@ -990,7 +1107,8 @@ func _lock_info(id: String) -> Dictionary:
 
 func _refresh_locks(silent := false) -> void:
 	for l in LOCKS:
-		if barriers.has(l.id) and Game.won >= l.seuil:
+		var amount: int = Game.staked if l.get("on", "won") == "staked" else Game.won
+		if barriers.has(l.id) and amount >= l.seuil:
 			barriers[l.id].queue_free()
 			barriers.erase(l.id)
 			if not silent:
@@ -1029,6 +1147,21 @@ func _on_interact(target: Node) -> void:
 		"blackjack":
 			var b: PanelContainer = BLACKJACK.new()
 			_open_panel(b)
+		"roue":
+			var w: PanelContainer = WHEEL.new()
+			w.mode = "roue"
+			w.title = "La Roue de la fortune"
+			_open_panel(w)
+		"boule":
+			var bo: PanelContainer = WHEEL.new()
+			bo.mode = "boule"
+			bo.title = "La Boule"
+			_open_panel(bo)
+		"banco":
+			var bc: PanelContainer = BACCARA.new()
+			bc.title = "Banco des Salons particuliers"
+			bc.commission = false
+			_open_panel(bc)
 		"craps":
 			var cp: PanelContainer = CRAPS.new()
 			_open_panel(cp)
@@ -1231,6 +1364,7 @@ func _maybe_capture() -> void:
 			open = arg.trim_prefix("--open=")
 		elif arg.begins_with("--won="):
 			Game.won = int(arg.trim_prefix("--won="))
+			Game.staked = Game.won
 			Game.credits += Game.won
 			_refresh_locks(true)
 	if path == "":
