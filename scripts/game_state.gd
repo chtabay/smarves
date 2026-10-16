@@ -32,6 +32,9 @@ func _ready() -> void:
 
 ## La partie est gardée sur la machine du joueur, et reprise au lancement suivant.
 func save_game() -> void:
+	# Ni les captures de vérification ni les tests automatiques ne touchent à la vraie partie.
+	if get_tree().get_script() != null or "--capture" in " ".join(OS.get_cmdline_user_args()):
+		return
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f == null:
 		return
