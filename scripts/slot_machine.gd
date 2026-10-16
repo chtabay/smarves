@@ -16,6 +16,8 @@ const BETS := [1, 5, 10, 25, 100]
 const CELL := 96.0
 
 var game: Node
+var title := "La Smarvoise"
+var subtitle := "Café de la Place  ·  la machine de Josiane"
 var bet_index := 1
 var spinning := false
 var strips: Array = []
@@ -49,14 +51,14 @@ func _build() -> void:
 	v.add_theme_constant_override("separation", 10)
 	add_child(v)
 
-	var title := Label.new()
-	title.text = "La Smarvoise"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 34)
-	title.add_theme_color_override("font_color", Color(0.96, 0.8, 0.45))
-	v.add_child(title)
+	var title_label := Label.new()
+	title_label.text = self.title
+	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_label.add_theme_font_size_override("font_size", 34)
+	title_label.add_theme_color_override("font_color", Color(0.96, 0.8, 0.45))
+	v.add_child(title_label)
 	var sub := Label.new()
-	sub.text = "Café de la Place  ·  la machine de Josiane"
+	sub.text = subtitle
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sub.add_theme_font_size_override("font_size", 15)
 	sub.add_theme_color_override("font_color", Color(0.7, 0.65, 0.58))

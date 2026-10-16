@@ -9,13 +9,11 @@ const KS := "res://assets/kenney/survival/"
 const KD := "res://assets/kenney/dungeon/"
 const KC := "res://assets/kenney/characters/"
 
-const START_CREDITS := 200
-const ADVANCE := 100
-const MAX_ADVANCES := 3
 
 ## Les lieux du village, dans l'ordre où ils s'ouvrent. Le seuil porte sur le total gagné au jeu.
 const PLACES := [
 	{"id": "cafe", "name": "Le Café de la Place", "game": "La Smarvoise", "seuil": 0, "host": "Josiane"},
+	{"id": "casino", "name": "Le Casino de Smarves", "game": "salles de jeu", "seuil": 0, "host": "Monsieur Armand"},
 	{"id": "petanque", "name": "La pétanque de la place", "game": "les paris de Lucien", "seuil": 1000, "host": "Lucien"},
 	{"id": "boulangerie", "name": "La boulangerie", "game": "la roulette du comptoir", "seuil": 5000, "host": "Mme Ferrand"},
 	{"id": "rabelais", "name": "La salle François-Rabelais", "game": "le grand loto", "seuil": 20000, "host": "Le président du comité"},
@@ -25,10 +23,7 @@ const PLACES := [
 	{"id": "passelourdin", "name": "Les rochers de Passelourdin", "game": "la partie de poker", "seuil": 1000000, "host": "Quelqu'un"},
 ]
 
-var credits := START_CREDITS
-var won := 0  ## total gagné au jeu : c'est lui qui ouvre les lieux
-var advances_left := MAX_ADVANCES
-var shown_credits := float(START_CREDITS)
+var shown_credits := float(Game.credits)
 
 var stone_material: StandardMaterial3D
 var pave_material: StandardMaterial3D
@@ -290,11 +285,11 @@ func _build_buildings() -> void:
 	_building("", "home_B", "green", Vector3(-8.6, 0, -5.6), 0.0)
 	_building("mairie", "home_B", "blue", Vector3(-4.6, 0, -5.8), 0.0, 3.6)
 	_building("eglise", "church", "yellow", Vector3(0.4, 0, -6.0), 0.0, 3.6)
-	_building("rabelais", "market", "red", Vector3(5.4, 0, -5.8), 0.0, 2.8)
-	_building("", "home_A", "yellow", Vector3(9.2, 0, -5.8), 0.0)
+	var casino := CasinoExterior.build(self, Vector3(6.4, 0, -6.0), 0.0, serif)
+	_add_place_marker("casino", casino, Vector3(0, 5.6, 0), Vector3(CasinoExterior.W, 3.5, CasinoExterior.D))
 	# À gauche, le Café de la Place ; à droite, la boulangerie et le Crédit Smarvois.
 	_building("cafe", "tavern", "red", Vector3(-8.8, 0, -0.6), 90.0)
-	_building("", "home_A", "blue", Vector3(-9.0, 0, 4.4), 90.0)
+	_building("rabelais", "market", "red", Vector3(-9.0, 0, 4.4), 90.0, 2.6)
 	_building("boulangerie", "home_A", "yellow", Vector3(9.0, 0, -1.2), -90.0)
 	_building("", "home_B", "red", Vector3(9.0, 0, 3.8), -90.0)
 	_build_gambling()
@@ -342,7 +337,7 @@ func _build_gambling() -> void:
 	_place("res://assets/kenney/market/display-bread.glb", Vector3(7.0, 0, -1.6), 1.2, -90.0)
 	_place(KA + "claw-machine.glb", Vector3(7.0, 0, -0.4), 1.1, -90.0)
 	_neon("PAIN · LOTO · GRATTAGE", Vector3(6.6, 2.5, -1.2), -90.0, Color(0.5, 1.0, 0.6), 44)
-	_neon("LOTO CE SOIR", Vector3(5.4, 3.0, -3.7), 0.0, Color(1.0, 0.85, 0.3), 64)
+	_neon("LOTO CE SOIR", Vector3(-7.4, 2.6, 4.4), 90.0, Color(1.0, 0.85, 0.3), 56)
 	_neon("CRÉDIT SMARVOIS", Vector3(6.7, 3.1, 3.8), -90.0, Color(0.4, 0.6, 1.0), 52)
 	_neon("Investissez dans votre avenir", Vector3(6.7, 2.55, 3.8), -90.0, Color(0.4, 0.6, 1.0), 34)
 	_neon("MAIRIE", Vector3(-4.6, 3.2, -3.6), 0.0, Color(1.0, 0.95, 0.85), 48)
@@ -522,44 +517,32 @@ func _build_villagers() -> void:
 # --- Économie -----------------------------------------------------------------------
 
 func spend(amount: int) -> bool:
-	if credits < amount:
-		return false
-	credits -= amount
-	return true
+	return Game.spend(amount)
 
 
 func _on_slot_played(bet: int, payout: int) -> void:
-	var before := won
-	if payout > 0:
-		credits += payout
-		won += payout
+	var before := Game.won
+	Game.cash_in(payout)
 	for v in villagers:
 		if v.position.x < -4.0 and randf() < 0.6:
 			v.react("win" if payout >= bet * 10 else "lose")
 	if payout >= bet * 20:
 		_announce("Jackpot ! Toute la terrasse se lève.")
 	_check_unlocks(before)
-	_check_advance()
+	if Game.advance_if_broke(SLOT.BETS[0]):
+		_announce("Josiane vous avance %d crédits. « Un placement, ça se soutient. »" % Game.ADVANCE)
 
 
 func _check_unlocks(before: int) -> void:
 	for p in PLACES:
-		if p.seuil > 0 and before < p.seuil and won >= p.seuil:
+		if p.seuil > 0 and before < p.seuil and Game.won >= p.seuil:
 			_announce("%s vous fait signe : %s est ouvert." % [p.host, p.name])
 	_refresh_places()
 
 
-func _check_advance() -> void:
-	if credits >= SLOT.BETS[0] or advances_left <= 0:
-		return
-	advances_left -= 1
-	credits += ADVANCE
-	_announce("Josiane vous avance %d crédits. « Vous me les rendrez, hein. »" % ADVANCE)
-
-
 func is_open(id: String) -> bool:
 	var p := _place_info(id)
-	return not p.is_empty() and won >= p.seuil
+	return not p.is_empty() and Game.won >= p.seuil
 
 
 # --- Interaction ---------------------------------------------------------------------
@@ -584,6 +567,9 @@ func _enter(id: String) -> void:
 	if not is_open(id):
 		_announce("%s : encore fermé. Il faut avoir gagné %s crédits au jeu." % [p.name, _fmt(p.seuil)])
 		return
+	if id == "casino":
+		get_tree().change_scene_to_file("res://scenes/casino.tscn")
+		return
 	if id != "cafe":
 		_announce("%s est ouvert, mais %s n'est pas encore installé." % [p.name, p.game])
 		return
@@ -601,19 +587,14 @@ func _leave_slot() -> void:
 # --- Interface -------------------------------------------------------------------------
 
 func _fmt(n: int) -> String:
-	var s := str(n)
-	var out := ""
-	while s.length() > 3:
-		out = " " + s.substr(s.length() - 3) + out
-		s = s.substr(0, s.length() - 3)
-	return s + out
+	return Game.fmt(n)
 
 
 func _refresh_places() -> void:
 	for c in _places_box.get_children():
 		c.queue_free()
 	for p in PLACES:
-		var open: bool = won >= p.seuil
+		var open: bool = Game.won >= p.seuil
 		var l := Label.new()
 		l.add_theme_font_size_override("font_size", 15)
 		if open:
@@ -638,11 +619,11 @@ func _announce(text: String) -> void:
 
 
 func _process(delta: float) -> void:
-	shown_credits = lerpf(shown_credits, credits, 1.0 - exp(-10.0 * delta))
-	if absf(shown_credits - credits) < 0.5:
-		shown_credits = credits
+	shown_credits = lerpf(shown_credits, Game.credits, 1.0 - exp(-10.0 * delta))
+	if absf(shown_credits - Game.credits) < 0.5:
+		shown_credits = Game.credits
 	_credits_label.text = "%s crédits" % _fmt(roundi(shown_credits))
-	_won_label.text = "Gagné au jeu : %s" % _fmt(won)
+	_won_label.text = "Gagné au jeu : %s" % _fmt(Game.won)
 
 
 func _build_ui() -> void:
