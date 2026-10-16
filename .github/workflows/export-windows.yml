@@ -1,0 +1,41 @@
+name: Exporter pour Windows
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  GODOT_VERSION: "4.7.2"
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Récupérer Godot et les modèles d'export
+        run: |
+          base="https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable"
+          curl -sSL -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          curl -sSL -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q godot.zip
+          mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot
+          mkdir -p "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          unzip -q templates.tpz
+          mv templates/* "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable/"
+
+      - name: Importer les ressources
+        run: ./godot --headless --path . --import || true
+
+      - name: Exporter l'exécutable
+        run: |
+          mkdir -p build
+          ./godot --headless --path . --export-release "Windows Desktop" build/Smarves.exe
+          test -f build/Smarves.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Smarves-windows
+          path: build/
+          retention-days: 30
