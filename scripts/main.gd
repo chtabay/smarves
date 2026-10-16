@@ -42,12 +42,12 @@ const PLACES := [
 	{"id": "casino", "name": "Le Casino de Smarves", "game": "salles de jeu", "seuil": 0, "host": "Monsieur Armand"},
 	{"id": "banque", "name": "Le Crédit Smarvois", "game": "prêts pour investir", "seuil": 0, "host": "M. Brunet"},
 	{"id": "petanque", "name": "La pétanque de la place", "game": "les paris de Lucien", "seuil": 1000, "host": "Lucien"},
-	{"id": "boulangerie", "name": "La boulangerie", "game": "la roulette du comptoir", "seuil": 5000, "host": "Mme Ferrand"},
-	{"id": "rabelais", "name": "La salle François-Rabelais", "game": "le grand loto", "seuil": 20000, "host": "Le président du comité"},
-	{"id": "eglise", "name": "Le parvis Saint-Félix", "game": "la roue de la kermesse", "seuil": 60000, "host": "Le comité des fêtes"},
-	{"id": "zebres", "name": "L'allée des trois zèbres", "game": "la course des zèbres", "seuil": 150000, "host": "Le gardien du bois"},
-	{"id": "moulin", "name": "Le Moulin des Dames", "game": "le blackjack de l'arrière-salle", "seuil": 400000, "host": "Le meunier"},
-	{"id": "passelourdin", "name": "Les rochers de Passelourdin", "game": "la partie de poker", "seuil": 1000000, "host": "Quelqu'un"},
+	{"id": "boulangerie", "name": "La boulangerie", "game": "la roulette du comptoir", "seuil": 3000, "host": "Mme Ferrand"},
+	{"id": "rabelais", "name": "La salle François-Rabelais", "game": "le grand loto", "seuil": 8000, "host": "Le président du comité"},
+	{"id": "eglise", "name": "Le parvis Saint-Félix", "game": "la roue de la kermesse", "seuil": 20000, "host": "Le comité des fêtes"},
+	{"id": "zebres", "name": "L'allée des trois zèbres", "game": "la course des zèbres", "seuil": 50000, "host": "Le gardien du bois"},
+	{"id": "moulin", "name": "Le Moulin des Dames", "game": "le blackjack de l'arrière-salle", "seuil": 120000, "host": "Le meunier"},
+	{"id": "passelourdin", "name": "Les rochers de Passelourdin", "game": "la partie de poker", "seuil": 300000, "host": "Quelqu'un"},
 ]
 
 var shown_credits := float(Game.credits)
@@ -92,6 +92,8 @@ func _ready() -> void:
 	camera.make_current()
 	_refresh_places()
 	Sfx.set_ambience("village")
+	Game.brunet_calls.connect(func():
+		_announce("M. Brunet vous fait signe depuis le Crédit Smarvois : « Votre profil m'intéresse. Passez donc me voir. »"))
 	_maybe_capture()
 
 

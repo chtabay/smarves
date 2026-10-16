@@ -13,6 +13,7 @@ const DICE := preload("res://scripts/dice_panel.gd")
 const CRAPS := preload("res://scripts/craps_panel.gd")
 const WHEEL := preload("res://scripts/wheel_panel.gd")
 const POKER := preload("res://scripts/poker_panel.gd")
+const LOAN := preload("res://scripts/loan_panel.gd")
 ## Niveau du plancher de l'étage.
 const UP := 6.1
 const KC := "res://assets/kenney/characters/"
@@ -27,8 +28,8 @@ const LOCKS := [
 	{"id": "salon", "name": "Le Salon privé", "seuil": 5000, "host": "Monsieur Armand"},
 	{"id": "loggia", "name": "La Loggia", "seuil": 2000, "host": "Le chef de partie"},
 	{"id": "musique", "name": "Le Salon de musique", "seuil": 10000, "host": "Le pianiste"},
-	{"id": "fetes", "name": "La Salle des fêtes", "seuil": 50000, "on": "staked", "host": "Le maître de cérémonie"},
-	{"id": "particuliers", "name": "Les Salons particuliers", "seuil": 100000, "host": "Monsieur Castel"},
+	{"id": "fetes", "name": "La Salle des fêtes", "seuil": 25000, "on": "staked", "host": "Le maître de cérémonie"},
+	{"id": "particuliers", "name": "Les Salons particuliers", "seuil": 50000, "host": "Monsieur Castel"},
 ]
 
 ## Les pièces, pour afficher leur nom quand on y entre : [nom, x0, x1, z0, z1].
@@ -97,6 +98,8 @@ func _ready() -> void:
 	_shown = Game.credits
 	_refresh_locks(true)
 	Sfx.set_ambience("casino")
+	Game.brunet_calls.connect(func():
+		_announce("Un mot de M. Brunet vous attend à la caisse : « Ne laissez pas passer votre chance, je suis là. »"))
 	_maybe_capture()
 
 
@@ -1155,7 +1158,9 @@ func _on_interact(target: Node) -> void:
 			if Game.advance_if_broke(5):
 				_announce("La caisse vous avance %d crédits. « La maison croit en vous. »" % Game.ADVANCE)
 			else:
-				_announce("« Vos crédits sont bien placés. Revenez quand il vous en faudra plus. »")
+				# Le guichet du Crédit Smarvois, à la caisse du casino.
+				var loan: PanelContainer = LOAN.new()
+				_open_panel(loan)
 		"slot":
 			var p: PanelContainer = SLOT.new()
 			p.game = Game
@@ -1204,7 +1209,8 @@ func _open_panel(p: Control) -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_prompt.visible = false
 	_panel_layer.add_child(p)
-	p.played.connect(_on_played)
+	if p.has_signal("played"):
+		p.played.connect(_on_played)
 	p.closed.connect(_close_panel)
 	_active_panel = p
 

@@ -2,10 +2,12 @@ extends Node
 ## L'état de la partie, partagé entre le village et le casino (autoload « Game »).
 
 signal changed
+## M. Brunet se manifeste quand les crédits ont fondu : la simulation le place vers la demi-heure.
+signal brunet_calls
 
-const START_CREDITS := 200
-const ADVANCE := 100
-const MAX_ADVANCES := 3
+const START_CREDITS := 1000
+const ADVANCE := 200
+const MAX_ADVANCES := 2
 
 var credits := START_CREDITS
 ## Total gagné au jeu (gains bruts encaissés) : c'est lui qui ouvre les lieux et les salles.
@@ -16,6 +18,8 @@ var advances_left := MAX_ADVANCES
 ## Ce qu'on doit au Crédit Smarvois. Les intérêts courent avec les mises, pas avec le temps.
 var debt := 0
 var loans_taken := 0
+var peak_credits := START_CREDITS
+var _last_call_staked := -100000
 var _plays_since_interest := 0
 const INTEREST_EVERY := 20   # mises
 const INTEREST_RATE := 0.03  # par période
@@ -39,7 +43,7 @@ func save_game() -> void:
 	if f == null:
 		return
 	f.store_string(JSON.stringify({"credits": credits, "won": won, "staked": staked,
-		"advances_left": advances_left, "debt": debt, "loans_taken": loans_taken}))
+		"advances_left": advances_left, "debt": debt, "loans_taken": loans_taken, "peak": peak_credits}))
 
 
 func load_game() -> void:
@@ -58,6 +62,7 @@ func load_game() -> void:
 	advances_left = int(data.get("advances_left", advances_left))
 	debt = int(data.get("debt", debt))
 	loans_taken = int(data.get("loans_taken", loans_taken))
+	peak_credits = int(data.get("peak", peak_credits))
 
 
 func spend(amount: int) -> bool:
@@ -66,6 +71,10 @@ func spend(amount: int) -> bool:
 	credits -= amount
 	staked += amount
 	Sfx.play("chips", -9.0)
+	peak_credits = maxi(peak_credits, credits + amount)
+	if credits < peak_credits * 2 / 5 and staked - _last_call_staked > 3000:
+		_last_call_staked = staked
+		brunet_calls.emit()
 	if debt > 0:
 		_plays_since_interest += 1
 		if _plays_since_interest >= INTEREST_EVERY:
