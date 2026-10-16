@@ -1,10 +1,13 @@
 extends Camera3D
 ## Caméra qui tourne autour du diorama : clic droit pour tourner, molette pour zoomer.
 
-var target := Vector3(1.5, 3.4, -0.8)
-var yaw := deg_to_rad(-8.0)
-var pitch := deg_to_rad(-16.0)
-var distance := 34.0
+var target := Vector3(0.0, 0.3, 0.0)
+var yaw := deg_to_rad(0.0)
+var pitch := deg_to_rad(-36.0)
+var distance := 32.0
+var _target_goal := target
+var _home := {}
+var _locked := false
 var _yaw_goal := yaw
 var _pitch_goal := pitch
 var _dist_goal := distance
@@ -25,22 +28,45 @@ func _ready() -> void:
 			var v := arg.trim_prefix("--view=").split_floats(",")
 			_dist_goal = v[0]
 			distance = v[0]
-			target = Vector3(v[1], v[2], -0.8)
+			target = Vector3(v[1], v[2], 0.0)
+			_target_goal = target
 	_apply()
 
 
+## Plonge vers un lieu (pour y jouer) ; release() ramène la vue d'ensemble.
+func focus(at: Vector3, dist: float, y: float, p: float) -> void:
+	if not _locked:
+		_home = {"t": _target_goal, "d": _dist_goal, "y": _yaw_goal, "p": _pitch_goal}
+	_locked = true
+	_target_goal = at
+	_dist_goal = dist
+	_yaw_goal = y
+	_pitch_goal = p
+
+
+func release() -> void:
+	if not _locked:
+		return
+	_locked = false
+	_target_goal = _home.t
+	_dist_goal = _home.d
+	_yaw_goal = _home.y
+	_pitch_goal = _home.p
+
+
 func _unhandled_input(event: InputEvent) -> void:
+	if _locked:
+		return
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_RIGHT:
 			_dragging = event.pressed
 		elif event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
-			_dist_goal = maxf(12.0, _dist_goal - 1.5)
+			_dist_goal = maxf(8.0, _dist_goal - 1.5)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
 			_dist_goal = minf(45.0, _dist_goal + 1.5)
 	elif event is InputEventMouseMotion and _dragging:
 		_yaw_goal -= event.relative.x * 0.005
-		_pitch_goal = clampf(_pitch_goal - event.relative.y * 0.004, deg_to_rad(-60), deg_to_rad(-3))
-		_yaw_goal = clampf(_yaw_goal, deg_to_rad(-70), deg_to_rad(70))
+		_pitch_goal = clampf(_pitch_goal - event.relative.y * 0.004, deg_to_rad(-75), deg_to_rad(-8))
 
 
 func _process(delta: float) -> void:
@@ -48,6 +74,7 @@ func _process(delta: float) -> void:
 	yaw = lerpf(yaw, _yaw_goal, k)
 	pitch = lerpf(pitch, _pitch_goal, k)
 	distance = lerpf(distance, _dist_goal, k)
+	target = target.lerp(_target_goal, k)
 	_apply()
 
 
@@ -57,7 +84,7 @@ func _apply() -> void:
 	look_at(target)
 	var attr := attributes as CameraAttributesPractical
 	if attr:
-		attr.dof_blur_far_distance = distance + 6.0
-		attr.dof_blur_far_transition = 10.0
-		attr.dof_blur_near_distance = maxf(1.0, distance - 9.0)
-		attr.dof_blur_near_transition = 5.0
+		attr.dof_blur_far_distance = distance * 1.25
+		attr.dof_blur_far_transition = distance * 0.4
+		attr.dof_blur_near_distance = maxf(0.5, distance * 0.6)
+		attr.dof_blur_near_transition = distance * 0.2

@@ -1,71 +1,76 @@
 extends Node3D
-## Première scène : le Seuil et la première galerie de la Roche grise, dans le Mont Ombreclair.
+## Smarves : la place de la Mairie au crépuscule, et le Café de la Place où l'on joue.
 
-const SMARVE := preload("res://scripts/smarve.gd")
 const ORBIT := preload("res://scripts/orbit_camera.gd")
+const VILLAGER := preload("res://scripts/villager.gd")
+const SLOT := preload("res://scripts/slot_machine.gd")
 const KN := "res://assets/kenney/nature/"
 const KS := "res://assets/kenney/survival/"
 const KD := "res://assets/kenney/dungeon/"
+const KC := "res://assets/kenney/characters/"
 
-## Hauteur de chaque colonne de la montagne, de x = 0 à x = 12 (rangée du fond).
-const PROFILE := [5, 6, 8, 9, 8, 10, 11, 12, 10, 9, 8, 6, 5]
-## Les rangées de devant sont plus basses : la montagne descend en terrasses vers le spectateur.
-const ROW_DROP := {0: 4, -1: 2, -2: 1, -3: 0}
-const MOUNTAIN_Z := [0, -1, -2, -3]
-const GALLERY_END := 10
-const ORE_X := [2.5, 5.5, 8.5]
-const SMARVE_NAMES := ["Bodrin", "Pell", "Ysolde", "Grumm", "Tavi", "Orrik", "Mabbe", "Fennick"]
+const START_CREDITS := 200
+const ADVANCE := 100
+const MAX_ADVANCES := 3
 
-var gold := 0.0
-var shown_gold := 0.0
-var pick_level := 1
-var hire_cost := 15
-var pick_cost := 30
-var smarves: Array[Node3D] = []
-var ores: Array[Node3D] = []
+## Les lieux du village, dans l'ordre où ils s'ouvrent. Le seuil porte sur le total gagné au jeu.
+const PLACES := [
+	{"id": "cafe", "name": "Le Café de la Place", "game": "La Smarvoise", "seuil": 0, "host": "Josiane"},
+	{"id": "petanque", "name": "La pétanque de la place", "game": "les paris de Lucien", "seuil": 1000, "host": "Lucien"},
+	{"id": "boulangerie", "name": "La boulangerie", "game": "la roulette du comptoir", "seuil": 5000, "host": "Mme Ferrand"},
+	{"id": "rabelais", "name": "La salle François-Rabelais", "game": "le grand loto", "seuil": 20000, "host": "Le président du comité"},
+	{"id": "eglise", "name": "Le parvis Saint-Félix", "game": "la roue de la kermesse", "seuil": 60000, "host": "Le comité des fêtes"},
+	{"id": "zebres", "name": "L'allée des trois zèbres", "game": "la course des zèbres", "seuil": 150000, "host": "Le gardien du bois"},
+	{"id": "moulin", "name": "Le Moulin des Dames", "game": "le blackjack de l'arrière-salle", "seuil": 400000, "host": "Le meunier"},
+	{"id": "passelourdin", "name": "Les rochers de Passelourdin", "game": "la partie de poker", "seuil": 1000000, "host": "Quelqu'un"},
+]
 
-var rock_material: StandardMaterial3D
-var moss_material: StandardMaterial3D
-var dirt_material: StandardMaterial3D
-var pine_material: StandardMaterial3D
-var ore_material: StandardMaterial3D
-var spark_material: StandardMaterial3D
-var glowcap_material: StandardMaterial3D
+var credits := START_CREDITS
+var won := 0  ## total gagné au jeu : c'est lui qui ouvre les lieux
+var advances_left := MAX_ADVANCES
+var shown_credits := float(START_CREDITS)
+
+var stone_material: StandardMaterial3D
+var pave_material: StandardMaterial3D
+var bulb_material: StandardMaterial3D
+var window_material: StandardMaterial3D
 var serif: SystemFont
 
-var _fire_light: OmniLight3D
-var _gold_label: Label
-var _crew_label: Label
-var _hire_button: Button
-var _pick_button: Button
-var _time := 0.0
+var camera: Camera3D
+var villagers: Array[Node3D] = []
+var place_signs := {}
+var _credits_label: Label
+var _won_label: Label
+var _places_box: VBoxContainer
+var _banner: Label
+var _slot: PanelContainer
+var _hint: Label
 
 
 func _ready() -> void:
 	randomize()
 	_make_materials()
 	_build_environment()
-	_build_lights()
 	_build_plinth()
-	_build_terrain()
-	_build_gallery()
-	_build_camp()
+	_build_square()
+	_build_buildings()
+	_build_trees_and_lights()
+	_build_villagers()
 	_build_ui()
-	var cam := Camera3D.new()
-	cam.set_script(ORBIT)
-	add_child(cam)
-	cam.make_current()
-	for i in 2:
-		_spawn_smarve()
+	camera = Camera3D.new()
+	camera.set_script(ORBIT)
+	add_child(camera)
+	camera.make_current()
+	_refresh_places()
 	_maybe_capture()
 
 
-# --- Matériaux : une seule palette pour unifier les packs ---------------------
+# --- Matériaux -----------------------------------------------------------------
 
-func _noise_tex(normal: bool, freq: float) -> NoiseTexture2D:
+func _noise_tex(normal: bool, freq: float, dark: Color) -> NoiseTexture2D:
 	var n := FastNoiseLite.new()
 	n.frequency = freq
-	n.fractal_octaves = 5
+	n.fractal_octaves = 4
 	var t := NoiseTexture2D.new()
 	t.width = 512
 	t.height = 512
@@ -73,85 +78,49 @@ func _noise_tex(normal: bool, freq: float) -> NoiseTexture2D:
 	t.noise = n
 	if normal:
 		t.as_normal_map = true
-		t.bump_strength = 4.0
+		t.bump_strength = 3.0
 	else:
 		var g := Gradient.new()
-		g.set_color(0, Color(0.42, 0.46, 0.58))
-		g.set_color(1, Color(1.0, 1.0, 1.0))
+		g.set_color(0, dark)
+		g.set_color(1, Color.WHITE)
 		t.color_ramp = g
 	return t
 
 
 func _make_materials() -> void:
-	rock_material = StandardMaterial3D.new()
-	rock_material.albedo_color = Color(0.30, 0.34, 0.46)
-	rock_material.albedo_texture = _noise_tex(false, 0.035)
-	rock_material.normal_enabled = true
-	rock_material.normal_texture = _noise_tex(true, 0.06)
-	rock_material.uv1_triplanar = true
-	rock_material.uv1_scale = Vector3.ONE * 0.5
-	rock_material.roughness = 0.93
+	# Pierre calcaire du Poitou : blanc crème, un peu tachée.
+	stone_material = StandardMaterial3D.new()
+	stone_material.albedo_color = Color(0.86, 0.8, 0.68)
+	stone_material.albedo_texture = _noise_tex(false, 0.05, Color(0.82, 0.78, 0.7))
+	stone_material.normal_enabled = true
+	stone_material.normal_texture = _noise_tex(true, 0.09, Color.BLACK)
+	stone_material.uv1_triplanar = true
+	stone_material.roughness = 0.9
 
-	moss_material = StandardMaterial3D.new()
-	moss_material.albedo_color = Color(0.16, 0.27, 0.20)
-	moss_material.albedo_texture = rock_material.albedo_texture
-	moss_material.uv1_triplanar = true
-	moss_material.roughness = 1.0
+	pave_material = StandardMaterial3D.new()
+	pave_material.albedo_color = Color(0.55, 0.52, 0.48)
+	pave_material.albedo_texture = _noise_tex(false, 0.12, Color(0.7, 0.68, 0.66))
+	pave_material.normal_enabled = true
+	pave_material.normal_texture = _noise_tex(true, 0.2, Color.BLACK)
+	pave_material.uv1_triplanar = true
+	pave_material.uv1_scale = Vector3.ONE * 0.6
+	pave_material.roughness = 0.75
 
-	dirt_material = StandardMaterial3D.new()
-	dirt_material.albedo_color = Color(0.25, 0.19, 0.16)
-	dirt_material.roughness = 1.0
+	bulb_material = StandardMaterial3D.new()
+	bulb_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	bulb_material.albedo_color = Color(1.0, 0.85, 0.55)
+	bulb_material.emission_enabled = true
+	bulb_material.emission = Color(1.0, 0.72, 0.38)
+	bulb_material.emission_energy_multiplier = 5.0
 
-	pine_material = StandardMaterial3D.new()
-	pine_material.albedo_color = Color(0.08, 0.19, 0.17)
-	pine_material.roughness = 0.9
-
-	ore_material = StandardMaterial3D.new()
-	ore_material.albedo_color = Color(0.85, 0.45, 0.2)
-	ore_material.metallic = 0.6
-	ore_material.roughness = 0.35
-	ore_material.emission_enabled = true
-	ore_material.emission = Color(1.0, 0.42, 0.12)
-	ore_material.emission_energy_multiplier = 2.2
-
-	spark_material = StandardMaterial3D.new()
-	spark_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	spark_material.albedo_color = Color(1.0, 0.75, 0.35)
-	spark_material.emission_enabled = true
-	spark_material.emission = Color(1.0, 0.6, 0.2)
-	spark_material.emission_energy_multiplier = 6.0
-
-	glowcap_material = StandardMaterial3D.new()
-	glowcap_material.albedo_color = Color(0.3, 0.9, 0.95)
-	glowcap_material.emission_enabled = true
-	glowcap_material.emission = Color(0.2, 0.85, 1.0)
-	glowcap_material.emission_energy_multiplier = 3.0
+	window_material = StandardMaterial3D.new()
+	window_material.albedo_color = Color(1.0, 0.78, 0.45)
+	window_material.emission_enabled = true
+	window_material.emission = Color(1.0, 0.68, 0.32)
+	window_material.emission_energy_multiplier = 2.5
 
 	serif = SystemFont.new()
 	serif.font_names = PackedStringArray(["Georgia", "Palatino Linotype", "Book Antiqua", "Times New Roman", "serif"])
-
-
-func _repaint(node: Node, interior := false, override: Material = null) -> void:
-	for mi in node.find_children("*", "MeshInstance3D", true, false):
-		var mesh: Mesh = (mi as MeshInstance3D).mesh
-		for i in mesh.get_surface_count():
-			if override:
-				mi.set_surface_override_material(i, override)
-				continue
-			var m := mesh.surface_get_material(i)
-			var n := m.resource_name if m else ""
-			var rep: Material = null
-			match n:
-				"stone", "_defaultMat":
-					rep = rock_material
-				"grass":
-					rep = rock_material if interior else moss_material
-				"dirt":
-					rep = dirt_material
-				"leafsDark", "leafs":
-					rep = pine_material
-			if rep:
-				mi.set_surface_override_material(i, rep)
 
 
 func _place(path: String, pos: Vector3, scale := 1.0, rot_y := 0.0, parent: Node = self) -> Node3D:
@@ -163,449 +132,429 @@ func _place(path: String, pos: Vector3, scale := 1.0, rot_y := 0.0, parent: Node
 	return n
 
 
-# --- Ambiance -----------------------------------------------------------------
+func _box(size: Vector3, pos: Vector3, mat: Material, parent: Node = self) -> MeshInstance3D:
+	var m := MeshInstance3D.new()
+	var b := BoxMesh.new()
+	b.size = size
+	m.mesh = b
+	m.material_override = mat
+	m.position = pos
+	parent.add_child(m)
+	return m
+
+
+# --- Ambiance : le crépuscule du Poitou ------------------------------------------
 
 func _build_environment() -> void:
 	var env := Environment.new()
-	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color(0.012, 0.016, 0.03)
 	var sky := Sky.new()
-	var pano := PanoramaSkyMaterial.new()
-	pano.panorama = load("res://assets/hdri/kloppenheim_06_puresky_2k.hdr")
-	sky.sky_material = pano
+	var sm := ProceduralSkyMaterial.new()
+	sm.sky_top_color = Color(0.03, 0.05, 0.16)
+	sm.sky_horizon_color = Color(0.35, 0.22, 0.32)
+	sm.ground_bottom_color = Color(0.01, 0.01, 0.02)
+	sm.ground_horizon_color = Color(0.12, 0.08, 0.12)
+	sm.sun_angle_max = 0.0
+	sky.sky_material = sm
 	env.sky = sky
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.32, 0.4, 0.62)
-	env.ambient_light_energy = 0.1
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = Color(0.015, 0.018, 0.035)
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	env.ambient_light_energy = 0.45
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	env.tonemap_mode = Environment.TONE_MAPPER_AGX
-	env.tonemap_exposure = 1.1
+	env.tonemap_exposure = 1.05
 	env.glow_enabled = true
-	env.glow_intensity = 0.7
-	env.glow_bloom = 0.06
-	env.glow_hdr_threshold = 0.9
+	env.glow_intensity = 0.75
+	env.glow_bloom = 0.08
+	env.glow_hdr_threshold = 0.85
 	env.ssao_enabled = true
-	env.ssao_intensity = 2.5
+	env.ssao_intensity = 2.0
 	env.ssil_enabled = true
 	env.sdfgi_enabled = true
 	env.sdfgi_use_occlusion = true
-	env.sdfgi_energy = 0.8
 	env.volumetric_fog_enabled = true
-	env.volumetric_fog_density = 0.006
-	env.volumetric_fog_albedo = Color(0.4, 0.45, 0.6)
+	env.volumetric_fog_density = 0.008
+	env.volumetric_fog_albedo = Color(0.45, 0.45, 0.6)
 	env.volumetric_fog_gi_inject = 0.3
 	env.volumetric_fog_sky_affect = 0.0
-	env.volumetric_fog_length = 60.0
 	env.adjustment_enabled = true
-	env.adjustment_saturation = 1.12
-	env.adjustment_contrast = 1.06
+	env.adjustment_saturation = 1.1
+	env.adjustment_contrast = 1.05
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
 
-
-func _build_lights() -> void:
+	# Dernière lueur du couchant, rasante et violette, et la lune qui monte.
+	var dusk := DirectionalLight3D.new()
+	dusk.light_color = Color(0.95, 0.55, 0.6)
+	dusk.light_energy = 0.35
+	dusk.rotation_degrees = Vector3(-12, 120, 0)
+	dusk.light_volumetric_fog_energy = 0.0
+	add_child(dusk)
 	var moon := DirectionalLight3D.new()
-	moon.light_color = Color(0.55, 0.66, 1.0)
-	moon.light_energy = 0.75
+	moon.light_color = Color(0.55, 0.65, 1.0)
+	moon.light_energy = 0.5
 	moon.shadow_enabled = true
+	moon.rotation_degrees = Vector3(-50, -35, 0)
 	moon.light_volumetric_fog_energy = 0.1
-	moon.rotation_degrees = Vector3(-42, -48, 0)
 	add_child(moon)
 
-	# Contre-jour froid pour détacher la silhouette de la montagne du noir.
-	var rim := DirectionalLight3D.new()
-	rim.light_color = Color(0.45, 0.75, 1.0)
-	rim.light_energy = 0.35
-	rim.rotation_degrees = Vector3(-20, 160, 0)
-	rim.light_volumetric_fog_energy = 0.0
-	add_child(rim)
 
+# --- Le socle et la place --------------------------------------------------------
 
 func _build_plinth() -> void:
 	var walnut := StandardMaterial3D.new()
 	walnut.albedo_color = Color(0.17, 0.09, 0.05)
-	walnut.roughness = 0.45
-	var box := MeshInstance3D.new()
-	var bm := BoxMesh.new()
-	bm.size = Vector3(23.8, 0.6, 5.8)
-	box.mesh = bm
-	box.material_override = walnut
-	box.position = Vector3(1.0, -2.3, -1.0)
-	add_child(box)
-
+	walnut.roughness = 0.4
+	_box(Vector3(22.6, 0.8, 16.6), Vector3(0, -0.5, 0), walnut)
 	var plaque := Label3D.new()
-	plaque.text = "LE MONT OMBRECLAIR"
+	plaque.text = "SMARVES  ·  VIENNE"
 	plaque.font = serif
-	plaque.font_size = 72
+	plaque.font_size = 80
 	plaque.pixel_size = 0.004
 	plaque.modulate = Color(0.95, 0.75, 0.4)
-	plaque.outline_size = 0
-	plaque.position = Vector3(1.0, -2.3, 1.91)
+	plaque.position = Vector3(0, -0.5, 8.31)
 	add_child(plaque)
 
 
-# --- La montagne en blocs -------------------------------------------------------
+func _build_square() -> void:
+	# La place pavée et la route devant.
+	_box(Vector3(22, 0.1, 16), Vector3(0, -0.05, 0), pave_material)
+	var asphalt := StandardMaterial3D.new()
+	asphalt.albedo_color = Color(0.09, 0.09, 0.1)
+	asphalt.roughness = 0.3  # bitume humide : il reflète les ampoules
+	_box(Vector3(22, 0.11, 2.4), Vector3(0, -0.04, 6.4), asphalt)
+	var line := StandardMaterial3D.new()
+	line.albedo_color = Color(0.85, 0.85, 0.8)
+	for x in range(-10, 11, 2):
+		_box(Vector3(0.9, 0.12, 0.08), Vector3(x, -0.035, 6.4), line)
 
-func _is_gallery(c: Vector3i) -> bool:
-	return c.x >= 0 and c.x <= GALLERY_END and c.y >= 0 and c.y <= 1 and c.z >= -1
+	# Le terrain de pétanque, en sable clair, bordé de planches.
+	var sand := StandardMaterial3D.new()
+	sand.albedo_color = Color(0.7, 0.6, 0.45)
+	sand.albedo_texture = _noise_tex(false, 0.3, Color(0.8, 0.75, 0.7))
+	sand.uv1_triplanar = true
+	sand.roughness = 1.0
+	_box(Vector3(5.0, 0.12, 2.4), Vector3(4.5, -0.03, 3.0), sand)
+	var wood := StandardMaterial3D.new()
+	wood.albedo_color = Color(0.35, 0.22, 0.12)
+	_box(Vector3(5.1, 0.16, 0.08), Vector3(4.5, 0.02, 1.8), wood)
+	_box(Vector3(5.1, 0.16, 0.08), Vector3(4.5, 0.02, 4.2), wood)
 
-
-func _build_terrain() -> void:
-	var cells := {}
-	# Le sol, deux couches, sous le camp et sous la montagne.
-	for x in range(-10, 13):
-		for z in range(1, -4, -1):
-			for y in [-2, -1]:
-				cells[Vector3i(x, y, z)] = true
-	# La montagne, avec la galerie creusée dedans.
-	for x in PROFILE.size():
-		for z in MOUNTAIN_Z:
-			# Un peu d'irrégularité pour casser l'escalier trop parfait.
-			var jitter := -1 if (x * 7 + z * 13) % 5 == 0 else 0
-			for y in maxi(3, PROFILE[x] - ROW_DROP[z] + jitter):
-				var c := Vector3i(x, y, z)
-				if not _is_gallery(c):
-					cells[c] = true
-
-	var dirs := [Vector3i.UP, Vector3i.LEFT, Vector3i.RIGHT, Vector3i(0, 0, 1), Vector3i(0, 0, -1)]
-	var terrain := Node3D.new()
-	terrain.name = "Terrain"
-	add_child(terrain)
-	for c: Vector3i in cells:
-		var exposed := false
-		for d in dirs:
-			if not cells.has(c + d):
-				exposed = true
-				break
-		if not exposed:
-			continue
-		var top := not cells.has(c + Vector3i.UP)
-		# Sous la montagne et dans la galerie, la roche est nue ; la mousse ne pousse que dehors.
-		var under_mountain := c.x >= 0 and c.x < PROFILE.size() and c.z <= 0
-		var interior := not top or (c.y < 0 and under_mountain)
-		var b := _place(KN + "cliff_block_stone.glb", Vector3(c), 1.0, 0.0, terrain)
-		_repaint(b, interior)
-		# Sur les terrasses de la montagne : pins noirs, rochers et touffes.
-		if top and c.y >= 2:
-			_decorate_ledge(Vector3(c) + Vector3(0, 1, 0), terrain)
+	# Le monument aux morts et l'érable rouge de 1986.
+	_box(Vector3(0.9, 0.25, 0.9), Vector3(-1.6, 0.12, -1.6), stone_material)
+	_box(Vector3(0.35, 1.6, 0.35), Vector3(-1.6, 1.0, -1.6), stone_material)
+	var maple := _place(KN + "tree_oak_fall.glb", Vector3(0.6, 0, -1.2), 3.2, 20.0)
+	var red := StandardMaterial3D.new()
+	red.albedo_color = Color(0.65, 0.1, 0.06)
+	red.roughness = 0.85
+	for mi in maple.find_children("*", "MeshInstance3D", true, false):
+		var mesh: Mesh = (mi as MeshInstance3D).mesh
+		for i in mesh.get_surface_count():
+			var m := mesh.surface_get_material(i)
+			if m and m.resource_name.begins_with("leafs"):
+				mi.set_surface_override_material(i, red)
 
 
-func _decorate_ledge(at: Vector3, parent: Node) -> void:
-	var r := randf()
-	var p := at + Vector3(randf_range(-0.25, 0.25), 0, randf_range(-0.25, 0.25))
-	if r < 0.35:
-		var t := _place(KN + ["tree_pineTallA_detailed.glb", "tree_pineTallB_detailed.glb", "tree_pineSmallA.glb", "tree_pineSmallC.glb"].pick_random(),
-			p, randf_range(0.9, 1.5), randf() * 360.0, parent)
-		_repaint(t)
-	elif r < 0.6:
-		var s := _place(KN + ["stone_tallB.glb", "stone_smallC.glb", "stone_largeA.glb", "stone_smallTopA.glb"].pick_random(),
-			p, randf_range(0.5, 0.9), randf() * 360.0, parent)
-		_repaint(s, true)
-	elif r < 0.8:
-		var g := _place(KN + "grass_large.glb", p, 1.2, randf() * 360.0, parent)
-		_repaint(g)
+# --- Les bâtiments ------------------------------------------------------------------
+
+## Façade provisoire : remplacée par les modèles Kenney dès qu'ils sont là.
+func _building(id: String, pos: Vector3, rot_y: float, size: Vector3) -> Node3D:
+	var root := Node3D.new()
+	root.position = pos
+	root.rotation_degrees.y = rot_y
+	add_child(root)
+	_box(size, Vector3(0, size.y / 2.0, 0), stone_material, root)
+	var tiles := StandardMaterial3D.new()
+	tiles.albedo_color = Color(0.72, 0.38, 0.24)
+	tiles.roughness = 0.8
+	_box(Vector3(size.x + 0.3, 0.25, size.z + 0.3), Vector3(0, size.y + 0.12, 0), tiles, root)
+	for k in int(size.x / 1.2):
+		_box(Vector3(0.45, 0.6, 0.05), Vector3(-size.x / 2.0 + 0.8 + k * 1.2, size.y * 0.55, size.z / 2.0 + 0.01), window_material, root)
+	_add_place_marker(id, root, Vector3(0, size.y + 0.9, size.z / 2.0), size)
+	return root
 
 
-# --- La galerie de la Roche grise ---------------------------------------------
-
-func _build_gallery() -> void:
-	# Étais en bois, chacun avec sa lanterne.
-	for x in [0.0, 4.0, 7.0, 10.0]:
-		var s := _place(KD + "wood-support.glb", Vector3(x, 0, -0.5), 1.0, 90.0)
-		s.scale = Vector3(1.85, 1.95, 1.3)
-		var lamp := OmniLight3D.new()
-		lamp.light_color = Color(1.0, 0.62, 0.3)
-		lamp.light_energy = 1.1
-		lamp.omni_range = 3.6
-		lamp.light_volumetric_fog_energy = 2.0
-		lamp.position = Vector3(x, 1.55, -0.5)
-		add_child(lamp)
-		var bulb := MeshInstance3D.new()
-		var sm := SphereMesh.new()
-		sm.radius = 0.06
-		sm.height = 0.12
-		bulb.mesh = sm
-		bulb.material_override = spark_material
-		bulb.position = lamp.position
-		add_child(bulb)
-
-	# Rochers et éboulis au sol.
-	for x in [1.2, 3.4, 6.3, 9.2]:
-		var r := _place(KN + "rock_smallA.glb", Vector3(x, 0, -1.25), 0.7, randf() * 360.0)
-		_repaint(r, true)
-
-	# Trois filons de cuivre dans la paroi du fond.
-	for x in ORE_X:
-		var ore := Node3D.new()
-		ore.position = Vector3(x, 0, -1.45)
-		add_child(ore)
-		for k in 4:
-			var piece := _place(KN + ["stone_tallA.glb", "stone_tallB.glb", "stone_smallA.glb", "stone_tallC.glb"][k],
-				Vector3(randf_range(-0.35, 0.35), randf_range(0.1, 0.9), 0), randf_range(0.28, 0.45), randf() * 360.0, ore)
-			piece.rotation_degrees.x = randf_range(-25, 25)
-			_repaint(piece, true, ore_material)
-		var glow := OmniLight3D.new()
-		glow.light_color = Color(1.0, 0.5, 0.2)
-		glow.light_energy = 0.9
-		glow.omni_range = 2.2
-		glow.position = Vector3(0, 0.6, 0.4)
-		ore.add_child(glow)
-		var area := Area3D.new()
-		var shape := CollisionShape3D.new()
-		var sph := SphereShape3D.new()
-		sph.radius = 0.75
-		shape.shape = sph
-		shape.position = Vector3(0, 0.6, 0.2)
-		area.add_child(shape)
-		area.set_meta("ore", ore)
-		ore.add_child(area)
-		ores.append(ore)
-
-	# La porte scellée vers la strate suivante : un seuil, pas encore ouvert.
-	var gate := _place(KD + "gate.glb", Vector3(GALLERY_END + 0.35, 0, -0.5), 1.0, -90.0)
-	gate.scale = Vector3(1.9, 1.75, 1.9)
-	var seal := Label3D.new()
-	seal.text = "Grotte aux cristaux\nscellée"
-	seal.font = serif
-	seal.font_size = 40
-	seal.pixel_size = 0.004
-	seal.modulate = Color(0.75, 0.6, 1.0)
-	seal.position = Vector3(GALLERY_END - 0.2, 2.25, 0.3)
-	add_child(seal)
+func _build_buildings() -> void:
+	_building("mairie", Vector3(-1.0, 0, -5.6), 0.0, Vector3(5.0, 3.0, 2.5))
+	_building("cafe", Vector3(-7.6, 0, -0.5), 90.0, Vector3(6.0, 2.4, 3.0))
+	# La terrasse du café.
+	for t in [Vector3(-5.3, 0, -2.2), Vector3(-5.3, 0, 0.0), Vector3(-5.3, 0, 2.0)]:
+		_place(KD + "table.glb", t, 0.8)
+		_place(KD + "chair.glb", t + Vector3(-0.55, 0, 0), 0.8, 90.0)
+		_place(KD + "chair.glb", t + Vector3(0.55, 0, 0), 0.8, -90.0)
+	var sign_light := OmniLight3D.new()
+	sign_light.light_color = Color(1.0, 0.7, 0.4)
+	sign_light.light_energy = 2.5
+	sign_light.omni_range = 5.0
+	sign_light.position = Vector3(-5.8, 2.0, -0.5)
+	add_child(sign_light)
+	_building("boulangerie", Vector3(8.0, 0, -1.0), -90.0, Vector3(4.0, 2.2, 2.5))
+	_building("rabelais", Vector3(6.2, 0, -6.2), 0.0, Vector3(4.0, 2.4, 2.5))
+	_building("eglise", Vector3(3.0, 0, -6.6), 0.0, Vector3(2.2, 4.5, 2.2))
 
 
-# --- Le Seuil : le camp au pied de la montagne --------------------------------
+func _add_place_marker(id: String, parent: Node3D, at: Vector3, size: Vector3) -> void:
+	if _place_info(id).is_empty():
+		return
+	var label := Label3D.new()
+	label.font = serif
+	label.font_size = 48
+	label.pixel_size = 0.011
+	label.outline_size = 12
+	label.outline_modulate = Color(0, 0, 0, 0.7)
+	label.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
+	label.position = at
+	parent.add_child(label)
+	place_signs[id] = label
+	# Zone cliquable autour du bâtiment.
+	var area := Area3D.new()
+	var shape := CollisionShape3D.new()
+	var b := BoxShape3D.new()
+	b.size = size + Vector3(0.6, 0.6, 0.6)
+	shape.shape = b
+	shape.position = Vector3(0, size.y / 2.0, 0)
+	area.add_child(shape)
+	area.set_meta("place", id)
+	parent.add_child(area)
 
-func _build_camp() -> void:
-	_place(KS + "campfire-pit.glb", Vector3(-5.0, 0, -0.3), 3.2)
-	_place(KN + "campfire_logs.glb", Vector3(-5.0, 0.05, -0.3), 2.6)
-	_fire_light = OmniLight3D.new()
-	_fire_light.light_color = Color(1.0, 0.52, 0.2)
-	_fire_light.light_energy = 5.0
-	_fire_light.omni_range = 9.0
-	_fire_light.shadow_enabled = true
-	_fire_light.light_volumetric_fog_energy = 1.5
-	_fire_light.position = Vector3(-5.0, 0.7, -0.3)
-	add_child(_fire_light)
-	_add_flames(Vector3(-5.0, 0.15, -0.3))
 
-	var tent := _place(KN + "tent_detailedOpen.glb", Vector3(-7.6, 0, -1.7), 2.6, 35.0)
-	_repaint(tent)
-	_place(KS + "workbench-anvil.glb", Vector3(-3.6, 0, -2.2), 2.6, -20.0)
-	_place(KS + "barrel.glb", Vector3(-2.9, 0, -2.6), 2.4)
-	_place(KS + "box-large-open.glb", Vector3(-2.2, 0, -0.75), 2.6, 90.0)
-	_place(KS + "resource-stone.glb", Vector3(-2.6, 0, 0.3), 2.4, 40.0)
-	_place(KS + "signpost-single.glb", Vector3(-1.0, 0, 0.9), 2.4, -15.0)
-	_place(KS + "bedroll.glb", Vector3(-6.6, 0, 0.6), 2.4, 70.0)
-	_place(KN + "log_large.glb", Vector3(-4.6, 0, 0.7), 2.2, 80.0)
+func _place_info(id: String) -> Dictionary:
+	for p in PLACES:
+		if p.id == id:
+			return p
+	return {}
 
-	for p in [Vector3(-9.3, 0, -2.6), Vector3(-8.4, 0, -3.0), Vector3(-9.5, 0, 0.6), Vector3(-1.4, 0, -3.0), Vector3(-6.0, 0, -3.1)]:
-		var tree := _place(KN + ["tree_pineTallA_detailed.glb", "tree_pineTallB_detailed.glb", "tree_pineTallC_detailed.glb"].pick_random(),
-			p, randf_range(2.2, 3.0), randf() * 360.0)
-		_repaint(tree)
-	for p in [Vector3(-0.7, 0, -1.3), Vector3(-1.2, 0, 0.2), Vector3(11.5, 0, 0.9), Vector3(-8.0, 0, 1.0)]:
-		var m := _place(KN + "mushroom_tanGroup.glb", p, 2.0, randf() * 360.0)
-		_repaint(m, false, glowcap_material)
+
+# --- Arbres, guirlandes, fleurs ---------------------------------------------------
+
+func _build_trees_and_lights() -> void:
+	# Les platanes le long de la route.
+	var planes := [Vector3(-8.5, 0, 4.6), Vector3(-3.5, 0, 4.6), Vector3(1.5, 0, 4.6), Vector3(6.5, 0, 4.6)]
+	var foliage := StandardMaterial3D.new()
+	foliage.albedo_color = Color(0.22, 0.3, 0.12)
+	foliage.roughness = 0.9
+	for p in planes:
+		var t := _place(KN + "tree_default.glb", p, 3.0, randf() * 360.0)
+		for mi in t.find_children("*", "MeshInstance3D", true, false):
+			var mesh: Mesh = (mi as MeshInstance3D).mesh
+			for i in mesh.get_surface_count():
+				var m := mesh.surface_get_material(i)
+				if m and m.resource_name.begins_with("leafs"):
+					mi.set_surface_override_material(i, foliage)
+	for i in planes.size() - 1:
+		_garland(planes[i] + Vector3(0, 2.6, 0), planes[i + 1] + Vector3(0, 2.6, 0), 1.0)
+	# Guirlandes du café jusqu'à l'érable et jusqu'aux platanes.
+	_garland(Vector3(-6.1, 2.3, -2.6), Vector3(0.3, 2.6, -1.4), 0.7)
+	_garland(Vector3(-6.1, 2.3, 1.6), Vector3(-3.5, 2.6, 4.6), 0.6)
+	# Haies et fleurs devant la mairie.
+	for x in [-3.2, -2.4, 0.6, 1.4]:
+		_place(KN + "plant_bushDetailed.glb", Vector3(x, 0, -4.0), 1.6, randf() * 360.0)
+	for i in 8:
+		_place(KN + ["flower_redA.glb", "flower_yellowA.glb", "flower_purpleB.glb"].pick_random(),
+			Vector3(randf_range(-3.4, 1.6), 0, randf_range(-4.3, -3.7)), 1.5, randf() * 360.0)
+
+
+## Une guirlande d'ampoules qui pend entre deux points.
+func _garland(a: Vector3, b: Vector3, sag: float) -> void:
+	var n := int(a.distance_to(b) / 0.45)
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	var s := SphereMesh.new()
+	s.radius = 0.05
+	s.height = 0.1
+	s.material = bulb_material
+	mm.mesh = s
+	mm.instance_count = n + 1
+	var wire := PackedVector3Array()
+	for i in n + 1:
+		var t := float(i) / n
+		var p := a.lerp(b, t) - Vector3(0, sag * 4.0 * t * (1.0 - t), 0)
+		mm.set_instance_transform(i, Transform3D(Basis(), p))
+		wire.append(p)
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	add_child(mmi)
+	# Une lumière toutes les quatre ampoules, pour que la guirlande éclaire vraiment.
+	for i in range(2, n, 4):
 		var l := OmniLight3D.new()
-		l.light_color = Color(0.3, 0.85, 1.0)
-		l.light_energy = 0.5
-		l.omni_range = 1.5
-		l.position = p + Vector3(0, 0.3, 0)
+		l.light_color = Color(1.0, 0.72, 0.4)
+		l.light_energy = 0.6
+		l.omni_range = 2.6
+		l.light_volumetric_fog_energy = 1.5
+		l.position = wire[i]
 		add_child(l)
-	for i in 14:
-		var g := _place(KN + ["grass.glb", "grass_large.glb"].pick_random(),
-			Vector3(randf_range(-9.8, -0.8), 0, randf_range(-3.2, 1.3)), 1.6, randf() * 360.0)
-		_repaint(g)
 
 
-func _add_flames(at: Vector3) -> void:
-	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
-	mat.vertex_color_use_as_albedo = true
-	var quad := QuadMesh.new()
-	quad.size = Vector2(0.35, 0.35)
-	quad.material = mat
+# --- Les habitants ---------------------------------------------------------------------
 
-	var ramp := Gradient.new()
-	ramp.set_color(0, Color(4.0, 2.6, 0.9, 1.0))
-	ramp.set_color(1, Color(1.2, 0.2, 0.05, 0.0))
-
-	var flames := CPUParticles3D.new()
-	flames.mesh = quad
-	flames.amount = 40
-	flames.lifetime = 0.7
-	flames.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
-	flames.emission_sphere_radius = 0.18
-	flames.direction = Vector3.UP
-	flames.spread = 12.0
-	flames.gravity = Vector3(0, 1.6, 0)
-	flames.initial_velocity_min = 0.2
-	flames.initial_velocity_max = 0.5
-	flames.scale_amount_min = 0.6
-	flames.scale_amount_max = 1.2
-	flames.color_ramp = ramp
-	flames.position = at
-	add_child(flames)
-
-	var embers := CPUParticles3D.new()
-	var eq := QuadMesh.new()
-	eq.size = Vector2(0.04, 0.04)
-	eq.material = mat
-	embers.mesh = eq
-	embers.amount = 24
-	embers.lifetime = 2.4
-	embers.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
-	embers.emission_sphere_radius = 0.25
-	embers.direction = Vector3.UP
-	embers.spread = 25.0
-	embers.gravity = Vector3(0.15, 0.6, 0)
-	embers.initial_velocity_min = 0.5
-	embers.initial_velocity_max = 1.1
-	embers.color_ramp = ramp
-	embers.position = at + Vector3(0, 0.3, 0)
-	add_child(embers)
+func _villager(model: String, pos: Vector3, rot_y: float, pose := "idle", route: Array[Vector3] = []) -> Node3D:
+	var v: Node3D = VILLAGER.new()
+	v.model_path = KC + model
+	v.pose = pose
+	v.route = route
+	v.position = pos
+	v.rotation_degrees.y = rot_y
+	add_child(v)
+	villagers.append(v)
+	return v
 
 
-# --- Les smarves et l'économie ------------------------------------------------
-
-func _spawn_smarve() -> void:
-	var s: Node3D = SMARVE.new()
-	s.game = self
-	s.model_path = "res://assets/kenney/characters/" + ("character-male-b.glb" if smarves.size() % 3 != 2 else "character-male-e.glb")
-	s.lane_z = randf_range(-1.0, -0.35)
-	s.name = SMARVE_NAMES[smarves.size() % SMARVE_NAMES.size()]
-	s.position = Vector3(-1.8, 0, s.lane_z)
-	s.delivered.connect(_on_delivered)
-	add_child(s)
-	smarves.append(s)
-
-
-func pick_ore() -> Node3D:
-	return ores.pick_random()
-
-
-func pick_power() -> int:
-	return pick_level
+func _build_villagers() -> void:
+	# En terrasse.
+	_villager("character-male-b.glb", Vector3(-5.85, 0.0, -2.2), 90.0, "sit")
+	_villager("character-female-c.glb", Vector3(-4.75, 0.0, -2.2), -90.0, "sit")
+	_villager("character-male-d.glb", Vector3(-4.75, 0.0, 2.0), -90.0, "sit")
+	# Les boulistes.
+	_villager("character-male-f.glb", Vector3(2.6, 0, 3.0), 90.0)
+	_villager("character-male-a.glb", Vector3(3.0, 0, 2.3), 70.0)
+	_villager("character-female-a.glb", Vector3(6.6, 0, 3.4), -100.0)
+	# Les spectateurs et les passants.
+	_villager("character-female-e.glb", Vector3(2.8, 0, 4.6), 160.0)
+	_villager("character-male-e.glb", Vector3(-2.0, 0, 1.0), 0.0, "idle",
+		[Vector3(-2.0, 0, 1.0), Vector3(2.0, 0, 0.6), Vector3(5.6, 0, -1.0), Vector3(1.0, 0, -3.0)])
+	_villager("character-female-b.glb", Vector3(-3.0, 0, -3.2), 0.0, "idle",
+		[Vector3(-3.0, 0, -3.2), Vector3(-4.2, 0, 3.4), Vector3(0.0, 0, 3.6)])
 
 
-func crate_drop_point(lane: float) -> Vector3:
-	return Vector3(-1.55 + randf_range(-0.1, 0.1), 0, clampf(lane, -1.0, -0.4))
+# --- Économie -----------------------------------------------------------------------
+
+func spend(amount: int) -> bool:
+	if credits < amount:
+		return false
+	credits -= amount
+	return true
 
 
-func on_ore_hit(ore: Node3D, by_player: bool) -> void:
-	_sparks(ore.global_position + Vector3(0, 0.5, 0.3))
-	if by_player:
-		gold += pick_level
-		_float_text("+%d" % pick_level, ore.global_position + Vector3(0, 1.3, 0.4))
+func _on_slot_played(bet: int, payout: int) -> void:
+	var before := won
+	if payout > 0:
+		credits += payout
+		won += payout
+	for v in villagers:
+		if v.position.x < -4.0 and randf() < 0.6:
+			v.react("win" if payout >= bet * 10 else "lose")
+	if payout >= bet * 20:
+		_announce("Jackpot ! Toute la terrasse se lève.")
+	_check_unlocks(before)
+	_check_advance()
 
 
-func _on_delivered(amount: int, at: Vector3) -> void:
-	gold += amount
-	_float_text("+%d" % amount, at)
+func _check_unlocks(before: int) -> void:
+	for p in PLACES:
+		if p.seuil > 0 and before < p.seuil and won >= p.seuil:
+			_announce("%s vous fait signe : %s est ouvert." % [p.host, p.name])
+	_refresh_places()
 
 
-func _sparks(at: Vector3) -> void:
-	var p := CPUParticles3D.new()
-	var bm := BoxMesh.new()
-	bm.size = Vector3.ONE * 0.035
-	bm.material = spark_material
-	p.mesh = bm
-	p.amount = 18
-	p.lifetime = 0.6
-	p.one_shot = true
-	p.explosiveness = 1.0
-	p.direction = Vector3(0, 0.6, 1)
-	p.spread = 60.0
-	p.initial_velocity_min = 1.5
-	p.initial_velocity_max = 3.0
-	p.gravity = Vector3(0, -6, 0)
-	p.position = at
-	add_child(p)
-	p.emitting = true
-	get_tree().create_timer(1.2).timeout.connect(p.queue_free)
+func _check_advance() -> void:
+	if credits >= SLOT.BETS[0] or advances_left <= 0:
+		return
+	advances_left -= 1
+	credits += ADVANCE
+	_announce("Josiane vous avance %d crédits. « Vous me les rendrez, hein. »" % ADVANCE)
 
 
-func _float_text(text: String, at: Vector3) -> void:
-	var l := Label3D.new()
-	l.text = text
-	l.font = serif
-	l.font_size = 56
-	l.pixel_size = 0.006
-	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	l.no_depth_test = true
-	l.modulate = Color(1.0, 0.82, 0.4)
-	l.outline_modulate = Color(0.2, 0.1, 0.0, 0.8)
-	l.outline_size = 10
-	l.position = at
-	add_child(l)
-	var tw := create_tween().set_parallel()
-	tw.tween_property(l, "position:y", at.y + 0.9, 1.1).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-	tw.tween_property(l, "modulate:a", 0.0, 1.1).set_delay(0.3)
-	tw.chain().tween_callback(l.queue_free)
+func is_open(id: String) -> bool:
+	var p := _place_info(id)
+	return not p.is_empty() and won >= p.seuil
 
+
+# --- Interaction ---------------------------------------------------------------------
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _slot.visible:
+		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		var cam := get_viewport().get_camera_3d()
-		var from := cam.project_ray_origin(event.position)
-		var q := PhysicsRayQueryParameters3D.create(from, from + cam.project_ray_normal(event.position) * 200.0)
+		var from := camera.project_ray_origin(event.position)
+		var q := PhysicsRayQueryParameters3D.create(from, from + camera.project_ray_normal(event.position) * 200.0)
 		q.collide_with_areas = true
 		q.collide_with_bodies = false
 		var hit := get_world_3d().direct_space_state.intersect_ray(q)
-		if hit and hit.collider.has_meta("ore"):
-			on_ore_hit(hit.collider.get_meta("ore"), true)
+		if hit and hit.collider.has_meta("place"):
+			_enter(hit.collider.get_meta("place"))
 
 
-func _hire() -> void:
-	if gold < hire_cost:
+func _enter(id: String) -> void:
+	var p := _place_info(id)
+	if p.is_empty():
 		return
-	gold -= hire_cost
-	hire_cost = int(round(hire_cost * 1.6))
-	_spawn_smarve()
-
-
-func _upgrade_picks() -> void:
-	if gold < pick_cost:
+	if not is_open(id):
+		_announce("%s : encore fermé. Il faut avoir gagné %s crédits au jeu." % [p.name, _fmt(p.seuil)])
 		return
-	gold -= pick_cost
-	pick_level += 1
-	pick_cost = int(round(pick_cost * 2.3))
+	if id != "cafe":
+		_announce("%s est ouvert, mais %s n'est pas encore installé." % [p.name, p.game])
+		return
+	camera.focus(Vector3(-6.2, 1.0, -0.5), 8.0, deg_to_rad(65.0), deg_to_rad(-14.0))
+	_slot.visible = true
+	_hint.visible = false
+
+
+func _leave_slot() -> void:
+	_slot.visible = false
+	_hint.visible = true
+	camera.release()
+
+
+# --- Interface -------------------------------------------------------------------------
+
+func _fmt(n: int) -> String:
+	var s := str(n)
+	var out := ""
+	while s.length() > 3:
+		out = " " + s.substr(s.length() - 3) + out
+		s = s.substr(0, s.length() - 3)
+	return s + out
+
+
+func _refresh_places() -> void:
+	for c in _places_box.get_children():
+		c.queue_free()
+	for p in PLACES:
+		var open: bool = won >= p.seuil
+		var l := Label.new()
+		l.add_theme_font_size_override("font_size", 15)
+		if open:
+			l.text = "●  %s  —  %s" % [p.name, p.game]
+			l.add_theme_color_override("font_color", Color(0.96, 0.82, 0.5))
+		else:
+			l.text = "○  %s  —  %s gagnés" % [p.name, _fmt(p.seuil)]
+			l.add_theme_color_override("font_color", Color(0.55, 0.55, 0.6))
+		_places_box.add_child(l)
+		if place_signs.has(p.id):
+			var s: Label3D = place_signs[p.id]
+			s.text = p.name if open else "%s\nfermé · %s" % [p.name, _fmt(p.seuil)]
+			s.modulate = Color(1.0, 0.85, 0.5) if open else Color(0.7, 0.72, 0.8, 0.85)
+
+
+func _announce(text: String) -> void:
+	_banner.text = text
+	_banner.modulate.a = 1.0
+	var tw := create_tween()
+	tw.tween_interval(3.5)
+	tw.tween_property(_banner, "modulate:a", 0.0, 1.0)
 
 
 func _process(delta: float) -> void:
-	_time += delta
-	_fire_light.light_energy = 4.6 + sin(_time * 13.0) * 0.35 + sin(_time * 7.3) * 0.45 + randf() * 0.25
-	shown_gold = lerpf(shown_gold, gold, 1.0 - exp(-10.0 * delta))
-	if absf(shown_gold - gold) < 0.5:
-		shown_gold = gold
-	_gold_label.text = "%d or" % roundi(shown_gold)
-	_crew_label.text = "%d smarves  ·  pioches de niveau %d" % [smarves.size(), pick_level]
-	_hire_button.text = "Engager un smarve  —  %d or" % hire_cost
-	_pick_button.text = "Forger de meilleures pioches  —  %d or" % pick_cost
-	_hire_button.disabled = gold < hire_cost
-	_pick_button.disabled = gold < pick_cost
+	shown_credits = lerpf(shown_credits, credits, 1.0 - exp(-10.0 * delta))
+	if absf(shown_credits - credits) < 0.5:
+		shown_credits = credits
+	_credits_label.text = "%s crédits" % _fmt(roundi(shown_credits))
+	_won_label.text = "Gagné au jeu : %s" % _fmt(won)
 
-
-# --- Interface ----------------------------------------------------------------
 
 func _build_ui() -> void:
 	var theme := Theme.new()
 	theme.default_font = serif
 	theme.default_font_size = 20
 	var gold_col := Color(0.96, 0.8, 0.45)
-
 	var panel := StyleBoxFlat.new()
-	panel.bg_color = Color(0.04, 0.045, 0.07, 0.78)
+	panel.bg_color = Color(0.04, 0.045, 0.07, 0.8)
 	panel.border_color = Color(0.8, 0.6, 0.3, 0.55)
 	panel.set_border_width_all(1)
 	panel.set_corner_radius_all(4)
 	panel.set_content_margin_all(16)
 	theme.set_stylebox("panel", "PanelContainer", panel)
-
 	for st in ["normal", "hover", "pressed", "disabled", "focus"]:
 		var b := StyleBoxFlat.new()
 		b.bg_color = {"normal": Color(0.12, 0.08, 0.04, 0.9), "hover": Color(0.25, 0.16, 0.06, 0.95),
@@ -614,10 +563,10 @@ func _build_ui() -> void:
 		b.border_color = Color(0.85, 0.62, 0.3, 0.25 if st == "disabled" else 0.8)
 		b.set_border_width_all(1)
 		b.set_corner_radius_all(3)
-		b.content_margin_left = 18
-		b.content_margin_right = 18
-		b.content_margin_top = 10
-		b.content_margin_bottom = 10
+		b.content_margin_left = 16
+		b.content_margin_right = 16
+		b.content_margin_top = 8
+		b.content_margin_bottom = 8
 		if st == "focus":
 			b.draw_center = false
 			b.border_color = Color(0, 0, 0, 0)
@@ -625,7 +574,7 @@ func _build_ui() -> void:
 	theme.set_color("font_color", "Button", gold_col)
 	theme.set_color("font_hover_color", "Button", Color(1, 0.92, 0.7))
 	theme.set_color("font_disabled_color", "Button", Color(0.5, 0.47, 0.42))
-	theme.set_color("font_color", "Label", Color(0.85, 0.83, 0.8))
+	theme.set_color("font_color", "Label", Color(0.88, 0.85, 0.8))
 
 	var layer := CanvasLayer.new()
 	add_child(layer)
@@ -645,46 +594,81 @@ func _build_ui() -> void:
 	title.add_theme_font_size_override("font_size", 14)
 	title.add_theme_color_override("font_color", Color(0.7, 0.62, 0.5))
 	v.add_child(title)
-	_gold_label = Label.new()
-	_gold_label.add_theme_font_size_override("font_size", 44)
-	_gold_label.add_theme_color_override("font_color", gold_col)
-	v.add_child(_gold_label)
-	_crew_label = Label.new()
-	_crew_label.add_theme_font_size_override("font_size", 16)
-	v.add_child(_crew_label)
+	_credits_label = Label.new()
+	_credits_label.add_theme_font_size_override("font_size", 40)
+	_credits_label.add_theme_color_override("font_color", gold_col)
+	v.add_child(_credits_label)
+	_won_label = Label.new()
+	_won_label.add_theme_font_size_override("font_size", 16)
+	v.add_child(_won_label)
 
-	var bottom := HBoxContainer.new()
-	bottom.add_theme_constant_override("separation", 14)
-	bottom.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	bottom.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	bottom.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	bottom.position.y -= 28
-	root.add_child(bottom)
-	_hire_button = Button.new()
-	_hire_button.pressed.connect(_hire)
-	bottom.add_child(_hire_button)
-	_pick_button = Button.new()
-	_pick_button.pressed.connect(_upgrade_picks)
-	bottom.add_child(_pick_button)
+	var right := PanelContainer.new()
+	right.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	right.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	right.position += Vector2(-28, 24)
+	root.add_child(right)
+	var rv := VBoxContainer.new()
+	right.add_child(rv)
+	var rt := Label.new()
+	rt.text = "Le village"
+	rt.add_theme_font_size_override("font_size", 18)
+	rt.add_theme_color_override("font_color", gold_col)
+	rv.add_child(rt)
+	_places_box = VBoxContainer.new()
+	rv.add_child(_places_box)
 
-	var hint := Label.new()
-	hint.text = "Clic sur un filon : piocher   ·   Clic droit : tourner   ·   Molette : zoomer"
-	hint.add_theme_font_size_override("font_size", 14)
-	hint.add_theme_color_override("font_color", Color(0.6, 0.6, 0.65, 0.8))
-	hint.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	hint.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	hint.position += Vector2(-28, 28)
-	root.add_child(hint)
+	_banner = Label.new()
+	_banner.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_banner.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_banner.position.y += 150
+	_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_banner.add_theme_font_size_override("font_size", 24)
+	_banner.add_theme_color_override("font_color", Color(1, 0.9, 0.7))
+	_banner.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	_banner.add_theme_constant_override("outline_size", 8)
+	_banner.modulate.a = 0.0
+	root.add_child(_banner)
+
+	_hint = Label.new()
+	_hint.text = "Cliquer sur un lieu ouvert pour y jouer   ·   Clic droit : tourner   ·   Molette : zoomer"
+	_hint.add_theme_font_size_override("font_size", 15)
+	_hint.add_theme_color_override("font_color", Color(0.65, 0.65, 0.7, 0.85))
+	_hint.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_hint.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_hint.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_hint.position.y -= 22
+	root.add_child(_hint)
+
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(center)
+	_slot = SLOT.new()
+	_slot.game = self
+	_slot.visible = false
+	_slot.played.connect(_on_slot_played)
+	_slot.closed.connect(_leave_slot)
+	center.add_child(_slot)
 
 
-# --- Capture d'écran pour vérifier le rendu : godot -- --capture=chemin.png ----
+# --- Capture d'écran : godot -- --capture=chemin.png [--open=cafe] [--view=d,x,y] ---
 
 func _maybe_capture() -> void:
+	var path := ""
+	var open := ""
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--capture="):
-			var path := arg.trim_prefix("--capture=")
-			gold = 37
-			await get_tree().create_timer(6.0).timeout
-			await RenderingServer.frame_post_draw
-			get_viewport().get_texture().get_image().save_png(path)
-			get_tree().quit()
+			path = arg.trim_prefix("--capture=")
+		elif arg.begins_with("--open="):
+			open = arg.trim_prefix("--open=")
+	if path == "":
+		return
+	if open != "":
+		await get_tree().create_timer(1.0).timeout
+		_enter(open)
+		await get_tree().create_timer(1.5).timeout
+		_slot.spin()
+	await get_tree().create_timer(6.0).timeout
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(path)
+	get_tree().quit()
