@@ -188,6 +188,7 @@ func spin() -> void:
 
 func _stop_reel(r: int, after: float) -> void:
 	await get_tree().create_timer(after).timeout
+	Sfx.play("tick", -6.0, 0.8 + r * 0.15)
 	speeds[r] = 0.0
 	# Le symbole tiré se cale au milieu de la fenêtre.
 	var n: int = strips[r].size()

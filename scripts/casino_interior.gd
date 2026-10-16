@@ -96,6 +96,7 @@ func _ready() -> void:
 	player.interact.connect(_on_interact)
 	_shown = Game.credits
 	_refresh_locks(true)
+	Sfx.set_ambience("casino")
 	_maybe_capture()
 
 
@@ -1197,7 +1198,8 @@ func _close_panel() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
-func _on_played(_bet: int, payout: int) -> void:
+func _on_played(bet: int, payout: int) -> void:
+	Sfx.result(bet, payout)
 	Game.cash_in(payout)
 	_refresh_locks()
 	if Game.advance_if_broke(1):

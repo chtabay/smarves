@@ -124,6 +124,7 @@ func _change_bet(d: int) -> void:
 
 
 func _draw_card() -> Dictionary:
+	Sfx.play("card", -6.0)
 	if shoe.size() < 60:
 		shoe.clear()
 		for deck in 6:

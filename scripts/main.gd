@@ -90,6 +90,7 @@ func _ready() -> void:
 	add_child(camera)
 	camera.make_current()
 	_refresh_places()
+	Sfx.set_ambience("village")
 	_maybe_capture()
 
 
@@ -556,6 +557,7 @@ func spend(amount: int) -> bool:
 
 
 func _on_slot_played(bet: int, payout: int) -> void:
+	Sfx.result(bet, payout)
 	var before := Game.won
 	Game.cash_in(payout)
 	for v in villagers:

@@ -135,6 +135,7 @@ func _refresh() -> void:
 
 
 func _card() -> Dictionary:
+	Sfx.play("card", -6.0)
 	if shoe.size() < 14:
 		shoe.clear()
 		for d in 8:

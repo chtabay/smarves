@@ -65,6 +65,7 @@ func spend(amount: int) -> bool:
 		return false
 	credits -= amount
 	staked += amount
+	Sfx.play("chips", -9.0)
 	if debt > 0:
 		_plays_since_interest += 1
 		if _plays_since_interest >= INTEREST_EVERY:

@@ -123,9 +123,11 @@ func _roll() -> void:
 		_info.text = "Posez d'abord une mise."
 		return
 	busy = true
+	Sfx.play("shake", -4.0)
 	for i in 10:
 		_dice.text = "%s %s" % [FACES.pick_random(), FACES.pick_random()]
 		await get_tree().create_timer(0.05 + i * 0.015).timeout
+	Sfx.play("dice", -4.0)
 	var a := randi_range(1, 6)
 	var b := randi_range(1, 6)
 	var s := a + b

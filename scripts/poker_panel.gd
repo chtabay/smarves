@@ -250,6 +250,7 @@ func _new_hand() -> void:
 		for r in 13:
 			deck.append({"r": r, "s": s})
 	deck.shuffle()
+	Sfx.play("shuffle", -6.0)
 	board.clear()
 	pot = 0
 	street = 0

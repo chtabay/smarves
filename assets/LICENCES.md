@@ -21,3 +21,7 @@ Crédit volontaire : Kenney (www.kenney.nl) et Poly Haven (polyhaven.com).
 - `kaykit/furniture` : KayKit Furniture Bits (CC0) — https://github.com/KayKit-Game-Assets/KayKit-Furniture-Bits-1.0
 - `kaykit/restaurant` : KayKit Restaurant Bits (CC0) — https://github.com/KayKit-Game-Assets/KayKit-Restaurant-Bits-1.0
 - `quaternius/village` : Quaternius, Medieval Village Pack (CC0) — https://quaternius.com, via https://github.com/trebeljahr/quaternius-showcase
+- `audio/casino` : Kenney, Casino Audio (CC0) — https://kenney.nl/assets/casino-audio
+- `audio/ui` : Kenney, UI Audio (sélection, CC0) — https://kenney.nl/assets/ui-audio
+- `audio/jingles` : Kenney, Music Jingles (sélection, CC0) — https://kenney.nl/assets/music-jingles
+- Les ambiances (murmure, grillons, musique d'ambiance) sont synthétisées par le jeu (`scripts/sfx.gd`).

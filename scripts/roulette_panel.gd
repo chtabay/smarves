@@ -222,6 +222,7 @@ func spin() -> void:
 	tw.tween_method(func(a): _wheel_angle = a; _wheel.queue_redraw(), start_w, end_w, 4.0).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
 	tw.tween_method(func(a): _ball_angle = a; _wheel.queue_redraw(), start_b, end_b, 4.0).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUART)
 	await tw.finished
+	Sfx.play("dice", -8.0, 1.6)
 	var total := _total()
 	var payout := 0
 	for k in bets:
