@@ -6,7 +6,7 @@ La fiche de cadrage est dans [`docs/CADRAGE.md`](docs/CADRAGE.md), les captures 
 
 ## Jouer
 
-**Sans Godot** : téléchargez `Smarves-windows` dans l'onglet *Actions* du dépôt (dernière exécution réussie de « Exporter pour Windows »), décompressez, lancez `Smarves.exe`.
+**Sans Godot** : [télécharger la dernière version pour Windows](https://github.com/chtabay/smarves/releases/latest/download/Smarves-windows.zip), décompresser, lancer `Smarves.exe`. Elle est reconstruite à chaque poussée sur `main`.
 
 **Avec Godot** : installez [Godot 4.7](https://godotengine.org/download) (version standard), ouvrez le dossier du projet dans Godot, puis appuyez sur **F5**.
 

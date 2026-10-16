@@ -8,6 +8,9 @@ on:
 env:
   GODOT_VERSION: "4.7.2"
 
+permissions:
+  contents: write
+
 jobs:
   export:
     runs-on: ubuntu-latest
@@ -39,3 +42,27 @@ jobs:
           name: Smarves-windows
           path: build/
           retention-days: 30
+
+      - name: Préparer l'archive de téléchargement
+        if: github.ref == 'refs/heads/main'
+        run: |
+          cd build
+          zip -q ../Smarves-windows.zip Smarves.exe
+
+      - name: Déplacer l'étiquette de la dernière version
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git tag -f derniere-version
+          git push -f origin derniere-version
+
+      - name: Publier la Release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: derniere-version
+          name: Smarves — dernière version
+          body: |
+            Version construite automatiquement depuis main (${{ github.sha }}).
+            Télécharger, décompresser, lancer Smarves.exe (Windows 64 bits).
+          files: Smarves-windows.zip
+          make_latest: true
