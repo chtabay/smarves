@@ -1,0 +1,241 @@
+extends PanelContainer
+## Punto banco, règles d'Addict : sabot de 8 jeux, tableau de tirage fixe. Joueur 1 contre 1,
+## Banquier 1 contre 1 moins 5 % de commission, Égalité 8 contre 1 (une égalité rend Joueur et Banquier).
+
+signal played(bet: int, payout: int)
+signal closed
+
+const CHIPS := [100, 500, 1000, 5000]
+const SUITS := ["♠", "♥", "♦", "♣"]
+const RANKS := ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "V", "D", "R"]
+
+var title := "Baccara"
+var chip_index := 0
+var shoe: Array = []
+var bets := {"joueur": 0, "banquier": 0, "egalite": 0}
+var busy := false
+var _player_box: HBoxContainer
+var _banker_box: HBoxContainer
+var _info: Label
+var _chip_label: Label
+var _bet_buttons := {}
+var _font: SystemFont
+
+
+func _ready() -> void:
+	_font = SystemFont.new()
+	_font.font_names = PackedStringArray(["Georgia", "Segoe UI Symbol"])
+	custom_minimum_size = Vector2(820, 0)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 10)
+	add_child(v)
+	var t := Label.new()
+	t.text = title
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	t.add_theme_font_size_override("font_size", 30)
+	t.add_theme_color_override("font_color", Color(0.96, 0.8, 0.45))
+	v.add_child(t)
+	var rule := Label.new()
+	rule.text = "Joueur 1 contre 1  ·  Banquier 1 contre 1 moins 5 %  ·  Égalité 8 contre 1"
+	rule.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	rule.add_theme_font_size_override("font_size", 14)
+	rule.add_theme_color_override("font_color", Color(0.7, 0.66, 0.6))
+	v.add_child(rule)
+	var hands := HBoxContainer.new()
+	hands.alignment = BoxContainer.ALIGNMENT_CENTER
+	hands.add_theme_constant_override("separation", 30)
+	v.add_child(hands)
+	_player_box = _hand(hands, "Joueur")
+	_banker_box = _hand(hands, "Banquier")
+	_info = Label.new()
+	_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_info.add_theme_font_size_override("font_size", 20)
+	_info.text = "Posez vos plaques, puis demandez les cartes."
+	v.add_child(_info)
+	var bet_row := HBoxContainer.new()
+	bet_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	bet_row.add_theme_constant_override("separation", 10)
+	v.add_child(bet_row)
+	for k in ["joueur", "egalite", "banquier"]:
+		var b := Button.new()
+		b.custom_minimum_size = Vector2(200, 50)
+		b.pressed.connect(_place.bind(k))
+		bet_row.add_child(b)
+		_bet_buttons[k] = b
+	var controls := HBoxContainer.new()
+	controls.alignment = BoxContainer.ALIGNMENT_CENTER
+	controls.add_theme_constant_override("separation", 10)
+	v.add_child(controls)
+	var minus := Button.new()
+	minus.text = "−"
+	minus.pressed.connect(func(): _chip(-1))
+	controls.add_child(minus)
+	_chip_label = Label.new()
+	_chip_label.custom_minimum_size = Vector2(130, 0)
+	_chip_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	controls.add_child(_chip_label)
+	var plus := Button.new()
+	plus.text = "+"
+	plus.pressed.connect(func(): _chip(1))
+	controls.add_child(plus)
+	var deal := Button.new()
+	deal.text = "Les cartes  (Espace)"
+	deal.pressed.connect(_deal)
+	controls.add_child(deal)
+	var leave := Button.new()
+	leave.text = "Quitter (Échap)"
+	leave.pressed.connect(func(): closed.emit())
+	controls.add_child(leave)
+	_chip(0)
+	_refresh()
+
+
+func _hand(parent: Control, who: String) -> HBoxContainer:
+	var v := VBoxContainer.new()
+	parent.add_child(v)
+	var l := Label.new()
+	l.text = who
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(l)
+	var felt := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.18, 0.04, 0.06) if who == "Banquier" else Color(0.04, 0.08, 0.22)
+	sb.set_corner_radius_all(8)
+	sb.set_content_margin_all(10)
+	felt.add_theme_stylebox_override("panel", sb)
+	felt.custom_minimum_size = Vector2(330, 130)
+	v.add_child(felt)
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 8)
+	felt.add_child(h)
+	return h
+
+
+func _chip(d: int) -> void:
+	chip_index = clampi(chip_index + d, 0, CHIPS.size() - 1)
+	_chip_label.text = "Plaque : %s" % Game.fmt(CHIPS[chip_index])
+
+
+func _place(key: String) -> void:
+	if busy:
+		return
+	if not Game.spend(CHIPS[chip_index]):
+		_info.text = "Pas assez de crédits pour cette plaque."
+		return
+	bets[key] += CHIPS[chip_index]
+	_refresh()
+
+
+func _refresh() -> void:
+	var names := {"joueur": "Joueur", "banquier": "Banquier", "egalite": "Égalité"}
+	for k in _bet_buttons:
+		_bet_buttons[k].text = "%s%s" % [names[k], ("  ·  %s" % Game.fmt(bets[k])) if bets[k] > 0 else ""]
+
+
+func _card() -> Dictionary:
+	if shoe.size() < 14:
+		shoe.clear()
+		for d in 8:
+			for s in 4:
+				for r in 13:
+					shoe.append({"r": r, "s": s})
+		shoe.shuffle()
+	return shoe.pop_back()
+
+
+static func value(hand: Array) -> int:
+	var t := 0
+	for c in hand:
+		t += 0 if c.r >= 9 else c.r + 1
+	return t % 10
+
+
+## Le tableau de tirage classique du punto banco.
+static func banker_draws(b: int, third: int) -> bool:
+	if third < 0:
+		return b <= 5
+	match b:
+		0, 1, 2: return true
+		3: return third != 8
+		4: return third >= 2 and third <= 7
+		5: return third >= 4 and third <= 7
+		6: return third == 6 or third == 7
+	return false
+
+
+func _deal() -> void:
+	var total: int = bets.joueur + bets.banquier + bets.egalite
+	if busy or total == 0:
+		if total == 0:
+			_info.text = "Posez d'abord une plaque."
+		return
+	busy = true
+	var p := [_card(), _card()]
+	var b := [_card(), _card()]
+	var third := -1
+	if value(p) < 8 and value(b) < 8:
+		if value(p) <= 5:
+			var c := _card()
+			p.append(c)
+			third = 0 if c.r >= 9 else c.r + 1
+		if banker_draws(value(b), third):
+			b.append(_card())
+	_show(_player_box, p)
+	_show(_banker_box, b)
+	var pv := value(p)
+	var bv := value(b)
+	var payout := 0
+	var msg := ""
+	if pv > bv:
+		payout = bets.joueur * 2
+		msg = "Le Joueur gagne, %d à %d." % [pv, bv]
+	elif bv > pv:
+		payout = bets.banquier * 2 - int(round(bets.banquier * 0.05))
+		msg = "La Banque gagne, %d à %d." % [bv, pv]
+	else:
+		payout = bets.joueur + bets.banquier + bets.egalite * 9
+		msg = "Égalité à %d." % pv
+	if payout > 0:
+		msg += " Vous encaissez %s." % Game.fmt(payout)
+	else:
+		msg += " Un placement de long terme."
+	_info.text = msg
+	for k in bets:
+		bets[k] = 0
+	_refresh()
+	busy = false
+	played.emit(total, payout)
+
+
+func _show(box: HBoxContainer, hand: Array) -> void:
+	for c in box.get_children():
+		c.queue_free()
+	for c in hand:
+		var p := PanelContainer.new()
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.98, 0.96, 0.9)
+		sb.border_color = Color(0.85, 0.7, 0.4)
+		sb.set_border_width_all(2)
+		sb.set_corner_radius_all(6)
+		p.add_theme_stylebox_override("panel", sb)
+		p.custom_minimum_size = Vector2(72, 104)
+		var l := Label.new()
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		l.add_theme_font_override("font", _font)
+		l.add_theme_font_size_override("font_size", 30)
+		l.text = "%s\n%s" % [RANKS[c.r], SUITS[c.s]]
+		l.add_theme_color_override("font_color", Color(0.75, 0.05, 0.1) if c.s in [1, 2] else Color(0.08, 0.08, 0.1))
+		p.add_child(l)
+		box.add_child(p)
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not visible:
+		return
+	if event is InputEventKey and event.pressed and event.keycode == KEY_SPACE:
+		_deal()
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("ui_cancel"):
+		closed.emit()
+		get_viewport().set_input_as_handled()

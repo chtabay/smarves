@@ -8,6 +8,7 @@ const VILLAGER := preload("res://scripts/villager.gd")
 const SLOT := preload("res://scripts/slot_machine.gd")
 const ROULETTE := preload("res://scripts/roulette_panel.gd")
 const BLACKJACK := preload("res://scripts/blackjack_panel.gd")
+const BACCARA := preload("res://scripts/baccara_panel.gd")
 const KC := "res://assets/kenney/characters/"
 const KK := "res://assets/kaykit/"
 const WALL_H := 6.0
@@ -783,6 +784,7 @@ func _build_salon() -> void:
 	var baccara := _node(Vector3(-20.0, 0, -7.0))
 	_table_base(baccara, Vector3(3.4, 0.9, 1.8))
 	_bill(_label("Baccara", Vector3(0, 2.4, 0), 90.0, 64, Color(1.0, 0.85, 0.5), baccara))
+	_interactive(baccara, "baccara", "E : s'asseoir au baccara", Vector3(3.6, 2.0, 2.8), Vector3(0, 1.0, 0.6))
 	_person("character-female-f.glb", Vector3(-20.0, 0, -8.3), 0.0)
 	_person("character-male-c.glb", Vector3(-18.6, 0, -6.0), 135.0)
 	# La porte capitonnée et son portier.
@@ -848,6 +850,10 @@ func _refresh_locks(silent := false) -> void:
 			barriers.erase(l.id)
 			if not silent:
 				_announce("%s vous ouvre %s." % [l.host, l.name])
+				if l.id == "salon":
+					Game.credits += 500
+					Game.changed.emit()
+					_announce("Monsieur Armand vous ouvre le salon et vous offre une plaque de 500. « Un client d'avenir. »")
 
 
 # --- Jeux et interactions ----------------------------------------------------------------
@@ -878,6 +884,10 @@ func _on_interact(target: Node) -> void:
 		"blackjack":
 			var b: PanelContainer = BLACKJACK.new()
 			_open_panel(b)
+		"baccara":
+			var c: PanelContainer = BACCARA.new()
+			c.title = "Baccara du salon privé"
+			_open_panel(c)
 
 
 func _open_panel(p: Control) -> void:
