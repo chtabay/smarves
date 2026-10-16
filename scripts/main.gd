@@ -93,6 +93,14 @@ func _ready() -> void:
 	camera.make_current()
 	_refresh_places()
 	Sfx.set_ambience("village")
+	# En vitrine derrière l'écran titre : pas d'interface, pas d'accueil, pas de bavardages.
+	if has_meta("vitrine"):
+		for c in get_children():
+			if c is CanvasLayer:
+				c.visible = false
+		set_process_unhandled_input(false)
+		_bark_timer = INF
+		return
 	if not Game.welcomed and not "--capture" in " ".join(OS.get_cmdline_user_args()):
 		_welcome()
 	Game.brunet_calls.connect(func():
@@ -128,7 +136,8 @@ func _make_materials() -> void:
 	stone_material.albedo_color = Color(0.86, 0.8, 0.68)
 	stone_material.albedo_texture = _noise_tex(false, 0.05, Color(0.82, 0.78, 0.7))
 	stone_material.normal_enabled = true
-	stone_material.normal_texture = _noise_tex(true, 0.09, Color.BLACK)
+	stone_material.normal_texture = _noise_tex(true, 0.02, Color.BLACK)
+	stone_material.normal_scale = 0.35
 	stone_material.uv1_triplanar = true
 	stone_material.roughness = 0.9
 
@@ -180,6 +189,18 @@ func _box(size: Vector3, pos: Vector3, mat: Material, parent: Node = self) -> Me
 
 # --- Ambiance : le crépuscule du Poitou ------------------------------------------
 
+## Étalonnage tranché : ombres poussées vers le bleu nuit, hautes lumières vers l'or.
+func _grade(shadow: Color, mid: Color, high: Color) -> GradientTexture1D:
+	var g := Gradient.new()
+	g.set_color(0, shadow)
+	g.set_color(1, high)
+	g.add_point(0.5, mid)
+	var t := GradientTexture1D.new()
+	t.gradient = g
+	t.width = 256
+	return t
+
+
 func _build_environment() -> void:
 	var env := Environment.new()
 	var sky := Sky.new()
@@ -209,7 +230,17 @@ func _build_environment() -> void:
 	env.volumetric_fog_gi_inject = 0.3
 	env.volumetric_fog_sky_affect = 0.0
 	env.adjustment_enabled = true
-	env.adjustment_saturation = 1.22
+	env.adjustment_saturation = 1.18
+	env.adjustment_color_correction = _grade(Color(0.0, 0.012, 0.05), Color(0.5, 0.48, 0.5), Color(1.0, 0.94, 0.8))
+	for i in 7:
+		env.set_glow_level(i, [0.0, 1.0, 1.0, 0.6, 0.4, 0.0, 0.0][i])
+	env.glow_intensity = 0.9
+	env.glow_bloom = 0.12
+	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
+	env.ssao_radius = 1.2
+	env.ssao_intensity = 2.6
+	env.volumetric_fog_density = 0.012
+	env.volumetric_fog_albedo = Color(0.35, 0.4, 0.6)
 	env.adjustment_contrast = 1.05
 	var we := WorldEnvironment.new()
 	we.environment = env
@@ -250,7 +281,9 @@ func _build_plinth() -> void:
 
 func _build_square() -> void:
 	# La place pavée et la route devant.
-	_box(Vector3(22, 0.1, 16), Vector3(0, -0.05, 0), pave_material)
+	var cobbles := ShaderMaterial.new()
+	cobbles.shader = load("res://shaders/cobbles.gdshader")
+	_box(Vector3(22, 0.1, 16), Vector3(0, -0.05, 0), cobbles)
 	var asphalt := StandardMaterial3D.new()
 	asphalt.albedo_color = Color(0.09, 0.09, 0.1)
 	asphalt.roughness = 0.3  # bitume humide : il reflète les ampoules

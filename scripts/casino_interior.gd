@@ -146,7 +146,21 @@ func _materials() -> void:
 	dark_wood = wood.duplicate()
 	dark_wood.albedo_color = Color(0.22, 0.09, 0.05)
 	marble_white = _std(Color(0.92, 0.9, 0.86), 0.12)
-	felt = _std(Color(0.03, 0.3, 0.16), 1.0)
+	felt = _std(Color(0.06, 0.36, 0.2), 1.0)
+	var fn := FastNoiseLite.new()
+	fn.frequency = 0.9
+	var ft := NoiseTexture2D.new()
+	ft.width = 256
+	ft.height = 256
+	ft.seamless = true
+	ft.noise = fn
+	var fg := Gradient.new()
+	fg.set_color(0, Color(0.78, 0.8, 0.78))
+	fg.set_color(1, Color(1, 1, 1))
+	ft.color_ramp = fg
+	felt.albedo_texture = ft
+	felt.uv1_triplanar = true
+	felt.uv1_scale = Vector3.ONE * 3.0
 	velvet = _std(Color(0.5, 0.03, 0.08), 0.85)
 	brass_glow = _std(Color(1.0, 0.85, 0.6), 0.3)
 	brass_glow.emission_enabled = true
@@ -182,7 +196,19 @@ func _environment() -> void:
 	env.volumetric_fog_density = 0.006
 	env.volumetric_fog_albedo = Color(0.9, 0.8, 0.7)
 	env.adjustment_enabled = true
-	env.adjustment_saturation = 1.08
+	env.adjustment_saturation = 1.1
+	var g := Gradient.new()
+	g.set_color(0, Color(0.01, 0.005, 0.02))
+	g.set_color(1, Color(1.0, 0.93, 0.78))
+	g.add_point(0.5, Color(0.52, 0.47, 0.44))
+	var grade := GradientTexture1D.new()
+	grade.gradient = g
+	env.adjustment_color_correction = grade
+	for i in 7:
+		env.set_glow_level(i, [0.0, 1.0, 1.0, 0.7, 0.4, 0.0, 0.0][i])
+	env.glow_intensity = 0.8
+	env.glow_bloom = 0.1
+	env.volumetric_fog_density = 0.014
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
