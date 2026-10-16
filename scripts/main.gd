@@ -5,6 +5,19 @@ const ORBIT := preload("res://scripts/orbit_camera.gd")
 const VILLAGER := preload("res://scripts/villager.gd")
 const SLOT := preload("res://scripts/slot_machine.gd")
 const LOAN := preload("res://scripts/loan_panel.gd")
+const RACE := preload("res://scripts/race_panel.gd")
+const LOTO := preload("res://scripts/loto_panel.gd")
+const ROULETTE := preload("res://scripts/roulette_panel.gd")
+const WHEEL := preload("res://scripts/wheel_panel.gd")
+const BLACKJACK := preload("res://scripts/blackjack_panel.gd")
+
+## Où regarde la caméra quand on joue dans chaque lieu de la place : [cible, distance, lacet, tangage].
+const FOCUS := {
+	"petanque": [Vector3(4.5, 0.6, 3.0), 7.0, 0.0, -30.0],
+	"boulangerie": [Vector3(7.0, 1.0, -1.0), 6.0, -90.0, -18.0],
+	"rabelais": [Vector3(-7.4, 1.2, 4.4), 6.5, 90.0, -18.0],
+	"eglise": [Vector3(2.6, 1.0, -3.4), 6.0, 0.0, -14.0],
+}
 const KN := "res://assets/kenney/nature/"
 const KS := "res://assets/kenney/survival/"
 const KD := "res://assets/kenney/dungeon/"
@@ -585,11 +598,63 @@ func _enter(id: String) -> void:
 		get_tree().change_scene_to_file("res://scenes/casino.tscn")
 		return
 	if id != "cafe":
-		_announce("%s est ouvert, mais %s n'est pas encore installé." % [p.name, p.game])
+		var panel := _game_panel(id)
+		if panel == null:
+			_announce("%s est ouvert, mais %s n'est pas encore installé." % [p.name, p.game])
+			return
+		if FOCUS.has(id):
+			var f: Array = FOCUS[id]
+			camera.focus(f[0], f[1], deg_to_rad(f[2]), deg_to_rad(f[3]))
+		panel.played.connect(_on_game_played)
+		panel.closed.connect(func():
+			panel.queue_free()
+			_hint.visible = true
+			camera.release())
+		_slot.get_parent().add_child(panel)
+		_hint.visible = false
 		return
 	camera.focus(Vector3(-6.7, 0.8, -2.2), 5.0, deg_to_rad(70.0), deg_to_rad(-14.0))
 	_slot.visible = true
 	_hint.visible = false
+
+
+## Le jeu de chaque lieu du village, sur les règles du casino.
+func _game_panel(id: String) -> Control:
+	match id:
+		"petanque":
+			var r: PanelContainer = RACE.new()
+			r.title = "Les paris de Lucien"
+			r.subtitle = "Partie en 13 points sur la place  ·  cotes à la craie"
+			r.verb = "gagne la partie"
+			r.runners = [["Lucien et Dédé", 1.5], ["Les Rabelais", 3.0], ["Les jeunes du Clain", 5.0]]
+			return r
+		"boulangerie":
+			var ro: PanelContainer = ROULETTE.new()
+			ro.title = "La roulette du comptoir"
+			return ro
+		"rabelais":
+			return LOTO.new()
+		"eglise":
+			var w: PanelContainer = WHEEL.new()
+			w.mode = "roue"
+			w.title = "La roue de la kermesse"
+			return w
+		"zebres":
+			var z: PanelContainer = RACE.new()
+			z.title = "La course des trois zèbres"
+			z.subtitle = "Allée du château, bois de Saint-Pierre  ·  paris à la cote"
+			z.verb = "franchit la ligne"
+			z.runners = [["Zébulon", 2.0], ["Zéphyr", 3.0], ["Zoé", 4.0]]
+			return z
+		"moulin":
+			var b: PanelContainer = BLACKJACK.new()
+			b.title = "Le blackjack du Moulin des Dames"
+			return b
+	return null
+
+
+func _on_game_played(bet: int, payout: int) -> void:
+	_on_slot_played(bet, payout)
 
 
 func _leave_slot() -> void:
@@ -609,14 +674,19 @@ func _refresh_places() -> void:
 		c.queue_free()
 	for p in PLACES:
 		var open: bool = Game.won >= p.seuil
-		var l := Label.new()
+		# Chaque ligne est un bouton : on peut aller jouer dans les lieux hors de la place.
+		var l := Button.new()
+		l.flat = true
+		l.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		l.add_theme_font_size_override("font_size", 15)
 		if open:
 			l.text = "●  %s  —  %s" % [p.name, p.game]
 			l.add_theme_color_override("font_color", Color(0.96, 0.82, 0.5))
+			l.add_theme_color_override("font_hover_color", Color(1, 0.95, 0.75))
 		else:
 			l.text = "○  %s  —  %s gagnés" % [p.name, _fmt(p.seuil)]
 			l.add_theme_color_override("font_color", Color(0.55, 0.55, 0.6))
+		l.pressed.connect(_enter.bind(p.id))
 		_places_box.add_child(l)
 		if place_signs.has(p.id):
 			var s: Label3D = place_signs[p.id]
@@ -759,6 +829,10 @@ func _maybe_capture() -> void:
 			path = arg.trim_prefix("--capture=")
 		elif arg.begins_with("--open="):
 			open = arg.trim_prefix("--open=")
+		elif arg.begins_with("--won="):
+			Game.won = int(arg.trim_prefix("--won="))
+			Game.credits += 2000
+			_refresh_places()
 	if path == "":
 		return
 	if open != "":
