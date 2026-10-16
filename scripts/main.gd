@@ -69,6 +69,7 @@ var _slot: PanelContainer
 var _hint: Label
 var _back: Button
 var area := ""
+var moving_cars: Array[Node3D] = []
 
 
 func _ready() -> void:
@@ -177,18 +178,14 @@ func _box(size: Vector3, pos: Vector3, mat: Material, parent: Node = self) -> Me
 func _build_environment() -> void:
 	var env := Environment.new()
 	var sky := Sky.new()
-	var sm := ProceduralSkyMaterial.new()
-	sm.sky_top_color = Color(0.03, 0.05, 0.16)
-	sm.sky_horizon_color = Color(0.35, 0.22, 0.32)
-	sm.ground_bottom_color = Color(0.01, 0.01, 0.02)
-	sm.ground_horizon_color = Color(0.12, 0.08, 0.12)
-	sm.sun_angle_max = 0.0
+	var sm := ShaderMaterial.new()
+	sm.shader = load("res://shaders/night_sky.gdshader")
 	sky.sky_material = sm
 	env.sky = sky
-	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color(0.015, 0.018, 0.035)
+	env.background_mode = Environment.BG_SKY
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.6
+	env.ambient_light_energy = 1.4
+	env.ambient_light_sky_contribution = 1.0
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	env.tonemap_mode = Environment.TONE_MAPPER_AGX
 	env.tonemap_exposure = 1.05
@@ -449,6 +446,20 @@ func _build_trees_and_lights() -> void:
 		_place(KK + "city/bush.gltf", p, 2.5)
 	for p in [Vector3(-7.0, 0, 3.0), Vector3(7.2, 0, 1.4), Vector3(7.4, 0, 1.8)]:
 		_place(KK + "medieval_decoration/props/barrel.gltf", p, 2.4, randf() * 360.0)
+	# Les voitures qui passent sur la route, phares allumés.
+	for k in 2:
+		var car := _place(KK + "city/%s.gltf" % ["car_taxi", "car_stationwagon"][k], Vector3(-11.0 + k * 12.0, 0, 6.0 if k == 0 else 6.9), 1.9, 90.0 if k == 0 else -90.0)
+		for side in [-0.12, 0.12]:
+			var beam := SpotLight3D.new()
+			beam.light_color = Color(1.0, 0.92, 0.75)
+			beam.light_energy = 3.0
+			beam.spot_range = 6.0
+			beam.spot_angle = 30.0
+			beam.position = Vector3(side, 0.18, 0.5)
+			beam.rotation_degrees.x = -8.0
+			beam.rotation_degrees.y = 180.0
+			car.add_child(beam)
+		moving_cars.append(car)
 	# Les voitures garées.
 	_place(KK + "city/car_sedan.gltf", Vector3(-5.0, 0, 6.1), 1.9, 90.0)
 	_place(KK + "city/car_hatchback.gltf", Vector3(4.5, 0, 6.7), 1.9, -90.0)
@@ -534,9 +545,9 @@ func _villager(model: String, pos: Vector3, rot_y: float, pose := "idle", route:
 
 func _build_villagers() -> void:
 	# En terrasse.
-	_villager("character-male-b.glb", Vector3(-5.85, 0.0, -2.2), 90.0, "sit")
-	_villager("character-female-c.glb", Vector3(-4.75, 0.0, -2.2), -90.0, "sit")
-	_villager("character-male-d.glb", Vector3(-4.75, 0.0, 2.0), -90.0, "sit")
+	_villager("character-male-b.glb", Vector3(-5.85, 0.07, -2.2), 90.0, "sit")
+	_villager("character-female-c.glb", Vector3(-4.95, 0.07, -2.2), -90.0, "sit")
+	_villager("character-male-d.glb", Vector3(-4.95, 0.07, 1.4), -90.0, "sit")
 	# Les boulistes.
 	_villager("character-male-f.glb", Vector3(2.6, 0, 3.0), 90.0)
 	_villager("character-male-a.glb", Vector3(3.0, 0, 2.3), 70.0)
@@ -788,6 +799,14 @@ func _announce(text: String) -> void:
 
 
 func _process(delta: float) -> void:
+	for i in moving_cars.size():
+		var car := moving_cars[i]
+		var dir := 1.0 if i == 0 else -1.0
+		car.position.x += dir * (2.2 + i * 0.6) * delta
+		if car.position.x > 12.5:
+			car.position.x = -12.5
+		elif car.position.x < -12.5:
+			car.position.x = 12.5
 	shown_credits = lerpf(shown_credits, Game.credits, 1.0 - exp(-10.0 * delta))
 	if absf(shown_credits - Game.credits) < 0.5:
 		shown_credits = Game.credits
