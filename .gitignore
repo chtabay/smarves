@@ -1,0 +1,22 @@
+# Godot 4+
+.godot/
+/android/
+
+# Exports et builds
+/build/
+/export/
+*.exe
+*.pck
+*.zip
+
+# Fichiers d'imports temporaires et systèmes
+*.tmp
+*.translation
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Éditeurs
+.vscode/
+.idea/
+*.swp
