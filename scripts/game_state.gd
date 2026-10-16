@@ -18,6 +18,8 @@ var advances_left := MAX_ADVANCES
 ## Ce qu'on doit au Crédit Smarvois. Les intérêts courent avec les mises, pas avec le temps.
 var debt := 0
 var loans_taken := 0
+## L'accueil de Josiane a eu lieu (première partie).
+var welcomed := false
 var peak_credits := START_CREDITS
 var _last_call_staked := -100000
 var _plays_since_interest := 0
@@ -43,7 +45,7 @@ func save_game() -> void:
 	if f == null:
 		return
 	f.store_string(JSON.stringify({"credits": credits, "won": won, "staked": staked,
-		"advances_left": advances_left, "debt": debt, "loans_taken": loans_taken, "peak": peak_credits}))
+		"advances_left": advances_left, "debt": debt, "loans_taken": loans_taken, "peak": peak_credits, "welcomed": welcomed}))
 
 
 func load_game() -> void:
@@ -63,6 +65,23 @@ func load_game() -> void:
 	debt = int(data.get("debt", debt))
 	loans_taken = int(data.get("loans_taken", loans_taken))
 	peak_credits = int(data.get("peak", peak_credits))
+	welcomed = bool(data.get("welcomed", welcomed))
+
+
+## Nouvelle partie : on efface tout et on repart du pécule.
+func reset() -> void:
+	credits = START_CREDITS
+	won = 0
+	staked = 0
+	advances_left = MAX_ADVANCES
+	debt = 0
+	loans_taken = 0
+	peak_credits = START_CREDITS
+	_last_call_staked = -100000
+	welcomed = false
+	if FileAccess.file_exists(SAVE_PATH):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
+	changed.emit()
 
 
 func spend(amount: int) -> bool:

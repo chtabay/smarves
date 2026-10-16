@@ -34,6 +34,12 @@ const CHORDS := [[57, 60, 64, 67], [50, 53, 57, 60], [55, 59, 62, 65], [48, 52, 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	# Deux bus, réglables séparément dans le menu : l'ambiance et les bruitages.
+	for bus in ["Ambiance", "Bruitages"]:
+		if AudioServer.get_bus_index(bus) < 0:
+			AudioServer.add_bus()
+			AudioServer.set_bus_name(AudioServer.bus_count - 1, bus)
+			AudioServer.set_bus_send(AudioServer.bus_count - 1, "Master")
 	for k in GROUPS:
 		var list: Array = []
 		for path in GROUPS[k]:
@@ -43,6 +49,7 @@ func _ready() -> void:
 		_streams[k] = list
 	for i in 8:
 		var p := AudioStreamPlayer.new()
+		p.bus = "Bruitages"
 		add_child(p)
 		_players.append(p)
 	_gen = AudioStreamGenerator.new()
@@ -51,6 +58,7 @@ func _ready() -> void:
 	_gen_player = AudioStreamPlayer.new()
 	_gen_player.stream = _gen
 	_gen_player.volume_db = -8.0
+	_gen_player.bus = "Ambiance"
 	add_child(_gen_player)
 
 

@@ -70,6 +70,7 @@ var _hint: Label
 var _back: Button
 var area := ""
 var moving_cars: Array[Node3D] = []
+var josiane: Node3D
 
 
 func _ready() -> void:
@@ -92,6 +93,8 @@ func _ready() -> void:
 	camera.make_current()
 	_refresh_places()
 	Sfx.set_ambience("village")
+	if not Game.welcomed and not "--capture" in " ".join(OS.get_cmdline_user_args()):
+		_welcome()
 	Game.brunet_calls.connect(func():
 		_announce("M. Brunet vous fait signe depuis le Crédit Smarvois : « Votre profil m'intéresse. Passez donc me voir. »"))
 	_maybe_capture()
@@ -549,7 +552,7 @@ func _villager(model: String, pos: Vector3, rot_y: float, pose := "idle", route:
 func _build_villagers() -> void:
 	# En terrasse.
 	_villager("character-male-b.glb", Vector3(-5.85, 0.07, -2.2), 90.0, "sit", [], "", "dede")
-	_villager("character-female-c.glb", Vector3(-4.95, 0.07, -2.2), -90.0, "sit", [], "collier", "josiane")
+	josiane = _villager("character-female-c.glb", Vector3(-4.95, 0.07, -2.2), -90.0, "sit", [], "collier", "josiane")
 	_villager("character-male-d.glb", Vector3(-4.95, 0.07, 1.4), -90.0, "sit")
 	# Les boulistes.
 	_villager("character-male-f.glb", Vector3(2.6, 0, 3.0), 90.0, "idle", [], "chapeau", "lucien")
@@ -655,6 +658,25 @@ func _enter(id: String) -> void:
 	camera.focus(Vector3(-6.7, 0.8, -2.2), 5.0, deg_to_rad(70.0), deg_to_rad(-14.0))
 	_slot.visible = true
 	_hint.visible = false
+
+
+## La première fois, Josiane accueille le joueur et l'envoie vers sa machine, en trois phrases.
+func _welcome() -> void:
+	_bark_timer = 30.0
+	await get_tree().create_timer(1.2).timeout
+	camera.focus(Vector3(-5.6, 0.6, -1.4), 9.0, deg_to_rad(55.0), deg_to_rad(-24.0))
+	var lines := [
+		"Bienvenue à Smarves ! Vous avez une tête à avoir de l'avenir.",
+		"Ici, on ne dépense pas son argent : on le fait travailler. Ma Smarvoise vous attend au fond du café.",
+		"Et si un jour vous manquez de liquidités, M. Brunet est juste en face. Un homme charmant.",
+	]
+	for l in lines:
+		josiane.say(l)
+		await get_tree().create_timer(4.2 + l.length() * 0.035).timeout
+	camera.release()
+	Game.welcomed = true
+	Game.save_game()
+	_announce("Cliquez sur le Café de la Place pour jouer à la Smarvoise.")
 
 
 func _build_signposts() -> void:
@@ -943,7 +965,7 @@ func _build_ui() -> void:
 	root.add_child(_banner)
 
 	_hint = Label.new()
-	_hint.text = "Cliquer sur un lieu ouvert pour y jouer   ·   Clic droit : tourner   ·   Molette : zoomer"
+	_hint.text = "Cliquer sur un lieu ou un habitant   ·   Clic droit : tourner   ·   Molette : zoomer   ·   Échap : réglages"
 	_hint.add_theme_font_size_override("font_size", 15)
 	_hint.add_theme_color_override("font_color", Color(0.65, 0.65, 0.7, 0.85))
 	_hint.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
@@ -983,6 +1005,10 @@ func _maybe_capture() -> void:
 			path = arg.trim_prefix("--capture=")
 		elif arg.begins_with("--open="):
 			open = arg.trim_prefix("--open=")
+		elif arg == "--welcome":
+			_welcome()
+		elif arg == "--menu":
+			Settings.toggle()
 		elif arg.begins_with("--travel="):
 			await get_tree().process_frame
 			travel(arg.trim_prefix("--travel="))

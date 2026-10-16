@@ -1586,7 +1586,7 @@ func _build_ui() -> void:
 	_banner.modulate.a = 0.0
 	root.add_child(_banner)
 	var hint := Label.new()
-	hint.text = "ZQSD : marcher   ·   souris : regarder   ·   E : jouer   ·   Échap : libérer la souris"
+	hint.text = "ZQSD : marcher   ·   souris : regarder   ·   E : jouer   ·   Échap : réglages"
 	hint.add_theme_font_size_override("font_size", 14)
 	hint.add_theme_color_override("font_color", Color(0.7, 0.66, 0.6, 0.8))
 	hint.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
