@@ -20,6 +20,8 @@ var debt := 0
 var loans_taken := 0
 ## L'accueil de Josiane a eu lieu (première partie).
 var welcomed := false
+## Les outils de test coupent la sauvegarde pour ne jamais toucher à la vraie partie.
+var saving_enabled := true
 var peak_credits := START_CREDITS
 var _last_call_staked := -100000
 var _plays_since_interest := 0
@@ -39,7 +41,7 @@ func _ready() -> void:
 ## La partie est gardée sur la machine du joueur, et reprise au lancement suivant.
 func save_game() -> void:
 	# Ni les captures de vérification ni les tests automatiques ne touchent à la vraie partie.
-	if get_tree().get_script() != null or "--capture" in " ".join(OS.get_cmdline_user_args()):
+	if not saving_enabled or get_tree().get_script() != null or "--capture" in " ".join(OS.get_cmdline_user_args()):
 		return
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f == null:

@@ -787,6 +787,9 @@ func _list_enter(id: String) -> void:
 	for key in OUTSKIRTS.AREAS:
 		if OUTSKIRTS.AREAS[key].place == id and area != key:
 			travel(key)
+			# On arrive, puis le jeu s'ouvre si le lieu l'est.
+			await get_tree().create_timer(0.8).timeout
+			_enter(id)
 			return
 	if area != "" and area != "place" and not FOCUS.has(id) and id != "cafe" and id != "banque" and id != "casino":
 		travel("place")
