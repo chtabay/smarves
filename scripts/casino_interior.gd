@@ -920,7 +920,8 @@ func _process(delta: float) -> void:
 	if absf(_shown - Game.credits) < 0.5:
 		_shown = Game.credits
 	_credits_label.text = "%s crédits" % Game.fmt(roundi(_shown))
-	_won_label.text = "Gagné au jeu : %s" % Game.fmt(Game.won)
+	_won_label.text = "Gagné au jeu : %s" % Game.fmt(Game.won) + ("
+Dette au Crédit Smarvois : %s" % Game.fmt(Game.debt) if Game.debt > 0 else "")
 	if player:
 		var t: Node = player.focus_target
 		_prompt.visible = t != null and _active_panel == null

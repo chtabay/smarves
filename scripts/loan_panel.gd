@@ -1,0 +1,108 @@
+extends PanelContainer
+## Le bureau de M. Brunet, conseiller du Crédit Smarvois. Il accorde tous les prêts, avec enthousiasme :
+## au premier degré, le jeu est un investissement. Seuls les chiffres disent autre chose.
+
+signal closed
+
+const PITCH := [
+	"Vous avez parfaitement raison de vouloir préparer votre avenir.",
+	"Le jeu, c'est le placement préféré des Smarvois. Regardez Josiane : toujours souriante.",
+	"Un banquier qui refuse un prêt pour jouer ? Un loser. Pas au Crédit Smarvois.",
+	"Plus la mise est importante, plus le gain potentiel est important. C'est mathématique.",
+	"Votre profil est excellent. Je vous conseillerais même d'emprunter un peu plus.",
+	"Les intérêts ? Une formalité, comparée à ce que vous allez gagner.",
+]
+
+var _speech: Label
+var _status: Label
+var _amounts: HBoxContainer
+
+
+func _ready() -> void:
+	custom_minimum_size = Vector2(700, 0)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 12)
+	add_child(v)
+	var t := Label.new()
+	t.text = "Crédit Smarvois"
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	t.add_theme_font_size_override("font_size", 32)
+	t.add_theme_color_override("font_color", Color(0.6, 0.75, 1.0))
+	v.add_child(t)
+	var sub := Label.new()
+	sub.text = "M. Brunet, conseiller  ·  « Investissez dans votre avenir »"
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sub.add_theme_font_size_override("font_size", 15)
+	sub.add_theme_color_override("font_color", Color(0.7, 0.7, 0.75))
+	v.add_child(sub)
+	_speech = Label.new()
+	_speech.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_speech.custom_minimum_size = Vector2(640, 70)
+	_speech.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_speech.add_theme_font_size_override("font_size", 21)
+	v.add_child(_speech)
+	_status = Label.new()
+	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_status.add_theme_font_size_override("font_size", 17)
+	_status.add_theme_color_override("font_color", Color(0.82, 0.8, 0.75))
+	v.add_child(_status)
+	_amounts = HBoxContainer.new()
+	_amounts.alignment = BoxContainer.ALIGNMENT_CENTER
+	_amounts.add_theme_constant_override("separation", 10)
+	v.add_child(_amounts)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 10)
+	v.add_child(row)
+	var repay := Button.new()
+	repay.text = "Rembourser ce que je peux"
+	repay.pressed.connect(_repay)
+	row.add_child(repay)
+	var leave := Button.new()
+	leave.text = "Merci, monsieur Brunet  (Échap)"
+	leave.pressed.connect(func(): closed.emit())
+	row.add_child(leave)
+	_speech.text = "« Bonjour ! Asseyez-vous. Vous venez pour un projet d'investissement ? Excellent choix. »"
+	_refresh()
+
+
+## Les montants proposés grandissent avec la dette : plus on doit, plus on est un bon client.
+func _offers() -> Array:
+	var base := 500
+	if Game.debt > 0:
+		base = maxi(500, int(Game.debt / 2.0 / 500.0) * 500)
+	return [base, base * 2, base * 5]
+
+
+func _refresh() -> void:
+	for c in _amounts.get_children():
+		c.queue_free()
+	for a in _offers():
+		var b := Button.new()
+		b.text = "Emprunter %s" % Game.fmt(a)
+		b.pressed.connect(_borrow.bind(a))
+		_amounts.add_child(b)
+	_status.text = "Vos crédits : %s   ·   Vous devez : %s   ·   frais de dossier %d %%, intérêts %d %% toutes les %d mises" % [
+		Game.fmt(Game.credits), Game.fmt(Game.debt), int(Game.LOAN_FEE * 100), int(Game.INTEREST_RATE * 100), Game.INTEREST_EVERY]
+
+
+func _borrow(amount: int) -> void:
+	Game.borrow(amount)
+	var line: String = PITCH[mini(Game.loans_taken - 1, PITCH.size() - 1)] if Game.loans_taken <= PITCH.size() else PITCH.pick_random()
+	_speech.text = "« Accordé, %s crédits. %s »" % [Game.fmt(amount), line]
+	_refresh()
+
+
+func _repay() -> void:
+	var paid := Game.repay(Game.credits)
+	if paid <= 0:
+		_speech.text = "« Rembourser ? Gardez donc vos liquidités pour investir. C'est plus raisonnable. »"
+	else:
+		_speech.text = "« %s remboursés. Quelle rigueur ! Vous voilà prêt pour un nouveau projet. »" % Game.fmt(paid)
+	_refresh()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if visible and event.is_action_pressed("ui_cancel"):
+		closed.emit()
+		get_viewport().set_input_as_handled()

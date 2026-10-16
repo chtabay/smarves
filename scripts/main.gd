@@ -4,6 +4,7 @@ extends Node3D
 const ORBIT := preload("res://scripts/orbit_camera.gd")
 const VILLAGER := preload("res://scripts/villager.gd")
 const SLOT := preload("res://scripts/slot_machine.gd")
+const LOAN := preload("res://scripts/loan_panel.gd")
 const KN := "res://assets/kenney/nature/"
 const KS := "res://assets/kenney/survival/"
 const KD := "res://assets/kenney/dungeon/"
@@ -14,6 +15,7 @@ const KC := "res://assets/kenney/characters/"
 const PLACES := [
 	{"id": "cafe", "name": "Le Café de la Place", "game": "La Smarvoise", "seuil": 0, "host": "Josiane"},
 	{"id": "casino", "name": "Le Casino de Smarves", "game": "salles de jeu", "seuil": 0, "host": "Monsieur Armand"},
+	{"id": "banque", "name": "Le Crédit Smarvois", "game": "prêts pour investir", "seuil": 0, "host": "M. Brunet"},
 	{"id": "petanque", "name": "La pétanque de la place", "game": "les paris de Lucien", "seuil": 1000, "host": "Lucien"},
 	{"id": "boulangerie", "name": "La boulangerie", "game": "la roulette du comptoir", "seuil": 5000, "host": "Mme Ferrand"},
 	{"id": "rabelais", "name": "La salle François-Rabelais", "game": "le grand loto", "seuil": 20000, "host": "Le président du comité"},
@@ -291,7 +293,7 @@ func _build_buildings() -> void:
 	_building("cafe", "tavern", "red", Vector3(-8.8, 0, -0.6), 90.0)
 	_building("rabelais", "market", "red", Vector3(-9.0, 0, 4.4), 90.0, 2.6)
 	_building("boulangerie", "home_A", "yellow", Vector3(9.0, 0, -1.2), -90.0)
-	_building("", "home_B", "red", Vector3(9.0, 0, 3.8), -90.0)
+	_building("banque", "home_B", "red", Vector3(9.0, 0, 3.8), -90.0)
 	_build_gambling()
 
 
@@ -567,6 +569,16 @@ func _enter(id: String) -> void:
 	if not is_open(id):
 		_announce("%s : encore fermé. Il faut avoir gagné %s crédits au jeu." % [p.name, _fmt(p.seuil)])
 		return
+	if id == "banque":
+		camera.focus(Vector3(7.6, 1.6, 3.8), 5.5, deg_to_rad(-90.0), deg_to_rad(-28.0))
+		var loan: PanelContainer = LOAN.new()
+		loan.closed.connect(func():
+			loan.queue_free()
+			_hint.visible = true
+			camera.release())
+		_slot.get_parent().add_child(loan)
+		_hint.visible = false
+		return
 	if id == "casino":
 		get_tree().change_scene_to_file("res://scenes/casino.tscn")
 		return
@@ -623,7 +635,8 @@ func _process(delta: float) -> void:
 	if absf(shown_credits - Game.credits) < 0.5:
 		shown_credits = Game.credits
 	_credits_label.text = "%s crédits" % _fmt(roundi(shown_credits))
-	_won_label.text = "Gagné au jeu : %s" % _fmt(Game.won)
+	_won_label.text = "Gagné au jeu : %s" % _fmt(Game.won) + ("
+Dette au Crédit Smarvois : %s" % _fmt(Game.debt) if Game.debt > 0 else "")
 
 
 func _build_ui() -> void:
@@ -750,7 +763,13 @@ func _maybe_capture() -> void:
 		await get_tree().create_timer(1.0).timeout
 		_enter(open)
 		await get_tree().create_timer(1.5).timeout
-		_slot.spin()
+		if open == "cafe":
+			_slot.spin()
+		elif open == "banque":
+			for c in _slot.get_parent().get_children():
+				if c.has_method("_borrow"):
+					c._borrow(500)
+					c._borrow(1000)
 	await get_tree().create_timer(6.0).timeout
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(path)
