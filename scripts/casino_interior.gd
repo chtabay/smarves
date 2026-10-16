@@ -617,6 +617,10 @@ func _slot_machine(pos: Vector3, rot_y: float, title: String) -> void:
 	_box(Vector3(0.6, 0.3, 0.02), Vector3(0, 1.45, 0.18), screen, false, root)
 	var reels := _label("7  ★  ♣", Vector3(0, 1.45, 0.2), 0.0, 52, Color(0.7, 0.05, 0.1), root)
 	reels.outline_size = 0
+	var sym := SystemFont.new()
+	sym.font_names = PackedStringArray(["Segoe UI Symbol", "Georgia"])
+	reels.font = sym
+	root.set_meta("reels", reels)
 	_box(Vector3(0.66, 0.36, 0.03), Vector3(0, 1.45, 0.175), gold, false, root)
 	# Fronton lumineux en arc.
 	var top := MeshInstance3D.new()
@@ -682,6 +686,16 @@ func _roulette_table(pos: Vector3) -> void:
 	rotor.position.y = 0.15
 	wheel.add_child(rotor)
 	_cyl(0.16, 0.06, Vector3(0, 0.19, 0), gold, wheel, 0.06)
+	var ball := MeshInstance3D.new()
+	var bm := SphereMesh.new()
+	bm.radius = 0.018
+	bm.height = 0.036
+	ball.mesh = bm
+	ball.material_override = _std(Color(0.98, 0.98, 0.96), 0.15)
+	ball.position = Vector3(0.4, 0.19, 0)
+	wheel.add_child(ball)
+	root.set_meta("rotor", rotor)
+	root.set_meta("ball", ball)
 	_cyl(0.02, 0.18, Vector3(0, 0.28, 0), gold, wheel)
 	# Le tapis : numéros posés sur le feutre.
 	for col in 12:
@@ -789,6 +803,7 @@ func _craps_table(pos: Vector3) -> void:
 	root.position = pos
 	add_child(root)
 	_table_base(root, Vector3(4.6, 0.9, 2.2))
+	root.set_meta("craps", true)
 	_box(Vector3(4.6, 0.3, 0.12), Vector3(0, 1.0, -1.1), dark_wood, false, root)
 	_box(Vector3(4.6, 0.3, 0.12), Vector3(0, 1.0, 1.1), dark_wood, false, root)
 	var t := _label("PASS LINE", Vector3(0, 0.88, 0.6), 0.0, 48, Color(0.95, 0.95, 0.85), root)
@@ -1143,7 +1158,12 @@ func _refresh_locks(silent := false) -> void:
 
 # --- Jeux et interactions ----------------------------------------------------------------
 
+var _last_target: Node
+
+
 func _on_interact(target: Node) -> void:
+	_last_target = target
+	_table = null
 	var kind: String = str(target.get_meta("interact"))
 	match kind:
 		"exit":
@@ -1163,6 +1183,7 @@ func _on_interact(target: Node) -> void:
 				_open_panel(loan)
 		"slot":
 			var p: PanelContainer = SLOT.new()
+			_table = target.get_parent()
 			p.game = Game
 			p.title = target.get_parent().get_meta("name")
 			p.subtitle = "Casino de Smarves  ·  salle des jeux"
@@ -1204,7 +1225,15 @@ func _on_interact(target: Node) -> void:
 			_open_panel(c)
 
 
+var _table: Node3D
+
+
 func _open_panel(p: Control) -> void:
+	if _table == null and _last_target != null:
+		_table = _last_target.get_parent() as Node3D
+	if _table:
+		_face(_table.global_position)
+		_animate(p, _table)
 	player.frozen = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_prompt.visible = false
@@ -1213,6 +1242,176 @@ func _open_panel(p: Control) -> void:
 		p.played.connect(_on_played)
 	p.closed.connect(_close_panel)
 	_active_panel = p
+
+
+## Le joueur se tourne vers la table, le regard un peu plongeant.
+func _face(at: Vector3) -> void:
+	var to := at - player.global_position
+	player.rotation.y = atan2(-to.x, -to.z)
+	player.camera.rotation.x = deg_to_rad(-28.0)
+
+
+func _animate(p: Control, table: Node3D) -> void:
+	if p.has_signal("spin_started") and table.has_meta("rotor"):
+		p.spin_started.connect(func(n: int, dur: float): _spin_roulette(table, n, dur))
+	if p.has_signal("reels_started") and table.has_meta("reels"):
+		p.reels_started.connect(func(): _spin_reels(table))
+		p.reels_stopped.connect(func(line: Array): _stop_reels(table, line))
+	if p.has_signal("card_dealt"):
+		p.hand_started.connect(func(): _clear_cards(table))
+		p.card_dealt.connect(func(who: String, c: Dictionary, hidden: bool): _deal_card(table, who, c, hidden))
+		if p.has_signal("hole_revealed"):
+			p.hole_revealed.connect(func(c: Dictionary): _reveal_hole(table, c))
+	if p.has_signal("dice_rolled"):
+		p.dice_rolled.connect(func(v: Array): _roll_dice(table, v))
+
+
+# --- Animations des tables ---------------------------------------------------------------
+
+func _spin_roulette(table: Node3D, n: int, dur: float) -> void:
+	var rotor: Node3D = table.get_meta("rotor")
+	var ball: Node3D = table.get_meta("ball")
+	var step := TAU / 37.0
+	var idx: int = ROULETTE.WHEEL.find(n)
+	var start := rotor.rotation.y
+	var end := start + TAU * 3.0
+	# La bille finit dans la case tirée : angle de la case dans le repère de la roue, moins la rotation du rotor.
+	var final_ball := idx * step - end
+	var tw := create_tween().set_parallel()
+	tw.tween_property(rotor, "rotation:y", end, dur).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_method(func(a: float):
+		var k := clampf((a - (final_ball + TAU * 5.0)) / (-TAU * 5.0), 0.0, 1.0)
+		var r := lerpf(0.5, 0.38, smoothstep(0.7, 1.0, 1.0 - k))
+		ball.position = Vector3(cos(a) * r, 0.2 + 0.02 * (1.0 - k), sin(a) * r), final_ball + TAU * 5.0, final_ball, dur).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUART)
+
+
+var _reel_timer: Timer
+
+
+func _spin_reels(table: Node3D) -> void:
+	var label: Label3D = table.get_meta("reels")
+	if _reel_timer == null:
+		_reel_timer = Timer.new()
+		_reel_timer.wait_time = 0.07
+		add_child(_reel_timer)
+	for c in _reel_timer.timeout.get_connections():
+		_reel_timer.timeout.disconnect(c.callable)
+	_reel_timer.timeout.connect(func():
+		label.text = "%s  %s  %s" % [SLOT.SYMBOLS.pick_random(), SLOT.SYMBOLS.pick_random(), SLOT.SYMBOLS.pick_random()])
+	_reel_timer.start()
+
+
+func _stop_reels(table: Node3D, line: Array) -> void:
+	if _reel_timer:
+		_reel_timer.stop()
+	var label: Label3D = table.get_meta("reels")
+	label.text = "  ".join(line)
+
+
+var _cards: Array[Node3D] = []
+var _card_counts := {}
+var _deal_queue := 0.0
+var _hole: Node3D
+
+
+func _clear_cards(_table_node: Node3D) -> void:
+	for c in _cards:
+		c.queue_free()
+	_cards.clear()
+	_card_counts = {"player": 0, "dealer": 0}
+	_deal_queue = 0.0
+	_hole = null
+
+
+func _card_mesh(c: Dictionary, hidden: bool) -> Node3D:
+	var root := Node3D.new()
+	var face := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(0.15, 0.004, 0.21)
+	face.mesh = bm
+	face.material_override = _std(Color(0.55, 0.06, 0.12) if hidden else Color(0.98, 0.97, 0.93), 0.4)
+	root.add_child(face)
+	var l := Label3D.new()
+	var sym := SystemFont.new()
+	sym.font_names = PackedStringArray(["Georgia", "Segoe UI Symbol"])
+	l.font = sym
+	l.font_size = 64
+	l.pixel_size = 0.0011
+	l.rotation_degrees.x = -90
+	l.position.y = 0.003
+	l.outline_size = 0
+	l.name = "Face"
+	if not hidden:
+		l.text = "%s\n%s" % [BLACKJACK.RANKS[c.r], BLACKJACK.SUITS[c.s]]
+		l.modulate = Color(0.75, 0.05, 0.1) if c.s in [1, 2] else Color(0.08, 0.08, 0.1)
+	root.add_child(l)
+	return root
+
+
+func _deal_card(table: Node3D, who: String, c: Dictionary, hidden: bool) -> void:
+	var k: int = _card_counts.get(who, 0)
+	_card_counts[who] = k + 1
+	var card := _card_mesh(c, hidden)
+	table.add_child(card)
+	_cards.append(card)
+	if hidden:
+		_hole = card
+	var start := Vector3(0.7, 1.0, -0.2)
+	var dest := Vector3(-0.3 + k * 0.18, 0.885, -0.4 if who == "dealer" else 0.75)
+	card.position = start
+	card.rotation_degrees.y = randf_range(-6, 6)
+	var tw := create_tween()
+	tw.tween_interval(_deal_queue)
+	tw.tween_property(card, "position", dest, 0.22).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+	_deal_queue += 0.18
+
+
+func _reveal_hole(_table_node: Node3D, c: Dictionary) -> void:
+	if _hole == null:
+		return
+	var face: MeshInstance3D = _hole.get_child(0)
+	face.material_override = _std(Color(0.98, 0.97, 0.93), 0.4)
+	var l: Label3D = _hole.get_node("Face")
+	l.text = "%s\n%s" % [BLACKJACK.RANKS[c.r], BLACKJACK.SUITS[c.s]]
+	l.modulate = Color(0.75, 0.05, 0.1) if c.s in [1, 2] else Color(0.08, 0.08, 0.1)
+
+
+var _dice: Array[Node3D] = []
+
+
+func _roll_dice(table: Node3D, values: Array) -> void:
+	for d in _dice:
+		d.queue_free()
+	_dice.clear()
+	var faces := ["⚀", "⚁", "⚂", "⚃", "⚄", "⚅"]
+	for i in values.size():
+		var die := Node3D.new()
+		table.add_child(die)
+		_dice.append(die)
+		var cube := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3.ONE * 0.08
+		cube.mesh = bm
+		cube.material_override = _std(Color(0.95, 0.15, 0.15) if table.has_meta("craps") else Color(0.97, 0.96, 0.92), 0.3)
+		die.add_child(cube)
+		var l := Label3D.new()
+		var sym := SystemFont.new()
+		sym.font_names = PackedStringArray(["Segoe UI Symbol"])
+		l.font = sym
+		l.text = faces[int(values[i]) - 1]
+		l.font_size = 96
+		l.pixel_size = 0.0007
+		l.rotation_degrees.x = -90
+		l.position.y = 0.041
+		l.outline_size = 0
+		l.modulate = Color(1, 1, 1) if table.has_meta("craps") else Color(0.1, 0.1, 0.1)
+		die.add_child(l)
+		var dest := Vector3(-0.3 + i * 0.16 + randf_range(-0.04, 0.04), 0.92, randf_range(-0.15, 0.15))
+		die.position = Vector3(0.9, 1.3, 0.4)
+		die.rotation = Vector3(randf() * TAU, randf() * TAU, randf() * TAU)
+		var tw := create_tween().set_parallel()
+		tw.tween_property(die, "position", dest, 0.55).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BOUNCE)
+		tw.tween_property(die, "rotation", Vector3(0, randf_range(-0.4, 0.4), 0), 0.55).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
 
 
 func _close_panel() -> void:
@@ -1397,6 +1596,7 @@ func _build_ui() -> void:
 	root.add_child(hint)
 	_panel_layer = CenterContainer.new()
 	_panel_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_panel_layer.anchor_top = 0.36
 	_panel_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_panel_layer)
 
@@ -1429,10 +1629,37 @@ func _maybe_capture() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	if open != "":
 		await get_tree().create_timer(1.0).timeout
-		var fake := Node.new()
-		fake.set_meta("interact", open)
-		add_child(fake)
-		_on_interact(fake)
+		var target: Node = null
+		for a in find_children("*", "Area3D", true, false):
+			if str(a.get_meta("interact", "")) == open:
+				target = a
+				break
+		if target == null:
+			target = Node.new()
+			target.set_meta("interact", open)
+			add_child(target)
+		_on_interact(target)
+		# Joue un coup tout seul, pour voir l'animation de la table.
+		await get_tree().create_timer(0.8).timeout
+		var pnl := _active_panel
+		if pnl:
+			match open:
+				"roulette":
+					pnl._place_bet("red")
+					pnl.spin()
+				"blackjack":
+					pnl._start()
+				"slot":
+					pnl.spin()
+				"dice":
+					pnl._place("n3")
+					pnl._roll()
+				"craps":
+					pnl._place("pass")
+					pnl._roll()
+				"baccara":
+					pnl._place("joueur")
+					pnl._deal()
 	await get_tree().create_timer(6.0).timeout
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(path)

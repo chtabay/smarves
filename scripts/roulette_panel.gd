@@ -4,6 +4,8 @@ extends PanelContainer
 
 signal played(bet: int, payout: int)
 signal closed
+## Pour animer la roue 3D de la table : le numéro tiré et la durée du lancer.
+signal spin_started(number: int, duration: float)
 
 const RED := [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]
 const WHEEL := [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26]
@@ -212,6 +214,7 @@ func spin() -> void:
 	_spin_button.disabled = true
 	_info.text = "Rien ne va plus."
 	_result_number = randi() % 37
+	spin_started.emit(_result_number, 4.0)
 	var tw := create_tween().set_parallel()
 	var start_w := _wheel_angle
 	var start_b := _ball_angle

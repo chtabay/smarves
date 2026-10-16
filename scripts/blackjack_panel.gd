@@ -4,6 +4,10 @@ extends PanelContainer
 
 signal played(bet: int, payout: int)
 signal closed
+## Pour poser les cartes sur le feutre 3D : « player » ou « dealer », la carte, et si elle est face cachée.
+signal card_dealt(who: String, card: Dictionary, hidden: bool)
+signal hand_started
+signal hole_revealed(card: Dictionary)
 
 const BETS := [5, 10, 25, 100, 500]
 const SUITS := ["♠", "♥", "♦", "♣"]
@@ -161,6 +165,11 @@ func _start() -> void:
 	in_hand = true
 	player = [_draw_card(), _draw_card()]
 	dealer = [_draw_card(), _draw_card()]
+	hand_started.emit()
+	card_dealt.emit("player", player[0], false)
+	card_dealt.emit("dealer", dealer[0], false)
+	card_dealt.emit("player", player[1], false)
+	card_dealt.emit("dealer", dealer[1], true)
 	_render(true)
 	if total(player) == 21:
 		_finish()
@@ -173,6 +182,7 @@ func _on_hit() -> void:
 	if not in_hand:
 		return
 	player.append(_draw_card())
+	card_dealt.emit("player", player[-1], false)
 	_render(true)
 	if total(player) > 21:
 		_finish()
@@ -189,6 +199,7 @@ func _on_double() -> void:
 		return
 	bet *= 2
 	player.append(_draw_card())
+	card_dealt.emit("player", player[-1], false)
 	_render(true)
 	_finish()
 
@@ -201,9 +212,11 @@ func _on_stand() -> void:
 func _finish() -> void:
 	var p := total(player)
 	var natural := p == 21 and player.size() == 2
+	hole_revealed.emit(dealer[1])
 	if p <= 21 and not natural:
 		while total(dealer) < 17:
 			dealer.append(_draw_card())
+			card_dealt.emit("dealer", dealer[-1], false)
 	var d := total(dealer)
 	var dealer_natural := d == 21 and dealer.size() == 2
 	var payout := 0

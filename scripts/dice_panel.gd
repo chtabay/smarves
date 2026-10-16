@@ -5,6 +5,7 @@ extends PanelContainer
 
 signal played(bet: int, payout: int)
 signal closed
+signal dice_rolled(values: Array)
 
 const CHIPS := [10, 25, 100, 500]
 const FACES := ["⚀", "⚁", "⚂", "⚃", "⚄", "⚅"]
@@ -133,6 +134,7 @@ func _roll() -> void:
 		_dice.text = "%s %s %s" % [FACES.pick_random(), FACES.pick_random(), FACES.pick_random()]
 		await get_tree().create_timer(0.06 + i * 0.012).timeout
 	var d := [randi_range(1, 6), randi_range(1, 6), randi_range(1, 6)]
+	dice_rolled.emit(d)
 	Sfx.play("dice", -4.0)
 	_dice.text = "%s %s %s" % [FACES[d[0] - 1], FACES[d[1] - 1], FACES[d[2] - 1]]
 	var sum: int = d[0] + d[1] + d[2]

@@ -4,6 +4,7 @@ extends PanelContainer
 
 signal played(bet: int, payout: int)
 signal closed
+signal dice_rolled(values: Array)
 
 const CHIPS := [5, 25, 100, 500]
 const FACES := ["⚀", "⚁", "⚂", "⚃", "⚄", "⚅"]
@@ -131,6 +132,7 @@ func _roll() -> void:
 	var a := randi_range(1, 6)
 	var b := randi_range(1, 6)
 	var s := a + b
+	dice_rolled.emit([a, b])
 	_dice.text = "%s %s" % [FACES[a - 1], FACES[b - 1]]
 	var paid := 0
 	var resolved := 0

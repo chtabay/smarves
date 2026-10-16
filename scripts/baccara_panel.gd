@@ -4,6 +4,8 @@ extends PanelContainer
 
 signal played(bet: int, payout: int)
 signal closed
+signal hand_started
+signal card_dealt(who: String, card: Dictionary, hidden: bool)
 
 const CHIPS := [100, 500, 1000, 5000]
 const SUITS := ["♠", "♥", "♦", "♣"]
@@ -185,6 +187,11 @@ func _deal() -> void:
 			b.append(_card())
 	_show(_player_box, p)
 	_show(_banker_box, b)
+	hand_started.emit()
+	for c in p:
+		card_dealt.emit("player", c, false)
+	for c in b:
+		card_dealt.emit("dealer", c, false)
 	var pv := value(p)
 	var bv := value(b)
 	var payout := 0

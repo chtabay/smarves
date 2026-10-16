@@ -3,6 +3,9 @@ extends PanelContainer
 
 signal played(bet: int, payout: int)
 signal closed
+## Pour animer les rouleaux de la machine 3D.
+signal reels_started
+signal reels_stopped(line: Array)
 
 ## Symboles de la bande, du plus rare au plus courant.
 const SYMBOLS := ["7", "★", "♣", "♥", "♦", "♠"]
@@ -161,6 +164,7 @@ func spin() -> void:
 	for r in 3:
 		speeds[r] = 2200.0 + r * 150.0
 		stop_at[r] = randi() % strips[r].size()
+	reels_started.emit()
 	var t1 := 0.9
 	var t2 := 1.3
 	var t3 := 1.7
@@ -170,6 +174,7 @@ func spin() -> void:
 	await _stop_reel(1, t2 - t1)
 	await _stop_reel(2, t3 - t2)
 	var line := [strips[0][stop_at[0]], strips[1][stop_at[1]], strips[2][stop_at[2]]]
+	reels_stopped.emit(line)
 	var payout := 0
 	if line[0] == line[1] and line[1] == line[2]:
 		payout = bet * PAYS[line[0]]
