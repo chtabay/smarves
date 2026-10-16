@@ -9,6 +9,9 @@ const SLOT := preload("res://scripts/slot_machine.gd")
 const ROULETTE := preload("res://scripts/roulette_panel.gd")
 const BLACKJACK := preload("res://scripts/blackjack_panel.gd")
 const BACCARA := preload("res://scripts/baccara_panel.gd")
+const DICE := preload("res://scripts/dice_panel.gd")
+## Niveau du plancher de l'étage.
+const UP := 6.1
 const KC := "res://assets/kenney/characters/"
 const KK := "res://assets/kaykit/"
 const WALL_H := 6.0
@@ -19,6 +22,7 @@ const PEOPLE_SCALE := 2.6
 const LOCKS := [
 	{"id": "ambassadeurs", "name": "La Salle des Ambassadeurs", "seuil": 500, "host": "L'inspecteur de salle"},
 	{"id": "salon", "name": "Le Salon privé", "seuil": 5000, "host": "Monsieur Armand"},
+	{"id": "loggia", "name": "La Loggia", "seuil": 2000, "host": "Le chef de partie"},
 ]
 
 ## Les pièces, pour afficher leur nom quand on y entre : [nom, x0, x1, z0, z1].
@@ -29,6 +33,11 @@ const ROOMS := [
 	["La Salle des jeux", -14.0, 14.0, -14.0, 6.0],
 	["La Salle des Ambassadeurs", 14.0, 26.0, -14.0, 6.0],
 	["Le Salon privé", -26.0, -14.0, -14.0, 0.0],
+	["La Galerie de la Verrière", -7.0, 7.0, -9.0, 6.0, 1],
+	["Le Bar du Fumoir", -14.0, -7.0, -14.0, 6.0, 1],
+	["Restaurant Le Lustre", -7.0, 7.0, -14.0, -9.0, 1],
+	["La Loggia", 7.0, 14.0, -2.0, 6.0, 1],
+	["La galerie du hall", -10.0, 10.0, 6.0, 18.0, 1],
 ]
 
 var serif: SystemFont
@@ -69,6 +78,7 @@ func _ready() -> void:
 	_build_games_room()
 	_build_ambassadeurs()
 	_build_salon()
+	_build_upper()
 	_build_ui()
 	player = PLAYER.new()
 	player.position = Vector3(0, 0, 20.5)
@@ -256,7 +266,7 @@ func _person(model: String, pos: Vector3, rot_y: float, pose := "idle") -> Node3
 
 ## Un mur avec lambris d'acajou en bas, tenture damassée au-dessus, plinthe et corniche dorées.
 ## Les ouvertures sont données comme [centre le long du mur, largeur, hauteur].
-func _wall(a: Vector3, b: Vector3, openings: Array = [], h := WALL_H) -> void:
+func _wall(a: Vector3, b: Vector3, openings: Array = [], h := WALL_H, y0 := 0.0) -> void:
 	var length := a.distance_to(b)
 	var dir := (b - a).normalized()
 	var normal_rot := atan2(dir.x, dir.z)
@@ -277,7 +287,7 @@ func _wall(a: Vector3, b: Vector3, openings: Array = [], h := WALL_H) -> void:
 		var base: float = p[3]
 		var center := a + dir * mid
 		var seg := Node3D.new()
-		seg.position = center
+		seg.position = center + Vector3(0, y0, 0)
 		seg.rotation.y = normal_rot + PI / 2.0
 		add_child(seg)
 		_box(Vector3(w, p[2], 0.2), Vector3(0, base + p[2] / 2.0, 0), damask, true, seg)
@@ -292,7 +302,7 @@ func _wall(a: Vector3, b: Vector3, openings: Array = [], h := WALL_H) -> void:
 	for o in cuts:
 		var c := a + dir * float(o[0])
 		var frame := Node3D.new()
-		frame.position = c
+		frame.position = c + Vector3(0, y0, 0)
 		frame.rotation.y = normal_rot + PI / 2.0
 		add_child(frame)
 		for s in [-1.0, 1.0]:
@@ -371,7 +381,7 @@ func _sconce(pos: Vector3, rot_y: float) -> void:
 
 func _build_shell() -> void:
 	_floor(-3, 3, 18, 22, floor_marble, 4.0)
-	_floor(-10, 10, 6, 18, floor_marble)
+	_floor(-10, 10, 6, 18, floor_marble, 10.0)
 	_floor(10, 20, 6, 18, carpet, 4.5)
 	_floor(-14, 14, -14, 6, carpet)
 	_floor(14, 26, -14, 6, carpet_blue)
@@ -383,6 +393,10 @@ func _build_shell() -> void:
 	_wall(Vector3(3, 0, 18), Vector3(3, 0, 22), [], 4.0)
 	# Hall.
 	_wall(Vector3(-10, 0, 18), Vector3(10, 0, 18), [[10.0, 3.4, 3.4]])
+	# Le hall monte sur deux niveaux.
+	_wall(Vector3(-10, 0, 18), Vector3(10, 0, 18), [], 4.0, 6.0)
+	_wall(Vector3(-10, 0, 6), Vector3(-10, 0, 18), [], 4.0, 6.0)
+	_wall(Vector3(10, 0, 6), Vector3(10, 0, 18), [], 4.0, 6.0)
 	_wall(Vector3(-10, 0, 6), Vector3(-10, 0, 18))
 	_wall(Vector3(10, 0, 6), Vector3(10, 0, 18), [[6.0, 4.0, 3.6]])
 	# Bar.
@@ -421,7 +435,7 @@ func _build_hall() -> void:
 	# Tapis rouge de l'entrée à la salle des jeux.
 	var runner := _shader("res://shaders/carpet.gdshader", {"scale": 0.6})
 	_box(Vector3(2.4, 0.02, 16.0), Vector3(0, 0.01, 14.0), runner)
-	_chandelier(Vector3(0, 6.2, 12.0), 1.5)
+	_chandelier(Vector3(0, 9.8, 13.0), 2.0)
 	_chandelier(Vector3(0, 3.0, 20.0), 0.6)
 	# Colonnes de marbre à chapiteaux dorés.
 	for x in [-5.0, 5.0]:
@@ -441,17 +455,17 @@ func _build_hall() -> void:
 	add_child(desk)
 	_interactive(desk, "reception", "E : parler à la réception", Vector3(1.6, 2.0, 4.0), Vector3(-0.6, 1.0, 0))
 	# Le vestiaire.
-	_box(Vector3(0.8, 1.1, 3.0), Vector3(-8.6, 0.55, 15.0), dark_wood, true)
-	_box(Vector3(0.9, 0.06, 3.1), Vector3(-8.6, 1.13, 15.0), gold)
-	_label("Vestiaire", Vector3(-8.18, 1.6, 15.0), 90.0, 64)
-	_person("character-male-d.glb", Vector3(-9.5, 0, 15.0), 90.0)
+	_box(Vector3(3.0, 1.1, 0.8), Vector3(-5.0, 0.55, 16.8), dark_wood, true)
+	_box(Vector3(3.1, 0.06, 0.9), Vector3(-5.0, 1.13, 16.8), gold)
+	_label("Vestiaire", Vector3(-5.0, 1.6, 16.38), 180.0, 64)
+	_person("character-male-d.glb", Vector3(-5.0, 0, 17.6), 180.0)
 	# Banquettes de velours et plantes.
-	for p in [Vector3(-9.0, 0, 9.0), Vector3(-9.0, 0, 11.0)]:
-		_banquette(p, 90.0)
-	for p in [Vector3(-9.3, 0, 7.0), Vector3(9.3, 0, 7.0), Vector3(-9.3, 0, 17.3), Vector3(9.3, 0, 17.3)]:
+	for p in [Vector3(4.0, 0, 17.2), Vector3(6.4, 0, 17.2)]:
+		_banquette(p, 180.0)
+	for p in [Vector3(-6.8, 0, 7.0), Vector3(9.3, 0, 7.0), Vector3(-2.8, 0, 17.3), Vector3(9.3, 0, 17.3)]:
 		_place("res://assets/kenney/furniture/pottedPlant.glb", p, 3.0)
-	for z in [8.0, 12.0, 16.0]:
-		_sconce(Vector3(-9.85, 2.6, z), 90.0)
+	for x in [-7.0, 7.0]:
+		_sconce(Vector3(x, 2.6, 17.85), 180.0)
 	_label("CASINO DE SMARVES", Vector3(0, 4.6, 6.15), 0.0, 120)
 	_label("Le jeu est un investissement", Vector3(0, 4.0, 6.15), 0.0, 56, Color(0.9, 0.82, 0.65))
 	_label("Salle des jeux", Vector3(0, 3.7, 5.86), 180.0, 64)
@@ -792,6 +806,134 @@ func _build_salon() -> void:
 	_barrier("salon", Vector3(-14.0, 0, -7.0), 90.0, 2.0)
 
 
+# --- L'étage : galerie du hall, Galerie de la Verrière, Bar du Fumoir, Le Lustre, Loggia ----
+
+func _build_upper() -> void:
+	# Le grand escalier contre le mur ouest du hall, de z = 17,2 (rez-de-chaussée) à z = 9,2 (galerie).
+	var steps := 24
+	for i in steps:
+		var y := UP * (i + 1) / steps
+		var z := 17.2 - 8.0 * (i + 0.5) / steps
+		_box(Vector3(1.9, 0.08, 8.0 / steps + 0.02), Vector3(-8.95, y - 0.04, z), marble_white)
+		_box(Vector3(1.4, 0.01, 8.0 / steps + 0.02), Vector3(-8.95, y + 0.005, z), carpet)
+		_box(Vector3(1.9, y, 8.0 / steps), Vector3(-8.95, y / 2.0, z), dark_wood)
+	var ramp := StaticBody3D.new()
+	var rs := CollisionShape3D.new()
+	var rb := BoxShape3D.new()
+	var length := sqrt(8.0 * 8.0 + UP * UP)
+	rb.size = Vector3(1.9, 0.1, length)
+	rs.shape = rb
+	ramp.add_child(rs)
+	ramp.position = Vector3(-8.95, UP / 2.0, 13.2)
+	ramp.rotation.x = atan2(UP, 8.0)
+	add_child(ramp)
+	# Rampe dorée côté hall.
+	for i in 9:
+		var t := i / 8.0
+		_cyl(0.03, 1.0, Vector3(-7.95, UP * t + 0.5, 17.2 - 8.0 * t), gold)
+	var rail := _cyl(0.04, length, Vector3(-7.95, UP / 2.0 + 1.0, 13.2), gold)
+	rail.rotation.x = deg_to_rad(90) - atan2(UP, 8.0)
+	_box(Vector3(0.1, 2.2, length), Vector3(-7.95, UP / 2.0 + 0.7, 13.2), _invisible(), true).rotation.x = atan2(UP, 8.0)
+
+	# La galerie du hall, en balcon le long du mur nord, avec sa balustrade.
+	_box(Vector3(20.0, 0.3, 3.4), Vector3(0, UP - 0.15, 7.7), dark_wood, true)
+	_box(Vector3(19.8, 0.02, 3.3), Vector3(0, UP + 0.01, 7.7), carpet)
+	_box(Vector3(2.4, 0.3, 0.6), Vector3(-8.8, UP - 0.15, 9.5), dark_wood, true)
+	_box(Vector3(17.6, 0.12, 0.12), Vector3(1.2, UP + 1.0, 9.4), gold)
+	_box(Vector3(17.6, 1.1, 0.1), Vector3(1.2, UP + 0.55, 9.4), _invisible(), true)
+	for k in 30:
+		_cyl(0.025, 1.0, Vector3(-7.6 + k * 0.6, UP + 0.5, 9.4), gold)
+	_box(Vector3(20.0, 0.25, 0.2), Vector3(0, UP - 0.2, 9.4), gold)
+	_label("Galerie de la Verrière", Vector3(0, UP + 3.4, 6.15), 0.0, 64)
+
+	# Plancher de l'étage au-dessus de la salle des jeux, plafond à caissons et verrière.
+	_box(Vector3(28.0, 0.1, 20.0), Vector3(0, UP + 0.0, -4.0), carpet, true)
+	_box(Vector3(28.0, 0.1, 20.0), Vector3(0, UP + 4.55, -4.0), ceiling)
+	var night := _std(Color(0.08, 0.12, 0.28), 0.1)
+	night.emission_enabled = true
+	night.emission = Color(0.06, 0.1, 0.25)
+	night.emission_energy_multiplier = 1.2
+	_box(Vector3(12.0, 0.05, 8.0), Vector3(0, UP + 4.48, -4.5), night)
+	for k in 7:
+		_box(Vector3(0.08, 0.1, 8.0), Vector3(-6.0 + k * 2.0, UP + 4.42, -4.5), gold)
+	for k in 5:
+		_box(Vector3(12.0, 0.1, 0.08), Vector3(0, UP + 4.42, -8.5 + k * 2.0), gold)
+
+	# Les murs de l'étage.
+	_wall(Vector3(-14, 0, 6), Vector3(14, 0, 6), [[14.0, 3.0, 3.0]], 4.5, UP)
+	_wall(Vector3(-14, 0, -14), Vector3(14, 0, -14), [], 4.5, UP)
+	_wall(Vector3(-14, 0, -14), Vector3(-14, 0, 6), [], 4.5, UP)
+	_wall(Vector3(14, 0, -14), Vector3(14, 0, 6), [], 4.5, UP)
+	_wall(Vector3(-7, 0, -14), Vector3(-7, 0, 6), [[12.0, 3.0, 3.0]], 4.5, UP)
+	_wall(Vector3(7, 0, -2), Vector3(7, 0, 6), [[4.0, 2.2, 2.8]], 4.5, UP)
+	_wall(Vector3(7, 0, -2), Vector3(14, 0, -2), [], 4.5, UP)
+
+	# La galerie : lustres, banquettes, et les portes des salles particulières, encore closes.
+	_chandelier(Vector3(0, UP + 4.2, -4.0), 1.2)
+	_chandelier(Vector3(-10.5, UP + 4.2, -4.0), 0.8)
+	_chandelier(Vector3(10.5, UP + 4.2, -8.0), 0.8)
+	for p in [Vector3(-4.0, UP, 1.0), Vector3(4.0, UP, 1.0)]:
+		_banquette(p, 0.0)
+	var closed_rooms := [["Salle des fêtes", "50 000 crédits misés", -11.5], ["Salon de musique", "10 000 crédits gagnés", -7.0], ["Salons particuliers", "100 000 crédits gagnés", -4.0]]
+	for d in closed_rooms:
+		var z: float = d[2]
+		_box(Vector3(0.12, 2.6, 1.6), Vector3(13.9, UP + 1.3, z), dark_wood)
+		_box(Vector3(0.14, 0.12, 1.8), Vector3(13.88, UP + 2.66, z), gold)
+		var l := _label("%s\nouvre à %s" % [d[0], d[1]], Vector3(13.8, UP + 3.3, z), -90.0, 40, Color(1.0, 0.88, 0.6))
+		l.outline_size = 6
+
+	# Le Bar du Fumoir : comptoir, fauteuils de cuir, fumée bleutée.
+	_box(Vector3(0.8, 1.1, 7.0), Vector3(-13.3, UP + 0.55, -5.0), dark_wood, true)
+	_box(Vector3(1.0, 0.07, 7.1), Vector3(-13.2, UP + 1.13, -5.0), marble_white)
+	_person("character-male-c.glb", Vector3(-13.9, UP, -5.0), 90.0)
+	for p in [Vector3(-10.0, UP, -10.0), Vector3(-10.0, UP, 1.0)]:
+		_cyl(0.4, 0.7, p + Vector3(0, 0.35, 0), dark_wood)
+		for a in [0.0, 120.0, 240.0]:
+			var off := Vector3(sin(deg_to_rad(a)), 0, cos(deg_to_rad(a))) * 1.0
+			var chair := _place(KK + "furniture/armchair.gltf", p + off, 0.9, a + 180.0)
+			_tint(chair, Color(0.3, 0.13, 0.06))
+	_person("character-male-b.glb", Vector3(-9.2, UP, -9.6), -120.0, "sit")
+	var smoke := FogVolume.new()
+	smoke.size = Vector3(7.0, 4.5, 20.0)
+	smoke.position = Vector3(-10.5, UP + 2.25, -4.0)
+	var fm := FogMaterial.new()
+	fm.density = 0.12
+	fm.albedo = Color(0.7, 0.75, 0.85)
+	smoke.material = fm
+	add_child(smoke)
+	_label("Bar du Fumoir", Vector3(-7.15, UP + 3.4, 2.0), 90.0, 56)
+
+	# Restaurant Le Lustre : nappes blanches et dîneurs.
+	var cloth := _std(Color(0.96, 0.95, 0.92), 0.8)
+	for x in [-4.5, 0.0, 4.5]:
+		var t := Vector3(x, UP, -11.5)
+		_cyl(0.06, 0.75, t + Vector3(0, 0.38, 0), gold)
+		_cyl(0.8, 0.3, t + Vector3(0, 0.66, 0), cloth, self, 0.75)
+		_cyl(0.04, 0.25, t + Vector3(0, 0.95, 0), brass_glow)
+		_person(["character-female-a.glb", "character-male-f.glb", "character-female-d.glb"].pick_random(), t + Vector3(0, 0, 1.0), 180.0, "sit")
+	_label("Restaurant Le Lustre", Vector3(0, UP + 3.6, -13.85), 0.0, 64)
+	_chandelier(Vector3(0, UP + 4.2, -11.5), 0.9)
+
+	# La Loggia et sa table de Grand Hasard.
+	var hasard := _node(Vector3(10.5, UP, 2.0))
+	_table_base(hasard, Vector3(2.4, 0.9, 1.4))
+	for k in 3:
+		var die := _box(Vector3(0.12, 0.12, 0.12), Vector3(-0.2 + k * 0.2, 0.95, 0.0), marble_white, false, hasard)
+		die.rotation_degrees.y = randf() * 90.0
+	_person("character-female-e.glb", Vector3(10.5, UP, 0.9), 0.0)
+	_bill(_label("Le Grand Hasard", Vector3(0, 2.2, 0), 0.0, 56, Color(1.0, 0.85, 0.5), hasard))
+	_interactive(hasard, "dice", "E : jouer au Grand Hasard", Vector3(2.6, 2.0, 2.4), Vector3(0, 1.0, 0.5))
+	_chandelier(Vector3(10.5, UP + 4.2, 2.0), 0.7)
+	_barrier("loggia", Vector3(7.0, UP, 2.0), 90.0, 2.2)
+
+
+func _invisible() -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.albedo_color = Color(0, 0, 0, 0)
+	return m
+
+
 func _node(pos: Vector3) -> Node3D:
 	var n := Node3D.new()
 	n.position = pos
@@ -884,6 +1026,9 @@ func _on_interact(target: Node) -> void:
 		"blackjack":
 			var b: PanelContainer = BLACKJACK.new()
 			_open_panel(b)
+		"dice":
+			var g: PanelContainer = DICE.new()
+			_open_panel(g)
 		"baccara":
 			var c: PanelContainer = BACCARA.new()
 			c.title = "Baccara du salon privé"
@@ -939,7 +1084,8 @@ Dette au Crédit Smarvois : %s" % Game.fmt(Game.debt) if Game.debt > 0 else "")
 			_prompt.text = t.get_meta("prompt")
 		var room := ""
 		for r in ROOMS:
-			if player.position.x > r[1] and player.position.x < r[2] and player.position.z > r[3] and player.position.z < r[4]:
+			var level := 1 if player.position.y > 3.0 else 0
+			if (r[5] if r.size() > 5 else 0) == level and player.position.x > r[1] and player.position.x < r[2] and player.position.z > r[3] and player.position.z < r[4]:
 				room = r[0]
 		if room != _current_room:
 			_current_room = room
@@ -1073,6 +1219,8 @@ func _maybe_capture() -> void:
 			player.rotation.y = deg_to_rad(v[2])
 			if v.size() > 3:
 				player.camera.rotation.x = deg_to_rad(v[3])
+			if v.size() > 4:
+				player.position.y = v[4]
 		elif arg.begins_with("--open="):
 			open = arg.trim_prefix("--open=")
 		elif arg.begins_with("--won="):
