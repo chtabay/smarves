@@ -344,7 +344,7 @@ func _build_gambling() -> void:
 	_neon("PAIN · LOTO · GRATTAGE", Vector3(6.6, 2.5, -1.2), -90.0, Color(0.5, 1.0, 0.6), 44)
 	_neon("LOTO CE SOIR", Vector3(5.4, 3.0, -3.7), 0.0, Color(1.0, 0.85, 0.3), 64)
 	_neon("CRÉDIT SMARVOIS", Vector3(6.7, 3.1, 3.8), -90.0, Color(0.4, 0.6, 1.0), 52)
-	_neon("Prêts pour se refaire", Vector3(6.7, 2.55, 3.8), -90.0, Color(0.4, 0.6, 1.0), 34)
+	_neon("Investissez dans votre avenir", Vector3(6.7, 2.55, 3.8), -90.0, Color(0.4, 0.6, 1.0), 34)
 	_neon("MAIRIE", Vector3(-4.6, 3.2, -3.6), 0.0, Color(1.0, 0.95, 0.85), 48)
 
 	# La terrasse du café.

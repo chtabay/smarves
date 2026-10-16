@@ -6,11 +6,11 @@ Un jeu incrémental dans l'esprit d'Addict Casino, sauf qu'ici le casino, c'est 
 
 ## La morale
 
-Le jeu dit tout au premier degré : à Smarves, on joue, on gagne, et si ton banquier te refuse un prêt pour aller jouer, c'est un loser. Personne dans le village ne dit le contraire, ni les habitants, ni les enseignes, ni le banquier lui-même.
+Tout le village encourage à jouer, au premier degré. À Smarves, le jeu est un investissement : on y place son argent pour assurer son avenir, et si un banquier refuse de prêter pour aller jouer, c'est un loser.
 
-La démonstration que ça ne marche pas doit sortir du jeu, jamais d'un discours. Les machines rendent un peu moins qu'elles ne prennent, les prêts s'empilent, les habitants maigrissent, vendent leur voiture et finissent sur un banc, toujours souriants. Le ton est celui de Happy Tree Friends : des personnages mignons à qui il arrive des choses terribles, et qui en redemandent.
+Personne ne dit le contraire, et personne n'est triste. Les habitants, les enseignes, la mairie et la banque sont sincèrement enthousiastes. La démonstration que ça ne fonctionne pas sort de la mécanique elle-même, sans un mot : les machines rendent un peu moins qu'elles ne prennent, et les prêts s'additionnent.
 
-- **M. Brunet**, conseiller du Crédit Smarvois, prête volontiers pour « se refaire ». Quand il refuse enfin, le jeu l'affiche en grand : « Votre banquier refuse ? C'est un loser. Changez de banquier. »
+- **M. Brunet**, conseiller du Crédit Smarvois, est le meilleur ami du joueur. Quand on vient lui demander un prêt pour jouer, il approuve chaleureusement, explique à quel point c'est pertinent et raisonnable pour préparer son avenir, et propose volontiers d'augmenter le montant.
 
 ## Le village
 
