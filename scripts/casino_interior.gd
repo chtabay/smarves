@@ -253,8 +253,9 @@ func _interactive(node: Node3D, kind: String, prompt: String, size: Vector3, off
 	return a
 
 
-func _person(model: String, pos: Vector3, rot_y: float, pose := "idle") -> Node3D:
+func _person(model: String, pos: Vector3, rot_y: float, pose := "idle", acc := "") -> Node3D:
 	var v: Node3D = VILLAGER.new()
+	v.accessory = acc
 	v.model_path = KC + model
 	v.pose = pose
 	v.position = pos
@@ -448,8 +449,8 @@ func _build_hall() -> void:
 	_box(Vector3(1.0, 0.08, 4.1), Vector3(7.6, 1.14, 12.0), gold)
 	_box(Vector3(0.05, 0.9, 3.8), Vector3(7.13, 0.5, 12.0), dark_wood)
 	_label("Réception", Vector3(7.12, 1.6, 12.0), -90.0, 72)
-	_person("character-female-c.glb", Vector3(8.6, 0, 11.0), -90.0)
-	_person("character-female-e.glb", Vector3(8.6, 0, 13.0), -90.0)
+	_person("hotesse-1", Vector3(8.6, 0, 11.0), -90.0, "idle", "collier")
+	_person("hotesse-2", Vector3(8.6, 0, 13.0), -90.0, "idle", "collier")
 	var desk := Node3D.new()
 	desk.position = Vector3(7.6, 0, 12.0)
 	add_child(desk)
@@ -505,7 +506,7 @@ func _build_bar() -> void:
 	for z in [9.0, 10.5, 12.0, 13.5, 15.0]:
 		_cyl(0.2, 0.08, Vector3(17.5, 0.8, z), velvet)
 		_cyl(0.04, 0.8, Vector3(17.5, 0.4, z), gold)
-	_person("character-male-a.glb", Vector3(19.2, 0, 12.0), -90.0)
+	_person("barman-nocturne", Vector3(19.2, 0, 12.0), -90.0, "idle", "noeud")
 	_label("Le Nocturne", Vector3(17.9, 3.4, 12.0), -90.0, 96, Color(0.6, 0.85, 1.0))
 	# Fauteuils club autour de guéridons.
 	for p in [Vector3(13.0, 0, 9.0), Vector3(13.0, 0, 14.5)]:
@@ -557,7 +558,7 @@ func _build_games_room() -> void:
 		_cyl(0.015, 1.0, Vector3(-10.4 + k * 0.4, 1.7, 4.6), gold)
 	_box(Vector3(3.0, 0.08, 0.1), Vector3(-9.0, 2.22, 4.6), gold)
 	_label("Caisse", Vector3(-9.0, 2.6, 4.15), 180.0, 64)
-	_person("character-male-c.glb", Vector3(-9.0, 0, 5.4), 180.0)
+	_person("caissier", Vector3(-9.0, 0, 5.4), 180.0, "idle", "noeud")
 	var cage := Node3D.new()
 	cage.position = Vector3(-9.0, 0, 4.6)
 	add_child(cage)
@@ -667,7 +668,7 @@ func _roulette_table(pos: Vector3) -> void:
 			l.rotation_degrees.x = -90
 			l.position = Vector3(-0.35 + col * 0.17, 0.89, -0.32 + row * 0.25)
 			root.add_child(l)
-	_person("character-male-a.glb", Vector3(-0.2, 0, -1.25), 0.0)
+	_person("croupier-roulette", Vector3(-0.2, 0, -1.25), 0.0, "idle", "noeud")
 	_bill(_label("Roulette", Vector3(0, 2.6, 0), 0.0, 72, Color(1.0, 0.85, 0.5), root))
 	_interactive(root, "roulette", "E : s'asseoir à la roulette", Vector3(3.8, 2.0, 2.6), Vector3(0, 1.0, 0.4))
 
@@ -749,7 +750,7 @@ func _blackjack_table(pos: Vector3) -> void:
 		var a := deg_to_rad(-60.0 + k * 30.0)
 		_cyl(0.22, 0.08, Vector3(sin(a) * 2.05, 0.72, cos(a) * 2.05), velvet, root)
 		_cyl(0.03, 0.7, Vector3(sin(a) * 2.05, 0.35, cos(a) * 2.05), gold, root)
-	_person("character-female-d.glb", Vector3(0, 0, -0.55), 0.0)
+	_person("croupiere-blackjack", Vector3(0, 0, -0.55), 0.0, "idle", "noeud")
 	_bill(_label("Blackjack", Vector3(0, 2.6, 0), 0.0, 72, Color(1.0, 0.85, 0.5), root))
 	_interactive(root, "blackjack", "E : s'asseoir au blackjack", Vector3(3.6, 2.0, 2.6), Vector3(0, 1.0, 0.8))
 
@@ -767,7 +768,7 @@ func _craps_table(pos: Vector3) -> void:
 	var t2 := _label("FIELD  2 · 3 · 4 · 9 · 10 · 11 · 12", Vector3(0, 0.88, -0.1), 0.0, 36, Color(0.95, 0.85, 0.5), root)
 	t2.rotation_degrees.x = -90
 	t2.outline_size = 0
-	_person("character-male-d.glb", Vector3(0, 0, -1.7), 0.0)
+	_person("stickman", Vector3(0, 0, -1.7), 0.0, "idle", "noeud")
 	_person("character-male-f.glb", Vector3(-1.4, 0, 1.6), 180.0)
 	_person("character-female-c.glb", Vector3(1.2, 0, 1.6), 180.0)
 	_bill(_label("Craps · bientôt", Vector3(0, 2.6, 0), 0.0, 64, Color(0.85, 0.8, 0.7), root))
@@ -799,10 +800,10 @@ func _build_salon() -> void:
 	_table_base(baccara, Vector3(3.4, 0.9, 1.8))
 	_bill(_label("Baccara", Vector3(0, 2.4, 0), 90.0, 64, Color(1.0, 0.85, 0.5), baccara))
 	_interactive(baccara, "baccara", "E : s'asseoir au baccara", Vector3(3.6, 2.0, 2.8), Vector3(0, 1.0, 0.6))
-	_person("character-female-f.glb", Vector3(-20.0, 0, -8.3), 0.0)
+	_person("mlle-solange", Vector3(-20.0, 0, -8.3), 0.0, "idle", "noeud")
 	_person("character-male-c.glb", Vector3(-18.6, 0, -6.0), 135.0)
 	# La porte capitonnée et son portier.
-	_person("character-male-a.glb", Vector3(-13.0, 0, -5.6), -90.0)
+	_person("portier-salon", Vector3(-13.0, 0, -5.6), -90.0, "idle", "chapeau")
 	_barrier("salon", Vector3(-14.0, 0, -7.0), 90.0, 2.0)
 
 
@@ -920,7 +921,7 @@ func _build_upper() -> void:
 	for k in 3:
 		var die := _box(Vector3(0.12, 0.12, 0.12), Vector3(-0.2 + k * 0.2, 0.95, 0.0), marble_white, false, hasard)
 		die.rotation_degrees.y = randf() * 90.0
-	_person("character-female-e.glb", Vector3(10.5, UP, 0.9), 0.0)
+	_person("chef-de-partie", Vector3(10.5, UP, 0.9), 0.0, "idle", "noeud")
 	_bill(_label("Le Grand Hasard", Vector3(0, 2.2, 0), 0.0, 56, Color(1.0, 0.85, 0.5), hasard))
 	_interactive(hasard, "dice", "E : jouer au Grand Hasard", Vector3(2.6, 2.0, 2.4), Vector3(0, 1.0, 0.5))
 	_chandelier(Vector3(10.5, UP + 4.2, 2.0), 0.7)

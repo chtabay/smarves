@@ -487,8 +487,9 @@ func _garland(a: Vector3, b: Vector3, sag: float) -> void:
 
 # --- Les habitants ---------------------------------------------------------------------
 
-func _villager(model: String, pos: Vector3, rot_y: float, pose := "idle", route: Array[Vector3] = []) -> Node3D:
+func _villager(model: String, pos: Vector3, rot_y: float, pose := "idle", route: Array[Vector3] = [], acc := "") -> Node3D:
 	var v: Node3D = VILLAGER.new()
+	v.accessory = acc
 	v.model_path = KC + model
 	v.pose = pose
 	v.route = route
@@ -512,6 +513,7 @@ func _build_villagers() -> void:
 	_villager("character-female-e.glb", Vector3(2.8, 0, 4.6), 160.0)
 	_villager("character-male-e.glb", Vector3(-2.0, 0, 1.0), 0.0, "idle",
 		[Vector3(-2.0, 0, 1.0), Vector3(2.0, 0, 0.6), Vector3(5.6, 0, -1.0), Vector3(1.0, 0, -3.0)])
+	_villager("m-brunet", Vector3(7.2, 0, 3.0), -90.0, "idle", [], "cravate")
 	_villager("character-female-b.glb", Vector3(-3.0, 0, -3.2), 0.0, "idle",
 		[Vector3(-3.0, 0, -3.2), Vector3(-4.2, 0, 3.4), Vector3(0.0, 0, 3.6)])
 
