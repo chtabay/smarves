@@ -2,55 +2,78 @@
 
 ## En une phrase
 
-Un jeu incrémental en 3D où l'on regarde une colonie de smarves, de tout petits nains, creuser une montagne présentée comme une maquette posée sur une table, strate après strate, jusqu'à ses profondeurs les plus étranges.
+Un jeu incrémental dans l'esprit d'Addict Casino, sauf qu'ici le casino, c'est tout un village : le vrai Smarves, dans la Vienne, où l'on joue à chaque coin de rue, du comptoir du café jusqu'au fond du bois de Saint-Pierre.
 
-## Le monde
+## Le village
 
-- **Les smarves** : des nains hauts comme un pouce, têtus, lanterne au casque. Les premiers s'appellent Bodrin et Pell.
-- **Le Mont Ombreclair** : la montagne qu'ils creusent. On la voit en coupe, comme une fourmilière sous verre.
-- **Le Seuil** : le camp au pied de la montagne (feu, tente, chariot, enclume). C'est là que l'or est rapporté.
+Smarves existe : 2 900 habitants à 8 km au sud de Poitiers, entre le Clain et le Miosson. Le jeu reprend sa géographie réelle, mais tous les commerces, habitants et histoires sont inventés.
 
-## Vue et contrôles
+Les lieux réels qu'on reprend :
 
-- 3D, caméra orbitale autour du diorama : clic droit pour tourner, molette pour zoomer.
-- On ne contrôle aucun personnage. On clique sur un filon pour donner un coup de pioche soi-même, et on dépense l'or dans le panneau de gestion.
+- **La place de la Mairie**, avec son érable rouge planté en 1986 et le monument aux morts ;
+- **l'église Saint-Félix-de-Nole**, sur la place de l'Église ;
+- **la salle polyvalente François-Rabelais**, au-dessus de l'église ;
+- **le bois de Saint-Pierre**, l'allée du château et ses trois zèbres en béton peint (1983) ;
+- **le Clain** et le Moulin des Dames ;
+- **les rochers de Passelourdin**.
+
+## Où l'on joue
+
+Chaque lieu du village cache un jeu du casino, déguisé en coutume locale.
+
+| Lieu | Jeu | Ouverture |
+|---|---|---|
+| Le Café de la Place | machines à sous au fond de la salle, 421 au comptoir | dès le départ |
+| La place de la Mairie | paris sur la partie de pétanque (craps aux boules) | premier seuil |
+| La boulangerie | la roulette du comptoir, entre deux baguettes | |
+| La salle François-Rabelais | le grand loto du samedi soir | |
+| Le parvis de l'église | la roue de la kermesse | |
+| L'allée du château | la course des trois zèbres, paris façon PMU | |
+| Le Moulin des Dames | blackjack dans l'arrière-salle | |
+| Les rochers de Passelourdin | la partie de poker clandestine | dernier seuil |
 
 ## Boucle de jeu
 
-1. Les smarves vont aux filons, piochent, rapportent le minerai au Seuil : il devient de l'or.
-2. L'or sert à engager des smarves, améliorer les pioches, agrandir le chariot.
-3. Un seuil d'or ouvre une galerie plus profonde, donc une nouvelle strate, avec un minerai plus riche.
-4. Plus tard : production hors ligne, puis un prestige (« le Grand Repos ») où les smarves gravent une rune qui accélère la partie suivante.
+Comme dans Addict, rien ne s'ouvre avec l'argent qu'on a, seulement avec ce qu'on a **gagné au jeu** :
 
-## Les strates prévues
+1. On arrive à Smarves avec un petit pécule. On joue au café.
+2. Les gains ouvrent les lieux un par un, par des seuils. Chaque ouverture est annoncée par un habitant.
+3. Les habitants jouent aussi. Ils réagissent aux coups, se souviennent du joueur et finissent par lui confier des rumeurs qui mènent au lieu suivant.
+4. Plus tard viendront les biens (une maison sur la place, une 2 CV), le patron du jeu clandestin et la fête du village.
 
-| Profondeur | Strate | Ambiance |
-|---|---|---|
-| 1 | La Roche grise | granit bleu nuit, filons de cuivre, lanternes orange |
-| 2 | La Grotte aux cristaux | cristaux violets qui éclairent la roche |
-| 3 | La Forge de lave | rivière de lave, lumière rouge, vapeur |
-| 4 | La Cité engloutie | ruines d'un peuple oublié, eau turquoise |
+## Les habitants (premiers rôles)
 
-Chaque strate ajoute une palette, un minerai et une amélioration. Comme dans le casino, rien ne change dans la première strate : tout le reste s'ouvre par des seuils.
+- **Josiane**, qui tient le Café de la Place et sa machine à sous « La Smarvoise » ;
+- **Dédé**, accoudé au comptoir, imbattable au 421 ;
+- **Lucien**, le bouliste qui prend les paris sur la place ;
+- **Mme Ferrand**, la boulangère et sa roulette.
+
+## Vue et contrôles
+
+- Le village est une maquette en 3D vue de haut et de biais, comme un diorama. Clic droit pour tourner, molette pour zoomer.
+- On clique sur un lieu ouvert pour s'en approcher et y jouer : la caméra plonge vers la table et le jeu s'ouvre à l'écran.
+- On ne marche pas dans le village : on le regarde vivre.
 
 ## Direction artistique
 
-- **Une maquette miniature** : le diorama flotte dans le noir, avec un léger flou de profondeur (effet tilt-shift) qui fait « petit ».
-- **Chaud contre froid** : la roche est bleu nuit, toute la vie vient des lanternes, du feu et des filons qui luisent.
-- **La lumière fait le travail** : rendu Forward+, brouillard volumétrique, halos lumineux, ombres douces, éclairage global (SDFGI).
-- **Assets** : modèles low-poly propres des packs Kenney (CC0) et textures ou ciels de Poly Haven (CC0), réunis par une palette unique. Rien n'est dessiné en formes de code quand un modèle existe.
-- **Interface** : sobre et dorée, typographie à empattements, chiffres qui défilent.
+- **Le Poitou au crépuscule** : pierre calcaire blanc crème, tuiles canal ocre et rose, volets peints, ciel bleu nuit qui tombe.
+- **La fête permanente** : des guirlandes d'ampoules tendues entre les maisons et les platanes, des vitrines qui débordent de lumière jaune, des enseignes qui clignotent. La lumière chaude des jeux s'oppose à la nuit froide.
+- **La maquette** : le village est posé sur un socle de bois, avec un léger flou de profondeur et une plaque de cuivre « SMARVES ».
+- **La lumière fait le travail** : rendu Forward+, éclairage global, brouillard volumétrique léger, halos lumineux.
+- **Assets** : modèles Kenney (CC0) unifiés par une palette commune (pierre, tuiles, bois peint). Rien n'est dessiné en formes de code quand un modèle existe.
+- **Interface** : sobre et dorée, typographie à empattements, comme Addict.
 
 ## Première scène jouable
 
-Le Seuil et la première galerie de la Roche grise :
+La place de la Mairie au crépuscule :
 
-- le camp avec son feu, son chariot et son enclume ;
-- l'entrée de la mine et une galerie avec trois filons de cuivre qui brillent ;
-- Bodrin et Pell font l'aller-retour entre les filons et le chariot ;
-- un compteur d'or, un bouton « Engager un smarve », et le clic sur un filon pour piocher soi-même.
+- la mairie, l'érable rouge, le monument, quelques maisons de pierre et l'église au fond ;
+- le Café de la Place avec sa terrasse éclairée, ses guirlandes et des habitants attablés ;
+- les autres lieux visibles mais fermés, chacun avec son seuil affiché ;
+- un jeu jouable : « La Smarvoise », la machine à sous de Josiane, en vue rapprochée ;
+- le compteur de crédits et le total gagné au jeu, qui fait avancer les seuils.
 
-Le but de cette scène est d'abord de juger le rendu : si elle n'est pas belle, on corrige la direction artistique avant d'ajouter du jeu.
+Le but de cette scène est d'abord de juger le rendu : si elle n'est pas belle, on corrige la direction artistique avant d'ajouter des jeux.
 
 ## Choix techniques
 
