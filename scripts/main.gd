@@ -11,6 +11,7 @@ const ROULETTE := preload("res://scripts/roulette_panel.gd")
 const WHEEL := preload("res://scripts/wheel_panel.gd")
 const BLACKJACK := preload("res://scripts/blackjack_panel.gd")
 const POKER := preload("res://scripts/poker_panel.gd")
+const OUTSKIRTS := preload("res://scripts/outskirts.gd")
 
 ## Où regarde la caméra quand on joue dans chaque lieu de la place : [cible, distance, lacet, tangage].
 const FOCUS := {
@@ -18,7 +19,17 @@ const FOCUS := {
 	"boulangerie": [Vector3(7.0, 1.0, -1.0), 6.0, -90.0, -18.0],
 	"rabelais": [Vector3(-7.4, 1.2, 4.4), 6.5, 90.0, -18.0],
 	"eglise": [Vector3(2.6, 1.0, -3.4), 6.0, 0.0, -14.0],
+	"zebres": [Vector3(64.0, 0.8, 3.5), 9.0, 0.0, -24.0],
+	"moulin": [Vector3(-72.0, 1.4, 0.5), 9.0, 0.0, -18.0],
+	"passelourdin": [Vector3(0.0, 1.0, -71.0), 6.0, 0.0, -24.0],
 }
+
+## Les panneaux de la place, vers les environs : [lieu, position, rotation, texte].
+const SIGNPOSTS := [
+	["bois", Vector3(10.4, 0, 5.6), -90.0, "Bois de Saint-Pierre  →"],
+	["moulin", Vector3(-10.4, 0, 5.6), 90.0, "←  Moulin des Dames"],
+	["passelourdin", Vector3(-6.8, 0, -3.4), 0.0, "Rochers de Passelourdin  ↑"],
+]
 const KN := "res://assets/kenney/nature/"
 const KS := "res://assets/kenney/survival/"
 const KD := "res://assets/kenney/dungeon/"
@@ -56,6 +67,8 @@ var _places_box: VBoxContainer
 var _banner: Label
 var _slot: PanelContainer
 var _hint: Label
+var _back: Button
+var area := ""
 
 
 func _ready() -> void:
@@ -67,6 +80,10 @@ func _ready() -> void:
 	_build_buildings()
 	_build_trees_and_lights()
 	_build_villagers()
+	var outskirts := OUTSKIRTS.new()
+	add_child(outskirts)
+	outskirts.build(self)
+	_build_signposts()
 	_build_ui()
 	camera = Camera3D.new()
 	camera.set_script(ORBIT)
@@ -501,12 +518,12 @@ func _garland(a: Vector3, b: Vector3, sag: float) -> void:
 
 # --- Les habitants ---------------------------------------------------------------------
 
-func _villager(model: String, pos: Vector3, rot_y: float, pose := "idle", route: Array[Vector3] = [], acc := "") -> Node3D:
+func _villager(model: String, pos: Vector3, rot_y: float, pose := "idle", route: Array = [], acc := "") -> Node3D:
 	var v: Node3D = VILLAGER.new()
 	v.accessory = acc
 	v.model_path = KC + model
 	v.pose = pose
-	v.route = route
+	v.route.assign(route)
 	v.position = pos
 	v.rotation_degrees.y = rot_y
 	add_child(v)
@@ -574,7 +591,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		q.collide_with_areas = true
 		q.collide_with_bodies = false
 		var hit := get_world_3d().direct_space_state.intersect_ray(q)
-		if hit and hit.collider.has_meta("place"):
+		if hit and hit.collider.has_meta("travel"):
+			travel(hit.collider.get_meta("travel"))
+		elif hit and hit.collider.has_meta("place"):
 			_enter(hit.collider.get_meta("place"))
 
 
@@ -617,6 +636,54 @@ func _enter(id: String) -> void:
 	camera.focus(Vector3(-6.7, 0.8, -2.2), 5.0, deg_to_rad(70.0), deg_to_rad(-14.0))
 	_slot.visible = true
 	_hint.visible = false
+
+
+func _build_signposts() -> void:
+	for sp in SIGNPOSTS:
+		var root := Node3D.new()
+		root.position = sp[1]
+		root.rotation_degrees.y = sp[2]
+		add_child(root)
+		var wood := StandardMaterial3D.new()
+		wood.albedo_color = Color(0.45, 0.28, 0.14)
+		_box(Vector3(0.12, 2.2, 0.12), Vector3(0, 1.1, 0), wood, root)
+		_box(Vector3(2.6, 0.5, 0.08), Vector3(0, 1.9, 0), wood, root)
+		var l := Label3D.new()
+		l.text = sp[3]
+		l.font = serif
+		l.font_size = 44
+		l.pixel_size = 0.005
+		l.modulate = Color(1.0, 0.92, 0.75)
+		l.outline_size = 0
+		l.position = Vector3(0, 1.9, 0.05)
+		root.add_child(l)
+		var back_l := l.duplicate()
+		back_l.position.z = -0.05
+		back_l.rotation_degrees.y = 180
+		root.add_child(back_l)
+		var area3 := Area3D.new()
+		var cs := CollisionShape3D.new()
+		var b := BoxShape3D.new()
+		b.size = Vector3(2.8, 2.4, 0.8)
+		cs.shape = b
+		cs.position.y = 1.2
+		area3.add_child(cs)
+		area3.set_meta("travel", sp[0])
+		root.add_child(area3)
+
+
+## Part en promenade vers un des environs (ou revient sur la place avec « place »).
+func travel(where: String) -> void:
+	area = where
+	if where == "place":
+		camera.go_to(Vector3(0, 0.3, 0))
+		_back.visible = false
+		_announce("La place de la Mairie.")
+		return
+	var a: Dictionary = OUTSKIRTS.AREAS[where]
+	camera.go_to(a.center + Vector3(0, 0.3, 0))
+	_back.visible = true
+	_announce("%s." % a.name)
 
 
 ## Le jeu de chaque lieu du village, sur les règles du casino.
@@ -675,6 +742,16 @@ func _fmt(n: int) -> String:
 	return Game.fmt(n)
 
 
+func _list_enter(id: String) -> void:
+	for key in OUTSKIRTS.AREAS:
+		if OUTSKIRTS.AREAS[key].place == id and area != key:
+			travel(key)
+			return
+	if area != "" and area != "place" and not FOCUS.has(id) and id != "cafe" and id != "banque" and id != "casino":
+		travel("place")
+	_enter(id)
+
+
 func _refresh_places() -> void:
 	for c in _places_box.get_children():
 		c.queue_free()
@@ -692,7 +769,7 @@ func _refresh_places() -> void:
 		else:
 			l.text = "○  %s  —  %s gagnés" % [p.name, _fmt(p.seuil)]
 			l.add_theme_color_override("font_color", Color(0.55, 0.55, 0.6))
-		l.pressed.connect(_enter.bind(p.id))
+		l.pressed.connect(_list_enter.bind(p.id))
 		_places_box.add_child(l)
 		if place_signs.has(p.id):
 			var s: Label3D = place_signs[p.id]
@@ -813,6 +890,15 @@ func _build_ui() -> void:
 	_hint.position.y -= 22
 	root.add_child(_hint)
 
+	_back = Button.new()
+	_back.text = "←  Retour sur la place"
+	_back.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	_back.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_back.position += Vector2(28, -60)
+	_back.visible = false
+	_back.pressed.connect(travel.bind("place"))
+	root.add_child(_back)
+
 	var center := CenterContainer.new()
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -835,6 +921,9 @@ func _maybe_capture() -> void:
 			path = arg.trim_prefix("--capture=")
 		elif arg.begins_with("--open="):
 			open = arg.trim_prefix("--open=")
+		elif arg.begins_with("--travel="):
+			await get_tree().process_frame
+			travel(arg.trim_prefix("--travel="))
 		elif arg.begins_with("--won="):
 			Game.won = int(arg.trim_prefix("--won="))
 			Game.credits += 2000

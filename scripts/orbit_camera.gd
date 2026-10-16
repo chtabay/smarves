@@ -50,6 +50,13 @@ func focus(at: Vector3, dist: float, y: float, p: float) -> void:
 	_pitch_goal = p
 
 
+## Déplace le point visé sans verrouiller la caméra : pour voyager d'un socle à l'autre.
+func go_to(at: Vector3) -> void:
+	if _locked:
+		release()
+	_target_goal = at
+
+
 func release() -> void:
 	if not _locked:
 		return
