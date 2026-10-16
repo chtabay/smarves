@@ -178,7 +178,7 @@ func _build_environment() -> void:
 	env.volumetric_fog_gi_inject = 0.3
 	env.volumetric_fog_sky_affect = 0.0
 	env.adjustment_enabled = true
-	env.adjustment_saturation = 1.1
+	env.adjustment_saturation = 1.22
 	env.adjustment_contrast = 1.05
 	var we := WorldEnvironment.new()
 	we.environment = env
@@ -242,9 +242,9 @@ func _build_square() -> void:
 	_box(Vector3(5.1, 0.16, 0.08), Vector3(4.5, 0.02, 4.2), wood)
 
 	# Le monument aux morts et l'érable rouge de 1986.
-	_box(Vector3(0.9, 0.25, 0.9), Vector3(-1.6, 0.12, -1.6), stone_material)
-	_box(Vector3(0.35, 1.6, 0.35), Vector3(-1.6, 1.0, -1.6), stone_material)
-	var maple := _place(KN + "tree_detailed_fall.glb", Vector3(0.6, 0, -1.2), 2.4, 20.0)
+	_box(Vector3(0.9, 0.25, 0.9), Vector3(-1.6, 0.12, -0.6), stone_material)
+	_box(Vector3(0.35, 1.6, 0.35), Vector3(-1.6, 1.0, -0.6), stone_material)
+	var maple := _place(KN + "tree_detailed_fall.glb", Vector3(0.6, 0, -0.4), 2.2, 20.0)
 	var red := StandardMaterial3D.new()
 	red.albedo_color = Color(0.65, 0.1, 0.06)
 	red.roughness = 0.85
@@ -258,37 +258,104 @@ func _build_square() -> void:
 
 # --- Les bâtiments ------------------------------------------------------------------
 
-func _building(id: String, pos: Vector3, rot_y: float, w: int, d: int, floors: int, ground: Array, upper := "wall-window-shutters") -> Node3D:
-	var root := House.build(self, pos, rot_y, w, d, floors, ground, upper)
+const KK := "res://assets/kaykit/"
+const KA := "res://assets/kenney/arcade/"
+const BUILDING_SCALE := 3.2
+
+
+func _kaykit(name: String, color: String, pos: Vector3, rot_y: float, scale := BUILDING_SCALE) -> Node3D:
+	return _place(KK + "medieval_buildings/%s/building_%s_%s.gltf" % [color, name, color], pos, scale, rot_y)
+
+
+func _building(id: String, name: String, color: String, pos: Vector3, rot_y: float, scale := BUILDING_SCALE) -> Node3D:
+	var b := _kaykit(name, color, pos, rot_y, scale)
 	if id != "":
-		_add_place_marker(id, root, Vector3(0, floors + 1.4, d / 2.0), Vector3(w, floors, d))
-	return root
+		var aabb := _aabb_of(b)
+		_add_place_marker(id, b, Vector3(0, aabb.size.y / scale + 0.25, 0), aabb.size / scale)
+	return b
+
+
+func _aabb_of(n: Node3D) -> AABB:
+	var box := AABB()
+	var first := true
+	for mi in n.find_children("*", "MeshInstance3D", true, false):
+		var b: AABB = (mi as MeshInstance3D).get_aabb()
+		box = b if first else box.merge(b)
+		first = false
+	return AABB(box.position * n.scale, box.size * n.scale)
 
 
 func _build_buildings() -> void:
-	var W := "wall-window-shutters"
-	var G := "wall-window-glass"
-	var S := "wall-window-stone"
-	_building("mairie", Vector3(-1.0, 0, -6.0), 0.0, 5, 2, 2, [S, S, "wall-doorway-round", S, S])
-	_building("cafe", Vector3(-8.0, 0, -0.5), 90.0, 6, 2, 2, [G, G, "wall-doorway-square-wide", G, G, G])
-	_building("boulangerie", Vector3(8.5, 0, -1.0), -90.0, 4, 2, 2, [G, "wall-doorway-square", G, W])
-	_building("rabelais", Vector3(7.0, 0, -6.5), 0.0, 4, 2, 1, ["wall-arch", "wall-doorway-square-wide", "wall-arch", "wall-arch"])
-	_building("eglise", Vector3(3.2, 0, -6.6), 0.0, 2, 2, 4, ["wall", "wall-doorway-round"], "wall-window-round")
-	# Maisons sans jeu, pour fermer la place.
-	_building("", Vector3(-7.5, 0, -6.5), 0.0, 4, 2, 2, [W, "wall-door", W, W])
-	_building("", Vector3(-9.5, 0, 4.5), 90.0, 2, 2, 2, [W, "wall-door"])
-	_building("", Vector3(9.5, 0, 3.5), -90.0, 3, 2, 2, [W, "wall-door", W])
+	# Le fond de la place : maisons, mairie, église, salle Rabelais.
+	_building("", "home_B", "green", Vector3(-8.6, 0, -5.6), 0.0)
+	_building("mairie", "home_B", "blue", Vector3(-4.6, 0, -5.8), 0.0, 3.6)
+	_building("eglise", "church", "yellow", Vector3(0.4, 0, -6.0), 0.0, 3.6)
+	_building("rabelais", "market", "red", Vector3(5.4, 0, -5.8), 0.0, 2.8)
+	_building("", "home_A", "yellow", Vector3(9.2, 0, -5.8), 0.0)
+	# À gauche, le Café de la Place ; à droite, la boulangerie et le Crédit Smarvois.
+	_building("cafe", "tavern", "red", Vector3(-8.8, 0, -0.6), 90.0)
+	_building("", "home_A", "blue", Vector3(-9.0, 0, 4.4), 90.0)
+	_building("boulangerie", "home_A", "yellow", Vector3(9.0, 0, -1.2), -90.0)
+	_building("", "home_B", "red", Vector3(9.0, 0, 3.8), -90.0)
+	_build_gambling()
+
+
+## Une enseigne au néon : du texte qui brille, et une lumière colorée qui déborde sur la façade.
+func _neon(text: String, pos: Vector3, rot_y: float, color: Color, size := 64) -> Label3D:
+	var l := Label3D.new()
+	l.text = text
+	l.font = serif
+	l.font_size = size
+	l.pixel_size = 0.009
+	l.modulate = Color(color.r * 2.2, color.g * 2.2, color.b * 2.2)
+	l.outline_size = 18
+	l.outline_modulate = Color(color.r, color.g, color.b, 0.35)
+	l.shaded = false
+	l.position = pos
+	l.rotation_degrees.y = rot_y
+	add_child(l)
+	var glow := OmniLight3D.new()
+	glow.light_color = color
+	glow.light_energy = 1.4
+	glow.omni_range = 3.0
+	glow.position = pos + Basis(Vector3.UP, deg_to_rad(rot_y)) * Vector3(0, 0, 0.6)
+	add_child(glow)
+	return l
+
+
+func _build_gambling() -> void:
+	# Les machines à sous alignées sous la façade du café.
+	for z in [-2.6, -1.8, 1.0, 1.8]:
+		_place(KA + "gambling-machine.glb", Vector3(-6.7, 0, z), 1.0, 90.0)
+	var cafe_glow := OmniLight3D.new()
+	cafe_glow.light_color = Color(1.0, 0.75, 0.3)
+	cafe_glow.light_energy = 2.0
+	cafe_glow.omni_range = 4.0
+	cafe_glow.position = Vector3(-6.0, 1.0, -0.6)
+	add_child(cafe_glow)
+	_neon("JACKPOT", Vector3(-6.3, 3.4, -0.6), 90.0, Color(1.0, 0.3, 0.7), 96)
+	_neon("Café de la Place · Tabac · Jeux", Vector3(-6.3, 2.75, -0.6), 90.0, Color(1.0, 0.8, 0.4), 40)
+
+	# La roue de la kermesse sur le parvis, la boulangerie qui vend des grilles avec le pain.
+	_place(KA + "prize-wheel.glb", Vector3(2.6, 0.3, -3.4), 1.6, -20.0)
+	_neon("ROUE DE LA FORTUNE", Vector3(0.4, 4.9, -4.1), 0.0, Color(0.6, 0.9, 1.0), 56)
+	_place("res://assets/kenney/market/display-bread.glb", Vector3(7.0, 0, -1.6), 1.2, -90.0)
+	_place(KA + "claw-machine.glb", Vector3(7.0, 0, -0.4), 1.1, -90.0)
+	_neon("PAIN · LOTO · GRATTAGE", Vector3(6.6, 2.5, -1.2), -90.0, Color(0.5, 1.0, 0.6), 44)
+	_neon("LOTO CE SOIR", Vector3(5.4, 3.0, -3.7), 0.0, Color(1.0, 0.85, 0.3), 64)
+	_neon("CRÉDIT SMARVOIS", Vector3(6.7, 3.1, 3.8), -90.0, Color(0.4, 0.6, 1.0), 52)
+	_neon("Prêts pour se refaire", Vector3(6.7, 2.55, 3.8), -90.0, Color(0.4, 0.6, 1.0), 34)
+	_neon("MAIRIE", Vector3(-4.6, 3.2, -3.6), 0.0, Color(1.0, 0.95, 0.85), 48)
+
 	# La terrasse du café.
-	for t in [Vector3(-5.6, 0, -2.4), Vector3(-5.6, 0, -0.4), Vector3(-5.6, 0, 1.6)]:
-		_place(KD + "table.glb", t, 0.8)
-		_place(KD + "chair.glb", t + Vector3(-0.55, 0, 0), 0.8, 90.0)
-		_place(KD + "chair.glb", t + Vector3(0.55, 0, 0), 0.8, -90.0)
-	var sign_light := OmniLight3D.new()
-	sign_light.light_color = Color(1.0, 0.7, 0.4)
-	sign_light.light_energy = 2.5
-	sign_light.omni_range = 5.0
-	sign_light.position = Vector3(-6.2, 1.6, -0.5)
-	add_child(sign_light)
+	for t in [Vector3(-5.4, 0, -2.2), Vector3(-5.4, 0, 1.4)]:
+		_place(KK + "furniture/table_small.gltf", t, 0.32)
+		_place(KK + "furniture/chair_A.gltf", t + Vector3(-0.45, 0, 0), 0.3, 90.0)
+		_place(KK + "furniture/chair_A.gltf", t + Vector3(0.45, 0, 0), 0.3, -90.0)
+
+	# Le tableau des cotes de la pétanque, et le banc de celui qui a tout misé.
+	_neon("COTES DU JOUR\nLucien 3 contre 1\nles Rabelais 7 contre 2", Vector3(4.5, 1.4, 4.4), 0.0, Color(1.0, 1.0, 0.9), 30)
+	_place(KK + "city/bench.gltf", Vector3(-2.0, 0, 4.6), 2.6, 180.0)
 
 
 func _add_place_marker(id: String, parent: Node3D, at: Vector3, size: Vector3) -> void:
@@ -297,7 +364,7 @@ func _add_place_marker(id: String, parent: Node3D, at: Vector3, size: Vector3) -
 	var label := Label3D.new()
 	label.font = serif
 	label.font_size = 48
-	label.pixel_size = 0.008
+	label.pixel_size = 0.007 / parent.scale.x
 	label.outline_size = 12
 	label.outline_modulate = Color(0, 0, 0, 0.7)
 	label.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
@@ -327,39 +394,67 @@ func _place_info(id: String) -> Dictionary:
 
 func _build_trees_and_lights() -> void:
 	# Les platanes le long de la route.
-	var planes := [Vector3(-8.5, 0, 4.6), Vector3(-3.5, 0, 4.6), Vector3(1.5, 0, 4.6), Vector3(6.5, 0, 4.6)]
-	var foliage := StandardMaterial3D.new()
-	foliage.albedo_color = Color(0.32, 0.42, 0.16)
-	foliage.roughness = 0.9
+	var planes := [Vector3(-7.0, 0, 5.0), Vector3(-2.5, 0, 5.0), Vector3(2.0, 0, 5.0), Vector3(6.5, 0, 5.0)]
 	for p in planes:
-		var t := _place(KN + "tree_default.glb", p, 2.3, randf() * 360.0)
-		for mi in t.find_children("*", "MeshInstance3D", true, false):
-			var mesh: Mesh = (mi as MeshInstance3D).mesh
-			for i in mesh.get_surface_count():
-				var m := mesh.surface_get_material(i)
-				if m and m.resource_name.begins_with("leafs"):
-					mi.set_surface_override_material(i, foliage)
+		_place(KK + "medieval_decoration/nature/tree_single_A.gltf", p, 2.8, randf() * 360.0)
 	for i in planes.size() - 1:
-		_garland(planes[i] + Vector3(0, 2.6, 0), planes[i + 1] + Vector3(0, 2.6, 0), 1.0)
-	# Guirlandes du café jusqu'à l'érable et jusqu'aux platanes.
-	_garland(Vector3(-6.1, 2.3, -2.6), Vector3(0.3, 2.6, -1.4), 0.7)
-	_garland(Vector3(-6.1, 2.3, 1.6), Vector3(-3.5, 2.6, 4.6), 0.6)
-	# Réverbères autour de la place.
-	for p in [Vector3(-4.0, 0, -3.8), Vector3(2.5, 0, -3.8), Vector3(-4.0, 0, 4.0), Vector3(4.0, 0, 0.6), Vector3(9.0, 0, 4.8), Vector3(-9.0, 0, -3.0)]:
-		_place("res://assets/kenney/town/lantern.glb", p, 1.4)
+		_garland(planes[i] + Vector3(0, 2.4, 0), planes[i + 1] + Vector3(0, 2.4, 0), 0.8)
+		_bunting(planes[i] + Vector3(0, 2.0, 0.1), planes[i + 1] + Vector3(0, 2.0, 0.1), 0.6)
+	# Fanions en cartes à jouer à travers la place.
+	_bunting(Vector3(-6.8, 3.0, -2.8), Vector3(0.4, 3.4, -1.2), 0.9)
+	_bunting(Vector3(0.4, 3.4, -1.2), Vector3(7.2, 2.8, -2.4), 0.9)
+	_garland(Vector3(-6.8, 2.7, 1.6), Vector3(-2.5, 2.4, 5.0), 0.6)
+	_garland(Vector3(-6.8, 2.7, -2.8), Vector3(0.6, 3.0, -1.4), 0.7)
+	# Réverbères.
+	for p in [Vector3(-4.0, 0, -3.6), Vector3(3.0, 0, -3.6), Vector3(-4.2, 0, 3.6), Vector3(3.8, 0, 0.6), Vector3(7.0, 0, 4.9)]:
+		_place(KK + "city/streetlight.gltf", p, 2.2, 180.0)
 		var l := OmniLight3D.new()
 		l.light_color = Color(1.0, 0.75, 0.45)
-		l.light_energy = 2.2
-		l.omni_range = 5.0
+		l.light_energy = 1.8
+		l.omni_range = 4.5
 		l.light_volumetric_fog_energy = 1.2
-		l.position = p + Vector3(0, 2.05, 0)
+		l.position = p + Vector3(0.45, 2.0, 0)
 		add_child(l)
-	# Haies et fleurs devant la mairie.
-	for x in [-3.2, -2.4, 0.6, 1.4]:
-		_place(KN + "plant_bushDetailed.glb", Vector3(x, 0, -4.0), 1.6, randf() * 360.0)
-	for i in 8:
-		_place(KN + ["flower_redA.glb", "flower_yellowA.glb", "flower_purpleB.glb"].pick_random(),
-			Vector3(randf_range(-3.4, 1.6), 0, randf_range(-4.3, -3.7)), 1.5, randf() * 360.0)
+	# Massifs et tonneaux.
+	for p in [Vector3(-2.8, 0, -3.8), Vector3(-1.6, 0, -3.8)]:
+		_place(KK + "city/bush.gltf", p, 2.5)
+	for p in [Vector3(-7.0, 0, 3.0), Vector3(7.2, 0, 1.4), Vector3(7.4, 0, 1.8)]:
+		_place(KK + "medieval_decoration/props/barrel.gltf", p, 2.4, randf() * 360.0)
+	# Les voitures garées.
+	_place(KK + "city/car_sedan.gltf", Vector3(-5.0, 0, 6.1), 1.9, 90.0)
+	_place(KK + "city/car_hatchback.gltf", Vector3(4.5, 0, 6.7), 1.9, -90.0)
+
+
+## Des fanions en cartes à jouer qui pendent entre deux points.
+func _bunting(a: Vector3, b: Vector3, sag: float) -> void:
+	var n := int(a.distance_to(b) / 0.35)
+	var suits := ["♥", "♠", "♦", "♣"]
+	var flag := PrismMesh.new()
+	flag.size = Vector3(0.24, 0.3, 0.01)
+	var white := StandardMaterial3D.new()
+	white.albedo_color = Color(0.95, 0.93, 0.88)
+	white.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var red := StandardMaterial3D.new()
+	red.albedo_color = Color(0.85, 0.15, 0.15)
+	red.cull_mode = BaseMaterial3D.CULL_DISABLED
+	for i in range(1, n):
+		var t := float(i) / n
+		var p := a.lerp(b, t) - Vector3(0, sag * 4.0 * t * (1.0 - t), 0)
+		var m := MeshInstance3D.new()
+		m.mesh = flag
+		m.material_override = white if i % 2 == 0 else red
+		m.position = p - Vector3(0, 0.15, 0)
+		m.rotation = Vector3(PI, atan2(b.x - a.x, b.z - a.z) + PI / 2.0, 0)
+		add_child(m)
+		var l := Label3D.new()
+		l.text = suits[i % 4]
+		l.font_size = 48
+		l.pixel_size = 0.002
+		l.modulate = Color(0.1, 0.1, 0.1) if i % 2 == 0 else Color(1, 1, 1)
+		l.double_sided = true
+		l.position = Vector3(0, 0.03, 0.01)
+		l.rotation = Vector3(PI, 0, 0)
+		m.add_child(l)
 
 
 ## Une guirlande d'ampoules qui pend entre deux points.
@@ -492,7 +587,7 @@ func _enter(id: String) -> void:
 	if id != "cafe":
 		_announce("%s est ouvert, mais %s n'est pas encore installé." % [p.name, p.game])
 		return
-	camera.focus(Vector3(-6.2, 1.0, -0.5), 8.0, deg_to_rad(65.0), deg_to_rad(-14.0))
+	camera.focus(Vector3(-6.7, 0.8, -2.2), 5.0, deg_to_rad(70.0), deg_to_rad(-14.0))
 	_slot.visible = true
 	_hint.visible = false
 

@@ -4,6 +4,14 @@
 
 Un jeu incrémental dans l'esprit d'Addict Casino, sauf qu'ici le casino, c'est tout un village : le vrai Smarves, dans la Vienne, où l'on joue à chaque coin de rue, du comptoir du café jusqu'au fond du bois de Saint-Pierre.
 
+## La morale
+
+Le jeu dit tout au premier degré : à Smarves, on joue, on gagne, et si ton banquier te refuse un prêt pour aller jouer, c'est un loser. Personne dans le village ne dit le contraire, ni les habitants, ni les enseignes, ni le banquier lui-même.
+
+La démonstration que ça ne marche pas doit sortir du jeu, jamais d'un discours. Les machines rendent un peu moins qu'elles ne prennent, les prêts s'empilent, les habitants maigrissent, vendent leur voiture et finissent sur un banc, toujours souriants. Le ton est celui de Happy Tree Friends : des personnages mignons à qui il arrive des choses terribles, et qui en redemandent.
+
+- **M. Brunet**, conseiller du Crédit Smarvois, prête volontiers pour « se refaire ». Quand il refuse enfin, le jeu l'affiche en grand : « Votre banquier refuse ? C'est un loser. Changez de banquier. »
+
 ## Le village
 
 Smarves existe : 2 900 habitants à 8 km au sud de Poitiers, entre le Clain et le Miosson. Le jeu reprend sa géographie réelle, mais tous les commerces, habitants et histoires sont inventés.
@@ -56,11 +64,11 @@ Comme dans Addict, rien ne s'ouvre avec l'argent qu'on a, seulement avec ce qu'o
 
 ## Direction artistique
 
-- **Le Poitou au crépuscule** : pierre calcaire blanc crème, tuiles canal ocre et rose, volets peints, ciel bleu nuit qui tombe.
-- **La fête permanente** : des guirlandes d'ampoules tendues entre les maisons et les platanes, des vitrines qui débordent de lumière jaune, des enseignes qui clignotent. La lumière chaude des jeux s'oppose à la nuit froide.
-- **La maquette** : le village est posé sur un socle de bois, avec un léger flou de profondeur et une plaque de cuivre « SMARVES ».
-- **La lumière fait le travail** : rendu Forward+, éclairage global, brouillard volumétrique léger, halos lumineux.
-- **Assets** : modèles Kenney (CC0) unifiés par une palette commune (pierre, tuiles, bois peint). Rien n'est dessiné en formes de code quand un modèle existe.
+- **Une maquette de jouets** : le village est posé sur un socle de bois, avec un fort effet miniature (flou de bascule, ou tilt-shift) qui fait « petit », et des couleurs vives de jouet.
+- **Mignon** : personnages trapus et souriants, maisons aux formes arrondies (packs KayKit et Kenney Mini, CC0), le tout réuni par une palette commune.
+- **Le jeu partout** : enseignes lumineuses (« JACKPOT », « TIERCÉ », « LOTO »), machines à sous dans les vitrines, roue de la fortune sur la place, fanions en cartes à jouer, gros dés, tableaux de cotes à la craie.
+- **Le crépuscule** : ciel bleu nuit, vitrines qui débordent de lumière chaude, guirlandes d'ampoules, rues mouillées qui reflètent les néons.
+- **La lumière fait le travail** : rendu Forward+, éclairage global, halos lumineux.
 - **Interface** : sobre et dorée, typographie à empattements, comme Addict.
 
 ## Première scène jouable

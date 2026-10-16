@@ -3,8 +3,8 @@ extends Camera3D
 
 var target := Vector3(0.0, 0.3, 0.0)
 var yaw := deg_to_rad(0.0)
-var pitch := deg_to_rad(-36.0)
-var distance := 32.0
+var pitch := deg_to_rad(-40.0)
+var distance := 26.0
 var _target_goal := target
 var _home := {}
 var _locked := false
@@ -20,7 +20,7 @@ func _ready() -> void:
 	# Flou de profondeur des deux côtés : l'œil lit « maquette miniature ».
 	attr.dof_blur_far_enabled = true
 	attr.dof_blur_near_enabled = true
-	attr.dof_blur_amount = 0.05
+	attr.dof_blur_amount = 0.11
 	attributes = attr
 	# Pour les captures de vérification : -- --view=distance,x,y,z,lacet,tangage
 	for arg in OS.get_cmdline_user_args():
@@ -90,7 +90,8 @@ func _apply() -> void:
 	look_at(target)
 	var attr := attributes as CameraAttributesPractical
 	if attr:
-		attr.dof_blur_far_distance = distance * 1.5
-		attr.dof_blur_far_transition = distance * 0.4
-		attr.dof_blur_near_distance = maxf(0.5, distance * 0.6)
-		attr.dof_blur_near_transition = distance * 0.2
+		# Effet miniature : seule une bande autour du point visé reste nette.
+		attr.dof_blur_far_distance = distance * 1.1
+		attr.dof_blur_far_transition = distance * 0.35
+		attr.dof_blur_near_distance = maxf(0.5, distance * 0.82)
+		attr.dof_blur_near_transition = distance * 0.25
