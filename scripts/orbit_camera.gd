@@ -20,16 +20,22 @@ func _ready() -> void:
 	# Flou de profondeur des deux côtés : l'œil lit « maquette miniature ».
 	attr.dof_blur_far_enabled = true
 	attr.dof_blur_near_enabled = true
-	attr.dof_blur_amount = 0.08
+	attr.dof_blur_amount = 0.05
 	attributes = attr
-	# Pour les captures de vérification : -- --view=distance,x,y
+	# Pour les captures de vérification : -- --view=distance,x,y,z,lacet,tangage
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--view="):
 			var v := arg.trim_prefix("--view=").split_floats(",")
 			_dist_goal = v[0]
 			distance = v[0]
-			target = Vector3(v[1], v[2], 0.0)
+			target = Vector3(v[1], v[2], v[3] if v.size() > 3 else 0.0)
 			_target_goal = target
+			if v.size() > 4:
+				yaw = deg_to_rad(v[4])
+				_yaw_goal = yaw
+			if v.size() > 5:
+				pitch = deg_to_rad(v[5])
+				_pitch_goal = pitch
 	_apply()
 
 
@@ -84,7 +90,7 @@ func _apply() -> void:
 	look_at(target)
 	var attr := attributes as CameraAttributesPractical
 	if attr:
-		attr.dof_blur_far_distance = distance * 1.25
+		attr.dof_blur_far_distance = distance * 1.5
 		attr.dof_blur_far_transition = distance * 0.4
 		attr.dof_blur_near_distance = maxf(0.5, distance * 0.6)
 		attr.dof_blur_near_transition = distance * 0.2

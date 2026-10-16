@@ -159,7 +159,7 @@ func _build_environment() -> void:
 	env.background_mode = Environment.BG_COLOR
 	env.background_color = Color(0.015, 0.018, 0.035)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.45
+	env.ambient_light_energy = 0.6
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	env.tonemap_mode = Environment.TONE_MAPPER_AGX
 	env.tonemap_exposure = 1.05
@@ -244,7 +244,7 @@ func _build_square() -> void:
 	# Le monument aux morts et l'érable rouge de 1986.
 	_box(Vector3(0.9, 0.25, 0.9), Vector3(-1.6, 0.12, -1.6), stone_material)
 	_box(Vector3(0.35, 1.6, 0.35), Vector3(-1.6, 1.0, -1.6), stone_material)
-	var maple := _place(KN + "tree_oak_fall.glb", Vector3(0.6, 0, -1.2), 3.2, 20.0)
+	var maple := _place(KN + "tree_detailed_fall.glb", Vector3(0.6, 0, -1.2), 2.4, 20.0)
 	var red := StandardMaterial3D.new()
 	red.albedo_color = Color(0.65, 0.1, 0.06)
 	red.roughness = 0.85
@@ -258,28 +258,28 @@ func _build_square() -> void:
 
 # --- Les bâtiments ------------------------------------------------------------------
 
-## Façade provisoire : remplacée par les modèles Kenney dès qu'ils sont là.
-func _building(id: String, pos: Vector3, rot_y: float, size: Vector3) -> Node3D:
-	var root := Node3D.new()
-	root.position = pos
-	root.rotation_degrees.y = rot_y
-	add_child(root)
-	_box(size, Vector3(0, size.y / 2.0, 0), stone_material, root)
-	var tiles := StandardMaterial3D.new()
-	tiles.albedo_color = Color(0.72, 0.38, 0.24)
-	tiles.roughness = 0.8
-	_box(Vector3(size.x + 0.3, 0.25, size.z + 0.3), Vector3(0, size.y + 0.12, 0), tiles, root)
-	for k in int(size.x / 1.2):
-		_box(Vector3(0.45, 0.6, 0.05), Vector3(-size.x / 2.0 + 0.8 + k * 1.2, size.y * 0.55, size.z / 2.0 + 0.01), window_material, root)
-	_add_place_marker(id, root, Vector3(0, size.y + 0.9, size.z / 2.0), size)
+func _building(id: String, pos: Vector3, rot_y: float, w: int, d: int, floors: int, ground: Array, upper := "wall-window-shutters") -> Node3D:
+	var root := House.build(self, pos, rot_y, w, d, floors, ground, upper)
+	if id != "":
+		_add_place_marker(id, root, Vector3(0, floors + 1.4, d / 2.0), Vector3(w, floors, d))
 	return root
 
 
 func _build_buildings() -> void:
-	_building("mairie", Vector3(-1.0, 0, -5.6), 0.0, Vector3(5.0, 3.0, 2.5))
-	_building("cafe", Vector3(-7.6, 0, -0.5), 90.0, Vector3(6.0, 2.4, 3.0))
+	var W := "wall-window-shutters"
+	var G := "wall-window-glass"
+	var S := "wall-window-stone"
+	_building("mairie", Vector3(-1.0, 0, -6.0), 0.0, 5, 2, 2, [S, S, "wall-doorway-round", S, S])
+	_building("cafe", Vector3(-8.0, 0, -0.5), 90.0, 6, 2, 2, [G, G, "wall-doorway-square-wide", G, G, G])
+	_building("boulangerie", Vector3(8.5, 0, -1.0), -90.0, 4, 2, 2, [G, "wall-doorway-square", G, W])
+	_building("rabelais", Vector3(7.0, 0, -6.5), 0.0, 4, 2, 1, ["wall-arch", "wall-doorway-square-wide", "wall-arch", "wall-arch"])
+	_building("eglise", Vector3(3.2, 0, -6.6), 0.0, 2, 2, 4, ["wall", "wall-doorway-round"], "wall-window-round")
+	# Maisons sans jeu, pour fermer la place.
+	_building("", Vector3(-7.5, 0, -6.5), 0.0, 4, 2, 2, [W, "wall-door", W, W])
+	_building("", Vector3(-9.5, 0, 4.5), 90.0, 2, 2, 2, [W, "wall-door"])
+	_building("", Vector3(9.5, 0, 3.5), -90.0, 3, 2, 2, [W, "wall-door", W])
 	# La terrasse du café.
-	for t in [Vector3(-5.3, 0, -2.2), Vector3(-5.3, 0, 0.0), Vector3(-5.3, 0, 2.0)]:
+	for t in [Vector3(-5.6, 0, -2.4), Vector3(-5.6, 0, -0.4), Vector3(-5.6, 0, 1.6)]:
 		_place(KD + "table.glb", t, 0.8)
 		_place(KD + "chair.glb", t + Vector3(-0.55, 0, 0), 0.8, 90.0)
 		_place(KD + "chair.glb", t + Vector3(0.55, 0, 0), 0.8, -90.0)
@@ -287,11 +287,8 @@ func _build_buildings() -> void:
 	sign_light.light_color = Color(1.0, 0.7, 0.4)
 	sign_light.light_energy = 2.5
 	sign_light.omni_range = 5.0
-	sign_light.position = Vector3(-5.8, 2.0, -0.5)
+	sign_light.position = Vector3(-6.2, 1.6, -0.5)
 	add_child(sign_light)
-	_building("boulangerie", Vector3(8.0, 0, -1.0), -90.0, Vector3(4.0, 2.2, 2.5))
-	_building("rabelais", Vector3(6.2, 0, -6.2), 0.0, Vector3(4.0, 2.4, 2.5))
-	_building("eglise", Vector3(3.0, 0, -6.6), 0.0, Vector3(2.2, 4.5, 2.2))
 
 
 func _add_place_marker(id: String, parent: Node3D, at: Vector3, size: Vector3) -> void:
@@ -300,7 +297,7 @@ func _add_place_marker(id: String, parent: Node3D, at: Vector3, size: Vector3) -
 	var label := Label3D.new()
 	label.font = serif
 	label.font_size = 48
-	label.pixel_size = 0.011
+	label.pixel_size = 0.008
 	label.outline_size = 12
 	label.outline_modulate = Color(0, 0, 0, 0.7)
 	label.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
@@ -332,10 +329,10 @@ func _build_trees_and_lights() -> void:
 	# Les platanes le long de la route.
 	var planes := [Vector3(-8.5, 0, 4.6), Vector3(-3.5, 0, 4.6), Vector3(1.5, 0, 4.6), Vector3(6.5, 0, 4.6)]
 	var foliage := StandardMaterial3D.new()
-	foliage.albedo_color = Color(0.22, 0.3, 0.12)
+	foliage.albedo_color = Color(0.32, 0.42, 0.16)
 	foliage.roughness = 0.9
 	for p in planes:
-		var t := _place(KN + "tree_default.glb", p, 3.0, randf() * 360.0)
+		var t := _place(KN + "tree_default.glb", p, 2.3, randf() * 360.0)
 		for mi in t.find_children("*", "MeshInstance3D", true, false):
 			var mesh: Mesh = (mi as MeshInstance3D).mesh
 			for i in mesh.get_surface_count():
@@ -347,6 +344,16 @@ func _build_trees_and_lights() -> void:
 	# Guirlandes du café jusqu'à l'érable et jusqu'aux platanes.
 	_garland(Vector3(-6.1, 2.3, -2.6), Vector3(0.3, 2.6, -1.4), 0.7)
 	_garland(Vector3(-6.1, 2.3, 1.6), Vector3(-3.5, 2.6, 4.6), 0.6)
+	# Réverbères autour de la place.
+	for p in [Vector3(-4.0, 0, -3.8), Vector3(2.5, 0, -3.8), Vector3(-4.0, 0, 4.0), Vector3(4.0, 0, 0.6), Vector3(9.0, 0, 4.8), Vector3(-9.0, 0, -3.0)]:
+		_place("res://assets/kenney/town/lantern.glb", p, 1.4)
+		var l := OmniLight3D.new()
+		l.light_color = Color(1.0, 0.75, 0.45)
+		l.light_energy = 2.2
+		l.omni_range = 5.0
+		l.light_volumetric_fog_energy = 1.2
+		l.position = p + Vector3(0, 2.05, 0)
+		add_child(l)
 	# Haies et fleurs devant la mairie.
 	for x in [-3.2, -2.4, 0.6, 1.4]:
 		_place(KN + "plant_bushDetailed.glb", Vector3(x, 0, -4.0), 1.6, randf() * 360.0)
