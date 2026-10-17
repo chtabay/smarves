@@ -4,8 +4,8 @@ shader_type spatial;
 
 render_mode diffuse_lambert_wrap, specular_schlick_ggx;
 
-uniform float velvet : hint_range(0.0, 1.0) = 0.14;
-uniform float rim_amount : hint_range(0.0, 1.0) = 0.08;
+uniform float velvet : hint_range(0.0, 1.0) = 0.05;
+uniform float rim_amount : hint_range(0.0, 1.0) = 0.04;
 // Plafond de l'albédo : les pelages blancs ou crème ne brûlent pas sous une lampe de table.
 uniform float max_albedo : hint_range(0.5, 1.0) = 0.72;
 
