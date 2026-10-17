@@ -1,9 +1,10 @@
 extends CanvasLayer
 ## La bienvenue (autoload « Bienvenue ») : à chaque lancement, une fenêtre au milieu de la place. À
 ## gauche la carte de la Vienne, Smarves en or et les villes publiées en vert d'eau ; à droite les
-## crédits, les villes de la Vienne (« Voir les villes » déplie la liste, à installer et à visiter sur
-## place), le compte, où viendra la connexion, et « Jouer ». Direction « La Vienne », choisie par
-## Guillaume le 17 octobre 2026.
+## crédits, la nouvelle version du jeu quand il y en a une (autoload Version), les villes de la
+## Vienne (« Voir les villes » déplie la liste, à installer et à visiter sur place), le compte, où
+## viendra la connexion, et « Jouer ». Direction « La Vienne », choisie par Guillaume le 17 octobre
+## 2026.
 
 const OR := Color(0.96, 0.8, 0.45)
 const EAU := Color(0.35, 0.8, 0.75)
@@ -15,6 +16,8 @@ var _root: Control
 var _carte: CarteVienne
 var _box: VBoxContainer
 var _scroll: ScrollContainer
+## Sous la colonne, hors du défilement : « Jouer » reste en vue quelle que soit la longueur.
+var _pied: VBoxContainer
 var _liste := false
 ## Une fois par lancement ; jamais dans les captures.
 var _attendue := not "--capture" in " ".join(OS.get_cmdline_user_args())
@@ -31,6 +34,9 @@ func _ready() -> void:
 		if is_open():
 			_remplir())
 	Communes.installee.connect(func(_id, _ok, _message):
+		if is_open():
+			_remplir())
+	Version.lue.connect(func():
 		if is_open():
 			_remplir())
 	var guet := Timer.new()
@@ -106,12 +112,18 @@ func _construire() -> void:
 	rang.add_theme_constant_override("separation", 28)
 	fenetre.add_child(rang)
 	_carte = CarteVienne.new()
-	_carte.custom_minimum_size = Vector2(360, 470)
+	_carte.custom_minimum_size = Vector2(380, 540)
 	rang.add_child(_carte)
+	var colonne := VBoxContainer.new()
+	colonne.add_theme_constant_override("separation", 14)
+	rang.add_child(colonne)
 	_scroll = ScrollContainer.new()
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_scroll.custom_minimum_size = Vector2(440, 470)
-	rang.add_child(_scroll)
+	_scroll.custom_minimum_size = Vector2(440, 0)
+	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	colonne.add_child(_scroll)
+	_pied = VBoxContainer.new()
+	colonne.add_child(_pied)
 	_box = VBoxContainer.new()
 	_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -121,7 +133,7 @@ func _construire() -> void:
 
 
 func _remplir() -> void:
-	for c in _box.get_children():
+	for c in _box.get_children() + _pied.get_children():
 		c.queue_free()
 	_carte.publiees = Communes.publiees().map(func(e): return e.insee)
 	_carte.installees = Communes.installees().map(func(id): return Communes.commune(id).insee)
@@ -136,6 +148,8 @@ func _remplir_accueil() -> void:
 	_box.add_child(_mot("S M A R V E S  ·  V I E N N E", 13, Color(0.55, 0.75, 0.75)))
 	_box.add_child(_mot("Bienvenue à Smarves", 38, Color.WHITE, Polices.titre()))
 	_box.add_child(_mot("%s crédits en poche  ·  fortune nette %s" % [Game.fmt(Game.credits), Game.fmt(Game.credits + Biens.value() - Game.debt)], 17, DOUX))
+	if Version.disponible():
+		_remplir_version()
 	_box.add_child(_filet())
 	var n := Communes.nouvelles.size()
 	_box.add_child(_mot(("%d VILLE%s NOUVELLE%s" % [n, "S" if n > 1 else "", "S" if n > 1 else ""]) if n > 0 else "LES VILLES DE LA VIENNE", 14, EAU, Polices.gras()))
@@ -147,8 +161,27 @@ func _remplir_accueil() -> void:
 	_box.add_child(_mot("La connexion viendra ici. Votre partie est gardée sur cet appareil.", 17, DOUX, null, true))
 	var jouer := _bouton("Jouer", OR, Color(0.1, 0.07, 0.03), Color(0, 0, 0, 0), fermer, 22)
 	jouer.custom_minimum_size.x = 220
-	_box.add_child(jouer)
+	_pied.add_child(jouer)
 	jouer.grab_focus.call_deferred()
+
+
+## Une nouvelle version attend sur la Release : ce qui a changé (deux lignes, puis le compte des autres) et le
+## téléchargement pour cette plateforme, ouvert dans le navigateur.
+func _remplir_version() -> void:
+	_box.add_child(_filet())
+	_box.add_child(_mot("NOUVELLE VERSION DE SMARVES", 14, OR, Polices.gras()))
+	var lignes: Array = Version.nouveautes.slice(0, 2).map(func(t): return "·  " + t)
+	if Version.nouveautes.size() > 2:
+		var reste: int = Version.nouveautes.size() - 2
+		lignes.append("et %d autre%s changement%s" % [reste, "s" if reste > 1 else "", "s" if reste > 1 else ""])
+	if lignes.is_empty():
+		lignes.append("Une version plus récente du jeu est prête.")
+	_box.add_child(_mot("\n".join(lignes), 16, TEXTE, null, true))
+	_box.add_child(_bouton("Télécharger la nouvelle version", Color(0, 0, 0, 0), OR, OR, Version.telecharger))
+	var mode := {"Windows": "Décompressez l'archive puis lancez Smarves.exe : votre partie vous suit.",
+			"Android": "Installez l'APK par-dessus le jeu : votre partie vous suit."}
+	if mode.has(OS.get_name()):
+		_box.add_child(_mot(mode[OS.get_name()], 15, DOUX, null, true))
 
 
 func _remplir_liste() -> void:
