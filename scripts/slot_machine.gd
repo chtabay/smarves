@@ -52,6 +52,10 @@ func _ready() -> void:
 		_build_bar()
 	else:
 		_build()
+		# Aucun bouton ne garde le focus : sinon, après un clic, le premier Échap ne fait que le retirer
+		# et la machine reste ouverte, et Espace appuierait le bouton en plus de tirer le bras.
+		for b in find_children("*", "Button", true, false):
+			(b as Button).focus_mode = Control.FOCUS_NONE
 
 
 func _build_bar() -> void:
