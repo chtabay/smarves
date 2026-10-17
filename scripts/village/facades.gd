@@ -287,10 +287,18 @@ func _shopfront(xf: Transform3D, w: float, gh: float, shop: Dictionary, light: C
 		sub.modulate = shop.get("ink", Color(1.0, 0.9, 0.6)).darkened(0.1)
 		sub.shaded = true
 		sub.double_sided = false
-		sub.transform = xf * Transform3D(Basis(), Vector3(vx, 1.08, 0.085))
+		if shop.has("awning"):
+			# Sur le lambrequin du store, en lettres peintes.
+			var tilt := deg_to_rad(24.0)
+			sub.transform = xf * Transform3D(Basis(), Vector3(vx, gh - 0.38 - sin(tilt) * 0.62 - 0.06, 0.12 + cos(tilt) * 0.62 + 0.012))
+			sub.modulate = Color(0.12, 0.1, 0.1)
+		else:
+			sub.transform = xf * Transform3D(Basis(), Vector3(vx, 1.08, 0.085))
 		sub.visibility_range_end = 30.0
 		parent.add_child(sub)
 		_fit(sub, vw - 0.1)
+		if shop.has("awning"):
+			sub.pixel_size = minf(sub.pixel_size, 0.1 / sub.font_size)
 	if shop.has("awning"):
 		_awning(xf, Vector3(vx, gh - 0.38, 0.12), vw + 0.2, shop.awning)
 	if not closed:
@@ -324,7 +332,7 @@ func _fit(l: Label3D, width: float) -> void:
 			longest = line
 	# La police système n'est pas la même partout : on prend la plus large des deux estimations.
 	var size := font.get_string_size(longest, HORIZONTAL_ALIGNMENT_LEFT, -1, l.font_size)
-	var real := maxf(size.x, longest.length() * l.font_size * 0.62) * l.pixel_size
+	var real := maxf(size.x, longest.length() * l.font_size * 0.78) * l.pixel_size
 	if real > width:
 		l.pixel_size *= width / real
 
