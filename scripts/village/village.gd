@@ -39,12 +39,12 @@ const OPENINGS := {
 const NORTH_ROW := [
 	{"id": "notaire", "w": 2.8, "floors": 2, "door": "center", "roof_kind": "hip", "plaque": "Maître Garnier\nNotaire", "lit": 0.9, "wall": Color(0.97, 0.93, 0.84), "shutter": Color(0.36, 0.4, 0.38)},
 	{"id": "poste", "w": 3.6, "floors": 2, "roof_kind": "hip", "shop": {"name": "POSTES · PTT", "sub": "Télégraphe · Téléphone", "color": Color(0.13, 0.22, 0.48), "ink": Color(1.0, 0.84, 0.2)}},
-	{"w": 2.8, "floors": 2},
+	{"w": 2.8, "floors": 2, "roof_kind": "pignon"},
 	{"id": "boucherie", "w": 3.2, "floors": 2, "shop": {"name": "Boucherie Texier", "sub": "Charcuterie · Volailles", "color": Color(0.58, 0.1, 0.12), "ink": Color(1.0, 0.92, 0.75), "awning": [Color(0.8, 0.12, 0.14), Color(0.96, 0.94, 0.9)]}},
 	{"w": 2.6, "floors": 1, "door": "center"},
 	{"kind": "porche", "w": 2.6},
 	{"id": "lot_reserve", "w": 3.4, "floors": 2, "closed": true, "shop": {"name": "Prochainement", "sub": "Un nouveau commerce", "color": Color(0.16, 0.32, 0.24), "ink": Color(0.95, 0.85, 0.55)}},
-	{"w": 3.0, "floors": 2, "door": "right"},
+	{"w": 3.0, "floors": 3, "door": "right", "roof_kind": "hip", "wall": Color(0.97, 0.9, 0.78), "shutter": Color(0.38, 0.55, 0.7)},
 	{"kind": "ruelle", "w": 2.4},
 	{"id": "coiffure", "w": 3.0, "floors": 2, "shop": {"name": "Gisèle Coiffure", "sub": "Dames · Messieurs · Mise en plis", "color": Color(0.82, 0.42, 0.55), "ink": Color(1.0, 0.97, 0.92), "awning": [Color(0.92, 0.55, 0.68), Color(0.98, 0.95, 0.92)], "glow": Color(1.0, 0.85, 0.75)}},
 	{"id": "couture", "w": 2.8, "floors": 2, "shop": {"name": "Raymonde", "sub": "Couture · Retouches", "color": Color(0.32, 0.2, 0.42), "ink": Color(1.0, 0.88, 0.7), "awning": [Color(0.5, 0.32, 0.6), Color(0.97, 0.94, 0.9)], "glow": Color(1.0, 0.86, 0.68), "mannequin": true}},
@@ -54,7 +54,7 @@ const NORTH_ROW := [
 const SOUTH_ROW := [
 	{"w": 2.8, "floors": 1},
 	{"id": "pizzeria", "w": 3.4, "floors": 1, "shop": {"name": "Pizzeria du Clain", "sub": "Pizzas au feu de bois", "color": Color(0.14, 0.36, 0.2), "ink": Color(1.0, 0.95, 0.85), "awning": [Color(0.15, 0.5, 0.25), Color(0.97, 0.95, 0.9), Color(0.8, 0.15, 0.15), Color(0.97, 0.95, 0.9)], "glow": Color(1.0, 0.7, 0.4)}},
-	{"w": 2.6, "floors": 1, "door": "right"},
+	{"w": 2.6, "floors": 1, "door": "right", "roof_kind": "pignon"},
 	{"id": "epicerie", "w": 3.8, "floors": 1, "shop": {"name": "L'Épicerie du Bourg", "sub": "Alimentation · Primeurs · Gaz", "color": Color(0.18, 0.32, 0.58), "ink": Color(1.0, 0.9, 0.6), "awning": [Color(0.95, 0.55, 0.15), Color(0.97, 0.94, 0.88)]}},
 	{"id": "fleurs", "w": 3.0, "floors": 1, "shop": {"name": "Fleurs Odette", "sub": "Mariages · Fêtes · Deuils", "color": Color(0.38, 0.55, 0.32), "ink": Color(1.0, 0.98, 0.9), "awning": [Color(0.55, 0.72, 0.42), Color(0.98, 0.96, 0.9)], "glow": Color(1.0, 0.9, 0.7)}},
 	{"kind": "jardin", "w": 2.8},
@@ -62,7 +62,7 @@ const SOUTH_ROW := [
 	{"w": 2.8, "floors": 1},
 	{"id": "bibliotheque", "w": 4.4, "floors": 2, "roof_kind": "hip", "shop": {"name": "Bibliothèque municipale", "sub": "Mardi · Samedi", "color": Color(0.9, 0.86, 0.76), "ink": Color(0.15, 0.2, 0.35), "door": "left"}},
 	{"w": 3.0, "floors": 1},
-	{"w": 2.6, "floors": 1, "door": "center"},
+	{"w": 2.6, "floors": 1, "door": "center", "roof_kind": "pignon"},
 	{"w": 3.2, "floors": 1, "roof_kind": "hip"},
 ]
 
@@ -172,7 +172,7 @@ func _make_materials() -> void:
 	asphalt.roughness = 0.3
 	mats.asphalt = asphalt
 	var grass := StandardMaterial3D.new()
-	grass.albedo_color = Color(0.24, 0.36, 0.17)
+	grass.albedo_color = Color(0.3, 0.42, 0.2)
 	grass.albedo_texture = main._noise_tex(false, 0.08, Color(0.72, 0.8, 0.66))
 	grass.uv1_triplanar = true
 	grass.roughness = 1.0
@@ -333,13 +333,13 @@ func _row(f: FACADES, row: Array, north: bool) -> void:
 func _backyard(f: FACADES, cx: float, w: float, z0: float, z1: float, out: float) -> void:
 	var depth := absf(z1 - z0)
 	var r: float = f.rng.randf()
-	if r < 0.4:
+	if r < 0.45:
 		# Un potager en rangs.
 		for i in 3:
 			_place(KN + "crops_dirtRow.glb", Vector3(cx - 0.6 + i * 0.6, 0, z0 - out * depth * 0.55), 1.0, 0.0)
 			_place(KN + "crops_leafsStageB.glb", Vector3(cx - 0.6 + i * 0.6, 0, z0 - out * depth * 0.55), 1.0, 0.0)
 		_tree(Vector3(cx + w * 0.25, 0, z0 - out * depth * 0.85), "tree_default_fall", 1.3)
-	elif r < 0.75:
+	elif r < 0.85:
 		_tree(Vector3(cx, 0, z0 - out * depth * 0.5), ["tree_oak_fall", "tree_fat_fall", "tree_default_fall", "tree_cone_fall"][f.rng.randi() % 3], 1.6)
 		_place(KN + "log_stack.glb", Vector3(cx - w * 0.3, 0, z0 - out * 0.6), 0.9, 90.0)
 	else:
@@ -420,7 +420,7 @@ func _street_props(f: FACADES) -> void:
 		var north := k % 2 == 0
 		var z := NORTH_FRONT + 0.6 if north else SOUTH_FRONT - 0.6
 		_place(KK + "city/streetlight.gltf", Vector3(x, 0.06, z), 2.2, 180.0 if north else 0.0)
-		_lamp(Vector3(x + (0.45 if north else -0.45), 2.0, z), 1.6)
+		_lamp(Vector3(x + (0.45 if north else -0.45), 2.0, z), 2.6, Color(1.0, 0.72, 0.4), 6.5)
 		x -= 6.5
 		k += 1
 	# Deux guirlandes d'ampoules en travers de la rue.
@@ -643,6 +643,7 @@ func _capture_view() -> void:
 		if not arg.begins_with("--vue="):
 			continue
 		var v := arg.trim_prefix("--vue=").split_floats(",")
+		main._bark_timer = INF
 		await get_tree().create_timer(0.3).timeout
 		main.set_fps(false)
 		var cam: Camera3D = main.camera

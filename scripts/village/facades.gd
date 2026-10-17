@@ -77,7 +77,18 @@ func house(xf: Transform3D, spec: Dictionary) -> Dictionary:
 		y += hs
 		k += 1
 
-	_roof(xf, w, d, h, roof, wall, spec.get("roof_kind", "gable"))
+	var roof_kind: String = spec.get("roof_kind", "gable")
+	if roof_kind == "pignon":
+		# Pignon sur rue : le faîtage perpendiculaire à la rue, le triangle de pierre en façade.
+		var rxf := xf * Transform3D(Basis(Vector3.UP, PI / 2.0), Vector3(0, 0, -d / 2.0)) * Transform3D(Basis(), Vector3(0, 0, w / 2.0))
+		_roof(rxf, d, w, h, roof, wall, "gable")
+		# Un oculus dans le pignon, éclairé.
+		_glass(xf, Vector3(0, h + 0.1 + w * 0.5 * tan(deg_to_rad(28.0)) * 0.45, 0.012), Vector2(0.3, 0.3), 0, rng.randf() < lit, Color(1.0, 0.78, 0.45))
+		batch.box("trim", xf, Vector3(0, h + 0.1 + w * 0.5 * tan(deg_to_rad(28.0)) * 0.45, 0.01), Vector3(0.42, 0.42, 0.02), light)
+	else:
+		_roof(xf, w, d, h, roof, wall, roof_kind)
+		if roof_kind == "gable" and floors >= 2 and spec.get("dormer", rng.randf() < 0.45):
+			_dormer(xf, rng.randf_range(-w * 0.2, w * 0.2), h, d, roof, light, lit)
 	if spec.get("chimney", rng.randf() < 0.6):
 		var cx := (w / 2.0 - 0.45) * (1.0 if rng.randf() < 0.5 else -1.0)
 		var top := h + d * 0.5 * tan(deg_to_rad(28.0)) + 0.35
@@ -168,6 +179,21 @@ func _roof(xf: Transform3D, w: float, d: float, h: float, roof: Color, wall: Col
 		batch.box("trim", xf, Vector3(0, top + 0.03, zr), Vector3(x1 - x0 + 0.04, 0.08, 0.12), roof.darkened(0.15))
 	# La planche d'égout, qui donne de l'épaisseur au toit vu de la rue.
 	batch.box("trim", xf, Vector3(0, eave - 0.03, zf - 0.02), Vector3(x1 - x0, 0.07, 0.05), roof.darkened(0.35))
+
+
+## Une lucarne à fronton sur le pan avant du toit.
+func _dormer(xf: Transform3D, x: float, h: float, d: float, roof: Color, light: Color, lit: float) -> void:
+	var pitch := deg_to_rad(28.0)
+	var z := -0.45
+	var base := h + 0.1 + (0.16 + 0.45) * tan(pitch) - 0.16 * tan(pitch)
+	batch.box("wall", xf, Vector3(x, base + 0.28, z), Vector3(0.62, 0.56, 0.5), light)
+	var rxf := xf * Transform3D(Basis(Vector3.UP, PI / 2.0), Vector3(x, base + 0.56, z - 0.05))
+	batch.quad("roof", rxf, [Vector3(-0.32, 0, -0.38), Vector3(-0.32, 0, 0.38), Vector3(0, 0.2, 0.38), Vector3(0, 0.2, -0.38)], Vector3(-0.53, 0.85, 0), roof,
+		[Vector2(0, 0), Vector2(0.76, 0), Vector2(0.76, 0.38), Vector2(0, 0.38)])
+	batch.quad("roof", rxf, [Vector3(0.32, 0, 0.38), Vector3(0.32, 0, -0.38), Vector3(0, 0.2, -0.38), Vector3(0, 0.2, 0.38)], Vector3(0.53, 0.85, 0), roof,
+		[Vector2(0, 0), Vector2(0.76, 0), Vector2(0.76, 0.38), Vector2(0, 0.38)])
+	batch.tri("wall", xf, Vector3(x - 0.31, base + 0.56, z + 0.251), Vector3(x + 0.31, base + 0.56, z + 0.251), Vector3(x, base + 0.76, z + 0.251), Vector3(0, 0, 1), light)
+	_glass(xf, Vector3(x, base + 0.3, z + 0.255), Vector2(0.34, 0.4), 0, rng.randf() < lit, Color(1.0, 0.75, 0.42))
 
 
 func _window(xf: Transform3D, at: Vector3, size: Vector2, shutter: Color, light: Color, lit: float, closed := false) -> void:

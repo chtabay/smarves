@@ -30,8 +30,8 @@ const FOCUS := {
 
 ## Les panneaux de la place, vers les environs : [lieu, position, rotation, texte].
 const SIGNPOSTS := [
-	["bois", Vector3(10.4, 0, 5.6), -90.0, "Bois de Saint-Pierre  →"],
-	["moulin", Vector3(-10.4, 0, 5.6), 90.0, "←  Moulin des Dames"],
+	["bois", Vector3(9.0, 0, 7.75), 0.0, "Bois de Saint-Pierre  →"],
+	["moulin", Vector3(-9.0, 0, 7.75), 0.0, "←  Moulin des Dames"],
 	["passelourdin", Vector3(-6.8, 0, -3.4), 0.0, "Rochers de Passelourdin  ↑"],
 ]
 const KN := "res://assets/kenney/nature/"

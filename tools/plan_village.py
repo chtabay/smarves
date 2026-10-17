@@ -111,7 +111,7 @@ for name, (cx, cz) in plinths.items():
     d.text(P(cx, cz + 9.6), name.upper(), fill=GOLD, font=font, anchor="mm")
 d.text(P(-35.1, 16.6), "RUE DU CLAIN", fill=GOLD, font=font, anchor="mm")
 # Les panneaux (raccourcis) et les passages à pied.
-for x, z in [(10.4, 5.6), (-10.4, 5.6), (-6.8, -3.4)] + SIGNS:
+for x, z in [(9.0, 7.75), (-9.0, 7.75), (-6.8, -3.4)] + SIGNS:
     px, pz = P(x, z)
     d.rectangle([px - 4, pz - 4, px + 4, pz + 4], fill=(230, 120, 60))
 d.text((20, H + 14), "Smarves — plan de la maquette", fill=GOLD, font=big)

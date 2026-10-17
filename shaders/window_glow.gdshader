@@ -3,7 +3,7 @@ shader_type spatial;
 // (alpha 0 = fenêtre éteinte), la donnée d'instance le dessin (x : 0 fenêtre à carreaux, 1 vitrine,
 // 2 porte vitrée ; y : graine des rideaux).
 #include "res://shaders/village_cutaway.gdshaderinc"
-uniform float energy = 3.2;
+uniform float energy = 4.6;
 varying vec3 cut_wpos;
 varying vec4 glow;
 varying vec4 custom;
