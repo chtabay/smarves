@@ -8,6 +8,7 @@ extends Node3D
 
 const FACADES := preload("res://scripts/village/facades.gd")
 const BOIS := preload("res://scripts/village/bois.gd")
+const CHEMIN := preload("res://scripts/village/passelourdin.gd")
 const KK := "res://assets/kaykit/"
 const KN := "res://assets/kenney/nature/"
 const KC := "res://assets/kenney/cars/"
@@ -36,7 +37,8 @@ const BOARD_Z1 := 15.3
 ## Les passages ouverts dans les bords des socles : centre du socle → côté → intervalles libres.
 ## Côtés : "W" et "E" (intervalle en z), "N" et "S" (intervalle en x).
 const OPENINGS := {
-	Vector3(0, 0, 0): {"W": [[NORTH_FRONT, 8.1]], "E": [[NORTH_FRONT, 8.1]]},
+	Vector3(0, 0, 0): {"W": [[NORTH_FRONT, 8.1]], "E": [[NORTH_FRONT, 8.1]], "N": [[-3.0, -1.5]]},
+	Vector3(0, 0, -70): {"S": [[-1.3, 1.3]]},
 	Vector3(-70, 0, 0): {"E": [[5.0, 8.1]]},
 	Vector3(70, 0, 0): {"W": [[NORTH_FRONT, 8.1]]},
 }
@@ -61,14 +63,14 @@ const NORTH_ROW := [
 ]
 const SOUTH_ROW := [
 	{"w": 2.8, "floors": 1},
-	{"id": "pizzeria", "w": 3.4, "floors": 1, "shop": {"name": "Pizzeria du Clain", "sub": "Pizzas au feu de bois", "color": Color(0.14, 0.36, 0.2), "ink": Color(1.0, 0.95, 0.85), "awning": [Color(0.15, 0.5, 0.25), Color(0.97, 0.95, 0.9), Color(0.8, 0.15, 0.15), Color(0.97, 0.95, 0.9)], "glow": Color(1.0, 0.7, 0.4)}},
+	{"id": "pizzeria", "roof_sign": "PIZZERIA", "w": 3.4, "floors": 1, "shop": {"name": "Pizzeria du Clain", "sub": "Pizzas au feu de bois", "color": Color(0.14, 0.36, 0.2), "ink": Color(1.0, 0.95, 0.85), "awning": [Color(0.15, 0.5, 0.25), Color(0.97, 0.95, 0.9), Color(0.8, 0.15, 0.15), Color(0.97, 0.95, 0.9)], "glow": Color(1.0, 0.7, 0.4)}},
 	{"w": 2.6, "floors": 1, "door": "right", "roof_kind": "pignon"},
-	{"id": "epicerie", "w": 3.8, "floors": 1, "shop": {"name": "L'Épicerie du Bourg", "sub": "Alimentation · Primeurs · Gaz", "color": Color(0.18, 0.32, 0.58), "ink": Color(1.0, 0.9, 0.6), "awning": [Color(0.95, 0.55, 0.15), Color(0.97, 0.94, 0.88)]}},
-	{"id": "fleurs", "w": 3.0, "floors": 1, "shop": {"name": "Fleurs Odette", "sub": "Mariages · Fêtes · Deuils", "color": Color(0.38, 0.55, 0.32), "ink": Color(1.0, 0.98, 0.9), "awning": [Color(0.55, 0.72, 0.42), Color(0.98, 0.96, 0.9)], "glow": Color(1.0, 0.9, 0.7)}},
+	{"id": "epicerie", "roof_sign": "ÉPICERIE", "w": 3.8, "floors": 1, "shop": {"name": "L'Épicerie du Bourg", "sub": "Alimentation · Primeurs · Gaz", "color": Color(0.18, 0.32, 0.58), "ink": Color(1.0, 0.9, 0.6), "awning": [Color(0.95, 0.55, 0.15), Color(0.97, 0.94, 0.88)]}},
+	{"id": "fleurs", "roof_sign": "FLEURS", "w": 3.0, "floors": 1, "shop": {"name": "Fleurs Odette", "sub": "Mariages · Fêtes · Deuils", "color": Color(0.38, 0.55, 0.32), "ink": Color(1.0, 0.98, 0.9), "awning": [Color(0.55, 0.72, 0.42), Color(0.98, 0.96, 0.9)], "glow": Color(1.0, 0.9, 0.7)}},
 	{"kind": "jardin", "w": 2.8},
-	{"id": "brocante", "w": 3.2, "floors": 1, "shop": {"name": "Brocante Boutin", "sub": "Meubles · Objets · Débarras", "color": Color(0.36, 0.26, 0.2), "ink": Color(0.98, 0.88, 0.62), "glow": Color(1.0, 0.8, 0.5)}},
+	{"id": "brocante", "roof_sign": "BROCANTE", "w": 3.2, "floors": 1, "shop": {"name": "Brocante Boutin", "sub": "Meubles · Objets · Débarras", "color": Color(0.36, 0.26, 0.2), "ink": Color(0.98, 0.88, 0.62), "glow": Color(1.0, 0.8, 0.5)}},
 	{"w": 2.8, "floors": 1},
-	{"id": "bibliotheque", "w": 4.4, "floors": 2, "roof_kind": "hip", "shop": {"name": "Bibliothèque municipale", "sub": "Mardi · Samedi", "color": Color(0.9, 0.86, 0.76), "ink": Color(0.15, 0.2, 0.35), "door": "left"}},
+	{"id": "bibliotheque", "roof_sign": "BIBLIOTHÈQUE", "w": 4.4, "floors": 2, "roof_kind": "hip", "shop": {"name": "Bibliothèque municipale", "sub": "Mardi · Samedi", "color": Color(0.9, 0.86, 0.76), "ink": Color(0.15, 0.2, 0.35), "door": "left"}},
 	{"w": 3.0, "floors": 1},
 	{"w": 2.6, "floors": 1, "door": "center", "roof_kind": "pignon"},
 	{"w": 3.2, "floors": 1, "roof_kind": "hip"},
@@ -86,7 +88,7 @@ const BOIS_NORTH := [
 ]
 const BOIS_SOUTH := [
 	{"w": 2.8, "floors": 1, "roof_kind": "hip"},
-	{"id": "pharmacie", "w": 3.0, "floors": 1, "shop": {"name": "Pharmacie", "sub": "Herboristerie · Orthopédie", "color": Color(0.92, 0.94, 0.9), "ink": Color(0.1, 0.45, 0.25), "glow": Color(0.85, 1.0, 0.9), "door": "left"}},
+	{"id": "pharmacie", "roof_sign": "PHARMACIE", "w": 3.0, "floors": 1, "shop": {"name": "Pharmacie", "sub": "Herboristerie · Orthopédie", "color": Color(0.92, 0.94, 0.9), "ink": Color(0.1, 0.45, 0.25), "glow": Color(0.85, 1.0, 0.9), "door": "left"}},
 	{"w": 2.2, "floors": 1, "door": "center", "roof_kind": "pignon"},
 	{"kind": "vide", "w": 0.0, "to": BOIS.ROND_X + BOIS.RING_R + 0.4},
 	{"id": "lot_bois", "w": 3.2, "floors": 1, "closed": true, "shop": {"name": "Prochainement", "sub": "Un nouveau commerce", "color": Color(0.2, 0.28, 0.36), "ink": Color(0.95, 0.85, 0.55)}},
@@ -127,6 +129,7 @@ var mats := {}
 var _glass: Array[MultiMesh] = []
 var _flicker := 2.0
 var _cars: Array[Node3D] = []
+var _chemin: RefCounted
 
 
 # --- Bords des socles, avec leurs passages ----------------------------------------------------
@@ -175,6 +178,8 @@ func build(m: Node3D) -> void:
 	_make_materials()
 	_rue_du_clain()
 	_route_du_bois()
+	_chemin = CHEMIN.new()
+	_chemin.build(self)
 	# Sur les socles du moulin et du bois, la route garde son marquage et ses réverbères.
 	_plinth_road(-80.8, -59.2, [-63.0, -71.0, -78.5])
 	_plinth_road(59.2, 80.8, [63.0, 74.5])
@@ -361,6 +366,9 @@ func _row(f: FACADES, row: Array, north: bool, x_start: float, dir: float) -> vo
 				if not s.has("lit"):
 					s.lit = 0.72
 				var info: Dictionary = f.house(xf, s)
+				if spec.has("roof_sign"):
+					# Côté sud, la boutique tourne le dos à la caméra : son nom passe sur le toit.
+					f.roof_sign(xf, w, d, info.h, spec.roof_sign, spec.shop.color, spec.shop.ink, not north)
 				main._solid_box(Vector3(w, info.h + 1.0, d), Vector3(cx, (info.h + 1.0) / 2.0, front - out * d / 2.0))
 				var door: Vector3 = xf * info.door
 				if spec.has("id"):
@@ -768,10 +776,11 @@ func _signpost(pos: Vector3, rot: float, text: String, where: String) -> void:
 
 ## Les portes des logements qu'on peut posséder : lot → [porte (monde), orientation]. La chambre est
 ## au-dessus du café, par l'escalier de la ruelle ; la maison de maître est la maison verte de la place.
-## La maison de la rue de l'Église viendra avec le chemin de Passelourdin.
+## La maison de la rue de l'Église est sur le chemin de Passelourdin (passelourdin.gd).
 const LOGEMENTS := {
 	"chambre_cafe": [Vector3(-7.6, 0, -2.47), PI],
 	"maison_place": [Vector3(-8.6, 0, -3.82), 0.0],
+	"maison_eglise": [Vector3(-3.4, 0, -13.5), PI / 2.0],
 }
 
 
@@ -794,7 +803,7 @@ func _logements() -> void:
 ## Ce que dit la porte d'un logement, selon qu'on l'a, qu'il est à vendre, ou non.
 func _logement_prompt(id: String) -> String:
 	var biens := get_node_or_null("/root/Biens")
-	var what: String = {"chambre_cafe": "La chambre au-dessus du café", "maison_place": "La maison de maître"}.get(id, "Une maison")
+	var what: String = {"chambre_cafe": "La chambre au-dessus du café", "maison_place": "La maison de maître", "maison_eglise": "La maison de la rue de l'Église"}.get(id, "Une maison")
 	if biens == null or not biens.has_method("door_of"):
 		return "%s — propriété privée" % what
 	var d: Dictionary = biens.door_of(id)
@@ -824,10 +833,11 @@ func enter_logement(id: String) -> void:
 
 ## Où l'on gare le véhicule qu'on conduit : sur la place, entre la pétanque et le banc.
 const PARKING := [Vector3(-0.6, 0.02, 3.4), 90.0]
-## Les panneaux « Propriété » : bien → [position, rotation]. La maison de la rue de l'Église
-## attend son quartier (chemin de Passelourdin) ; la maison de maître est la maison verte de la place.
+## Les panneaux « Propriété » : bien → [position, rotation]. La maison de la rue de l'Église est sur
+## le chemin de Passelourdin ; la maison de maître est la maison verte de la place.
 const PROPERTY_SIGNS := {
 	"maison_place": [Vector3(-7.4, 0, -3.5), 20.0],
+	"maison": [Vector3(-3.05, 0, -12.1), 20.0],
 }
 
 var _vehicle: Node3D
@@ -872,6 +882,8 @@ func _refresh_biens() -> void:
 			lots[id].area.set_meta("prompt", _logement_prompt(id))
 	for id in _property_signs:
 		_property_signs[id].visible = biens.count(id) > 0
+	if _chemin:
+		_chemin._refresh_cabane()
 	if biens.driven == _vehicle_id:
 		return
 	_vehicle_id = biens.driven

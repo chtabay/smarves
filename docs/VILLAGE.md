@@ -1,6 +1,6 @@
 # Le village : rues, quartiers et emplacements
 
-Ce document dit comment le village s'étend autour de la place, où sont les entrées des lieux, et comment un autre chantier demande sa place dans la rue. Le code est dans `scripts/village/` (`bois.gd` pour la route du Bois) ; le plan se redessine avec `python3 tools/plan_village.py docs/captures/village-plan.png`.
+Ce document dit comment le village s'étend autour de la place, où sont les entrées des lieux, et comment un autre chantier demande sa place dans la rue. Le code est dans `scripts/village/` (`bois.gd` pour la route du Bois, `passelourdin.gd` pour le chemin de Passelourdin) ; le plan se redessine avec `python3 tools/plan_village.py docs/captures/village-plan.png`.
 
 ![Plan du village](captures/village-plan.png)
 
@@ -21,7 +21,7 @@ Ce document dit comment le village s'étend autour de la place, où sont les ent
 | La place de la Mairie | socle central | café, mairie, église, casino, boulangerie, Crédit Smarvois, salle Rabelais | existant |
 | La rue du Clain | à l'ouest, de la place au pont du Moulin des Dames | étude de Maître Garnier, la poste et sa cabine, boucherie Texier, Gisèle Coiffure, Raymonde couture, pizzeria du Clain, l'Épicerie du Bourg, Fleurs Odette, bibliothèque, le lavoir sur le Clain, la placette | posée |
 | La route du Bois | à l'est, de la place à l'allée du château | le garage Fradin et ses pompes, la pharmacie, le rond-point du vieux chêne, l'école publique et sa cour, le stade municipal et sa tribune, les pavillons des années 70 | posée |
-| Le chemin de Passelourdin | au nord, derrière l'église | la rue de l'Église et sa maison, jardins et vignes qui montent vers les rochers | à venir |
+| Le chemin de Passelourdin | au nord, entre la mairie et l'église | la rue de l'Église (le presbytère, la maison qu'on peut acheter), le chemin de terre en lacets entre les vignes vendangées, le calvaire, le château d'eau peint au nom du bourg, la cabane de vigne, la lisière et le banc du point de vue, jusqu'aux rochers | posé |
 
 ## Les emplacements (pour les autres chantiers)
 
@@ -39,11 +39,12 @@ Chaque devanture du village est un emplacement nommé, dans `village.gd` (`NORTH
 | `brocante` | Brocante Boutin, meubles et objets (Ginette Boutin), sur l'ancien local à céder | rue du Clain, côté sud | `Biens.SELLERS.brocante.scene` |
 | `chambre_cafe` | la chambre au-dessus du café, porte et escalier dans la ruelle au nord du café | place | `Biens.door_of` |
 | `maison_place` | la maison de maître, la maison verte au fond de la place | place | `Biens.door_of` |
+| `maison_eglise` | la maison de la rue de l'Église, toit d'ardoise, volets bleus | chemin de Passelourdin, côté ouest | `Biens.door_of` |
 | `lot_bois` | local réservé, « Prochainement », juste après le rond-point | route du Bois, côté sud | libre |
 
 **Entrer chez un vendeur.** La porte appelle `get_tree().change_scene_to_file(Biens.SELLERS[id].scene)` ; tant que la scène n'existe pas, une annonce dit que le lieu ouvre bientôt. **En sortir** : la scène met `Game.return_point` à l'id de la porte (`notaire`, `couture`, `garage`) et la scène principale replace l'habitant sur le trottoir, face à la rue (`Village.door_spawn`).
 
-**Les logements.** La porte d'un logement demande `Biens.door_of(lot)` : chez soi, elle appelle `Biens.enter(door_of(lot).logement)` quand l'intérieur existe (une seule scène, `logement.tscn`, pour tous) et l'on ressort devant la porte (`Game.return_point` = l'id du lot) ; sinon elle dit « propriété privée » ou « en vente chez Maître Garnier ». La maison de la rue de l'Église viendra avec le chemin de Passelourdin.
+**Les logements.** La porte d'un logement demande `Biens.door_of(lot)` : chez soi, elle appelle `Biens.enter(door_of(lot).logement)` quand l'intérieur existe (une seule scène, `logement.tscn`, pour tous) et l'on ressort devant la porte (`Game.return_point` = l'id du lot) ; sinon elle dit « propriété privée » ou « en vente chez Maître Garnier ».
 
 **Brancher une action sur une porte.** Toute `Area3D` qui porte la métadonnée `action` (un `Callable`) est appelée quand on appuie sur E devant elle, ou quand on clique dessus en vue maquette. C'est ainsi que marchent les portes des vendeurs et la tournée générale.
 
@@ -55,7 +56,8 @@ Chaque devanture du village est un emplacement nommé, dans `village.gd` (`NORTH
 
 - **Place → rue du Clain → Moulin des Dames** : la route continue à pied jusqu'au pont du moulin ; le bord ouest de la place et le bord est du socle du moulin sont ouverts (`village.gd`, `OPENINGS`).
 - **Place → route du Bois → bois de Saint-Pierre** : la route passe le rond-point du vieux chêne et arrive à l'allée du château ; le bord est de la place et le bord ouest du socle du bois sont ouverts. Les voitures contournent le chêne (`bois.gd`, `road_z`).
-- **Rue du Clain → Passelourdin** : la ruelle au milieu de la rue, avec son panneau « Rochers de Passelourdin ↑ » (raccourci, en attendant le chemin).
+- **Place → chemin de Passelourdin → rochers** : on passe entre la mairie et l'église, on remonte la rue de l'Église et le chemin de terre jusqu'à l'entrée des rochers ; le bord nord de la place et le bord sud du socle des rochers sont ouverts.
+- **Rue du Clain → Passelourdin** : la ruelle au milieu de la rue, avec son panneau « Rochers de Passelourdin ↑ » (raccourci).
 - Les panneaux de la place restent des raccourcis vers chaque socle.
 
 ## Vérifier
@@ -63,3 +65,10 @@ Chaque devanture du village est un emplacement nommé, dans `village.gd` (`NORTH
 - Capture d'une vue maquette libre : `godot --path . res://scenes/main.tscn -- --capture=sortie.png --vue=distance,x,y,z,lacet,tangage`.
 - Capture en vue de dessus derrière l'habitant : `godot --path . res://scenes/main.tscn -- --capture=sortie.png --at=x,z,lacet`.
 - Sans carte graphique (conteneur, CI) : Vulkan logiciel avec `VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/lvp_icd.json` sous `xvfb-run`, environ quatre minutes par capture.
+
+## Les repères et les lieux cachés
+
+- **Le château d'eau** (chemin de Passelourdin) : un fût de béton, une cuve en champignon peinte « SMARVES », un projecteur au pied et un feu rouge qui clignote au sommet. C'est le plus haut point de la maquette, on le voit de la place en vue Quartier.
+- **Le calvaire** du premier lacet, avec son lumignon.
+- **Les enseignes sur les toits** : côté sud des rues, les boutiques tournent le dos à la caméra ; leur nom est donc aussi sur le toit, sur un panneau penché vers la vue de dessus (`spec.roof_sign`, `Facades.roof_sign`).
+- **La cabane de vigne** (lieu caché) : au milieu des rangs, à l'ouest du chemin, sa porte donne au nord, à l'abri des regards de la place. La première fois qu'on la pousse, on repart avec l'affiche du loto de 1987 (`Biens.trouvailles`, `affiche_loto_1987`) ; ensuite, il n'y a plus qu'un clou au mur.

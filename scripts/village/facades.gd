@@ -328,6 +328,32 @@ func _plaque(xf: Transform3D, at: Vector3, text: String) -> void:
 	glows.append([xf * (at + Vector3(0, 0.3, 0.4)), Color(1.0, 0.8, 0.5)])
 
 
+## Une enseigne sur le toit, plantée sur le faîtage et penchée vers la caméra, pour qu'une boutique
+## qui tourne le dos à la vue de dessus se lise quand même (docs/SUITE.md, section 2). back : tournée vers
+## l'arrière de la maison (les maisons côté sud de la rue).
+func roof_sign(xf: Transform3D, w: float, d: float, h: float, text: String, color: Color, ink: Color, back := true) -> void:
+	var ridge := h + d * 0.5 * tan(deg_to_rad(28.0))
+	var face := Transform3D(Basis(Vector3.UP, PI if back else 0.0), Vector3(0, 0, -d / 2.0))
+	var tilt := face * Transform3D(Basis(Vector3.RIGHT, deg_to_rad(-25.0)), Vector3(0, ridge + 0.45, 0))
+	var bw := w - 0.1
+	for s in [-1.0, 1.0]:
+		batch.box("trim", xf * face, Vector3(s * bw * 0.35, ridge + 0.1, 0), Vector3(0.05, 0.5, 0.05), Color(0.3, 0.3, 0.32))
+	batch.box("trim", xf * tilt, Vector3.ZERO, Vector3(bw, 0.62, 0.05), color)
+	batch.box("trim", xf * tilt, Vector3(0, 0.33, 0), Vector3(bw + 0.04, 0.04, 0.07), ink.darkened(0.2))
+	var l := Label3D.new()
+	l.text = text
+	l.font = font
+	l.font_size = 64
+	l.pixel_size = 0.011
+	l.modulate = Color(ink.r * 1.4, ink.g * 1.4, ink.b * 1.4)
+	l.outline_size = 0
+	l.shaded = false
+	l.double_sided = false
+	l.transform = xf * tilt * Transform3D(Basis(), Vector3(0, 0, 0.03))
+	parent.add_child(l)
+	_fit(l, bw - 0.2)
+
+
 ## Réduit une étiquette pour qu'elle tienne dans la largeur voulue.
 func _fit(l: Label3D, width: float) -> void:
 	var longest := ""

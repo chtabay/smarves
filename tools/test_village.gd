@@ -23,7 +23,7 @@ func _init() -> void:
 	var main: Node = current_scene
 	var village: Node = main.get_node_or_null("Village")
 	check(village != null, "le nœud Village est dans la scène principale")
-	for id in ["notaire", "couture", "poste", "boucherie", "coiffure", "pizzeria", "epicerie", "fleurs", "bibliotheque", "lot_reserve", "brocante", "chambre_cafe", "maison_place", "garage", "pharmacie", "lot_bois", "ecole", "stade"]:
+	for id in ["notaire", "couture", "poste", "boucherie", "coiffure", "pizzeria", "epicerie", "fleurs", "bibliotheque", "lot_reserve", "brocante", "chambre_cafe", "maison_place", "maison_eglise", "garage", "pharmacie", "lot_bois", "ecole", "stade"]:
 		check(village.lots.has(id) and village.lots[id].has("area"), "emplacement %s posé avec son entrée" % id)
 	# La route est libre de bout en bout : du moulin au bois, en passant par la place.
 	await physics_frame
@@ -44,6 +44,21 @@ func _init() -> void:
 				break
 		x += 0.5
 	check(blocked.is_empty(), "la route est libre du moulin au bois %s" % ("" if blocked.is_empty() else str(blocked.slice(0, 8))))
+	# Le chemin de Passelourdin : de la place, entre la mairie et l'église, jusqu'aux rochers.
+	var route: Array = [Vector2(village.CHEMIN.LANE_X, -3.5)] + village.CHEMIN.PATH + [Vector2(0.0, -64.0), Vector2(-0.5, -65.5), Vector2(-0.5, -67.0)]
+	blocked = []
+	for i in route.size() - 1:
+		var a: Vector2 = route[i]
+		var b: Vector2 = route[i + 1]
+		var n := int(ceil(a.distance_to(b) / 0.5))
+		for k in n + 1:
+			var q: Vector2 = a.lerp(b, float(k) / n)
+			probe.transform = Transform3D(Basis(), Vector3(q.x, 0.6, q.y))
+			for hit in space.intersect_shape(probe, 4):
+				if not (hit.collider is Area3D):
+					blocked.append(Vector2(snappedf(q.x, 0.5), snappedf(q.y, 0.5)))
+					break
+	check(blocked.is_empty(), "le chemin est libre de la place aux rochers %s" % ("" if blocked.is_empty() else str(blocked.slice(0, 8))))
 	for id in village.SELLER_DOORS:
 		if village.lots.has(id):
 			check(ResourceLoader.exists(biens.SELLERS[id].scene), "la porte %s mène à %s" % [id, biens.SELLERS[id].scene])
@@ -58,6 +73,12 @@ func _init() -> void:
 	await process_frame
 	check(village._vehicle != null and village._vehicle.is_inside_tree(), "le véhicule conduit est garé sur la place")
 	check(village._property_signs["maison_place"].visible, "le panneau Propriété paraît sur la maison de maître")
+	# La cabane de vigne : la première fois qu'on pousse la porte, on repart avec l'affiche.
+	biens.trouvailles.erase(village.CHEMIN.TROUVAILLE)
+	village._chemin.fouiller()
+	check(biens.trouvailles.has(village.CHEMIN.TROUVAILLE), "la cabane de vigne donne l'affiche du loto de 1987")
+	village._chemin.fouiller()
+	check(biens.trouvailles.count(village.CHEMIN.TROUVAILLE) == 1, "l'affiche ne se prend qu'une fois")
 	# Entrer chez Maître Garnier, puis revenir devant sa porte.
 	village.enter_seller("notaire")
 	await create_timer(1.0).timeout
