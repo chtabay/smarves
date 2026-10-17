@@ -921,7 +921,7 @@ func _spawn_player() -> void:
 		Game.return_point = ""
 		_put_player(door[0], door[1])
 	else:
-		# Les boutiques n'ont pas encore de porte dans la rue : on revient devant le café.
+		# Ailleurs, ou une porte pas encore posée dans la rue : on revient devant le café.
 		Game.return_point = ""
 		# Face à la terrasse du café, où Josiane attend.
 		_put_player(Vector3(-2.6, 0.05, -0.2), PI / 2.0)
