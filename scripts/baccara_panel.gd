@@ -6,6 +6,11 @@ signal played(bet: int, payout: int)
 signal closed
 signal hand_started
 signal card_dealt(who: String, card: Dictionary, hidden: bool)
+## Pour la table 3D : les mises posées (clé -> montant), et le coup réglé (gain par case, points).
+signal bets_changed(bets: Dictionary)
+signal settled(wins: Dictionary, player: int, banker: int)
+
+const BARRE := preload("res://scripts/jeux/barre.gd")
 
 const CHIPS := [100, 500, 1000, 5000]
 const SUITS := ["♠", "♥", "♦", "♣"]
@@ -24,11 +29,19 @@ var _info: Label
 var _chip_label: Label
 var _bet_buttons := {}
 var _font: SystemFont
+## Assis à la table 3D : on mise sur le tapis, le panneau devient une barre basse.
+var embedded := false
+var table3d: Node
+var _chip_row: HBoxContainer
+var _total_label: Label
 
 
 func _ready() -> void:
 	_font = SystemFont.new()
 	_font.font_names = PackedStringArray(["Georgia", "Segoe UI Symbol"])
+	if embedded:
+		_build_bar()
+		return
 	custom_minimum_size = Vector2(820, 0)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 10)
@@ -88,10 +101,69 @@ func _ready() -> void:
 	controls.add_child(deal)
 	var leave := Button.new()
 	leave.text = "Quitter (Échap)"
-	leave.pressed.connect(func(): closed.emit())
+	leave.pressed.connect(_leave)
 	controls.add_child(leave)
 	_chip(0)
 	_refresh()
+
+
+## La barre basse : plaques, mises sur le tapis, message du croupier, les cartes.
+func _build_bar() -> void:
+	BARRE.style(self)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 4)
+	add_child(v)
+	_info = BARRE.label("Misez sur le Joueur, la Banque ou l'Égalité en cliquant sur le tapis, puis demandez les cartes.", 18, BARRE.CREAM)
+	_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_info.add_theme_font_override("font", BARRE.KIT.serif())
+	v.add_child(_info)
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 14)
+	h.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_child(h)
+	_chip_row = BARRE.chip_row(CHIPS, chip_index, _pick_chip)
+	h.add_child(_chip_row)
+	_chip_label = BARRE.label("", 15, BARRE.MUTED)
+	_chip_label.custom_minimum_size = Vector2(120, 0)
+	h.add_child(_chip_label)
+	h.add_child(BARRE.separator())
+	_total_label = BARRE.label("Sur le tapis : 0", 16, BARRE.CREAM)
+	_total_label.custom_minimum_size = Vector2(170, 0)
+	h.add_child(_total_label)
+	var clear := BARRE.pill("Retirer")
+	clear.pressed.connect(_clear)
+	h.add_child(clear)
+	var deal := BARRE.main_button("  Les cartes  (Espace)  ")
+	deal.pressed.connect(_deal)
+	h.add_child(deal)
+	var leave := BARRE.pill("Quitter  (Échap)")
+	leave.pressed.connect(_leave)
+	h.add_child(leave)
+	_chip(0)
+
+
+func _pick_chip(i: int) -> void:
+	chip_index = i
+	_chip(0)
+
+
+## Les plaques reviennent au joueur (bouton Retirer, ou en quittant la table).
+func _clear() -> void:
+	if busy:
+		return
+	for k in bets:
+		Game.credits += bets[k]
+		Game.staked -= bets[k]
+		bets[k] = 0
+	Game.changed.emit()
+	_refresh()
+
+
+func _leave() -> void:
+	if busy:
+		return
+	_clear()
+	closed.emit()
 
 
 func _hand(parent: Control, who: String) -> HBoxContainer:
@@ -118,6 +190,8 @@ func _hand(parent: Control, who: String) -> HBoxContainer:
 func _chip(d: int) -> void:
 	chip_index = clampi(chip_index + d, 0, CHIPS.size() - 1)
 	_chip_label.text = "Plaque : %s" % Game.fmt(CHIPS[chip_index])
+	if _chip_row:
+		BARRE.select(_chip_row, chip_index)
 
 
 func _place(key: String) -> void:
@@ -134,6 +208,9 @@ func _refresh() -> void:
 	var names := {"joueur": "Joueur", "banquier": "Banquier", "egalite": "Égalité"}
 	for k in _bet_buttons:
 		_bet_buttons[k].text = "%s%s" % [names[k], ("  ·  %s" % Game.fmt(bets[k])) if bets[k] > 0 else ""]
+	if embedded:
+		_total_label.text = "Sur le tapis : %s" % Game.fmt(bets.joueur + bets.banquier + bets.egalite)
+		bets_changed.emit(bets.duplicate())
 
 
 func _card() -> Dictionary:
@@ -185,26 +262,43 @@ func _deal() -> void:
 			third = 0 if c.r >= 9 else c.r + 1
 		if banker_draws(value(b), third):
 			b.append(_card())
-	_show(_player_box, p)
-	_show(_banker_box, b)
 	hand_started.emit()
-	for c in p:
-		card_dealt.emit("player", c, false)
-	for c in b:
-		card_dealt.emit("dealer", c, false)
+	if embedded:
+		# Sur la table, les cartes sortent dans l'ordre du jeu : Joueur, Banque, Joueur, Banque, puis
+		# les troisièmes cartes. Le coup se règle quand le croupier a tout retourné.
+		_info.text = "Les cartes."
+		for i in 2:
+			card_dealt.emit("player", p[i], true)
+			card_dealt.emit("dealer", b[i], true)
+		if p.size() > 2:
+			card_dealt.emit("player", p[2], false)
+		if b.size() > 2:
+			card_dealt.emit("dealer", b[2], false)
+		await get_tree().create_timer(table3d.busy_time() + 0.2 if table3d else 2.0).timeout
+	else:
+		_show(_player_box, p)
+		_show(_banker_box, b)
+		for c in p:
+			card_dealt.emit("player", c, false)
+		for c in b:
+			card_dealt.emit("dealer", c, false)
 	var pv := value(p)
 	var bv := value(b)
-	var payout := 0
+	var wins := {}
 	var msg := ""
 	if pv > bv:
-		payout = bets.joueur * 2
+		wins.joueur = bets.joueur * 2
 		msg = "Le Joueur gagne, %d à %d." % [pv, bv]
 	elif bv > pv:
-		payout = bets.banquier * 2 - (int(round(bets.banquier * 0.05)) if commission else 0)
+		wins.banquier = bets.banquier * 2 - (int(round(bets.banquier * 0.05)) if commission else 0)
 		msg = "La Banque gagne, %d à %d." % [bv, pv]
 	else:
-		payout = bets.joueur + bets.banquier + bets.egalite * 9
+		wins = {"joueur": bets.joueur, "banquier": bets.banquier, "egalite": bets.egalite * 9}
 		msg = "Égalité à %d." % pv
+	var payout := 0
+	for k in wins:
+		payout += wins[k]
+	settled.emit(wins, pv, bv)
 	if payout > 0:
 		msg += " Vous encaissez %s." % Game.fmt(payout)
 	else:
@@ -246,6 +340,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and event.keycode == KEY_SPACE:
 		_deal()
 		get_viewport().set_input_as_handled()
+	elif embedded and event is InputEventKey and event.pressed and event.keycode >= KEY_1 and event.keycode < KEY_1 + CHIPS.size():
+		chip_index = event.keycode - KEY_1
+		_chip(0)
+		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_cancel"):
-		closed.emit()
+		_leave()
 		get_viewport().set_input_as_handled()

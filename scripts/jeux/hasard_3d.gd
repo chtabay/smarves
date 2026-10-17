@@ -6,7 +6,8 @@ extends "res://scripts/jeux/table_3d.gd"
 const FELT := Vector2(2.0, 1.1)
 const OUT := Vector2(2.3, 1.4)
 const DIE := 0.05
-const DOME_AT := Vector3(0.0, 0.0, -0.4)
+## Sur le côté, pas devant le chef de partie : la cloche de verre agitée ne passe pas sur son buste.
+const DOME_AT := Vector3(0.6, 0.0, -0.36)
 
 ## Le temps entre le lancer et la cloche levée (le panneau attend ce temps pour régler le coup).
 var reveal_time := 2.5
@@ -167,7 +168,7 @@ func throw(values: Array) -> void:
 	tw.tween_callback(func(): shot(look(_dome.position + Vector3(0.0, 0.42, 0.42), _dome.position + Vector3(0, 0.04, 0)), 0.6, 40.0))
 	tw.tween_property(_glass, "position:y", 0.3, 0.45).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	# Puis le chef de partie le pose sur le tapis, à côté du socle.
-	tw.tween_property(_glass, "position", Vector3(0.36, 0.06, 0.0), 0.5).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(_glass, "position", Vector3(-0.36, 0.06, 0.0), 0.5).set_trans(Tween.TRANS_SINE)
 	tw.tween_property(_glass, "position:y", -0.0245 + 0.002, 0.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	Sfx.play("shake", -6.0)
 
@@ -204,7 +205,7 @@ func settle(values: Array, wins: Dictionary) -> void:
 	shot(seat, 0.8, seat_fov)
 	for k in wins:
 		glow_cell(k, 2.6)
-	var bank := Vector3(0.45, felt_y, -0.45)
+	var bank := Vector3(-0.45, felt_y, -0.45)
 	var mine := Vector3(0.0, felt_y + 0.3, FELT.y / 2.0 + 0.3)
 	var total_win := 0
 	for k in gone:

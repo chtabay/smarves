@@ -14,6 +14,8 @@ const CRAPS := preload("res://scripts/craps_panel.gd")
 const CRAPS_3D := preload("res://scripts/jeux/craps_3d.gd")
 const DICE := preload("res://scripts/dice_panel.gd")
 const HASARD_3D := preload("res://scripts/jeux/hasard_3d.gd")
+const BACCARA := preload("res://scripts/baccara_panel.gd")
+const BACCARA_3D := preload("res://scripts/jeux/baccara_3d.gd")
 const VILLAGER := preload("res://scripts/villager.gd")
 
 var game := "roulette"
@@ -137,6 +139,30 @@ func _ready() -> void:
 			if path != "":
 				await _shot(0)
 			p._roll()
+		"baccara", "banco":
+			var t := BACCARA_3D.new()
+			var p: PanelContainer = BACCARA.new()
+			if game == "banco":
+				t.title = "BANCO"
+				t.commission = false
+				t.felt_color = Color(0.22, 0.03, 0.05)
+				p.commission = false
+			add_child(t)
+			_croupier("mlle-solange", Vector3(0, 0, -1.3), p)
+			t.attach(p)
+			t.sit(eye)
+			BARRE.dock(p, ui)
+			await get_tree().create_timer(1.2).timeout
+			for k in ["joueur", "egalite", "banquier", "joueur"]:
+				p._place(k)
+				await get_tree().create_timer(0.1).timeout
+			if path != "":
+				await _shot(0)
+			p._deal()
+			if "--roll" in OS.get_cmdline_user_args():
+				await get_tree().create_timer(9.0).timeout
+				p._place("banquier")
+				p._deal()
 	if path == "":
 		return
 	var elapsed := 0.0

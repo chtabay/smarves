@@ -60,21 +60,22 @@ static func pill(text: String) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.focus_mode = Control.FOCUS_NONE
-	b.add_theme_font_size_override("font_size", 16)
+	b.add_theme_font_size_override("font_size", 20)
 	b.add_theme_color_override("font_color", CREAM)
 	b.add_theme_color_override("font_hover_color", Color(1, 0.95, 0.8))
 	b.add_theme_stylebox_override("normal", _pill(Color(0.1, 0.07, 0.07, 0.9), Color(GOLD, 0.4)))
 	b.add_theme_stylebox_override("hover", _pill(Color(0.18, 0.12, 0.1, 0.95), Color(GOLD, 0.8)))
 	b.add_theme_stylebox_override("pressed", _pill(Color(0.06, 0.04, 0.04), GOLD))
 	b.add_theme_stylebox_override("disabled", _pill(Color(0.08, 0.06, 0.06, 0.6), Color(GOLD, 0.15)))
-	b.custom_minimum_size = Vector2(0, 40)
+	b.custom_minimum_size = Vector2(0, 48)  # Au doigt aussi : 48 px au moins.
 	return b
 
 
-static func label(text := "", size := 17, col := CREAM) -> Label:
+static func label(text := "", size := 20, col := CREAM) -> Label:
 	var l := Label.new()
 	l.text = text
-	l.add_theme_font_size_override("font_size", size)
+	# Lisible au téléphone : 20 px au moins.
+	l.add_theme_font_size_override("font_size", maxi(size, 20))
 	l.add_theme_color_override("font_color", col)
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	return l
