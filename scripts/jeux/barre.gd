@@ -67,7 +67,7 @@ static func pill(text: String) -> Button:
 	b.add_theme_stylebox_override("hover", _pill(Color(0.18, 0.12, 0.1, 0.95), Color(GOLD, 0.8)))
 	b.add_theme_stylebox_override("pressed", _pill(Color(0.06, 0.04, 0.04), GOLD))
 	b.add_theme_stylebox_override("disabled", _pill(Color(0.08, 0.06, 0.06, 0.6), Color(GOLD, 0.15)))
-	b.custom_minimum_size = Vector2(0, 40)
+	b.custom_minimum_size = Vector2(0, 48)  # Au doigt aussi : 48 px au moins.
 	return b
 
 

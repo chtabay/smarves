@@ -20,6 +20,7 @@ const BLACKJACK_3D := preload("res://scripts/jeux/blackjack_3d.gd")
 const SLOT_3D := preload("res://scripts/jeux/slot_3d.gd")
 const CRAPS_3D := preload("res://scripts/jeux/craps_3d.gd")
 const HASARD_3D := preload("res://scripts/jeux/hasard_3d.gd")
+const BACCARA_3D := preload("res://scripts/jeux/baccara_3d.gd")
 const KIT := preload("res://scripts/jeux/kit.gd")
 const BARRE := preload("res://scripts/jeux/barre.gd")
 ## Niveau du plancher de l'étage.
@@ -997,7 +998,7 @@ func _maybe_capture() -> void:
 				"craps":
 					pnl._place("pass")
 					pnl._roll()
-				"baccara":
+				"baccara", "banco":
 					pnl._place("joueur")
 					pnl._deal()
 	var elapsed := 0.0
@@ -2142,8 +2143,14 @@ func _build_salon() -> void:
 	_chandelier(Vector3(-20.0, 4.2, -7.0), 1.0)
 	var baccara := _node(Vector3(-20.0, 0, -7.0))
 	baccara.rotation_degrees.y = 90
-	_table_base(baccara, Vector3(3.4, 0.9, 1.8))
-	for k in 5:
+	# La table ovale, le sabot et les cartes : voir scripts/jeux/baccara_3d.gd.
+	var bt := BACCARA_3D.new()
+	bt.with_lamp = false
+	baccara.add_child(bt)
+	baccara.set_meta("table3d", bt)
+	_solid(Vector3(BACCARA_3D.OUT.x, 1.0, BACCARA_3D.OUT.y), Vector3(-20.0, 0.5, -7.0), PI / 2.0)
+	# Pas de chaise au milieu : c'est la place du joueur.
+	for k in [0, 1, 3, 4]:
 		_chair(baccara, Vector3(-1.2 + k * 0.6, 0, 1.25), 180.0, Color(0.08, 0.15, 0.4))
 	_table_lamp(Vector3(-20.0, 2.5, -7.0), 2.0, 90.0)
 	_bill(_label("Baccara", Vector3(0, 2.4, 0), 90.0, 64, Color(1.0, 0.85, 0.5), baccara))
@@ -2342,7 +2349,13 @@ func _build_salons() -> void:
 	# Les Salons particuliers : le Banco, à l'abri des regards.
 	_chandelier(Vector3(20.0, UP + 3.9, 2.5), 0.8)
 	var banco := _node(Vector3(20.5, UP, 2.5))
-	_table_base(banco, Vector3(3.0, 0.9, 1.6))
+	var bk := BACCARA_3D.new()
+	bk.title = "BANCO"
+	bk.commission = false
+	bk.felt_color = Color(0.22, 0.03, 0.05)
+	banco.add_child(bk)
+	banco.set_meta("table3d", bk)
+	_solid(Vector3(BACCARA_3D.OUT.x, 1.0, BACCARA_3D.OUT.y), Vector3(20.5, UP + 0.5, 2.5))
 	for k in 4:
 		_chair(banco, Vector3(-0.9 + k * 0.6, 0, 1.15), 180.0, Color(0.08, 0.15, 0.4))
 	_bill(_label("Banco", Vector3(0, 2.2, 0), 0.0, 56, Color(1.0, 0.85, 0.5), banco))
