@@ -12,6 +12,11 @@ const KK := "res://assets/kaykit/"
 const KN := "res://assets/kenney/nature/"
 const KC := "res://assets/kenney/cars/"
 
+## La vue extérieure qui suit l'habitant, en trois crans de molette (docs/SUITE.md, section 2) :
+## [distance, tangage, champ]. Proche pour les détails, Rue pour parcourir (par défaut), Quartier pour s'orienter.
+const CAMERA_NOTCHES := [[9.0, -48.0, 34.0], [22.0, -52.0, 30.0], [40.0, -60.0, 30.0]]
+const CAMERA_DEFAULT := 1
+
 const ROAD_Z := 6.4
 const ROAD_W := 2.4
 ## Les voitures roulent de part en part de la maquette, entre ces deux abscisses.
@@ -856,6 +861,12 @@ func _offer_tournee() -> void:
 ## Pour les captures de vérification : -- --vue=distance,x,y,z,lacet,tangage (vue maquette, sans suivre l'habitant).
 func _capture_view() -> void:
 	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--cran="):
+			# Pour comparer les cadrages de la vue qui suit l'habitant : -- --cran=0 (proche), 1 (rue), 2 (quartier).
+			main._bark_timer = INF
+			await get_tree().create_timer(0.4).timeout
+			main.camera.set_notch(int(arg.trim_prefix("--cran=")))
+			continue
 		if not arg.begins_with("--vue="):
 			continue
 		var v := arg.trim_prefix("--vue=").split_floats(",")

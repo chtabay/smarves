@@ -939,9 +939,9 @@ func set_fps(on: bool) -> void:
 		player.avatar.visible = true
 		player.frozen = false
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-		camera._dist_goal = 9.0
-		camera._pitch_goal = deg_to_rad(-48.0)
+		camera.use_notches(VILLAGE.CAMERA_NOTCHES, VILLAGE.CAMERA_DEFAULT)
 	elif fps:
+		camera.use_notches([], 0)
 		player.follow_camera = null
 		player.avatar.visible = false
 		player.camera.make_current()
@@ -949,6 +949,7 @@ func set_fps(on: bool) -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		camera.target = player.global_position
 	else:
+		camera.use_notches([], 0)
 		if player:
 			player.frozen = true
 			camera.go_to(Vector3(player.global_position.x, 0.3, player.global_position.z))
