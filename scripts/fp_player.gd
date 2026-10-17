@@ -14,6 +14,8 @@ var reach := 2.6
 var camera: Camera3D
 var frozen := false
 var focus_target: Node = null
+## Pour les tests automatiques : une direction de marche imposée (repère du joueur).
+var auto_move := Vector3.ZERO
 var _pitch := 0.0
 
 
@@ -66,6 +68,8 @@ func _physics_process(delta: float) -> void:
 			dir.x -= 1
 		if Input.is_physical_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
 			dir.x += 1
+	if auto_move != Vector3.ZERO:
+		dir = auto_move
 	dir = (transform.basis * dir).normalized()
 	var run := 1.8 if Input.is_key_pressed(KEY_SHIFT) else 1.0
 	velocity.x = dir.x * speed * run
