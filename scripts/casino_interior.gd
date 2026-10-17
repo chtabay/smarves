@@ -1996,7 +1996,7 @@ func _blackjack_table(pos: Vector3) -> void:
 	for k in 5:
 		var a := deg_to_rad(-60.0 + k * 30.0)
 		_stool(pos + Basis(Vector3.UP, deg_to_rad(-90.0)) * Vector3(sin(a) * 2.0, 0, cos(a) * 2.0), rad_to_deg(a) - 90.0 + 180.0)
-	_person("croupiere-blackjack", pos + Basis(Vector3.UP, deg_to_rad(-90.0)) * Vector3(0, 0, -0.78), -90.0, "idle", "noeud")
+	_person("croupiere-blackjack", pos + Basis(Vector3.UP, deg_to_rad(-90.0)) * Vector3(0, 0, -1.05), -90.0, "idle", "noeud")
 	_person("character-female-b.glb", pos + Basis(Vector3.UP, deg_to_rad(-90.0)) * Vector3(1.6, 0, 1.4), 120.0)
 	_bill(_label("Blackjack", Vector3(0, 2.0, 0), 0.0, 72, Color(1.0, 0.85, 0.5), root))
 	_interactive(root, "blackjack", "E : s'asseoir au blackjack", Vector3(3.6, 2.0, 2.6), Vector3(0, 1.0, 0.8))
