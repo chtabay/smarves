@@ -284,7 +284,8 @@ func _fill_right() -> void:
 
 
 func go_to(id: String) -> void:
-	toggle()
+	if is_open():
+		toggle()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	get_tree().paused = false
 	get_tree().change_scene_to_file(Biens.SELLERS[id].scene)
@@ -292,7 +293,8 @@ func go_to(id: String) -> void:
 
 func _tournee() -> void:
 	if Biens.offer_tournee():
-		toggle()
+		if is_open():
+			toggle()
 		show_slip("Tournée générale ! Josiane remplit les verres : « Voilà un investisseur qui sait vivre. »")
 		var scene := get_tree().current_scene
 		var people = scene.get("villagers") if scene else null
