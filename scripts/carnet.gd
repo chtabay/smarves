@@ -16,6 +16,8 @@ var _right: VBoxContainer
 var _slip: PanelContainer
 var _slip_label: Label
 var _slip_tween: Tween
+## Une fiche arrivée carnet ouvert : elle attend qu'on le referme.
+var _pending_slip := ""
 var _hand: SystemFont
 var _hand_bold: SystemFont
 var _mouse_before := Input.MOUSE_MODE_VISIBLE
@@ -60,6 +62,9 @@ func toggle() -> void:
 		_root.visible = false
 		Input.mouse_mode = _mouse_before
 		get_tree().paused = _paused_before
+		if _pending_slip != "":
+			show_slip.call_deferred(_pending_slip)
+			_pending_slip = ""
 	else:
 		_mouse_before = Input.mouse_mode
 		_paused_before = get_tree().paused
@@ -365,6 +370,9 @@ func _tournee() -> void:
 # --- La fiche de papier ------------------------------------------------------------------------
 
 func show_slip(text: String) -> void:
+	if _root.visible:
+		_pending_slip = text
+		return
 	if _slip == null:
 		_slip = PanelContainer.new()
 		var st := StyleBoxFlat.new()

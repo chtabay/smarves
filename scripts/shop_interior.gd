@@ -21,23 +21,19 @@ var W := 9.0
 var D := 8.0
 var H := 3.4
 
-## Le vendeur : espèce, pelage, tenue, accessoire, et ce qu'il dit quand on lui parle.
+## Ce que dit le vendeur quand on lui parle. Son allure vient de sa fiche (Cast.NAMED).
 const KEEPERS := {
-	"notaire": {"species": "chat", "fur": Color(0.72, 0.7, 0.68), "outfit": Color(0.16, 0.16, 0.2), "acc": "noeud",
-		"lines": ["« Maître Garnier, pour vous servir. Le village cède ses parts : une occasion qui ne se représentera pas avant la prochaine. »",
+	"notaire": {"lines": ["« Maître Garnier, pour vous servir. Le village cède ses parts : une occasion qui ne se représentera pas avant la prochaine. »",
 			"« Un acte notarié, c'est une promesse qui ne peut pas mentir. Les rentes, c'est autre chose, mais l'acte est parfait. »",
 			"« Josiane cède des parts de sa Smarvoise. Une machine qui tourne tous les soirs, voyez-vous ça. »",
 			"« Je joue un peu, le samedi, du côté de Passelourdin. Pour connaître le marché. »"]},
-	"couture": {"species": "lapin", "fur": Color(1.0, 0.86, 0.9), "outfit": Color(0.55, 0.2, 0.55), "acc": "collier",
-		"lines": ["« Raymonde, couture et retouches. Un costume, c'est la moitié d'une martingale. »",
+	"couture": {"lines": ["« Raymonde, couture et retouches. Un costume, c'est la moitié d'une martingale. »",
 			"« Au casino, on ne fait pas crédit à une veste froissée. Enfin, M. Brunet si, mais lui il fait crédit à tout le monde. »",
 			"« Le smoking, je le réserve aux clients du Salon privé. Ils ont besoin de poches profondes. »"]},
-	"garage": {"species": "ours", "fur": Color(0.75, 0.55, 0.38), "outfit": Color(0.18, 0.32, 0.62), "acc": "",
-		"lines": ["« Roger Fradin, garage toutes marques. Une voiture, c'est un placement qui roule. »",
+	"garage": {"lines": ["« Roger Fradin, garage toutes marques. Une voiture, c'est un placement qui roule. »",
 			"« La 2 CV, c'était celle de Dédé. Il l'a perdue au 421 ; elle a gagné un nouveau propriétaire. »",
 			"« Le jour où vous gagnez gros, la DS vous attend. Les gros gagnants ne prennent pas le car. »"]},
-	"brocante": {"species": "chat", "fur": Color(0.8, 0.72, 0.6), "outfit": Color(0.45, 0.3, 0.42), "acc": "collier",
-		"lines": ["« Ginette Boutin, brocante et meubles. Tout a une histoire, et tout a un prix. »",
+	"brocante": {"lines": ["« Ginette Boutin, brocante et meubles. Tout a une histoire, et tout a un prix. »",
 			"« Un intérieur, ça se gagne. Vous qui gagnez, ça tombe bien. »",
 			"« Le juke-box vient du café de Fontaine-le-Comte. Ils l'ont vendu pour payer l'ardoise. »",
 			"« M. Brunet finance aussi les meubles. Il dit qu'un client bien assis rembourse mieux. »"]},
@@ -356,7 +352,6 @@ func _door() -> void:
 
 
 func _build_keeper() -> void:
-	var k: Dictionary = KEEPERS.get(shop, KEEPERS.notaire)
 	# L'estrade derrière le comptoir : le vendeur domine un peu son client, et on le voit en entier.
 	var wood: Color = {"notaire": Color(0.3, 0.13, 0.07), "couture": Color(0.55, 0.32, 0.18)}.get(shop, Color(0.3, 0.3, 0.32))
 	_box(Vector3(2.8, ESTRADE, 1.5), Vector3(0, ESTRADE / 2.0, -D / 2.0 + 1.15), _std(wood, 0.6), true)
@@ -541,15 +536,9 @@ func _brocante() -> void:
 		add_child(m)
 		if spot[1].y < 0.1 and Biens.item(id).slot != "mur":
 			_solid(m)
-		# L'étiquette, écrite à la main par Ginette.
-		var it := Biens.item(id)
-		var top := 1.0 if it.slot == "mur" else (1.35 if id != "lampe_salon" else 0.7)
-		var l := _label3d("", spot[1] + Vector3(0, top, 0), 22, Color(0.2, 0.15, 0.1))
-		l.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
-		l.outline_size = 6
-		l.outline_modulate = Color(0.98, 0.95, 0.85)
-		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_tags[id] = l
+		# Le prix se lit en s'approchant, comme une étiquette qu'on retourne ; E ouvre le bon d'achat.
+		var mur: bool = Biens.item(id).slot == "mur"
+		_tags[id] = _interactive(m, "meuble", "", Vector3(1.3, 1.6, 1.3) if not mur else Vector3(1.0, 1.0, 0.8), Vector3(0, 0.8, 0) if not mur else Vector3(0, 0.3, 0.4))
 	_retag()
 	Biens.changed.connect(_retag)
 	Game.changed.connect(_retag)
@@ -579,7 +568,7 @@ func _retag() -> void:
 		var price := "%s crédits" % Game.fmt(Biens.next_price(id))
 		if not Biens.available(id):
 			price = "vendu" if Biens.count(id) >= it.max else "réservé"
-		_tags[id].text = "%s\n%s" % [it.name, price]
+		_tags[id].set_meta("prompt", "%s  ·  %s  ·  E : voir le bon d'achat" % [it.name, price])
 
 
 ## Un obstacle à la taille de ce qu'il contient : on ne traverse pas un billard.
@@ -782,6 +771,8 @@ func _on_interact(target: Node) -> void:
 			if keeper.has_method("gesture"):
 				keeper.gesture("talk")
 				keeper.talk(2.5)
+			open_vitrine()
+		"meuble":
 			open_vitrine()
 
 
