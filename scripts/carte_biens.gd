@@ -23,7 +23,8 @@ const LOTS := {
 	"comite": ["Salle Rabelais", Vector2(-9.0, 3.5), Vector2(2.6, 3.0)],
 	"casino": ["Casino", Vector2(6.4, -6.0), Vector2(5.2, 3.2)],
 	"fournil": ["Boulangerie", Vector2(9.0, -1.2), Vector2(2.6, 3.0)],
-	"cotes": ["Tableau des cotes", Vector2(4.5, 4.2), Vector2(3.6, 1.4)],
+	# Le Moulin des Dames est au bout de la rue du Clain, à l'ouest : son lot est posé au départ de la route.
+	"cotes": ["Moulin des Dames ←", Vector2(-9.6, 6.6), Vector2(3.6, 2.0)],
 	"maison": ["Rue de l'Église", Vector2(-4.2, -10.6), Vector2(3.4, 2.6)],
 }
 ## Une cible qu'on touche du doigt fait au moins 48 px de côté.
