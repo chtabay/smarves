@@ -21,7 +21,7 @@ const PLAYER_EYE := 0.6
 const FOCUS := {
 	"petanque": [Vector3(4.5, 0.6, 3.0), 7.0, 0.0, -30.0],
 	"boulangerie": [Vector3(7.0, 1.0, -1.0), 6.0, -90.0, -18.0],
-	"rabelais": [Vector3(-7.4, 1.2, 4.4), 6.5, 90.0, -18.0],
+	"rabelais": [Vector3(-7.4, 1.2, 3.5), 6.5, 90.0, -18.0],
 	"eglise": [Vector3(2.6, 1.0, -3.4), 6.0, 0.0, -14.0],
 	"zebres": [Vector3(64.0, 0.8, 3.5), 9.0, 0.0, -24.0],
 	"moulin": [Vector3(-72.0, 1.4, 0.5), 9.0, 0.0, -18.0],
@@ -31,7 +31,7 @@ const FOCUS := {
 ## Les panneaux de la place, vers les environs : [lieu, position, rotation, texte].
 const SIGNPOSTS := [
 	["bois", Vector3(9.0, 0, 7.75), 0.0, "Bois de Saint-Pierre  →"],
-	["moulin", Vector3(-9.0, 0, 7.75), 0.0, "←  Moulin des Dames"],
+	["moulin", Vector3(-6.2, 0, 7.75), 0.0, "←  Moulin des Dames"],
 	["passelourdin", Vector3(-6.8, 0, -3.4), 0.0, "Rochers de Passelourdin  ↑"],
 ]
 const KN := "res://assets/kenney/nature/"
@@ -373,7 +373,8 @@ func _build_buildings() -> void:
 	_add_place_marker("casino", casino, Vector3(0, 5.6, 0), Vector3(CasinoExterior.W, 3.5, CasinoExterior.D))
 	# À gauche, le Café de la Place ; à droite, la boulangerie et le Crédit Smarvois.
 	_building("cafe", "tavern", "red", Vector3(-8.8, 0, -0.6), 90.0)
-	_building("rabelais", "market", "red", Vector3(-9.0, 0, 4.4), 90.0, 2.6)
+	# Reculée vers le nord pour laisser passer la route de la rue du Clain.
+	_building("rabelais", "market", "red", Vector3(-9.0, 0, 3.5), 90.0, 2.4)
 	_building("boulangerie", "home_A", "yellow", Vector3(9.0, 0, -1.2), -90.0)
 	_building("banque", "home_B", "red", Vector3(9.0, 0, 3.8), -90.0)
 	_build_gambling()

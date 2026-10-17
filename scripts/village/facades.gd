@@ -296,7 +296,8 @@ func _shopfront(xf: Transform3D, w: float, gh: float, shop: Dictionary, light: C
 			sub.transform = xf * Transform3D(Basis(), Vector3(vx, gh - 0.38 - sin(tilt) * 0.62 - 0.06, 0.12 + cos(tilt) * 0.62 + 0.012))
 			sub.modulate = Color(0.12, 0.1, 0.1)
 		else:
-			sub.transform = xf * Transform3D(Basis(), Vector3(vx, 1.08, 0.085))
+			# Sous le bandeau, peint sur le haut de la vitrine.
+			sub.transform = xf * Transform3D(Basis(), Vector3(vx, 0.99, 0.1))
 		sub.visibility_range_end = 30.0
 		parent.add_child(sub)
 		_fit(sub, vw - 0.1)

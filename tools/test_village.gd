@@ -25,6 +25,25 @@ func _init() -> void:
 	check(village != null, "le nœud Village est dans la scène principale")
 	for id in ["notaire", "couture", "poste", "boucherie", "coiffure", "pizzeria", "epicerie", "fleurs", "bibliotheque", "lot_reserve", "lot_a_ceder", "garage", "pharmacie", "lot_bois", "ecole", "stade"]:
 		check(village.lots.has(id) and village.lots[id].has("area"), "emplacement %s posé avec son entrée" % id)
+	# La route est libre de bout en bout : du moulin au bois, en passant par la place.
+	await physics_frame
+	var space: PhysicsDirectSpaceState3D = main.get_world_3d().direct_space_state
+	var probe := PhysicsShapeQueryParameters3D.new()
+	var ball := SphereShape3D.new()
+	ball.radius = 0.35
+	probe.shape = ball
+	var blocked := []
+	var x := -80.0
+	while x <= 80.0:
+		# Au rond-point, on passe à côté du vieux chêne.
+		var z: float = 6.4 if absf(x - village.BOIS.ROND_X) > 2.0 else 6.4 + village.BOIS.DRIVE_R
+		probe.transform = Transform3D(Basis(), Vector3(x, 0.6, z))
+		for hit in space.intersect_shape(probe, 4):
+			if not (hit.collider is Area3D):
+				blocked.append(snappedf(x, 0.5))
+				break
+		x += 0.5
+	check(blocked.is_empty(), "la route est libre du moulin au bois %s" % ("" if blocked.is_empty() else str(blocked.slice(0, 8))))
 	for id in village.SELLER_DOORS:
 		if village.lots.has(id):
 			check(ResourceLoader.exists(biens.SELLERS[id].scene), "la porte %s mène à %s" % [id, biens.SELLERS[id].scene])

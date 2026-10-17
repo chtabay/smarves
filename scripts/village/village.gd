@@ -169,6 +169,9 @@ func build(m: Node3D) -> void:
 	_make_materials()
 	_rue_du_clain()
 	_route_du_bois()
+	# Sur les socles du moulin et du bois, la route garde son marquage et ses réverbères.
+	_plinth_road(-80.8, -59.2, [-63.0, -71.0, -78.5])
+	_plinth_road(59.2, 80.8, [63.0, 74.5])
 	_tournee()
 	_biens()
 	_capture_view()
@@ -600,6 +603,23 @@ func _route_du_bois() -> void:
 	var ga: Dictionary = lots.get("garage", {})
 	if not ga.is_empty():
 		main._villager("mecano", ga.door + Vector3(1.6, 0.06, 1.0), 200.0)
+
+
+## La route sur un socle des environs : pointillés, bordures, et des réverbères côté sud.
+func _plinth_road(x0: float, x1: float, lamps: Array) -> void:
+	var line := StandardMaterial3D.new()
+	line.albedo_color = Color(0.85, 0.85, 0.8)
+	var x := x0 + 1.0
+	while x < x1 - 0.5:
+		main._box(Vector3(0.9, 0.02, 0.08), Vector3(x, 0.025, ROAD_Z), line, self)
+		x += 2.0
+	var curb := StandardMaterial3D.new()
+	curb.albedo_color = Color(0.82, 0.8, 0.75)
+	for z in [ROAD_Z - ROAD_W / 2.0 - 0.04, ROAD_Z + ROAD_W / 2.0 + 0.04]:
+		main._box(Vector3(x1 - x0, 0.14, 0.08), Vector3((x0 + x1) / 2.0, 0.0, z), curb, self)
+	for lx in lamps:
+		_place(KK + "city/streetlight.gltf", Vector3(lx, 0.0, ROAD_Z + ROAD_W / 2.0 + 0.4), 2.2, 0.0)
+		_lamp(Vector3(lx - 0.45, 2.0, ROAD_Z + ROAD_W / 2.0 + 0.4), 2.6, Color(1.0, 0.72, 0.4), 6.5)
 
 
 ## Les lieux qui ne sont pas une maison de bourg : rend la profondeur bâtie depuis la rue.
