@@ -24,7 +24,7 @@ func _init() -> void:
 	await process_frame
 	var communes: Node = root.get_node("Communes")
 	DirAccess.make_dir_recursive_absolute(TMP + "srv")
-	for f in [TMP + "communes/%s.pck" % ID, TMP + "communes/installees.json", TMP + "communes/catalogue.json"]:
+	for f in [TMP + "communes/%s.pck" % ID, TMP + "communes/installees.json", TMP + "communes/catalogue.json", TMP + "communes/vues.json"]:
 		DirAccess.remove_absolute(f)
 	communes.dossier_greffes = TMP + "communes/"
 
@@ -60,6 +60,9 @@ func _init() -> void:
 	var ville: Dictionary = carte.filter(func(e): return e.insee == "86290")[0]
 	check(ville.publiee and not ville.cliquable, "sur la carte, la commune publiée n'est pas encore cliquable")
 	check(FileAccess.file_exists(TMP + "communes/catalogue.json"), "la copie du catalogue est gardée pour le hors-ligne")
+	check(communes.nouvelles == [ID, "faux"], "les deux communes sont nouvelles pour le joueur")
+	communes.marquer_vues()
+	check(communes.nouvelles.is_empty() and FileAccess.file_exists(TMP + "communes/vues.json"), "une fois le carnet ouvert, elles ne le sont plus")
 
 	communes.installer(ID)
 	var r: Array = await communes.installee
