@@ -50,7 +50,7 @@ const DPSI := 3.0
 
 func _ready() -> void:
 	felt_y = 0.78
-	seat = look(Vector3(0.2, 1.66, 1.15), Vector3(0.0, 0.78, -0.12))
+	seat = look(Vector3(0.2, 1.66, 1.15), Vector3(0.0, 0.78, -0.4))
 	seat_fov = 58.0
 	_build_table()
 	_build_wheel()

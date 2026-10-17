@@ -1980,9 +1980,9 @@ func _roulette_table(pos: Vector3) -> void:
 	# Chaises côté joueurs, croupier côté cylindre, râteau et jetons.
 	for k in 4:
 		_chair(root, Vector3(-0.2 + k * 0.6, 0, 1.15), 180.0)
-	# Le croupier se tient au bout de la table, derrière le cylindre : hors du regard du joueur
-	# assis comme du plan rapproché sur le cylindre.
-	_person("croupier-roulette", pos + Vector3(-0.1, 0, 2.3), 180.0, "idle", "noeud")
+	# Le croupier fait face aux joueurs, de l'autre côté du tapis, près du cylindre : en entier dans
+	# le regard du joueur assis, hors du plan rapproché sur le cylindre.
+	_person("croupier-roulette", pos + Vector3(-1.0, 0, 0.6), 90.0, "idle", "noeud")
 	_person("character-male-f.glb", pos + Vector3(1.4, 0, -1.6), -90.0)
 	_bill(_label("Roulette", Vector3(0, 2.0, 0), 0.0, 72, Color(1.0, 0.85, 0.5), root))
 	_interactive(root, "roulette", "E : s'asseoir à la roulette", Vector3(3.6, 2.0, 2.8), Vector3(0, 1.0, 0.4))

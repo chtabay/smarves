@@ -89,7 +89,13 @@ func schedule(cost: float, cb: Callable) -> void:
 	if start - _clock < 0.001:
 		cb.call()
 	else:
-		get_tree().create_timer(start - _clock).timeout.connect(cb)
+		# Par une méthode de la table : si la table est libérée entre-temps (changement de scène),
+		# la connexion tombe avec elle et le geste n'est jamais appelé.
+		get_tree().create_timer(start - _clock).timeout.connect(_run_gesture.bind(cb))
+
+
+func _run_gesture(cb: Callable) -> void:
+	cb.call()
 
 
 ## Le temps qu'il reste avant que tous les gestes prévus soient finis.
