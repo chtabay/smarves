@@ -32,7 +32,7 @@ func _ready() -> void:
 	var sub := Label.new()
 	sub.text = "M. Brunet, conseiller  ·  « Investissez dans votre avenir »"
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	sub.add_theme_font_size_override("font_size", 15)
+	sub.add_theme_font_size_override("font_size", 20)
 	sub.add_theme_color_override("font_color", Color(0.7, 0.7, 0.75))
 	v.add_child(sub)
 	_speech = Label.new()
@@ -43,7 +43,9 @@ func _ready() -> void:
 	v.add_child(_speech)
 	_status = Label.new()
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_status.add_theme_font_size_override("font_size", 17)
+	_status.add_theme_font_size_override("font_size", 20)
+	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_status.custom_minimum_size = Vector2(640, 0)
 	_status.add_theme_color_override("font_color", Color(0.82, 0.8, 0.75))
 	v.add_child(_status)
 	_amounts = HBoxContainer.new()
