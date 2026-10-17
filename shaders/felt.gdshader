@@ -40,7 +40,7 @@ void fragment() {
 	ALBEDO = col;
 	ROUGHNESS = mix(0.97, 0.7, ink);
 	SPECULAR = 0.25;
-	RIM = sheen;
+	RIM = sheen * (1.0 - ink);
 	RIM_TINT = 0.7;
 	NORMAL_MAP = normalize(vec3(0.5 + fibres * 0.12, 0.5 + (vnoise(p * 900.0 + 3.0) - 0.5) * 0.12 * fine_fade, 1.0));
 }

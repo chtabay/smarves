@@ -12,6 +12,8 @@ var cam: Camera3D
 ## La place du joueur et le plan rapproché sur l'action, dans le repère de la table.
 var seat := Transform3D()
 var seat_fov := 50.0
+## La table pose sa propre lampe ; le casino, qui a déjà les siennes au-dessus des tables, l'éteint.
+var with_lamp := true
 var active := false
 var felt_y := 0.78
 ## Cases cliquables : clé -> Rect2 dans le plan du tapis (x, z), repère de la table.
@@ -21,6 +23,9 @@ var _return_cam: Camera3D
 var _cam_tw: Tween
 var _hover: MeshInstance3D
 var _hover_key := ""
+## La file des gestes du croupier : chaque geste attend la fin du précédent.
+var _clock := 0.0
+var _busy_until := 0.0
 
 
 ## Fabrique un regard (position, cible) dans le repère de la table.
@@ -71,6 +76,25 @@ func shot(t: Transform3D, dur := 0.9, fov := -1.0) -> void:
 	_cam_tw.tween_property(cam, "transform", t, dur).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 	if fov > 0.0:
 		_cam_tw.tween_property(cam, "fov", fov, dur).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+
+
+func _process(delta: float) -> void:
+	_clock += delta
+
+
+## Programme un geste après ceux déjà prévus ; « cost » est sa durée.
+func schedule(cost: float, cb: Callable) -> void:
+	var start := maxf(_clock, _busy_until)
+	_busy_until = start + cost
+	if start - _clock < 0.001:
+		cb.call()
+	else:
+		get_tree().create_timer(start - _clock).timeout.connect(cb)
+
+
+## Le temps qu'il reste avant que tous les gestes prévus soient finis.
+func busy_time() -> float:
+	return maxf(_busy_until - _clock, 0.0)
 
 
 ## Relie la table au panneau : à surcharger par chaque jeu.

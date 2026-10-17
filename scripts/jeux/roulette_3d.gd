@@ -110,7 +110,8 @@ func _build_table() -> void:
 	KIT.sphere(0.014, Vector3(0, 0.05, 0), crystal, dolly)
 	dolly.position = Vector3(0.25, felt_y, -0.6)
 	# La lampe au-dessus de la table.
-	KIT.table_spot(self, Vector3(-0.3, 2.6, 0.2), Vector3(-0.3, felt_y, 0.0), 3.0, 42.0)
+	if with_lamp:
+		KIT.table_spot(self, Vector3(-0.3, 2.6, 0.2), Vector3(-0.3, felt_y, 0.0), 2.0, 42.0)
 
 
 ## Le tapis : grille des numéros, colonnes, douzaines, chances simples, filets crème et or.
@@ -128,7 +129,7 @@ func _make_layout() -> Texture2D:
 	c.draw.connect(func():
 		var ink := Color(0.95, 0.91, 0.79)
 		var gold := Color(0.93, 0.74, 0.38)
-		var red := Color(0.72, 0.06, 0.09)
+		var red := Color(0.58, 0.03, 0.05)
 		var black := Color(0.06, 0.06, 0.07)
 		var f := KIT.serif()
 		var lw := 4.0
@@ -280,9 +281,7 @@ func _build_wheel() -> void:
 		arm.rotation = Vector3(0, -a, PI / 2.0)
 		KIT.sphere(0.011 if k % 2 == 0 else 0.008, Vector3(cos(a) * 0.152, 0.2, sin(a) * 0.152), brass, rotor)
 	# La bille d'ivoire.
-	var ivory := KIT.mat(Color(0.97, 0.96, 0.92), 0.06)
-	ivory.clearcoat_enabled = true
-	ivory.clearcoat = 1.0
+	var ivory := KIT.mat(Color(0.82, 0.8, 0.76), 0.3)
 	ball = KIT.sphere(BALL_R, Vector3.ZERO, ivory, wheel)
 	# Un petit éclairage qui fait briller le laiton du cylindre.
 	var o := OmniLight3D.new()
@@ -367,6 +366,7 @@ func _ball_travel(t: float) -> float:
 
 
 func _process(delta: float) -> void:
+	super(delta)
 	if rotor == null:
 		return
 	if not _spinning:

@@ -17,6 +17,7 @@ const PAYS := {"7": 400, "★": 150, "♣": 60, "♥": 25, "♦": 15, "♠": 10}
 const STRIP_WEIGHTS := {"7": 1, "★": 2, "♣": 3, "♥": 4, "♦": 5, "♠": 6}
 const BETS := [1, 5, 10, 25, 100]
 const CELL := 96.0
+const BARRE := preload("res://scripts/jeux/barre.gd")
 
 var game: Node
 var title := "La Smarvoise"
@@ -32,6 +33,9 @@ var symbol_font: SystemFont
 var _result: Label
 var _bet_label: Label
 var _spin_button: Button
+## Devant une machine 3D : les tambours tournent dans le caisson, le panneau devient une barre basse.
+var embedded := false
+var _chip_row: HBoxContainer
 
 
 func _ready() -> void:
@@ -45,7 +49,44 @@ func _ready() -> void:
 		strip.shuffle()
 		strips.append(strip)
 		offsets[r] = randi() % strip.size() * CELL
-	_build()
+	if embedded:
+		_build_bar()
+	else:
+		_build()
+
+
+func _build_bar() -> void:
+	BARRE.style(self)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 4)
+	add_child(v)
+	_result = BARRE.label("Trois symboles identiques sur la ligne.", 18)
+	_result.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(_result)
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 12)
+	h.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_child(h)
+	_chip_row = BARRE.chip_row(BETS, bet_index, _pick_bet)
+	h.add_child(_chip_row)
+	_bet_label = BARRE.label("", 15, BARRE.MUTED)
+	_bet_label.custom_minimum_size = Vector2(80, 0)
+	h.add_child(_bet_label)
+	h.add_child(BARRE.separator())
+	_spin_button = BARRE.main_button("  Tirer le bras  (Espace)  ")
+	_spin_button.pressed.connect(spin)
+	h.add_child(_spin_button)
+	var leave := BARRE.pill("Quitter  (Échap)")
+	leave.pressed.connect(func(): closed.emit())
+	h.add_child(leave)
+	_change_bet(0)
+
+
+func _pick_bet(i: int) -> void:
+	if spinning:
+		return
+	bet_index = i
+	_change_bet(0)
 
 
 func _build() -> void:
@@ -138,6 +179,8 @@ func _change_bet(d: int) -> void:
 		return
 	bet_index = clampi(bet_index + d, 0, BETS.size() - 1)
 	_bet_label.text = "Mise : %d" % BETS[bet_index]
+	if _chip_row:
+		BARRE.select(_chip_row, bet_index)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -146,6 +189,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_accept") or (event is InputEventKey and event.pressed and event.keycode == KEY_SPACE):
 		spin()
 		get_viewport().set_input_as_handled()
+	elif embedded and event is InputEventKey and event.pressed and not event.echo \
+			and event.keycode >= KEY_1 and event.keycode < KEY_1 + BETS.size():
+		_pick_bet(event.keycode - KEY_1)
 	elif event.is_action_pressed("ui_cancel"):
 		closed.emit()
 		get_viewport().set_input_as_handled()
@@ -202,16 +248,21 @@ func _stop_reel(r: int, after: float) -> void:
 	var from: float = fmod(offsets[r], n * CELL)
 	if goal < from:
 		goal += n * CELL
-	tw.tween_method(func(x): offsets[r] = x; reels[r].queue_redraw(), from, goal, 0.25) \
+	tw.tween_method(_set_offset.bind(r), from, goal, 0.25) \
 		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	await tw.finished
+
+
+func _set_offset(x: float, r: int) -> void:
+	offsets[r] = x
+	if r < reels.size():
+		reels[r].queue_redraw()
 
 
 func _process(delta: float) -> void:
 	for r in 3:
 		if speeds[r] > 0.0:
-			offsets[r] += speeds[r] * delta
-			reels[r].queue_redraw()
+			_set_offset(offsets[r] + speeds[r] * delta, r)
 
 
 func _draw_reel(r: int, reel: Control) -> void:
