@@ -136,6 +136,7 @@ func build(m: Node3D) -> void:
 	_make_materials()
 	_rue_du_clain()
 	_tournee()
+	_biens()
 	_capture_view()
 
 
@@ -601,6 +602,73 @@ func _signpost(pos: Vector3, rot: float, text: String, where: String) -> void:
 	a.set_meta("interact", "travel")
 	a.set_meta("prompt", "E : prendre le chemin — %s" % text.replace("↑", "").strip_edges())
 	root.add_child(a)
+
+
+# --- Les biens du joueur, dehors (fil « Gestion », autoload Biens) --------------------------------
+
+## Où l'on gare le véhicule qu'on conduit : sur la place, entre la pétanque et le banc.
+const PARKING := [Vector3(-0.6, 0.02, 3.4), 90.0]
+## Les panneaux « Propriété » : bien → [position, rotation]. La maison de la rue de l'Église
+## attend son quartier (chemin de Passelourdin) ; la maison de maître est la maison verte de la place.
+const PROPERTY_SIGNS := {
+	"maison_place": [Vector3(-7.4, 0, -3.5), 20.0],
+}
+
+var _vehicle: Node3D
+var _vehicle_id := ""
+var _property_signs := {}
+
+
+func _biens() -> void:
+	var biens := get_node_or_null("/root/Biens")
+	if biens == null:
+		return
+	for id in PROPERTY_SIGNS:
+		var sp: Array = PROPERTY_SIGNS[id]
+		var root := Node3D.new()
+		root.position = sp[0]
+		root.rotation_degrees.y = sp[1]
+		add_child(root)
+		var wood := StandardMaterial3D.new()
+		wood.albedo_color = Color(0.45, 0.28, 0.14)
+		main._box(Vector3(0.06, 0.9, 0.06), Vector3(0, 0.45, 0), wood, root)
+		var board := StandardMaterial3D.new()
+		board.albedo_color = Color(0.95, 0.9, 0.78)
+		main._box(Vector3(0.9, 0.36, 0.04), Vector3(0, 0.82, 0), board, root)
+		var l := Label3D.new()
+		l.text = "PROPRIÉTÉ"
+		l.font = main.serif
+		l.font_size = 40
+		l.pixel_size = 0.0035
+		l.modulate = Color(0.55, 0.12, 0.1)
+		l.outline_size = 0
+		l.position = Vector3(0, 0.82, 0.025)
+		root.add_child(l)
+		_property_signs[id] = root
+	biens.changed.connect(_refresh_biens)
+	_refresh_biens()
+
+
+func _refresh_biens() -> void:
+	var biens := get_node("/root/Biens")
+	for id in _property_signs:
+		_property_signs[id].visible = biens.count(id) > 0
+	if biens.driven == _vehicle_id:
+		return
+	_vehicle_id = biens.driven
+	if _vehicle:
+		_vehicle.queue_free()
+		_vehicle = null
+	if _vehicle_id == "":
+		return
+	_vehicle = biens.build_vehicle(_vehicle_id)
+	if _vehicle == null:
+		return
+	_vehicle.position = PARKING[0]
+	_vehicle.rotation_degrees.y = PARKING[1]
+	# Biens.build_vehicle rend tout à l'échelle des voitures KayKit, posées à 1,9 sur la place.
+	_vehicle.scale = Vector3.ONE * 1.9
+	add_child(_vehicle)
 
 
 # --- La tournée générale, en terrasse du Café de la Place ----------------------------------------
