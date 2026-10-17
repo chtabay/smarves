@@ -191,7 +191,8 @@ static func dealer_gesture(tree: SceneTree, at: Vector3, radius: float, name: St
 		if d < best_d:
 			best_d = d
 			best = v
-	if best:
+	# Une carte après l'autre : on ne recommence pas le geste en plein milieu.
+	if best and not (name == "deal" and best.critter.is_busy()):
 		best.gesture(name)
 
 

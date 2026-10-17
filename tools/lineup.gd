@@ -27,10 +27,10 @@ const CAST := [
 	["chanteuse", "collier", "habitant", "la chanteuse", "idle"],
 	["baron-de-vasseur", "chapeau", "habitant", "le baron", "idle"],
 	["capucine-varenne", "chapeau", "habitant", "Capucine", "idle"],
-	["character-male-b.glb", "", "habitant", "habitant", "idle"],
+	["fradin", "", "fradin", "Roger Fradin", "idle"],
 	["character-female-c.glb", "", "habitant", "habitante", "idle"],
-	["character-male-e.glb", "", "habitant", "habitant", "idle"],
-	["character-female-a.glb", "", "habitant", "habitante", "idle"],
+	["maitre-garnier", "", "garnier", "Maître Garnier", "idle"],
+	["raymonde", "", "raymonde", "Raymonde", "idle"],
 ]
 
 ## La planche des mouvements : [modèle, voix, mouvement, légende].
@@ -95,8 +95,18 @@ func _ready() -> void:
 			moves_list = MOVES.filter(func(m): return m[2] in only)
 	if moves:
 		list = moves_list.map(func(m): return [m[0], "", m[1], m[3], m[2]])
-	var per_row := mini(9, list.size()) if moves else 12
-	var gap := 0.78 if moves else 0.62
+	# --tenues : le renard du joueur dans chaque tenue de Cast.PLAYER_OUTFITS.
+	var tenues := "--tenues" in args
+	if tenues:
+		list = Cast.PLAYER_OUTFITS.keys().map(func(o): return ["joueur", "", "joueur", o.replace("_", " "), "idle"])
+	# --part=N : une rangée de neuf, de plus près, pour la planche.
+	var part := -1 if not tenues else 0
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--part="):
+			part = int(a.trim_prefix("--part="))
+			list = CAST.slice(part * 9, part * 9 + 9)
+	var per_row := mini(9, list.size()) if moves or part >= 0 else 12
+	var gap := 0.78 if moves else (0.55 if part >= 0 else 0.62)
 	for i in list.size():
 		var c: Array = list[i]
 		var row := i / per_row
@@ -109,6 +119,10 @@ func _ready() -> void:
 		v.position = Vector3((col - (per_row - 1) / 2.0) * gap, 0, -row * 1.15)
 		add_child(v)
 		people.append(v)
+		if tenues:
+			v.critter.set_look(Cast.player(Cast.PLAYER_OUTFITS.keys()[i]))
+		if not moves and v.critter.get("_blink_wait") != null:
+			v.critter.set("_blink_wait", 99.0)  # les yeux ouverts sur la planche
 		if c[0] == "joueur" and v.critter.get("skeleton") == null:
 			# L'ancien renard du joueur, tel que main.gd le fabriquait.
 			v.critter.queue_free()
@@ -142,13 +156,17 @@ func _ready() -> void:
 		cam.position = Vector3(0, 2.3, 4.3)
 		cam.rotation_degrees = Vector3(-25, 0, 0)
 		cam.fov = 50
+	if part >= 0 and not "--top" in args:
+		cam.position = Vector3(0, 0.5, 3.35)
+		cam.rotation_degrees = Vector3(-3, 0, 0)
+		cam.fov = 50
 	if moves:
 		cam.position = Vector3(0, 1.75, 4.1)
 		cam.rotation_degrees = Vector3(-20, 0, 0)
 		cam.fov = 52
 		if moves_list.size() <= 5:
-			cam.position = Vector3(-0.0, 0.75, 2.3)
-			cam.rotation_degrees = Vector3(-8, 0, 0)
+			cam.position = Vector3(0.0, 0.62, 2.9)
+			cam.rotation_degrees = Vector3(-5, 0, 0)
 			cam.fov = 40
 		for i in people.size():
 			_move(people[i], moves_list[i][2])

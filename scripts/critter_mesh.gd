@@ -946,6 +946,17 @@ func _neck() -> void:
 				pearls.append(Vector3(sin(a) * 0.05 * w, y + 0.004 - cos(a) * 0.012, cos(a) * 0.046 * w + 0.004))
 			for p in pearls:
 				ellipsoid(p, Vector3(0.008, 0.008, 0.008), Basis(), _col("neck_color", WHITE), 0.15, CHEST, 0.0, 6, 4)
+		"metre":
+			# Le mètre ruban de la couturière, passé autour du cou et qui pend sur le devant.
+			var tape := _col("neck_color", Color("#e8c440"))
+			lathe(Vector3(0, neck_y - 0.026, 0), [[0.047 * w, 0.0], [0.048 * w, 0.006]], Basis(), tape, 0.6, CHEST, 0.95, 16)
+			for s in [-1.0, 1.0]:
+				var x0: float = s * 0.036 * w
+				var pts := []
+				for j in 5:
+					var yy := y - j * 0.024 - 0.004
+					pts.append(Vector3(x0 + s * j * 0.002, yy, _front_z(yy) + 0.006))
+				tube(pts, [0.0065, 0.0065, 0.0065, 0.0065, 0.0065], tape, 0.6, {"y": [[hip_y + torso_h * 0.5, SPINE], [shoulder_y, CHEST]]}, 4)
 		"foulard":
 			lathe(Vector3(0, neck_y - 0.03, 0), [[0.045 * w, 0.0], [0.05 * w, 0.015], [0.042 * w, 0.03]], Basis(), c, 0.85, CHEST, 0.95, 16)
 			ellipsoid(Vector3(0, y - 0.022, z - 0.002), Vector3(0.026, 0.03, 0.01), Basis(), c, 0.85, CHEST, 0.6, 10, 6)
@@ -989,5 +1000,10 @@ func _props() -> void:
 			"jetons":
 				lathe(h + Vector3(0, -0.01, 0.03), [[0.0, 0.0], [0.02, 0.0], [0.02, 0.03], [0.0, 0.03]], Basis(Vector3.RIGHT, 0.2),
 					[[0.0, Color(0.75, 0.1, 0.12)], [0.4, WHITE], [0.6, Color(0.75, 0.1, 0.12)]], 0.4, hb, 1.0, 12)
+			"cle":
+				# La clé plate du garagiste.
+				var steel := Color(0.62, 0.64, 0.68)
+				box(h + Vector3(0, -0.04, 0.01), Vector3(0.008, 0.1, 0.016), Basis(), steel, 0.3, hb)
+				lathe(h + Vector3(0, -0.095, 0.01), [[0.0, -0.004], [0.017, -0.004], [0.017, 0.004], [0.0, 0.004]], Basis(Vector3.RIGHT, PI / 2), steel, 0.3, hb, 1.0, 10)
 			"plateau":
 				lathe(h + Vector3(0, 0.02, 0.04), [[0.0, 0.0], [0.09, 0.0], [0.095, 0.008], [0.0, 0.004]], Basis(), Color(0.8, 0.8, 0.82), 0.25, hb, 1.0, 18)

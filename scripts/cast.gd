@@ -72,11 +72,11 @@ const NAMED := {
 		"build": {"belly": 1.3, "width": 1.1}, "top": "veste", "top_color": BOUTEILLE, "top2": BLANC, "buttons": OR, "lapel": "#3a6a4e",
 		"legs": "pantalon", "legs_color": CREME, "neck": "noeud", "neck_color": "#c0322e",
 		"hat": "canotier", "hat_color": "#e6c66e", "hat_band": "#c0322e", "prop_r": "micro", "shoes": "#3a2418"},
-	"gardien": {"species": "sanglier", "fur": "#5e4434", "fur2": "#8a6a55", "accent": "#2e2420", "pink": "#c98a7a",
-		"build": {"width": 1.15, "belly": 1.18}, "top": "veste", "top_color": "#56603c", "top2": "#d9cfb0", "lapel": "#4a5232",
+	"gardien": {"species": "lapin", "fur": "#8a6a4e", "fur2": "#e3d2bc", "pink": "#d99a96",
+		"build": {"width": 1.08, "belly": 1.14, "leg": 1.04}, "top": "veste", "top_color": "#56603c", "top2": "#d9cfb0", "lapel": "#4a5232",
 		"legs": "pantalon", "legs_color": "#6a4a32", "hat": "chasse", "hat_color": "#3e4a2a", "hat_band": "#6a4a32", "feather": "#b8402e",
 		"prop_r": "canne", "shoes": "#1f1a16"},
-	"meunier": {"species": "herisson", "fur": "#b08a68", "fur2": "#f0dcc0", "accent": "#4a3426",
+	"meunier": {"species": "castor", "fur": "#b88a62", "fur2": "#f0e2cc", "accent": "#5a4030",
 		"build": {"belly": 1.2, "leg": 0.92}, "top": "chemise", "top_color": "#3a64b0", "sleeves": "courtes",
 		"legs": "pantalon", "legs_color": "#c7b48f", "apron": true, "apron_bib": true, "apron_color": "#f6f2ea", "hat": "bonnet", "hat_color": "#f6f2ea", "shoes": "#3a2a20"},
 	"castel": {"species": "ours", "fur": "#f3f1ea", "fur2": "#fbfaf6", "brow": "#b8b4aa",
@@ -86,13 +86,16 @@ const NAMED := {
 		"build": {"leg": 1.08, "width": 0.94}, "top": "queue_de_pie", "top_color": "#121116", "top2": "#f6f4ee", "buttons": OR,
 		"legs": "pantalon", "legs_color": "#121116", "neck": "noeud", "neck_color": "#f6f4ee", "gloves": "#f6f4ee",
 		"face": ["moustache"], "moustache": "#121116", "shoes": "#0e0d12"},
-	"garnier": {"species": "blaireau", "fur": "#8c8a92", "fur2": "#f2f0ec", "accent": "#1f1d22",
+	"garnier": {"species": "chat", "fur": "#7a6a5e", "fur2": "#e8ddd0", "brow": "#4a3e36",
 		"build": {"belly": 1.12}, "top": "veste", "top_color": "#1b1a22", "top2": BLANC, "legs": "pantalon", "legs_color": "#1b1a22",
 		"neck": "cravate", "neck_color": "#1b1a22", "face": ["lunettes"], "frame": OR, "prop_l": "mallette", "shoes": "#0e0d12"},
-	"raymonde": {"species": "lapin", "fur": "#f1ede6", "fur2": "#ffffff", "pink": "#f0a0aa",
+	"raymonde": {"species": "souris", "fur": "#efe9e2", "fur2": "#ffffff", "pink": "#f0a0aa",
 		"build": {"belly": 1.08}, "top": "robe", "top_color": "#8a7bb8", "skirt_len": 0.62, "sleeves": "longues",
-		"neck": "collier", "neck_color": "#e8c8d0", "hat": "fleur", "hat_color": "#d06a8a", "hat_band": OR, "face": ["lunettes", "cils"], "frame": "#7a1f30",
+		"neck": "metre", "hat": "fleur", "hat_color": "#d06a8a", "hat_band": OR, "face": ["lunettes", "cils"], "frame": "#7a1f30",
 		"shoes": "#5a1424"},
+	"fradin": {"species": "ours", "fur": "#6e4630", "fur2": "#c9a47e",
+		"build": {"belly": 1.22, "width": 1.12}, "top": "veste", "top_color": BLEU_TRAVAIL, "top2": "#d9d2c0", "lapel": "#2a3e6e",
+		"legs": "pantalon", "legs_color": BLEU_TRAVAIL, "hat": "casquette", "hat_color": "#2a3e6e", "prop_r": "cle", "shoes": "#2a2220"},
 	"capucine": {"species": "lapin", "fur": "#b98a62", "fur2": "#efdcc4", "pink": "#eea0aa",
 		"build": {"leg": 1.08, "width": 0.92}, "top": "robe", "top_color": "#1f6a52", "skirt_len": 0.85, "sleeves": "aucune", "gloves": "#f4f1ea",
 		"neck": "collier", "hat": "cloche", "hat_color": "#174f3e", "hat_band": OR, "face": ["cils"], "lip": "#a3172b", "prop_l": "sac", "bag_color": "#174f3e", "shoes": "#174f3e"},
@@ -139,7 +142,7 @@ const NAMED := {
 ## Qui parle → quelle fiche.
 const BY_SPEAKER := {"josiane": "josiane", "dede": "dede", "lucien": "lucien", "brunet": "brunet", "ferrand": "ferrand",
 	"gaudin": "gaudin", "gardien": "gardien", "meunier": "meunier", "inconnu": "inconnu", "armand": "armand", "castel": "castel",
-	"garnier": "garnier", "raymonde": "raymonde"}
+	"garnier": "garnier", "raymonde": "raymonde", "fradin": "fradin"}
 ## Identifiants de modèle (anciens noms de fichiers ou noms de rôle) → fiche.
 const BY_MODEL := {"m-brunet": "brunet", "gardien-du-bois": "gardien", "portier-salon": "armand", "m-castel": "castel",
 	"maitre-garnier": "garnier", "mme-ferrand": "ferrand", "m-gaudin": "gaudin", "capucine-varenne": "capucine",
@@ -149,7 +152,9 @@ const BY_MODEL := {"m-brunet": "brunet", "gardien-du-bois": "gardien", "portier-
 const PLAYER_OUTFITS := {
 	"costume": {},
 	"smoking": {"top": "smoking", "top_color": "#141318", "top2": BLANC, "lapel": "#2c2a33", "legs_color": "#141318", "neck_color": "#141318", "buttons": "#2c2a33"},
-	"trois_pieces": {"top_color": "#4a4b56", "lapel": "#5a5b66", "legs_color": "#4a4b56", "neck": "cravate", "neck_color": BORDEAUX, "watch_chain": true},
+	# Les trois tenues de chez Raymonde (Biens : dimanche, trois_pieces, smoking).
+	"dimanche": {"top_color": "#2a44a8", "lapel": "#22389a", "legs_color": "#2a44a8", "neck_color": BLANC},
+	"trois_pieces": {"top_color": "#7d7566", "lapel": "#6a6356", "legs_color": "#7d7566", "neck": "cravate", "neck_color": BORDEAUX, "watch_chain": true},
 	"canotier": {"top_color": CREME, "lapel": "#e2d8c0", "top2": BLANC, "legs_color": CREME, "neck_color": "#c0322e", "hat": "canotier", "hat_color": "#e6c66e", "hat_band": NUIT},
 	"velours": {"top_color": "#5a1424", "lapel": "#6e1f30", "top2": BLANC, "legs_color": "#16151b", "neck_color": "#16151b"},
 	"haut_de_forme": {"top": "queue_de_pie", "top_color": "#141318", "top2": BLANC, "legs_color": "#141318", "neck_color": BLANC, "gloves": BLANC, "hat": "haut_de_forme", "hat_color": "#141318", "hat_band": OR},
@@ -157,6 +162,7 @@ const PLAYER_OUTFITS := {
 
 
 ## La fiche du joueur dans une tenue.
+## outfit : une clé de PLAYER_OUTFITS, ou la tenue portée (Biens.worn) ; « » ou inconnue = le costume bleu nuit.
 static func player(outfit := "costume") -> Dictionary:
 	return NAMED.joueur.merged(PLAYER_OUTFITS.get(outfit, {}), true)
 

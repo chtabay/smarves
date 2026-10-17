@@ -519,6 +519,7 @@ func _open_panel(p: Control) -> void:
 	var t3d: Node = _table.get_meta("table3d") if _table and _table.has_meta("table3d") else null
 	if _table:
 		_face(_table.global_position)
+		_staff_cues(p, _table)
 		if t3d == null:
 			_animate(p, _table)
 	player.frozen = true
@@ -561,6 +562,17 @@ func _animate(p: Control, table: Node3D) -> void:
 
 
 # --- Animations des tables ---------------------------------------------------------------
+
+## Le croupier de la table accompagne le jeu : il lance la bille, donne les cartes, ramasse les dés.
+func _staff_cues(p: Control, table: Node3D) -> void:
+	var at := table.global_position
+	if p.has_signal("spin_started"):
+		p.spin_started.connect(func(_n: int, _dur: float): VILLAGER.dealer_gesture(get_tree(), at, 3.0, "spin"))
+	if p.has_signal("card_dealt"):
+		p.card_dealt.connect(func(_who: String, _c: Dictionary, _hidden: bool): VILLAGER.dealer_gesture(get_tree(), at, 3.0, "deal"))
+	if p.has_signal("dice_rolled"):
+		p.dice_rolled.connect(func(_v: Array): VILLAGER.dealer_gesture(get_tree(), at, 3.0, "rake"))
+
 
 func _spin_roulette(table: Node3D, n: int, dur: float) -> void:
 	var rotor: Node3D = table.get_meta("rotor")
@@ -728,6 +740,8 @@ func _close_panel() -> void:
 
 func _on_played(bet: int, payout: int) -> void:
 	Sfx.result(bet, payout)
+	if _table and payout != bet:
+		VILLAGER.crowd_react(get_tree(), _table.global_position, 3.0, "big" if payout >= bet * 10 and bet > 0 else ("win" if payout > bet else "lose"))
 	Game.cash_in(payout)
 	_refresh_locks()
 	if Game.advance_if_broke(1):
