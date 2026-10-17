@@ -13,6 +13,7 @@ const BLACKJACK := preload("res://scripts/blackjack_panel.gd")
 const POKER := preload("res://scripts/poker_panel.gd")
 const OUTSKIRTS := preload("res://scripts/outskirts.gd")
 const PLAYER := preload("res://scripts/fp_player.gd")
+const VILLAGE := preload("res://scripts/village/village.gd")
 ## Taille du joueur sur la place : celle d'un habitant (0,72 m de haut), les yeux à 0,6 m.
 const PLAYER_EYE := 0.6
 
@@ -29,8 +30,8 @@ const FOCUS := {
 
 ## Les panneaux de la place, vers les environs : [lieu, position, rotation, texte].
 const SIGNPOSTS := [
-	["bois", Vector3(10.4, 0, 5.6), -90.0, "Bois de Saint-Pierre  →"],
-	["moulin", Vector3(-10.4, 0, 5.6), 90.0, "←  Moulin des Dames"],
+	["bois", Vector3(9.0, 0, 7.75), 0.0, "Bois de Saint-Pierre  →"],
+	["moulin", Vector3(-9.0, 0, 7.75), 0.0, "←  Moulin des Dames"],
 	["passelourdin", Vector3(-6.8, 0, -3.4), 0.0, "Rochers de Passelourdin  ↑"],
 ]
 const KN := "res://assets/kenney/nature/"
@@ -95,6 +96,9 @@ func _ready() -> void:
 	var outskirts := OUTSKIRTS.new()
 	add_child(outskirts)
 	outskirts.build(self)
+	var village := VILLAGE.new()
+	add_child(village)
+	village.build(self)
 	_build_signposts()
 	_build_ui()
 	camera = Camera3D.new()
@@ -680,7 +684,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		q.collide_with_areas = true
 		q.collide_with_bodies = false
 		var hit := get_world_3d().direct_space_state.intersect_ray(q)
-		if hit and hit.collider.has_meta("talk"):
+		if hit and hit.collider.has_meta("action"):
+			(hit.collider.get_meta("action") as Callable).call()
+		elif hit and hit.collider.has_meta("talk"):
 			var v: Node = hit.collider.get_parent()
 			v.say(Lines.line(v.speaker))
 		elif hit and hit.collider.has_meta("travel"):
@@ -839,9 +845,8 @@ func _build_ground() -> void:
 		centers.append(OUTSKIRTS.AREAS[k].center)
 	for c in centers:
 		_solid_box(Vector3(22.0, 0.4, 16.0), c + Vector3(0, -0.2, 0))
-		for side in [-1.0, 1.0]:
-			_solid_box(Vector3(22.4, 3.0, 0.2), c + Vector3(0, 1.5, side * 8.1))
-			_solid_box(Vector3(0.2, 3.0, 16.4), c + Vector3(side * 11.1, 1.5, 0))
+		# Les bords, percés là où une rue mène au socle voisin (scripts/village/village.gd).
+		VILLAGE.plinth_walls(self, c)
 
 
 ## Un obstacle invisible.
@@ -910,8 +915,13 @@ func _spawn_player() -> void:
 	if Game.return_point == "casino":
 		Game.return_point = ""
 		_put_player(Vector3(6.4, 0.05, -2.4), PI)
+	elif get_node("Village").has_door(Game.return_point):
+		# Retour d'une boutique du village : devant sa porte.
+		var door: Array = get_node("Village").door_spawn(Game.return_point)
+		Game.return_point = ""
+		_put_player(door[0], door[1])
 	else:
-		# Les boutiques n'ont pas encore de porte dans la rue : on revient devant le café.
+		# Ailleurs, ou une porte pas encore posée dans la rue : on revient devant le café.
 		Game.return_point = ""
 		# Face à la terrasse du café, où Josiane attend.
 		_put_player(Vector3(-2.6, 0.05, -0.2), PI / 2.0)
@@ -963,7 +973,10 @@ func set_fps(on: bool) -> void:
 
 
 func _on_player_interact(target: Node) -> void:
-	if target.has_meta("talk"):
+	if target.has_meta("action"):
+		# Les portes et comptoirs posés par le village (scripts/village/village.gd).
+		(target.get_meta("action") as Callable).call()
+	elif target.has_meta("talk"):
 		var v: Node = target.get_parent()
 		v.say(Lines.line(v.speaker))
 	elif target.has_meta("travel"):
@@ -1137,10 +1150,10 @@ func _process(delta: float) -> void:
 		var car := moving_cars[i]
 		var dir := 1.0 if i == 0 else -1.0
 		car.position.x += dir * (2.2 + i * 0.6) * delta
-		if car.position.x > 12.5:
-			car.position.x = -12.5
-		elif car.position.x < -12.5:
-			car.position.x = 12.5
+		if car.position.x > VILLAGE.ROAD_EAST:
+			car.position.x = VILLAGE.ROAD_WEST
+		elif car.position.x < VILLAGE.ROAD_WEST:
+			car.position.x = VILLAGE.ROAD_EAST
 	shown_credits = lerpf(shown_credits, Game.credits, 1.0 - exp(-10.0 * delta))
 	if absf(shown_credits - Game.credits) < 0.5:
 		shown_credits = Game.credits
