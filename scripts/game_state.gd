@@ -15,8 +15,32 @@ var won := 0
 ## Total misé, pour les seuils qui portent sur les mises (comme la salle des fêtes d'Addict).
 var staked := 0
 var advances_left := MAX_ADVANCES
-## Ce qu'on doit au Crédit Smarvois. Les intérêts courent avec les mises, pas avec le temps.
-var debt := 0
+## Ce qu'on doit, par prêteur : chaque commune a sa banque (« smarves » : le Crédit Smarvois de M. Brunet).
+## Les intérêts courent avec les mises, pas avec le temps.
+var debts := {}
+## Le prêteur par défaut : la banque de la commune d'origine (son manifeste, banque.preteur).
+var lender := "smarves"
+## La dette au total, tous prêteurs confondus. L'écrire ajuste celle du prêteur par défaut (puis, pour
+## une baisse qui la dépasse, celle des autres), si bien que le code d'avant garde le même sens.
+var debt: int:
+	get:
+		return _total_debt()
+	set(v):
+		var delta := v - _total_debt()
+		if delta == 0:
+			return
+		if delta > 0:
+			debts[lender] = debt_of(lender) + delta
+			return
+		for k in [lender] + debts.keys():
+			var cut := mini(-delta, debt_of(k))
+			debts[k] = debt_of(k) - cut
+			delta += cut
+		for k in debts.keys():
+			if int(debts[k]) <= 0:
+				debts.erase(k)
+## Les tiroirs des communes (id -> données) : chacune y range ce qui n'appartient qu'à elle.
+var tiroirs := {}
 var loans_taken := 0
 ## L'accueil de Josiane a eu lieu (première partie).
 var welcomed := false
@@ -32,10 +56,14 @@ const INTEREST_RATE := 0.03  # par période
 const LOAN_FEE := 0.05       # frais de dossier
 
 
+const SAUVEGARDE := preload("res://scripts/socle/sauvegarde.gd")
+## L'ancien fichier unique, migré en tiroirs au premier lancement (scripts/socle/sauvegarde.gd).
 const SAVE_PATH := "user://smarves.save"
 
 
 func _ready() -> void:
+	if Communes.origine():
+		lender = Communes.origine().preteur()
 	load_game()
 	changed.connect(save_game)
 
@@ -45,11 +73,7 @@ func save_game() -> void:
 	# Ni les captures de vérification ni les tests automatiques ne touchent à la vraie partie.
 	if not saving_enabled or get_tree().get_script() != null or "--capture" in " ".join(OS.get_cmdline_user_args()):
 		return
-	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
-	if f == null:
-		return
-	f.store_string(JSON.stringify({"credits": credits, "won": won, "staked": staked,
-		"advances_left": advances_left, "debt": debt, "loans_taken": loans_taken, "peak": peak_credits, "welcomed": welcomed}))
+	SAUVEGARDE.ecrire(self)
 
 
 func load_game() -> void:
@@ -57,19 +81,8 @@ func load_game() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--capture="):
 			return
-	if not FileAccess.file_exists(SAVE_PATH):
-		return
-	var data = JSON.parse_string(FileAccess.get_file_as_string(SAVE_PATH))
-	if typeof(data) != TYPE_DICTIONARY:
-		return
-	credits = int(data.get("credits", credits))
-	won = int(data.get("won", won))
-	staked = int(data.get("staked", staked))
-	advances_left = int(data.get("advances_left", advances_left))
-	debt = int(data.get("debt", debt))
-	loans_taken = int(data.get("loans_taken", loans_taken))
-	peak_credits = int(data.get("peak", peak_credits))
-	welcomed = bool(data.get("welcomed", welcomed))
+	# Un outil lancé par -s lit l'ancienne partie sans la migrer : il ne réécrit jamais la vraie partie.
+	SAUVEGARDE.charger(self, "user://", get_tree().get_script() == null)
 
 
 ## Nouvelle partie : on efface tout et on repart du pécule.
@@ -78,13 +91,13 @@ func reset() -> void:
 	won = 0
 	staked = 0
 	advances_left = MAX_ADVANCES
-	debt = 0
+	debts = {}
+	tiroirs = {}
 	loans_taken = 0
 	peak_credits = START_CREDITS
 	_last_call_staked = -100000
 	welcomed = false
-	if FileAccess.file_exists(SAVE_PATH):
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
+	SAUVEGARDE.effacer()
 	changed.emit()
 
 
@@ -102,25 +115,54 @@ func spend(amount: int) -> bool:
 		_plays_since_interest += 1
 		if _plays_since_interest >= INTEREST_EVERY:
 			_plays_since_interest = 0
-			debt += maxi(1, int(round(debt * INTEREST_RATE)))
+			for k in debts:
+				debts[k] = int(debts[k]) + maxi(1, int(round(int(debts[k]) * INTEREST_RATE)))
 	changed.emit()
 	return true
 
 
 ## M. Brunet accorde toujours le prêt : le montant arrive en crédits, la dette compte les frais.
-func borrow(amount: int) -> void:
+## from : le prêteur (« » : celui de la commune d'origine).
+func borrow(amount: int, from := "") -> void:
+	var k := from if from != "" else lender
 	credits += amount
-	debt += amount + int(round(amount * LOAN_FEE))
-	loans_taken += 1
+	debts[k] = debt_of(k) + amount + int(round(amount * LOAN_FEE))
+	# Le compte des prêts est celui de M. Brunet (ses arguments changent) ; un autre banquier tient le sien.
+	if k == lender:
+		loans_taken += 1
 	changed.emit()
 
 
-func repay(amount: int) -> int:
-	var paid := mini(amount, mini(credits, debt))
+## Rembourse un prêteur, ou toutes les dettes en commençant par le prêteur par défaut (to : « »).
+func repay(amount: int, to := "") -> int:
+	var paid := mini(amount, mini(credits, debt if to == "" else debt_of(to)))
 	credits -= paid
-	debt -= paid
+	if to == "":
+		debt -= paid
+	else:
+		debts[to] = debt_of(to) - paid
+		if debts[to] <= 0:
+			debts.erase(to)
 	changed.emit()
 	return paid
+
+
+func debt_of(from: String) -> int:
+	return int(debts.get(from, 0))
+
+
+func _total_debt() -> int:
+	var t := 0
+	for k in debts:
+		t += int(debts[k])
+	return t
+
+
+## Le tiroir d'une commune, à remplir par elle ; il est écrit avec la partie (Game.changed).
+func tiroir(id: String) -> Dictionary:
+	if not tiroirs.has(id):
+		tiroirs[id] = {}
+	return tiroirs[id]
 
 
 func cash_in(amount: int) -> void:
