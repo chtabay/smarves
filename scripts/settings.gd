@@ -9,6 +9,7 @@ var _panel: PanelContainer
 var _confirm: Button
 var _sliders := {}
 var _fullscreen: CheckButton
+var _device: OptionButton
 var _mouse_before := Input.MOUSE_MODE_VISIBLE
 
 
@@ -110,6 +111,28 @@ func _build() -> void:
 		s.value_changed.connect(_set_volume.bind(bus[0]))
 		row.add_child(s)
 		_sliders[bus[0]] = s
+	# La sortie son : sur ce PC, « Default » peut tomber sur un périphérique muet (haut-parleurs Steam, écran).
+	var drow := HBoxContainer.new()
+	drow.add_theme_constant_override("separation", 12)
+	v.add_child(drow)
+	var dl := Label.new()
+	dl.text = "Sortie son"
+	dl.custom_minimum_size = Vector2(220, 0)
+	drow.add_child(dl)
+	_device = OptionButton.new()
+	_device.custom_minimum_size = Vector2(220, 0)
+	_device.clip_text = true
+	for d in AudioServer.get_output_device_list():
+		_device.add_item(d)
+	_device.item_selected.connect(func(i: int):
+		AudioServer.output_device = _device.get_item_text(i)
+		Sfx.play("win", 0.0)
+		_save())
+	drow.add_child(_device)
+	var test := Button.new()
+	test.text = "Tester le son"
+	test.pressed.connect(func(): Sfx.play("big_win", 0.0))
+	v.add_child(test)
 	_fullscreen = CheckButton.new()
 	_fullscreen.text = "Plein écran"
 	_fullscreen.toggled.connect(_set_fullscreen)
@@ -162,6 +185,7 @@ func _save() -> void:
 	for k in _sliders:
 		cfg.set_value("son", k, _sliders[k].value)
 	cfg.set_value("ecran", "plein_ecran", _fullscreen.button_pressed)
+	cfg.set_value("son", "sortie", AudioServer.output_device)
 	cfg.save(PATH)
 
 
@@ -174,6 +198,12 @@ func _load() -> void:
 	for k in _sliders:
 		_sliders[k].set_value_no_signal(float(cfg.get_value("son", k, 0.8)))
 		_set_volume(_sliders[k].value, k)
+	var dev: String = cfg.get_value("son", "sortie", "Default")
+	if dev in AudioServer.get_output_device_list():
+		AudioServer.output_device = dev
+		for i in _device.item_count:
+			if _device.get_item_text(i) == dev:
+				_device.select(i)
 	var fs: bool = cfg.get_value("ecran", "plein_ecran", false)
 	_fullscreen.set_pressed_no_signal(fs)
 	if fs:
