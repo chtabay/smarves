@@ -1,6 +1,6 @@
 # Le village : rues, quartiers et emplacements
 
-Ce document dit comment le village s'étend autour de la place, où sont les entrées des lieux, et comment un autre chantier demande sa place dans la rue. Le code est dans `scripts/village/` ; le plan se redessine avec `python3 tools/plan_village.py docs/captures/village-plan.png`.
+Ce document dit comment le village s'étend autour de la place, où sont les entrées des lieux, et comment un autre chantier demande sa place dans la rue. Le code est dans `scripts/village/` (`bois.gd` pour la route du Bois) ; le plan se redessine avec `python3 tools/plan_village.py docs/captures/village-plan.png`.
 
 ![Plan du village](captures/village-plan.png)
 
@@ -20,21 +20,24 @@ Ce document dit comment le village s'étend autour de la place, où sont les ent
 |---|---|---|---|
 | La place de la Mairie | socle central | café, mairie, église, casino, boulangerie, Crédit Smarvois, salle Rabelais | existant |
 | La rue du Clain | à l'ouest, de la place au pont du Moulin des Dames | étude de Maître Garnier, la poste et sa cabine, boucherie Texier, Gisèle Coiffure, Raymonde couture, pizzeria du Clain, l'Épicerie du Bourg, Fleurs Odette, bibliothèque, le lavoir sur le Clain, la placette | posée |
-| La route du Bois | à l'est, de la place à l'allée du château | le garage Fradin, l'école, le stade, le rond-point du vieux chêne | à venir |
+| La route du Bois | à l'est, de la place à l'allée du château | le garage Fradin et ses pompes, la pharmacie, le rond-point du vieux chêne, l'école publique et sa cour, le stade municipal et sa tribune, les pavillons des années 70 | posée |
 | Le chemin de Passelourdin | au nord, derrière l'église | la rue de l'Église et sa maison, jardins et vignes qui montent vers les rochers | à venir |
 
 ## Les emplacements (pour les autres chantiers)
 
-Chaque devanture du village est un emplacement nommé, dans `village.gd` (`NORTH_ROW`, `SOUTH_ROW`). Une fois la rue construite, `Village.lots[id]` donne `pos` (milieu du pied de façade), `rot` (orientation), `w`, `d`, `door` (la porte, en coordonnées du monde) et `area` (la zone d'entrée, une `Area3D` avec ses métadonnées `interact`, `lot` et `prompt`). Le nœud s'appelle `Village`, enfant de la scène principale.
+Chaque devanture du village est un emplacement nommé, dans `village.gd` (`NORTH_ROW`, `SOUTH_ROW` pour la rue du Clain, `BOIS_NORTH`, `BOIS_SOUTH` pour la route du Bois). Une fois la rue construite, `Village.lots[id]` donne `pos` (milieu du pied de façade), `rot` (orientation), `w`, `d`, `door` (la porte, en coordonnées du monde) et `area` (la zone d'entrée, une `Area3D` avec ses métadonnées `interact`, `lot` et `prompt`). Le nœud s'appelle `Village`, enfant de la scène principale.
 
 | Id | Ce que c'est | Rue | Branché sur |
 |---|---|---|---|
 | `notaire` | L'étude de Maître Garnier, plaque de cuivre | rue du Clain, côté nord, à l'angle de la place | `Biens.SELLERS.notaire.scene` |
 | `couture` | Raymonde, couture et retouches, mannequins en vitrine | rue du Clain, côté nord, à côté de Gisèle Coiffure | `Biens.SELLERS.couture.scene` |
-| `garage` | Le garage Fradin, porte d'atelier | route du Bois | à venir |
+| `garage` | Le garage Fradin, porte d'atelier à moitié ouverte, cour à pompes | route du Bois, côté nord, au sortir de la place | `Biens.SELLERS.garage.scene` |
 | `poste`, `boucherie`, `coiffure`, `pizzeria`, `epicerie`, `fleurs`, `bibliotheque` | commerces du bourg, éclairés, fermés au joueur pour l'instant | rue du Clain | décor |
+| `pharmacie` | la pharmacie et sa croix verte | route du Bois, côté sud | décor |
+| `ecole`, `stade` | l'école publique (porte d'entrée) et le stade municipal (arche d'entrée) | route du Bois, côté nord | décor |
 | `lot_reserve` | local réservé, vitrine passée au blanc, « Prochainement » | rue du Clain, côté nord | libre |
 | `lot_a_ceder` | « Local à céder, s'adresser au Crédit Smarvois » | rue du Clain, côté sud | libre |
+| `lot_bois` | local réservé, « Prochainement », juste après le rond-point | route du Bois, côté sud | libre |
 
 **Entrer chez un vendeur.** La porte appelle `get_tree().change_scene_to_file(Biens.SELLERS[id].scene)` ; tant que la scène n'existe pas, une annonce dit que le lieu ouvre bientôt. **En sortir** : la scène met `Game.return_point` à l'id de la porte (`notaire`, `couture`, `garage`) et la scène principale replace l'habitant sur le trottoir, face à la rue (`Village.door_spawn`).
 
@@ -42,11 +45,12 @@ Chaque devanture du village est un emplacement nommé, dans `village.gd` (`NORTH
 
 **La tournée générale.** En terrasse du Café de la Place, entre les deux tables : « E : offrir une tournée générale (prix) », qui appelle `Biens.offer_tournee()`.
 
-**Demander une place.** Un nouveau lieu dans la rue passe par ce chantier : on ajoute une entrée à `NORTH_ROW` ou `SOUTH_ROW` (ou on prend un local réservé), avec son id, son enseigne, et son invite dans `PROMPTS`. Rien d'autre n'est à toucher dans la scène principale.
+**Demander une place.** Un nouveau lieu dans la rue passe par ce chantier : on ajoute une entrée à l'une des rangées (ou on prend un local réservé), avec son id, son enseigne, et son invite dans `PROMPTS`. Rien d'autre n'est à toucher dans la scène principale.
 
 ## Les passages
 
 - **Place → rue du Clain → Moulin des Dames** : la route continue à pied jusqu'au pont du moulin ; le bord ouest de la place et le bord est du socle du moulin sont ouverts (`village.gd`, `OPENINGS`).
+- **Place → route du Bois → bois de Saint-Pierre** : la route passe le rond-point du vieux chêne et arrive à l'allée du château ; le bord est de la place et le bord ouest du socle du bois sont ouverts. Les voitures contournent le chêne (`bois.gd`, `road_z`).
 - **Rue du Clain → Passelourdin** : la ruelle au milieu de la rue, avec son panneau « Rochers de Passelourdin ↑ » (raccourci, en attendant le chemin).
 - Les panneaux de la place restent des raccourcis vers chaque socle.
 
