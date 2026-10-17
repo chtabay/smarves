@@ -94,6 +94,22 @@ func au_catalogue(id: String) -> Dictionary:
 	return {}
 
 
+## Les paquets refusés chez le joueur, déposés à la main ou téléchargés : [{id, nom, raison}], un par
+## commune, le dernier motif l'emporte. Le carnet les montre, pour qu'un développeur qui essaie son
+## paquet sache pourquoi sans ouvrir la console. Une commune inscrite depuis n'y figure plus.
+func refusees() -> Array:
+	var par_id := {}
+	for r in refus:
+		var chemin := str(r[0])
+		if not chemin.begins_with(dossier_greffes):
+			continue
+		var f := chemin.get_file()
+		var id := chemin.get_base_dir().get_file() if f == "commune.json" else f.get_slice(".", 0)
+		if not communes.has(id):
+			par_id[id] = {"id": id, "nom": str(au_catalogue(id).get("nom", id)), "raison": str(r[1])}
+	return par_id.values()
+
+
 ## Lit le catalogue du portail, sans jamais bloquer le jeu : en cas d'échec, la dernière copie reste.
 func lire_catalogue(adresse := Portail.adresse()) -> void:
 	catalogue_etat = "lecture"
@@ -150,6 +166,7 @@ func _installe(e: Dictionary, part: String, recu: bool) -> void:
 		raison = "Le paquet reçu ne correspond pas au catalogue."
 	if raison != "":
 		DirAccess.remove_absolute(part)
+		_refuser(part, "téléchargement inabouti" if not recu else "le paquet reçu ne correspond pas au catalogue")
 		installee.emit(id, false, raison)
 		return
 	# Une commune déjà inscrite a son pack ouvert : la nouvelle version attend le prochain lancement.

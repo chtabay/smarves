@@ -375,6 +375,7 @@ func _fill_right() -> void:
 	_row(_right, "Payé en charges", Game.fmt(Biens.total_charges), INK_LIGHT)
 	if Biens.reprises > 0:
 		_row(_right, "Biens repris par M. Brunet", str(Biens.reprises), INK_LIGHT)
+	_fill_communes()
 	_fill_plan()
 	_gap(_right)
 	_title(_right, "Adresses")
@@ -386,7 +387,6 @@ func _fill_right() -> void:
 	var tl := _link(_right, "Offrir une tournée générale au café  (%s)" % Game.fmt(Biens.tournee_price()), _tournee, on_square and Game.credits >= Biens.tournee_price())
 	if not on_square:
 		tl.tooltip_text = "Au Café de la Place."
-	_fill_communes()
 	_gap(_right, 4)
 	_text(_right, "Fermer le carnet : C ou Échap", 15, PENCIL)
 
@@ -402,9 +402,9 @@ func _fill_communes() -> void:
 		var installee: bool = Communes.commune(e.id) != null
 		_text(_right, "%s  ·  %s" % [e.nom, ("version %s" % e.version) if e.version != "" else e.insee], 18, INK, true)
 		if e.description != "":
-			_text(_right, e.description, 15, INK_LIGHT)
+			_text(_right, e.description, 18, INK_LIGHT)
 		if Communes.en_cours == e.id:
-			_text(_right, "Téléchargement en cours…", 16, PENCIL)
+			_text(_right, "Téléchargement en cours…", 18, PENCIL)
 		elif not installee:
 			_link(_right, "→ l'installer  (%s, par %s)" % [Portail.taille(e.taille), e.auteur], Communes.installer.bind(e.id), Communes.en_cours == "")
 		else:
@@ -416,7 +416,9 @@ func _fill_communes() -> void:
 			_text(_right, Communes.commune(id).nom, 18, INK, true)
 			_link(_right, "→ y aller", _visiter.bind(id))
 	if Communes.publiees().is_empty() and Communes.installees().is_empty():
-		_text(_right, "Aucune autre commune publiée pour l'instant." if Communes.catalogue_etat == "en_ligne" else "Le catalogue se lit quand le jeu est en ligne.", 16, INK_LIGHT)
+		_text(_right, "Aucune autre commune publiée pour l'instant." if Communes.catalogue_etat == "en_ligne" else "Le catalogue se lit quand le jeu est en ligne.", 18, INK_LIGHT)
+	for r in Communes.refusees():
+		_text(_right, "%s : paquet refusé, %s" % [r.nom, r.raison], 18, Color(0.7, 0.12, 0.12))
 
 
 func _visiter(id: String) -> void:
