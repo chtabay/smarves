@@ -8,6 +8,10 @@ extends Node
 
 ## Une commune vient d'être inscrite (Smarves au démarrage, puis chaque greffe).
 signal inscrite(id: String)
+## Le catalogue du portail vient d'être lu (ou n'a pas pu l'être : voir catalogue_etat).
+signal catalogue_lu
+## Une installation depuis le catalogue est finie : ok, et la phrase à montrer au joueur.
+signal installee(id: String, ok: bool, message: String)
 
 const GREFFES := "user://communes/"
 
@@ -19,6 +23,17 @@ var communes := {}
 var ordre: Array[String] = []
 ## Les greffes refusées au dernier chargement, avec la raison : [chemin, raison].
 var refus: Array = []
+## Les communes publiées sur le portail (Portail.entrees), lues au lancement ou, hors ligne, la
+## dernière copie. « » tant que rien n'a été lu, puis « lecture », « en_ligne » ou « hors_ligne ».
+var catalogue: Array = []
+var catalogue_etat := ""
+## Les versions installées depuis le catalogue (id -> version), et l'id en cours de téléchargement.
+var installations := {}
+var en_cours := ""
+## Où vont les paquets installés, la dernière copie du catalogue (catalogue.json, pour la liste hors
+## ligne) et les versions installées (installees.json). Un test le déplace.
+var dossier_greffes := GREFFES
+var _retour: CanvasLayer
 
 
 func _ready() -> void:
@@ -26,6 +41,8 @@ func _ready() -> void:
 	# Les captures et les tests partent du jeu seul, sans les mods du joueur.
 	if not "--capture" in " ".join(OS.get_cmdline_user_args()) and get_tree().get_script() == null:
 		charger_greffes()
+		_lire_copies()
+		lire_catalogue()
 
 
 func commune(id: String) -> Commune:
@@ -45,14 +62,151 @@ func par_insee(insee: String) -> Commune:
 
 
 ## La carte de la Vienne : chaque commune réelle à sa place (centre et contour en longitude, latitude),
-## avec « id » non vide et « cliquable » vrai seulement si elle est développée.
+## avec « id » non vide et « cliquable » vrai seulement si elle est développée (installée) ; « publiee »
+## dit qu'elle est au catalogue du portail, donc installable même si elle ne l'est pas encore.
 func carte() -> Array:
+	var publiees := {}
+	for e in catalogue:
+		publiees[e.insee] = true
 	var out := []
 	for v in Vienne.communes():
 		var c := par_insee(str(v.insee))
 		out.append({"insee": str(v.insee), "nom": str(v.nom), "centre": Vector2(v.centre[0], v.centre[1]),
-			"contour": v.contour, "id": c.id if c else "", "cliquable": c != null})
+			"contour": v.contour, "id": c.id if c else "", "cliquable": c != null, "publiee": publiees.has(str(v.insee))})
 	return out
+
+
+## Les communes greffées, installées chez le joueur (hors Smarves), dans l'ordre d'inscription.
+func installees() -> Array:
+	return ordre.filter(func(id): return id != ORIGINE)
+
+
+## Les communes publiées sur le portail (la dernière liste lue), installées ou non.
+func publiees() -> Array:
+	return catalogue
+
+
+## L'entrée du catalogue pour cet id, ou {}.
+func au_catalogue(id: String) -> Dictionary:
+	for e in catalogue:
+		if e.id == id:
+			return e
+	return {}
+
+
+## Lit le catalogue du portail, sans jamais bloquer le jeu : en cas d'échec, la dernière copie reste.
+func lire_catalogue(adresse := Portail.adresse()) -> void:
+	catalogue_etat = "lecture"
+	var http := HTTPRequest.new()
+	http.timeout = 10.0
+	add_child(http)
+	http.request_completed.connect(func(resultat: int, code: int, _h, corps: PackedByteArray):
+		http.queue_free()
+		var texte := corps.get_string_from_utf8()
+		if resultat == HTTPRequest.RESULT_SUCCESS and code == 200 and JSON.parse_string(texte) is Dictionary:
+			catalogue = Portail.entrees(texte)
+			catalogue_etat = "en_ligne"
+			Portail.ecrire(dossier_greffes.path_join("catalogue.json"), texte)
+		else:
+			catalogue_etat = "hors_ligne"
+		catalogue_lu.emit())
+	if http.request(adresse) != OK:
+		http.queue_free()
+		catalogue_etat = "hors_ligne"
+		catalogue_lu.emit()
+
+
+## Télécharge le paquet publié de cette commune dans user://communes/<id>.pck, vérifie son empreinte,
+## puis le soumet aux mêmes refus qu'une greffe déposée à la main. Un paquet refusé est effacé.
+func installer(id: String) -> void:
+	var e := au_catalogue(id)
+	if e.is_empty() or en_cours != "":
+		installee.emit(id, false, "Une installation est déjà en cours." if en_cours != "" else "Commune absente du catalogue.")
+		return
+	en_cours = id
+	DirAccess.make_dir_recursive_absolute(dossier_greffes)
+	var part := dossier_greffes.path_join(id + ".pck.part")
+	var http := HTTPRequest.new()
+	http.timeout = 120.0
+	http.download_file = part
+	http.body_size_limit = Portail.TAILLE_MAX + 1
+	add_child(http)
+	http.request_completed.connect(func(resultat: int, code: int, _h, _c):
+		http.queue_free()
+		_installe(e, part, resultat == HTTPRequest.RESULT_SUCCESS and code == 200))
+	if http.request(e.paquet) != OK:
+		http.queue_free()
+		_installe(e, part, false)
+
+
+func _installe(e: Dictionary, part: String, recu: bool) -> void:
+	en_cours = ""
+	var id: String = e.id
+	var fin := dossier_greffes.path_join(id + ".pck")
+	var raison := ""
+	if not recu:
+		raison = "Le téléchargement n'a pas abouti. Réessayez une fois en ligne."
+	elif FileAccess.get_sha256(part) != e.sha256:
+		raison = "Le paquet reçu ne correspond pas au catalogue."
+	if raison != "":
+		DirAccess.remove_absolute(part)
+		installee.emit(id, false, raison)
+		return
+	# Une commune déjà inscrite a son pack ouvert : la nouvelle version attend le prochain lancement.
+	var deja := communes.has(id)
+	if deja:
+		DirAccess.rename_absolute(part, fin + ".nouveau")
+	else:
+		DirAccess.remove_absolute(fin)
+		DirAccess.rename_absolute(part, fin)
+	if not deja and charger_pack(fin) == "":
+		raison = refus[-1][1] if not refus.is_empty() else "paquet refusé"
+		DirAccess.remove_absolute(fin)
+		installee.emit(id, false, "%s n'a pas pu s'installer : %s." % [e.nom, raison])
+		return
+	installations[id] = e.version
+	Portail.ecrire(dossier_greffes.path_join("installees.json"), JSON.stringify(installations))
+	installee.emit(id, true, ("%s est installée." % e.nom) if not deja else ("La version %s de %s s'ouvrira au prochain lancement." % [e.version, e.nom]))
+
+
+## Entre dans une commune greffée : monte son pack, change de scène, et pose le bouton du retour.
+func visiter(id: String) -> bool:
+	if id == ORIGINE or not ouvrir(id):
+		return false
+	get_tree().paused = false
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	get_tree().change_scene_to_file(str(communes[id].data.scene))
+	_bouton_retour(true)
+	return true
+
+
+func revenir() -> void:
+	_bouton_retour(false)
+	get_tree().paused = false
+	get_tree().change_scene_to_file(str(origine().data.scene))
+
+
+func _bouton_retour(visible: bool) -> void:
+	if _retour == null:
+		_retour = CanvasLayer.new()
+		_retour.layer = 90
+		var b := Button.new()
+		b.text = "Revenir à Smarves"
+		b.position = Vector2(20, 20)
+		b.add_theme_font_size_override("font_size", 22)
+		b.pressed.connect(revenir)
+		_retour.add_child(b)
+		add_child(_retour)
+	_retour.visible = visible
+
+
+func _lire_copies() -> void:
+	var cache = Portail.lire_json(dossier_greffes.path_join("catalogue.json"))
+	if cache is Dictionary:
+		catalogue = Portail.entrees(JSON.stringify(cache))
+	var inst = Portail.lire_json(dossier_greffes.path_join("installees.json"))
+	if inst is Dictionary:
+		installations = inst
 
 
 ## Inscrit une commune lue et vérifiée. Refuse un manifeste en erreur ou un id déjà pris.
@@ -77,6 +231,11 @@ func charger_greffes(dossier := GREFFES) -> void:
 	var d := DirAccess.open(dossier)
 	if d == null:
 		return
+	# Une mise à jour téléchargée pendant la partie précédente prend la place de l'ancien pack.
+	for f in d.get_files():
+		if f.ends_with(".pck.nouveau"):
+			DirAccess.remove_absolute(dossier.path_join(f.trim_suffix(".nouveau")))
+			DirAccess.rename_absolute(dossier.path_join(f), dossier.path_join(f.trim_suffix(".nouveau")))
 	for f in d.get_files():
 		if f.get_extension() == "pck":
 			charger_pack(dossier.path_join(f))

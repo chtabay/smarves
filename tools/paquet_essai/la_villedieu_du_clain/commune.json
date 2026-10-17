@@ -1,0 +1,33 @@
+{
+	"format": 1,
+	"id": "la_villedieu_du_clain",
+	"nom": "La Villedieu-du-Clain",
+	"auteur": "Claude",
+	"version": "0.1.0",
+	"socle_min": "1.0",
+	"insee": "86290",
+	"description": "Paquet d'essai du portail des communes : une place vide et son panneau. Ce n'est pas encore une commune à visiter.",
+	"scene": "res://communes/la_villedieu_du_clain/commune.tscn",
+	"arrivee": {
+		"lot": "place",
+		"par": [
+			"smarves"
+		]
+	},
+	"lieux": [
+		{
+			"id": "comptoir",
+			"nom": "Le comptoir",
+			"jeu": "rien encore",
+			"seuil": 40000,
+			"hote": "Le tenancier"
+		}
+	],
+	"banque": {
+		"id": "caisse_la_villedieu_du_clain",
+		"nom": "La caisse de La Villedieu-du-Clain",
+		"banquier": "Le caissier d'essai",
+		"preteur": "la_villedieu_du_clain",
+		"lieu": "comptoir"
+	}
+}

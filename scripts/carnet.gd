@@ -48,6 +48,14 @@ func _ready() -> void:
 		if _root.visible:
 			_refresh())
 	Biens.note.connect(show_slip)
+	# Les communes du portail : la liste se lit au lancement, l'installation finit en arrière-plan.
+	Communes.catalogue_lu.connect(func():
+		if _root.visible:
+			_refresh())
+	Communes.installee.connect(func(_id, _ok, message):
+		show_slip(message)
+		if _root.visible:
+			_refresh())
 	# Le village n'est pas un autoload : on se branche sur lui quand la place se monte.
 	get_tree().node_added.connect(_on_node_added)
 
@@ -378,8 +386,44 @@ func _fill_right() -> void:
 	var tl := _link(_right, "Offrir une tournée générale au café  (%s)" % Game.fmt(Biens.tournee_price()), _tournee, on_square and Game.credits >= Biens.tournee_price())
 	if not on_square:
 		tl.tooltip_text = "Au Café de la Place."
+	_fill_communes()
 	_gap(_right, 4)
 	_text(_right, "Fermer le carnet : C ou Échap", 15, PENCIL)
+
+
+## « Les communes de la Vienne » : celles que d'autres ont publiées sur le portail, à installer, et
+## celles qui sont installées, où l'on peut aller. La carte de la Vienne les montrera à leur place.
+func _fill_communes() -> void:
+	_gap(_right)
+	_title(_right, "Les communes de la Vienne")
+	var vues := {}
+	for e in Communes.publiees():
+		vues[e.id] = true
+		var installee: bool = Communes.commune(e.id) != null
+		_text(_right, "%s  ·  %s" % [e.nom, ("version %s" % e.version) if e.version != "" else e.insee], 18, INK, true)
+		if e.description != "":
+			_text(_right, e.description, 15, INK_LIGHT)
+		if Communes.en_cours == e.id:
+			_text(_right, "Téléchargement en cours…", 16, PENCIL)
+		elif not installee:
+			_link(_right, "→ l'installer  (%s, par %s)" % [Portail.taille(e.taille), e.auteur], Communes.installer.bind(e.id), Communes.en_cours == "")
+		else:
+			if str(Communes.installations.get(e.id, e.version)) != e.version:
+				_link(_right, "→ installer la version %s" % e.version, Communes.installer.bind(e.id), Communes.en_cours == "")
+			_link(_right, "→ y aller", _visiter.bind(e.id))
+	for id in Communes.installees():
+		if not vues.has(id):
+			_text(_right, Communes.commune(id).nom, 18, INK, true)
+			_link(_right, "→ y aller", _visiter.bind(id))
+	if Communes.publiees().is_empty() and Communes.installees().is_empty():
+		_text(_right, "Aucune autre commune publiée pour l'instant." if Communes.catalogue_etat == "en_ligne" else "Le catalogue se lit quand le jeu est en ligne.", 16, INK_LIGHT)
+
+
+func _visiter(id: String) -> void:
+	if is_open():
+		toggle()
+	if not Communes.visiter(id):
+		show_slip("%s ne s'ouvre pas : %s" % [Communes.commune(id).nom, Communes.refus[-1][1] if not Communes.refus.is_empty() else "scène introuvable"])
 
 
 func go_to(id: String) -> void:
