@@ -904,9 +904,9 @@ func _spawn_player() -> void:
 	player.reach = 2.4
 	add_child(player)
 	player.interact.connect(_on_player_interact)
-	# L'habitant qu'on dirige en vue de dessus : un petit renard en costume.
+	# L'habitant qu'on dirige en vue de dessus, en costume.
 	var me := VILLAGER.CRITTER.new()
-	# La tenue achetée chez Raymonde habille le renard (Biens.worn).
+	# La tenue achetée chez Raymonde l'habille (Biens.worn).
 	me.look = Cast.player(Biens.worn)
 	_worn = Biens.worn
 	# Méthode et non lambda : la connexion à l'autoload tombe avec la scène.
