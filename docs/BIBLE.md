@@ -81,6 +81,8 @@ Règle du monde : **chaque lieu du village cache un jeu du casino, déguisé en 
 
 ### Au village
 
+> **Provisoire, destiné à changer.** Les jeux de la rue (machine du café, paris de Lucien, roulette du comptoir, loto, roue de la kermesse, course des zèbres, blackjack du Moulin, poker de Passelourdin) restent en l'état mais ne perdureront pas sous cette forme (décision de Guillaume, 17 octobre). On n'y attache ni nouvelle réplique, ni nouveau personnage, ni nouvelle fiche ; le casino et le village restent le socle.
+
 | Lieu | Jeu (déguisé en) | Tenancier | Seuil (gagné au jeu) |
 |---|---|---|---|
 | Le Café de la Place | La Smarvoise, machine à sous (le 421 du comptoir est un décor) | Josiane | dès le départ |
