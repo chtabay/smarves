@@ -12,7 +12,9 @@
 		"casino": "res://scenes/casino.tscn",
 		"notaire": "res://scenes/notaire.tscn",
 		"couture": "res://scenes/couture.tscn",
-		"garage": "res://scenes/garage.tscn"
+		"garage": "res://scenes/garage.tscn",
+		"brocante": "res://scenes/brocante.tscn",
+		"logement": "res://scenes/logement.tscn"
 	},
 	"lots": {"source": "Village.lots", "script": "res://scripts/village/village.gd"},
 	"lieux": [
@@ -42,6 +44,6 @@
 		"nommes": ["josiane", "dede", "lucien", "brunet", "ferrand", "gaudin", "gardien", "meunier", "castel", "armand", "garnier", "raymonde", "fradin", "capucine", "chanteuse", "baron", "teddy", "meuniere", "gege", "docteur", "inconnu"]
 	},
 	"banque": {"id": "credit_smarvois", "nom": "Le Crédit Smarvois", "banquier": "M. Brunet", "preteur": "smarves", "lieu": "banque"},
-	"biens": {"source": "Biens.CATALOGUE", "vendeurs": ["notaire", "couture", "garage"]},
+	"biens": {"source": "Biens.CATALOGUE", "vendeurs": ["notaire", "couture", "garage", "brocante"]},
 	"jeux": {"regles_serveur": []}
 }

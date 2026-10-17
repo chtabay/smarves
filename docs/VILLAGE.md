@@ -36,10 +36,14 @@ Chaque devanture du village est un emplacement nommé, dans `village.gd` (`NORTH
 | `pharmacie` | la pharmacie et sa croix verte | route du Bois, côté sud | décor |
 | `ecole`, `stade` | l'école publique (porte d'entrée) et le stade municipal (arche d'entrée) | route du Bois, côté nord | décor |
 | `lot_reserve` | local réservé, vitrine passée au blanc, « Prochainement » | rue du Clain, côté nord | libre |
-| `lot_a_ceder` | « Local à céder, s'adresser au Crédit Smarvois » | rue du Clain, côté sud | libre |
+| `brocante` | Brocante Boutin, meubles et objets (Ginette Boutin), sur l'ancien local à céder | rue du Clain, côté sud | `Biens.SELLERS.brocante.scene` |
+| `chambre_cafe` | la chambre au-dessus du café, porte et escalier dans la ruelle au nord du café | place | `Biens.door_of` |
+| `maison_place` | la maison de maître, la maison verte au fond de la place | place | `Biens.door_of` |
 | `lot_bois` | local réservé, « Prochainement », juste après le rond-point | route du Bois, côté sud | libre |
 
 **Entrer chez un vendeur.** La porte appelle `get_tree().change_scene_to_file(Biens.SELLERS[id].scene)` ; tant que la scène n'existe pas, une annonce dit que le lieu ouvre bientôt. **En sortir** : la scène met `Game.return_point` à l'id de la porte (`notaire`, `couture`, `garage`) et la scène principale replace l'habitant sur le trottoir, face à la rue (`Village.door_spawn`).
+
+**Les logements.** La porte d'un logement demande `Biens.door_of(lot)` : chez soi, elle appelle `Biens.enter(door_of(lot).logement)` quand l'intérieur existe (une seule scène, `logement.tscn`, pour tous) et l'on ressort devant la porte (`Game.return_point` = l'id du lot) ; sinon elle dit « propriété privée » ou « en vente chez Maître Garnier ». La maison de la rue de l'Église viendra avec le chemin de Passelourdin.
 
 **Brancher une action sur une porte.** Toute `Area3D` qui porte la métadonnée `action` (un `Callable`) est appelée quand on appuie sur E devant elle, ou quand on clique dessus en vue maquette. C'est ainsi que marchent les portes des vendeurs et la tournée générale.
 

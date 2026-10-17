@@ -80,7 +80,7 @@ d.ellipse([cx_ - 1.3 * S, cz_ - 1.3 * S, cx_ + 1.3 * S, cz_ + 1.3 * S], fill=(70
 # Les façades.
 SIGNS = []
 LEGEND = []
-LABELS = {"notaire": "Étude de Maître Garnier, notaire", "poste": "La poste (PTT) et sa cabine", "boucherie": "Boucherie Texier", "lot_reserve": "Local réservé", "coiffure": "Gisèle Coiffure", "couture": "Raymonde, couture et retouches", "pizzeria": "Pizzeria du Clain", "epicerie": "L'Épicerie du Bourg", "fleurs": "Fleurs Odette", "lot_a_ceder": "Local à céder", "bibliotheque": "Bibliothèque municipale",
+LABELS = {"notaire": "Étude de Maître Garnier, notaire", "poste": "La poste (PTT) et sa cabine", "boucherie": "Boucherie Texier", "lot_reserve": "Local réservé", "coiffure": "Gisèle Coiffure", "couture": "Raymonde, couture et retouches", "pizzeria": "Pizzeria du Clain", "epicerie": "L'Épicerie du Bourg", "fleurs": "Fleurs Odette", "brocante": "Brocante Boutin, meubles et objets", "bibliotheque": "Bibliothèque municipale",
           "garage": "Garage Fradin et ses pompes", "pharmacie": "Pharmacie", "lot_bois": "Local réservé", "ecole": "École publique et sa cour", "stade": "Stade municipal, U.S. Smarves"}
 def draw_row(row, north, x_start, step):
     x = x_start
