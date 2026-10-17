@@ -287,7 +287,7 @@ Chaque habitant, chaque employé du casino peut souffler la rumeur du lieu suiva
 
 Différences entre le jeu actuel et cette bible, et qui s'en charge.
 
-Corrigés dans les textes (fil « Cohérence du monde ») :
+Corrigés (PR #2 pour les textes du jeu, PR #3 pour la fiche de cadrage et le README) :
 
 - La fiche de cadrage décrit encore un village qu'on ne parcourt pas à pied et un Dédé « imbattable au 421 ».
 - Les cotes affichées sur le tableau de la pétanque ne sont pas celles du jeu.
