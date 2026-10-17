@@ -1,5 +1,7 @@
 extends Node
 ## Les biens du joueur (autoload « Biens ») : parts, maisons, tenues, véhicules, et ce qu'ils rapportent.
+## Une maison se loue (elle verse sa rente) ou s'habite (elle n'en verse plus, mais compte double en
+## standing, meubles en plus) : docs/SUITE.md, section 3.
 ## Au premier degré, posséder est la suite logique de gagner : le village vend ses parts, Maître Garnier
 ## signe, M. Brunet finance. Le temps se compte en mises, comme les intérêts : toutes les 20 mises,
 ## c'est « la recette » : chaque bien verse sa rente et coûte ses charges. Les rentes ne valent jamais
@@ -51,13 +53,13 @@ const CATALOGUE := [
 		"from": "Monsieur Armand", "blurb": "« La maison gagne toujours, Monsieur. Soyez la maison. »"},
 	# Chez Maître Garnier aussi : les murs.
 	{"id": "chambre", "kind": "maison", "seller": "notaire", "name": "La chambre au-dessus du café",
-		"price": 800, "growth": 1.0, "max": 1, "rente": 80, "charge": 5, "standing": 1, "gate": 0,
+		"price": 800, "growth": 1.0, "max": 1, "rente": 80, "charge": 5, "standing": 1, "gate": 0, "lot": "chambre_cafe",
 		"from": "Josiane", "blurb": "« Louée tous les samedis aux joueurs qui ratent le dernier car pour Poitiers. »"},
 	{"id": "maison", "kind": "maison", "seller": "notaire", "name": "La maison de la rue de l'Église",
-		"price": 5000, "growth": 1.0, "max": 1, "rente": 480, "charge": 40, "standing": 3, "gate": 3000,
+		"price": 5000, "growth": 1.0, "max": 1, "rente": 480, "charge": 40, "standing": 3, "gate": 3000, "lot": "maison_eglise",
 		"from": "Maître Garnier", "blurb": "« Pierre de taille, jardin, vue sur le clocher. Un placement de père de famille. »"},
 	{"id": "maison_place", "kind": "maison", "seller": "notaire", "name": "La maison de maître sur la place",
-		"price": 20000, "growth": 1.0, "max": 1, "rente": 1900, "charge": 180, "standing": 6, "gate": 20000,
+		"price": 20000, "growth": 1.0, "max": 1, "rente": 1900, "charge": 180, "standing": 6, "gate": 20000, "lot": "maison_place",
 		"from": "Maître Garnier", "blurb": "« Les fenêtres donnent sur le casino. Vous verrez votre avenir depuis votre lit. »"},
 	# Chez Raymonde, couture et retouches : on n'en porte qu'une à la fois.
 	{"id": "dimanche", "kind": "tenue", "seller": "couture", "name": "Le costume du dimanche",
@@ -94,6 +96,11 @@ var owned := {}
 ## La tenue portée et le véhicule conduit (« » : aucun).
 var worn := ""
 var driven := ""
+## Les logements possédés, par id du catalogue : {lot, habite, interieur, meubles {emplacement: id}, facade}.
+## Les meubles achetés sont comptés dans owned comme les autres biens ; ici, seulement où ils sont posés.
+var logements := {}
+## Les trouvailles de l'exploration et les souvenirs de jeu : sans prix, ils ne se revendent ni ne se saisissent.
+var trouvailles: Array = []
 var tournees := 0
 var reprises := 0
 var recettes := 0
@@ -175,6 +182,11 @@ func standing() -> int:
 		var it := item(id)
 		if it.kind in ["part", "maison"]:
 			s += it.standing * count(id)
+	var home := habite()
+	if home != "":
+		s += item(home).standing
+		for slot in logements[home].meubles:
+			s += int(item(str(logements[home].meubles[slot])).get("standing", 0))
 	if worn != "":
 		s += item(worn).standing
 	if driven != "":
@@ -185,8 +197,58 @@ func standing() -> int:
 func rente_annoncee() -> int:
 	var r := 0
 	for id in owned:
-		r += item(id).rente * count(id)
+		if not is_habite(id):
+			r += item(id).rente * count(id)
 	return r
+
+
+# --- Les logements : habiter ou louer --------------------------------------------------------
+
+## Le logement habité (« » : on dort à l'hôtel du casino, chez Monsieur Armand).
+func habite() -> String:
+	for id in logements:
+		if logements[id].habite:
+			return id
+	return ""
+
+
+func is_habite(id: String) -> bool:
+	return logements.has(id) and logements[id].habite
+
+
+## On s'installe : le logement cesse d'être loué, l'ancien domicile se remet en location.
+func habiter(id: String) -> void:
+	if not logements.has(id):
+		return
+	for other in logements:
+		logements[other].habite = other == id
+	changed.emit()
+
+
+func louer(id: String) -> void:
+	if logements.has(id):
+		logements[id].habite = false
+		changed.emit()
+
+
+## Ce que valent les meubles posés dans un logement, au prix de reprise.
+func meubles_value(id: String) -> int:
+	var v := 0
+	if logements.has(id):
+		for slot in logements[id].meubles:
+			var m := item(str(logements[id].meubles[slot]))
+			if not m.is_empty():
+				v += int(round(m.price * RESALE))
+	return v
+
+
+func _new_logement(id: String) -> Dictionary:
+	return {"lot": str(item(id).get("lot", "")), "habite": false, "interieur": id + "_v1", "meubles": {}, "facade": {}}
+
+
+## Le logement quitte le joueur : les meubles posés et les trouvailles se décrochent.
+func _drop_logement(id: String) -> void:
+	logements.erase(id)
 
 
 func charges() -> int:
@@ -292,6 +354,8 @@ func buy(id: String, financed := false) -> bool:
 		worn = id
 	elif it.kind == "vehicule":
 		driven = id
+	elif it.kind == "maison" and not logements.has(id):
+		logements[id] = _new_logement(id)
 	Game.changed.emit()
 	changed.emit()
 	return true
@@ -304,6 +368,8 @@ func sell(id: String) -> int:
 	owned[id] = count(id) - 1
 	if owned[id] <= 0:
 		owned.erase(id)
+		# Revendue par le joueur, la maison part vide : les meubles restent à lui, décrochés.
+		_drop_logement(id)
 		if worn == id:
 			worn = _best_owned("tenue")
 		if driven == id:
@@ -380,7 +446,7 @@ func _recette() -> void:
 	var paid_total := 0
 	for id in owned:
 		var it := item(id)
-		if it.rente <= 0:
+		if it.rente <= 0 or is_habite(id):
 			continue
 		var announced: int = it.rente * count(id)
 		var paid := int(round(announced * _rng.randf_range(YIELD_MIN, YIELD_MAX) * animation))
@@ -400,7 +466,10 @@ func _recette() -> void:
 		Game.credits = 0
 	_busy = false
 	_since_reprise += 1
-	_maybe_reprise()
+	# Une seule fiche : la reprise, s'il y en a une, s'écrit à la suite de la recette.
+	var reprise := _maybe_reprise()
+	if reprise != "":
+		text += "\n" + reprise
 	Game.changed.emit()
 	changed.emit()
 	note.emit(text)
@@ -408,20 +477,33 @@ func _recette() -> void:
 
 ## Quand la dette dépasse de loin la valeur des biens, M. Brunet reprend le plus beau, au prix de reprise,
 ## pour « alléger le dossier ». Il le présente comme un service, et c'en est un, à ses yeux.
-func _maybe_reprise() -> void:
+func _maybe_reprise() -> String:
 	if Game.debt < REPRISE_DEBT or _since_reprise < REPRISE_EVERY or owned.is_empty():
-		return
+		return ""
 	if Game.debt < REPRISE_RATIO * value():
-		return
+		return ""
+	# Une maison se reprend meublée, « c'est plus facile à revendre » : maison plus 60 % des meubles posés.
 	var best := ""
 	for id in owned:
-		if best == "" or resale_of(id) > resale_of(best):
+		if best == "" or resale_of(id) + meubles_value(id) > resale_of(best) + meubles_value(best):
 			best = id
-	var amount := resale_of(best)
+	var amount := resale_of(best) + meubles_value(best)
 	var name: String = item(best).name
+	var carton := false
+	var was_home := is_habite(best)
+	if logements.has(best):
+		for slot in logements[best].meubles:
+			var m := str(logements[best].meubles[slot])
+			if item(m).is_empty():
+				carton = true   # une trouvaille ou un souvenir : elle reste au joueur
+			elif count(m) > 0:
+				owned[m] = count(m) - 1
+				if owned[m] <= 0:
+					owned.erase(m)
 	owned[best] = count(best) - 1
 	if owned[best] <= 0:
 		owned.erase(best)
+		_drop_logement(best)
 		if worn == best:
 			worn = _best_owned("tenue")
 		if driven == best:
@@ -429,7 +511,12 @@ func _maybe_reprise() -> void:
 	Game.debt = maxi(0, Game.debt - amount)
 	reprises += 1
 	_since_reprise = 0
-	note.emit("M. Brunet a repris « %s » pour alléger votre dossier : %s de moins sur la dette. « Vous voilà plus léger pour investir. »" % [name, Game.fmt(amount)])
+	var text := "M. Brunet a repris « %s » pour alléger votre dossier : %s de moins sur la dette. « Vous voilà plus léger pour investir. »" % [name, Game.fmt(amount)]
+	if carton:
+		text += " Un carton vous attend devant la porte : « Nous avons pris soin de vos effets personnels. »"
+	if was_home:
+		text += " Monsieur Armand vous garde une chambre à l'hôtel du casino."
+	return text
 
 
 # --- Sauvegarde : un fichier à part, qui ne touche pas à celui de la partie ---------------------
@@ -446,7 +533,8 @@ func _save() -> void:
 		return
 	f.store_string(JSON.stringify({"owned": owned, "worn": worn, "driven": driven, "bets": _bets, "period_staked": _period_staked,
 		"tournees": tournees, "reprises": reprises, "recettes": recettes, "since_reprise": _since_reprise,
-		"total_rentes": total_rentes, "total_charges": total_charges, "total_spent": total_spent}))
+		"total_rentes": total_rentes, "total_charges": total_charges, "total_spent": total_spent,
+		"logements": logements, "trouvailles": trouvailles}))
 
 
 func _load() -> void:
@@ -463,6 +551,25 @@ func _load() -> void:
 		for id in o:
 			if not item(id).is_empty() and int(o[id]) > 0:
 				owned[id] = int(o[id])
+	var l = data.get("logements", {})
+	if typeof(l) == TYPE_DICTIONARY:
+		for id in l:
+			if count(id) > 0 and typeof(l[id]) == TYPE_DICTIONARY:
+				var home := _new_logement(id)
+				home.habite = bool(l[id].get("habite", false))
+				for key in ["interieur"]:
+					home[key] = str(l[id].get(key, home[key]))
+				for key in ["meubles", "facade"]:
+					if typeof(l[id].get(key)) == TYPE_DICTIONARY:
+						home[key] = l[id][key]
+				logements[id] = home
+	# Les maisons achetées avant les logements : louées, vides.
+	for id in owned:
+		if item(id).kind == "maison" and not logements.has(id):
+			logements[id] = _new_logement(id)
+	var t = data.get("trouvailles", [])
+	if typeof(t) == TYPE_ARRAY:
+		trouvailles = t
 	worn = str(data.get("worn", ""))
 	driven = str(data.get("driven", ""))
 	if count(worn) <= 0:
@@ -482,6 +589,8 @@ func _load() -> void:
 
 func _wipe() -> void:
 	owned = {}
+	logements = {}
+	trouvailles = []
 	worn = ""
 	driven = ""
 	tournees = 0

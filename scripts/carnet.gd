@@ -219,7 +219,9 @@ func _fill_left() -> void:
 			name += "  (au garage de la place)" if Biens.driven == it.id else ""
 		_text(_left, name, 19, INK, true)
 		var detail := ""
-		if it.rente > 0:
+		if Biens.is_habite(it.id):
+			detail = "habitée, ne verse pas de rente"
+		elif it.rente > 0:
 			detail = "rente annoncée %s" % Game.fmt(it.rente * n)
 			if paid_by.has(it.name):
 				detail += " · dernière recette %s" % Game.fmt(paid_by[it.name])
@@ -236,6 +238,7 @@ func _fill_left() -> void:
 			_link(_left, "→ la porter", Biens.wear.bind(it.id))
 		elif it.kind == "vehicule" and Biens.driven != it.id:
 			_link(_left, "→ la prendre", Biens.wear.bind(it.id))
+	_fill_logement()
 	_gap(_left)
 	_title(_left, "La dernière recette")
 	if Biens.recettes == 0:
@@ -246,6 +249,27 @@ func _fill_left() -> void:
 		for r in Biens.last_recette:
 			_row(_left, r[0], "%s  (annoncé %s)" % [Game.fmt(r[1]), Game.fmt(r[2])], INK_LIGHT)
 		_row(_left, "Net de la recette", Game.fmt(Biens.last_net), INK, true)
+
+
+## « Mon logement » : où l'on dort, et pour chaque maison les deux colonnes, louée ou habitée.
+func _fill_logement() -> void:
+	_gap(_left)
+	_title(_left, "Mon logement")
+	var home := Biens.habite()
+	_text(_left, "Adresse : %s" % (Biens.item(home).name if home != "" else "l'hôtel du casino, chez Monsieur Armand"), 18, INK)
+	for it in Biens.CATALOGUE:
+		if not Biens.logements.has(it.id):
+			continue
+		var lived := Biens.is_habite(it.id)
+		_text(_left, "%s  (%s)" % [it.name, "habitée" if lived else "louée"], 18, INK, true)
+		_row(_left, "louée : rente annoncée", Game.fmt(it.rente), INK_LIGHT)
+		_row(_left, "habitée : standing", "+%d" % (it.standing * 2), INK_LIGHT)
+		var furnished := Biens.meubles_value(it.id)
+		_row(_left, "estimation, meubles compris", Game.fmt(int(round(it.price * Biens.RESALE)) + furnished), INK_LIGHT)
+		if lived:
+			_link(_left, "→ la remettre en location", Biens.louer.bind(it.id))
+		else:
+			_link(_left, "→ m'y installer", Biens.habiter.bind(it.id))
 
 
 func _fill_right() -> void:
