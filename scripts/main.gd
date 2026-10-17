@@ -890,7 +890,7 @@ func _spawn_player() -> void:
 	var me := VILLAGER.CRITTER.new()
 	me.species = "renard"
 	me.fur = Color(1.0, 0.62, 0.32)
-	me.outfit = Color(0.1, 0.12, 0.25)
+	me.outfit = Biens.outfit_color(Color(0.1, 0.12, 0.25))
 	me.accessory = "noeud"
 	me.rotation.y = PI
 	player.add_child(me)
