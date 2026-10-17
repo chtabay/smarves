@@ -73,6 +73,8 @@ func _init() -> void:
 	r = await communes.installee
 	check(not r[1] and "ne correspond pas" in r[2], "un paquet dont l'empreinte ne correspond pas est refusé : %s" % r[2])
 	check(not FileAccess.file_exists(TMP + "communes/faux.pck") and not FileAccess.file_exists(TMP + "communes/faux.pck.part"), "et rien n'en reste")
+	var refusees: Array = communes.refusees()
+	check(refusees.size() == 1 and refusees[0].id == "faux" and "ne correspond pas" in refusees[0].raison, "le carnet a le motif du refus : %s" % str(refusees))
 
 	OS.kill(srv)
 	communes.lire_catalogue(base + "catalogue.json")
