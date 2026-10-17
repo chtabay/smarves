@@ -21,6 +21,8 @@ const SLOT_3D := preload("res://scripts/jeux/slot_3d.gd")
 const CRAPS_3D := preload("res://scripts/jeux/craps_3d.gd")
 const HASARD_3D := preload("res://scripts/jeux/hasard_3d.gd")
 const BACCARA_3D := preload("res://scripts/jeux/baccara_3d.gd")
+const ROUE_3D := preload("res://scripts/jeux/roue_3d.gd")
+const BOULE_3D := preload("res://scripts/jeux/boule_3d.gd")
 const KIT := preload("res://scripts/jeux/kit.gd")
 const BARRE := preload("res://scripts/jeux/barre.gd")
 ## Niveau du plancher de l'étage.
@@ -404,40 +406,6 @@ func _roulette_texture() -> ImageTexture:
 				col = Color(0.05, 0.45, 0.2) if n == 0 else (Color(0.72, 0.08, 0.1) if n in ROULETTE.RED else Color(0.06, 0.06, 0.07))
 			elif r <= 0.62:
 				col = Color(0.35, 0.18, 0.08) if r > 0.25 else Color(0.85, 0.66, 0.3)
-			img.set_pixel(x, y, col)
-	return ImageTexture.create_from_image(img)
-
-
-
-
-
-
-func _prize_texture() -> ImageTexture:
-	var size := 256
-	var img := Image.create(size, size, false, Image.FORMAT_RGB8)
-	var segs: Array = []
-	for k in WHEEL.ROUE_COUNTS:
-		for i in WHEEL.ROUE_COUNTS[k]:
-			segs.append(k)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 54
-	for i in range(segs.size() - 1, 0, -1):
-		var j := rng.randi() % (i + 1)
-		var tmp = segs[i]
-		segs[i] = segs[j]
-		segs[j] = tmp
-	var c := Vector2(size / 2.0, size / 2.0)
-	for y in size:
-		for x in size:
-			var d := Vector2(x, y) - c
-			var r := d.length() / (size / 2.0)
-			var col := Color(0.85, 0.66, 0.3)
-			if r > 0.2 and r < 0.98:
-				var a := fposmod(atan2(d.y, d.x), TAU)
-				var i := int(a / TAU * segs.size()) % segs.size()
-				col = WHEEL.ROUE_COLORS[segs[i]]
-				if fmod(a / TAU * segs.size(), 1.0) < 0.05:
-					col = Color(0.85, 0.66, 0.3)
 			img.set_pixel(x, y, col)
 	return ImageTexture.create_from_image(img)
 
@@ -1001,6 +969,9 @@ func _maybe_capture() -> void:
 				"baccara", "banco":
 					pnl._place("joueur")
 					pnl._deal()
+				"roue", "boule":
+					pnl._place("1")
+					pnl._spin()
 	var elapsed := 0.0
 	for i in shots.size():
 		await get_tree().create_timer(maxf(float(shots[i]) - elapsed, 0.0)).timeout
@@ -2300,41 +2271,16 @@ func _build_salons() -> void:
 	# La Salle des fêtes : la grande roue de la fortune.
 	_chandelier(Vector3(20.0, UP + 3.9, -10.5), 1.0)
 	var wheel := _node(Vector3(24.5, UP, -10.5))
-	_box(Vector3(0.6, 0.9, 1.2), Vector3(0, 0.45, 0), dark_wood, true, wheel)
-	var disc := MeshInstance3D.new()
-	var dc := CylinderMesh.new()
-	dc.top_radius = 1.5
-	dc.bottom_radius = 1.5
-	dc.height = 0.12
-	dc.radial_segments = 54
-	disc.mesh = dc
-	var dm := _std(Color.WHITE, 0.35)
-	dm.albedo_texture = _prize_texture()
-	disc.material_override = dm
-	disc.rotation_degrees = Vector3(0, 0, 90)
-	disc.position = Vector3(0, 2.5, 0)
-	wheel.add_child(disc)
-	var rim := MeshInstance3D.new()
-	var rt := TorusMesh.new()
-	rt.inner_radius = 1.48
-	rt.outer_radius = 1.62
-	rim.mesh = rt
-	rim.material_override = gold
-	rim.rotation_degrees = Vector3(0, 0, 90)
-	rim.position = Vector3(0, 2.5, 0)
-	wheel.add_child(rim)
-	for k in 18:
-		var a := TAU * k / 18.0
-		var bulb := MeshInstance3D.new()
-		var sm := SphereMesh.new()
-		sm.radius = 0.06
-		sm.height = 0.12
-		bulb.mesh = sm
-		bulb.material_override = brass_glow
-		bulb.position = Vector3(-0.08, 2.5 + sin(a) * 1.55, cos(a) * 1.55)
-		wheel.add_child(bulb)
+	# Face à la porte : la grande roue, sa languette et le comptoir des mises (scripts/jeux/roue_3d.gd).
+	wheel.rotation_degrees.y = -90
+	var rt := ROUE_3D.new()
+	rt.with_lamp = false
+	wheel.add_child(rt)
+	wheel.set_meta("table3d", rt)
+	_solid(Vector3(0.8, 3.0, 1.6), Vector3(24.5, UP + 1.5, -10.5))
+	_solid(Vector3(ROUE_3D.COUNTER.y, 1.0, ROUE_3D.COUNTER.x), Vector3(24.5 - ROUE_3D.COUNTER_Z, UP + 0.5, -10.5))
 	_bill(_label("La Roue de la fortune", Vector3(0, 4.3, 0), 0.0, 56, Color(1.0, 0.85, 0.5), wheel))
-	_interactive(wheel, "roue", "E : faire tourner la roue", Vector3(2.0, 4.0, 3.4), Vector3(-1.2, 2.0, 0))
+	_interactive(wheel, "roue", "E : faire tourner la roue", Vector3(3.4, 4.0, 2.0), Vector3(0, 2.0, 1.6))
 	_person("maitre-ceremonie", Vector3(23.0, UP, -12.2), -60.0, "idle", "chapeau")
 	_person("invitee-fetes", Vector3(19.0, UP, -9.0), 120.0)
 	_person("invite-fetes", Vector3(18.0, UP, -12.0), 60.0)
@@ -2344,7 +2290,12 @@ func _build_salons() -> void:
 	_piano(Vector3(24.0, UP, -5.2), 180.0)
 	_person("pianiste", Vector3(24.0, UP, -3.6), 180.0, "sit", "noeud")
 	var boule := _node(Vector3(18.5, UP, -4.0))
-	_table_base(boule, Vector3(2.4, 0.9, 1.4))
+	# La cuvette, le tapis et la boule : voir scripts/jeux/boule_3d.gd.
+	var bt3 := BOULE_3D.new()
+	bt3.with_lamp = false
+	boule.add_child(bt3)
+	boule.set_meta("table3d", bt3)
+	_solid(Vector3(BOULE_3D.OUT.x, 1.0, BOULE_3D.OUT.y), Vector3(18.5, UP + 0.5, -4.0))
 	_bill(_label("La Boule", Vector3(0, 2.2, 0), 0.0, 56, Color(1.0, 0.85, 0.5), boule))
 	_interactive(boule, "boule", "E : jouer à la Boule", Vector3(2.6, 2.0, 2.4), Vector3(0, 1.0, 0.4))
 	_person("croupier-boule", Vector3(18.5, UP, -5.1), 0.0, "idle", "noeud")

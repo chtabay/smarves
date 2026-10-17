@@ -16,6 +16,9 @@ const DICE := preload("res://scripts/dice_panel.gd")
 const HASARD_3D := preload("res://scripts/jeux/hasard_3d.gd")
 const BACCARA := preload("res://scripts/baccara_panel.gd")
 const BACCARA_3D := preload("res://scripts/jeux/baccara_3d.gd")
+const WHEEL := preload("res://scripts/wheel_panel.gd")
+const ROUE_3D := preload("res://scripts/jeux/roue_3d.gd")
+const BOULE_3D := preload("res://scripts/jeux/boule_3d.gd")
 const VILLAGER := preload("res://scripts/villager.gd")
 
 var game := "roulette"
@@ -163,6 +166,23 @@ func _ready() -> void:
 				await get_tree().create_timer(9.0).timeout
 				p._place("banquier")
 				p._deal()
+		"roue", "boule":
+			var t: Node3D = ROUE_3D.new() if game == "roue" else BOULE_3D.new()
+			add_child(t)
+			var p: PanelContainer = WHEEL.new()
+			p.mode = game
+			_croupier("croupier-boule", Vector3(-0.3, 0, -1.2) if game == "boule" else Vector3(1.3, 0, 0.3), p)
+			t.attach(p)
+			t.sit(eye)
+			BARRE.dock(p, ui)
+			await get_tree().create_timer(1.2).timeout
+			var keys := ["3", "rouge", "5", "passe", "3"] if game == "boule" else ["1", "5", "Joker", "1", "20"]
+			for k in keys:
+				p._place(k)
+				await get_tree().create_timer(0.1).timeout
+			if path != "":
+				await _shot(0)
+			p._spin()
 	if path == "":
 		return
 	var elapsed := 0.0
