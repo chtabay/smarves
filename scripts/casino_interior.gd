@@ -1320,6 +1320,9 @@ func _chandelier(pos: Vector3, size := 1.0, shadows := false) -> void:
 	light.light_volumetric_fog_energy = 0.25
 	# Sous la coupe, assez bas pour ne pas brûler le plafond tout proche (dessous des galeries).
 	light.position.y = -0.4 * size - 0.25
+	# Peu de reflet direct : poli, le bandeau de la galerie renvoyait le grand lustre en une tache
+	# brillante au-dessus de la porte du palier.
+	light.light_specular = 0.15
 	root.add_child(light)
 
 
