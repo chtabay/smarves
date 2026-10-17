@@ -235,12 +235,14 @@ func _moulin(c: Vector3) -> void:
 	_lamp(c + Vector3(4.0, 2.0, 0.0), 1.8, Color(0.6, 0.7, 1.0), 9.0)
 	main._neon("BLACKJACK · arrière-salle", c + Vector3(-2.0, 6.2, 0.8), 0.0, Color(1.0, 0.8, 0.4), 44)
 	_attraction("moulin", c + Vector3(-2.0, 0, -1.0), Vector3(5.0, 5.5, 5.0), c + Vector3(-2.0, 7.2, 0.8))
+	# La route de la rue du Clain, qui longe la rivière jusqu'au pont et file au bout du socle.
+	main._box(Vector3(22, 0.11, 2.4), c + Vector3(0, -0.04, 6.4), _asphalt())
 	# Les berges : arbres, roseaux, nénuphars.
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 962
 	for k in 16:
 		var p := Vector3(rng.randf_range(-10.5, 10.5), 0, rng.randf_range(-7.5, 7.5))
-		if p.z > 0.8 and p.z < 5.6:
+		if p.z > 0.8:
 			continue
 		if absf(p.x + 2.0) < 3.0 and p.z > -3.5:
 			continue
@@ -251,6 +253,13 @@ func _moulin(c: Vector3) -> void:
 		_p(KK + "medieval_decoration/nature/waterplant_%s.gltf" % ["A", "B", "C"][rng.randi() % 3], c + Vector3(rng.randf_range(-10.0, 10.0), 0, [1.6, 4.8][rng.randi() % 2]), 2.0)
 	main._villager("meunier", c + Vector3(1.0, 0, 0.6), -60.0, "idle", [], "chapeau", "meunier")
 	main._villager("joueuse-moulin", c + Vector3(-4.6, 0, 0.9), 30.0)
+
+
+func _asphalt() -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(0.09, 0.09, 0.1)
+	m.roughness = 0.3
+	return m
 
 
 # --- Les rochers de Passelourdin ------------------------------------------------------------
