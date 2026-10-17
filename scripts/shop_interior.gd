@@ -3,7 +3,7 @@ extends Node3D
 ## de Raymonde, le garage Fradin. Une pièce, un comptoir, le vendeur derrière ; on lui parle (E) et il
 ## ouvre sa vitrine (scripts/shop_panel.gd). La porte ramène sur la place.
 ## Capture : godot --path . res://scenes/notaire.tscn -- --capture=sortie.png [--at=x,z,lacet,tangage] [--open=vitrine]
-## [--won=5000] [--biens=smarvoise,dimanche,…] [--habite=chambre] [--carnet]
+## [--won=5000] [--biens=smarvoise,dimanche,…] [--habite=chambre] [--amenage=chambre] [--carnet]
 
 const PLAYER := preload("res://scripts/fp_player.gd")
 const CRITTER := preload("res://scripts/critter.gd")
@@ -36,6 +36,11 @@ const KEEPERS := {
 		"lines": ["« Roger Fradin, garage toutes marques. Une voiture, c'est un placement qui roule. »",
 			"« La 2 CV, c'était celle de Dédé. Il l'a perdue au 421 ; elle a gagné un nouveau propriétaire. »",
 			"« Le jour où vous gagnez gros, la DS vous attend. Les gros gagnants ne prennent pas le car. »"]},
+	"brocante": {"species": "chat", "fur": Color(0.8, 0.72, 0.6), "outfit": Color(0.45, 0.3, 0.42), "acc": "collier",
+		"lines": ["« Ginette Boutin, brocante et meubles. Tout a une histoire, et tout a un prix. »",
+			"« Un intérieur, ça se gagne. Vous qui gagnez, ça tombe bien. »",
+			"« Le juke-box vient du café de Fontaine-le-Comte. Ils l'ont vendu pour payer l'ardoise. »",
+			"« M. Brunet finance aussi les meubles. Il dit qu'un client bien assis rembourse mieux. »"]},
 }
 
 var player: CharacterBody3D
@@ -64,6 +69,9 @@ func _ready() -> void:
 		"garage":
 			_room(_concrete(), _std(Color(0.88, 0.84, 0.72), 0.85), Color(0.75, 0.75, 0.72), Color(0.2, 0.42, 0.3))
 			_garage()
+		"brocante":
+			_room(_wood_floor(Color(0.5, 0.36, 0.24)), _wallpaper(Color(0.72, 0.6, 0.36), Color(0.78, 0.67, 0.44)), Color(0.9, 0.86, 0.78), Color(0.3, 0.22, 0.15))
+			_brocante()
 		_:
 			_room(_wood_floor(Color(0.42, 0.26, 0.15)), _wallpaper(Color(0.2, 0.32, 0.26), Color(0.26, 0.4, 0.32)), Color(0.92, 0.88, 0.8), Color(0.35, 0.2, 0.11))
 			_notaire()
@@ -360,7 +368,7 @@ func _build_keeper() -> void:
 	c.outfit = k.outfit
 	c.accessory = k.acc
 	# Leur fiche de personnage (docs/PERSONNAGES.md), si elle existe.
-	var who: String = {"notaire": "garnier", "couture": "raymonde", "garage": "fradin"}.get(shop, "")
+	var who: String = {"notaire": "garnier", "couture": "raymonde", "garage": "fradin", "brocante": "ginette"}.get(shop, "")
 	if Cast.NAMED.has(who):
 		c.look = Cast.NAMED[who].duplicate(true)
 		c.idle_anim = "attentive"
@@ -503,6 +511,97 @@ func _mannequin(at: Vector3, outfit: Color, name: String) -> void:
 	# Le revers et la boutonnière, pour qu'on lise un costume.
 	_box(Vector3(0.12, 0.35, 0.02), at + Vector3(0, 1.55, 0.24), _std(Color(0.95, 0.95, 0.92), 0.6))
 	_label3d(name, at + Vector3(0, 0.12, 0.3), 18, Color(0.35, 0.2, 0.25)).rotation_degrees.x = -60.0
+
+
+# --- La brocante de Ginette Boutin -------------------------------------------------------------
+
+const MEUBLES := preload("res://scripts/meubles.gd")
+## Où chaque meuble attend son acheteur : [id, position, orientation].
+const BROCANTE_SPOTS := [
+	["billard", Vector3(-2.7, 0, 1.3), 90.0], ["canape_velours", Vector3(-3.7, 0, -1.6), 90.0],
+	["buffet_henri2", Vector3(-2.9, 0, -3.55), 0.0], ["lampe_salon", Vector3(-2.9, 1.19, -3.55), 0.0],
+	["tableau_marine", Vector3(-4.46, 1.3, -0.1), 90.0], ["lit_cuivre", Vector3(2.95, 0, -2.95), 0.0],
+	["juke_box", Vector3(3.95, 0, -1.0), -90.0], ["machine_salon", Vector3(3.95, 0, 0.1), -90.0],
+	["tele_pieds", Vector3(3.95, 0, 1.3), -90.0], ["table_jeu", Vector3(1.9, 0, 0.6), 20.0],
+	["fauteuil_club", Vector3(1.5, 0, -1.0), 200.0], ["salon_jardin", Vector3(2.3, 0, 2.7), 0.0],
+]
+
+
+func _brocante() -> void:
+	var wood := _std(Color(0.42, 0.28, 0.16), 0.55)
+	# Le comptoir, le registre, la caisse, et la sonnette.
+	_box(Vector3(2.6, 0.85, 0.7), Vector3(0, 0.425, -D / 2.0 + 2.2), wood, true)
+	_box(Vector3(2.7, 0.05, 0.8), Vector3(0, 0.87, -D / 2.0 + 2.2), _std(Color(0.3, 0.2, 0.12), 0.35))
+	_box(Vector3(0.45, 0.3, 0.35), Vector3(0.8, 1.04, -D / 2.0 + 2.2), _std(Color(0.7, 0.58, 0.32), 0.3, 0.8))
+	_box(Vector3(0.4, 0.04, 0.3), Vector3(-0.5, 0.91, -D / 2.0 + 2.15), _std(Color(0.5, 0.12, 0.1), 0.6))
+	_cyl(0.06, 0.05, Vector3(-0.05, 0.92, -D / 2.0 + 2.0), _std(Color(0.85, 0.7, 0.3), 0.2, 1.0))
+	for spot in BROCANTE_SPOTS:
+		var id: String = spot[0]
+		var m: Node3D = MEUBLES.build(id)
+		m.position = spot[1]
+		m.rotation_degrees.y = spot[2]
+		add_child(m)
+		if spot[1].y < 0.1 and Biens.item(id).slot != "mur":
+			_solid(m)
+		# L'étiquette, écrite à la main par Ginette.
+		var it := Biens.item(id)
+		var top := 1.0 if it.slot == "mur" else (1.35 if id != "lampe_salon" else 0.7)
+		var l := _label3d("", spot[1] + Vector3(0, top, 0), 22, Color(0.2, 0.15, 0.1))
+		l.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
+		l.outline_size = 6
+		l.outline_modulate = Color(0.98, 0.95, 0.85)
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_tags[id] = l
+	_retag()
+	Biens.changed.connect(_retag)
+	Game.changed.connect(_retag)
+	# Le bric-à-brac : des cadres au mur du fond, des chaises empilées, des caisses.
+	for i in 5:
+		_place(KK + "furniture/pictureframe_small_%s.gltf" % ["A", "B", "C", "A", "B"][i], Vector3(1.4 + i * 0.5, 1.8 + (i % 2) * 0.35, -D / 2.0 + 0.05), 0.5)
+	_place(KK + "furniture/chair_A_wood.gltf", Vector3(-1.7, 0, -3.4), 0.75, 30.0)
+	_place(KK + "furniture/chair_A_wood.gltf", Vector3(-1.7, 0.95, -3.4), 0.75, 200.0).rotation_degrees.z = 180.0
+	_place("res://assets/kaykit/restaurant/crate.gltf", Vector3(-4.0, 0, 3.4), 0.6, 15.0)
+	_place("res://assets/kaykit/restaurant/crate.gltf", Vector3(-3.4, 0, 3.6), 0.6, -10.0)
+	_label3d("Ginette Boutin", Vector3(0, 2.75, -D / 2.0 + 0.12), 80, Color(0.35, 0.18, 0.1))
+	_label3d("brocante  ·  meubles  ·  débarras", Vector3(0, 2.45, -D / 2.0 + 0.12), 34, Color(0.4, 0.25, 0.15))
+	_place(KK + "furniture/rug_rectangle_stripes_A.gltf", Vector3(0, 0.01, 0.4), 1.6, 90.0)
+	_bulb(Vector3(-1.8, H - 0.7, 0.2), Color(0.8, 0.6, 0.35))
+	_bulb(Vector3(1.8, H - 0.7, -0.6), Color(0.8, 0.6, 0.35))
+	_lamp(Vector3(0, 2.2, 2.4), Color(1.0, 0.8, 0.55), 0.8, 5.0)
+
+
+var _tags := {}
+
+
+## Les étiquettes suivent les achats : le prix du moment, « vendu », ou « réservé » tant que le lieu
+## n'est pas ouvert.
+func _retag() -> void:
+	for id in _tags:
+		var it := Biens.item(id)
+		var price := "%s crédits" % Game.fmt(Biens.next_price(id))
+		if not Biens.available(id):
+			price = "vendu" if Biens.count(id) >= it.max else "réservé"
+		_tags[id].text = "%s\n%s" % [it.name, price]
+
+
+## Un obstacle à la taille de ce qu'il contient : on ne traverse pas un billard.
+func _solid(n: Node3D) -> void:
+	var box := AABB()
+	var first := true
+	for mi in n.find_children("*", "MeshInstance3D", true, false):
+		var a: AABB = n.global_transform.affine_inverse() * (mi as MeshInstance3D).global_transform * (mi as MeshInstance3D).get_aabb()
+		box = a if first else box.merge(a)
+		first = false
+	if first:
+		return
+	var body := StaticBody3D.new()
+	var cs := CollisionShape3D.new()
+	var sh := BoxShape3D.new()
+	sh.size = box.size
+	cs.shape = sh
+	cs.position = box.get_center()
+	body.add_child(cs)
+	n.add_child(body)
 
 
 # --- Le garage Fradin ---------------------------------------------------------------------------
@@ -727,6 +826,14 @@ func _maybe_capture() -> void:
 				Game.spend(25)
 		elif arg.begins_with("--habite="):
 			Biens.habiter(arg.trim_prefix("--habite="))
+		elif arg.begins_with("--amenage="):
+			# Un logement meublé de ce qu'on a acheté, et son plan ouvert dans le carnet.
+			var home := arg.trim_prefix("--amenage=")
+			for sl in Biens.slots(home):
+				var options: Array = Biens.posables(sl.genre)
+				if not options.is_empty():
+					Biens.poser(home, sl.id, options[0])
+			Carnet._amenage = home
 		elif arg == "--carnet":
 			carnet = true
 		elif arg.begins_with("--won="):
@@ -734,6 +841,7 @@ func _maybe_capture() -> void:
 			Game.credits += Game.won / 2
 	if path == "":
 		return
+	_retag()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	if open:
 		await get_tree().create_timer(1.0).timeout

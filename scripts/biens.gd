@@ -81,15 +81,83 @@ const CATALOGUE := [
 	{"id": "ds", "kind": "vehicule", "seller": "garage", "name": "La DS 21",
 		"price": 9000, "growth": 1.0, "max": 1, "rente": 0, "charge": 70, "standing": 6, "gate": 20000,
 		"model": "res://assets/kaykit/city/car_sedan.gltf", "from": "Roger Fradin", "blurb": "« Suspension hydraulique. On ne sent plus les pavés, ni les pertes. »"},
+	# Chez Ginette Boutin, brocante et meubles : ils ne rapportent rien, ils se posent chez soi.
+	# slot : le genre d'emplacement (lit, sol, grand, mur, petit, jardin). Le standing ne compte que posé
+	# dans le logement qu'on habite. model : un modèle KayKit, ou « » pour un meuble dessiné (meubles.gd).
+	{"id": "tableau_marine", "kind": "meuble", "seller": "brocante", "name": "La marine à l'huile", "slot": "mur",
+		"price": 250, "growth": 1.0, "max": 3, "rente": 0, "charge": 0, "standing": 1, "gate": 0,
+		"model": "res://assets/kaykit/furniture/pictureframe_large_A.gltf", "from": "Ginette Boutin", "blurb": "« Signée. Pas lisible, mais signée. »"},
+	{"id": "lampe_salon", "kind": "meuble", "seller": "brocante", "name": "La lampe à franges", "slot": "petit",
+		"price": 150, "growth": 1.0, "max": 3, "rente": 0, "charge": 0, "standing": 1, "gate": 0,
+		"model": "res://assets/kaykit/furniture/lamp_table.gltf", "from": "Ginette Boutin", "blurb": "« Elle éclaire peu, mais elle éclaire bien. »"},
+	{"id": "lit_cuivre", "kind": "meuble", "seller": "brocante", "name": "Le lit à barreaux de cuivre", "slot": "lit",
+		"price": 600, "growth": 1.0, "max": 2, "rente": 0, "charge": 0, "standing": 1, "gate": 0,
+		"model": "res://assets/kaykit/furniture/bed_double_A.gltf", "from": "Ginette Boutin", "blurb": "« Un lit de notaire. On y dort comme un homme qui a signé. »"},
+	{"id": "fauteuil_club", "kind": "meuble", "seller": "brocante", "name": "Le fauteuil club", "slot": "sol",
+		"price": 450, "growth": 1.0, "max": 3, "rente": 0, "charge": 0, "standing": 1, "gate": 0,
+		"model": "res://assets/kaykit/furniture/armchair.gltf", "from": "Ginette Boutin", "blurb": "« Le cuir a vécu. Il a vu des soirées. »"},
+	{"id": "buffet_henri2", "kind": "meuble", "seller": "brocante", "name": "Le buffet Henri II", "slot": "sol",
+		"price": 900, "growth": 1.0, "max": 2, "rente": 0, "charge": 0, "standing": 2, "gate": 1500,
+		"model": "res://assets/kaykit/furniture/cabinet_medium_decorated.gltf", "from": "Ginette Boutin", "blurb": "« Chêne massif. Il a vu passer trois successions, il en verra d'autres. »"},
+	{"id": "tele_pieds", "kind": "meuble", "seller": "brocante", "name": "Le téléviseur à pieds", "slot": "sol",
+		"price": 1200, "growth": 1.0, "max": 2, "rente": 0, "charge": 0, "standing": 2, "gate": 3000,
+		"model": "", "from": "Ginette Boutin", "blurb": "« Il prend la deuxième chaîne. Le tirage du loto, en couleurs. »"},
+	{"id": "canape_velours", "kind": "meuble", "seller": "brocante", "name": "Le canapé de velours", "slot": "sol",
+		"price": 1500, "growth": 1.0, "max": 2, "rente": 0, "charge": 0, "standing": 2, "gate": 3000,
+		"model": "res://assets/kaykit/furniture/couch_pillows.gltf", "from": "Ginette Boutin", "blurb": "« Pour recevoir. Les invités restent plus longtemps, c'est prouvé. »"},
+	{"id": "salon_jardin", "kind": "meuble", "seller": "brocante", "name": "Le salon de jardin en fer forgé", "slot": "jardin",
+		"price": 800, "growth": 1.0, "max": 2, "rente": 0, "charge": 0, "standing": 1, "gate": 3000,
+		"model": "res://assets/kaykit/restaurant/table_round_A_small.gltf", "from": "Ginette Boutin", "blurb": "« Pour l'apéritif sous le tilleul. Le pastis n'est pas fourni. »"},
+	{"id": "table_jeu", "kind": "meuble", "seller": "brocante", "name": "La table de jeu en feutre vert", "slot": "sol",
+		"price": 2500, "growth": 1.0, "max": 1, "rente": 0, "charge": 0, "standing": 3, "gate": 5000,
+		"model": "", "from": "Ginette Boutin", "blurb": "« Elle vient d'un cercle de Châtellerault qui a fermé. Pas faute de clients. »"},
+	{"id": "juke_box", "kind": "meuble", "seller": "brocante", "name": "Le juke-box", "slot": "sol",
+		"price": 4000, "growth": 1.0, "max": 1, "rente": 0, "charge": 0, "standing": 3, "gate": 10000,
+		"model": "", "from": "Ginette Boutin", "blurb": "« Il joue Sheila et Claude François. On ne choisit pas, mais c'est bien. »"},
+	{"id": "machine_salon", "kind": "meuble", "seller": "brocante", "name": "La machine à sous de salon", "slot": "sol",
+		"price": 5000, "growth": 1.0, "max": 1, "rente": 0, "charge": 0, "standing": 4, "gate": 10000,
+		"model": "", "from": "Ginette Boutin", "blurb": "« Elle ne se joue pas, elle clignote. Comme ça, on gagne à tous les coups. »"},
+	{"id": "billard", "kind": "meuble", "seller": "brocante", "name": "Le billard français", "slot": "grand",
+		"price": 9000, "growth": 1.0, "max": 1, "rente": 0, "charge": 0, "standing": 5, "gate": 20000,
+		"model": "", "from": "Ginette Boutin", "blurb": "« Il faut une grande pièce. Et des amis qui perdent avec élégance. »"},
 ]
+
+## Les trouvailles et les souvenirs de jeu : sans prix, ils ne se vendent ni ne se saisissent, ils se posent.
+## Les souvenirs, le jeu les remet d'office quand leur condition est remplie (voir _souvenirs()).
+const TROUVAILLES := {
+	"premier_jeton": {"name": "Le premier jeton du casino, encadré", "slot": "mur"},
+	"carte_salon": {"name": "La carte de membre du Salon privé", "slot": "petit"},
+	"affiche_loto_1987": {"name": "L'affiche du loto de 1987", "slot": "mur"},
+	"ticket_dede": {"name": "Le ticket de 421 de Dédé", "slot": "petit"},
+}
+
+const GENRES := {"lit": "le lit", "sol": "un coin", "grand": "la grande place", "mur": "un mur",
+	"petit": "un guéridon", "jardin": "un coin du jardin"}
+
+## Les gabarits d'intérieur : des pièces, et dans chaque pièce des emplacements d'un genre donné.
+## [pièce, [genre, combien], ...]. Les ids d'emplacement s'en déduisent : « salon_mur_1 ».
+const INTERIEURS := {
+	"chambre_v1": [["Chambre", ["lit", 1], ["mur", 2], ["sol", 2], ["petit", 1]]],
+	"maison_v1": [["Salon", ["sol", 3], ["mur", 2], ["petit", 1]], ["Cuisine", ["sol", 2], ["mur", 1], ["petit", 2]],
+		["Chambre", ["lit", 1], ["mur", 1], ["sol", 1], ["petit", 1]], ["Bureau", ["sol", 2], ["mur", 1], ["petit", 1]],
+		["Grenier", ["sol", 2]], ["Jardin", ["jardin", 3]]],
+	"maison_place_v1": [["Salon de réception", ["grand", 1], ["sol", 4], ["mur", 4], ["petit", 2]],
+		["Salle à manger", ["sol", 3], ["mur", 2], ["petit", 1]], ["Bibliothèque", ["sol", 3], ["mur", 2], ["petit", 1]],
+		["Chambre", ["lit", 1], ["sol", 1], ["mur", 1], ["petit", 1]], ["Chambre d'amis", ["lit", 1], ["sol", 1], ["mur", 1], ["petit", 1]],
+		["Bureau", ["sol", 2], ["mur", 1], ["petit", 2]], ["Fumoir", ["sol", 2], ["mur", 1], ["petit", 1]],
+		["Cuisine", ["sol", 1], ["mur", 1], ["petit", 2]], ["Jardin", ["jardin", 4]]],
+}
 
 const SELLERS := {
 	"notaire": {"name": "L'étude de Maître Garnier", "host": "Maître Garnier", "scene": "res://scenes/notaire.tscn"},
 	"couture": {"name": "Raymonde, couture et retouches", "host": "Raymonde", "scene": "res://scenes/couture.tscn"},
 	"garage": {"name": "Le garage Fradin", "host": "Roger Fradin", "scene": "res://scenes/garage.tscn"},
+	"brocante": {"name": "Ginette Boutin, brocante et meubles", "host": "Ginette Boutin", "scene": "res://scenes/brocante.tscn"},
 }
 
 const SAVE_PATH := "user://smarves_biens.save"
+## L'intérieur d'un logement (à venir) : la porte d'une maison possédée y mène.
+const LOGEMENT_SCENE := "res://scenes/logement.tscn"
 
 ## Combien d'exemplaires de chaque bien on possède.
 var owned := {}
@@ -242,6 +310,110 @@ func meubles_value(id: String) -> int:
 	return v
 
 
+# --- L'ameublement : des emplacements nommés, un meuble du bon genre sur chacun ------------------
+
+## Les emplacements d'un logement : [{id, piece, genre, label}], déduits de son gabarit d'intérieur.
+func slots(id: String) -> Array:
+	var out := []
+	if not logements.has(id):
+		return out
+	for room in INTERIEURS.get(str(logements[id].interieur), []):
+		var piece: String = room[0]
+		var key := piece.to_lower().replace(" ", "_").replace("'", "_").replace("à", "a").replace("é", "e").replace("è", "e")
+		for g in room.slice(1):
+			for n in int(g[1]):
+				var label := "%s, %s" % [piece, GENRES.get(g[0], g[0])]
+				if int(g[1]) > 1:
+					label += " %d" % (n + 1)
+				out.append({"id": "%s_%s_%d" % [key, g[0], n + 1], "piece": piece, "genre": g[0], "label": label})
+	return out
+
+
+## Le nom d'un meuble ou d'une trouvaille.
+func name_of(thing: String) -> String:
+	if TROUVAILLES.has(thing):
+		return TROUVAILLES[thing].name
+	return str(item(thing).get("name", thing))
+
+
+func genre_of(thing: String) -> String:
+	if TROUVAILLES.has(thing):
+		return TROUVAILLES[thing].slot
+	return str(item(thing).get("slot", ""))
+
+
+## Combien d'exemplaires d'un meuble (ou d'une trouvaille) sont posés, tous logements confondus.
+func placed_count(thing: String) -> int:
+	var n := 0
+	for id in logements:
+		for slot in logements[id].meubles:
+			if str(logements[id].meubles[slot]) == thing:
+				n += 1
+	return n
+
+
+## Ce qu'on a et qu'on n'a pas encore posé.
+func free_count(thing: String) -> int:
+	var have := 1 if trouvailles.has(thing) else count(thing)
+	return have - placed_count(thing)
+
+
+## Ce qu'on peut poser sur un emplacement de ce genre : meubles et trouvailles libres.
+func posables(genre: String) -> Array:
+	var out := []
+	for it in CATALOGUE:
+		if it.kind == "meuble" and it.slot == genre and free_count(it.id) > 0:
+			out.append(it.id)
+	for t in trouvailles:
+		if genre_of(t) == genre and free_count(t) > 0:
+			out.append(t)
+	return out
+
+
+func poser(id: String, slot: String, thing: String) -> bool:
+	if not logements.has(id) or free_count(thing) <= 0:
+		return false
+	for sl in slots(id):
+		if sl.id == slot:
+			if sl.genre != genre_of(thing):
+				return false
+			logements[id].meubles[slot] = thing
+			changed.emit()
+			return true
+	return false
+
+
+func retirer(id: String, slot: String) -> void:
+	if logements.has(id) and logements[id].meubles.has(slot):
+		logements[id].meubles.erase(slot)
+		changed.emit()
+
+
+## Pour les portes du village : le lot d'un logement, s'il est au joueur, et la scène qui l'ouvre.
+## {owned, logement, scene, en_vente} ; en_vente : on peut l'acheter chez Maître Garnier.
+func door_of(lot: String) -> Dictionary:
+	for it in CATALOGUE:
+		if str(it.get("lot", "")) == lot:
+			return {"owned": logements.has(it.id), "logement": it.id,
+				"scene": LOGEMENT_SCENE if logements.has(it.id) and ResourceLoader.exists(LOGEMENT_SCENE) else "",
+				"en_vente": available(it.id)}
+	return {}
+
+
+## Les souvenirs de jeu, remis d'office : le premier jeton quand on a un toit à soi, la carte du Salon
+## privé quand Monsieur Armand vous l'a ouvert.
+func _souvenirs() -> void:
+	var got := false
+	if not logements.is_empty() and not trouvailles.has("premier_jeton"):
+		trouvailles.append("premier_jeton")
+		got = true
+	if Game.won >= 5000 and not trouvailles.has("carte_salon"):
+		trouvailles.append("carte_salon")
+		got = true
+	if got:
+		changed.emit()
+
+
 func _new_logement(id: String) -> Dictionary:
 	return {"lot": str(item(id).get("lot", "")), "habite": false, "interieur": id + "_v1", "meubles": {}, "facade": {}}
 
@@ -356,6 +528,7 @@ func buy(id: String, financed := false) -> bool:
 		driven = id
 	elif it.kind == "maison" and not logements.has(id):
 		logements[id] = _new_logement(id)
+		_souvenirs()
 	Game.changed.emit()
 	changed.emit()
 	return true
@@ -366,6 +539,12 @@ func sell(id: String) -> int:
 		return 0
 	var paid := resale_of(id)
 	owned[id] = count(id) - 1
+	# Un meuble revendu se décroche de là où il était posé, s'il n'en reste plus de libre.
+	if free_count(id) < 0:
+		for home in logements:
+			for slot in logements[home].meubles.keys():
+				if free_count(id) < 0 and str(logements[home].meubles[slot]) == id:
+					logements[home].meubles.erase(slot)
 	if owned[id] <= 0:
 		owned.erase(id)
 		# Revendue par le joueur, la maison part vide : les meubles restent à lui, décrochés.
@@ -466,6 +645,7 @@ func _recette() -> void:
 		Game.credits = 0
 	_busy = false
 	_since_reprise += 1
+	_souvenirs()
 	# Une seule fiche : la reprise, s'il y en a une, s'écrit à la suite de la recette.
 	var reprise := _maybe_reprise()
 	if reprise != "":

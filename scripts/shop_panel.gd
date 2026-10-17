@@ -16,6 +16,7 @@ const HEADINGS := {
 	"notaire": ["Étude de Maître Garnier, notaire à Smarves", "Registre des cessions  ·  parts du village et immeubles"],
 	"couture": ["Raymonde, couture et retouches", "Bon de commande  ·  sur mesure, livré le soir même"],
 	"garage": ["Garage Fradin  ·  toutes marques", "Bon de commande  ·  reprise de votre ancien véhicule à 60 %"],
+	"brocante": ["Ginette Boutin, brocante et meubles", "Bon d'achat  ·  livré chez vous, posé où vous voulez"],
 }
 const THANKS := {
 	"notaire": ["« Signé. Vous voilà propriétaire, et Smarves compte un investisseur de plus. »",
@@ -25,6 +26,8 @@ const THANKS := {
 		"« Avec ça, Monsieur Armand vous ouvrira la porte lui-même. »"],
 	"garage": ["« Plein fait, rétroviseurs réglés. Elle vous attend sur la place. »",
 		"« Rodage en douceur, hein. Enfin, jusqu'au casino. »"],
+	"brocante": ["« Livré ce soir. Vous le poserez où vous voudrez, c'est noté dans votre carnet. »",
+		"« Une bonne affaire. Les miennes le sont toutes, remarquez. »"],
 }
 const FINANCED := "« M. Brunet a déjà donné son accord, il me l'a dit ce matin. Le Crédit Smarvois règle, vous profitez. »"
 const SOLD := "« Repris à %s. Le marché est ce qu'il est, mais vous gardez l'expérience. »"
@@ -152,7 +155,7 @@ func _card(it: Dictionary) -> void:
 	if it.charge > 0:
 		facts.append("charges %s" % Game.fmt(it.charge))
 	if it.standing > 0:
-		facts.append("standing +%d" % it.standing)
+		facts.append(("standing +%d, posé chez soi" if it.kind == "meuble" else "standing +%d") % it.standing)
 	if it.max > 1:
 		facts.append("%d au plus" % it.max)
 	_label(left, "  ·  ".join(facts), 15, INK)

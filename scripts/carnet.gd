@@ -20,6 +20,8 @@ var _hand: SystemFont
 var _hand_bold: SystemFont
 var _mouse_before := Input.MOUSE_MODE_VISIBLE
 var _paused_before := false
+## Le logement qu'on est en train d'aménager dans le carnet (« » : aucun).
+var _amenage := ""
 
 
 func _ready() -> void:
@@ -270,6 +272,41 @@ func _fill_logement() -> void:
 			_link(_left, "→ la remettre en location", Biens.louer.bind(it.id))
 		else:
 			_link(_left, "→ m'y installer", Biens.habiter.bind(it.id))
+		if _amenage != it.id:
+			_link(_left, "→ l'aménager  (%d meubles posés)" % Biens.logements[it.id].meubles.size(), _set_amenage.bind(it.id))
+			continue
+		_link(_left, "→ fermer le plan", _set_amenage.bind(""))
+		var room := ""
+		for sl in Biens.slots(it.id):
+			if sl.piece != room:
+				room = sl.piece
+				_text(_left, room, 17, INK, true)
+			var cur := str(Biens.logements[it.id].meubles.get(sl.id, ""))
+			var can := cur != "" or not Biens.posables(sl.genre).is_empty()
+			_link(_left, "%s : %s" % [sl.label.trim_prefix(room + ", "), Biens.name_of(cur) if cur != "" else "—"], _cycle.bind(it.id, sl), can)
+	var loose: Array = Biens.trouvailles.filter(func(t): return Biens.free_count(t) > 0)
+	if not loose.is_empty():
+		_text(_left, "Dans le carton : " + ", ".join(loose.map(func(t): return Biens.name_of(t))), 16, INK_LIGHT)
+
+
+func _set_amenage(id: String) -> void:
+	_amenage = id
+	_refresh()
+
+
+## Un clic sur un emplacement : le meuble suivant qui lui convient, puis rien, puis on recommence.
+func _cycle(home: String, sl: Dictionary) -> void:
+	var cur := str(Biens.logements[home].meubles.get(sl.id, ""))
+	if cur != "":
+		Biens.retirer(home, sl.id)
+	var options: Array = Biens.posables(sl.genre)
+	var i := options.find(cur)
+	var next: String = options[i + 1] if i + 1 < options.size() else ""
+	if cur == "" and not options.is_empty():
+		next = options[0]
+	if next != "":
+		Biens.poser(home, sl.id, next)
+	_refresh()
 
 
 func _fill_right() -> void:

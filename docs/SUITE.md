@@ -152,6 +152,7 @@ La sauvegarde de `Biens` (`user://smarves_biens.save`, JSON lu champ par champ a
 
 - `interieur` désigne un gabarit d'intérieur (une scène par logement et par version). Un gabarit déclare ses emplacements : id, pièce, genre de meuble accepté, position.
 - Les meubles sont un nouveau genre du catalogue de `Biens` (`kind: "meuble"`), vendus par `brocante`, avec prix, standing et `slot` (le genre d'emplacement). Les trouvailles sont un catalogue à part, sans prix.
+- **Fait (fil Gestion)** : pas de clé `meubles_possedes`. Les meubles achetés sont comptés dans `owned` comme les autres biens (revente, financement et estimation réutilisés tels quels) ; `logements[id].meubles` dit seulement où ils sont posés. Les gabarits (`Biens.INTERIEURS`) déclarent pièces et genres ; les positions viendront avec les scènes d'intérieur. `Biens.door_of(lot)` répond aux portes du village.
 - **Le lien maison ↔ lot** se fait par le champ `lot` du catalogue de `Biens`, qui nomme la porte de `Village.lots` (`chambre_cafe`, `maison_eglise`, `maison_place`). Le fil « Extension du village » pose ces lots ; la porte d'un logement possédé ouvre l'intérieur, sinon elle dit « Propriété privée » et, s'il est en vente, « En vente chez Maître Garnier ».
 - **Ce que les autres voient** (section 4) est un instantané de ce dictionnaire, réduit à `interieur`, `meubles`, `facade` et le nom du joueur. Ni les crédits, ni la dette, ni les rentes ne sortent de la machine.
 
