@@ -102,6 +102,27 @@ const BOIS_SOUTH := [
 	{"kind": "jardin", "w": 2.0},
 ]
 
+## Les quartiers de la maquette, pour le plan du Carnet : id → {nom, rect (x, z, largeur, profondeur)}.
+## Le village dit où est l'habitant (zone_at, zone_entered) ; le Carnet garde ce qui est découvert.
+const ZONES := {
+	"place": {"nom": "La place de la Mairie", "rect": Rect2(-11.3, -8.3, 22.6, 16.6)},
+	"rue_du_clain": {"nom": "La rue du Clain", "rect": Rect2(CLAIN_X1, BOARD_Z0, CLAIN_X0 - CLAIN_X1, BOARD_Z1 - BOARD_Z0)},
+	"route_du_bois": {"nom": "La route du Bois", "rect": Rect2(BOIS.X0, BOARD_Z0, BOIS.X1 - BOIS.X0, BOARD_Z1 - BOARD_Z0)},
+	"chemin_passelourdin": {"nom": "Le chemin de Passelourdin", "rect": Rect2(CHEMIN.X0, CHEMIN.Z_ROCHERS, CHEMIN.X1 - CHEMIN.X0, CHEMIN.Z_PLACE - CHEMIN.Z_ROCHERS)},
+	"moulin": {"nom": "Le Moulin des Dames", "rect": Rect2(-81.3, -8.3, 22.4, 16.6)},
+	"bois": {"nom": "Le bois de Saint-Pierre", "rect": Rect2(58.9, -8.3, 22.4, 16.6)},
+	"rochers": {"nom": "Les rochers de Passelourdin", "rect": Rect2(-11.3, -78.3, 22.6, 16.6)},
+}
+## Les lieux cachés, qu'aucune liste n'annonce (docs/SUITE.md, section 1) : id → {nom, zone, pos}.
+const CACHES := {
+	"cabane_vigne": {"nom": "La cabane de vigne", "zone": "chemin_passelourdin", "pos": CHEMIN.CABANE},
+}
+
+## L'habitant entre dans un quartier (aussi au premier pas et après un raccourci).
+signal zone_entered(id: String)
+## L'habitant trouve un lieu caché, la première fois.
+signal cache_found(id: String)
+
 ## Ce qu'on lit en s'approchant d'une devanture.
 const PROMPTS := {
 	"notaire": "E : entrer à l'étude de Maître Garnier",
@@ -130,6 +151,8 @@ var _glass: Array[MultiMesh] = []
 var _flicker := 2.0
 var _cars: Array[Node3D] = []
 var _chemin: RefCounted
+## Le quartier où se tient l'habitant (ZONES), "" hors maquette.
+var current_zone := ""
 
 
 # --- Bords des socles, avec leurs passages ----------------------------------------------------
@@ -967,6 +990,14 @@ func _capture_view() -> void:
 		cam.pitch = cam._pitch_goal
 
 
+## Le quartier qui contient ce point du monde, "" s'il n'est sur aucun socle.
+static func zone_at(pos: Vector3) -> String:
+	for id in ZONES:
+		if (ZONES[id].rect as Rect2).has_point(Vector2(pos.x, pos.z)):
+			return id
+	return ""
+
+
 # --- La coupe de maquette ----------------------------------------------------------------------
 
 ## En vue de dessus, les toits du premier plan se percent pour laisser voir l'habitant qu'on dirige.
@@ -1038,6 +1069,12 @@ func _follow_road(car: Node3D) -> void:
 
 func _process(delta: float) -> void:
 	_update_cutaway()
+	if main.player:
+		var z := zone_at(main.player.global_position)
+		if z != current_zone:
+			current_zone = z
+			if z != "":
+				zone_entered.emit(z)
 	if _tournee_area:
 		_tournee_area.set_meta("prompt", "E : offrir une tournée générale (%s crédits)" % main._fmt(get_node("/root/Biens").tournee_price()))
 	for car in _cars:

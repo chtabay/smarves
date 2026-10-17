@@ -72,3 +72,10 @@ Chaque devanture du village est un emplacement nommé, dans `village.gd` (`NORTH
 - **Le calvaire** du premier lacet, avec son lumignon.
 - **Les enseignes sur les toits** : côté sud des rues, les boutiques tournent le dos à la caméra ; leur nom est donc aussi sur le toit, sur un panneau penché vers la vue de dessus (`spec.roof_sign`, `Facades.roof_sign`).
 - **La cabane de vigne** (lieu caché) : au milieu des rangs, à l'ouest du chemin, sa porte donne au nord, à l'abri des regards de la place. La première fois qu'on la pousse, on repart avec l'affiche du loto de 1987 (`Biens.trouvailles`, `affiche_loto_1987`) ; ensuite, il n'y a plus qu'un clou au mur.
+
+## Pour le plan du Carnet : quartiers et lieux cachés
+
+- `Village.ZONES` : id → `{nom, rect}`, où `rect` est un `Rect2` en coordonnées du monde (x, z, largeur, profondeur). Il y en a une par socle : `place`, `rue_du_clain`, `route_du_bois`, `chemin_passelourdin`, `moulin`, `bois`, `rochers`.
+- `Village.zone_at(pos)` donne le quartier qui contient un point. `Village.current_zone` est celui de l'habitant, et le signal `zone_entered(id)` part à chaque changement, y compris au premier pas et après un raccourci.
+- `Village.CACHES` : id → `{nom, zone, pos}`. Le signal `cache_found(id)` part la première fois qu'on trouve un lieu caché. Il n'y a pour l'instant que `cabane_vigne`.
+- Le village ne garde rien en mémoire : ce qui a été découvert va dans le tiroir Smarves de la sauvegarde, tenu par le Carnet.

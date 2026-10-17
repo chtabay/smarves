@@ -294,6 +294,7 @@ func fouiller() -> void:
 		return
 	biens.trouvailles.append(TROUVAILLE)
 	biens.changed.emit()
+	v.cache_found.emit("cabane_vigne")
 	if v.main.has_method("_announce"):
 		v.main._announce("Derrière les bonbonnes, une affiche roulée : le grand loto de 1987, salle Rabelais. Vous la gardez.")
 	_refresh_cabane()
