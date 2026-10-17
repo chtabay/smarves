@@ -19,6 +19,7 @@ const ROULETTE_3D := preload("res://scripts/jeux/roulette_3d.gd")
 const BLACKJACK_3D := preload("res://scripts/jeux/blackjack_3d.gd")
 const SLOT_3D := preload("res://scripts/jeux/slot_3d.gd")
 const CRAPS_3D := preload("res://scripts/jeux/craps_3d.gd")
+const HASARD_3D := preload("res://scripts/jeux/hasard_3d.gd")
 const KIT := preload("res://scripts/jeux/kit.gd")
 const BARRE := preload("res://scripts/jeux/barre.gd")
 ## Niveau du plancher de l'étage.
@@ -1141,7 +1142,8 @@ func _mirror(parent: Node3D, at: Vector3, size: Vector2) -> void:
 	_box(Vector3(size.x, size.y, 0.02), at + Vector3(0, 0, 0.03), mirror, false, parent)
 	# Un laiton satiné : poli, le cimier renvoyait le lustre en un point qui bavait sur le palier.
 	var satin: StandardMaterial3D = gold.duplicate()
-	satin.roughness = maxf(satin.roughness, 0.45)
+	satin.roughness = 0.7
+	satin.metallic = 0.4
 	var crest := _cyl(0.16, 0.06, at + Vector3(0, size.y / 2.0 + 0.16, 0.0), satin, parent)
 	crest.rotation_degrees.x = 90
 
@@ -2018,8 +2020,9 @@ func _craps_table(pos: Vector3) -> void:
 	root.add_child(t)
 	root.set_meta("table3d", t)
 	_solid(Vector3(CRAPS_3D.OUT.x, 1.0, CRAPS_3D.OUT.y), pos + Vector3(0, 0.5, 0))
-	_person("stickman", pos + Vector3(0, 0, -1.15), 0.0, "idle", "noeud")
-	_person("boxman", pos + Vector3(0.9, 0, -1.15), -20.0, "idle", "noeud")
+	# Un pas en arrière de la bande : les mains restent derrière le rebord.
+	_person("stickman", pos + Vector3(0, 0, -1.4), 0.0, "idle", "noeud")
+	_person("boxman", pos + Vector3(0.9, 0, -1.4), -20.0, "idle", "noeud")
 	_person("character-male-f.glb", pos + Vector3(-1.4, 0, 1.5), 180.0)
 	_person("character-female-c.glb", pos + Vector3(1.2, 0, 1.5), 180.0)
 	_person("character-male-c.glb", pos + Vector3(2.7, 0, 0.3), -90.0)
@@ -2252,12 +2255,15 @@ func _build_upper() -> void:
 
 	# La Loggia et sa table de Grand Hasard.
 	var hasard := _node(Vector3(10.5, UP, 2.0))
-	_table_base(hasard, Vector3(2.4, 0.9, 1.4))
-	for k in 3:
-		var die := _box(Vector3(0.1, 0.1, 0.1), Vector3(-0.2 + k * 0.2, 0.83, 0.0), marble_white, false, hasard)
-		die.rotation_degrees.y = randf() * 90.0
-	for k in 3:
-		_chair(hasard, Vector3(-0.6 + k * 0.6, 0, 1.05), 180.0)
+	# Le plateau, le tapis et la cloche : voir scripts/jeux/hasard_3d.gd.
+	var ht := HASARD_3D.new()
+	ht.with_lamp = false
+	hasard.add_child(ht)
+	hasard.set_meta("table3d", ht)
+	_solid(Vector3(HASARD_3D.OUT.x, 0.9, HASARD_3D.OUT.y), Vector3(10.5, UP + 0.45, 2.0))
+	# La place du milieu est celle du joueur : pas de dossier devant la caméra assise.
+	for x in [-0.75, 0.75]:
+		_chair(hasard, Vector3(x, 0, 1.05), 180.0)
 	_person("chef-de-partie", Vector3(10.5, UP, 0.9), 0.0, "idle", "noeud")
 	_bill(_label("Le Grand Hasard", Vector3(0, 2.2, 0), 0.0, 56, Color(1.0, 0.85, 0.5), hasard))
 	_interactive(hasard, "dice", "E : jouer au Grand Hasard", Vector3(2.6, 2.0, 2.4), Vector3(0, 1.0, 0.5))
