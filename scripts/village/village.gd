@@ -66,7 +66,7 @@ const SOUTH_ROW := [
 	{"id": "epicerie", "w": 3.8, "floors": 1, "shop": {"name": "L'Épicerie du Bourg", "sub": "Alimentation · Primeurs · Gaz", "color": Color(0.18, 0.32, 0.58), "ink": Color(1.0, 0.9, 0.6), "awning": [Color(0.95, 0.55, 0.15), Color(0.97, 0.94, 0.88)]}},
 	{"id": "fleurs", "w": 3.0, "floors": 1, "shop": {"name": "Fleurs Odette", "sub": "Mariages · Fêtes · Deuils", "color": Color(0.38, 0.55, 0.32), "ink": Color(1.0, 0.98, 0.9), "awning": [Color(0.55, 0.72, 0.42), Color(0.98, 0.96, 0.9)], "glow": Color(1.0, 0.9, 0.7)}},
 	{"kind": "jardin", "w": 2.8},
-	{"id": "lot_a_ceder", "w": 3.2, "floors": 1, "closed": true, "shop": {"name": "Local à céder", "sub": "S'adresser au Crédit Smarvois", "color": Color(0.35, 0.3, 0.28), "ink": Color(0.95, 0.9, 0.8)}},
+	{"id": "brocante", "w": 3.2, "floors": 1, "shop": {"name": "Brocante Boutin", "sub": "Meubles · Objets · Débarras", "color": Color(0.36, 0.26, 0.2), "ink": Color(0.98, 0.88, 0.62), "glow": Color(1.0, 0.8, 0.5)}},
 	{"w": 2.8, "floors": 1},
 	{"id": "bibliotheque", "w": 4.4, "floors": 2, "roof_kind": "hip", "shop": {"name": "Bibliothèque municipale", "sub": "Mardi · Samedi", "color": Color(0.9, 0.86, 0.76), "ink": Color(0.15, 0.2, 0.35), "door": "left"}},
 	{"w": 3.0, "floors": 1},
@@ -111,7 +111,7 @@ const PROMPTS := {
 	"pizzeria": "Pizzeria du Clain — complet ce soir",
 	"epicerie": "L'Épicerie du Bourg — fermée pour l'instant",
 	"fleurs": "Fleurs Odette — fermé pour l'instant",
-	"lot_a_ceder": "Local à céder — s'adresser au Crédit Smarvois",
+	"brocante": "E : entrer à la brocante de Mme Boutin",
 	"bibliotheque": "Bibliothèque municipale — ouverte mardi et samedi",
 	"garage": "E : entrer au garage Fradin",
 	"pharmacie": "Pharmacie — la croix verte veille, la porte est close",
@@ -179,6 +179,7 @@ func build(m: Node3D) -> void:
 	_plinth_road(-80.8, -59.2, [-63.0, -71.0, -78.5])
 	_plinth_road(59.2, 80.8, [63.0, 74.5])
 	_tournee()
+	_logements()
 	_biens()
 	_capture_view()
 
@@ -694,17 +695,22 @@ func _door_area(id: String, at: Vector3, rot: float) -> void:
 	a.set_meta("prompt", PROMPTS.get(id, ""))
 	if id in SELLER_DOORS:
 		a.set_meta("action", enter_seller.bind(id))
+	elif LOGEMENTS.has(id):
+		a.set_meta("action", enter_logement.bind(id))
 	add_child(a)
 	lots[id]["area"] = a
 
 
 ## Les portes qui mènent chez un vendeur du fil « Gestion » (autoload Biens, Biens.SELLERS).
-const SELLER_DOORS := ["notaire", "couture", "garage"]
+const SELLER_DOORS := ["notaire", "couture", "garage", "brocante"]
 
 
 func enter_seller(id: String) -> void:
 	var biens := get_node_or_null("/root/Biens")
-	if biens == null or not biens.SELLERS.has(id):
+	if biens == null:
+		return
+	if not biens.SELLERS.has(id):
+		main._announce("La porte est close : on prépare encore l'intérieur.")
 		return
 	var scene: String = biens.SELLERS[id].scene
 	if not ResourceLoader.exists(scene):
@@ -758,6 +764,61 @@ func _signpost(pos: Vector3, rot: float, text: String, where: String) -> void:
 	root.add_child(a)
 
 
+# --- Les logements du joueur (fil « Gestion », Biens.door_of) -----------------------------------
+
+## Les portes des logements qu'on peut posséder : lot → [porte (monde), orientation]. La chambre est
+## au-dessus du café, par l'escalier de la ruelle ; la maison de maître est la maison verte de la place.
+## La maison de la rue de l'Église viendra avec le chemin de Passelourdin.
+const LOGEMENTS := {
+	"chambre_cafe": [Vector3(-7.6, 0, -2.47), PI],
+	"maison_place": [Vector3(-8.6, 0, -3.82), 0.0],
+}
+
+
+func _logements() -> void:
+	for id in LOGEMENTS:
+		var at: Vector3 = LOGEMENTS[id][0]
+		var rot: float = LOGEMENTS[id][1]
+		lots[id] = {"pos": at, "rot": rot, "w": 1.0, "d": 1.0, "door": at}
+		_door_area(id, at, rot)
+	# La porte de la chambre, sur le flanc du café, avec son petit escalier de pierre et sa lanterne.
+	var f := FACADES.new(self, main.serif, 1984)
+	var xf := Transform3D(Basis(Vector3.UP, PI), Vector3(-7.6, 0, -2.47))
+	f._door(xf, 0.0, Color(0.3, 0.42, 0.36), Color(0.92, 0.88, 0.8), true)
+	for i in 2:
+		f.batch.box("trim", xf, Vector3(0, 0.05 + i * 0.1, 0.3 - i * 0.12), Vector3(0.8, 0.1, 0.24), Color(0.8, 0.76, 0.68))
+	f.commit(mats, mats.glass, "Logements")
+	_lamp(Vector3(-7.6, 1.35, -2.75), 0.7, Color(1.0, 0.78, 0.5), 2.2)
+
+
+## Ce que dit la porte d'un logement, selon qu'on l'a, qu'il est à vendre, ou non.
+func _logement_prompt(id: String) -> String:
+	var biens := get_node_or_null("/root/Biens")
+	var what: String = {"chambre_cafe": "La chambre au-dessus du café", "maison_place": "La maison de maître"}.get(id, "Une maison")
+	if biens == null or not biens.has_method("door_of"):
+		return "%s — propriété privée" % what
+	var d: Dictionary = biens.door_of(id)
+	if d.get("owned", false):
+		return "E : rentrer chez vous — %s" % what.to_lower() if d.get("scene", "") != "" else "%s — chez vous ; l'intérieur se prépare" % what
+	if d.get("en_vente", false):
+		return "%s — en vente chez Maître Garnier" % what
+	return "%s — propriété privée" % what
+
+
+func enter_logement(id: String) -> void:
+	var biens := get_node_or_null("/root/Biens")
+	if biens == null or not biens.has_method("door_of"):
+		main._announce(_logement_prompt(id))
+		return
+	var d: Dictionary = biens.door_of(id)
+	var scene: String = d.get("scene", "")
+	if d.get("owned", false) and scene != "" and ResourceLoader.exists(scene):
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		get_tree().change_scene_to_file(scene)
+		return
+	main._announce(_logement_prompt(id))
+
+
 # --- Les biens du joueur, dehors (fil « Gestion », autoload Biens) --------------------------------
 
 ## Où l'on gare le véhicule qu'on conduit : sur la place, entre la pétanque et le banc.
@@ -805,6 +866,9 @@ func _biens() -> void:
 
 func _refresh_biens() -> void:
 	var biens := get_node("/root/Biens")
+	for id in LOGEMENTS:
+		if lots.has(id) and lots[id].has("area"):
+			lots[id].area.set_meta("prompt", _logement_prompt(id))
 	for id in _property_signs:
 		_property_signs[id].visible = biens.count(id) > 0
 	if biens.driven == _vehicle_id:
