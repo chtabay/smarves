@@ -15,7 +15,7 @@ extends CanvasLayer
 const TAP_SLOP := 18.0
 const TAP_TIME := 0.5
 ## Rayon du pouce virtuel, en pixels de la base d'écran.
-const STICK_RADIUS := 90.0
+const STICK_RADIUS := 70.0
 const KIT := preload("res://scripts/jeux/kit.gd")
 
 var active := false
@@ -56,7 +56,27 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	# Le retour d'Android ne quitte plus le jeu : il ferme ce qui est ouvert (Échap).
 	get_tree().quit_on_go_back = false
+	_apply_ui_scale()
 	_build()
+
+
+## L'interface est dessinée pour 1600 × 900. Sur un téléphone, on prend une base plus petite pour que
+## tout grossisse : environ 222 unités par pouce de hauteur d'écran, entre 600 (téléphone de 6 pouces
+## en paysage, tout grossit de moitié) et 900 (tablette, rien ne change). --base=600 pour l'essayer.
+func _apply_ui_scale() -> void:
+	var h := 0
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--base="):
+			h = int(arg.trim_prefix("--base="))
+	if h == 0:
+		var screen := DisplayServer.screen_get_size()
+		var inches := float(mini(screen.x, screen.y)) / maxf(1.0, DisplayServer.screen_get_dpi())
+		h = clampi(roundi(inches * 222.0), 600, 900)
+	var base_h: int = ProjectSettings.get_setting("display/window/size/viewport_height")
+	var base_w: int = ProjectSettings.get_setting("display/window/size/viewport_width")
+	if h >= base_h:
+		return
+	get_tree().root.content_scale_size = Vector2i(roundi(base_w * float(h) / base_h), h)
 
 
 func _notification(what: int) -> void:
@@ -118,7 +138,7 @@ func _build() -> void:
 	_surface.gui_input.connect(_on_surface_input)
 	under.add_child(_surface)
 
-	_act = _button("", 30)
+	_act = _button("", 24)
 	_act.pressed.connect(_on_act)
 	_act.visible = false
 	add_child(_act)
@@ -131,13 +151,13 @@ func _build() -> void:
 	corner.offset_bottom = -24
 	corner.add_theme_constant_override("separation", 14)
 	add_child(corner)
-	_view_btn = _button("Vue", 26)
+	_view_btn = _button("Vue", 22)
 	_view_btn.pressed.connect(press_key.bind(KEY_TAB))
 	corner.add_child(_view_btn)
-	_carnet_btn = _button("Carnet", 26)
+	_carnet_btn = _button("Carnet", 22)
 	_carnet_btn.pressed.connect(press_key.bind(KEY_C))
 	corner.add_child(_carnet_btn)
-	_menu_btn = _button("Menu", 26)
+	_menu_btn = _button("Menu", 22)
 	_menu_btn.pressed.connect(press_key.bind(KEY_ESCAPE))
 	corner.add_child(_menu_btn)
 
@@ -153,7 +173,7 @@ func _button(text: String, size: int) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(120, 84)
+	b.custom_minimum_size = Vector2(100, 64)
 	b.add_theme_font_override("font", KIT.serif())
 	b.add_theme_font_size_override("font_size", size)
 	for state in ["normal", "hover", "pressed", "focus"]:
