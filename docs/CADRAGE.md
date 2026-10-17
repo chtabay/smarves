@@ -65,14 +65,14 @@ La distribution complète (village et casino), avec la voix et les liens de chac
 
 ## Vue et contrôles
 
-- Le village est une maquette en 3D posée sur des socles, vue de dessus comme un diorama. On y dirige un habitant, un petit renard en costume (ZQSD, Maj pour courir) ; clic droit pour tourner, molette pour zoomer, Tab pour passer à la vue à pied.
+- Le village est une maquette en 3D posée sur des socles, vue de dessus comme un diorama. On y dirige un habitant, le nouveau venu en costume (ZQSD, Maj pour courir) ; clic droit pour tourner, molette pour zoomer, Tab pour passer à la vue à pied.
 - On s'approche d'un lieu ouvert et on appuie sur E pour y jouer : la caméra plonge vers la table et le jeu s'ouvre à l'écran.
 - Dans le casino, on marche à la première personne.
 
 ## Direction artistique
 
 - **Une maquette de jouets** : le village est posé sur un socle de bois, avec un fort effet miniature (flou de bascule, ou tilt-shift) qui fait « petit », et des couleurs vives de jouet.
-- **Mignon** : les habitants sont de petits animaux à grosse tête ronde, façon Happy Tree Friends ; maisons aux formes arrondies (packs KayKit et Kenney, CC0), le tout réuni par une palette commune. L'intérieur du casino reste classieux.
+- **Coloré et décalé, pour adultes** : les habitants sont des gens du coin, des adultes dessinés comme des figurines de maquette aux couleurs vives, avec un humour de grandes personnes, jamais enfantin (le public visé a de 30 à 45 ans) ; maisons aux formes arrondies (packs KayKit et Kenney, CC0), le tout réuni par une palette commune. L'intérieur du casino reste classieux.
 - **Le jeu partout** : enseignes lumineuses (« JACKPOT », « TIERCÉ », « LOTO »), machines à sous dans les vitrines, roue de la fortune sur la place, fanions en cartes à jouer, gros dés, tableaux de cotes à la craie.
 - **Le crépuscule** : ciel bleu nuit, vitrines qui débordent de lumière chaude, guirlandes d'ampoules, rues mouillées qui reflètent les néons.
 - **La lumière fait le travail** : rendu Forward+, éclairage global, halos lumineux.
