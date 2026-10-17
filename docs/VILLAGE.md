@@ -43,7 +43,7 @@ Chaque devanture du village est un emplacement nommé, dans `village.gd` (`NORTH
 
 **Entrer chez un vendeur.** La porte appelle `get_tree().change_scene_to_file(Biens.SELLERS[id].scene)` ; tant que la scène n'existe pas, une annonce dit que le lieu ouvre bientôt. **En sortir** : la scène met `Game.return_point` à l'id de la porte (`notaire`, `couture`, `garage`) et la scène principale replace l'habitant sur le trottoir, face à la rue (`Village.door_spawn`).
 
-**Les logements.** La porte d'un logement demande `Biens.door_of(lot)` : chez soi, elle ouvre `scene` quand l'intérieur existe ; sinon elle dit « propriété privée » ou « en vente chez Maître Garnier ». La maison de la rue de l'Église viendra avec le chemin de Passelourdin.
+**Les logements.** La porte d'un logement demande `Biens.door_of(lot)` : chez soi, elle appelle `Biens.enter(door_of(lot).logement)` quand l'intérieur existe (une seule scène, `logement.tscn`, pour tous) et l'on ressort devant la porte (`Game.return_point` = l'id du lot) ; sinon elle dit « propriété privée » ou « en vente chez Maître Garnier ». La maison de la rue de l'Église viendra avec le chemin de Passelourdin.
 
 **Brancher une action sur une porte.** Toute `Area3D` qui porte la métadonnée `action` (un `Callable`) est appelée quand on appuie sur E devant elle, ou quand on clique dessus en vue maquette. C'est ainsi que marchent les portes des vendeurs et la tournée générale.
 

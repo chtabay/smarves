@@ -811,10 +811,11 @@ func enter_logement(id: String) -> void:
 		main._announce(_logement_prompt(id))
 		return
 	var d: Dictionary = biens.door_of(id)
-	var scene: String = d.get("scene", "")
-	if d.get("owned", false) and scene != "" and ResourceLoader.exists(scene):
+	if d.get("owned", false) and d.get("scene", "") != "" and biens.has_method("enter"):
+		# Une seule scène pour tous les logements : Biens.enter lui dit lequel construire,
+		# et la sortie remet Game.return_point à l'id du lot, devant cette porte.
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-		get_tree().change_scene_to_file(scene)
+		biens.enter(d.logement)
 		return
 	main._announce(_logement_prompt(id))
 
