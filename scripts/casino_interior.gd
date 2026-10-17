@@ -27,14 +27,8 @@ const WALL_H := 5.0
 const PEOPLE_SCALE := 2.6
 
 ## Pièces fermées par un seuil sur le total gagné au jeu (comme dans Addict, tuning.js).
-const LOCKS := [
-	{"id": "ambassadeurs", "name": "La Salle des Ambassadeurs", "seuil": 500, "host": "L'inspecteur de salle"},
-	{"id": "salon", "name": "Le Salon privé", "seuil": 5000, "host": "Monsieur Armand"},
-	{"id": "loggia", "name": "La Loggia", "seuil": 2000, "host": "Le chef de partie"},
-	{"id": "musique", "name": "Le Salon de musique", "seuil": 10000, "host": "Le pianiste"},
-	{"id": "fetes", "name": "La Salle des fêtes", "seuil": 25000, "on": "staked", "host": "Le maître de cérémonie"},
-	{"id": "particuliers", "name": "Les Salons particuliers", "seuil": 50000, "host": "Monsieur Castel"},
-]
+## Elles viennent du manifeste de la commune (« salles » → « casino », docs/COMMUNE.md).
+static var LOCKS: Array = Commune.smarves().salles("casino")
 
 ## Les pièces, pour afficher leur nom quand on y entre : [nom, x0, x1, z0, z1].
 const ROOMS := [

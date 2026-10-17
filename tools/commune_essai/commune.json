@@ -1,0 +1,15 @@
+{
+	"format": 1,
+	"id": "essai",
+	"nom": "La commune d'essai",
+	"auteur": "socle",
+	"version": "0.0.1",
+	"socle_min": "1.0",
+	"carte": {"lat": 46.6, "lon": 0.5, "socle": ""},
+	"scene": "res://communes/essai/commune.tscn",
+	"arrivee": {"lot": "arret_car", "par": ["smarves"]},
+	"lieux": [
+		{"id": "comptoir", "nom": "Le comptoir d'essai", "jeu": "rien encore", "seuil": 40000, "hote": "Le tenancier d'essai"}
+	],
+	"banque": {"id": "caisse_essai", "nom": "La caisse d'essai", "banquier": "Le caissier d'essai", "preteur": "essai", "lieu": "comptoir"}
+}

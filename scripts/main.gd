@@ -41,18 +41,8 @@ const KC := "res://assets/kenney/characters/"
 
 
 ## Les lieux du village, dans l'ordre où ils s'ouvrent. Le seuil porte sur le total gagné au jeu.
-const PLACES := [
-	{"id": "cafe", "name": "Le Café de la Place", "game": "La Smarvoise", "seuil": 0, "host": "Josiane"},
-	{"id": "casino", "name": "Le Casino de Smarves", "game": "salles de jeu", "seuil": 0, "host": "Monsieur Armand"},
-	{"id": "banque", "name": "Le Crédit Smarvois", "game": "prêts pour investir", "seuil": 0, "host": "M. Brunet"},
-	{"id": "petanque", "name": "La pétanque de la place", "game": "les paris de Lucien", "seuil": 1000, "host": "Lucien", "accord": "e"},
-	{"id": "boulangerie", "name": "La boulangerie", "game": "la roulette du comptoir", "seuil": 3000, "host": "Mme Ferrand", "accord": "e"},
-	{"id": "rabelais", "name": "La salle François-Rabelais", "game": "le grand loto", "seuil": 8000, "host": "M. Gaudin", "accord": "e"},
-	{"id": "eglise", "name": "Le parvis Saint-Félix", "game": "la roue de la kermesse", "seuil": 20000, "host": "Le comité des fêtes"},
-	{"id": "zebres", "name": "L'allée des trois zèbres", "game": "la course des zèbres", "seuil": 50000, "host": "Le gardien du bois", "accord": "e"},
-	{"id": "moulin", "name": "Le Moulin des Dames", "game": "le blackjack de l'arrière-salle", "seuil": 120000, "host": "Le meunier"},
-	{"id": "passelourdin", "name": "Les rochers de Passelourdin", "game": "la partie de poker", "seuil": 300000, "host": "Quelqu'un", "accord": "s"},
-]
+## Ils viennent du manifeste de la commune (communes/smarves/commune.json, docs/COMMUNE.md).
+static var PLACES: Array = Commune.smarves().lieux()
 
 var shown_credits := float(Game.credits)
 

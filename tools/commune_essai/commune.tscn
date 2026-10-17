@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[node name="CommuneEssai" type="Node3D"]
+
+[node name="Panneau" type="Label3D" parent="."]
+text = "Commune d'essai"
