@@ -88,8 +88,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			else:
 				set_notch(notch + 1)
 	elif event is InputEventMouseMotion and _dragging:
-		_yaw_goal -= event.relative.x * 0.005
-		_pitch_goal = clampf(_pitch_goal - event.relative.y * 0.004, deg_to_rad(-75), deg_to_rad(-8))
+		turn(event.relative.x, event.relative.y)
+
+
+## Tourne la vue d'un glissé (clic droit, ou doigt : scripts/tactile/tactile.gd).
+func turn(dx: float, dy: float) -> void:
+	_yaw_goal -= dx * 0.005
+	_pitch_goal = clampf(_pitch_goal - dy * 0.004, deg_to_rad(-75), deg_to_rad(-8))
 
 
 ## Passe la molette en crans (vue extérieure qui suit l'habitant) ; une liste vide rend le zoom libre.
