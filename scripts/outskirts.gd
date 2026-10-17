@@ -123,6 +123,8 @@ func _bois(c: Vector3) -> void:
 		for x in [-1.9, 1.9]:
 			_p(KK + "city/streetlight.gltf", c + Vector3(x, 0, z), 2.0, 0.0 if x < 0 else 180.0)
 			_lamp(c + Vector3(x * 0.8, 1.9, z))
+	# La route du Bois arrive à l'allée, par-dessus le gravier.
+	main._box(Vector3(22, 0.11, 2.4), c + Vector3(0, -0.035, 6.4), _asphalt())
 	# Le château en ruine au bout de l'allée.
 	_p(KK + "medieval_buildings/neutral/building_destroyed.gltf", c + Vector3(0, 0, -6.2), 3.6)
 	_p(KK + "medieval_buildings/neutral/wall_straight_gate.gltf", c + Vector3(-4.0, 0, -6.6), 2.2)
@@ -144,14 +146,14 @@ func _bois(c: Vector3) -> void:
 	rng.seed = 1983
 	for k in 26:
 		var p := Vector3(rng.randf_range(-10.5, 10.5), 0, rng.randf_range(-7.5, 7.5))
-		if absf(p.x) < 2.6 or (p.x < -1.0 and p.z > 1.0 and p.z < 6.0):
+		if absf(p.x) < 2.6 or (p.x < -1.0 and p.z > 1.0 and p.z < 6.0) or p.z > 4.5:
 			continue
 		var model: String = ["trees_A_large", "trees_A_medium", "trees_B_large", "trees_B_medium", "tree_single_A", "tree_single_B"][rng.randi() % 6]
 		_p(KK + "medieval_decoration/nature/%s.gltf" % model, c + p, rng.randf_range(2.0, 2.8), rng.randf() * 360.0)
 	# Le gardien du bois et les parieurs.
 	main._villager("gardien-du-bois", c + Vector3(-1.2, 0, 4.6), -100.0, "idle", [], "chapeau", "gardien")
-	main._villager("parieur-bois-1", c + Vector3(-4.0, 0, 5.6), 180.0)
-	main._villager("parieur-bois-2", c + Vector3(-7.5, 0, 5.4), 160.0)
+	main._villager("parieur-bois-1", c + Vector3(-4.0, 0, 1.0), 0.0)
+	main._villager("parieur-bois-2", c + Vector3(-7.5, 0, 0.9), 20.0)
 	main._villager("promeneuse-bois", c + Vector3(0.5, 0, 2.0), 0.0, "idle", [c + Vector3(0.5, 0, 2.0), c + Vector3(-0.5, 0, -4.5)])
 
 

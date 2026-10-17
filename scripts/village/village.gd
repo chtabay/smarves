@@ -7,6 +7,7 @@ extends Node3D
 ## -Z au nord (Passelourdin). La route traverse la place en z = 6,4.
 
 const FACADES := preload("res://scripts/village/facades.gd")
+const BOIS := preload("res://scripts/village/bois.gd")
 const KK := "res://assets/kaykit/"
 const KN := "res://assets/kenney/nature/"
 const KC := "res://assets/kenney/cars/"
@@ -15,7 +16,7 @@ const ROAD_Z := 6.4
 const ROAD_W := 2.4
 ## Les voitures roulent de part en part de la maquette, entre ces deux abscisses.
 const ROAD_WEST := -80.0
-const ROAD_EAST := 12.5
+const ROAD_EAST := 80.0
 ## Alignement des façades de part et d'autre de la route.
 const NORTH_FRONT := 4.3
 const SOUTH_FRONT := 8.5
@@ -29,8 +30,9 @@ const BOARD_Z1 := 15.3
 ## Les passages ouverts dans les bords des socles : centre du socle → côté → intervalles libres.
 ## Côtés : "W" et "E" (intervalle en z), "N" et "S" (intervalle en x).
 const OPENINGS := {
-	Vector3(0, 0, 0): {"W": [[NORTH_FRONT, 8.1]]},
+	Vector3(0, 0, 0): {"W": [[NORTH_FRONT, 8.1]], "E": [[NORTH_FRONT, 8.1]]},
 	Vector3(-70, 0, 0): {"E": [[5.0, 8.1]]},
+	Vector3(70, 0, 0): {"W": [[NORTH_FRONT, 8.1]]},
 }
 
 ## Les emplacements de la rue, d'est en ouest. Côté nord, face à la caméra, les maisons à étage ;
@@ -66,6 +68,32 @@ const SOUTH_ROW := [
 	{"w": 3.2, "floors": 1, "roof_kind": "hip"},
 ]
 
+## La route du Bois, de la place vers l'est (bois.gd) : le garage, le rond-point du vieux chêne,
+## l'école, le stade ; en face, la pharmacie et les pavillons. « vide » laisse la place au rond-point.
+const BOIS_NORTH := [
+	{"id": "garage", "kind": "garage", "w": 5.0},
+	{"w": 2.8, "floors": 2, "door": "right", "roof_kind": "pignon"},
+	{"kind": "vide", "w": 0.0, "to": BOIS.ROND_X + BOIS.RING_R + 0.4},
+	{"id": "ecole", "kind": "ecole", "w": 9.0},
+	{"id": "stade", "kind": "stade", "w": 20.4},
+	{"kind": "jardin", "w": 2.2},
+]
+const BOIS_SOUTH := [
+	{"w": 2.8, "floors": 1, "roof_kind": "hip"},
+	{"id": "pharmacie", "w": 3.0, "floors": 1, "shop": {"name": "Pharmacie", "sub": "Herboristerie · Orthopédie", "color": Color(0.92, 0.94, 0.9), "ink": Color(0.1, 0.45, 0.25), "glow": Color(0.85, 1.0, 0.9), "door": "left"}},
+	{"w": 2.2, "floors": 1, "door": "center", "roof_kind": "pignon"},
+	{"kind": "vide", "w": 0.0, "to": BOIS.ROND_X + BOIS.RING_R + 0.4},
+	{"id": "lot_bois", "w": 3.2, "floors": 1, "closed": true, "shop": {"name": "Prochainement", "sub": "Un nouveau commerce", "color": Color(0.2, 0.28, 0.36), "ink": Color(0.95, 0.85, 0.55)}},
+	{"kind": "pavillon", "w": 4.0},
+	{"kind": "pavillon", "w": 4.0},
+	{"kind": "jardin", "w": 2.4},
+	{"kind": "pavillon", "w": 4.0},
+	{"kind": "pavillon", "w": 4.0},
+	{"kind": "jardin", "w": 2.4},
+	{"kind": "pavillon", "w": 4.0},
+	{"kind": "jardin", "w": 2.0},
+]
+
 ## Ce qu'on lit en s'approchant d'une devanture.
 const PROMPTS := {
 	"notaire": "E : entrer à l'étude de Maître Garnier",
@@ -79,6 +107,11 @@ const PROMPTS := {
 	"fleurs": "Fleurs Odette — fermé pour l'instant",
 	"lot_a_ceder": "Local à céder — s'adresser au Crédit Smarvois",
 	"bibliotheque": "Bibliothèque municipale — ouverte mardi et samedi",
+	"garage": "E : entrer au garage Fradin",
+	"pharmacie": "Pharmacie — la croix verte veille, la porte est close",
+	"lot_bois": "Local réservé — un nouveau commerce s'installe bientôt",
+	"ecole": "École publique — fermée le samedi soir",
+	"stade": "Stade municipal — match des vétérans de l'U.S. Smarves",
 }
 
 ## Les emplacements posés, par identifiant : {pos (milieu du pied de façade), rot, w, d, door (monde)}.
@@ -135,6 +168,7 @@ func build(m: Node3D) -> void:
 	name = "Village"
 	_make_materials()
 	_rue_du_clain()
+	_route_du_bois()
 	_tournee()
 	_biens()
 	_capture_view()
@@ -226,45 +260,58 @@ func _board(x0: float, x1: float, z0: float, z1: float, title: String, walls: Ar
 
 # --- La rue du Clain ---------------------------------------------------------------------------
 
-func _rue_du_clain() -> void:
-	var x0 := CLAIN_X0
-	var x1 := CLAIN_X1
-	_board(x0, x1, BOARD_Z0, BOARD_Z1, "Rue du Clain", [
-		[Vector3(x0, 0, BOARD_Z0 - 0.1), Vector3(x1, 0, BOARD_Z0 - 0.1)],
-		[Vector3(x0, 0, BOARD_Z1 + 0.1), Vector3(x1, 0, BOARD_Z1 + 0.1)],
-		[Vector3(x1 - 0.1, 0, 8.1), Vector3(x1 - 0.1, 0, BOARD_Z1)],
-		[Vector3(x0 + 0.1, 0, 8.1), Vector3(x0 + 0.1, 0, BOARD_Z1)],
+## Une rue sur son socle, de x0 (côté place) à x1 : la chaussée, ses pointillés, ses trottoirs
+## de dalles calcaires et leurs bordures. gap : un intervalle [a, b] en x où trottoirs et marquage s'arrêtent.
+func _street(x0: float, x1: float, title: String, gap := []) -> void:
+	var lo := minf(x0, x1)
+	var hi := maxf(x0, x1)
+	_board(x0, x1, BOARD_Z0, BOARD_Z1, title, [
+		[Vector3(lo, 0, BOARD_Z0 - 0.1), Vector3(hi, 0, BOARD_Z0 - 0.1)],
+		[Vector3(lo, 0, BOARD_Z1 + 0.1), Vector3(hi, 0, BOARD_Z1 + 0.1)],
+		[Vector3(lo - 0.1, 0, 8.1), Vector3(lo - 0.1, 0, BOARD_Z1)],
+		[Vector3(hi + 0.1, 0, 8.1), Vector3(hi + 0.1, 0, BOARD_Z1)],
 	])
-	var len := absf(x1 - x0)
-	var cx := (x0 + x1) / 2.0
-	# La chaussée, ses pointillés, ses trottoirs de dalles calcaires et leurs bordures.
-	main._box(Vector3(len, 0.11, ROAD_W), Vector3(cx, -0.04, ROAD_Z), mats.asphalt, self)
+	main._box(Vector3(hi - lo, 0.11, ROAD_W), Vector3((lo + hi) / 2.0, -0.04, ROAD_Z), mats.asphalt, self)
+	var spans := [[lo, hi]]
+	if gap.size() == 2:
+		spans = [[lo, gap[0]], [gap[1], hi]]
 	var line := StandardMaterial3D.new()
 	line.albedo_color = Color(0.85, 0.85, 0.8)
+	var xs := []
+	var x := lo + 1.0
+	while x < hi - 0.5:
+		if gap.size() != 2 or x < gap[0] - 0.5 or x > gap[1] + 0.5:
+			xs.append(x)
+		x += 2.0
 	var dashes := MultiMesh.new()
 	dashes.transform_format = MultiMesh.TRANSFORM_3D
 	var dm := BoxMesh.new()
 	dm.size = Vector3(0.9, 0.02, 0.08)
 	dm.material = line
 	dashes.mesh = dm
-	var n := int(len / 2.0)
-	dashes.instance_count = n
-	for i in n:
-		dashes.set_instance_transform(i, Transform3D(Basis(), Vector3(x0 - 1.0 - i * 2.0, 0.02, ROAD_Z)))
+	dashes.instance_count = xs.size()
+	for i in xs.size():
+		dashes.set_instance_transform(i, Transform3D(Basis(), Vector3(xs[i], 0.02, ROAD_Z)))
 	var dmi := MultiMeshInstance3D.new()
 	dmi.multimesh = dashes
 	add_child(dmi)
 	var curb := StandardMaterial3D.new()
 	curb.albedo_color = Color(0.82, 0.8, 0.75)
 	curb.roughness = 0.8
-	for z in [NORTH_FRONT + 0.45, SOUTH_FRONT - 0.45]:
-		main._box(Vector3(len, 0.12, 0.9), Vector3(cx, 0.0, z), mats.slabs, self)
-	for z in [ROAD_Z - ROAD_W / 2.0 - 0.04, ROAD_Z + ROAD_W / 2.0 + 0.04]:
-		main._box(Vector3(len, 0.14, 0.08), Vector3(cx, 0.0, z), curb, self)
+	for sp in spans:
+		var len: float = sp[1] - sp[0]
+		var cx: float = (sp[0] + sp[1]) / 2.0
+		for z in [NORTH_FRONT + 0.45, SOUTH_FRONT - 0.45]:
+			main._box(Vector3(len, 0.12, 0.9), Vector3(cx, 0.0, z), mats.slabs, self)
+		for z in [ROAD_Z - ROAD_W / 2.0 - 0.04, ROAD_Z + ROAD_W / 2.0 + 0.04]:
+			main._box(Vector3(len, 0.14, 0.08), Vector3(cx, 0.0, z), curb, self)
 
+
+func _rue_du_clain() -> void:
+	_street(CLAIN_X0, CLAIN_X1, "Rue du Clain")
 	var f := FACADES.new(self, main.serif, 1962)
-	_row(f, NORTH_ROW, true)
-	_row(f, SOUTH_ROW, false)
+	_row(f, NORTH_ROW, true, CLAIN_X0 - 0.5, -1.0)
+	_row(f, SOUTH_ROW, false, CLAIN_X0 - 0.5, -1.0)
 	_lavoir(f)
 	_placette(f)
 	_street_props(f)
@@ -280,18 +327,21 @@ func _rue_du_clain() -> void:
 	_life()
 
 
-## Une rangée de façades, de la place vers l'ouest. north : côté nord, façades tournées vers le sud.
-func _row(f: FACADES, row: Array, north: bool) -> void:
-	var x := CLAIN_X0 - 0.5
+## Une rangée de façades, de x_start en s'éloignant de la place (dir = -1 vers l'ouest, +1 vers l'est).
+## north : côté nord, façades tournées vers le sud.
+func _row(f: FACADES, row: Array, north: bool, x_start: float, dir: float) -> void:
+	var x := x_start
 	var front := NORTH_FRONT if north else SOUTH_FRONT
 	var back := BOARD_Z0 + 0.3 if north else BOARD_Z1 - 0.3
 	var rot := 0.0 if north else PI
 	var out := 1.0 if north else -1.0
 	for spec in row:
-		var w: float = spec.w
-		var cx := x - w / 2.0
-		var xf := Transform3D(Basis(Vector3.UP, rot), Vector3(cx, 0, front))
 		var kind: String = spec.get("kind", "house")
+		var w: float = spec.w
+		if spec.has("to"):
+			w = absf(spec.to - x)
+		var cx := x + dir * w / 2.0
+		var xf := Transform3D(Basis(Vector3.UP, rot), Vector3(cx, 0, front))
 		var d := 3.2
 		match kind:
 			"house":
@@ -313,22 +363,24 @@ func _row(f: FACADES, row: Array, north: bool) -> void:
 				main._solid_box(Vector3(w, 2.0, 0.3), Vector3(cx, 1.0, front - out * 0.1))
 				_tree(Vector3(cx, 0, front - out * 2.4), "tree_oak_fall", 1.6)
 			"jardin":
-				f.garden_wall(Vector3(x, 0, front - out * 0.1), Vector3(x - w, 0, front - out * 0.1), 0.8)
+				f.garden_wall(Vector3(x, 0, front - out * 0.1), Vector3(x + dir * w, 0, front - out * 0.1), 0.8)
 				main._solid_box(Vector3(w, 2.0, 0.3), Vector3(cx, 1.0, front - out * 0.1))
 				_tree(Vector3(cx, 0, front - out * 1.6), ["tree_fat_fall", "tree_default_fall", "tree_oak_fall"][f.rng.randi() % 3], 1.5)
 				for i in 3:
 					_place(KN + "flower_%s.glb" % ["redA", "yellowA", "purpleA"][i], Vector3(cx - 0.8 + i * 0.8, 0, front - out * 0.5), 1.2)
 			"ruelle":
 				_ruelle(f, cx, w, front, out)
+			_:
+				d = _special(f, kind, spec, cx, w, front, back, out, rot)
 		# Le fond de la parcelle : jardin derrière la maison, mur mitoyen, potager, arbre fruitier.
-		if kind != "ruelle":
+		if kind != "ruelle" and kind != "vide":
 			var z_b := front - out * (d + 0.05)
-			if kind == "house":
+			if kind == "house" and not spec.get("no_yard", false):
 				_backyard(f, cx, w, z_b, back, out)
 			f.garden_wall(Vector3(x, 0, z_b if kind == "house" else front - out * 0.2), Vector3(x, 0, back), 0.4)
-		x -= w
+		x += dir * w
 	# Le mur du fond de la maquette, derrière les jardins.
-	f.garden_wall(Vector3(CLAIN_X0 - 0.5, 0, back), Vector3(x, 0, back), 0.45)
+	f.garden_wall(Vector3(x_start, 0, back), Vector3(x, 0, back), 0.45)
 
 
 func _backyard(f: FACADES, cx: float, w: float, z0: float, z1: float, out: float) -> void:
@@ -486,6 +538,82 @@ func _cabine(f: FACADES, at: Vector3) -> void:
 	add_child(l)
 	_lamp(at + Vector3(0, 1.1, 0), 0.6, Color(0.75, 0.85, 1.0), 2.0)
 	main._solid_box(Vector3(0.7, 1.4, 0.7), at + Vector3(0, 0.7, 0))
+
+
+# --- La route du Bois ---------------------------------------------------------------------------
+
+func _route_du_bois() -> void:
+	var gap := [BOIS.ROND_X - BOIS.RING_R - 0.2, BOIS.ROND_X + BOIS.RING_R + 0.2]
+	_street(BOIS.X0, BOIS.X1, "Route du Bois", gap)
+	var f := FACADES.new(self, main.serif, 1975)
+	BOIS.rond_point(self, f)
+	_row(f, BOIS_NORTH, true, BOIS.X0 + 0.5, 1.0)
+	_row(f, BOIS_SOUTH, false, BOIS.X0 + 0.5, 1.0)
+	# La croix verte de la pharmacie, en drapeau sur la façade, allumée des deux côtés.
+	var ph: Dictionary = lots.get("pharmacie", {})
+	if not ph.is_empty():
+		var out := Basis(Vector3.UP, ph.rot) * Vector3(0, 0, 1)
+		var side := Basis(Vector3.UP, ph.rot) * Vector3(1, 0, 0)
+		var at: Vector3 = ph.pos + side * (ph.w / 2.0 - 0.3) + out * 0.42 + Vector3(0, 1.75, 0)
+		for s in [1.0, -1.0]:
+			var xf := Transform3D(Basis(Vector3.UP, ph.rot + s * PI / 2.0), at)
+			f._glass(xf, Vector3(0, 0, 0.03), Vector2(0.12, 0.42), 2, true, Color(0.25, 1.0, 0.45))
+			f._glass(xf, Vector3(0, 0, 0.031), Vector2(0.42, 0.12), 2, true, Color(0.25, 1.0, 0.45))
+		f.batch.box("trim", Transform3D(Basis(Vector3.UP, ph.rot), at), Vector3.ZERO, Vector3(0.05, 0.46, 0.46), Color(0.2, 0.25, 0.22))
+		f.batch.box("trim", Transform3D(Basis(Vector3.UP, ph.rot), at), Vector3(0, 0, -0.3), Vector3(0.04, 0.04, 0.2), Color(0.2, 0.2, 0.2))
+		var l := OmniLight3D.new()
+		l.light_color = Color(0.3, 1.0, 0.5)
+		l.light_energy = 1.2
+		l.omni_range = 3.0
+		l.position = at
+		add_child(l)
+	# Réverbères en quinconce, sauf autour du rond-point qui a les siens.
+	var k := 0
+	var x := BOIS.X0 + 6.5
+	while x < BOIS.X1 - 2.0:
+		if x < gap[0] - 0.5 or x > gap[1] + 0.5:
+			var north := k % 2 == 0
+			var z := NORTH_FRONT + 0.6 if north else SOUTH_FRONT - 0.6
+			_place(KK + "city/streetlight.gltf", Vector3(x, 0.06, z), 2.2, 180.0 if north else 0.0)
+			_lamp(Vector3(x + (0.45 if north else -0.45), 2.0, z), 2.6, Color(1.0, 0.72, 0.4), 6.5)
+			k += 1
+		x += 6.5
+	for c in [Vector3(-1, 0, -1), Vector3(1, 0, -1), Vector3(-1, 0, 1), Vector3(1, 0, 1)]:
+		var p: Vector3 = Vector3(BOIS.ROND_X, 0, ROAD_Z) + c * Vector3(BOIS.RING_R + 0.4, 0, BOIS.RING_R - 0.2)
+		_place(KK + "city/streetlight.gltf", p + Vector3(0, 0.02, 0), 2.2, 0.0 if c.z > 0 else 180.0)
+		_lamp(p + Vector3(0, 2.0, 0), 2.2, Color(1.0, 0.72, 0.4), 6.0)
+	_place(KK + "city/bench.gltf", Vector3(BOIS.X0 + 4.6, 0.06, SOUTH_FRONT - 0.55), 2.2, 180.0)
+	_place(KK + "city/trash_A.gltf", Vector3(BOIS.X0 + 5.7, 0.06, SOUTH_FRONT - 0.5), 1.8)
+	_glass.append(f.commit(mats, mats.glass, "RouteDuBois"))
+	for g in f.glows:
+		var l := OmniLight3D.new()
+		l.light_color = g[1]
+		l.light_energy = 1.1
+		l.omni_range = 2.6
+		l.position = g[0]
+		add_child(l)
+	# Ceux qui passent, et le mécano qui fume devant l'atelier.
+	main._villager("passant-bois", Vector3(BOIS.X0 + 2.0, 0.06, NORTH_FRONT + 0.5), 90.0, "idle",
+		[Vector3(BOIS.X0 + 2.0, 0.06, NORTH_FRONT + 0.5), Vector3(BOIS.X0 + 7.5, 0.06, NORTH_FRONT + 0.5)])
+	main._villager("promeneuse-bois", Vector3(40.0, 0.06, SOUTH_FRONT - 0.5), -90.0, "idle",
+		[Vector3(54.0, 0.06, SOUTH_FRONT - 0.5), Vector3(30.0, 0.06, SOUTH_FRONT - 0.5)])
+	var ga: Dictionary = lots.get("garage", {})
+	if not ga.is_empty():
+		main._villager("mecano", ga.door + Vector3(1.6, 0.06, 1.0), 200.0)
+
+
+## Les lieux qui ne sont pas une maison de bourg : rend la profondeur bâtie depuis la rue.
+func _special(f: FACADES, kind: String, spec: Dictionary, cx: float, w: float, front: float, back: float, out: float, rot: float) -> float:
+	match kind:
+		"garage":
+			return BOIS.garage(self, f, spec, cx, w, front, out, rot)
+		"ecole":
+			return BOIS.ecole(self, f, spec, cx, w, front, out, rot)
+		"stade":
+			return BOIS.stade(self, f, spec, cx, w, front, out, rot)
+		"pavillon":
+			return BOIS.pavillon(self, f, spec, cx, w, front, back, out, rot)
+	return 0.0
 
 
 # --- Petites choses ----------------------------------------------------------------------------
@@ -777,6 +905,23 @@ func _life() -> void:
 	main._villager("laveuse", Vector3(-54.5, 0.06, 4.6), 180.0)
 
 
+## Garde une voiture dans sa file, l'écarte autour du rond-point et la tourne dans le sens de sa marche.
+func _follow_road(car: Node3D) -> void:
+	if not car.has_meta("lane"):
+		car.set_meta("lane", car.position.z - ROAD_Z)
+		car.set_meta("last_x", car.position.x)
+	var lane: float = car.get_meta("lane")
+	var last: float = car.get_meta("last_x")
+	var dx := car.position.x - last
+	car.set_meta("last_x", car.position.x)
+	if absf(dx) < 0.0001 or absf(dx) > 5.0:
+		return
+	var r := BOIS.road_z(car.position.x, lane, ROAD_Z)
+	car.position.z = r.x
+	var dir := signf(dx)
+	car.rotation.y = atan2(dir, dir * r.y)
+
+
 func _process(delta: float) -> void:
 	_update_cutaway()
 	if _tournee_area:
@@ -788,6 +933,9 @@ func _process(delta: float) -> void:
 			car.position.x = ROAD_WEST
 		elif car.position.x < ROAD_WEST:
 			car.position.x = ROAD_EAST
+	# Toutes les voitures, celles de la place comprises, contournent le vieux chêne.
+	for car in _cars + main.moving_cars:
+		_follow_road(car)
 	# De temps en temps, quelqu'un allume ou éteint chez lui.
 	_flicker -= delta
 	if _flicker <= 0.0:
