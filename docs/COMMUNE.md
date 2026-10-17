@@ -4,6 +4,12 @@ Smarves est la première commune d'une carte de la Vienne où d'autres viendront
 
 Rien de ce socle ne se voit à l'écran : la carte de la Vienne et la première commune greffée (Ligugé) sont des chantiers suivants.
 
+## La carte de la Vienne
+
+**L'emplacement des communes est celui de la carte officielle des communes de la Vienne** (décision de Guillaume, 17 octobre 2026). Le référentiel [`communes/vienne.json`](../communes/vienne.json) tient les 265 communes actuelles du département : code INSEE, nom, population, centre et contour en longitude et latitude. Il est construit par `tools/vienne_communes.py` à partir de la liste officielle des communes (paquet `@etalab/decoupage-administratif`) et des contours de l'IGN ; le contour d'une commune nouvelle (Valence-en-Poitou, Saint-Martin-la-Pallu…) est l'union de ses anciennes communes. On ne place jamais une commune à la main : son manifeste donne son code INSEE, et la carte la pose là où elle est.
+
+**Toutes les communes sont sur la carte, seules les communes développées sont cliquables.** `Communes.carte()` rend les 265 communes ; `cliquable` n'est vrai que pour celles qui sont inscrites au registre avec ce code INSEE (aujourd'hui Smarves seule). Les autres restent des silhouettes. Poitiers reste un trou dans la brume, jamais développé (SUITE.md, section 5).
+
 ## Ce qu'une commune fournit
 
 Un dossier `communes/<id>/` avec au moins un manifeste `commune.json` et la scène de la commune. Smarves a le sien : [`communes/smarves/commune.json`](../communes/smarves/commune.json).
@@ -16,7 +22,8 @@ Un dossier `communes/<id>/` avec au moins un manifeste `commune.json` et la scè
 	"auteur": "chtabay",
 	"version": "1.0.0",
 	"socle_min": "1.0",
-	"carte": {"lat": 46.51, "lon": 0.35, "socle": ""},
+	"insee": "86263",
+	"carte": {"socle": ""},
 	"scene": "res://scenes/main.tscn",
 	"arrivee": {"lot": "place", "par": []},
 	"interieurs": {"casino": "res://scenes/casino.tscn", "notaire": "res://scenes/notaire.tscn"},
@@ -38,7 +45,8 @@ Un dossier `communes/<id>/` avec au moins un manifeste `commune.json` et la scè
 | `id` | oui | minuscules, chiffres et `_` ; c'est le nom du dossier, du pack et du tiroir de sauvegarde |
 | `nom` | oui | le nom affiché (« Smarves ») |
 | `socle_min` | non | la version du socle demandée (aujourd'hui `1.0`) |
-| `carte` | oui | la position sur la carte de la Vienne (latitude, longitude) et, plus tard, la scène du petit socle posé sur la carte |
+| `insee` | oui | le code INSEE d'une commune actuelle de la Vienne (`86263` pour Smarves) : c'est lui qui place la commune sur la carte, à sa vraie place ; deux communes développées ne peuvent pas avoir le même |
+| `carte` | non | plus tard, la scène du petit socle posé sur la carte |
 | `scene` | oui | la scène de la commune ; elle doit exister au chargement |
 | `arrivee` | non | le lot où l'on arrive, et les communes d'où l'on vient (le car départemental) |
 | `interieurs` | non | les scènes des intérieurs, par id |
@@ -59,7 +67,7 @@ Le socle traduit `lieux` et `salles` dans la forme que le code connaissait déj�
   - **en pack** : `user://communes/<id>.pck`. Le socle lit le répertoire du pack sans le monter, refuse un pack illisible ou chiffré, un pack qui contient du code natif, et un pack qui écrit ailleurs que sous `res://communes/<id>/` (seuls les fichiers qu'un export ajoute de lui-même sont admis en plus : `.godot/imported/`, `.godot/exported/`, `.godot/uid_cache.bin`, `.godot/global_script_class_cache.cfg`, `project.binary`). Il lit le manifeste `res://communes/<id>/commune.json` directement dans le pack, vérifie qu'il porte le même id que le fichier, et inscrit la commune **sans monter le pack** ;
   - **le pack n'est monté qu'au moment où l'on entre dans la commune** : la carte appelle `Communes.ouvrir(id)` juste avant de changer de scène, qui monte le pack par `ProjectSettings.load_resource_pack(chemin, false)` (il ne remplace jamais un fichier du jeu) et vérifie que la scène est là. Le jeu pèse déjà une cinquantaine de mégaoctets pour Smarves seule ; sur le web surtout, une commune de plus ne doit rien coûter au lancement ;
   - **en dossier** : `user://communes/<id>/commune.json`, pour une commune faite de données et de scènes texte. Le nom du dossier doit être l'id du manifeste.
-- Une commune dont le manifeste a une erreur, ou dont l'id est déjà pris, n'est pas inscrite ; la raison est gardée dans `Communes.refus` et écrite en avertissement.
+- Une commune dont le manifeste a une erreur (dont un code INSEE qui n'est pas une commune actuelle de la Vienne), dont l'id est déjà pris ou dont le code INSEE est déjà développé, n'est pas inscrite ; la raison est gardée dans `Communes.refus` et écrite en avertissement.
 - **Une commune ne contient que des scènes, des ressources et du GDScript, jamais de code natif.** Une GDExtension (fichiers `.gdextension`, `.so`, `.dll`, `.dylib`, `.wasm`) ne se charge pas dans la version web du jeu : le socle refuse le pack qui en contient.
 - **Un pack contient du code**, et Godot ne sait pas isoler un script : un mod a les mêmes droits que le jeu. Les communes greffées sont des mods de confiance, installés à la main.
 - Les captures (`--capture=`) et les outils de test ne chargent aucune greffe : ils partent du jeu seul.
@@ -82,11 +90,17 @@ godot --headless --path . -s tools/test_communes.gd
 | `charger_pack(chemin)`, `charger_dossier(chemin)`, `charger_greffes()` | inscrire une commune greffée ; renvoie son id, ou `""` si elle est refusée |
 | `ouvrir(id)` | monter son pack s'il ne l'est pas et vérifier sa scène, avant d'y entrer |
 | `refus` | les greffes refusées : `[chemin, raison]` |
+| `par_insee(code)` | la commune développée à ce code INSEE, ou `null` |
+| `carte()` | les 265 communes de la Vienne : `insee`, `nom`, `centre` (Vector2 longitude, latitude), `contour` (polygones de points [longitude, latitude]), `id` et `cliquable` (vrai si développée) |
 | `lister_pack(chemin)`, `repertoire_pack(chemin)` | les fichiers d'un pack (formats 2 à 4 de Godot 4), ou `null` |
 
 ### `Commune` (classe, `scripts/socle/commune.gd`)
 
-`Commune.lire(chemin)` lit et vérifie un manifeste ; `valide()` et `erreurs` disent s'il est bon. `lieux()` et `salles(interieur)` rendent les lieux et les salles dans la forme de `PLACES` et `LOCKS` ; `preteur()`, `banque()` et `interieur(id)` lisent le reste. `Commune.smarves()` est Smarves, lue une fois.
+`Commune.lire(chemin)` lit et vérifie un manifeste ; `valide()` et `erreurs` disent s'il est bon. `lieux()` et `salles(interieur)` rendent les lieux et les salles dans la forme de `PLACES` et `LOCKS` ; `preteur()`, `banque()`, `interieur(id)` et `centre()` (la position réelle, d'après le code INSEE) lisent le reste.
+
+### `Vienne` (classe, `scripts/socle/vienne.gd`)
+
+Le référentiel : `Vienne.communes()`, `Vienne.commune(insee)`, `Vienne.centre(insee)`. `Commune.smarves()` est Smarves, lue une fois.
 
 ### La sauvegarde en tiroirs (`scripts/socle/sauvegarde.gd`)
 

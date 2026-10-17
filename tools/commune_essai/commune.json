@@ -5,7 +5,8 @@
 	"auteur": "socle",
 	"version": "0.0.1",
 	"socle_min": "1.0",
-	"carte": {"lat": 46.6, "lon": 0.5, "socle": ""},
+	"insee": "86113",
+	"carte": {"socle": ""},
 	"scene": "res://communes/essai/commune.tscn",
 	"arrivee": {"lot": "arret_car", "par": ["smarves"]},
 	"lieux": [

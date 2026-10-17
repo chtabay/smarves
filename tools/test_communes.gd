@@ -36,6 +36,7 @@ func _init() -> void:
 	_pack_essai(communes)
 	_pack_intrus(communes)
 	_dossier_menteur(communes)
+	_carte(communes)
 	print("\n%d échec(s)" % fails)
 	quit(1 if fails > 0 else 0)
 
@@ -122,4 +123,29 @@ func _dossier_menteur(communes: Node) -> void:
 	DirAccess.make_dir_recursive_absolute(bon)
 	var json := FileAccess.get_file_as_string(ESSAI + "commune.json").replace("\"essai\"", "\"dossier\"")
 	FileAccess.open(bon + "commune.json", FileAccess.WRITE).store_string(json)
+	check(communes.charger_dossier(bon) == "" and "déjà développée" in communes.refus[-1][1], "une deuxième commune au même code INSEE est refusée")
+	FileAccess.open(bon + "commune.json", FileAccess.WRITE).store_string(json.replace("86113", "86100"))
 	check(communes.charger_dossier(bon) == "dossier", "une commune en dossier sous user:// s'inscrit %s" % str(communes.refus.slice(-1)))
+	var faux := TMP + "faux_insee/"
+	DirAccess.make_dir_recursive_absolute(faux)
+	FileAccess.open(faux + "commune.json", FileAccess.WRITE).store_string(json.replace("\"dossier\"", "\"faux_insee\"").replace("86113", "79191"))
+	check(communes.charger_dossier(faux) == "" and "INSEE" in communes.refus[-1][1], "un code INSEE hors de la Vienne est refusé")
+
+
+## La carte : toutes les communes réelles à leur place, cliquables seulement une fois développées.
+func _carte(communes: Node) -> void:
+	var carte: Array = communes.carte()
+	check(carte.size() == 265, "la carte compte les %d communes actuelles de la Vienne" % carte.size())
+	var par := {}
+	for e in carte:
+		par[e.insee] = e
+	var sm: Dictionary = par.get("86263", {})
+	check(sm.get("nom") == "Smarves" and sm.cliquable and sm.id == "smarves", "Smarves (86263) est cliquable")
+	check(sm.centre.distance_to(Vector2(0.357, 46.511)) < 0.02 and sm.contour.size() >= 1, "Smarves est à sa place, au sud de Poitiers (%s)" % str(sm.centre))
+	check(not par["86194"].cliquable and par["86194"].nom == "Poitiers", "Poitiers est sur la carte, pas cliquable")
+	check(par["86113"].cliquable and par["86113"].id == "essai", "la commune greffée devient cliquable à son code INSEE")
+	var n := 0
+	for e in carte:
+		if e.cliquable:
+			n += 1
+	check(n == communes.communes.size(), "seules les communes développées sont cliquables (%d)" % n)

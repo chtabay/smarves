@@ -9,10 +9,12 @@ const FORMAT := 1
 ## La version du socle, comparée au champ « socle_min » des manifestes.
 const SOCLE := "1.0"
 const SMARVES := "res://communes/smarves/commune.json"
-const REQUIS := ["format", "id", "nom", "carte", "scene", "lieux", "banque"]
+const REQUIS := ["format", "id", "nom", "insee", "scene", "lieux", "banque"]
 
 var id := ""
 var nom := ""
+## Le code INSEE : la commune est posée sur la carte à sa vraie place (Vienne, communes/vienne.json).
+var insee := ""
 var chemin := ""
 var data := {}
 ## Le pack d'une commune greffée (« » : commune du dépôt ou en dossier), et s'il est monté.
@@ -54,6 +56,7 @@ static func depuis_texte(texte: String, path: String, pack_path := "") -> Commun
 	c.data = parsed
 	c.id = str(parsed.get("id", ""))
 	c.nom = str(parsed.get("nom", ""))
+	c.insee = str(parsed.get("insee", ""))
 	c._verifier()
 	return c
 
@@ -80,6 +83,8 @@ func _verifier() -> void:
 		erreurs.append("id invalide : « %s » (minuscules, chiffres, _)" % id)
 	elif not chemin.begins_with("res://communes/%s/" % id) and not chemin.begins_with("user://"):
 		erreurs.append("le manifeste de « %s » doit être dans res://communes/%s/" % [id, id])
+	if Vienne.commune(insee).is_empty():
+		erreurs.append("code INSEE inconnu dans la Vienne : « %s »" % insee)
 	if montee and not scene_presente():
 		erreurs.append("scène introuvable : %s" % data.scene)
 	var ids := {}
@@ -119,6 +124,11 @@ func salles(interieur: String) -> Array:
 ## Le prêteur de la commune : la clé de sa dette dans le socle (« smarves » pour M. Brunet).
 func preteur() -> String:
 	return str(data.banque.preteur)
+
+
+## Où la poser sur la carte : le centre de la commune réelle (longitude, latitude).
+func centre() -> Vector2:
+	return Vienne.centre(insee)
 
 
 func banque() -> Dictionary:
