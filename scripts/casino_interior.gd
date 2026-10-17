@@ -174,7 +174,7 @@ func _materials() -> void:
 	brass_glow = _std(Color(1.0, 0.85, 0.6), 0.3)
 	brass_glow.emission_enabled = true
 	brass_glow.emission = Color(1.0, 0.72, 0.4)
-	brass_glow.emission_energy_multiplier = 5.0
+	brass_glow.emission_energy_multiplier = 3.0
 	floor_marble = _shader("res://shaders/marble_checker.gdshader", {"tile": 1.0})
 	carpet = _shader("res://shaders/carpet.gdshader")
 	carpet_blue = _shader("res://shaders/carpet.gdshader", {"base_col": Color(0.05, 0.08, 0.25), "deep_col": Color(0.02, 0.03, 0.1)})
@@ -213,11 +213,14 @@ func _environment() -> void:
 	var grade := GradientTexture1D.new()
 	grade.gradient = g
 	env.adjustment_color_correction = grade
+	# Un halo serré autour des seules sources vives (comme le bloom d'Addict : force 0,4, seuil 1,05) :
+	# pas de bloom sur toute l'image ni de grands niveaux, qui voilaient la salle d'un flou.
 	for i in 7:
-		env.set_glow_level(i, [0.0, 1.0, 1.0, 0.7, 0.4, 0.0, 0.0][i])
-	env.glow_intensity = 0.8
-	env.glow_bloom = 0.1
-	env.volumetric_fog_density = 0.014
+		env.set_glow_level(i, [0.0, 0.8, 0.5, 0.15, 0.0, 0.0, 0.0][i])
+	env.glow_intensity = 0.4
+	env.glow_bloom = 0.0
+	env.glow_hdr_threshold = 1.2
+	env.volumetric_fog_density = 0.003
 	# Reflets dans les miroirs, le marbre ciré et le laque.
 	env.ssr_enabled = true
 	env.ssr_max_steps = 48
@@ -1310,7 +1313,7 @@ func _chandelier(pos: Vector3, size := 1.0, shadows := false) -> void:
 	light.light_energy = 4.0 * size
 	light.omni_range = 10.0 * size
 	light.shadow_enabled = shadows
-	light.light_volumetric_fog_energy = 0.5
+	light.light_volumetric_fog_energy = 0.25
 	light.position.y = -0.4 * size
 	root.add_child(light)
 
@@ -1330,7 +1333,7 @@ func _table_lamp(pos: Vector3, length: float, rot_y := 0.0, energy := 3.5) -> vo
 		s.spot_range = 3.0
 		s.spot_angle = 50.0
 		s.spot_attenuation = 0.6
-		s.light_volumetric_fog_energy = 0.8
+		s.light_volumetric_fog_energy = 0.4
 		s.position = Vector3((k - 1) * length * 0.33, -0.1, 0)
 		s.rotation_degrees.x = -90
 		root.add_child(s)
