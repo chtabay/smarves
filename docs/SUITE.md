@@ -286,11 +286,12 @@ Pour qu'une commune tierce se branche sans toucher au code de Smarves :
 - **Visuel des jeux** : rien à court terme. Plus tard, chaque table déclare ses places numérotées, pour les tables à plusieurs.
 - **Gestion de la ville** : le dictionnaire `logements`, le genre `meuble`, la brocante, le choix habiter ou louer, la reprise meublée, la page « Mon logement ». Rien ne change aux recettes, aux prix ni aux seuils.
 
-## Ce qui dépend du fil web et mobile
+## Cibles
 
-Ce document ne tranche pas la question du web ; ces points en dépendent :
+**Tranché par Guillaume le 17 octobre 2026 : Windows et téléphone (Android, puis iOS) ; le web seulement si nécessaire.** Le détail et la liste des chantiers pour le téléphone sont dans [`WEB-MOBILE.md`](WEB-MOBILE.md).
 
-- **Le rendu** : le web n'a que le rendu Compatibilité de Godot (WebGL 2), pas Forward+. L'éclairage global, les halos et la lumière des vitrines, qui portent la direction artistique, seraient à refaire ou à simplifier ; la vue dézoomée, qui montre plus de façades et plus de lumières, est la plus exposée.
-- **Le cran par défaut et les contrôles** sur téléphone : pincer pour zoomer, glisser pour tourner, toucher pour marcher.
-- **Les mods** : sur le web, un pack `.pck` doit être téléchargé dans le stockage du navigateur avant d'être chargé ; c'est possible mais moins simple que de déposer un fichier.
-- **Le multi** n'en dépend pas : `HTTPRequest` et `WebSocketPeer` marchent sur ordinateur comme dans le navigateur.
+- **Le rendu** : Forward+ sur ordinateur, rendu Mobile sur téléphone (réglage par plateforme, sans toucher au rendu Windows). Chaque nouveau lieu se vérifie aussi en rendu Mobile, qui n'a ni SDFGI, ni SSIL, ni SSR, ni brouillard volumétrique, ni SSAO.
+- **Les contrôles** : chaque lieu prévoit ses gestes tactiles en même temps que le clavier et la souris (toucher pour marcher, glisser pour tourner, pincer pour changer de cran).
+- **Le multi** : WebSocket (Supabase Realtime sur `WebSocketPeer`) et `HTTPRequest`, jamais ENet ni UDP, pour que le web reste possible sans rien récrire. Sur téléphone, la connexion PKCE revient par un lien profond de l'application plutôt que par une adresse locale.
+- **Les communes greffées** : en paquets de ressources avec du GDScript, jamais de GDExtension, qui demanderait un build par plateforme.
+- **Les mods sur le web**, si le web vient un jour : un pack `.pck` doit être téléchargé dans le stockage du navigateur avant d'être chargé.

@@ -12,7 +12,8 @@ Guillaume : le mobile est une cible, le web ne l'est que si nécessaire.
 
 - Sur téléphone (Android, iOS), le jeu tournera avec le rendu Mobile ; l'ordinateur garde Forward+. Godot le permet par plateforme avec `rendering/renderer/rendering_method.mobile="mobile"`, sans toucher au rendu Windows.
 - Chaque nouveau lieu prévoit ses commandes tactiles en même temps que le clavier et la souris.
-- Le réseau reste Supabase (HTTP et Realtime en WebSocket), qui marche aussi dans un navigateur : la porte du web reste ouverte sans rien coûter.
+- Le réseau reste Supabase (HTTP et Realtime en WebSocket), jamais ENet ni UDP : il marche aussi dans un navigateur, la porte du web reste ouverte sans rien coûter.
+- Les communes greffées sont des paquets de ressources en GDScript, sans GDExtension.
 - Le web ne se prépare pas d'avance ; les étapes de « Ce qu'il faudrait pour un export web aujourd'hui » servent le jour où il devient nécessaire.
 
 ## Ce que le rendu utilise aujourd'hui
@@ -69,7 +70,20 @@ Les points 1 à 4 tiennent en une journée ; le 5 et le 6 sont du réglage lieu 
 
 ## Conséquences pour la suite
 
-- **Multijoueur** : dans un navigateur, ni ENet ni UDP. Si le web est une cible, tout le monde passe par `WebSocketMultiplayerPeer` vers un serveur (Godot sans affichage, en natif), ou par WebRTC avec un serveur de mise en relation. Les versions natives peuvent parler WebSocket aussi, ce qui évite deux réseaux.
+- **Multijoueur** : dans un navigateur, ni ENet ni UDP, seulement WebSocket ou WebRTC. Le multi prévu dans [`SUITE.md`](SUITE.md) passe par Supabase (HTTP et Realtime sur WebSocket), qui marche pareil en natif et dans un navigateur.
 - **Logements** : l'état partagé vit sur le serveur ; les sauvegardes locales du navigateur (IndexedDB derrière `user://`) peuvent être effacées par le navigateur.
 - **Mods et autres villes** : un mod en paquet de ressources (`.pck`) avec du GDScript se charge avec `ProjectSettings.load_resource_pack` après l'avoir téléchargé dans `user://`, ce qui devrait marcher aussi dans un navigateur (non essayé ici). Un mod en GDExtension demande un build web à part et le modèle d'export avec extensions : à éviter pour des mods.
 - **Carte de la Vienne** : charger les villes à la demande, par paquets, plutôt que tout dans le premier téléchargement. 21 Mo compressés pour le village seul est raisonnable ; chaque ville en plus dans le paquet principal rallonge l'attente sur le web.
+
+## Les chantiers pour le téléphone
+
+Dans l'ordre où les faire. Chaque point dit ce qu'il y a aujourd'hui et ce que je recommande.
+
+1. **Export Android et rendu Mobile.** Aujourd'hui seul Windows s'exporte. Ajouter un préréglage Android (arm64 seulement, textures ETC2/ASTC), `rendering_method.mobile="mobile"` et le repli `rendering_device/fallback_to_opengl3=true` pour les téléphones sans Vulkan, et un workflow qui construit l'APK comme celui de Windows. C'est le premier pas parce que tout le reste se juge sur un vrai téléphone. Taille à mesurer : le modèle Android de Godot, toutes architectures, pèse 105 Mo ; en arm64 seul, plus les 11,6 Mo de données du jeu, on peut attendre de l'ordre de 40 à 60 Mo (estimation, pas mesurée).
+2. **Déplacement et regard au toucher.** Aujourd'hui `fp_player.gd` lit ZQSD et les flèches, Maj pour courir, la souris capturée pour regarder ; `orbit_camera.gd` tourne au clic droit et zoome à la molette. Recommandation : en vue de dessus, toucher le sol pour y marcher (le personnage s'y rend), glisser à un doigt pour tourner, pincer pour changer de cran ; en vue à pied, un pouce virtuel à gauche et un glissé à droite pour regarder. Le pincement remplace la molette des crans.
+3. **L'action E et les invites.** Aujourd'hui E (ou le clic) agit sur ce qu'on regarde, et l'invite « E : … » s'affiche au centre. Recommandation : sur téléphone, l'invite devient un bouton qu'on touche, au même endroit, et toucher directement une porte ou un habitant fait la même chose. Tab (vue à pied ou de dessus) et C (le carnet) deviennent deux boutons fixes dans un coin.
+4. **Les tables assises.** Aujourd'hui chaque table a ses boutons à l'écran (la barre de jeu) et des raccourcis (Espace, C, R, D, Échap). Les boutons marchent déjà au toucher, parce que Godot transforme le toucher en clic ; recommandation : les agrandir sur téléphone (au moins 48 px réels) et ajouter un bouton « Quitter » là où seul Échap existe.
+5. **Le carnet et les panneaux.** Aujourd'hui « Fermer le carnet : C ou Échap ». Recommandation : un bouton de fermeture et le retour d'Android branché sur `ui_cancel`, qui ferme déjà la plupart des panneaux (14 endroits l'écoutent).
+6. **Lisibilité sur petit écran.** L'interface est dessinée pour 1600 × 900 avec beaucoup de textes en 10, 12, 14 et 15 px ; sur un téléphone de 6 pouces en paysage, 15 px font environ 1,4 mm de haut. Recommandation : sur téléphone, une base de 1280 × 720 (`window/size/viewport_width.mobile`), qui grossit tout de 25 %, et un plancher de 20 px pour les textes qu'on doit lire (invites, bulles, prix).
+7. **Budget de performance.** Le casino fait encore environ 2 400 appels de dessin à l'entrée après le regroupement statique (mesure d'un autre fil, pas refaite ici). Sur un téléphone moyen, viser plutôt moins de 1 000 (ordre de grandeur courant, pas une limite de Godot) : fusionner davantage les décors (MultiMesh pour les chaises, les machines, les balustres), couper les ombres des petites lampes, et limiter les lampes visibles. À mesurer sur un vrai téléphone dès le point 1, avec le compteur d'images par seconde.
+8. **iOS.** Même travail que pour Android une fois celui-ci fait ; il faut un Mac avec Xcode et un compte développeur Apple pour signer.
