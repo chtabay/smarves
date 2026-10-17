@@ -32,7 +32,7 @@ const FOCUS := {
 const SIGNPOSTS := [
 	["bois", Vector3(9.0, 0, 7.75), 0.0, "Bois de Saint-Pierre  →"],
 	["moulin", Vector3(-6.2, 0, 7.75), 0.0, "←  Moulin des Dames"],
-	["passelourdin", Vector3(-6.8, 0, -3.4), 0.0, "Rochers de Passelourdin  ↑"],
+	["passelourdin", Vector3(-4.0, 0, -2.9), 0.0, "Rochers de Passelourdin  ↑"],
 ]
 const KN := "res://assets/kenney/nature/"
 const KS := "res://assets/kenney/survival/"
