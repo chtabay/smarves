@@ -28,10 +28,14 @@ func _ready() -> void:
 
 	# Toucher le sol un peu au-dessus de l'habitant : il y marche.
 	var start := p.global_position
-	var at: Vector2 = m.camera.unproject_position(start) + Vector2(0, -160)
+	var at: Vector2 = m.camera.unproject_position(start) + Vector2(0, -100)
+	var origin: Vector3 = m.camera.project_ray_origin(at)
+	var ray: Vector3 = m.camera.project_ray_normal(at)
+	var aim := origin + ray * ((start.y - origin.y) / ray.y)
 	await _tap(at)
 	await _wait(2.5)
-	_check("toucher le sol : l'habitant marche (%.1f m)" % start.distance_to(p.global_position), start.distance_to(p.global_position) > 1.0)
+	_check("toucher le sol : l'habitant marche vers le point touché (%.1f m, reste %.1f m)" % [start.distance_to(p.global_position), Vector2(aim.x - p.global_position.x, aim.z - p.global_position.z).length()],
+		start.distance_to(p.global_position) > 1.0 and Vector2(aim.x - p.global_position.x, aim.z - p.global_position.z).length() < 1.5)
 	_check("puis s'arrête", p.auto_move == Vector3.ZERO)
 
 	# Glisser : la vue tourne.
@@ -96,10 +100,15 @@ func _wait(s: float) -> void:
 	await get_tree().create_timer(s).timeout
 
 
+## Les positions sont en unités de l'interface ; l'écran tactile parle en pixels de la fenêtre.
+func _win(pos: Vector2) -> Vector2:
+	return get_tree().root.get_final_transform() * pos
+
+
 func _touch(index: int, pos: Vector2, pressed: bool) -> void:
 	var e := InputEventScreenTouch.new()
 	e.index = index
-	e.position = pos
+	e.position = _win(pos)
 	e.pressed = pressed
 	Input.parse_input_event(e)
 
@@ -107,8 +116,8 @@ func _touch(index: int, pos: Vector2, pressed: bool) -> void:
 func _move(index: int, pos: Vector2, rel: Vector2) -> void:
 	var e := InputEventScreenDrag.new()
 	e.index = index
-	e.position = pos
-	e.relative = rel
+	e.position = _win(pos)
+	e.relative = get_tree().root.get_final_transform().basis_xform(rel)
 	Input.parse_input_event(e)
 
 
