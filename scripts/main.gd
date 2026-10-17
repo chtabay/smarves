@@ -75,8 +75,9 @@ var area := ""
 var moving_cars: Array[Node3D] = []
 var josiane: Node3D
 var player: CharacterBody3D
-## Vue à pied (par défaut) ou vue maquette (Tab).
+## Dehors, on se promène en vue de dessus (la maquette, un habitant qu'on dirige) ; Tab passe à la vue à pied.
 var fps := true
+var topdown := true
 var _prompt: Label
 var _cross: Label
 var _places_panel: Control
@@ -653,7 +654,9 @@ func is_open(id: String) -> bool:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_TAB and player and not player.frozen:
-		set_fps(not fps)
+		# Tab alterne vue de dessus et vue à la première personne.
+		topdown = not topdown
+		set_fps(true)
 		get_viewport().set_input_as_handled()
 		return
 	if _slot.visible or fps:
@@ -674,7 +677,10 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _cam_focus(at: Vector3, dist: float, y: float, p: float) -> void:
-	if fps:
+	if fps and topdown:
+		player.frozen = true
+		_prompt.visible = false
+	elif fps:
 		player.frozen = true
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		_prompt.visible = false
@@ -684,7 +690,9 @@ func _cam_focus(at: Vector3, dist: float, y: float, p: float) -> void:
 
 
 func _cam_release() -> void:
-	if fps:
+	if fps and topdown:
+		player.frozen = false
+	elif fps:
 		player.frozen = false
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		_cross.visible = true
@@ -865,6 +873,15 @@ func _spawn_player() -> void:
 	player.reach = 2.4
 	add_child(player)
 	player.interact.connect(_on_player_interact)
+	# L'habitant qu'on dirige en vue de dessus : un petit renard en costume.
+	var me := VILLAGER.CRITTER.new()
+	me.species = "renard"
+	me.fur = Color(1.0, 0.62, 0.32)
+	me.outfit = Color(0.1, 0.12, 0.25)
+	me.accessory = "noeud"
+	me.rotation.y = PI
+	player.add_child(me)
+	player.avatar = me
 	if Game.return_point == "casino":
 		Game.return_point = ""
 		_put_player(Vector3(6.4, 0.05, -2.4), PI)
@@ -883,7 +900,18 @@ func _put_player(at: Vector3, yaw: float) -> void:
 
 func set_fps(on: bool) -> void:
 	fps = on and player != null
-	if fps:
+	if fps and topdown:
+		# Vue de dessus : la caméra de maquette suit l'habitant qu'on dirige.
+		camera.make_current()
+		player.follow_camera = camera
+		player.avatar.visible = true
+		player.frozen = false
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		camera._dist_goal = 9.0
+		camera._pitch_goal = deg_to_rad(-48.0)
+	elif fps:
+		player.follow_camera = null
+		player.avatar.visible = false
 		player.camera.make_current()
 		player.frozen = false
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -895,16 +923,16 @@ func set_fps(on: bool) -> void:
 		camera.make_current()
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	if _hint:
-		_hint.text = ("ZQSD : marcher   ·   Maj : courir   ·   E : entrer, jouer, parler   ·   Tab : vue maquette   ·   Échap : réglages" if fps
-			else "Cliquer sur un lieu ou un habitant   ·   Clic droit : tourner   ·   Molette : zoomer   ·   Tab : marcher   ·   Échap : réglages")
+		_hint.text = ("ZQSD : marcher   ·   Maj : courir   ·   E : entrer, jouer, parler   ·   Clic droit : tourner la vue   ·   Molette : zoom   ·   Tab : vue à pied   ·   Échap : réglages" if (fps and topdown)
+			else "ZQSD : marcher   ·   Maj : courir   ·   E : entrer, jouer, parler   ·   Tab : vue de dessus   ·   Échap : réglages")
 	if _cross:
-		_cross.visible = fps
+		_cross.visible = fps and not topdown
 		_prompt.visible = false
 	# Les noms flottants des lieux servent en vue maquette ; à pied, l'invite les remplace.
 	for id in place_signs:
-		place_signs[id].visible = not fps
+		place_signs[id].visible = topdown
 	if _places_panel:
-		_places_panel.visible = not fps
+		_places_panel.visible = topdown
 
 
 func _on_player_interact(target: Node) -> void:
@@ -1074,6 +1102,8 @@ func _bark(delta: float) -> void:
 
 
 func _process(delta: float) -> void:
+	if fps and topdown and player:
+		camera._target_goal = player.global_position + Vector3(0, 0.3, 0)
 	_bark(delta)
 	_update_prompt()
 	for i in moving_cars.size():

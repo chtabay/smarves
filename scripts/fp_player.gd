@@ -16,6 +16,10 @@ var frozen := false
 var focus_target: Node = null
 ## Pour les tests automatiques : une direction de marche imposée (repère du joueur).
 var auto_move := Vector3.ZERO
+## Vue de dessus : la caméra qui suit le joueur. Les déplacements se font alors par rapport à elle,
+## le personnage se tourne vers sa marche, et l'on interagit avec ce qui est à portée de main.
+var follow_camera: Camera3D = null
+var avatar: Node3D = null
 var _pitch := 0.0
 
 
@@ -40,6 +44,10 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if frozen:
+		return
+	if follow_camera != null:
+		if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_E and focus_target:
+			interact.emit(focus_target)
 		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		rotation.y -= event.relative.x * 0.0025
@@ -70,7 +78,16 @@ func _physics_process(delta: float) -> void:
 			dir.x += 1
 	if auto_move != Vector3.ZERO:
 		dir = auto_move
-	dir = (transform.basis * dir).normalized()
+	if follow_camera != null:
+		# Vue de dessus : « avancer » s'éloigne de la caméra, le corps se tourne vers la marche.
+		var yaw := follow_camera.global_rotation.y
+		dir = (Basis(Vector3.UP, yaw) * dir).normalized()
+		if dir.length() > 0.1:
+			rotation.y = lerp_angle(rotation.y, atan2(-dir.x, -dir.z), 12.0 * delta)
+		if avatar:
+			avatar.pose = 1 if dir.length() > 0.1 else 0
+	else:
+		dir = (transform.basis * dir).normalized()
 	var run := 1.8 if Input.is_key_pressed(KEY_SHIFT) else 1.0
 	velocity.x = dir.x * speed * run
 	velocity.z = dir.z * speed * run
@@ -81,6 +98,24 @@ func _physics_process(delta: float) -> void:
 func _update_focus() -> void:
 	focus_target = null
 	if frozen:
+		return
+	if follow_camera != null:
+		# À portée de main : la zone la plus proche devant soi.
+		var q := PhysicsShapeQueryParameters3D.new()
+		var sph := SphereShape3D.new()
+		sph.radius = reach * 0.6
+		q.shape = sph
+		q.transform = Transform3D(Basis(), global_position + (-global_basis.z) * reach * 0.4 + Vector3(0, eye * 0.6, 0))
+		q.collide_with_areas = true
+		q.collide_with_bodies = false
+		var best := INF
+		for hit in get_world_3d().direct_space_state.intersect_shape(q, 16):
+			var c: Object = hit.collider
+			if c is Area3D and c.has_meta("interact"):
+				var d: float = (c as Node3D).global_position.distance_to(global_position)
+				if d < best:
+					best = d
+					focus_target = c
 		return
 	var from := camera.global_position
 	var to := from - camera.global_transform.basis.z * reach
