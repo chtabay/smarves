@@ -54,7 +54,7 @@ Prix du premier exemplaire ; les parts se rachètent plusieurs fois, chaque exem
 | La 2 CV | garage | 2 200 | 1 | — | 20 | 3 | 1 000 gagnés |
 | La DS 21 | garage | 9 000 | 1 | — | 70 | 6 | 20 000 gagnés |
 
-On ne porte qu'une tenue et on ne conduit qu'un véhicule à la fois : seuls ceux-là comptent pour le standing et les charges. La tenue portée habille le petit renard.
+On ne porte qu'une tenue et on ne conduit qu'un véhicule à la fois : seuls ceux-là comptent pour le standing et les charges. La tenue portée habille le personnage du joueur.
 
 La rente annoncée vaut 10 % du prix par recette : sur la brochure, un bien se rembourse en dix recettes, soit 200 mises, un petit quart d'heure. En vrai, à 65 % de l'annonce, il en faut plutôt quinze, si l'on mise assez pour que la recette soit pleine.
 
@@ -130,7 +130,7 @@ Les devantures et les entrées appartiennent au fil « Extension du village » (
 
 - La tournée générale se déclenche par `Biens.offer_tournee()` (faux si les crédits manquent ; prix : `Biens.tournee_price()`).
 - Le véhicule conduit se pose avec `Biens.build_vehicle(Biens.driven)`, à l'échelle des voitures KayKit de la maquette ; la Mobylette est dessinée dans le code.
-- La tenue portée habille le renard (`Biens.outfit_color()`, dans `main.gd`).
+- La tenue portée habille le personnage du joueur (`Biens.outfit_color()`, dans `main.gd`).
 - Les maisons possédées : `Biens.count("maison")`, `Biens.count("maison_place")`.
 
 Captures : `godot --path . res://scenes/notaire.tscn -- --capture=sortie.png [--open=vitrine] [--carnet] [--biens=smarvoise,dimanche] [--won=9000] [--at=x,z,lacet,tangage]`.
