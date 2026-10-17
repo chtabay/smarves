@@ -44,6 +44,13 @@ func _init() -> void:
 				break
 		x += 0.5
 	check(blocked.is_empty(), "la route est libre du moulin au bois %s" % ("" if blocked.is_empty() else str(blocked.slice(0, 8))))
+	# Les quartiers, pour le plan du Carnet.
+	var spots := {"place": Vector3(0, 0, 0), "rue_du_clain": Vector3(-30, 0, 6), "route_du_bois": Vector3(30, 0, 6),
+		"chemin_passelourdin": Vector3(-2, 0, -30), "moulin": Vector3(-70, 0, 0), "bois": Vector3(70, 0, 0), "rochers": Vector3(0, 0, -70)}
+	for id in spots:
+		check(village.zone_at(spots[id]) == id, "zone_at reconnaît %s" % id)
+	check(village.CACHES.cabane_vigne.zone == village.zone_at(village.CACHES.cabane_vigne.pos), "la cabane de vigne est dans sa zone")
+	check(village.current_zone == "place", "l'habitant commence sur la place (%s)" % village.current_zone)
 	# Le chemin de Passelourdin : de la place, entre la mairie et l'église, jusqu'aux rochers.
 	var route: Array = [Vector2(village.CHEMIN.LANE_X, -3.5)] + village.CHEMIN.PATH + [Vector2(0.0, -64.0), Vector2(-0.5, -65.5), Vector2(-0.5, -67.0)]
 	blocked = []
@@ -75,7 +82,10 @@ func _init() -> void:
 	check(village._property_signs["maison_place"].visible, "le panneau Propriété paraît sur la maison de maître")
 	# La cabane de vigne : la première fois qu'on pousse la porte, on repart avec l'affiche.
 	biens.trouvailles.erase(village.CHEMIN.TROUVAILLE)
+	var found := []
+	village.cache_found.connect(func(id): found.append(id))
 	village._chemin.fouiller()
+	check(found == ["cabane_vigne"], "la cabane de vigne est signalée au Carnet comme lieu caché trouvé")
 	check(biens.trouvailles.has(village.CHEMIN.TROUVAILLE), "la cabane de vigne donne l'affiche du loto de 1987")
 	village._chemin.fouiller()
 	check(biens.trouvailles.count(village.CHEMIN.TROUVAILLE) == 1, "l'affiche ne se prend qu'une fois")
