@@ -61,6 +61,30 @@ Les points 1 à 4 tiennent en une journée ; le 5 et le 6 sont du réglage lieu 
 - **Dans le navigateur d'un téléphone** : Compatibility comme sur ordinateur, avec moins de mémoire et de puissance, et Safari sur iPhone moins fiable en WebGL 2.
 - **Ce qui manque dans les deux cas** : des commandes tactiles (déplacement, regard, interaction, zoom de la maquette), une interface lisible sur petit écran, et un budget de lampes et d'ombres pour la chaleur et la batterie.
 
+## Signature de l'APK Android
+
+Android n'installe que des APK signés, et n'installe une mise à jour par-dessus que si elle est signée par la même clé. La clé n'est jamais dans le dépôt (il est public) : elle vit dans les secrets du dépôt, que seuls ses administrateurs voient et que GitHub ne passe jamais aux PR venues d'un fork.
+
+- **Sur main** (le `Smarves.apk` de la Release « derniere-version ») : signé par la clé de version, lue dans les secrets `SMARVES_ANDROID_KEYSTORE` (le fichier de clés en base64) et `SMARVES_ANDROID_PASSWORD` (son mot de passe), alias `smarves`. Tant que ces secrets n'existent pas, main signe avec la clé provisoire gardée dans le cache des Actions depuis le 17 octobre 2026 (stable d'un build à l'autre, mais un cache s'efface après sept jours sans build et reste lisible par un workflow modifié dans une PR : elle ne doit plus servir une fois les secrets en place).
+- **Sur les PR** : une clé jetable fabriquée dans le job. Cet APK sert à essayer ; il ne s'installe pas par-dessus celui de la Release (il faut désinstaller d'abord).
+
+**Créer la clé de version, une seule fois** (Guillaume, sur son PC) :
+
+1. Il faut `keytool`, livré avec Java : par exemple celui d'Android Studio (`C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe`) ou d'un JDK Temurin.
+2. Dans PowerShell, dans un dossier qui ne sera jamais versionné :
+   ```powershell
+   keytool -genkeypair -keystore smarves-release.keystore -storetype PKCS12 -alias smarves -keyalg RSA -keysize 4096 -validity 10000 -dname "CN=Smarves, O=Smarves, L=Smarves, C=FR"
+   [Convert]::ToBase64String([IO.File]::ReadAllBytes("smarves-release.keystore")) | Set-Clipboard
+   ```
+   `keytool` demande un mot de passe (le même sert pour la clé). La seconde ligne copie le fichier en base64.
+3. Sur GitHub, dépôt smarves, Settings, Secrets and variables, Actions, New repository secret : `SMARVES_ANDROID_KEYSTORE` = le contenu copié, puis `SMARVES_ANDROID_PASSWORD` = le mot de passe.
+4. Garder `smarves-release.keystore` et son mot de passe en lieu sûr (gestionnaire de mots de passe, sauvegarde hors du PC). Perdue, la clé ne se recrée pas : chaque joueur devrait désinstaller pour passer à une nouvelle.
+5. Supprimer l'ancienne clé provisoire : Actions, Caches, entrée `smarves-android-keystore-v1`.
+
+Au premier APK signé par la clé de version, il faut désinstaller une fois l'APK installé avant (signé par la clé provisoire) ; les suivants s'installent par-dessus.
+
+**Google Play** : pour une publication sur le Play Store, cette même clé servira de clé d'envoi (« upload key ») ; Google signe ensuite l'application avec sa propre clé (Play App Signing), et une clé d'envoi perdue peut y être réinitialisée par le support. Il faudra alors exporter un AAB (`gradle_build/export_format`) plutôt qu'un APK. Tant que le jeu n'est pas sur le Play Store, Android affiche l'avertissement « source inconnue » à l'installation, quelle que soit la clé.
+
 ## Ce qu'il aurait fallu décider au départ
 
 - Choisir le rendu cible dès le premier jour : Compatibility si le web compte, Mobile si ce sont les applications. La direction artistique se règle alors sur ce rendu au lieu d'être rattrapée.

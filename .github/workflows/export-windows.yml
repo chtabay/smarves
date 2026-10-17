@@ -97,20 +97,45 @@ jobs:
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "build-tools;35.0.1" "platforms;android-35" > /dev/null
 
-      # La clé de signature n'est jamais dans le dépôt : elle est fabriquée dans le job
-      # et gardée en cache, pour que chaque APK de main s'installe par-dessus le précédent.
-      - name: Retrouver la clé de signature
+      # La clé de signature n'est jamais dans le dépôt. Sur main, l'APK publié est signé par la clé de
+      # version rangée dans les secrets du dépôt (SMARVES_ANDROID_KEYSTORE en base64 et
+      # SMARVES_ANDROID_PASSWORD, alias « smarves ») : voir docs/WEB-MOBILE.md, « Signature ».
+      # Tant que ces secrets manquent, main garde la clé provisoire mise en cache. Les PR signent
+      # toujours avec une clé jetable fabriquée dans le job : leur APK ne sert qu'à essayer.
+      - name: Retrouver la clé provisoire
         id: cle
+        if: github.event_name == 'push'
         uses: actions/cache@v4
         with:
           path: ~/smarves-android.keystore
           key: smarves-android-keystore-v1
 
-      - name: Fabriquer la clé de signature
-        if: steps.cle.outputs.cache-hit != 'true'
+      - name: Préparer la clé de signature
+        env:
+          KEYSTORE_B64: ${{ secrets.SMARVES_ANDROID_KEYSTORE }}
+          KEYSTORE_PASSWORD: ${{ secrets.SMARVES_ANDROID_PASSWORD }}
+          CACHE_HIT: ${{ steps.cle.outputs.cache-hit }}
         run: |
-          keytool -genkeypair -keystore ~/smarves-android.keystore -storepass smarves -keypass smarves \
-            -alias smarves -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Smarves, O=Smarves, C=FR"
+          if [ "$GITHUB_EVENT_NAME" = "push" ] && [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$HOME/smarves-release.keystore"
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_PATH=$HOME/smarves-release.keystore" >> "$GITHUB_ENV"
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+            echo "Signé par la clé de version (secrets du dépôt)." >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            if [ "$CACHE_HIT" != "true" ]; then
+              keytool -genkeypair -keystore ~/smarves-android.keystore -storepass smarves -keypass smarves \
+                -alias smarves -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Smarves, O=Smarves, C=FR"
+            fi
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_PATH=$HOME/smarves-android.keystore" >> "$GITHUB_ENV"
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=smarves" >> "$GITHUB_ENV"
+            echo "::warning::Secrets SMARVES_ANDROID_KEYSTORE et SMARVES_ANDROID_PASSWORD absents : APK signé par la clé provisoire."
+          else
+            keytool -genkeypair -keystore ~/smarves-jetable.keystore -storepass smarves -keypass smarves \
+              -alias smarves -keyalg RSA -keysize 2048 -validity 30 -dname "CN=Smarves essai, O=Smarves, C=FR"
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_PATH=$HOME/smarves-jetable.keystore" >> "$GITHUB_ENV"
+            echo "GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=smarves" >> "$GITHUB_ENV"
+            echo "APK d'essai signé par une clé jetable : il ne s'installe pas par-dessus celui de la Release." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Importer les ressources
         run: ./godot --headless --path . --import || true
@@ -118,9 +143,7 @@ jobs:
       - name: Exporter l'APK
         env:
           GODOT_ANDROID_KEYSTORE_RELEASE_USER: smarves
-          GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: smarves
         run: |
-          export GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$HOME/smarves-android.keystore"
           mkdir -p build
           ./godot --headless --path . --export-release "Android" build/Smarves.apk
           test -f build/Smarves.apk
