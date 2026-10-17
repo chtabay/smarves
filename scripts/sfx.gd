@@ -57,7 +57,7 @@ func _ready() -> void:
 	_gen.buffer_length = 0.25
 	_gen_player = AudioStreamPlayer.new()
 	_gen_player.stream = _gen
-	_gen_player.volume_db = -8.0
+	_gen_player.volume_db = 0.0
 	_gen_player.bus = "Ambiance"
 	add_child(_gen_player)
 
@@ -69,7 +69,7 @@ func play(group: String, volume_db := 0.0, pitch := 1.0) -> void:
 	for p in _players:
 		if not p.playing:
 			p.stream = list.pick_random()
-			p.volume_db = volume_db
+			p.volume_db = volume_db + 6.0
 			p.pitch_scale = pitch * randf_range(0.96, 1.04)
 			p.play()
 			return
@@ -120,7 +120,7 @@ func _sample() -> float:
 		var gate := 1.0 if fmod(_t * 7.3, 1.0) < 0.35 and sin(_t * 0.9) > -0.2 else 0.0
 		_chirp = lerpf(_chirp, gate, 0.002)
 		var cricket := sin(_t * TAU * 4200.0) * _chirp * 0.05
-		return murmur * 0.35 + cricket
+		return murmur * 1.2 + cricket * 2.0
 	# Au casino : le murmure de la salle et un piano-bar de quatre accords, très bas.
 	var bar := int(_t / 4.0) % CHORDS.size()
 	var local := fmod(_t, 4.0)
@@ -130,4 +130,4 @@ func _sample() -> float:
 		var f := 440.0 * pow(2.0, (n - 69) / 12.0)
 		pad += sin(_t * TAU * f) * 0.5 + sin(_t * TAU * f * 2.0) * 0.12
 	var bass := sin(_t * TAU * 440.0 * pow(2.0, (CHORDS[bar][0] - 12 - 69) / 12.0)) * 0.6
-	return murmur * 0.6 + (pad * 0.035 + bass * 0.05) * env
+	return murmur * 1.4 + (pad * 0.09 + bass * 0.12) * env
