@@ -69,7 +69,7 @@ func play(group: String, volume_db := 0.0, pitch := 1.0) -> void:
 	for p in _players:
 		if not p.playing:
 			p.stream = list.pick_random()
-			p.volume_db = volume_db + 6.0
+			p.volume_db = volume_db + 3.0
 			p.pitch_scale = pitch * randf_range(0.96, 1.04)
 			p.play()
 			return
@@ -87,47 +87,69 @@ func result(bet: int, payout: int) -> void:
 		play("chips_win", -6.0)
 
 
+## Les ambiances sont calculées une fois, en boucles de seize secondes : plus de crépitements ni de bips.
+## Village : un murmure lointain et le vent. Casino : la rumeur de la salle et un piano-bar très bas.
 func set_ambience(kind: String) -> void:
+	if kind == ambience and _gen_player.playing:
+		return
 	ambience = kind
-	if not _gen_player.playing:
-		_gen_player.play()
-		_playback = _gen_player.get_stream_playback()
+	if not _loops.has(kind):
+		_loops[kind] = _render_loop(kind)
+	_gen_player.stream = _loops[kind]
+	_gen_player.play()
+
+
+var _loops := {}
+
+
+func _render_loop(kind: String) -> AudioStreamWAV:
+	var seconds := 16.0
+	var n := int(RATE * seconds)
+	var data := PackedByteArray()
+	data.resize(n * 4)
+	var lp1 := 0.0
+	var lp2 := 0.0
+	var lp3 := 0.0
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7
+	for i in n:
+		var t := i / RATE
+		var white := rng.randf() * 2.0 - 1.0
+		lp1 += (white - lp1) * 0.03
+		lp2 += (lp1 - lp2) * 0.06
+		lp3 += (white - lp3) * 0.004
+		# Fondu aux deux bouts pour une boucle sans couture.
+		var edge := minf(1.0, minf(t, seconds - t) / 0.5)
+		var swell := 0.6 + 0.4 * sin(TAU * t / seconds) * sin(TAU * 3.0 * t / seconds)
+		var v := 0.0
+		if kind == "village":
+			v = lp2 * 1.6 * swell + lp3 * 3.0
+		else:
+			var bar := int(t / 4.0) % CHORDS.size()
+			var local := fmod(t, 4.0)
+			var env := minf(local * 3.0, 1.0) * exp(-local * 0.6)
+			var pad := 0.0
+			for note in CHORDS[bar]:
+				var f := 440.0 * pow(2.0, (note - 69) / 12.0)
+				pad += sin(TAU * f * t) * 0.5 + sin(TAU * f * 2.0 * t) * 0.1
+			var bass := sin(TAU * 440.0 * pow(2.0, (CHORDS[bar][0] - 12 - 69) / 12.0) * t) * 0.6
+			v = lp2 * 1.8 * swell + (pad * 0.07 + bass * 0.09) * env
+		var sample := int(clampf(v * edge, -1.0, 1.0) * 32000.0)
+		data.encode_s16(i * 4, sample)
+		data.encode_s16(i * 4 + 2, sample)
+	var w := AudioStreamWAV.new()
+	w.format = AudioStreamWAV.FORMAT_16_BITS
+	w.mix_rate = int(RATE)
+	w.stereo = true
+	w.data = data
+	w.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	w.loop_end = n
+	return w
 
 
 func _process(delta: float) -> void:
-	if ambience == "" or _playback == null:
-		return
 	if ambience == "casino":
 		_clink_timer -= delta
 		if _clink_timer <= 0.0:
 			_clink_timer = randf_range(1.5, 5.0)
 			play(["chips", "card", "chips_win", "dice"].pick_random(), randf_range(-30.0, -22.0))
-	var frames := _playback.get_frames_available()
-	for i in frames:
-		_playback.push_frame(Vector2.ONE * _sample())
-
-
-func _sample() -> float:
-	_t += 1.0 / RATE
-	# Un murmure : du bruit très filtré, qui enfle et retombe doucement.
-	var white := randf() * 2.0 - 1.0
-	_noise += (white - _noise) * 0.02
-	_noise2 += (_noise - _noise2) * 0.05
-	var swell := 0.55 + 0.45 * sin(_t * 0.37) * sin(_t * 0.11)
-	var murmur := _noise2 * 2.2 * swell
-	if ambience == "village":
-		# Des grillons : des salves brèves et aiguës, irrégulières.
-		var gate := 1.0 if fmod(_t * 7.3, 1.0) < 0.35 and sin(_t * 0.9) > -0.2 else 0.0
-		_chirp = lerpf(_chirp, gate, 0.002)
-		var cricket := sin(_t * TAU * 4200.0) * _chirp * 0.05
-		return murmur * 1.2 + cricket * 2.0
-	# Au casino : le murmure de la salle et un piano-bar de quatre accords, très bas.
-	var bar := int(_t / 4.0) % CHORDS.size()
-	var local := fmod(_t, 4.0)
-	var env := minf(local * 2.0, 1.0) * exp(-local * 0.5)
-	var pad := 0.0
-	for n in CHORDS[bar]:
-		var f := 440.0 * pow(2.0, (n - 69) / 12.0)
-		pad += sin(_t * TAU * f) * 0.5 + sin(_t * TAU * f * 2.0) * 0.12
-	var bass := sin(_t * TAU * 440.0 * pow(2.0, (CHORDS[bar][0] - 12 - 69) / 12.0)) * 0.6
-	return murmur * 1.4 + (pad * 0.09 + bass * 0.12) * env
