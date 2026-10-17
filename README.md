@@ -18,8 +18,8 @@ godot --path .
 
 ## Commandes
 
-- **Au village** : clic gauche sur un lieu ouvert pour y jouer, clic droit maintenu pour tourner la maquette, molette pour zoomer. Les panneaux en bois mènent aux environs (bois de Saint-Pierre, Moulin des Dames, Passelourdin). La liste « Le village », en haut à droite, est cliquable.
-- **Au casino** : ZQSD (ou WASD) pour marcher, souris pour regarder, **E** ou clic pour s'asseoir à une table, **Échap** pour quitter une table ou libérer la souris.
+- **Au village** : on dirige un habitant, un petit renard en costume, sur la maquette vue de dessus. ZQSD (ou WASD) pour marcher, **Maj** pour courir, **E** pour entrer, jouer ou parler, clic droit maintenu pour tourner la vue, molette pour zoomer, **Tab** pour passer à la vue à pied (première personne) et revenir. Les panneaux en bois mènent aux environs (bois de Saint-Pierre, Moulin des Dames, Passelourdin). La liste « Le village », en haut à droite, est cliquable.
+- **Au casino** : ZQSD (ou WASD) pour marcher, souris pour regarder, **E** ou clic pour s'asseoir à une table, **Échap** pour quitter une table ou ouvrir les réglages.
 
 ## Ce qu'on trouve
 

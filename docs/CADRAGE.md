@@ -22,8 +22,10 @@ Les lieux réels qu'on reprend :
 - **l'église Saint-Félix-de-Nole**, sur la place de l'Église ;
 - **la salle polyvalente François-Rabelais**, au-dessus de l'église ;
 - **le bois de Saint-Pierre**, l'allée du château et ses trois zèbres en béton peint (1983) ;
-- **le Clain** et le Moulin des Dames ;
-- **les rochers de Passelourdin**.
+- **le Clain**, où l'on pose le Moulin des Dames (inventé) ;
+- **les rochers de Passelourdin**, au-dessus du Miosson.
+
+La géographie complète, les lieux, les personnages, le ton et le vocabulaire sont dans la bible du monde, [`BIBLE.md`](BIBLE.md).
 
 ## Où l'on joue
 
@@ -31,7 +33,7 @@ Chaque lieu du village cache un jeu du casino, déguisé en coutume locale.
 
 | Lieu | Jeu | Ouverture |
 |---|---|---|
-| Le Café de la Place | machines à sous au fond de la salle, 421 au comptoir | dès le départ |
+| Le Café de la Place | la Smarvoise et les machines à sous sous la façade (le 421 de Dédé au comptoir est un décor) | dès le départ |
 | La place de la Mairie | paris sur la partie de pétanque (craps aux boules) | premier seuil |
 | La boulangerie | la roulette du comptoir, entre deux baguettes | |
 | La salle François-Rabelais | le grand loto du samedi soir | |
@@ -39,6 +41,8 @@ Chaque lieu du village cache un jeu du casino, déguisé en coutume locale.
 | L'allée du château | la course des trois zèbres, paris façon PMU | |
 | Le Moulin des Dames | blackjack dans l'arrière-salle | |
 | Les rochers de Passelourdin | la partie de poker clandestine | dernier seuil |
+
+Le Casino de Smarves, ouvert dès le départ sur la place, a ses propres salles et ses propres seuils, entrelacés avec ceux du village (voir la bible, section 6).
 
 ## Boucle de jeu
 
@@ -52,20 +56,23 @@ Comme dans Addict, rien ne s'ouvre avec l'argent qu'on a, seulement avec ce qu'o
 ## Les habitants (premiers rôles)
 
 - **Josiane**, qui tient le Café de la Place et sa machine à sous « La Smarvoise » ;
-- **Dédé**, accoudé au comptoir, imbattable au 421 ;
+- **Dédé**, accoudé au comptoir, qui perd au 421 avec méthode ;
 - **Lucien**, le bouliste qui prend les paris sur la place ;
-- **Mme Ferrand**, la boulangère et sa roulette.
+- **Mme Ferrand**, la boulangère et sa roulette ;
+- **M. Brunet**, le conseiller du Crédit Smarvois.
+
+La distribution complète (village et casino), avec la voix et les liens de chacun, est dans la bible.
 
 ## Vue et contrôles
 
-- Le village est une maquette en 3D vue de haut et de biais, comme un diorama. Clic droit pour tourner, molette pour zoomer.
-- On clique sur un lieu ouvert pour s'en approcher et y jouer : la caméra plonge vers la table et le jeu s'ouvre à l'écran.
-- On ne marche pas dans le village : on le regarde vivre.
+- Le village est une maquette en 3D posée sur des socles, vue de dessus comme un diorama. On y dirige un habitant, un petit renard en costume (ZQSD, Maj pour courir) ; clic droit pour tourner, molette pour zoomer, Tab pour passer à la vue à pied.
+- On s'approche d'un lieu ouvert et on appuie sur E pour y jouer : la caméra plonge vers la table et le jeu s'ouvre à l'écran.
+- Dans le casino, on marche à la première personne.
 
 ## Direction artistique
 
 - **Une maquette de jouets** : le village est posé sur un socle de bois, avec un fort effet miniature (flou de bascule, ou tilt-shift) qui fait « petit », et des couleurs vives de jouet.
-- **Mignon** : personnages trapus et souriants, maisons aux formes arrondies (packs KayKit et Kenney Mini, CC0), le tout réuni par une palette commune.
+- **Mignon** : les habitants sont de petits animaux à grosse tête ronde, façon Happy Tree Friends ; maisons aux formes arrondies (packs KayKit et Kenney, CC0), le tout réuni par une palette commune. L'intérieur du casino reste classieux.
 - **Le jeu partout** : enseignes lumineuses (« JACKPOT », « TIERCÉ », « LOTO »), machines à sous dans les vitrines, roue de la fortune sur la place, fanions en cartes à jouer, gros dés, tableaux de cotes à la craie.
 - **Le crépuscule** : ciel bleu nuit, vitrines qui débordent de lumière chaude, guirlandes d'ampoules, rues mouillées qui reflètent les néons.
 - **La lumière fait le travail** : rendu Forward+, éclairage global, halos lumineux.
