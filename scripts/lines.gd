@@ -19,9 +19,9 @@ const SPEAKERS := {
 	]},
 	"lucien": {"name": "Lucien", "lines": [
 		"Je ne parie pas, j'analyse. Le parieur, c'est celui qui perd.",
-		"Les Rabelais à 3 contre 1, c'est cadeau. Statistiquement.",
+		"Les paris sur la pétanque, c'est fini. Maintenant je joue au café : c'est chauffé.",
 		"La pétanque, c'est comme la Bourse, avec du gravier.",
-		"Au bois de Saint-Pierre, les zèbres courent. Si si. Demandez au gardien.",
+		"Au bois de Saint-Pierre, il y a trois zèbres en béton. Demandez au gardien, il les a vus bouger.",
 	]},
 	"brunet": {"name": "M. Brunet", "lines": [
 		"Un projet de vie, ça se finance. Le jeu est un projet de vie.",
@@ -32,7 +32,7 @@ const SPEAKERS := {
 	]},
 	"ferrand": {"name": "Mme Ferrand", "lines": [
 		"Une baguette, un ticket. On ne sait jamais.",
-		"Ma roulette du comptoir, c'est pour rendre la monnaie plus intéressante.",
+		"Ma roulette ? Rangée. Le pain se suffit à lui-même, ou presque.",
 		"Le pain, ça nourrit le corps. Le loto, ça nourrit l'espoir.",
 	]},
 	"gardien": {"name": "le gardien du bois", "lines": [
@@ -43,7 +43,7 @@ const SPEAKERS := {
 	"meunier": {"name": "le meunier", "lines": [
 		"Le moulin tourne avec l'eau, et l'arrière-salle avec les cartes.",
 		"Un as et une figure, c'est comme la farine : ça se transforme en or.",
-		"Paraît qu'aux rochers de Passelourdin, il y a une partie où on ne demande pas les noms.",
+		"L'arrière-salle est derrière la meule. On y entre par la porte, comme tout le monde.",
 	]},
 	"inconnu": {"name": "l'Inconnu", "lines": [
 		"Ici, on ne joue pas pour l'argent. On joue pour beaucoup d'argent.",
@@ -75,27 +75,21 @@ const SPEAKERS := {
 		"Un jeton, c'est de l'argent qui a pris confiance en lui.",
 	]},
 	"habitant": {"name": "un habitant", "lines": [
-		"J'ai tout placé sur la roue de la kermesse. Mes enfants comprendront plus tard.",
+		"J'ai tout placé sur la Smarvoise. Mes enfants comprendront plus tard.",
 		"À Smarves, on ne dit pas « perdre », on dit « avoir de l'expérience ».",
 		"Le loto de samedi ? J'y vais pour l'ambiance. Et pour le gros lot.",
 		"Mon voisin a gagné une fois. Depuis, il ne parle que de ça. Et il joue tous les jours.",
 		"M. Brunet m'a dit que j'avais un profil d'investisseur. Ça m'a touché.",
-		"La boulangère fait tourner sa roulette avec la monnaie. C'est pratique, il n'y a plus de monnaie.",
 		"Paraît que le casino a un salon où on joue au Banco sans commission. Pour les initiés.",
 		"Quand on perd, c'est que la chance accumule. C'est de la physique.",
-		"J'ai revendu ma tondeuse pour jouer aux zèbres. L'herbe repoussera.",
+		"J'ai revendu ma tondeuse pour trois cartons de loto. L'herbe repoussera.",
 	]},
 }
 
 ## Rumeurs : une phrase qui donne envie d'aller voir un lieu.
 const RUMORS := {
-	"petanque": "Lucien prend les paris sur la pétanque. Il paraît que les cotes sont honnêtes.",
-	"boulangerie": "Mme Ferrand a installé une roulette sur son comptoir. On y gagne parfois son pain.",
 	"rabelais": "Samedi, grand loto à la salle Rabelais. M. Gaudin, le président du comité des fêtes, promet un carton historique.",
-	"eglise": "La roue de la kermesse tourne sur le parvis. Saint Félix veille, paraît-il.",
-	"zebres": "Au bois de Saint-Pierre, on parie sur les trois zèbres. Zébulon est en forme.",
 	"moulin": "Le meunier tient un blackjack dans l'arrière-salle du Moulin des Dames.",
-	"passelourdin": "Aux rochers de Passelourdin, une partie de poker sans nom ni limite. Pour les grands investisseurs.",
 	"casino": "Le casino a ouvert de nouveaux salons à l'étage. Il faut avoir fait ses preuves.",
 }
 

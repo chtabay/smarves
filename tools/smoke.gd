@@ -132,29 +132,49 @@ func _play(p: Node) -> void:
 func _village() -> void:
 	var main := get_tree().current_scene
 	await _fps("Village, vue d'ensemble")
-	var center: Node = main._slot.get_parent()
 	for place in main.PLACES:
 		var id: String = place.id
 		if id == "casino":
 			continue
-		var before := center.get_child_count()
-		main._list_enter(id)
-		await _wait(1.2)
-		var panel: Node = null
-		if id == "cafe":
-			panel = main._slot
-		elif center.get_child_count() > before:
-			panel = center.get_child(center.get_child_count() - 1)
-		if panel == null:
-			report.append("ÉCHEC village : aucun panneau pour %s" % id)
-			continue
-		await _play(panel)
-		if id == "cafe":
-			main._leave_slot()
-		else:
+		var scene := Commune.smarves().interieur(id)
+		if scene == "":
+			# Le prêt de M. Brunet s'ouvre sur la place.
+			var before: int = main._panels.get_child_count()
+			main._list_enter(id)
+			await _wait(1.2)
+			if main._panels.get_child_count() <= before:
+				report.append("ÉCHEC village : aucun panneau pour %s" % id)
+				continue
+			var panel: Node = main._panels.get_child(main._panels.get_child_count() - 1)
+			await _play(panel)
 			panel.closed.emit()
+			await _wait(0.6)
+			report.append("ok village : %s" % place.name)
+			continue
+		# Les jeux du village se jouent dans leur salle : on entre, on joue, on ressort.
+		main._list_enter(id)
+		await _wait(3.0)
+		var salle := get_tree().current_scene
+		if salle.scene_file_path != scene:
+			report.append("ÉCHEC village : on n'entre pas dans la salle de %s" % id)
+			get_tree().change_scene_to_file("res://scenes/main.tscn")
+			await _wait(3.0)
+			main = get_tree().current_scene
+			continue
+		await _fps(place.name)
+		salle.open_game()
 		await _wait(0.6)
-		report.append("ok village : %s" % place.name)
+		await _play(salle._game)
+		salle._game.closed.emit()
+		await _wait(0.4)
+		for a in salle.find_children("*", "Area3D", true, false):
+			if a.get_meta("interact", "") == "exit":
+				salle._on_interact(a)
+				break
+		await _wait(3.0)
+		main = get_tree().current_scene
+		var back: bool = main.scene_file_path == "res://scenes/main.tscn" and main.player.global_position.distance_to(main.get_node("Village").door_spawn(id)[0]) < 0.5
+		report.append(("ok " if back else "ÉCHEC ") + "village : %s, et l'on ressort devant sa porte" % place.name)
 	for a in ["bois", "moulin", "passelourdin"]:
 		main.travel(a)
 		await _wait(1.5)

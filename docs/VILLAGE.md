@@ -41,6 +41,9 @@ Chaque devanture du village est un emplacement nommé, dans `village.gd` (`NORTH
 | `maison_place` | la maison de maître, la maison verte au fond de la place | place | `Biens.door_of` |
 | `maison_eglise` | la maison de la rue de l'Église, toit d'ardoise, volets bleus | chemin de Passelourdin, côté ouest | `Biens.door_of` |
 | `lot_bois` | local réservé, « Prochainement », juste après le rond-point | route du Bois, côté sud | libre |
+| `cafe` | le Café de la Place : le zinc et Josiane, les quatre Smarvoise sous le néon JACKPOT, le 421 du comptoir, les guéridons et le juke-box | place, façade ouest | `scenes/cafe.tscn` |
+| `rabelais` | la salle François-Rabelais : la scène, M. Gaudin au micro, le boulier et le tableau des numéros, les tables à tréteaux | place, côté ouest, au bord de la rue du Clain | `scenes/rabelais.tscn` |
+| `moulin` | l'arrière-salle du Moulin des Dames : sacs de farine, le feutre vert sous la lampe, le meunier qui donne | socle du moulin, sur la berge nord | `scenes/moulin.tscn` |
 
 **Entrer chez un vendeur.** La porte appelle `get_tree().change_scene_to_file(Biens.SELLERS[id].scene)` ; tant que la scène n'existe pas, une annonce dit que le lieu ouvre bientôt. **En sortir** : la scène met `Game.return_point` à l'id de la porte (`notaire`, `couture`, `garage`) et la scène principale replace l'habitant sur le trottoir, face à la rue (`Village.door_spawn`).
 
@@ -49,6 +52,8 @@ Chaque devanture du village est un emplacement nommé, dans `village.gd` (`NORTH
 **Brancher une action sur une porte.** Toute `Area3D` qui porte la métadonnée `action` (un `Callable`) est appelée quand on appuie sur E devant elle, ou quand on clique dessus en vue maquette. C'est ainsi que marchent les portes des vendeurs et la tournée générale.
 
 **La tournée générale.** En terrasse du Café de la Place, entre les deux tables : « E : offrir une tournée générale (prix) », qui appelle `Biens.offer_tournee()`.
+
+**Les salles de jeu.** Depuis le 17 octobre, on ne joue plus dehors : chaque jeu du village se joue dans sa salle (décision de Guillaume). Le café, la salle Rabelais et le Moulin ont la leur (`scripts/village/salle.gd`, qui reprend la pièce des vendeurs) ; on y entre par le bâtiment (E, ou un clic en vue maquette), on s'approche de la machine ou de la table, et E ouvre le jeu. La scène vient du manifeste (`interieurs` de `communes/smarves/commune.json`, même id que le lieu) ; à la sortie, `Game.return_point` ramène devant la porte (`Village.SALLES`). La pétanque, la roulette de la boulangerie, la roue du parvis, la course des zèbres et la partie des rochers ont disparu : la place, le parvis, l'allée du bois et les rochers sont libres. Un lieu de jeu sans salle reste fermé (« pas encore installé »).
 
 **Demander une place.** Un nouveau lieu dans la rue passe par ce chantier : on ajoute une entrée à l'une des rangées (ou on prend un local réservé), avec son id, son enseigne, et son invite dans `PROMPTS`. Rien d'autre n'est à toucher dans la scène principale.
 
