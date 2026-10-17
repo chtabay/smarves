@@ -150,7 +150,7 @@ La Salle des fêtes est la seule pièce qui s'ouvre sur le total **misé**, comm
 
 ## 7. Les personnages
 
-Les personnages sont des adultes, décrits ici par leur âge, leur allure, leur tenue et leur accessoire, c'est-à-dire ce qu'on doit reconnaître d'un coup d'œil, de dessus comme à hauteur d'yeux. Le style est la **ligne claire** : proportions d'adulte, yeux en point, aplats de couleur, contour noir. Le dessin et les animations sont dans [`PERSONNAGES.md`](PERSONNAGES.md). Les figurants sont des gens du coin de tous les âges adultes, en tenue de samedi soir.
+Les personnages sont des adultes, décrits ici par leur âge, leur allure, leur tenue et leur accessoire, c'est-à-dire ce qu'on doit reconnaître d'un coup d'œil, de dessus comme à hauteur d'yeux. Le style est la **ligne claire** : proportions d'adulte, yeux en point, aplats de couleur, contour noir. Le dessin et les animations sont dans [`PERSONNAGES.md`](PERSONNAGES.md) ; quand une fiche et un modèle divergent, la fiche est la cible, sauf pour les détails trop fins pour la ligne claire à cette taille, qu'on retire de la fiche. Les figurants sont des gens du coin de tous les âges adultes, en tenue de samedi soir.
 
 ### Le joueur
 
@@ -158,19 +158,19 @@ Les personnages sont des adultes, décrits ici par leur âge, leur allure, leur 
 
 ### Au village
 
-**Josiane** (la cinquantaine, permanente blonde, tablier sur une robe à fleurs, collier de fausses perles) — patronne du Café de la Place et de sa machine, la Smarvoise. *Voix* : chaleureuse, formules de comptoir, philosophie de patronne. *Obsession* : la Smarvoise, qu'elle considère comme un livret A avec des lumières. *Liens* : elle accueille le nouveau venu, lui avance deux fois 200 crédits, l'envoie chez M. Brunet « un homme charmant ». Son mari jouait la Smarvoise tous les soirs ; il dit qu'il était à deux doigts. On ne le voit pas.
+**Josiane** (la cinquantaine, permanente blonde, tablier sur une robe rose, collier de fausses perles) — patronne du Café de la Place et de sa machine, la Smarvoise. *Voix* : chaleureuse, formules de comptoir, philosophie de patronne. *Obsession* : la Smarvoise, qu'elle considère comme un livret A avec des lumières. *Liens* : elle accueille le nouveau venu, lui avance deux fois 200 crédits, l'envoie chez M. Brunet « un homme charmant ». Son mari jouait la Smarvoise tous les soirs ; il dit qu'il était à deux doigts. On ne le voit pas.
 > « Ce n'est pas perdu, c'est en circulation. »
 
 **Dédé** (la soixantaine, moustache, casquette, blouson en skaï) — l'habitué accoudé au comptoir, joueur de 421 et équipier de Lucien à la pétanque. *Voix* : tutoie, phrases à rallonge qui finissent en « je dis ça, je dis rien ». *Obsession* : la dernière formule du 421, qu'il n'a pas encore trouvée. *Liens* : a perdu sa voiture au 421 ; sa femme trouve qu'il joue trop, il lui a expliqué que c'était de l'épargne active ; c'est lui qui souffle la rumeur du Moulin.
 > « Un jour je gagne, et ce jour-là tout le monde comprendra. »
 
-**Lucien** (la soixantaine sèche, chapeau de paille, crayon derrière l'oreille) — le bouliste qui prend les paris sur la pétanque. *Voix* : sentencieuse, fausse rigueur, « statistiquement ». *Obsession* : ne pas être un parieur (« je ne parie pas, j'analyse »). *Liens* : fait équipe avec Dédé, affiche ses propres cotes, et c'est lui qui parle le premier des zèbres et du gardien.
+**Lucien** (la soixantaine sèche, chapeau de paille) — le bouliste qui prend les paris sur la pétanque. *Voix* : sentencieuse, fausse rigueur, « statistiquement ». *Obsession* : ne pas être un parieur (« je ne parie pas, j'analyse »). *Liens* : fait équipe avec Dédé, affiche ses propres cotes, et c'est lui qui parle le premier des zèbres et du gardien.
 > « La pétanque, c'est comme la Bourse, avec du gravier. »
 
 **M. Brunet** (la quarantaine lisse, costume trois-pièces gris, cravate, raie sur le côté) — conseiller au Crédit Smarvois, le meilleur ami du joueur. *Voix* : onctueuse, vocabulaire bancaire retourné (« projet », « profil », « liquidités »), jamais un mot plus haut que l'autre. *Obsession* : n'avoir jamais refusé un prêt. *Liens* : tout le village lui doit quelque chose ; il a financé le casino et tient un guichet à sa caisse ; son prédécesseur refusait les prêts pour jouer, « il est parti à Poitiers ». Il se manifeste de lui-même quand les crédits du joueur ont fondu.
 > « La dette, c'est la preuve qu'on vous fait confiance. »
 
-**Mme Ferrand** (la quarantaine, blouse blanche de boulangère, farine aux avant-bras) — la boulangère. *Voix* : pratique, proverbes de boulangerie. *Obsession* : rendre la monnaie plus intéressante. *Liens* : vend les grilles de loto de M. Gaudin avec le pain.
+**Mme Ferrand** (la quarantaine, blouse blanche de boulangère) — la boulangère. *Voix* : pratique, proverbes de boulangerie. *Obsession* : rendre la monnaie plus intéressante. *Liens* : vend les grilles de loto de M. Gaudin avec le pain.
 > « Le pain, ça nourrit le corps. Le loto, ça nourrit l'espoir. »
 
 **M. Gaudin** (la soixantaine ronde, nœud papillon, micro de salle des fêtes à la main) — président du comité des fêtes, tire les boules du grand loto à la salle Rabelais et organise la kermesse du parvis. *Voix* : micro de salle des fêtes, annonces au superlatif. *Obsession* : le carton historique, chaque samedi. *Liens* : capitaine de l'équipe des Rabelais à la pétanque ; cite Rabelais à tout propos.
@@ -196,7 +196,7 @@ Les personnages sont des adultes, décrits ici par leur âge, leur allure, leur 
 **Roger Fradin** (la cinquantaine, bleu de travail, clé plate) — le garage Fradin : Mobylette, 2 CV, DS. *Voix* : de mécanicien, des chiffres de cylindrée. *Liens* : la 2 CV qu'il vend est celle que Dédé a perdue au 421, remise à neuf.
 > « Suspension hydraulique. On ne sent plus les pavés, ni les pertes. »
 
-**Ginette Boutin** (la soixantaine, gilet de laine, lunettes au bout d'une chaîne) — brocante et meubles, rue du Clain, sur le lot que personne ne voulait. *Voix* : de salle des ventes, chaque objet a eu une vie avant vous. *Obsession* : que rien ne reparte vide d'une maison. *Liens* : meuble les logements du nouveau venu, financés par M. Brunet ; reprend à 60 %, comme les autres vendeurs.
+**Ginette Boutin** (la soixantaine, gilet de laine, lunettes en demi-lune) — brocante et meubles, rue du Clain, sur le lot que personne ne voulait. *Voix* : de salle des ventes, chaque objet a eu une vie avant vous. *Obsession* : que rien ne reparte vide d'une maison. *Liens* : meuble les logements du nouveau venu, financés par M. Brunet ; reprend à 60 %, comme les autres vendeurs.
 > « Un buffet Henri II, ça ne perd jamais sa valeur. Vous, je ne sais pas. »
 
 **Le maire** — on ne le voit jamais ; il a coupé le ruban du casino et il est « en réunion », au casino justement.
