@@ -126,4 +126,11 @@ Chaque vendeur a son intérieur, à la première personne, comme le casino : l'�
 
 ## Ce qu'il faut dehors
 
-Les devantures et les entrées appartiennent au fil « Extension du village ». Les intérieurs sont dans `scenes/notaire.tscn`, `scenes/couture.tscn`, `scenes/garage.tscn` ; en attendant leurs portes, le carnet y mène directement. À la sortie, `Game.return_point` vaut `notaire`, `couture` ou `garage`, pour réapparaître devant la bonne porte.
+Les devantures et les entrées appartiennent au fil « Extension du village » (voir `docs/VILLAGE.md`). Les intérieurs sont dans `scenes/notaire.tscn`, `scenes/couture.tscn`, `scenes/garage.tscn` (un seul script, `scripts/shop_interior.gd`) ; on y entre par `Biens.SELLERS[id].scene`. En attendant les portes, le carnet y mène directement. À la sortie, `Game.return_point` vaut `notaire`, `couture` ou `garage`, pour réapparaître devant la bonne porte.
+
+- La tournée générale se déclenche par `Biens.offer_tournee()` (faux si les crédits manquent ; prix : `Biens.tournee_price()`).
+- Le véhicule conduit se pose avec `Biens.build_vehicle(Biens.driven)`, à l'échelle des voitures KayKit de la maquette ; la Mobylette est dessinée dans le code.
+- La tenue portée habille le renard (`Biens.outfit_color()`, dans `main.gd`).
+- Les maisons possédées : `Biens.count("maison")`, `Biens.count("maison_place")`.
+
+Captures : `godot --path . res://scenes/notaire.tscn -- --capture=sortie.png [--open=vitrine] [--carnet] [--biens=smarvoise,dimanche] [--won=9000] [--at=x,z,lacet,tangage]`.

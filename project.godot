@@ -21,6 +21,7 @@ Game="*res://scripts/game_state.gd"
 Sfx="*res://scripts/sfx.gd"
 Settings="*res://scripts/settings.gd"
 Biens="*res://scripts/biens.gd"
+Carnet="*res://scripts/carnet.gd"
 
 [display]
 

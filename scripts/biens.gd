@@ -72,7 +72,7 @@ const CATALOGUE := [
 	# Au garage Fradin : on n'en conduit qu'un à la fois.
 	{"id": "mobylette", "kind": "vehicule", "seller": "garage", "name": "La Mobylette bleue",
 		"price": 500, "growth": 1.0, "max": 1, "rente": 0, "charge": 5, "standing": 1, "gate": 0,
-		"model": "res://assets/kaykit/city/car_hatchback.gltf", "from": "Roger Fradin", "blurb": "« Deux temps, mélange à 5 %. Elle vous emmène au casino sans pédaler. »"},
+		"model": "", "from": "Roger Fradin", "blurb": "« Deux temps, mélange à 5 %. Elle vous emmène au casino sans pédaler. »"},
 	{"id": "deux_cv", "kind": "vehicule", "seller": "garage", "name": "La 2 CV",
 		"price": 2200, "growth": 1.0, "max": 1, "rente": 0, "charge": 20, "standing": 3, "gate": 1000,
 		"model": "res://assets/kaykit/city/car_hatchback.gltf", "from": "Roger Fradin", "blurb": "« La voiture de Dédé. Il l'a perdue au 421, je l'ai remise à neuf. »"},
@@ -208,6 +208,66 @@ func outfit_color(default: Color) -> Color:
 
 func tournee_price() -> int:
 	return TOURNEE_BASE + TOURNEE_PER_STANDING * standing()
+
+
+## Le véhicule, prêt à poser (au garage, ou garé sur la place) : un modèle KayKit, ou la Mobylette,
+## dessinée ici faute de deux-roues dans les packs. Roues au sol, à l'échelle des voitures KayKit (une 2 CV
+## y mesure 0,8 : multiplier par 4,5 pour l'échelle d'un intérieur).
+static func build_vehicle(id: String) -> Node3D:
+	var it := item(id)
+	if it.is_empty():
+		return null
+	if str(it.get("model", "")) != "":
+		return load(it.model).instantiate()
+	var root := Node3D.new()
+	root.name = "Mobylette"
+	var body := Node3D.new()
+	body.scale = Vector3.ONE * 0.24
+	root.add_child(body)
+	var blue := StandardMaterial3D.new()
+	blue.albedo_color = Color(0.2, 0.45, 0.85)
+	blue.metallic = 0.3
+	blue.roughness = 0.35
+	var dark := StandardMaterial3D.new()
+	dark.albedo_color = Color(0.06, 0.06, 0.07)
+	dark.roughness = 0.8
+	var chrome := StandardMaterial3D.new()
+	chrome.albedo_color = Color(0.85, 0.85, 0.88)
+	chrome.metallic = 1.0
+	chrome.roughness = 0.2
+	var seat := StandardMaterial3D.new()
+	seat.albedo_color = Color(0.35, 0.2, 0.12)
+	seat.roughness = 0.6
+	var parts := [
+		# [forme, taille, position, rotation x, matériau]
+		["tore", Vector2(0.17, 0.25), Vector3(0, 0.25, 0.42), 0.0, dark],
+		["tore", Vector2(0.17, 0.25), Vector3(0, 0.25, -0.42), 0.0, dark],
+		["boite", Vector3(0.08, 0.08, 0.7), Vector3(0, 0.42, 0.0), -8.0, blue],
+		["boite", Vector3(0.22, 0.22, 0.3), Vector3(0, 0.36, -0.12), 0.0, blue],
+		["boite", Vector3(0.2, 0.06, 0.34), Vector3(0, 0.62, -0.22), 0.0, seat],
+		["boite", Vector3(0.05, 0.6, 0.05), Vector3(0, 0.52, 0.36), -20.0, chrome],
+		["boite", Vector3(0.5, 0.03, 0.03), Vector3(0, 0.82, 0.3), 0.0, chrome],
+		["boite", Vector3(0.24, 0.05, 0.3), Vector3(0, 0.46, 0.42), 0.0, blue],
+		["boite", Vector3(0.1, 0.1, 0.06), Vector3(0, 0.74, 0.36), 0.0, chrome],
+		["boite", Vector3(0.18, 0.04, 0.26), Vector3(0, 0.48, -0.44), 0.0, blue],
+	]
+	for p in parts:
+		var mi := MeshInstance3D.new()
+		if p[0] == "tore":
+			var t := TorusMesh.new()
+			t.inner_radius = p[1].x
+			t.outer_radius = p[1].y
+			mi.mesh = t
+			mi.rotation_degrees.z = 90.0
+		else:
+			var b := BoxMesh.new()
+			b.size = p[1]
+			mi.mesh = b
+			mi.rotation_degrees.x = p[3]
+		mi.material_override = p[4]
+		mi.position = p[2]
+		body.add_child(mi)
+	return root
 
 
 # --- Acheter, revendre -------------------------------------------------------------------------
