@@ -14,6 +14,8 @@ const CRAPS := preload("res://scripts/craps_panel.gd")
 const WHEEL := preload("res://scripts/wheel_panel.gd")
 const POKER := preload("res://scripts/poker_panel.gd")
 const LOAN := preload("res://scripts/loan_panel.gd")
+const ROULETTE_3D := preload("res://scripts/jeux/roulette_3d.gd")
+const BARRE := preload("res://scripts/jeux/barre.gd")
 ## Niveau du plancher de l'étage.
 const UP := 5.2
 const KC := "res://assets/kenney/characters/"
@@ -514,13 +516,22 @@ var _table: Node3D
 func _open_panel(p: Control) -> void:
 	if _table == null and _last_target != null:
 		_table = _last_target.get_parent() as Node3D
+	var t3d: Node = _table.get_meta("table3d") if _table and _table.has_meta("table3d") else null
 	if _table:
 		_face(_table.global_position)
-		_animate(p, _table)
+		if t3d == null:
+			_animate(p, _table)
 	player.frozen = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_prompt.visible = false
-	_panel_layer.add_child(p)
+	if t3d:
+		# Table 3D : la caméra s'assoit à la table, le panneau devient une barre basse.
+		t3d.attach(p)
+		t3d.sit(player.camera)
+		_seated = t3d
+		BARRE.dock(p, _panel_layer.get_parent())
+	else:
+		_panel_layer.add_child(p)
 	if p.has_signal("played"):
 		p.played.connect(_on_played)
 	p.closed.connect(_close_panel)
@@ -701,7 +712,13 @@ func _roll_dice(table: Node3D, values: Array) -> void:
 		tw.tween_property(die, "rotation", Vector3(0, randf_range(-0.4, 0.4), 0), 0.55).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
 
 
+var _seated: Node
+
+
 func _close_panel() -> void:
+	if _seated:
+		_seated.stand()
+		_seated = null
 	if _active_panel:
 		_active_panel.queue_free()
 		_active_panel = null
@@ -893,6 +910,8 @@ func _build_ui() -> void:
 func _maybe_capture() -> void:
 	var path := ""
 	var open := ""
+	# Plusieurs captures à des instants donnés après le coup : sortie-1.png, sortie-2.png…
+	var shots := [6.0]
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--capture="):
 			path = arg.trim_prefix("--capture=")
@@ -906,6 +925,8 @@ func _maybe_capture() -> void:
 				player.position.y = v[4]
 		elif arg.begins_with("--open="):
 			open = arg.trim_prefix("--open=")
+		elif arg.begins_with("--shots="):
+			shots = Array(arg.trim_prefix("--shots=").split_floats(","))
 		elif arg.begins_with("--won="):
 			Game.won = int(arg.trim_prefix("--won="))
 			Game.staked = Game.won
@@ -933,6 +954,9 @@ func _maybe_capture() -> void:
 			match open:
 				"roulette":
 					pnl._place_bet("red")
+					for k in ["n17", "doz2", "n0", "n17", "col3"]:
+						pnl._place_bet(k)
+						await get_tree().create_timer(0.15).timeout
 					pnl.spin()
 				"blackjack":
 					pnl._start()
@@ -947,9 +971,13 @@ func _maybe_capture() -> void:
 				"baccara":
 					pnl._place("joueur")
 					pnl._deal()
-	await get_tree().create_timer(6.0).timeout
-	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png(path)
+	var elapsed := 0.0
+	for i in shots.size():
+		await get_tree().create_timer(maxf(float(shots[i]) - elapsed, 0.0)).timeout
+		elapsed = float(shots[i])
+		await RenderingServer.frame_post_draw
+		var out := path if shots.size() == 1 else path.get_basename() + "-%d.png" % (i + 1)
+		get_viewport().get_texture().get_image().save_png(out)
 	get_tree().quit()
 
 # =====================================================================================
@@ -2031,46 +2059,16 @@ func _table_base(root: Node3D, size: Vector3, layout: Texture2D = null) -> void:
 func _roulette_table(pos: Vector3) -> void:
 	var root := _node(pos)
 	root.rotation_degrees.y = 90
-	_table_base(root, Vector3(3.4, 0.9, 1.5), _layout_texture("roulette", Vector2i(1024, 448)))
-	var wheel := Node3D.new()
-	wheel.position = Vector3(-1.15, 0.78, 0)
-	root.add_child(wheel)
-	_cyl(0.58, 0.18, Vector3(0, 0.09, 0), dark_wood, wheel, 0.62)
-	_cyl(0.6, 0.02, Vector3(0, 0.185, 0), gold, wheel)
-	var rotor := MeshInstance3D.new()
-	var rc := CylinderMesh.new()
-	rc.top_radius = 0.46
-	rc.bottom_radius = 0.46
-	rc.height = 0.04
-	rc.radial_segments = 74
-	rotor.mesh = rc
-	var rm := _std(Color.WHITE, 0.3)
-	rm.albedo_texture = _roulette_texture()
-	rotor.material_override = rm
-	rotor.position.y = 0.15
-	wheel.add_child(rotor)
-	_cyl(0.16, 0.06, Vector3(0, 0.19, 0), gold, wheel, 0.06)
-	for k in 4:
-		var arm := _box(Vector3(0.3, 0.015, 0.02), Vector3(0, 0.24, 0), gold, false, wheel)
-		arm.rotation.y = k * PI / 4.0
-	var ball := MeshInstance3D.new()
-	var bm := SphereMesh.new()
-	bm.radius = 0.018
-	bm.height = 0.036
-	ball.mesh = bm
-	ball.material_override = _std(Color(0.98, 0.98, 0.96), 0.15)
-	ball.position = Vector3(0.4, 0.19, 0)
-	wheel.add_child(ball)
-	root.set_meta("rotor", rotor)
-	root.set_meta("ball", ball)
-	_cyl(0.02, 0.18, Vector3(0, 0.28, 0), gold, wheel)
+	# La table et son cylindre : voir scripts/jeux/roulette_3d.gd.
+	var t := ROULETTE_3D.new()
+	root.add_child(t)
+	root.set_meta("table3d", t)
+	_solid(Vector3(1.5, 0.9, 3.4), pos + Vector3(0, 0.45, 0))
 	# Chaises côté joueurs, croupier côté cylindre, râteau et jetons.
 	for k in 4:
 		_chair(root, Vector3(-0.2 + k * 0.6, 0, 1.15), 180.0)
-	for k in 5:
-		_chips(root, Vector3(0.3 + k * 0.07, 0.82, -0.6), 8, [Color(0.85, 0.1, 0.1), Color(0.1, 0.25, 0.7), Color(0.1, 0.5, 0.2), Color(0.95, 0.85, 0.3), Color(0.1, 0.1, 0.1)][k])
 	_person("croupier-roulette", pos + Vector3(-1.1, 0, 0.3), 90.0, "idle", "noeud")
-	_person("character-male-f.glb", pos + Vector3(1.3, 0, -0.6), -90.0)
+	_person("character-male-f.glb", pos + Vector3(1.4, 0, -1.6), -90.0)
 	_bill(_label("Roulette", Vector3(0, 2.0, 0), 0.0, 72, Color(1.0, 0.85, 0.5), root))
 	_interactive(root, "roulette", "E : s'asseoir à la roulette", Vector3(3.6, 2.0, 2.8), Vector3(0, 1.0, 0.4))
 

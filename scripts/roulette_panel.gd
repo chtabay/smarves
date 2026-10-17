@@ -6,6 +6,11 @@ signal played(bet: int, payout: int)
 signal closed
 ## Pour animer la roue 3D de la table : le numéro tiré et la durée du lancer.
 signal spin_started(number: int, duration: float)
+## Pour la table 3D : les mises posées (clé -> montant), et le résultat (gain par case gagnante).
+signal bets_changed(bets: Dictionary)
+signal settled(number: int, wins: Dictionary)
+
+const BARRE := preload("res://scripts/jeux/barre.gd")
 
 const RED := [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]
 const WHEEL := [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26]
@@ -25,10 +30,18 @@ var _info: Label
 var _chip_label: Label
 var _spin_button: Button
 var _font: Font
+## Assis à une table 3D : on mise sur le tapis, le panneau devient une barre basse.
+var embedded := false
+var spin_time := 4.0
+var _chip_row: HBoxContainer
+var _total_label: Label
 
 
 func _ready() -> void:
 	_font = get_theme_default_font()
+	if embedded:
+		_build_bar()
+		return
 	custom_minimum_size = Vector2(980, 0)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 8)
@@ -130,6 +143,52 @@ func _ready() -> void:
 	_chip(0)
 
 
+## La barre basse : jetons, mise totale, message du croupier, boutons.
+func _build_bar() -> void:
+	BARRE.style(self)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 4)
+	add_child(v)
+	_info = BARRE.label("Faites vos jeux : cliquez sur le tapis pour miser.", 18, BARRE.CREAM)
+	_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_info.add_theme_font_override("font", _serif())
+	v.add_child(_info)
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 14)
+	h.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_child(h)
+	_chip_row = BARRE.chip_row(CHIPS, chip_index, _pick_chip)
+	h.add_child(_chip_row)
+	_chip_label = BARRE.label("", 15, BARRE.MUTED)
+	_chip_label.custom_minimum_size = Vector2(92, 0)
+	h.add_child(_chip_label)
+	h.add_child(BARRE.separator())
+	_total_label = BARRE.label("Sur le tapis : 0", 16, BARRE.CREAM)
+	_total_label.custom_minimum_size = Vector2(150, 0)
+	h.add_child(_total_label)
+	var clear := BARRE.pill("Retirer")
+	clear.pressed.connect(_clear)
+	h.add_child(clear)
+	_spin_button = BARRE.main_button("  Lancer la bille  (Espace)  ")
+	_spin_button.pressed.connect(spin)
+	h.add_child(_spin_button)
+	var leave := BARRE.pill("Quitter  (Échap)")
+	leave.pressed.connect(func(): closed.emit())
+	h.add_child(leave)
+	_chip(0)
+
+
+func _pick_chip(i: int) -> void:
+	chip_index = i
+	_chip(0)
+
+
+func _serif() -> Font:
+	var f := SystemFont.new()
+	f.font_names = PackedStringArray(["Georgia", "Palatino Linotype", "DejaVu Serif", "serif"])
+	return f
+
+
 func _cell(text: String, key: String, color: Color) -> Button:
 	var b := Button.new()
 	b.text = text
@@ -155,6 +214,8 @@ func _cell(text: String, key: String, color: Color) -> Button:
 func _chip(d: int) -> void:
 	chip_index = clampi(chip_index + d, 0, CHIPS.size() - 1)
 	_chip_label.text = "Jeton : %d" % CHIPS[chip_index]
+	if _chip_row:
+		BARRE.select(_chip_row, chip_index)
 
 
 func _place_bet(key: String) -> void:
@@ -189,6 +250,9 @@ func _total() -> int:
 
 
 func _refresh_cells() -> void:
+	bets_changed.emit(bets.duplicate())
+	if _total_label:
+		_total_label.text = "Sur le tapis : %s" % Game.fmt(_total())
 	for k in _cells:
 		var b: Button = _cells[k]
 		b.text = b.get_meta("label") + ("\n●%d" % bets[k] if bets.has(k) else "")
@@ -199,6 +263,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event is InputEventKey and event.pressed and event.keycode == KEY_SPACE:
 		spin()
+		get_viewport().set_input_as_handled()
+	elif embedded and event is InputEventKey and event.pressed and event.keycode >= KEY_1 and event.keycode < KEY_1 + CHIPS.size():
+		chip_index = event.keycode - KEY_1
+		_chip(0)
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_cancel"):
 		closed.emit()
@@ -214,7 +282,7 @@ func spin() -> void:
 	_spin_button.disabled = true
 	_info.text = "Rien ne va plus."
 	_result_number = randi() % 37
-	spin_started.emit(_result_number, 4.0)
+	spin_started.emit(_result_number, spin_time)
 	var tw := create_tween().set_parallel()
 	var start_w := _wheel_angle
 	var start_b := _ball_angle
@@ -222,14 +290,19 @@ func spin() -> void:
 	var end_w := start_w + TAU * 3.0
 	# La bille finit sur la case tirée, en tournant à contre-sens de la roue.
 	var end_b := end_w + idx * TAU / 37.0 - TAU * 5.0
-	tw.tween_method(func(a): _wheel_angle = a; _wheel.queue_redraw(), start_w, end_w, 4.0).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-	tw.tween_method(func(a): _ball_angle = a; _wheel.queue_redraw(), start_b, end_b, 4.0).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUART)
+	tw.tween_method(_set_wheel_angle, start_w, end_w, spin_time).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_method(_set_ball_angle, start_b, end_b, spin_time).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUART)
 	await tw.finished
 	Sfx.play("dice", -8.0, 1.6)
 	var total := _total()
 	var payout := 0
+	var wins := {}
 	for k in bets:
-		payout += bets[k] * _multiplier(k, _result_number)
+		var w: int = bets[k] * _multiplier(k, _result_number)
+		payout += w
+		if w > 0:
+			wins[k] = w
+	settled.emit(_result_number, wins)
 	bets.clear()
 	_refresh_cells()
 	var col := "vert" if _result_number == 0 else ("rouge" if _result_number in RED else "noir")
@@ -240,6 +313,18 @@ func spin() -> void:
 	played.emit(total, payout)
 	spinning = false
 	_spin_button.disabled = false
+
+
+func _set_wheel_angle(a: float) -> void:
+	_wheel_angle = a
+	if _wheel:
+		_wheel.queue_redraw()
+
+
+func _set_ball_angle(a: float) -> void:
+	_ball_angle = a
+	if _wheel:
+		_wheel.queue_redraw()
 
 
 ## Ce que rend une mise gagnante, mise comprise (0 si perdue).
