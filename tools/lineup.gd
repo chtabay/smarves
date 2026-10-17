@@ -39,7 +39,7 @@ const MOVES := [
 	["lucien", "lucien", "talk", "parle"], ["josiane", "josiane", "wave", "salue"], ["character-male-b.glb", "habitant", "jump", "joie"],
 	["character-female-c.glb", "habitant", "sulk", "dépit"], ["character-male-e.glb", "habitant", "stomp", "dépit, debout"],
 	["teddy", "habitant", "bet", "mise ses jetons"],
-	["croupier-roulette", "croupier", "spin", "lance la bille"], ["croupiere-blackjack", "croupier", "deal", "donne une carte"],
+	["croupier-roulette", "croupier", "spin", "lance la bille"], ["croupiere-blackjack", "croupier", "deal", "donne une carte"], ["croupier-roulette", "croupier", "rake", "ratisse"], ["croupiere-blackjack", "croupier", "pay", "distribue les jetons"],
 	["barman-nocturne", "barman", "bar", "essuie un verre"], ["hotesse-1", "hotesse", "bow", "révérence"],
 	["pianiste", "habitant", "piano", "au piano"], ["chanteuse", "habitant", "sing", "chante"],
 	["caissier", "caissier", "look_watch", "regarde l'heure"], ["gardien-du-bois", "gardien", "scratch", "se gratte la tête"],

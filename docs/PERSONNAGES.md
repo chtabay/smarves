@@ -31,16 +31,16 @@ Des figurines floquées de maquette, façon Happy Tree Friends en plus tendre : 
 | Raymonde Chauvet | souris blanche | robe lavande, mètre ruban au cou, lunettes, fleur |
 | Roger Fradin | ours | bleu de travail, casquette, clé plate |
 
-Le personnel du casino (croupiers en gilet noir et badge, hôtesses en bordeaux et calot, caissier à visière verte, barmans, pianistes) et les figurants sont tirés de `Cast.resolve()` : même nom de modèle et même place donnent toujours le même habitant.
+Les croupiers sont un peu plus menus que les autres (`Villager.CROUPIER_SCALE`, 80 %) pour ne pas boucher la vue du joueur assis. Le personnel du casino (croupiers en gilet noir et badge, hôtesses en bordeaux et calot, caissier à visière verte, barmans, pianistes) et les figurants sont tirés de `Cast.resolve()` : même nom de modèle et même place donnent toujours le même habitant.
 
 ## Animation
 
 Squelette commun de 28 os, une `AnimationTree` partagée (bibliothèque et graphe communs), sans `AnimationPlayer`.
 
 - **Bases** : repos, attentif, debout à table, mains dans le dos, au bar, chante, marche, court, assis, assis à table, au piano. La marche suit la vitesse réelle.
-- **Gestes** (haut du corps, par-dessus la base) : parle, salue, joie, dépit, haussement d'épaules, applaudit, mise, donne une carte, lance la bille, ramasse, acquiesce, révérence, se gratte la tête, regarde l'heure, boit, montre, se prend la tête. **Corps entier** : saute de joie, tape du pied.
+- **Gestes** (haut du corps, par-dessus la base) : parle, salue, joie, dépit, haussement d'épaules, applaudit, mise, donne une carte, lance la bille, ratisse, distribue les jetons, acquiesce, révérence, se gratte la tête, regarde l'heure, boit, montre, se prend la tête. **Corps entier** : saute de joie, tape du pied.
 - **Visage** : clignements, sourire et moue, sourcils (joie, dépit, surprise, attention), bouche qui parle.
-- **Comportements** (`villager.gd`) : tourne la tête vers le joueur qui approche, puis le corps s'il s'attarde ; bavarde avec un voisin ; petites manies ; promenade avec pauses ; suit des yeux sa table (`watch`). Au casino, le croupier lance la bille, donne les cartes et ramasse les dés, et le public proche réagit à chaque coup (`Villager.crowd_react`, `Villager.dealer_gesture`).
+- **Comportements** (`villager.gd`) : tourne la tête vers le joueur qui approche, puis le corps s'il s'attarde ; bavarde avec un voisin ; petites manies ; promenade avec pauses ; suit des yeux sa table (`watch`). Au casino, le croupier lance la bille, donne les cartes et ramasse les dés, puis ratisse les mises perdues ou distribue les gains ; le public proche réagit à chaque coup (`Villager.crowd_react`, `Villager.dealer_gesture`).
 - **Coût** : maillage mis en cache par allure, animation mise à jour moins souvent quand le personnage est loin ou hors champ.
 
 ## Ajouter un personnage ou une tenue

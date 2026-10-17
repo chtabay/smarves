@@ -744,6 +744,8 @@ func _on_played(bet: int, payout: int) -> void:
 	Sfx.result(bet, payout)
 	if _table and payout != bet:
 		VILLAGER.crowd_react(get_tree(), _table.global_position, 3.0, "big" if payout >= bet * 10 and bet > 0 else ("win" if payout > bet else "lose"))
+		# Le croupier ratisse les mises perdues ou distribue les gains.
+		VILLAGER.dealer_gesture(get_tree(), _table.global_position, 3.0, "pay" if payout > bet else "rake")
 	Game.cash_in(payout)
 	_refresh_locks()
 	if Game.advance_if_broke(1):
