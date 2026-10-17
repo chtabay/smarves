@@ -212,7 +212,7 @@ func _bulb(pos: Vector3, shade: Color) -> void:
 	var glow := _std(Color(1.0, 0.85, 0.6), 0.3)
 	glow.emission_enabled = true
 	glow.emission = Color(1.0, 0.75, 0.45)
-	glow.emission_energy_multiplier = 6.0
+	glow.emission_energy_multiplier = 3.5
 	_box(Vector3(0.015, H - pos.y, 0.015), Vector3(pos.x, (H + pos.y) / 2.0, pos.z), _std(Color(0.1, 0.1, 0.1), 0.5))
 	_cyl(0.26, 0.22, pos + Vector3(0, 0.08, 0), _std(shade, 0.5), self, 0.08).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var s := MeshInstance3D.new()
@@ -224,7 +224,7 @@ func _bulb(pos: Vector3, shade: Color) -> void:
 	s.position = pos
 	s.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(s)
-	_lamp(pos + Vector3(0, -0.1, 0), Color(1.0, 0.76, 0.48), 2.2, 7.0, true)
+	_lamp(pos + Vector3(0, -0.1, 0), Color(1.0, 0.76, 0.48), 1.8, 7.0, true)
 
 
 func _interactive(node: Node3D, kind: String, prompt: String, size: Vector3, offset := Vector3.ZERO) -> Area3D:
@@ -266,10 +266,13 @@ func _environment() -> void:
 	env.ambient_light_energy = 0.35
 	env.tonemap_mode = Environment.TONE_MAPPER_AGX
 	env.tonemap_exposure = 1.2
+	# Un halo serré autour des seules ampoules, sans voile sur la pièce.
 	env.glow_enabled = true
-	env.glow_intensity = 0.7
-	env.glow_bloom = 0.08
-	env.glow_hdr_threshold = 1.0
+	for i in 7:
+		env.set_glow_level(i, [0.0, 0.8, 0.5, 0.15, 0.0, 0.0, 0.0][i])
+	env.glow_intensity = 0.4
+	env.glow_bloom = 0.0
+	env.glow_hdr_threshold = 1.2
 	env.ssao_enabled = true
 	env.ssao_intensity = 1.4
 	env.ssil_enabled = true
