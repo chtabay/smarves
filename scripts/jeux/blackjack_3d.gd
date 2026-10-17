@@ -24,7 +24,7 @@ var _hole_hidden := false
 func _ready() -> void:
 	felt_y = 0.79
 	shoe_at.y = felt_y
-	seat = look(Vector3(0.0, 1.36, 1.15), Vector3(0.0, 0.78, 0.36))
+	seat = look(Vector3(0.0, 1.30, 1.15), Vector3(0.0, 0.95, 0.0))
 	seat_fov = 56.0
 	_build()
 
