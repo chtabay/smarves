@@ -9,6 +9,10 @@ const MARGIN_RED := Color(0.85, 0.3, 0.3, 0.55)
 const INK := Color(0.12, 0.2, 0.5)
 const INK_LIGHT := Color(0.3, 0.38, 0.62)
 const PENCIL := Color(0.38, 0.36, 0.34)
+## Le plan du village : ses quartiers et ses lieux cachés (docs/VILLAGE.md, « Pour le plan du Carnet »).
+const VILLAGE := preload("res://scripts/village/village.gd")
+## La part de la maquette que couvre le plan, en mètres (x, z) : du Moulin au bois, des rochers à la route.
+const PLAN_WORLD := Rect2(-82.0, -79.0, 164.0, 95.0)
 
 var _root: Control
 var _left: VBoxContainer
@@ -24,6 +28,10 @@ var _mouse_before := Input.MOUSE_MODE_VISIBLE
 var _paused_before := false
 ## Le logement qu'on est en train d'aménager dans le carnet (« » : aucun).
 var _amenage := ""
+## Le plan du village, déplié par-dessus le carnet : sa feuille, et ce qu'on y dessine.
+var _cover: Control
+var _sheet: PanelContainer
+var _sheet_box: VBoxContainer
 
 
 func _ready() -> void:
@@ -40,6 +48,8 @@ func _ready() -> void:
 		if _root.visible:
 			_refresh())
 	Biens.note.connect(show_slip)
+	# Le village n'est pas un autoload : on se branche sur lui quand la place se monte.
+	get_tree().node_added.connect(_on_node_added)
 
 
 func is_open() -> bool:
@@ -53,13 +63,17 @@ func _unhandled_input(event: InputEvent) -> void:
 		toggle()
 		get_viewport().set_input_as_handled()
 	elif _root.visible and event.is_action_pressed("ui_cancel"):
-		toggle()
+		if _sheet.visible:
+			_show_sheet(false)
+		else:
+			toggle()
 		get_viewport().set_input_as_handled()
 
 
 func toggle() -> void:
 	if _root.visible:
 		_root.visible = false
+		_sheet.visible = false
 		Input.mouse_mode = _mouse_before
 		get_tree().paused = _paused_before
 		if _pending_slip != "":
@@ -115,11 +129,28 @@ func _build() -> void:
 	cs.shadow_size = 18
 	cover.add_theme_stylebox_override("panel", cs)
 	center.add_child(cover)
+	_cover = cover
 	var spread := HBoxContainer.new()
 	spread.add_theme_constant_override("separation", 0)
 	cover.add_child(spread)
 	_left = _page(spread, false)
 	_right = _page(spread, true)
+	# Le plan, une grande feuille quadrillée collée dans la couverture, qu'on déplie.
+	_sheet = Page.new()
+	_sheet.custom_minimum_size = Vector2(1148, 728)
+	var sh := StyleBoxFlat.new()
+	sh.bg_color = PAPER
+	sh.set_content_margin_all(26)
+	sh.content_margin_left = 62
+	sh.set_corner_radius_all(4)
+	sh.shadow_color = Color(0, 0, 0, 0.5)
+	sh.shadow_size = 18
+	_sheet.add_theme_stylebox_override("panel", sh)
+	_sheet.visible = false
+	center.add_child(_sheet)
+	_sheet_box = VBoxContainer.new()
+	_sheet_box.add_theme_constant_override("separation", 4)
+	_sheet.add_child(_sheet_box)
 
 
 func _page(parent: Control, right: bool) -> VBoxContainer:
@@ -201,8 +232,12 @@ func _gap(parent: Control, h := 10) -> void:
 
 
 func _refresh() -> void:
-	for c in _left.get_children() + _right.get_children():
+	for c in _left.get_children() + _right.get_children() + _sheet_box.get_children():
 		c.queue_free()
+	_cover.visible = not _sheet.visible
+	if _sheet.visible:
+		_fill_sheet()
+		return
 	_fill_left()
 	_fill_right()
 
@@ -332,6 +367,7 @@ func _fill_right() -> void:
 	_row(_right, "Payé en charges", Game.fmt(Biens.total_charges), INK_LIGHT)
 	if Biens.reprises > 0:
 		_row(_right, "Biens repris par M. Brunet", str(Biens.reprises), INK_LIGHT)
+	_fill_plan()
 	_gap(_right)
 	_title(_right, "Adresses")
 	var here := get_tree().current_scene.scene_file_path if get_tree().current_scene else ""
@@ -365,6 +401,162 @@ func _tournee() -> void:
 			for v in people:
 				if v.critter and v.global_position.x < -2.0:
 					v.critter.cheer(2.5)
+
+
+# --- Le plan du village -------------------------------------------------------------------------
+
+## Le plan se dessine en marchant : chaque quartier où l'on a mis les pieds, et les lieux cachés trouvés.
+## Ils sont rangés dans le tiroir de Smarves (socle commune), pas avec les biens.
+func _tiroir() -> Dictionary:
+	return Game.tiroir(Communes.ORIGINE)
+
+
+func zones_vues() -> Array:
+	return _tiroir().get("zones", [])
+
+
+func caches_trouvees() -> Array:
+	var found: Array = _tiroir().get("caches", []).duplicate()
+	# Une affiche trouvée avant que le carnet ne tienne le plan : la cabane est déjà connue.
+	if Biens.trouvailles.has("affiche_loto_1987") and not found.has("cabane_vigne"):
+		found.append("cabane_vigne")
+	return found
+
+
+func _on_node_added(node: Node) -> void:
+	if node.get_script() == VILLAGE:
+		node.zone_entered.connect(_on_zone_entered)
+		node.cache_found.connect(_on_cache_found)
+
+
+func _on_zone_entered(id: String) -> void:
+	if _note_on_plan("zones", id) and id != "place":
+		var nom := str(VILLAGE.ZONES[id].nom)
+		show_slip("Au plan du carnet : %s." % (nom.left(1).to_lower() + nom.substr(1)))
+
+
+func _on_cache_found(id: String) -> void:
+	_note_on_plan("caches", id)
+
+
+## Ajoute au plan ; vrai si c'est nouveau.
+func _note_on_plan(key: String, id: String) -> bool:
+	var t := _tiroir()
+	var list: Array = t.get(key, [])
+	if list.has(id):
+		return false
+	list.append(id)
+	t[key] = list
+	Game.save_game()
+	if _root.visible:
+		_refresh()
+	return true
+
+
+## Sur la page des comptes : où en est le plan, et de quoi le déplier.
+func _fill_plan() -> void:
+	_gap(_right)
+	_title(_right, "Le plan du village")
+	_text(_right, _plan_progress(), 16, INK_LIGHT)
+	_link(_right, "→ déplier le plan", _show_sheet.bind(true)).custom_minimum_size.y = 48
+
+
+func _plan_progress() -> String:
+	var left := VILLAGE.ZONES.size() - zones_vues().size()
+	if zones_vues().is_empty():
+		return "Une page blanche. Sortir sur la place pour commencer le plan."
+	if left > 0:
+		return "Encore %d %s à parcourir." % [left, "quartier" if left == 1 else "quartiers"]
+	return "Tout le village est au plan."
+
+
+func _show_sheet(open: bool) -> void:
+	_sheet.visible = open
+	_refresh()
+
+
+## La feuille dépliée : le plan sur toute la largeur, et de quoi revenir au carnet.
+func _fill_sheet() -> void:
+	_title(_sheet_box, "Le plan du village")
+	var plan := Plan.new()
+	plan.font = _hand
+	plan.zones = zones_vues()
+	plan.caches = caches_trouvees()
+	var scene := get_tree().current_scene
+	var player = scene.get("player") if scene and scene.scene_file_path == "res://scenes/main.tscn" else null
+	if player is Node3D:
+		plan.here = Vector2(player.global_position.x, player.global_position.z)
+		plan.show_here = true
+	plan.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_sheet_box.add_child(plan)
+	var foot := HBoxContainer.new()
+	_sheet_box.add_child(foot)
+	var t := _text(foot, _plan_progress(), 17, INK_LIGHT)
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	t.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_link(foot, "← revenir au carnet", _show_sheet.bind(false)).custom_minimum_size = Vector2(220, 48)
+
+
+## Le plan au crayon : les quartiers parcourus en lavis, leurs noms, les lieux cachés d'une croix rouge.
+class Plan extends Control:
+	var font: Font
+	var zones: Array = []
+	var caches: Array = []
+	var here := Vector2.ZERO
+	var show_here := false
+
+	func _to_page(p: Vector2) -> Vector2:
+		var k := minf(size.x / PLAN_WORLD.size.x, size.y / PLAN_WORLD.size.y)
+		var off := (size - PLAN_WORLD.size * k) / 2.0
+		return off + (p - PLAN_WORLD.position) * k
+
+	func _draw() -> void:
+		var pencil := Color(0.38, 0.36, 0.34)
+		for id in zones:
+			if not VILLAGE.ZONES.has(id):
+				continue
+			var r: Rect2 = VILLAGE.ZONES[id].rect
+			var a := _to_page(r.position)
+			var b := _to_page(r.end)
+			var box := Rect2(a, b - a)
+			draw_rect(box, Color(0.55, 0.68, 0.85, 0.22))
+			draw_rect(box, Color(0.12, 0.2, 0.5, 0.8), false, 1.5)
+			_label(str(VILLAGE.ZONES[id].nom), box)
+		for id in caches:
+			if not VILLAGE.CACHES.has(id):
+				continue
+			var c: Dictionary = VILLAGE.CACHES[id]
+			var p := _to_page(Vector2(c.pos.x, c.pos.z))
+			var red := Color(0.7, 0.12, 0.12)
+			draw_line(p + Vector2(-7, -7), p + Vector2(7, 7), red, 3.0)
+			draw_line(p + Vector2(-7, 7), p + Vector2(7, -7), red, 3.0)
+			_ink(str(c.nom), p + Vector2(11, 6), 18, red)
+		if show_here:
+			var h := _to_page(here)
+			draw_circle(h, 7.0, Color(0.12, 0.2, 0.5))
+			_ink("vous êtes ici", h + Vector2(11, 22), 18, pencil)
+
+	## Le nom du quartier, coupé en deux lignes s'il déborde de son rectangle.
+	func _label(t: String, box: Rect2) -> void:
+		var ink := Color(0.12, 0.2, 0.5)
+		var fs := 18
+		var lines := [t]
+		if font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > box.size.x - 6:
+			var words := t.split(" ")
+			var cut := words.size() / 2
+			lines = [" ".join(words.slice(0, cut)), " ".join(words.slice(cut))]
+		# En haut du quartier : le milieu est souvent pris par « vous êtes ici ».
+		var y := box.position.y + 24.0
+		for l in lines:
+			var w := font.get_string_size(l, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+			_ink(l, Vector2(box.get_center().x - w / 2.0, y), fs, ink)
+			y += 20.0
+
+	## Un mot au crayon sur un fond de papier, pour qu'il se lise par-dessus les traits.
+	func _ink(t: String, at: Vector2, fs: int, color: Color) -> void:
+		var sz := font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs)
+		draw_rect(Rect2(at + Vector2(-3, -sz.y * 0.8), sz + Vector2(6, 2)), Color(0.97, 0.95, 0.88, 0.85))
+		draw_string(font, at, t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, color)
 
 
 # --- La fiche de papier ------------------------------------------------------------------------
