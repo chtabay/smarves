@@ -63,6 +63,8 @@ func _ready() -> void:
 	leave.pressed.connect(func(): closed.emit())
 	row.add_child(leave)
 	_speech.text = "« Bonjour ! Asseyez-vous. Vous venez pour un projet d'investissement ? Excellent choix. »"
+	if Biens.value() > 0:
+		_speech.text = "« Bonjour ! Vos biens sont une garantie magnifique. Je peux faire beaucoup pour un propriétaire. »"
 	_refresh()
 
 
@@ -71,6 +73,8 @@ func _offers() -> Array:
 	var base := 500
 	if Game.debt > 0:
 		base = maxi(500, int(Game.debt / 2.0 / 500.0) * 500)
+	# Un client qui a du standing (tenue, voiture, maisons) mérite des montants à sa hauteur.
+	base = maxi(base, 500 * (1 + Biens.standing() / 2))
 	return [base, base * 2, base * 5]
 
 
