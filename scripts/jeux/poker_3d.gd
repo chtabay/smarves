@@ -22,7 +22,10 @@ var _bets := {}             # place -> pile de plaques
 var _pot: Node3D
 var _pot_amount := 0
 var _button: Node3D
-var _tags := {}             # place -> Label3D
+var _tags := {}             # place -> étiquette (PanelContainer à l'écran)
+var _tag_layer: CanvasLayer
+## Ce que chaque main montrée à l'abattage contenait (« deux paires »).
+var _shown_hand := {}
 var _shown := false
 
 
@@ -115,24 +118,50 @@ func _make_layout() -> Texture2D:
 	return vp.get_texture()
 
 
-## L'étiquette d'une place, sur le bord de la table : le nom, le tapis, ce qu'il vient de faire.
+## L'étiquette d'une place : une pastille sombre à l'écran, posée sur le bord de la table devant
+## chacun. Le fond la garde lisible même devant une chemise claire.
 func _tag(i: int) -> void:
-	var l := Label3D.new()
-	l.font = KIT.serif()
-	l.font_size = 40
-	# Taille fixe à l'écran : lisible au téléphone, même de l'autre côté de la table.
-	l.fixed_size = true
-	l.pixel_size = 0.0007
-	l.outline_size = 10
-	l.outline_modulate = Color(0.04, 0.02, 0.02, 0.9)
-	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	l.no_depth_test = true
-	l.render_priority = 5
-	l.outline_render_priority = 4
-	l.position = _at(i, R + 0.05) + Vector3(0, 0.14, 0)
-	l.visible = i != 0
-	add_child(l)
-	_tags[i] = l
+	if _tag_layer == null:
+		_tag_layer = CanvasLayer.new()
+		_tag_layer.layer = 1
+		add_child(_tag_layer)
+	var pc := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.05, 0.03, 0.035, 0.8)
+	sb.border_color = Color(0.89, 0.71, 0.35, 0.35)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(10)
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
+	sb.content_margin_top = 2
+	sb.content_margin_bottom = 2
+	pc.add_theme_stylebox_override("panel", sb)
+	pc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var l := Label.new()
+	l.add_theme_font_override("font", KIT.serif())
+	l.add_theme_font_size_override("font_size", 20)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	pc.add_child(l)
+	pc.visible = false
+	_tag_layer.add_child(pc)
+	_tags[i] = pc
+
+
+func _process(delta: float) -> void:
+	super(delta)
+	if _tag_layer == null:
+		return
+	for i in _tags:
+		var pc: PanelContainer = _tags[i]
+		var show: bool = active and cam != null and i != 0
+		var at := to_global(_at(i, R + 0.02) + Vector3(0, 0.1, 0))
+		if show and cam.is_position_behind(at):
+			show = false
+		pc.visible = show
+		if show:
+			var sp := cam.unproject_position(at)
+			pc.reset_size()
+			pc.position = sp - Vector2(pc.size.x / 2.0, pc.size.y)
 
 
 # --- Les cartes -----------------------------------------------------------------------------
@@ -195,12 +224,17 @@ func _reveal() -> void:
 	for i in _hole:
 		if i == 0 or panel.seats[i].folded:
 			continue
+		_shown_hand[i] = POKER.CATEGORIES[POKER.evaluate(panel.seats[i].cards + panel.board)[0]].to_lower()
+		# Les cartes montrées s'avancent vers le centre et grandissent : lisibles depuis sa place.
+		var k := 0
 		for card: Node3D in _hole[i]:
-			var p: Vector3 = card.position
-			var tw := card.create_tween()
-			tw.tween_property(card, "position", p + Vector3(0, 0.05, 0), 0.14)
-			tw.parallel().tween_property(card, "rotation:z", 0.0, 0.3).set_trans(Tween.TRANS_CUBIC)
-			tw.tween_property(card, "position", p, 0.1)
+			var dest := _at(i, 0.86, -0.085 + k * 0.17) + Vector3(0, 0.001 + k * 0.0006, 0)
+			var tw := card.create_tween().set_parallel()
+			tw.tween_property(card, "position", dest, 0.4).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+			tw.tween_property(card, "rotation:z", 0.0, 0.3).set_trans(Tween.TRANS_CUBIC)
+			tw.tween_property(card, "scale", Vector3.ONE * BOARD_SCALE, 0.4)
+			k += 1
+	_refresh()
 	Sfx.play("card", -2.0, 0.9)
 
 
@@ -224,6 +258,7 @@ func _clear_all() -> void:
 			t.tween_callback(card.queue_free)
 	_board.clear()
 	_shown = false
+	_shown_hand.clear()
 
 
 # --- Les plaques ---------------------------------------------------------------------------
@@ -300,13 +335,15 @@ func _refresh() -> void:
 		if s.get("folded", false) and _hole.has(i) and not _shown:
 			_muck(i)
 		_set_bet(i, int(s.get("bet", 0)) if panel.in_hand else 0)
-		var l: Label3D = _tags[i]
+		var l: Label = _tags[i].get_child(0)
 		if s.ai:
 			var state := ""
-			if s.get("folded", false) and panel.in_hand:
-				state = "\ncouché"
+			if _shown_hand.has(i):
+				state = "  ·  " + _shown_hand[i]
+			elif s.get("folded", false) and panel.in_hand:
+				state = "  ·  couché"
 			elif panel.in_hand and int(s.get("bet", 0)) > 0:
-				state = "\nmise %s" % Game.fmt(int(s.bet))
+				state = "  ·  mise %s" % Game.fmt(int(s.bet))
 			l.text = "%s\n%s%s" % [s.name, Game.fmt(int(s.stack)), state]
 		var lit: bool = panel.turn == i
 		l.modulate = Color(1.0, 0.85, 0.45) if lit else (Color(0.6, 0.58, 0.55) if s.get("folded", false) and panel.in_hand else Color(0.96, 0.93, 0.86))
@@ -320,7 +357,7 @@ func _on_showdown(winners: Array, show_all: bool, amount: int) -> void:
 	_shown = true
 	if show_all:
 		schedule(0.5, _reveal)
-		schedule(0.6, func(): shot(look(Vector3(0.0, 1.9, 1.35), Vector3(0.0, felt_y, -0.2)), 0.7, 64.0))
+		schedule(0.6, func(): shot(look(Vector3(0.0, 2.2, 1.45), Vector3(0.0, felt_y, -0.15)), 0.7, 66.0))
 	schedule(1.3, func():
 		var names: Array[String] = []
 		for w in winners:
@@ -329,7 +366,7 @@ func _on_showdown(winners: Array, show_all: bool, amount: int) -> void:
 		if show_all:
 			var e: Array = POKER.evaluate(panel.seats[winners[0]].cards + panel.board)
 			cat = "  ·  " + POKER.CATEGORIES[e[0]].to_lower()
-		KIT.popup(self, Vector3(0.0, felt_y + 0.25, -0.2), "%s%s" % [" et ".join(names), cat], 52, Color(1.0, 0.9, 0.66), 2.0))
+		KIT.popup(self, Vector3(0.0, felt_y + 0.1, 0.3), "%s%s" % [" et ".join(names), cat], 52, Color(1.0, 0.9, 0.66), 2.0))
 	schedule(0.8, func():
 		# Le pot part vers le ou les gagnants.
 		var pot := _pot

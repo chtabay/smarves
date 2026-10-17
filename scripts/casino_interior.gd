@@ -79,6 +79,9 @@ var _credits_label: Label
 var _won_label: Label
 var _prompt: Label
 var _banner: Label
+var _toast: PanelContainer
+var _toast_tw: Tween
+var _dim: ColorRect
 var _room_label: Label
 var _current_room := ""
 var _shown := 0.0
@@ -529,6 +532,7 @@ func _open_panel(p: Control) -> void:
 		BARRE.dock(p, _panel_layer.get_parent())
 	else:
 		_panel_layer.add_child(p)
+		_dim.visible = true
 	if p.has_signal("played"):
 		p.played.connect(_on_played)
 	p.closed.connect(_close_panel)
@@ -707,6 +711,7 @@ var _seated: Node
 
 
 func _close_panel() -> void:
+	_dim.visible = false
 	if _seated:
 		_seated.stand()
 		_seated = null
@@ -733,10 +738,16 @@ func _on_played(bet: int, payout: int) -> void:
 
 func _announce(text: String) -> void:
 	_banner.text = text
-	_banner.modulate.a = 1.0
-	var tw := create_tween()
-	tw.tween_interval(3.5)
-	tw.tween_property(_banner, "modulate:a", 0.0, 1.0)
+	_toast.reset_size()
+	var at := Vector2((get_viewport().get_visible_rect().size.x - _toast.size.x) / 2.0, get_viewport().get_visible_rect().size.y - _toast.size.y - 64.0)
+	_toast.position = at + Vector2(0, 10)
+	if _toast_tw:
+		_toast_tw.kill()
+	_toast_tw = create_tween()
+	_toast_tw.tween_property(_toast, "modulate:a", 1.0, 0.2)
+	_toast_tw.parallel().tween_property(_toast, "position", at, 0.2).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_toast_tw.tween_interval(3.5)
+	_toast_tw.tween_property(_toast, "modulate:a", 0.0, 0.8)
 
 
 var _bark_timer := 5.0
@@ -795,12 +806,16 @@ func _build_ui() -> void:
 	theme.default_font = serif
 	theme.default_font_size = 20
 	var gold_col := Color(0.96, 0.8, 0.45)
+	# Les fenêtres à la manière d'Addict : laque sombre, filet d'or, angles arrondis, ombre portée.
 	var panel := StyleBoxFlat.new()
-	panel.bg_color = Color(0.05, 0.03, 0.03, 0.88)
-	panel.border_color = Color(0.85, 0.65, 0.3, 0.7)
+	panel.bg_color = Color(0.06, 0.03, 0.035, 0.93)
+	panel.border_color = Color(0.89, 0.71, 0.35, 0.55)
 	panel.set_border_width_all(1)
-	panel.set_corner_radius_all(4)
-	panel.set_content_margin_all(18)
+	panel.set_corner_radius_all(16)
+	panel.set_content_margin_all(22)
+	panel.shadow_color = Color(0, 0, 0, 0.5)
+	panel.shadow_size = 24
+	panel.anti_aliasing = true
 	theme.set_stylebox("panel", "PanelContainer", panel)
 	for st in ["normal", "hover", "pressed", "disabled", "focus"]:
 		var b := StyleBoxFlat.new()
@@ -809,11 +824,13 @@ func _build_ui() -> void:
 			"focus": Color(0, 0, 0, 0)}[st]
 		b.border_color = Color(0.85, 0.62, 0.3, 0.25 if st == "disabled" else 0.8)
 		b.set_border_width_all(1)
-		b.set_corner_radius_all(3)
-		b.content_margin_left = 14
-		b.content_margin_right = 14
-		b.content_margin_top = 7
-		b.content_margin_bottom = 7
+		# En pastille, 48 px de haut au moins : au doigt aussi.
+		b.set_corner_radius_all(24)
+		b.anti_aliasing = true
+		b.content_margin_left = 20
+		b.content_margin_right = 20
+		b.content_margin_top = 11
+		b.content_margin_bottom = 11
 		if st == "focus":
 			b.draw_center = false
 			b.border_color = Color(0, 0, 0, 0)
@@ -873,17 +890,18 @@ func _build_ui() -> void:
 	_room_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
 	_room_label.add_theme_constant_override("outline_size", 8)
 	root.add_child(_room_label)
+	# Les annonces (accueil, caisse, salle fermée) : une pastille laquée qui monte du bas, comme le
+	# « toast » d'Addict.
+	_toast = PanelContainer.new()
+	BARRE.style(_toast)
+	_toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_toast.modulate.a = 0.0
 	_banner = Label.new()
-	_banner.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	_banner.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_banner.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	_banner.position.y -= 90
 	_banner.add_theme_font_size_override("font_size", 22)
-	_banner.add_theme_color_override("font_color", Color(1, 0.9, 0.7))
-	_banner.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
-	_banner.add_theme_constant_override("outline_size", 8)
-	_banner.modulate.a = 0.0
-	root.add_child(_banner)
+	_banner.add_theme_color_override("font_color", Color(1, 0.92, 0.76))
+	_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_toast.add_child(_banner)
+	root.add_child(_toast)
 	var hint := Label.new()
 	hint.text = "ZQSD : marcher   ·   souris : regarder   ·   E : jouer   ·   Échap : réglages"
 	hint.add_theme_font_size_override("font_size", 14)
@@ -893,6 +911,13 @@ func _build_ui() -> void:
 	hint.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	hint.position.y -= 20
 	root.add_child(hint)
+	# Sous une fenêtre ouverte (caisse, Crédit Smarvois), la salle s'assombrit.
+	_dim = ColorRect.new()
+	_dim.color = Color(0.05, 0.027, 0.035, 0.62)
+	_dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_dim.visible = false
+	root.add_child(_dim)
 	_panel_layer = CenterContainer.new()
 	_panel_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_panel_layer.anchor_top = 0.36

@@ -485,7 +485,8 @@ func _showdown() -> void:
 			payout += share
 	var how := "" if best.is_empty() else " avec %s" % CATEGORIES[best[0]].to_lower()
 	var verb := "remportent" if winners.size() > 1 else ("remportez" if winners == [0] else "remporte")
-	_log.text = "%s %s %s%s.%s" % [" et ".join(names), verb, Game.fmt(net_pot), how,
+	var who := " et ".join(names)
+	_log.text = "%s %s %s%s.%s" % [who.substr(0, 1).to_upper() + who.substr(1), verb, Game.fmt(net_pot), how,
 		(" La maison prend %d." % rake) if rake > 0 else ""]
 	in_hand = false
 	showdown.emit(winners, active.size() > 1, net_pot)
