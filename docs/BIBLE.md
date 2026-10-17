@@ -184,6 +184,14 @@ Le joueur et tous les habitants sont de petits animaux à grosse tête ronde. Le
 
 **Les habitants** — tous les autres, anonymes, qui jouent aussi et y croient autant : celui qui a tout placé sur la roue de la kermesse, celui qui a revendu sa tondeuse pour les zèbres, celui à qui M. Brunet a dit qu'il avait un profil d'investisseur.
 
+**Maître Garnier** (chat, lunettes) — le notaire, dans son étude. *Voix* : formules d'acte, « un placement de père de famille ». *Obsession* : que tout soit signé. *Liens* : il vend les parts du village et les maisons, et reprend tout à 60 % ; il joue aux Ambassadeurs sous son nom et à Passelourdin sous celui du Notaire.
+
+**Raymonde Chauvet** (souris, mètre ruban autour du cou) — couture et retouches. *Voix* : petite, rapide, compliments de cabine d'essayage. *Obsession* : qu'on vous prenne pour quelqu'un qui gagne. *Liens* : habille le petit renard ; Monsieur Armand reconnaît ses smokings au premier coup d'œil.
+> « Bleu roi. On vous prendra pour un homme qui gagne. »
+
+**Roger Fradin** (ours, bleu de travail) — le garage Fradin : Mobylette, 2 CV, DS. *Voix* : de mécanicien, des chiffres de cylindrée. *Liens* : la 2 CV qu'il vend est celle que Dédé a perdue au 421, remise à neuf.
+> « Suspension hydraulique. On ne sent plus les pavés, ni les pertes. »
+
 **Le maire** — on ne le voit jamais ; il a coupé le ruban du casino et il est « en réunion », au casino justement.
 
 ### Au casino
@@ -225,7 +233,7 @@ Pour que les fils qui ajoutent des gens (commerces, biens, gestion de la ville) 
 - **La dette** s'affiche dans l'interface, sobrement : « Dette au Crédit Smarvois ». C'est un fait, pas un reproche.
 - **La marge** : chaque jeu rend un peu moins qu'il ne prend (les cotes du village sont « honnêtes » à 85 %, le casino a ses règles officielles). C'est la seule morale du jeu, et elle est arithmétique.
 
-Les biens (une maison sur la place, une 2 CV) et la gestion de la ville prolongeront cette économie dans le même esprit : on les finance au Crédit Smarvois, on les paie avec des gains, et ils ne rapportent jamais tout à fait ce que promet la brochure.
+**Les biens** (détail dans [`GESTION.md`](GESTION.md)) prolongent cette économie dans le même esprit : parts du village et actions du casino, maisons, tenues et véhicules, vendus par Maître Garnier, Raymonde Chauvet et Roger Fradin, financés au Crédit Smarvois. Ils versent leur rente à chaque **recette**, toutes les 20 mises, jamais tout à fait celle de la brochure, et cette rente ne compte pas dans « Gagné au jeu ». Le **standing** (tenue, voiture, maisons) ne donne rien au jeu, sauf des prêts plus gros. Quand la dette s'emballe, M. Brunet reprend le plus beau bien à 60 %, « pour alléger le dossier ». Le joueur suit tout dans son **carnet** (touche C), un cahier d'écolier à l'encre bleue.
 
 ## 9. Le vocabulaire
 
