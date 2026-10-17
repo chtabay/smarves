@@ -63,6 +63,27 @@ func _ready() -> void:
 	Biens.logements.chambre.meubles["mur_gauche"] = "affiche_loto_1987"
 	Biens.louer("chambre")
 	_check(Biens.habite() == "" and Biens.rente_annoncee() == r0, "remise en location")
+	# L'ameublement : un meuble de la brocante sur un emplacement du bon genre.
+	Game.won = 25000
+	_check(Biens.slots("chambre").size() == 6, "la chambre a 6 emplacements")
+	Biens.logements.chambre.interieur = "maison_v1"
+	_check(Biens.slots("chambre").size() == 24, "le gabarit de la maison en a 24")
+	Biens.logements.chambre.interieur = "maison_place_v1"
+	_check(Biens.slots("chambre").size() == 48, "celui de la maison de maître 48")
+	Biens.logements.chambre.interieur = "chambre_v1"
+	_check(Biens.trouvailles.has("premier_jeton"), "le premier jeton, remis avec le premier logement")
+	Game.credits = 5000
+	_check(Biens.buy("lit_cuivre") and Biens.free_count("lit_cuivre") == 1, "un lit acheté chez Ginette, pas encore posé")
+	_check(not Biens.poser("chambre", "chambre_mur_1", "lit_cuivre"), "un lit ne se pose pas au mur")
+	_check(Biens.poser("chambre", "chambre_lit_1", "lit_cuivre") and Biens.free_count("lit_cuivre") == 0, "posé sur l'emplacement du lit")
+	var s1 := Biens.standing()
+	Biens.habiter("chambre")
+	_check(Biens.standing() == s1 + 1 + 1, "habitée : chambre et lit comptent (%d → %d)" % [s1, Biens.standing()])
+	_check(Biens.sell("lit_cuivre") > 0 and not Biens.logements.chambre.meubles.has("chambre_lit_1"), "revendu, le lit se décroche")
+	Biens.buy("lit_cuivre")
+	Biens.poser("chambre", "chambre_lit_1", "lit_cuivre")
+	Biens.louer("chambre")
+	_check(Biens.door_of("chambre_cafe").owned and Biens.door_of("maison_place").en_vente, "door_of : la chambre est à nous, la maison de maître en vente")
 	# Saisie d'une maison habitée, avec une trouvaille au mur : un carton, et retour à l'hôtel.
 	Biens.habiter("chambre")
 	var noted := []
@@ -71,6 +92,7 @@ func _ready() -> void:
 	Biens._since_reprise = Biens.REPRISE_EVERY
 	_bets(20)
 	_check(not Biens.logements.has("chambre") and Biens.habite() == "", "M. Brunet reprend la chambre, retour à l'hôtel")
+	_check(Biens.count("lit_cuivre") == 0, "le lit part avec la chambre")
 	_check(noted.size() > 0 and "carton" in noted[-1], "la trouvaille revient dans un carton")
 	Game.staked = 0
 	Game.changed.emit()
