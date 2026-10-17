@@ -14,6 +14,9 @@ const SEAT_R := 1.85
 const BOARD_SCALE := 1.6
 const BOARD_X := -0.38
 const BOARD_STEP := 0.19
+## Les mains montrées à l'abattage, encore plus grandes : on doit lire leurs valeurs.
+const SHOWN_SCALE := 1.9
+const SHOWN_Z := 0.33
 const POT_AT := Vector3(0.0, 0.0, -0.46)
 
 var _hole := {}             # place -> [carte, carte]
@@ -26,6 +29,7 @@ var _tags := {}             # place -> étiquette (PanelContainer à l'écran)
 var _tag_layer: CanvasLayer
 ## Ce que chaque main montrée à l'abattage contenait (« deux paires »).
 var _shown_hand := {}
+var _shown_names: Array[Label3D] = []
 var _shown := false
 
 
@@ -221,19 +225,36 @@ func _deal_board(cards: Array) -> void:
 
 ## Les mains encore en jeu se retournent.
 func _reveal() -> void:
+	var shown: Array[int] = []
 	for i in _hole:
-		if i == 0 or panel.seats[i].folded:
-			continue
+		if i != 0 and not panel.seats[i].folded:
+			shown.append(i)
+	shown.sort()
+	# Les mains montrées viennent se ranger côte à côte devant le tableau, face au joueur, en grand,
+	# chacune avec le nom de son joueur : on lit les valeurs depuis sa place.
+	var step := minf(0.42, 2.0 / maxf(shown.size(), 1.0))
+	for j in shown.size():
+		var i := shown[j]
 		_shown_hand[i] = POKER.CATEGORIES[POKER.evaluate(panel.seats[i].cards + panel.board)[0]].to_lower()
-		# Les cartes montrées s'avancent vers le centre et grandissent : lisibles depuis sa place.
+		var cx := (j - (shown.size() - 1) / 2.0) * step
 		var k := 0
 		for card: Node3D in _hole[i]:
-			var dest := _at(i, 0.86, -0.085 + k * 0.17) + Vector3(0, 0.001 + k * 0.0006, 0)
+			var dest := Vector3(cx - 0.085 + k * 0.17, felt_y + 0.002 + k * 0.0006, SHOWN_Z)
 			var tw := card.create_tween().set_parallel()
-			tw.tween_property(card, "position", dest, 0.4).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-			tw.tween_property(card, "rotation:z", 0.0, 0.3).set_trans(Tween.TRANS_CUBIC)
-			tw.tween_property(card, "scale", Vector3.ONE * BOARD_SCALE, 0.4)
+			tw.tween_property(card, "position", dest, 0.45).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+			tw.tween_property(card, "rotation", Vector3.ZERO, 0.35).set_trans(Tween.TRANS_CUBIC)
+			tw.tween_property(card, "scale", Vector3.ONE * SHOWN_SCALE, 0.45)
 			k += 1
+		var name := Label3D.new()
+		name.text = panel.seats[i].name
+		name.font = KIT.serif()
+		name.font_size = 48
+		name.pixel_size = 0.0007
+		name.modulate = Color(0.95, 0.88, 0.7)
+		name.rotation.x = -PI / 2.0
+		name.position = Vector3(cx, felt_y + 0.003, SHOWN_Z + 0.16)
+		add_child(name)
+		_shown_names.append(name)
 	_refresh()
 	Sfx.play("card", -2.0, 0.9)
 
@@ -259,6 +280,9 @@ func _clear_all() -> void:
 	_board.clear()
 	_shown = false
 	_shown_hand.clear()
+	for n in _shown_names:
+		n.queue_free()
+	_shown_names.clear()
 
 
 # --- Les plaques ---------------------------------------------------------------------------
@@ -357,16 +381,9 @@ func _on_showdown(winners: Array, show_all: bool, amount: int) -> void:
 	_shown = true
 	if show_all:
 		schedule(0.5, _reveal)
-		schedule(0.6, func(): shot(look(Vector3(0.0, 2.2, 1.45), Vector3(0.0, felt_y, -0.15)), 0.7, 66.0))
-	schedule(1.3, func():
-		var names: Array[String] = []
-		for w in winners:
-			names.append("Vous" if w == 0 else panel.seats[w].name)
-		var cat := ""
-		if show_all:
-			var e: Array = POKER.evaluate(panel.seats[winners[0]].cards + panel.board)
-			cat = "  ·  " + POKER.CATEGORIES[e[0]].to_lower()
-		KIT.popup(self, Vector3(0.0, felt_y + 0.1, 0.3), "%s%s" % [" et ".join(names), cat], 52, Color(1.0, 0.9, 0.66), 2.0))
+		# Un plan plongeant et serré sur les mains montrées, deux secondes, avant l'annonce du gagnant.
+		schedule(2.4, func(): shot(look(Vector3(0.0, 1.5, 1.2), Vector3(0.0, felt_y, 0.2)), 0.7, 60.0))
+	# Le nom du gagnant et sa main sont dans la barre ; les étiquettes portent les combinaisons.
 	schedule(0.8, func():
 		# Le pot part vers le ou les gagnants.
 		var pot := _pot
