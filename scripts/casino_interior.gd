@@ -18,6 +18,8 @@ const LOAN := preload("res://scripts/loan_panel.gd")
 const ROULETTE_3D := preload("res://scripts/jeux/roulette_3d.gd")
 const BLACKJACK_3D := preload("res://scripts/jeux/blackjack_3d.gd")
 const SLOT_3D := preload("res://scripts/jeux/slot_3d.gd")
+const CRAPS_3D := preload("res://scripts/jeux/craps_3d.gd")
+const KIT := preload("res://scripts/jeux/kit.gd")
 const BARRE := preload("res://scripts/jeux/barre.gd")
 ## Niveau du plancher de l'étage.
 const UP := 5.2
@@ -704,35 +706,18 @@ func _roll_dice(table: Node3D, values: Array) -> void:
 	for d in _dice:
 		d.queue_free()
 	_dice.clear()
-	var faces := ["⚀", "⚁", "⚂", "⚃", "⚄", "⚅"]
 	for i in values.size():
 		var die := Node3D.new()
 		table.add_child(die)
 		_dice.append(die)
-		var cube := MeshInstance3D.new()
-		var bm := BoxMesh.new()
-		bm.size = Vector3.ONE * 0.08
-		cube.mesh = bm
-		cube.material_override = _std(Color(0.95, 0.15, 0.15) if table.has_meta("craps") else Color(0.97, 0.96, 0.92), 0.3)
-		die.add_child(cube)
-		var l := Label3D.new()
-		var sym := SystemFont.new()
-		sym.font_names = PackedStringArray(["Segoe UI Symbol"])
-		l.font = sym
-		l.text = faces[int(values[i]) - 1]
-		l.font_size = 96
-		l.pixel_size = 0.0007
-		l.rotation_degrees.x = -90
-		l.position.y = 0.041
-		l.outline_size = 0
-		l.modulate = Color(1, 1, 1) if table.has_meta("craps") else Color(0.1, 0.1, 0.1)
-		die.add_child(l)
-		var dest := Vector3(-0.3 + i * 0.16 + randf_range(-0.04, 0.04), float(table.get_meta("felt_y", 0.78)) + 0.04, randf_range(-0.15, 0.15))
+		die.add_child(KIT.die(0.07, Color(0.96, 0.94, 0.88), Color(0.08, 0.08, 0.1)))
+		var dest := Vector3(-0.3 + i * 0.16 + randf_range(-0.04, 0.04), float(table.get_meta("felt_y", 0.78)) + 0.035, randf_range(-0.15, 0.15))
 		die.position = Vector3(0.9, 1.3, 0.4)
 		die.rotation = Vector3(randf() * TAU, randf() * TAU, randf() * TAU)
+		var final := Quaternion(KIT.die_basis(int(values[i]), randf_range(-0.4, 0.4)))
 		var tw := create_tween().set_parallel()
 		tw.tween_property(die, "position", dest, 0.55).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BOUNCE)
-		tw.tween_property(die, "rotation", Vector3(0, randf_range(-0.4, 0.4), 0), 0.55).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+		tw.tween_property(die, "quaternion", final, 0.55).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
 
 
 var _seated: Node
@@ -2011,22 +1996,13 @@ func _blackjack_table(pos: Vector3) -> void:
 
 func _craps_table(pos: Vector3) -> void:
 	var root := _node(pos)
-	root.set_meta("craps", true)
-	# Une cuve : haut bord rembourré, tapis en contrebas, miroir de rebond aux extrémités.
-	_box(Vector3(4.4, 0.7, 1.9), Vector3(0, 0.35, 0), dark_wood, true, root)
-	_felt_quad(root, Vector2(4.1, 1.6), 0.71, _layout_texture("craps", Vector2i(1024, 400)))
-	for e in [[Vector3(4.4, 0.32, 0.15), Vector3(0, 0.86, 0.88)], [Vector3(4.4, 0.32, 0.15), Vector3(0, 0.86, -0.88)],
-			[Vector3(0.15, 0.32, 1.9), Vector3(2.13, 0.86, 0)], [Vector3(0.15, 0.32, 1.9), Vector3(-2.13, 0.86, 0)]]:
-		_box(e[0], e[1], leather, false, root)
-	for z in [0.95, -0.95]:
-		_box(Vector3(4.4, 0.06, 0.14), Vector3(0, 0.99, z), brass, false, root)
-		_box(Vector3(4.2, 0.08, 0.1), Vector3(0, 0.88, z * 0.92), dark_wood, false, root)
-	root.set_meta("felt_y", 0.72)
-	# La baguette du stickman.
-	var stick := _cyl(0.008, 1.3, Vector3(0.2, 1.05, -0.6), _std(Color(0.6, 0.4, 0.2), 0.5), root)
-	stick.rotation_degrees.z = 70
-	_person("stickman", pos + Vector3(0, 0, -1.6), 0.0, "idle", "noeud")
-	_person("boxman", pos + Vector3(1.0, 0, -1.5), -20.0, "idle", "noeud")
+	# La cuve, le tapis, les dés et le palet : voir scripts/jeux/craps_3d.gd.
+	var t := CRAPS_3D.new()
+	root.add_child(t)
+	root.set_meta("table3d", t)
+	_solid(Vector3(CRAPS_3D.OUT.x, 1.0, CRAPS_3D.OUT.y), pos + Vector3(0, 0.5, 0))
+	_person("stickman", pos + Vector3(0, 0, -1.15), 0.0, "idle", "noeud")
+	_person("boxman", pos + Vector3(0.9, 0, -1.15), -20.0, "idle", "noeud")
 	_person("character-male-f.glb", pos + Vector3(-1.4, 0, 1.5), 180.0)
 	_person("character-female-c.glb", pos + Vector3(1.2, 0, 1.5), 180.0)
 	_person("character-male-c.glb", pos + Vector3(2.7, 0, 0.3), -90.0)

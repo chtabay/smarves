@@ -5,6 +5,12 @@ extends PanelContainer
 signal played(bet: int, payout: int)
 signal closed
 signal dice_rolled(values: Array)
+## Pour la table 3D : les mises posées (clé -> montant), et le coup réglé (somme, ce que rapporte
+## chaque case gagnante, et l'annonce du croupier).
+signal bets_changed(bets: Dictionary)
+signal settled(total: int, wins: Dictionary, call: String)
+
+const BARRE := preload("res://scripts/jeux/barre.gd")
 
 const CHIPS := [5, 25, 100, 500]
 const FACES := ["⚀", "⚁", "⚂", "⚃", "⚄", "⚅"]
@@ -22,11 +28,20 @@ var _info: Label
 var _chip_label: Label
 var _buttons := {}
 var _font: SystemFont
+## Debout à la table 3D : on mise sur le tapis, le panneau devient une barre basse.
+var embedded := false
+var table3d: Node
+var _chip_row: HBoxContainer
+var _total_label: Label
+var _wins := {}
 
 
 func _ready() -> void:
 	_font = SystemFont.new()
 	_font.font_names = PackedStringArray(["Segoe UI Symbol", "Georgia"])
+	if embedded:
+		_build_bar()
+		return
 	custom_minimum_size = Vector2(860, 0)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 10)
@@ -93,9 +108,52 @@ func _ready() -> void:
 	_refresh()
 
 
+## La barre basse : jetons, mises sur le tapis, message du croupier, lancer.
+func _build_bar() -> void:
+	BARRE.style(self)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 4)
+	add_child(v)
+	_info = BARRE.label("Misez sur la Pass Line en cliquant sur le tapis, puis lancez les dés.", 18, BARRE.CREAM)
+	_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_info.add_theme_font_override("font", BARRE.KIT.serif())
+	v.add_child(_info)
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 14)
+	h.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_child(h)
+	_chip_row = BARRE.chip_row(CHIPS, chip_index, _pick_chip)
+	h.add_child(_chip_row)
+	_chip_label = BARRE.label("", 15, BARRE.MUTED)
+	_chip_label.custom_minimum_size = Vector2(92, 0)
+	h.add_child(_chip_label)
+	h.add_child(BARRE.separator())
+	_point_label = BARRE.label("", 16, BARRE.GOLD)
+	_point_label.custom_minimum_size = Vector2(130, 0)
+	h.add_child(_point_label)
+	_total_label = BARRE.label("", 16, BARRE.CREAM)
+	_total_label.custom_minimum_size = Vector2(150, 0)
+	h.add_child(_total_label)
+	var roll := BARRE.main_button("  Lancer les dés  (Espace)  ")
+	roll.pressed.connect(_roll)
+	h.add_child(roll)
+	var leave := BARRE.pill("Quitter  (Échap)")
+	leave.pressed.connect(_leave)
+	h.add_child(leave)
+	_chip(0)
+	_refresh()
+
+
+func _pick_chip(i: int) -> void:
+	chip_index = i
+	_chip(0)
+
+
 func _chip(d: int) -> void:
 	chip_index = clampi(chip_index + d, 0, CHIPS.size() - 1)
 	_chip_label.text = "Jeton : %d" % CHIPS[chip_index]
+	if _chip_row:
+		BARRE.select(_chip_row, chip_index)
 
 
 func _place(key: String) -> void:
@@ -115,6 +173,12 @@ func _refresh() -> void:
 	for k in _buttons:
 		_buttons[k].text = NAMES[k] + ("  ·  %d" % bets[k] if bets.has(k) else "")
 	_point_label.text = "Premier lancer" if point == 0 else "Le point est %d" % point
+	if embedded:
+		var t := 0
+		for k in bets:
+			t += bets[k]
+		_total_label.text = "Sur le tapis : %s" % Game.fmt(t)
+		bets_changed.emit(bets.duplicate())
 
 
 func _roll() -> void:
@@ -125,15 +189,24 @@ func _roll() -> void:
 		return
 	busy = true
 	Sfx.play("shake", -4.0)
-	for i in 10:
-		_dice.text = "%s %s" % [FACES.pick_random(), FACES.pick_random()]
-		await get_tree().create_timer(0.05 + i * 0.015).timeout
-	Sfx.play("dice", -4.0)
 	var a := randi_range(1, 6)
 	var b := randi_range(1, 6)
 	var s := a + b
-	dice_rolled.emit([a, b])
-	_dice.text = "%s %s" % [FACES[a - 1], FACES[b - 1]]
+	if embedded:
+		# Les dés roulent sur la table : le coup se règle quand ils sont posés.
+		_info.text = "Les dés roulent."
+		dice_rolled.emit([a, b])
+		await get_tree().create_timer(table3d.throw_time if table3d else 1.6).timeout
+		Sfx.play("dice", -4.0)
+	else:
+		for i in 10:
+			_dice.text = "%s %s" % [FACES.pick_random(), FACES.pick_random()]
+			await get_tree().create_timer(0.05 + i * 0.015).timeout
+		Sfx.play("dice", -4.0)
+		dice_rolled.emit([a, b])
+		_dice.text = "%s %s" % [FACES[a - 1], FACES[b - 1]]
+	var wins := {}
+	_wins = wins
 	var paid := 0
 	var resolved := 0
 	var notes: Array[String] = []
@@ -141,22 +214,22 @@ func _roll() -> void:
 	if bets.has("field"):
 		var f: int = bets["field"]
 		resolved += f
-		if s in [3, 4, 9, 10, 11]:
-			paid += f * 2
-		elif s == 2:
-			paid += f * 3
-		elif s == 12:
-			paid += f * 4
+		var fm := 2 if s in [3, 4, 9, 10, 11] else (3 if s == 2 else (4 if s == 12 else 0))
+		if fm > 0:
+			paid += f * fm
+			wins["field"] = f * fm
 		bets.erase("field")
 	if bets.has("seven"):
 		resolved += bets["seven"]
 		if s == 7:
 			paid += bets["seven"] * 5
+			wins["seven"] = bets["seven"] * 5
 		bets.erase("seven")
 	if bets.has("craps"):
 		resolved += bets["craps"]
 		if s in [2, 3, 12]:
 			paid += bets["craps"] * 8
+			wins["craps"] = bets["craps"] * 8
 		bets.erase("craps")
 	# La ligne.
 	if point == 0:
@@ -193,8 +266,11 @@ func _roll() -> void:
 				var k := "place%d" % n
 				if s == n and bets.has(k):
 					paid += bets[k] * 7 / 6
+					wins[k] = bets[k] * 7 / 6
+	var call := ", ".join(notes) if notes.size() > 0 else "Rien de décidé"
+	settled.emit(s, wins, call)
 	_refresh()
-	_info.text = "%d. %s.%s" % [s, ", ".join(notes) if notes.size() > 0 else "Rien de décidé", " Vous encaissez %s." % Game.fmt(paid) if paid > 0 else ""]
+	_info.text = "%d. %s.%s" % [s, call, " Vous encaissez %s." % Game.fmt(paid) if paid > 0 else ""]
 	busy = false
 	played.emit(resolved, paid)
 
@@ -205,6 +281,7 @@ func _settle(key: String, mult: int) -> int:
 		return 0
 	var v: int = bets[key] * mult
 	bets.erase(key)
+	_wins[key] = v
 	return v
 
 
@@ -231,6 +308,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event is InputEventKey and event.pressed and event.keycode == KEY_SPACE:
 		_roll()
+		get_viewport().set_input_as_handled()
+	elif embedded and event is InputEventKey and event.pressed and event.keycode >= KEY_1 and event.keycode < KEY_1 + CHIPS.size():
+		chip_index = event.keycode - KEY_1
+		_chip(0)
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_cancel"):
 		_leave()
