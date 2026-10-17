@@ -32,11 +32,11 @@ var _amenage := ""
 var _cover: Control
 var _sheet: PanelContainer
 var _sheet_box: VBoxContainer
-## L'accueil des communes : une feuille posée au milieu de l'écran au lancement (voir ouvrir_accueil).
+## La fenêtre de bienvenue : une feuille posée au milieu de l'écran à chaque lancement (ouvrir_accueil).
 var _accueil: Control
 var _accueil_box: VBoxContainer
 var _accueil_liste := false
-var _accueil_attendu := false
+var _accueil_attendu := not "--capture" in " ".join(OS.get_cmdline_user_args())
 
 
 func _ready() -> void:
@@ -55,8 +55,6 @@ func _ready() -> void:
 	Biens.note.connect(show_slip)
 	# Les communes du portail : la liste se lit au lancement, l'installation finit en arrière-plan.
 	Communes.catalogue_lu.connect(func():
-		if not Communes.nouvelles.is_empty():
-			_accueil_attendu = true
 		if _root.visible:
 			_refresh()
 		if _accueil_ouvert():
@@ -686,30 +684,29 @@ func _fit_slip() -> void:
 	_slip.position = Vector2(28, get_viewport().get_visible_rect().size.y - _slip.size.y - 60)
 
 
-# --- L'accueil des communes ------------------------------------------------------------------------
+# --- La fenêtre de bienvenue ------------------------------------------------------------------------
 
 func _accueil_ouvert() -> bool:
 	return _accueil != null and _accueil.visible
 
 
-## Le portail a publié des communes que le joueur n'a jamais vues : la feuille d'accueil attend qu'il
-## soit sur la place, déjà accueilli par Josiane, sans carnet, réglages ni partie en cours.
+## Une fois par lancement, la bienvenue attend que le joueur soit sur la place, déjà accueilli par
+## Josiane, sans carnet, réglages ni partie en cours.
 func _essayer_accueil() -> void:
 	if not _accueil_attendu:
 		return
-	if Communes.nouvelles.is_empty():
-		_accueil_attendu = false
-		return
 	var scene := get_tree().current_scene
-	if scene == null or scene.name != "Main" or scene.has_meta("vitrine") or not Game.welcomed \
+	# Les outils de test (-s) mènent leur propre partie : pas de bienvenue qui la mettrait en pause.
+	if scene == null or scene.name != "Main" or get_tree().get_script() != null or scene.has_meta("vitrine") or not Game.welcomed \
 			or _root.visible or Settings.is_open() or get_tree().paused:
 		return
 	_accueil_attendu = false
 	ouvrir_accueil()
 
 
-## Une feuille au milieu de l'écran : les communes nouvellement publiées, puis, sur un geste, la liste
-## des villes disponibles, à installer et à visiter sans passer par le carnet.
+## La bienvenue : une feuille au milieu de l'écran, avec ses rubriques (les villes de la Vienne ; le
+## compte, où viendra la connexion) et « Jouer ». « Voir les villes disponibles » y déplie la liste, à
+## installer et à visiter sans passer par le carnet.
 func ouvrir_accueil(liste := false) -> void:
 	if _accueil == null:
 		_construire_accueil()
@@ -771,25 +768,59 @@ func _remplir_accueil(liste: bool) -> void:
 	_accueil_liste = liste
 	for c in _accueil_box.get_children():
 		c.queue_free()
-	if not liste:
-		var noms: Array = Communes.nouvelles.map(func(id): return Communes.au_catalogue(id).get("nom", id))
-		_title(_accueil_box, "Les communes de la Vienne")
-		_gap(_accueil_box, 6)
-		if noms.size() == 1:
-			_text(_accueil_box, "Une commune a été publiée depuis votre dernière visite : %s." % noms[0])
-		else:
-			_text(_accueil_box, "%d communes ont été publiées depuis votre dernière visite : %s." % [noms.size(), ", ".join(noms)])
-		_text(_accueil_box, "D'autres joueurs construisent les villes autour de Smarves. Installez celles qui vous tentent, et allez les visiter.", 18, INK_LIGHT)
-		_gap(_accueil_box, 10)
-		_link(_accueil_box, "→ Voir les villes disponibles", _remplir_accueil.bind(true)).add_theme_font_size_override("font_size", 22)
-		_link(_accueil_box, "Plus tard (elles restent dans le carnet, touche C)", fermer_accueil)
-	else:
+	if liste:
 		_title(_accueil_box, "Les villes disponibles")
 		_fill_communes(_accueil_box, false)
 		_gap(_accueil_box, 10)
-		_link(_accueil_box, "Fermer", fermer_accueil)
+		_link(_accueil_box, "← Retour à la bienvenue", _remplir_accueil.bind(false))
+	else:
+		_title(_accueil_box, "Bienvenue à Smarves")
+		_text(_accueil_box, "%s crédits en poche  ·  fortune nette %s" % [Game.fmt(Game.credits), Game.fmt(Game.credits + Biens.value() - Game.debt)], 18, INK_LIGHT)
+		_gap(_accueil_box, 10)
+		_text(_accueil_box, "Les villes de la Vienne", 20, INK, true)
+		_text(_accueil_box, _villes_en_une_ligne())
+		if not Communes.publiees().is_empty() or not Communes.installees().is_empty():
+			_link(_accueil_box, "→ Voir les villes disponibles", _remplir_accueil.bind(true))
+		_gap(_accueil_box, 8)
+		_text(_accueil_box, "Votre compte", 20, INK, true)
+		_text(_accueil_box, "La connexion viendra ici. En attendant, votre partie est gardée sur cet appareil.", 18, INK_LIGHT)
+		_gap(_accueil_box, 14)
+		var jouer := Button.new()
+		jouer.text = "Jouer"
+		jouer.custom_minimum_size = Vector2(200, 48)
+		jouer.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		jouer.add_theme_font_override("font", _hand_bold)
+		jouer.add_theme_font_size_override("font_size", 22)
+		for etat in ["normal", "hover", "pressed", "focus"]:
+			var st := StyleBoxFlat.new()
+			st.bg_color = INK if etat != "hover" else INK_LIGHT
+			st.set_corner_radius_all(4)
+			jouer.add_theme_stylebox_override(etat, st)
+		for couleur in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+			jouer.add_theme_color_override(couleur, PAPER)
+		jouer.pressed.connect(fermer_accueil)
+		_accueil_box.add_child(jouer)
+		jouer.grab_focus.call_deferred()
 	# La feuille prend la hauteur de son texte, sans dépasser l'écran : au-delà, la liste défile.
 	_ajuster_accueil.call_deferred()
+
+
+## Ce que la bienvenue dit des villes : les nouvelles d'abord, sinon ce qui est disponible.
+func _villes_en_une_ligne() -> String:
+	var noms: Array = Communes.nouvelles.map(func(id): return Communes.au_catalogue(id).get("nom", id))
+	if noms.size() == 1:
+		return "Nouvelle depuis votre dernière visite : %s." % noms[0]
+	if noms.size() > 1:
+		return "%d nouvelles depuis votre dernière visite : %s." % [noms.size(), ", ".join(noms)]
+	var n := Communes.publiees().size()
+	if n > 0:
+		return ("Une ville publiée par d'autres joueurs" if n == 1 else "%d villes publiées par d'autres joueurs" % n) + (", %d installée%s chez vous." % [Communes.installees().size(), "s" if Communes.installees().size() > 1 else ""] if not Communes.installees().is_empty() else ", à installer et à visiter.")
+	match Communes.catalogue_etat:
+		"lecture":
+			return "Lecture de la liste…"
+		"hors_ligne":
+			return "Hors ligne : la liste se lira à la prochaine connexion."
+	return "Aucune autre ville publiée pour l'instant. Les développeurs les construisent sur le portail."
 
 
 func _ajuster_accueil() -> void:
