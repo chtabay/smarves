@@ -3,6 +3,8 @@ name: Exporter pour Windows
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 env:
@@ -44,19 +46,19 @@ jobs:
           retention-days: 30
 
       - name: Préparer l'archive de téléchargement
-        if: github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           cd build
           zip -q ../Smarves-windows.zip Smarves.exe
 
       - name: Déplacer l'étiquette de la dernière version
-        if: github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           git tag -f derniere-version
           git push -f origin derniere-version
 
       - name: Publier la Release
-        if: github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: derniere-version
