@@ -390,10 +390,9 @@ func show_slip(text: String) -> void:
 		_slip_label = _text(_slip, "", 17)
 		_slip_label.custom_minimum_size.x = 400
 	_slip_label.text = text
-	# La fiche reprend la taille de son texte, puis se pose en bas à gauche.
-	_slip.reset_size()
-	_slip.size = _slip.get_combined_minimum_size()
-	_slip.position = Vector2(28, get_viewport().get_visible_rect().size.y - _slip.size.y - 60)
+	_fit_slip()
+	# Le texte ne connaît sa hauteur qu'une fois mis en page : on reprend la mesure à l'image suivante.
+	_fit_slip.call_deferred()
 	_slip.rotation_degrees = -1.5
 	_slip.modulate.a = 0.0
 	if _slip_tween:
@@ -403,3 +402,10 @@ func show_slip(text: String) -> void:
 	tw.tween_property(_slip, "modulate:a", 1.0, 0.3)
 	tw.tween_interval(5.0 + text.length() * 0.03)
 	tw.tween_property(_slip, "modulate:a", 0.0, 0.8)
+
+
+## La fiche reprend la taille de son texte, puis se pose en bas à gauche.
+func _fit_slip() -> void:
+	_slip.reset_size()
+	_slip.size = _slip.get_combined_minimum_size()
+	_slip.position = Vector2(28, get_viewport().get_visible_rect().size.y - _slip.size.y - 60)
