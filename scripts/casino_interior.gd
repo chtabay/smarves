@@ -531,6 +531,8 @@ func _open_panel(p: Control) -> void:
 		# Table 3D : la caméra s'assoit à la table, le panneau devient une barre basse.
 		t3d.attach(p)
 		t3d.sit(player.camera)
+		# Le nom de la pièce s'efface : il passerait sur le fronton ou le tapis.
+		_room_label.modulate.a = 0.0
 		_seated = t3d
 		BARRE.dock(p, _panel_layer.get_parent())
 	else:
@@ -1308,7 +1310,7 @@ func _chandelier(pos: Vector3, size := 1.0, shadows := false) -> void:
 
 
 ## La lampe de table des casinos : une hotte de laiton suspendue, verre vert dessous, lumière franche sur le tapis.
-func _table_lamp(pos: Vector3, length: float, rot_y := 0.0) -> void:
+func _table_lamp(pos: Vector3, length: float, rot_y := 0.0, energy := 3.5) -> void:
 	var root := _node(pos)
 	root.rotation_degrees.y = rot_y
 	for s in [-1.0, 1.0]:
@@ -1318,7 +1320,7 @@ func _table_lamp(pos: Vector3, length: float, rot_y := 0.0) -> void:
 	for k in 3:
 		var s := SpotLight3D.new()
 		s.light_color = Color(1.0, 0.86, 0.66)
-		s.light_energy = 3.5
+		s.light_energy = energy
 		s.spot_range = 3.0
 		s.spot_angle = 50.0
 		s.spot_attenuation = 0.6
@@ -1782,7 +1784,8 @@ func _build_games_room() -> void:
 	_blackjack_table(Vector3(9.2, 0, -6.2))
 	_craps_table(Vector3(0.0, 0, -5.0))
 	_table_lamp(Vector3(-9.2, 2.5, -5.8), 2.4, 90.0)
-	_table_lamp(Vector3(8.9, 2.5, -6.2), 2.0, 90.0)
+	# Plus douce au blackjack : les cartes blanches y sont à plat sous la lampe.
+	_table_lamp(Vector3(8.9, 2.5, -6.2), 2.0, 90.0, 1.6)
 
 	# La caisse, une cage de laiton contre le mur ouest, près de la porte.
 	var cage := _node(Vector3(-12.2, 0, 3.6))
@@ -1971,8 +1974,9 @@ func _roulette_table(pos: Vector3) -> void:
 	# Chaises côté joueurs, croupier côté cylindre, râteau et jetons.
 	for k in 4:
 		_chair(root, Vector3(-0.2 + k * 0.6, 0, 1.15), 180.0)
-	# Le croupier se tient derrière le cylindre, hors du regard du joueur assis.
-	_person("croupier-roulette", pos + Vector3(-0.95, 0, 1.15), 90.0, "idle", "noeud")
+	# Le croupier se tient au bout de la table, derrière le cylindre : hors du regard du joueur
+	# assis comme du plan rapproché sur le cylindre.
+	_person("croupier-roulette", pos + Vector3(-0.1, 0, 2.3), 180.0, "idle", "noeud")
 	_person("character-male-f.glb", pos + Vector3(1.4, 0, -1.6), -90.0)
 	_bill(_label("Roulette", Vector3(0, 2.0, 0), 0.0, 72, Color(1.0, 0.85, 0.5), root))
 	_interactive(root, "roulette", "E : s'asseoir à la roulette", Vector3(3.6, 2.0, 2.8), Vector3(0, 1.0, 0.4))
