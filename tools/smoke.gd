@@ -24,11 +24,33 @@ func _ready() -> void:
 	get_tree().change_scene_to_file("res://scenes/casino.tscn")
 	await _wait(3.0)
 	await _casino()
+	await _shops()
 	await _resize()
 	print("\n=== BILAN DU PARCOURS ===")
 	for r in report:
 		print(r)
 	get_tree().quit(0)
+
+
+## Les vendeurs du village : chaque intérieur, sa vitrine, un achat, le carnet.
+func _shops() -> void:
+	for id in Biens.SELLERS:
+		get_tree().change_scene_to_file(Biens.SELLERS[id].scene)
+		await _wait(2.0)
+		var shop := get_tree().current_scene
+		shop.open_vitrine()
+		await _wait(0.5)
+		var bought := false
+		for it in Biens.CATALOGUE:
+			if it.seller == id and Biens.available(it.id):
+				bought = Biens.buy(it.id)
+				break
+		report.append(("ok " if bought else "ÉCHEC ") + "vendeur : %s" % Biens.SELLERS[id].name)
+		await _fps(Biens.SELLERS[id].name)
+	Carnet.toggle()
+	await _wait(0.5)
+	report.append(("ok " if Carnet.is_open() else "ÉCHEC ") + "le carnet s'ouvre")
+	Carnet.toggle()
 
 
 func _wait(s: float) -> void:
