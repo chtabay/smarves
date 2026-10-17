@@ -827,6 +827,7 @@ func _maybe_capture() -> void:
 	var open := false
 	var carnet := false
 	var plan := false
+	var lot := ""
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--capture="):
 			path = arg.trim_prefix("--capture=")
@@ -838,6 +839,9 @@ func _maybe_capture() -> void:
 				player.camera.rotation.x = deg_to_rad(v[3])
 		elif arg == "--open=vitrine":
 			open = true
+		elif arg.begins_with("--lot="):
+			open = true
+			lot = arg.trim_prefix("--lot=")
 		elif arg == "--carnet":
 			carnet = true
 		elif arg == "--plan":
@@ -853,6 +857,8 @@ func _maybe_capture() -> void:
 		await get_tree().create_timer(1.0).timeout
 		say((KEEPERS.get(shop, KEEPERS.notaire).lines as Array)[0])
 		open_vitrine()
+		if lot != "" and _panel.has_method("_on_picked"):
+			_panel._on_picked(lot)
 	if carnet:
 		await get_tree().create_timer(1.0).timeout
 		Carnet.toggle()
