@@ -10,6 +10,8 @@ const BLACKJACK := preload("res://scripts/blackjack_panel.gd")
 const BLACKJACK_3D := preload("res://scripts/jeux/blackjack_3d.gd")
 const SLOT := preload("res://scripts/slot_machine.gd")
 const SLOT_3D := preload("res://scripts/jeux/slot_3d.gd")
+const CRAPS := preload("res://scripts/craps_panel.gd")
+const CRAPS_3D := preload("res://scripts/jeux/craps_3d.gd")
 const VILLAGER := preload("res://scripts/villager.gd")
 
 var game := "roulette"
@@ -97,6 +99,27 @@ func _ready() -> void:
 					want = Array(arg.trim_prefix("--line=").split(","))
 			for r in 3:
 				p.stop_at[r] = p.strips[r].find(want[r])
+		"craps":
+			var t := CRAPS_3D.new()
+			add_child(t)
+			var p: PanelContainer = CRAPS.new()
+			_croupier("stickman", Vector3(0, 0, -1.25), p)
+			t.attach(p)
+			t.sit(eye)
+			BARRE.dock(p, ui)
+			await get_tree().create_timer(1.2).timeout
+			for k in ["pass", "field", "seven", "pass"]:
+				p._place(k)
+				await get_tree().create_timer(0.1).timeout
+			if path != "":
+				await _shot(0)
+			p._roll()
+			# --roll : un second lancer après le premier (point, palet, Place).
+			if "--roll" in OS.get_cmdline_user_args():
+				await get_tree().create_timer(4.5).timeout
+				p._place("place6")
+				p._place("place8")
+				p._roll()
 	if path == "":
 		return
 	var elapsed := 0.0

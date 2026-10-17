@@ -631,7 +631,7 @@ static func _die_tex(body: Color, pip: Color) -> Texture2D:
 		1: [[0.5, 0.5]], 2: [[0.27, 0.27], [0.73, 0.73]], 3: [[0.25, 0.25], [0.5, 0.5], [0.75, 0.75]],
 		4: [[0.27, 0.27], [0.73, 0.27], [0.27, 0.73], [0.73, 0.73]],
 		5: [[0.25, 0.25], [0.75, 0.25], [0.5, 0.5], [0.25, 0.75], [0.75, 0.75]],
-		6: [[0.27, 0.22], [0.73, 0.22], [0.27, 0.5], [0.73, 0.5], [0.27, 0.78], [0.73, 0.78]],
+		6: [[0.28, 0.25], [0.72, 0.25], [0.28, 0.5], [0.72, 0.5], [0.28, 0.75], [0.72, 0.75]],
 	}
 	for v in 6:
 		var ox := (v % 3) * cs
@@ -640,7 +640,7 @@ static func _die_tex(body: Color, pip: Color) -> Texture2D:
 			for x in cs:
 				# Un liseré plus sombre fait l'arrondi des arêtes.
 				var e := minf(minf(x, cs - 1 - x), minf(y, cs - 1 - y))
-				var col := body.darkened(0.35 * (1.0 - clampf(e / 10.0, 0.0, 1.0)))
+				var col := body.darkened(0.12 * (1.0 - clampf(e / 10.0, 0.0, 1.0)))
 				var rad := 13.0 if v > 0 else 18.0
 				for p in pos[v + 1]:
 					var d := Vector2(x, y).distance_to(Vector2(p[0], p[1]) * cs)
@@ -657,19 +657,43 @@ static func _die_tex(body: Color, pip: Color) -> Texture2D:
 static func die(size: float, body: Color, pip: Color, glossy := true) -> MeshInstance3D:
 	var key := "die_mesh_%.3f" % size
 	if not _meshes.has(key):
+		# Un cube aux arêtes arrondies : chaque face est une grille dont les bords sont repliés sur un
+		# quart de cylindre ; les UV restent ceux de la face, les points tombent dans l'arrondi.
+		var h := size / 2.0
+		var r := size * 0.14
+		var a := h - r
+		var coords: Array[float] = []
+		var m_steps := 3
+		for k in range(m_steps, 0, -1):
+			coords.append(-a - r * tan(PI / 4.0 * k / m_steps))
+		coords.append(-a)
+		coords.append(a)
+		for k in range(1, m_steps + 1):
+			coords.append(a + r * tan(PI / 4.0 * k / m_steps))
 		var st := SurfaceTool.new()
 		st.begin(Mesh.PRIMITIVE_TRIANGLES)
-		var h := size / 2.0
 		for v in DIE_FACES:
 			var n: Vector3 = DIE_FACES[v]
 			var u := _perp(n) if absf(n.y) < 0.5 else Vector3.RIGHT
 			var w := n.cross(u)
 			var cell := Vector2(((v - 1) % 3) / 3.0, ((v - 1) / 3) / 2.0)
-			var corners := [n * h - u * h - w * h, n * h + u * h - w * h, n * h - u * h + w * h, n * h + u * h + w * h]
-			var uvs := [cell, cell + Vector2(1.0 / 3.0, 0), cell + Vector2(0, 0.5), cell + Vector2(1.0 / 3.0, 0.5)]
-			var nn := [n, n, n, n]
-			_tri(st, corners, nn, uvs, 0, 1, 2)
-			_tri(st, corners, nn, uvs, 1, 3, 2)
+			var pts := []
+			var nrm := []
+			var uvs := []
+			for j in coords.size():
+				for i in coords.size():
+					var p: Vector3 = n * h + u * coords[i] + w * coords[j]
+					var c := p.clamp(-Vector3.ONE * a, Vector3.ONE * a)
+					var d := (p - c).normalized()
+					pts.append(c + d * r)
+					nrm.append(d)
+					uvs.append(cell + Vector2((coords[i] + h) / size / 3.0, (coords[j] + h) / size / 2.0))
+			var nc := coords.size()
+			for j in nc - 1:
+				for i in nc - 1:
+					var i00 := j * nc + i
+					_tri(st, pts, nrm, uvs, i00, i00 + 1, i00 + nc)
+					_tri(st, pts, nrm, uvs, i00 + 1, i00 + nc + 1, i00 + nc)
 		_meshes[key] = st.commit()
 	var m := mat(Color.WHITE, 0.18 if glossy else 0.5)
 	m.albedo_texture = _die_tex(body, pip)
@@ -684,7 +708,8 @@ static func die(size: float, body: Color, pip: Color, glossy := true) -> MeshIns
 
 
 static func die_basis(v: int, yaw := 0.0) -> Basis:
-	var q := Quaternion(DIE_FACES[v], Vector3.UP)
+	# Le 6 est à l'opposé du haut : demi-tour franc plutôt qu'un arc indéterminé.
+	var q := Quaternion(Vector3.RIGHT, PI) if v == 6 else Quaternion(DIE_FACES[v], Vector3.UP)
 	return Basis(Vector3.UP, yaw) * Basis(q)
 
 
