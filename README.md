@@ -36,6 +36,7 @@ Les lieux et les salles s'ouvrent par seuils, sur le total gagné au jeu (la Sal
 - `scripts/game_state.gd` (autoload `Game`) : crédits, gains, mises, dette, sauvegarde. `scripts/sfx.gd` (autoload `Sfx`) : le son.
 - Captures de vérification : `godot --path . res://scenes/main.tscn -- --capture=sortie.png [--open=cafe] [--travel=bois] [--view=distance,x,y,z,lacet,tangage]`, et pour le casino `godot --path . res://scenes/casino.tscn -- --capture=sortie.png --at=x,z,lacet,tangage[,hauteur] [--open=roulette] [--won=5000]`.
 - Parcours automatique de tout le jeu (chaque lieu, chaque table, voyages, fenêtre redimensionnée, temps de rendu) : `godot --path . res://tools/smoke.tscn`. Il ne touche pas à la sauvegarde.
+- `scripts/biens.gd` (autoload `Biens`) : les biens du joueur (parts, maisons, tenues, véhicules), la recette toutes les 20 mises, le financement et les reprises de M. Brunet. Fiche : [`docs/GESTION.md`](docs/GESTION.md). Simulation : `godot --headless --path . res://tools/sim_gestion.tscn` ; test : `godot --headless --path . res://tools/test_biens.tscn`.
 - Simulation de la progression : `godot --headless --path . res://tools/sim_progression.tscn` (résultats dans [`docs/EQUILIBRAGE.md`](docs/EQUILIBRAGE.md)).
 - Test automatique des donnes de poker : `godot --headless --path . -s tools/test_games.gd`.
 - Planche de contact d'un dossier d'assets : `godot --path . -s tools/sheet.gd -- res://assets/kaykit/city planche.png 6`.

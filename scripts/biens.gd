@@ -436,6 +436,6 @@ func _wipe() -> void:
 	_period_staked = 0
 	_since_reprise = 0
 	_last_staked = Game.staked
-	if FileAccess.file_exists(SAVE_PATH):
+	if _can_save() and FileAccess.file_exists(SAVE_PATH):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
 	changed.emit()
