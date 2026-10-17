@@ -363,10 +363,6 @@ func _build_keeper() -> void:
 	_keeper.position = Vector3(0, ESTRADE, -D / 2.0 + 1.3)
 	add_child(_keeper)
 	var c := CRITTER.new()
-	c.species = k.species
-	c.fur = k.fur
-	c.outfit = k.outfit
-	c.accessory = k.acc
 	# Leur fiche de personnage (docs/PERSONNAGES.md), si elle existe.
 	var who: String = {"notaire": "garnier", "couture": "raymonde", "garage": "fradin", "brocante": "ginette"}.get(shop, "")
 	if Cast.NAMED.has(who):

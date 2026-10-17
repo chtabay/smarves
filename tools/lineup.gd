@@ -124,15 +124,6 @@ func _ready() -> void:
 			v.critter.set_look(Cast.player(Cast.PLAYER_OUTFITS.keys()[i]))
 		if not moves and v.critter.get("_blink_wait") != null:
 			v.critter.set("_blink_wait", 99.0)  # les yeux ouverts sur la planche
-		if c[0] == "joueur" and v.critter.get("skeleton") == null:
-			# L'ancien renard du joueur, tel que main.gd le fabriquait.
-			v.critter.queue_free()
-			var me: Node3D = VILLAGER.CRITTER.new()
-			me.species = "renard"
-			me.fur = Color(1.0, 0.62, 0.32)
-			me.outfit = Color(0.1, 0.12, 0.25)
-			me.accessory = "noeud"
-			v.add_child(me)
 		var l := Label3D.new()
 		l.text = c[3]
 		l.font_size = 30
@@ -157,8 +148,8 @@ func _ready() -> void:
 		cam.position = Vector3(0, 2.3, 4.3)
 		cam.rotation_degrees = Vector3(-25, 0, 0)
 		cam.fov = 50
-	# Les crans de la caméra extérieure de la suite (docs/SUITE.md) : Rue à 22 u et 52°, Quartier à 40 u et 60°.
-	for cran in [["--rue", 22.0, 52.0], ["--quartier", 40.0, 60.0]]:
+	# Les crans de la caméra extérieure de la suite (docs/SUITE.md) : Rue à 18 u et 51°, Quartier à 40 u et 60°.
+	for cran in [["--rue", 18.0, 51.0], ["--quartier", 40.0, 60.0]]:
 		if cran[0] in args:
 			cam.position = Vector3(0, cran[1], cran[1] / tan(deg_to_rad(cran[2])))
 			cam.rotation_degrees = Vector3(-cran[2], 0, 0)

@@ -1,18 +1,12 @@
 extends Node3D
-## Un habitant de Smarves, façon Happy Tree Friends : grosse tête ronde, grands yeux brillants, petit corps.
+## Un habitant de Smarves, un adulte de bande dessinée en ligne claire (voir docs/PERSONNAGES.md).
 ## Le corps vient de sa fiche (Cast, CritterMesh), les mouvements de la bibliothèque commune (CritterAnims) ;
 ## le visage (clignements, sourire, moue, bouche qui parle, sourcils) et le regard sont tenus ici, par le code.
-## Il regarde +Z ; environ 0,75 de haut à l'échelle 1.
+## Il regarde +Z ; environ 0,7 de haut à l'échelle 1.
 
 enum Pose { IDLE, WALK, SIT, CHEER, SULK }
 
-## Ancienne façon de l'habiller, encore comprise : espèce, pelage, tenue, accessoire.
-@export var species := ""
-@export var fur := Color(0.98, 0.72, 0.42)
-@export var outfit := Color(0.85, 0.15, 0.2)
-@export var accessory := ""
-
-## Sa fiche (voir Cast) ; vide = tirée de l'ancienne façon ou au hasard.
+## Sa fiche (voir Cast) ; vide = tirée au hasard.
 var look: Dictionary = {}
 ## La pose de fond au repos et assis (voir CritterAnims.BASE).
 var idle_anim := "idle"
@@ -78,10 +72,7 @@ func randomize_look(seed_value: int) -> void:
 
 func _ready() -> void:
 	if look.is_empty():
-		if species != "":
-			look = Cast.from_legacy(species, fur, outfit, accessory)
-		else:
-			randomize_look(randi())
+		randomize_look(randi())
 	_t = randf() * 10.0
 	_blink_wait = randf_range(1.0, 4.0)
 	_build()

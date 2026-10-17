@@ -35,6 +35,8 @@ var _think := 0.0
 var _near_time := 0.0
 var _chat_with: Node3D = null
 var _talking := 0.0
+## La pastille au-dessus d'un personnage nommé, vue seulement de loin (cran Quartier).
+var _badge: Label3D = null
 
 
 func _ready() -> void:
@@ -53,6 +55,8 @@ func _ready() -> void:
 	if role == "croupier":
 		scale *= CROUPIER_SCALE
 	add_child(critter)
+	if info.has("named") and not _in_casino():
+		_add_badge(info.look)
 	_apply_pose(pose if route.size() < 2 else "walk")
 	_home_yaw = rotation.y
 	_fidget_wait = randf_range(3.0, 10.0)
@@ -68,6 +72,31 @@ func _ready() -> void:
 	area.set_meta("interact", "talk")
 	area.set_meta("prompt", "E : parler à %s" % Lines.display_name(speaker))
 	add_child(area)
+
+
+## Une pastille de la couleur qui signe le personnage (chapeau, sinon veste), cerclée de noir, à taille
+## d'écran constante ; elle n'apparaît que quand la caméra est loin, là où la figurine n'est plus qu'un point.
+const BADGE_FROM := 30.0
+
+func _add_badge(look: Dictionary) -> void:
+	_badge = Label3D.new()
+	_badge.text = "●"
+	_badge.font_size = 64
+	_badge.pixel_size = 0.00022
+	_badge.fixed_size = true
+	_badge.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_badge.no_depth_test = true
+	_badge.modulate = Color(look.get("hat_color", look.get("top_color", "#d4a443")))
+	_badge.outline_size = 12
+	_badge.outline_modulate = Color(0.07, 0.05, 0.06)
+	_badge.position.y = 1.0
+	_badge.visible = false
+	add_child(_badge)
+
+
+func _update_badge() -> void:
+	var cam := get_viewport().get_camera_3d()
+	_badge.visible = cam != null and cam.global_position.distance_to(global_position) > BADGE_FROM
 
 
 func _in_casino() -> bool:
@@ -267,6 +296,8 @@ func _process(delta: float) -> void:
 	if _think <= 0.0:
 		_think = randf_range(0.25, 0.4)
 		_attention(walking)
+		if _badge:
+			_update_badge()
 	if walking or _talking > 0.0:
 		return
 	_fidget_wait -= delta
