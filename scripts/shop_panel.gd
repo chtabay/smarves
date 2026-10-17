@@ -33,14 +33,19 @@ const FINANCED := "« M. Brunet a déjà donné son accord, il me l'a dit ce mat
 const SOLD := "« Repris à %s. Le marché est ce qu'il est, mais vous gardez l'expérience. »"
 const TOO_POOR := "« Il vous manque quelques crédits. M. Brunet finance, vous savez : c'est son métier, et il l'aime. »"
 
+const CARTE := preload("res://scripts/carte_biens.gd")
+
 var _list: VBoxContainer
+## Chez le notaire, le registre est un plan : les biens sur leurs bâtiments, la fiche du lot choisi à côté.
+var _map: Control
+var _picked := ""
 var _status: Label
 var _serif: Font
 
 
 func _ready() -> void:
 	_serif = Polices.texte()
-	custom_minimum_size = Vector2(940, 620)
+	custom_minimum_size = Vector2(1120, 760) if seller == "notaire" else Vector2(940, 620)
 	var st := StyleBoxFlat.new()
 	st.bg_color = PAPER
 	st.border_color = Color(0.45, 0.32, 0.18)
@@ -63,7 +68,20 @@ func _ready() -> void:
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	v.add_child(scroll)
+	if seller == "notaire":
+		var h := HBoxContainer.new()
+		h.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		h.add_theme_constant_override("separation", 18)
+		v.add_child(h)
+		_map = CARTE.new()
+		_map.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_map.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		_map.picked.connect(_on_picked)
+		h.add_child(_map)
+		scroll.custom_minimum_size.x = 320
+		h.add_child(scroll)
+	else:
+		v.add_child(scroll)
 	_list = VBoxContainer.new()
 	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_list.add_theme_constant_override("separation", 10)
@@ -118,7 +136,12 @@ func _button(t: String, action: Callable, enabled := true) -> Button:
 func _refresh() -> void:
 	for c in _list.get_children():
 		c.queue_free()
+	if _map:
+		_detail(_picked)
+		_map.queue_redraw()
 	for it in Biens.CATALOGUE:
+		if _map:
+			break
 		if it.seller != seller:
 			continue
 		_card(it)
@@ -172,6 +195,66 @@ func _card(it: Dictionary) -> void:
 		var resell := _button("Revendre (%s)" % Game.fmt(Biens.resale_of(it.id)), _sell.bind(it.id))
 		resell.size_flags_horizontal = Control.SIZE_SHRINK_END
 		right.add_child(resell)
+
+
+func _on_picked(id: String) -> void:
+	_picked = id
+	_map.select(id)
+	_refresh()
+
+
+## La fiche d'un lot du plan : ce qu'il rapporte, qui le cède, et les actes possibles.
+## Sans lot choisi : la légende du plan et ce qu'on possède déjà.
+func _detail(id: String) -> void:
+	if id == "":
+		_label(_list, "Touchez un bâtiment du plan pour voir ce qui s'y vend.", 17, INK)
+		_legend("à vendre", CARTE.FOR_SALE)
+		_legend("à vous", CARTE.MINE)
+		_legend("pas encore cédé", CARTE.CLOSED)
+		var mine: Array[String] = []
+		for it in Biens.CATALOGUE:
+			if it.seller == seller and Biens.count(it.id) > 0:
+				mine.append(it.name if Biens.count(it.id) == 1 else "%s ×%d" % [it.name, Biens.count(it.id)])
+		_label(_list, "Vos biens chez Maître Garnier : " + (", ".join(mine) if not mine.is_empty() else "aucun pour l'instant."), 15, INK_LIGHT)
+		return
+	var it: Dictionary = Biens.item(id)
+	var n := Biens.count(id)
+	_label(_list, it.name, 21, INK, true)
+	_label(_list, CARTE.LOTS[id][0], 15, INK_LIGHT)
+	if Game.won < it.gate:
+		_label(_list, "Pas encore cédé. %s attend que vous ayez gagné %s au jeu." % [it.from, Game.fmt(it.gate)], 16, INK_LIGHT)
+		return
+	_label(_list, "%s  —  %s" % [it.from, it.blurb], 15, INK_LIGHT)
+	if it.rente > 0:
+		_label(_list, "Rente annoncée : %s par recette" % Game.fmt(it.rente), 16, INK)
+	if it.charge > 0:
+		_label(_list, "Charges : %s" % Game.fmt(it.charge), 16, INK)
+	if it.standing > 0:
+		_label(_list, "Standing : +%d" % it.standing, 16, INK)
+	if it.max > 1:
+		_label(_list, "Vous en avez %d, sur %d au plus." % [n, it.max], 16, INK)
+	elif n > 0:
+		_label(_list, "À vous.", 16, INK, true)
+	if Biens.available(id):
+		_label(_list, "%s crédits" % Game.fmt(Biens.next_price(id)), 24, INK, true)
+		for b in [_button("Payer comptant", _buy.bind(id, false)), _button("Financer au Crédit Smarvois", _buy.bind(id, true))]:
+			b.custom_minimum_size.y = 48
+			_list.add_child(b)
+	if n > 0:
+		var resell := _button("Revendre (%s)" % Game.fmt(Biens.resale_of(id)), _sell.bind(id))
+		resell.custom_minimum_size.y = 48
+		_list.add_child(resell)
+
+
+func _legend(t: String, c: Color) -> void:
+	var h := HBoxContainer.new()
+	var sw := ColorRect.new()
+	sw.color = c
+	sw.custom_minimum_size = Vector2(22, 16)
+	sw.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(sw)
+	_label(h, t, 15, INK)
+	_list.add_child(h)
 
 
 func _buy(id: String, financed: bool) -> void:
