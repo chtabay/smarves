@@ -1193,6 +1193,7 @@ func _on_interact(target: Node) -> void:
 	var kind: String = str(target.get_meta("interact"))
 	match kind:
 		"exit":
+			Game.return_point = "casino"
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 			get_tree().change_scene_to_file("res://scenes/main.tscn")
 		"talk":

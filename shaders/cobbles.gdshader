@@ -3,7 +3,7 @@ shader_type spatial;
 uniform vec3 stone_a : source_color = vec3(0.62, 0.56, 0.48);
 uniform vec3 stone_b : source_color = vec3(0.48, 0.44, 0.4);
 uniform vec3 joint : source_color = vec3(0.3, 0.26, 0.22);
-uniform float size = 0.22;
+uniform float size = 0.14;
 varying vec3 wpos;
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float noise(vec2 p) {

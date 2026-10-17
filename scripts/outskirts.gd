@@ -36,6 +36,8 @@ func build(m: Node3D) -> void:
 	_bois(AREAS.bois.center)
 	_moulin(AREAS.moulin.center)
 	_passelourdin(AREAS.passelourdin.center)
+	for k in AREAS:
+		_home_sign(AREAS[k].center)
 
 
 func _plinth(c: Vector3, title: String, ground: Material) -> void:
@@ -52,7 +54,45 @@ func _plinth(c: Vector3, title: String, ground: Material) -> void:
 
 
 func _p(path: String, pos: Vector3, scale := 1.0, rot := 0.0) -> Node3D:
-	return main._place(path, pos, scale, rot)
+	var n: Node3D = main._place(path, pos, scale, rot)
+	# Bâtiments, rochers et arbres font obstacle quand on se promène à pied ; les arbres par leur tronc.
+	if path.contains("building") or path.contains("wall_") or path.contains("mountain"):
+		main._solid(n, 0.85)
+	elif path.contains("tree") or path.contains("rock_single"):
+		main._solid(n, 0.3)
+	return n
+
+
+## Le panneau du chemin du retour, à l'arrivée sur chaque socle.
+func _home_sign(c: Vector3) -> void:
+	var root := Node3D.new()
+	root.position = c + Vector3(1.4, 0, 7.2)
+	main.add_child(root)
+	var wood := StandardMaterial3D.new()
+	wood.albedo_color = Color(0.45, 0.28, 0.14)
+	main._box(Vector3(0.08, 1.2, 0.08), Vector3(0, 0.6, 0), wood, root)
+	main._box(Vector3(1.4, 0.3, 0.06), Vector3(0, 1.05, 0), wood, root)
+	var l := Label3D.new()
+	l.text = "Place de la Mairie  ↓"
+	l.font = main.serif
+	l.font_size = 40
+	l.pixel_size = 0.003
+	l.modulate = Color(1.0, 0.92, 0.75)
+	l.outline_size = 0
+	l.position = Vector3(0, 1.05, 0.04)
+	l.double_sided = true
+	root.add_child(l)
+	var a := Area3D.new()
+	var cs := CollisionShape3D.new()
+	var b := BoxShape3D.new()
+	b.size = Vector3(1.6, 1.4, 0.6)
+	cs.shape = b
+	cs.position.y = 0.7
+	a.add_child(cs)
+	a.set_meta("travel", "place")
+	a.set_meta("interact", "travel")
+	a.set_meta("prompt", "E : rentrer sur la place de la Mairie")
+	root.add_child(a)
 
 
 func _lamp(pos: Vector3, energy := 1.6, color := Color(1.0, 0.75, 0.45), range_m := 4.5) -> void:
@@ -184,7 +224,10 @@ func _moulin(c: Vector3) -> void:
 		main._box(Vector3(22, 0.16, 0.2), c + Vector3(0, 0.0, z), bank)
 	# Le moulin, sa roue dans le bief, un pont de bois.
 	_p(KK + "medieval_buildings/blue/building_watermill_blue.gltf", c + Vector3(-2.0, 0, -1.0), 4.6)
-	_p(KK + "medieval_buildings/neutral/building_bridge_A.gltf", c + Vector3(5.5, 0.12, 3.2), 2.0, 90.0)
+	main._place(KK + "medieval_buildings/neutral/building_bridge_A.gltf", c + Vector3(5.5, 0.12, 3.2), 2.0, 90.0)
+	# On ne traverse le Miosson que par le pont.
+	main._solid_box(Vector3(15.5, 2.0, 3.4), c + Vector3(-3.3, 1.0, 3.2))
+	main._solid_box(Vector3(4.2, 2.0, 3.4), c + Vector3(8.9, 1.0, 3.2))
 	for x in [-6.0, -0.4]:
 		var win: MeshInstance3D = main._box(Vector3(0.6, 0.6, 0.05), c + Vector3(x * 0.5 - 1.6, 1.6, 1.25), main.window_material)
 		win.name = "Fenetre"

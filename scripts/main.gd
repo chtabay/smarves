@@ -12,6 +12,9 @@ const WHEEL := preload("res://scripts/wheel_panel.gd")
 const BLACKJACK := preload("res://scripts/blackjack_panel.gd")
 const POKER := preload("res://scripts/poker_panel.gd")
 const OUTSKIRTS := preload("res://scripts/outskirts.gd")
+const PLAYER := preload("res://scripts/fp_player.gd")
+## Taille du joueur sur la place : celle d'un habitant (0,72 m de haut), les yeux à 0,6 m.
+const PLAYER_EYE := 0.6
 
 ## Où regarde la caméra quand on joue dans chaque lieu de la place : [cible, distance, lacet, tangage].
 const FOCUS := {
@@ -71,6 +74,12 @@ var _back: Button
 var area := ""
 var moving_cars: Array[Node3D] = []
 var josiane: Node3D
+var player: CharacterBody3D
+## Vue à pied (par défaut) ou vue maquette (Tab).
+var fps := true
+var _prompt: Label
+var _cross: Label
+var _places_panel: Control
 
 
 func _ready() -> void:
@@ -91,6 +100,9 @@ func _ready() -> void:
 	camera.set_script(ORBIT)
 	add_child(camera)
 	camera.make_current()
+	_build_ground()
+	if not has_meta("vitrine"):
+		_spawn_player()
 	_refresh_places()
 	Sfx.set_ambience("village")
 	# En vitrine derrière l'écran titre : pas d'interface, pas d'accueil, pas de bavardages.
@@ -309,6 +321,8 @@ func _build_square() -> void:
 	_box(Vector3(0.9, 0.25, 0.9), Vector3(-1.6, 0.12, -0.6), stone_material)
 	_box(Vector3(0.35, 1.6, 0.35), Vector3(-1.6, 1.0, -0.6), stone_material)
 	var maple := _place(KN + "tree_detailed_fall.glb", Vector3(0.6, 0, -0.4), 2.2, 20.0)
+	_solid_box(Vector3(0.3, 2.0, 0.3), Vector3(0.6, 1.0, -0.4))
+	_solid_box(Vector3(0.9, 2.0, 0.9), Vector3(-1.6, 1.0, -0.6))
 	var red := StandardMaterial3D.new()
 	red.albedo_color = Color(0.65, 0.1, 0.06)
 	red.roughness = 0.85
@@ -333,6 +347,7 @@ func _kaykit(name: String, color: String, pos: Vector3, rot_y: float, scale := B
 
 func _building(id: String, name: String, color: String, pos: Vector3, rot_y: float, scale := BUILDING_SCALE) -> Node3D:
 	var b := _kaykit(name, color, pos, rot_y, scale)
+	_solid(b)
 	if id != "":
 		var aabb := _aabb_of(b)
 		_add_place_marker(id, b, Vector3(0, aabb.size.y / scale + 0.25, 0), aabb.size / scale)
@@ -355,6 +370,7 @@ func _build_buildings() -> void:
 	_building("mairie", "home_B", "blue", Vector3(-4.6, 0, -5.8), 0.0, 3.6)
 	_building("eglise", "church", "yellow", Vector3(0.4, 0, -6.0), 0.0, 3.6)
 	var casino := CasinoExterior.build(self, Vector3(6.4, 0, -6.0), 0.0, serif)
+	_solid_box(Vector3(CasinoExterior.W + 0.6, 4.0, CasinoExterior.D + 0.6), Vector3(6.4, 2.0, -6.0))
 	_add_place_marker("casino", casino, Vector3(0, 5.6, 0), Vector3(CasinoExterior.W, 3.5, CasinoExterior.D))
 	# À gauche, le Café de la Place ; à droite, la boulangerie et le Crédit Smarvois.
 	_building("cafe", "tavern", "red", Vector3(-8.8, 0, -0.6), 90.0)
@@ -444,6 +460,7 @@ func _add_place_marker(id: String, parent: Node3D, at: Vector3, size: Vector3) -
 	shape.position = Vector3(0, size.y / 2.0, 0)
 	area.add_child(shape)
 	area.set_meta("place", id)
+	area.set_meta("interact", "place")
 	parent.add_child(area)
 
 
@@ -460,7 +477,7 @@ func _build_trees_and_lights() -> void:
 	# Les platanes le long de la route.
 	var planes := [Vector3(-7.0, 0, 5.0), Vector3(-2.5, 0, 5.0), Vector3(2.0, 0, 5.0), Vector3(6.5, 0, 5.0)]
 	for p in planes:
-		_place(KK + "medieval_decoration/nature/tree_single_A.gltf", p, 2.8, randf() * 360.0)
+		_solid(_place(KK + "medieval_decoration/nature/tree_single_A.gltf", p, 2.8, randf() * 360.0), 0.2)
 	for i in planes.size() - 1:
 		_garland(planes[i] + Vector3(0, 2.4, 0), planes[i + 1] + Vector3(0, 2.4, 0), 0.8)
 		_bunting(planes[i] + Vector3(0, 2.0, 0.1), planes[i + 1] + Vector3(0, 2.0, 0.1), 0.6)
@@ -635,7 +652,11 @@ func is_open(id: String) -> bool:
 # --- Interaction ---------------------------------------------------------------------
 
 func _unhandled_input(event: InputEvent) -> void:
-	if _slot.visible:
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_TAB and player and not player.frozen:
+		set_fps(not fps)
+		get_viewport().set_input_as_handled()
+		return
+	if _slot.visible or fps:
 		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var from := camera.project_ray_origin(event.position)
@@ -652,6 +673,25 @@ func _unhandled_input(event: InputEvent) -> void:
 			_enter(hit.collider.get_meta("place"))
 
 
+func _cam_focus(at: Vector3, dist: float, y: float, p: float) -> void:
+	if fps:
+		player.frozen = true
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		_prompt.visible = false
+		_cross.visible = false
+	else:
+		camera.focus(at, dist, y, p)
+
+
+func _cam_release() -> void:
+	if fps:
+		player.frozen = false
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		_cross.visible = true
+	else:
+		camera.release()
+
+
 func _enter(id: String) -> void:
 	var p := _place_info(id)
 	if p.is_empty():
@@ -660,16 +700,17 @@ func _enter(id: String) -> void:
 		_announce("%s : encore fermé. Il faut avoir gagné %s crédits au jeu." % [p.name, _fmt(p.seuil)])
 		return
 	if id == "banque":
-		camera.focus(Vector3(7.6, 1.6, 3.8), 5.5, deg_to_rad(-90.0), deg_to_rad(-28.0))
+		_cam_focus(Vector3(7.6, 1.6, 3.8), 5.5, deg_to_rad(-90.0), deg_to_rad(-28.0))
 		var loan: PanelContainer = LOAN.new()
 		loan.closed.connect(func():
 			loan.queue_free()
 			_hint.visible = true
-			camera.release())
+			_cam_release())
 		_slot.get_parent().add_child(loan)
 		_hint.visible = false
 		return
 	if id == "casino":
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		get_tree().change_scene_to_file("res://scenes/casino.tscn")
 		return
 	if id != "cafe":
@@ -679,16 +720,16 @@ func _enter(id: String) -> void:
 			return
 		if FOCUS.has(id):
 			var f: Array = FOCUS[id]
-			camera.focus(f[0], f[1], deg_to_rad(f[2]), deg_to_rad(f[3]))
+			_cam_focus(f[0], f[1], deg_to_rad(f[2]), deg_to_rad(f[3]))
 		panel.played.connect(_on_game_played)
 		panel.closed.connect(func():
 			panel.queue_free()
 			_hint.visible = true
-			camera.release())
+			_cam_release())
 		_slot.get_parent().add_child(panel)
 		_hint.visible = false
 		return
-	camera.focus(Vector3(-6.7, 0.8, -2.2), 5.0, deg_to_rad(70.0), deg_to_rad(-14.0))
+	_cam_focus(Vector3(-6.7, 0.8, -2.2), 5.0, deg_to_rad(70.0), deg_to_rad(-14.0))
 	_slot.visible = true
 	_hint.visible = false
 
@@ -697,7 +738,8 @@ func _enter(id: String) -> void:
 func _welcome() -> void:
 	_bark_timer = 30.0
 	await get_tree().create_timer(1.2).timeout
-	camera.focus(Vector3(-5.6, 0.6, -1.4), 9.0, deg_to_rad(55.0), deg_to_rad(-24.0))
+	if not fps:
+		camera.focus(Vector3(-5.6, 0.6, -1.4), 9.0, deg_to_rad(55.0), deg_to_rad(-24.0))
 	var lines := [
 		"Bienvenue à Smarves ! Vous avez une tête à avoir de l'avenir.",
 		"Ici, on ne dépense pas son argent : on le fait travailler. Ma Smarvoise vous attend au fond du café.",
@@ -706,10 +748,11 @@ func _welcome() -> void:
 	for l in lines:
 		josiane.say(l)
 		await get_tree().create_timer(4.2 + l.length() * 0.035).timeout
-	camera.release()
+	if not fps:
+		camera.release()
 	Game.welcomed = true
 	Game.save_game()
-	_announce("Cliquez sur le Café de la Place pour jouer à la Smarvoise.")
+	_announce("La Smarvoise est au Café de la Place : approchez-vous de la façade et appuyez sur E." if fps else "Cliquez sur le Café de la Place pour jouer à la Smarvoise.")
 
 
 func _build_signposts() -> void:
@@ -743,6 +786,8 @@ func _build_signposts() -> void:
 		cs.position.y = 1.2
 		area3.add_child(cs)
 		area3.set_meta("travel", sp[0])
+		area3.set_meta("interact", "travel")
+		area3.set_meta("prompt", "E : prendre le chemin — %s" % sp[3].replace("→", "").replace("←", "").replace("↑", "").strip_edges())
 		root.add_child(area3)
 
 
@@ -751,13 +796,144 @@ func travel(where: String) -> void:
 	area = where
 	if where == "place":
 		camera.go_to(Vector3(0, 0.3, 0))
+		if player:
+			_put_player(Vector3(0, 0.05, 4.2), 0.0)
 		_back.visible = false
 		_announce("La place de la Mairie.")
 		return
 	var a: Dictionary = OUTSKIRTS.AREAS[where]
 	camera.go_to(a.center + Vector3(0, 0.3, 0))
+	if player:
+		_put_player(a.center + Vector3(0, 0.05, 6.6), 0.0)
 	_back.visible = true
 	_announce("%s." % a.name)
+
+
+# --- À pied dans le village -------------------------------------------------------------
+
+## Le sol et les bords des quatre socles (la place et les trois environs), pour marcher dessus.
+func _build_ground() -> void:
+	var centers := [Vector3.ZERO]
+	for k in OUTSKIRTS.AREAS:
+		centers.append(OUTSKIRTS.AREAS[k].center)
+	for c in centers:
+		_solid_box(Vector3(22.0, 0.4, 16.0), c + Vector3(0, -0.2, 0))
+		for side in [-1.0, 1.0]:
+			_solid_box(Vector3(22.4, 3.0, 0.2), c + Vector3(0, 1.5, side * 8.1))
+			_solid_box(Vector3(0.2, 3.0, 16.4), c + Vector3(side * 11.1, 1.5, 0))
+
+
+## Un obstacle invisible.
+func _solid_box(size: Vector3, pos: Vector3) -> void:
+	var body := StaticBody3D.new()
+	var cs := CollisionShape3D.new()
+	var b := BoxShape3D.new()
+	b.size = size
+	cs.shape = b
+	body.add_child(cs)
+	body.position = pos
+	add_child(body)
+
+
+## Rend un modèle solide : une boîte à sa mesure, rétrécie au pied pour les arbres (shrink).
+func _solid(n: Node3D, shrink := 1.0) -> void:
+	var box := AABB()
+	var first := true
+	for mi in n.find_children("*", "MeshInstance3D", true, false):
+		var t: Transform3D = n.global_transform.affine_inverse() * (mi as MeshInstance3D).global_transform
+		var b: AABB = t * (mi as MeshInstance3D).get_aabb()
+		box = b if first else box.merge(b)
+		first = false
+	if first:
+		return
+	var body := StaticBody3D.new()
+	var cs := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(box.size.x * shrink, box.size.y, box.size.z * shrink)
+	cs.shape = shape
+	cs.position = box.get_center()
+	body.add_child(cs)
+	n.add_child(body)
+
+
+func _spawn_player() -> void:
+	player = PLAYER.new()
+	player.eye = PLAYER_EYE
+	player.body_height = 0.7
+	player.radius = 0.14
+	player.speed = 1.5
+	player.reach = 2.4
+	add_child(player)
+	player.interact.connect(_on_player_interact)
+	if Game.return_point == "casino":
+		Game.return_point = ""
+		_put_player(Vector3(6.4, 0.05, -2.4), PI)
+	else:
+		# Face à la terrasse du café, où Josiane attend.
+		_put_player(Vector3(-2.6, 0.05, -0.2), PI / 2.0)
+	set_fps(true)
+
+
+func _put_player(at: Vector3, yaw: float) -> void:
+	player.global_position = at
+	player.velocity = Vector3.ZERO
+	player.rotation.y = yaw
+	player.camera.rotation.x = deg_to_rad(4.0)
+
+
+func set_fps(on: bool) -> void:
+	fps = on and player != null
+	if fps:
+		player.camera.make_current()
+		player.frozen = false
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		camera.target = player.global_position
+	else:
+		if player:
+			player.frozen = true
+			camera.go_to(Vector3(player.global_position.x, 0.3, player.global_position.z))
+		camera.make_current()
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	if _hint:
+		_hint.text = ("ZQSD : marcher   ·   Maj : courir   ·   E : entrer, jouer, parler   ·   Tab : vue maquette   ·   Échap : réglages" if fps
+			else "Cliquer sur un lieu ou un habitant   ·   Clic droit : tourner   ·   Molette : zoomer   ·   Tab : marcher   ·   Échap : réglages")
+	if _cross:
+		_cross.visible = fps
+		_prompt.visible = false
+	# Les noms flottants des lieux servent en vue maquette ; à pied, l'invite les remplace.
+	for id in place_signs:
+		place_signs[id].visible = not fps
+	if _places_panel:
+		_places_panel.visible = not fps
+
+
+func _on_player_interact(target: Node) -> void:
+	if target.has_meta("talk"):
+		var v: Node = target.get_parent()
+		v.say(Lines.line(v.speaker))
+	elif target.has_meta("travel"):
+		travel(target.get_meta("travel"))
+	elif target.has_meta("place"):
+		_enter(target.get_meta("place"))
+
+
+func _update_prompt() -> void:
+	if not fps or player == null or _prompt == null:
+		return
+	var t: Node = player.focus_target
+	_prompt.visible = t != null and not player.frozen
+	if t == null:
+		return
+	if t.has_meta("place"):
+		var p := _place_info(t.get_meta("place"))
+		if p.id == "casino":
+			_prompt.text = "E : entrer au Casino de Smarves"
+		elif is_open(p.id):
+			_prompt.text = "E : %s — %s" % [p.name, p.game]
+		else:
+			_prompt.text = "%s — fermé, ouvre à %s gagnés" % [p.name, _fmt(p.seuil)]
+	else:
+		_prompt.text = str(t.get_meta("prompt", ""))
 
 
 ## Le jeu de chaque lieu du village, sur les règles du casino.
@@ -807,7 +983,7 @@ func _on_game_played(bet: int, payout: int) -> void:
 func _leave_slot() -> void:
 	_slot.visible = false
 	_hint.visible = true
-	camera.release()
+	_cam_release()
 
 
 # --- Interface -------------------------------------------------------------------------
@@ -873,7 +1049,8 @@ func _bark(delta: float) -> void:
 	_bark_timer = randf_range(9.0, 16.0)
 	var near: Array[Node3D] = []
 	for v in villagers:
-		if v.global_position.distance_to(camera.target) < 13.0:
+		var here: Vector3 = player.global_position if (fps and player) else camera.target
+		if v.global_position.distance_to(here) < (6.0 if fps else 13.0):
 			near.append(v)
 	if near.is_empty():
 		return
@@ -898,6 +1075,7 @@ func _bark(delta: float) -> void:
 
 func _process(delta: float) -> void:
 	_bark(delta)
+	_update_prompt()
 	for i in moving_cars.size():
 		var car := moving_cars[i]
 		var dir := 1.0 if i == 0 else -1.0
@@ -974,6 +1152,7 @@ func _build_ui() -> void:
 	v.add_child(_won_label)
 
 	var right := PanelContainer.new()
+	_places_panel = right
 	right.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	right.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	right.position += Vector2(-28, 24)
@@ -1010,6 +1189,25 @@ func _build_ui() -> void:
 	_hint.position.y -= 22
 	root.add_child(_hint)
 
+	_cross = Label.new()
+	_cross.text = "·"
+	_cross.add_theme_font_size_override("font_size", 40)
+	_cross.set_anchors_preset(Control.PRESET_CENTER)
+	_cross.position -= Vector2(5, 28)
+	_cross.visible = false
+	root.add_child(_cross)
+	_prompt = Label.new()
+	_prompt.set_anchors_preset(Control.PRESET_CENTER)
+	_prompt.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_prompt.position.y += 40
+	_prompt.add_theme_font_size_override("font_size", 22)
+	_prompt.add_theme_color_override("font_color", Color(1, 0.92, 0.7))
+	_prompt.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	_prompt.add_theme_constant_override("outline_size", 7)
+	_prompt.visible = false
+	root.add_child(_prompt)
+
 	_back = Button.new()
 	_back.text = "←  Retour sur la place"
 	_back.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
@@ -1041,6 +1239,13 @@ func _maybe_capture() -> void:
 			path = arg.trim_prefix("--capture=")
 		elif arg.begins_with("--open="):
 			open = arg.trim_prefix("--open=")
+		elif arg == "--maquette" or arg.begins_with("--view="):
+			set_fps(false)
+		elif arg.begins_with("--at=") and player:
+			var v := arg.trim_prefix("--at=").split_floats(",")
+			_put_player(Vector3(v[0], 0.05, v[1]), deg_to_rad(v[2]))
+			if v.size() > 3:
+				player.camera.rotation.x = deg_to_rad(v[3])
 		elif arg == "--welcome":
 			_welcome()
 		elif arg == "--menu":

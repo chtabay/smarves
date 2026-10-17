@@ -20,6 +20,8 @@ var debt := 0
 var loans_taken := 0
 ## L'accueil de Josiane a eu lieu (première partie).
 var welcomed := false
+## Où réapparaître sur la place en sortant d'un bâtiment (« casino »), le temps d'un changement de scène.
+var return_point := ""
 ## Les outils de test coupent la sauvegarde pour ne jamais toucher à la vraie partie.
 var saving_enabled := true
 var peak_credits := START_CREDITS
