@@ -6,6 +6,14 @@ extends PanelContainer
 
 signal played(bet: int, payout: int)
 signal closed
+## Pour la table 3D : la donne distribuée, une rue retournée, les mises ramassées au pot, l'abattage.
+signal hand_started
+signal board_dealt(cards: Array)
+signal street_ended
+signal showdown(winners: Array, show_all: bool, amount: int)
+signal changed
+
+const BARRE := preload("res://scripts/jeux/barre.gd")
 
 const SB := 25
 const BB := 50
@@ -37,11 +45,29 @@ var _buttons := {}
 var _raise_to := BB * 2
 var _raise_label: Label
 var _font: SystemFont
+## Assis à la table 3D : la table montre les cartes et les plaques, le panneau devient une barre basse.
+var embedded := false
+var table3d: Node
+## La place qui doit parler (-1 : personne).
+var turn := -1
+var _info: Label
 
 
 func _ready() -> void:
 	_font = SystemFont.new()
 	_font.font_names = PackedStringArray(["Georgia", "Segoe UI Symbol"])
+	seats.append({"name": "Vous", "ai": false})
+	for r in regulars:
+		seats.append({"name": r[0], "ai": true, "tight": r[1], "aggr": r[2], "stack": 5000})
+	if embedded:
+		_build_bar()
+	else:
+		_build_panel()
+	_log.text = "%s vous salue d'un signe de tête. Une donne ?" % (regulars[0][0].substr(0, 1).to_upper() + regulars[0][0].substr(1))
+	_render()
+
+
+func _build_panel() -> void:
 	custom_minimum_size = Vector2(900, 0)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 8)
@@ -58,9 +84,6 @@ func _ready() -> void:
 	rule.add_theme_font_size_override("font_size", 14)
 	rule.add_theme_color_override("font_color", Color(0.72, 0.68, 0.62))
 	v.add_child(rule)
-	seats.append({"name": "Vous", "ai": false})
-	for r in regulars:
-		seats.append({"name": r[0], "ai": true, "tight": r[1], "aggr": r[2], "stack": 5000})
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 24)
@@ -107,8 +130,50 @@ func _ready() -> void:
 	_buttons["more"] = _button(controls, "+", func(): _adjust_raise(1))
 	_buttons["raise"] = _button(controls, "Relancer", _on_raise)
 	_button(controls, "Quitter (Échap)", _leave)
-	_log.text = "%s vous salue d'un signe de tête. Une donne ?" % (regulars[0][0].substr(0, 1).to_upper() + regulars[0][0].substr(1))
-	_render()
+
+
+## La barre basse : ce qui vient de se passer, le pot et la main, puis les actions.
+func _build_bar() -> void:
+	BARRE.style(self)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 4)
+	add_child(v)
+	_log = BARRE.label("", 20, BARRE.CREAM)
+	_log.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_log.add_theme_font_override("font", BARRE.KIT.serif())
+	v.add_child(_log)
+	_info = BARRE.label("", 20, BARRE.MUTED)
+	_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(_info)
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 10)
+	h.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_child(h)
+	_buttons["deal"] = BARRE.main_button("  Nouvelle donne  (Espace)  ")
+	_buttons["deal"].pressed.connect(_new_hand)
+	h.add_child(_buttons["deal"])
+	for k in [["fold", "Se coucher", _on_fold], ["call", "Suivre", _on_call], ["less", "  −  ", func(): _adjust_raise(-1)]]:
+		_buttons[k[0]] = BARRE.pill(k[1])
+		_buttons[k[0]].pressed.connect(k[2])
+		h.add_child(_buttons[k[0]])
+	_raise_label = BARRE.label("", 20, BARRE.CREAM)
+	_raise_label.custom_minimum_size = Vector2(150, 0)
+	_raise_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	h.add_child(_raise_label)
+	for k in [["more", "  +  ", func(): _adjust_raise(1)], ["raise", "Relancer", _on_raise]]:
+		_buttons[k[0]] = BARRE.pill(k[1])
+		_buttons[k[0]].pressed.connect(k[2])
+		h.add_child(_buttons[k[0]])
+	h.add_child(BARRE.separator())
+	var leave := BARRE.pill("Quitter  (Échap)")
+	leave.pressed.connect(_leave)
+	h.add_child(leave)
+
+
+## Laisse la table finir ses gestes (cartes qui glissent, plaques ramassées).
+func _wait_table() -> void:
+	if table3d:
+		await get_tree().create_timer(table3d.busy_time() + 0.1).timeout
 
 
 func _button(parent: Control, text: String, cb: Callable) -> Button:
@@ -268,6 +333,9 @@ func _new_hand() -> void:
 	current_bet = BB
 	_raise_to = BB * 2
 	_log.text = "Nouvelle donne. Blindes %d et %d." % [SB, BB]
+	hand_started.emit()
+	_render()
+	await _wait_table()
 	await _betting_round((dealer + 3) % seats.size())
 
 
@@ -313,6 +381,7 @@ func _betting_round(start: int) -> void:
 		if done:
 			break
 		if not s.folded and not (s.acted and s.bet >= current_bet) and not _all_in(i):
+			turn = i
 			if s.ai:
 				_render()
 				await get_tree().create_timer(0.45).timeout
@@ -323,6 +392,8 @@ func _betting_round(start: int) -> void:
 				while _waiting_player:
 					await get_tree().process_frame
 			s.acted = true
+			turn = -1
+			_render()
 		i = (i + 1) % seats.size()
 	await _next_street()
 
@@ -364,6 +435,7 @@ func _ai_act(i: int) -> void:
 
 
 func _next_street() -> void:
+	street_ended.emit()
 	for s in seats:
 		s.bet = 0
 	current_bet = 0
@@ -374,8 +446,10 @@ func _next_street() -> void:
 		else:
 			board.append(deck.pop_back())
 		street += 1
+		board_dealt.emit(board.slice(board.size() - (3 if street == 1 else 1)))
 		_render()
 		await get_tree().create_timer(0.5).timeout
+		await _wait_table()
 		await _betting_round((dealer + 1) % seats.size())
 		return
 	_showdown()
@@ -410,9 +484,11 @@ func _showdown() -> void:
 		else:
 			payout += share
 	var how := "" if best.is_empty() else " avec %s" % CATEGORIES[best[0]].to_lower()
-	_log.text = "%s remporte%s %d%s.%s" % [" et ".join(names), "nt" if winners.size() > 1 else "", net_pot, how,
+	var verb := "remportent" if winners.size() > 1 else ("remportez" if winners == [0] else "remporte")
+	_log.text = "%s %s %s%s.%s" % [" et ".join(names), verb, Game.fmt(net_pot), how,
 		(" La maison prend %d." % rake) if rake > 0 else ""]
 	in_hand = false
+	showdown.emit(winners, active.size() > 1, net_pot)
 	_render(true)
 	played.emit(player_in, payout)
 
@@ -468,6 +544,10 @@ func _leave() -> void:
 
 
 func _render(show_all := false) -> void:
+	if embedded:
+		_render_bar()
+		changed.emit()
+		return
 	for i in seats.size():
 		var s: Dictionary = seats[i]
 		var cards := "· ·"
@@ -493,7 +573,30 @@ func _render(show_all := false) -> void:
 	_buttons["call"].text = "Suivre %d" % (current_bet - seats[0].get("bet", 0)) if current_bet > seats[0].get("bet", 0) else "Parler"
 
 
+func _render_bar() -> void:
+	var to_call: int = maxi(0, current_bet - seats[0].get("bet", 0))
+	var parts: Array[String] = ["Pot : %s" % Game.fmt(pot)]
+	if in_hand and not seats[0].get("folded", false):
+		if board.size() >= 3:
+			parts.append("votre main : %s" % CATEGORIES[evaluate(seats[0].cards + board)[0]].to_lower())
+		parts.append("engagé : %s / %s" % [Game.fmt(player_in), Game.fmt(CAP)])
+	_info.text = "   ·   ".join(parts)
+	_raise_label.text = "Relance à %s" % Game.fmt(_raise_to)
+	var acting := _waiting_player and in_hand
+	_buttons["deal"].visible = not in_hand
+	for k in ["fold", "call", "raise", "less", "more"]:
+		_buttons[k].visible = in_hand
+		_buttons[k].disabled = not acting
+	_raise_label.visible = in_hand
+	_buttons["call"].text = "Suivre %s" % Game.fmt(to_call) if to_call > 0 else "Parler"
+
+
 func _unhandled_input(event: InputEvent) -> void:
-	if visible and event.is_action_pressed("ui_cancel"):
+	if not visible:
+		return
+	if event.is_action_pressed("ui_cancel"):
 		_leave()
+		get_viewport().set_input_as_handled()
+	elif embedded and event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_SPACE and not in_hand:
+		_new_hand()
 		get_viewport().set_input_as_handled()

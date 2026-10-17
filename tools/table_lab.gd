@@ -19,6 +19,8 @@ const BACCARA_3D := preload("res://scripts/jeux/baccara_3d.gd")
 const WHEEL := preload("res://scripts/wheel_panel.gd")
 const ROUE_3D := preload("res://scripts/jeux/roue_3d.gd")
 const BOULE_3D := preload("res://scripts/jeux/boule_3d.gd")
+const POKER := preload("res://scripts/poker_panel.gd")
+const POKER_3D := preload("res://scripts/jeux/poker_3d.gd")
 const VILLAGER := preload("res://scripts/villager.gd")
 
 var game := "roulette"
@@ -171,7 +173,7 @@ func _ready() -> void:
 			add_child(t)
 			var p: PanelContainer = WHEEL.new()
 			p.mode = game
-			_croupier("croupier-boule", Vector3(-0.3, 0, -1.2) if game == "boule" else Vector3(1.3, 0, 0.3), p)
+			_croupier("croupier-boule", Vector3(-0.3, 0, -1.2) if game == "boule" else Vector3(1.35, 0, 0.45), p)
 			t.attach(p)
 			t.sit(eye)
 			BARRE.dock(p, ui)
@@ -183,6 +185,35 @@ func _ready() -> void:
 			if path != "":
 				await _shot(0)
 			p._spin()
+		"poker":
+			var t := POKER_3D.new()
+			add_child(t)
+			var p: PanelContainer = POKER.new()
+			# Les habitués à leur place (--croupier), comme dans la salle des Ambassadeurs.
+			if "--croupier" in OS.get_cmdline_user_args():
+				var models := ["le-commandant", "mme-duval", "teddy", "comtesse-orlov", "maitre-garnier"]
+				for i in 5:
+					var v: Node3D = VILLAGER.new()
+					v.model_path = models[i]
+					v.speaker = "croupier"
+					v.position = t._dir(i + 1) * POKER_3D.SEAT_R
+					v.rotation.y = deg_to_rad(60.0 * (i + 1)) + PI
+					v.scale = Vector3.ONE * 2.6
+					add_child(v)
+			t.attach(p)
+			t.sit(eye)
+			BARRE.dock(p, ui)
+			await get_tree().create_timer(1.2).timeout
+			if path != "":
+				await _shot(0)
+			# Le joueur suit tout, pour aller jusqu'à l'abattage.
+			var tree := get_tree()
+			p.changed.connect(func():
+				if p._waiting_player:
+					tree.create_timer(0.8).timeout.connect(func():
+						if p._waiting_player:
+							p._on_call()))
+			p._new_hand()
 	if path == "":
 		return
 	var elapsed := 0.0

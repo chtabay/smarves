@@ -23,6 +23,7 @@ const HASARD_3D := preload("res://scripts/jeux/hasard_3d.gd")
 const BACCARA_3D := preload("res://scripts/jeux/baccara_3d.gd")
 const ROUE_3D := preload("res://scripts/jeux/roue_3d.gd")
 const BOULE_3D := preload("res://scripts/jeux/boule_3d.gd")
+const POKER_3D := preload("res://scripts/jeux/poker_3d.gd")
 const KIT := preload("res://scripts/jeux/kit.gd")
 const BARRE := preload("res://scripts/jeux/barre.gd")
 ## Niveau du plancher de l'étage.
@@ -972,6 +973,8 @@ func _maybe_capture() -> void:
 				"roue", "boule":
 					pnl._place("1")
 					pnl._spin()
+				"poker":
+					pnl._new_hand()
 	var elapsed := 0.0
 	for i in shots.size():
 		await get_tree().create_timer(maxf(float(shots[i]) - elapsed, 0.0)).timeout
@@ -2083,17 +2086,12 @@ func _build_ambassadeurs() -> void:
 	var poker := Node3D.new()
 	poker.position = Vector3(20.0, 0, -4.0)
 	add_child(poker)
-	_cyl(0.6, 0.66, Vector3(0, 0.33, 0), dark_wood, poker, 0.4)
-	_cyl(1.55, 0.1, Vector3(0, 0.72, 0), wood, poker)
-	_cyl(1.42, 0.02, Vector3(0, 0.78, 0), felt, poker)
-	var ring := MeshInstance3D.new()
-	var tm := TorusMesh.new()
-	tm.inner_radius = 1.42
-	tm.outer_radius = 1.6
-	ring.mesh = tm
-	ring.material_override = leather
-	ring.position.y = 0.8
-	poker.add_child(ring)
+	# La table ronde, tournée pour que la chaise libre soit la place du joueur (scripts/jeux/poker_3d.gd).
+	var pt := POKER_3D.new()
+	pt.with_lamp = false
+	pt.rotation_degrees.y = -60.0
+	poker.add_child(pt)
+	poker.set_meta("table3d", pt)
 	_solid_cyl(Vector3(20.0, 0.5, -4.0), 1.6, 1.0)
 	var regulars := ["le-commandant", "mme-duval", "teddy", "comtesse-orlov", "maitre-garnier"]
 	for k in 6:
@@ -2281,7 +2279,8 @@ func _build_salons() -> void:
 	_solid(Vector3(ROUE_3D.COUNTER.y, 1.0, ROUE_3D.COUNTER.x), Vector3(24.5 - ROUE_3D.COUNTER_Z, UP + 0.5, -10.5))
 	_bill(_label("La Roue de la fortune", Vector3(0, 4.3, 0), 0.0, 56, Color(1.0, 0.85, 0.5), wheel))
 	_interactive(wheel, "roue", "E : faire tourner la roue", Vector3(3.4, 4.0, 2.0), Vector3(0, 2.0, 1.6))
-	_person("maitre-ceremonie", Vector3(23.0, UP, -12.2), -60.0, "idle", "chapeau")
+	# Le maître de cérémonie tient la roue : à côté d'elle, derrière le comptoir, face aux joueurs.
+	_person("maitre-ceremonie", Vector3(24.05, UP, -9.15), -90.0, "idle", "chapeau")
 	_person("invitee-fetes", Vector3(19.0, UP, -9.0), 120.0)
 	_person("invite-fetes", Vector3(18.0, UP, -12.0), 60.0)
 

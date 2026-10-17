@@ -176,9 +176,9 @@ func spin(idx: int, dur: float) -> void:
 		target += TAU
 	var tw := create_tween()
 	tw.tween_method(_turn, _angle, target, dur - 0.2).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUART)
-	# Un plan serré sur la languette quand la roue ralentit.
+	# Un plan serré sur la languette quand la roue ralentit, le croupier dans le cadre à droite.
 	get_tree().create_timer(dur * 0.55).timeout.connect(func():
-		shot(look(Vector3(0.0, HUB.y + R - 0.15, 1.5), HUB + Vector3(0, R - 0.05, 0)), 0.8, 42.0))
+		shot(look(Vector3(0.85, 1.5, 2.4), Vector3(0.75, 1.95, 0.0)), 0.8, 64.0))
 
 
 func _turn(a: float) -> void:

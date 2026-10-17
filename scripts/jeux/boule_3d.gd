@@ -114,11 +114,12 @@ func _make_ring() -> Texture2D:
 			var n: int = RING[k]
 			var col := Color(0.92, 0.72, 0.15) if n == 5 else (Color(0.7, 0.07, 0.1) if n in RED else Color(0.08, 0.08, 0.09))
 			var h := o + Vector2(cos(a), sin(a)) * HOLE_R * px
-			c.draw_circle(h, 0.03 * px, col)
-			c.draw_circle(h, 0.021 * px, Color(0.03, 0.02, 0.02))
-			var t := o + Vector2(cos(a + 0.17), sin(a + 0.17)) * HOLE_R * px
-			c.draw_set_transform(t, a + 0.17 + PI / 2.0, Vector2.ONE)
-			c.draw_string(f, Vector2(-30, 14), str(n), HORIZONTAL_ALIGNMENT_CENTER, 60, 40, col)
+			c.draw_circle(h, 0.027 * px, col)
+			c.draw_circle(h, 0.019 * px, Color(0.03, 0.02, 0.02))
+			# Le numéro juste au-dessus de son trou, sur le bord extérieur, lu depuis le bord de la table.
+			var t := o + Vector2(cos(a), sin(a)) * (HOLE_R + 0.039) * px
+			c.draw_set_transform(t, a + PI / 2.0, Vector2.ONE)
+			c.draw_string(f, Vector2(-30, 12), str(n), HORIZONTAL_ALIGNMENT_CENTER, 60, 34, col)
 			c.draw_set_transform(Vector2.ZERO)
 	)
 	KIT._add_viewport(vp)
