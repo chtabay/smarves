@@ -6,6 +6,15 @@ Ce que donnerait le jeu dans un navigateur ou sur un téléphone, mesuré sur le
 
 Oui, le jeu tourne déjà dans un navigateur : l'export web passe sans toucher au code et Chromium affiche l'écran titre puis la place. Mais le web n'a qu'un seul rendu, Compatibility (WebGL 2), qui n'a ni l'éclairage indirect (SDFGI, SSIL), ni le brouillard volumétrique, ni les reflets (SSR), ni le flou de profondeur. Le village et les tables y perdent peu ; le casino, qui vit de ses lustres et de leur rebond sur la moquette, perd beaucoup, et deux réglages en rattrapent l'essentiel. Sur mobile en natif, le rendu Mobile garde presque tout l'éclairage direct ; le vrai chantier est ailleurs : le jeu n'a aucune commande tactile.
 
+## Décision (17 octobre 2026)
+
+Guillaume : le mobile est une cible, le web ne l'est que si nécessaire.
+
+- Sur téléphone (Android, iOS), le jeu tournera avec le rendu Mobile ; l'ordinateur garde Forward+. Godot le permet par plateforme avec `rendering/renderer/rendering_method.mobile="mobile"`, sans toucher au rendu Windows.
+- Chaque nouveau lieu prévoit ses commandes tactiles en même temps que le clavier et la souris.
+- Le réseau reste Supabase (HTTP et Realtime en WebSocket), qui marche aussi dans un navigateur : la porte du web reste ouverte sans rien coûter.
+- Le web ne se prépare pas d'avance ; les étapes de « Ce qu'il faudrait pour un export web aujourd'hui » servent le jour où il devient nécessaire.
+
 ## Ce que le rendu utilise aujourd'hui
 
 - `project.godot` : Forward+, Jolt Physics, MSAA 3D ×2, ombres douces qualité 3, Direct3D 12 sous Windows.
