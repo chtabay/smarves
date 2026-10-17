@@ -146,7 +146,7 @@ La Salle des fêtes est la seule pièce qui s'ouvre sur le total **misé**, comm
 
 ## 7. Les personnages
 
-Le joueur et tous les habitants sont de petits animaux à grosse tête ronde. Les espèces ci-dessous sont des **propositions pour le fil « Personnages »**, qui décide du dessin ; ce qui est fixé ici, c'est le rôle, la voix et les liens.
+Le joueur et tous les habitants sont de petits animaux à grosse tête ronde. Les espèces et les silhouettes ci-dessous sont celles du jeu ; le dessin, les tenues et les animations sont décrits dans [`PERSONNAGES.md`](PERSONNAGES.md). **Seuls le joueur et l'Inconnu sont des renards.** Les figurants piochent aussi le chien, le blaireau, le hérisson et le sanglier.
 
 ### Le joueur
 
@@ -177,19 +177,19 @@ Le joueur et tous les habitants sont de petits animaux à grosse tête ronde. Le
 **Le meunier** (castor, chapeau) — tient le Moulin des Dames et le blackjack de l'arrière-salle. *Voix* : métaphores de farine et de meule. *Liens* : sa femme, **la Meunière**, joue à Passelourdin ; c'est lui qui en souffle la rumeur.
 > « Le moulin tourne avec l'eau, et l'arrière-salle avec les cartes. »
 
-**L'Inconnu** (renard, grand chapeau) — le joueur de Passelourdin dont personne ne sait le nom. *Voix* : rare, courte, élégante. *Obsession* : beaucoup d'argent (« pas l'argent : beaucoup d'argent »). Un renard en costume, comme le joueur, en plus vieux : le jeu ne dit jamais pourquoi, et ne le dira pas.
+**L'Inconnu** (vieux renard, trench gris et feutre noir) — le joueur de Passelourdin dont personne ne sait le nom. *Voix* : rare, courte, élégante. *Obsession* : beaucoup d'argent (« pas l'argent : beaucoup d'argent »). Un renard, comme le joueur, en plus vieux : le jeu ne dit jamais pourquoi, et ne le dira pas.
 > « Personne ne perd, à Passelourdin. Certains gagnent moins longtemps. »
 
 **Les habitués de Passelourdin** — *le Notaire* (qu'on croise au casino sous le nom de Maître Garnier, mais à Passelourdin on ne demande pas les noms), *la Meunière*, *Gégé* (qui relance tout), *le Docteur* (qui ne relance jamais).
 
 **Les habitants** — tous les autres, anonymes, qui jouent aussi et y croient autant : celui qui a tout placé sur la roue de la kermesse, celui qui a revendu sa tondeuse pour les zèbres, celui à qui M. Brunet a dit qu'il avait un profil d'investisseur.
 
-**Maître Garnier** (chat, lunettes) — le notaire, dans son étude. *Voix* : formules d'acte, « un placement de père de famille ». *Obsession* : que tout soit signé. *Liens* : il vend les parts du village et les maisons, et reprend tout à 60 % ; il joue aux Ambassadeurs sous son nom et à Passelourdin sous celui du Notaire.
+**Maître Garnier** (chat, costume noir, lunettes dorées) — le notaire, dans son étude. *Voix* : formules d'acte, « un placement de père de famille ». *Obsession* : que tout soit signé. *Liens* : il vend les parts du village et les maisons, et reprend tout à 60 % ; il joue aux Ambassadeurs sous son nom et à Passelourdin sous celui du Notaire.
 
-**Raymonde Chauvet** (souris, mètre ruban autour du cou) — couture et retouches. *Voix* : petite, rapide, compliments de cabine d'essayage. *Obsession* : qu'on vous prenne pour quelqu'un qui gagne. *Liens* : habille le petit renard ; Monsieur Armand reconnaît ses smokings au premier coup d'œil.
+**Raymonde Chauvet** (souris, robe lavande, mètre ruban au cou) — couture et retouches. *Voix* : petite, rapide, compliments de cabine d'essayage. *Obsession* : qu'on vous prenne pour quelqu'un qui gagne. *Liens* : habille le petit renard ; Monsieur Armand reconnaît ses smokings au premier coup d'œil.
 > « Bleu roi. On vous prendra pour un homme qui gagne. »
 
-**Roger Fradin** (ours, bleu de travail) — le garage Fradin : Mobylette, 2 CV, DS. *Voix* : de mécanicien, des chiffres de cylindrée. *Liens* : la 2 CV qu'il vend est celle que Dédé a perdue au 421, remise à neuf.
+**Roger Fradin** (ours, bleu de travail, clé plate) — le garage Fradin : Mobylette, 2 CV, DS. *Voix* : de mécanicien, des chiffres de cylindrée. *Liens* : la 2 CV qu'il vend est celle que Dédé a perdue au 421, remise à neuf.
 > « Suspension hydraulique. On ne sent plus les pavés, ni les pertes. »
 
 **Le maire** — on ne le voit jamais ; il a coupé le ruban du casino et il est « en réunion », au casino justement.
@@ -212,7 +212,7 @@ Le personnel du casino est en noir et blanc, nœud papillon ou collier, et parle
 
 Les clients du casino :
 
-- **Le baron de Vasseur** — habitué du Salon privé, chapeau haut de forme. Son père, **le vieux baron**, ne quitte pas les Salons particuliers.
+- **Le baron de Vasseur** (chien) — habitué du Salon privé, chapeau haut de forme. Son père, **le vieux baron**, ne quitte pas les Salons particuliers.
 - **Capucine Varenne** — au Bar du Fumoir, sa carte dépliée sur le comptoir : une chasseuse de « pépites », qui sillonne les villages où l'on gagne. Elle est à Smarves parce qu'on lui a dit que c'était le meilleur.
 - **Les joueurs du Poker des Ambassadeurs** — *le Commandant* (qui salue d'un signe de tête), *Mme Duval*, *Teddy*, *la comtesse Orlov*, *Maître Garnier* (le Notaire de Passelourdin).
 - **Les dîneurs du Lustre**, et quelques habitants du village venus « placer sérieusement ».
@@ -308,5 +308,4 @@ Corrigés (PR #2 pour les textes du jeu, PR #3 pour la fiche de cadrage et le RE
 
 À signaler aux autres fils :
 
-- Les espèces des personnages nommés sont tirées au hasard (proposition section 7, pour le fil « Personnages »).
 - Le 421 de Dédé est cité partout mais n'existe pas comme jeu (piste pour le fil des jeux, pas une obligation).
