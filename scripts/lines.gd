@@ -58,7 +58,7 @@ const SPEAKERS := {
 	"hotesse": {"name": "l'hôtesse", "lines": [
 		"Bienvenue au Casino de Smarves. Le jeu est un investissement, et vous êtes un investisseur.",
 		"Le Nocturne est à droite, la chance est partout.",
-		"Les salons de l'étage s'ouvrent aux joueurs méritants. Ceux qui ont beaucoup misé.",
+		"Les salons de l'étage s'ouvrent aux joueurs méritants. Ceux qui ont fait leurs preuves au jeu.",
 	]},
 	"croupier": {"name": "le croupier", "lines": [
 		"Faites vos jeux. Le hasard ne récompense que ceux qui jouent.",
@@ -91,7 +91,7 @@ const SPEAKERS := {
 const RUMORS := {
 	"petanque": "Lucien prend les paris sur la pétanque. Il paraît que les cotes sont honnêtes.",
 	"boulangerie": "Mme Ferrand a installé une roulette sur son comptoir. On y gagne parfois son pain.",
-	"rabelais": "Samedi, grand loto à la salle Rabelais. Le président promet un carton historique.",
+	"rabelais": "Samedi, grand loto à la salle Rabelais. M. Gaudin, le président du comité des fêtes, promet un carton historique.",
 	"eglise": "La roue de la kermesse tourne sur le parvis. Saint Félix veille, paraît-il.",
 	"zebres": "Au bois de Saint-Pierre, on parie sur les trois zèbres. Zébulon est en forme.",
 	"moulin": "Le meunier tient un blackjack dans l'arrière-salle du Moulin des Dames.",
