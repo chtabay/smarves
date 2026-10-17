@@ -44,6 +44,8 @@ const KC := "res://assets/kenney/characters/"
 ## Ils viennent du manifeste de la commune (communes/smarves/commune.json, docs/COMMUNE.md).
 static var PLACES: Array = Commune.smarves().lieux()
 
+## Les préférences d'affichage du joueur (l'encart « Le village » replié ou non).
+const INTERFACE := "user://interface.cfg"
 var shown_credits := float(Game.credits)
 
 var stone_material: StandardMaterial3D
@@ -1224,13 +1226,30 @@ func _build_ui() -> void:
 	root.add_child(right)
 	var rv := VBoxContainer.new()
 	right.add_child(rv)
-	var rt := Label.new()
-	rt.text = "Le village"
+	# L'encart se replie sur son titre, pour dégager la vue ; le choix est gardé d'une partie à l'autre.
+	var rt := Button.new()
+	rt.flat = true
+	rt.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	rt.add_theme_font_size_override("font_size", 18)
 	rt.add_theme_color_override("font_color", gold_col)
+	rt.add_theme_color_override("font_hover_color", Color(1, 0.92, 0.7))
+	rt.tooltip_text = "Replier ou déplier la liste"
 	rv.add_child(rt)
 	_places_box = VBoxContainer.new()
 	rv.add_child(_places_box)
+	var replier := func(replie: bool) -> void:
+		_places_box.visible = not replie
+		rt.text = "Le village  ▸" if replie else "Le village  ▾"
+		right.reset_size()
+		right.position.x = get_viewport().get_visible_rect().size.x - right.size.x - 28
+	var cfg := ConfigFile.new()
+	cfg.load(INTERFACE)
+	replier.call(bool(cfg.get_value("village", "replie", false)))
+	rt.pressed.connect(func():
+		var replie := _places_box.visible
+		replier.call(replie)
+		cfg.set_value("village", "replie", replie)
+		cfg.save(INTERFACE))
 
 	_banner = Label.new()
 	_banner.set_anchors_preset(Control.PRESET_CENTER_TOP)
