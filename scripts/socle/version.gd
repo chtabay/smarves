@@ -81,7 +81,7 @@ func comparer(commits: Array) -> void:
 func adresse_telechargement() -> String:
 	match OS.get_name():
 		"Windows":
-			return TELECHARGER + "Smarves-windows.zip"
+			return TELECHARGER + "Smarves-installateur.exe"
 		"Android":
 			return TELECHARGER + "Smarves.apk"
 	return PAGE
