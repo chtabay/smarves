@@ -1,0 +1,47 @@
+{
+	"format": 1,
+	"id": "smarves",
+	"nom": "Smarves",
+	"auteur": "chtabay",
+	"version": "1.0.0",
+	"socle_min": "1.0",
+	"carte": {"lat": 46.51, "lon": 0.35, "socle": ""},
+	"scene": "res://scenes/main.tscn",
+	"arrivee": {"lot": "place", "par": []},
+	"interieurs": {
+		"casino": "res://scenes/casino.tscn",
+		"notaire": "res://scenes/notaire.tscn",
+		"couture": "res://scenes/couture.tscn",
+		"garage": "res://scenes/garage.tscn"
+	},
+	"lots": {"source": "Village.lots", "script": "res://scripts/village/village.gd"},
+	"lieux": [
+		{"id": "cafe", "nom": "Le Café de la Place", "jeu": "La Smarvoise", "seuil": 0, "hote": "Josiane"},
+		{"id": "casino", "nom": "Le Casino de Smarves", "jeu": "salles de jeu", "seuil": 0, "hote": "Monsieur Armand"},
+		{"id": "banque", "nom": "Le Crédit Smarvois", "jeu": "prêts pour investir", "seuil": 0, "hote": "M. Brunet"},
+		{"id": "petanque", "nom": "La pétanque de la place", "jeu": "les paris de Lucien", "seuil": 1000, "hote": "Lucien", "accord": "e"},
+		{"id": "boulangerie", "nom": "La boulangerie", "jeu": "la roulette du comptoir", "seuil": 3000, "hote": "Mme Ferrand", "accord": "e"},
+		{"id": "rabelais", "nom": "La salle François-Rabelais", "jeu": "le grand loto", "seuil": 8000, "hote": "M. Gaudin", "accord": "e"},
+		{"id": "eglise", "nom": "Le parvis Saint-Félix", "jeu": "la roue de la kermesse", "seuil": 20000, "hote": "Le comité des fêtes"},
+		{"id": "zebres", "nom": "L'allée des trois zèbres", "jeu": "la course des zèbres", "seuil": 50000, "hote": "Le gardien du bois", "accord": "e"},
+		{"id": "moulin", "nom": "Le Moulin des Dames", "jeu": "le blackjack de l'arrière-salle", "seuil": 120000, "hote": "Le meunier"},
+		{"id": "passelourdin", "nom": "Les rochers de Passelourdin", "jeu": "la partie de poker", "seuil": 300000, "hote": "Quelqu'un", "accord": "s"}
+	],
+	"salles": {
+		"casino": [
+			{"id": "ambassadeurs", "nom": "La Salle des Ambassadeurs", "seuil": 500, "hote": "L'inspecteur de salle"},
+			{"id": "salon", "nom": "Le Salon privé", "seuil": 5000, "hote": "Monsieur Armand"},
+			{"id": "loggia", "nom": "La Loggia", "seuil": 2000, "hote": "Le chef de partie"},
+			{"id": "musique", "nom": "Le Salon de musique", "seuil": 10000, "hote": "Le pianiste"},
+			{"id": "fetes", "nom": "La Salle des fêtes", "seuil": 25000, "sur": "staked", "hote": "Le maître de cérémonie"},
+			{"id": "particuliers", "nom": "Les Salons particuliers", "seuil": 50000, "hote": "Monsieur Castel"}
+		]
+	},
+	"personnages": {
+		"source": "res://scripts/cast.gd",
+		"nommes": ["josiane", "dede", "lucien", "brunet", "ferrand", "gaudin", "gardien", "meunier", "castel", "armand", "garnier", "raymonde", "fradin", "capucine", "chanteuse", "baron", "teddy", "meuniere", "gege", "docteur", "inconnu"]
+	},
+	"banque": {"id": "credit_smarvois", "nom": "Le Crédit Smarvois", "banquier": "M. Brunet", "preteur": "smarves", "lieu": "banque"},
+	"biens": {"source": "Biens.CATALOGUE", "vendeurs": ["notaire", "couture", "garage"]},
+	"jeux": {"regles_serveur": []}
+}
