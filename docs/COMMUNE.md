@@ -2,7 +2,7 @@
 
 Smarves est la première commune d'une carte de la Vienne où d'autres viendront se greffer (le cadrage est dans [`SUITE.md`](SUITE.md), section 5). Cette page dit ce qu'une commune doit fournir et ce que le socle lui expose. Le partage suit la bible ([`BIBLE.md`](BIBLE.md), en tête) : le ton, l'époque, la règle des lieux et des seuils, l'économie en crédits et le vocabulaire sont au socle ; la géographie, les lieux, les personnages, la banque et son banquier appartiennent à la commune.
 
-Rien de ce socle ne se voit à l'écran : la carte de la Vienne et la première commune greffée (Ligugé) sont des chantiers suivants.
+La carte de la Vienne et la première commune greffée (Ligugé) sont des chantiers suivants ; d'ici là, une commune publiée sur le portail se trouve dans le carnet (section « Publier sa commune »).
 
 ## La carte de la Vienne
 
@@ -78,6 +78,70 @@ Le mécanisme est éprouvé par `tools/test_communes.gd`, qui emballe la commune
 godot --headless --path . -s tools/test_communes.gd
 ```
 
+## Publier sa commune
+
+Une commune se publie sur **le portail des développeurs**, la page `/developpeur` de Pyramides (https://pyramides2.vercel.app/developpeur), réservée au rôle développeur de Pyramides (et à l'organisateur). Le jeu, lui, ne fait que lire un catalogue public et installer des paquets ; il n'a besoin d'aucun compte.
+
+### Le geste
+
+1. Sur la page, choisir sa commune parmi les 265 de la Vienne (Smarves et Poitiers exceptées) et **télécharger le kit de départ** : une commune minimale que le jeu accepte telle quelle (manifeste prérempli avec le nom, le code INSEE et l'id, une scène avec un sol, une lumière, une caméra et le panneau de la commune), et son mode d'emploi `LISEZMOI.md`.
+2. Poser le dossier du kit dans `communes/` d'un clone de Smarves, construire la commune, puis l'emballer :
+   ```sh
+   godot --headless --path . -s tools/emballer_commune.gd -- <id>
+   ```
+   L'outil écrit `build/<id>.pck` et le fait passer par les refus du jeu (`Communes.charger_pack`, montage, chargement de la scène). `--depuis=res://…/` emballe un autre dossier sous `communes/<id>/` (c'est ainsi qu'est fait le paquet d'essai, `tools/paquet_essai/`).
+3. **Déposer** le `.pck` sur la page : il part directement du navigateur vers le stockage, puis le serveur le relit et affiche **le rapport de validation**, une ligne par règle. Un paquet valide est « prêt » ; **publier** le met au catalogue (une seule version publiée par commune, la nouvelle remplace l'ancienne), **dépublier** l'en retire. Chaque dépôt garde sa ligne : c'est l'historique des versions.
+
+Une commune est **tenue** par l'auteur de son premier paquet valide : lui seul y dépose et publie ensuite, avec l'organisateur.
+
+### Le paquet
+
+- Un **pack Godot 4** (`.pck`, formats 2 à 4, non chiffré), nommé par l'id de la commune. Pas une archive zip : c'est le format que le socle sait lire sans le monter.
+- **Tout sous `res://communes/<id>/`**, plus seulement ce qu'un export ajoute de lui-même (`.godot/imported/`, `.godot/exported/`, `.godot/uid_cache.bin`, `.godot/global_script_class_cache.cfg`, `project.binary`). L'id est celui du manifeste ; le kit le tire du nom (« La Villedieu-du-Clain » → `la_villedieu_du_clain`).
+- **Aucun code natif** : ni `.gdextension`, ni `.so`, `.dll`, `.dylib`, `.wasm`, `.framework`. Scènes, ressources et GDScript seulement.
+- **32 Mo au plus.**
+- Un seul manifeste, `res://communes/<id>/commune.json`, au format décrit plus haut, avec en plus pour la publication :
+  - `insee` : la commune choisie sur la page, une commune actuelle de la Vienne de `communes/vienne.json`, ni Smarves (86263) ni Poitiers (86194) ;
+  - `version` : trois nombres (`0.1.0`), neuve pour cette commune (un dépôt refusé ne consomme pas sa version) ;
+  - `scene` : sous `res://communes/<id>/`, présente dans le pack (ou sa forme exportée `.remap`) ;
+  - `banque.preteur` : le prêteur de la commune, jamais `smarves` (c'est la dette envers M. Brunet) ;
+  - `description` (facultative) : deux phrases, montrées dans le carnet du joueur.
+- L'id n'appartient qu'à une commune : il nomme le pack et le tiroir de sauvegarde chez le joueur.
+
+La page refuse ce que le jeu refuserait, règle pour règle (`src/lib/communes/paquet.ts` dans Pyramides2, en miroir de `scripts/socle/communes.gd` et `commune.gd`) ; elle est plus stricte sur la version, la commune choisie et le prêteur. Le format de pack est lu de la même façon des deux côtés.
+
+### Le catalogue
+
+`GET https://pyramides2.vercel.app/api/communes`, sans compte, ouvert à toutes les origines (la version web le lit depuis son propre domaine). Seuls les paquets **publiés** y figurent :
+
+```json
+{
+	"format": 1,
+	"genere_le": "2026-10-17T21:00:00.000Z",
+	"communes": [
+		{"insee": "86290", "id": "la_villedieu_du_clain", "nom": "La Villedieu-du-Clain", "auteur": "Claude",
+		 "version": "0.1.0", "description": "…", "paquet": "https://pyramides2.vercel.app/api/communes/86290/la_villedieu_du_clain-0.1.0.pck",
+		 "taille": 1900, "sha256": "…", "publie_le": "2026-10-17T21:00:00.000Z"}
+	]
+}
+```
+
+`paquet` redirige vers une adresse signée de dix minutes, et seulement tant que cette version est la version publiée. Les paquets vivent dans le stockage du projet Supabase de Pyramides (seau privé `communes`), leurs lignes dans la table `commune_packages` du schéma `pyramides2`.
+
+### Dans le jeu
+
+- **Au lancement**, `Communes` lit le catalogue s'il y a du réseau (dix secondes au plus, en arrière-plan, sans rien bloquer) ; sinon il garde la dernière copie (`user://communes/catalogue.json`). `Communes.catalogue_etat` dit `en_ligne` ou `hors_ligne`, le signal `catalogue_lu` l'annonce. `Portail.entrees()` ignore sans bruit une entrée abîmée.
+- **Le carnet** (touche C) a une rubrique « Les communes de la Vienne » : chaque commune publiée, sa description, « → l'installer » (taille, auteur), puis « → y aller ». Une version plus récente au catalogue se propose à la place ; elle s'installe à côté et prend la place de l'ancienne au lancement suivant, parce qu'un pack déjà ouvert ne se remplace pas en cours de partie.
+- **L'installation** (`Communes.installer(id)`) télécharge le paquet dans `user://communes/<id>.pck`, vérifie son empreinte sha256 contre le catalogue, puis le soumet aux refus d'une greffe déposée à la main ; un paquet refusé est effacé. Le signal `installee(id, ok, message)` donne la phrase montrée au joueur.
+- **Y aller** (`Communes.visiter(id)`) monte le pack, ouvre la scène de la commune et pose un bouton « Revenir à Smarves » (`Communes.revenir()`), en attendant le car départemental de la carte.
+- **Pour la carte** : `Communes.carte()` porte en plus `publiee` (au catalogue, installable) à côté de `cliquable` (installée) ; `Communes.publiees()` et `Communes.installees()` donnent les deux listes.
+
+Le chemin entier est vérifié par `tools/test_portail.gd` : un petit serveur local tient lieu de portail, sert un catalogue et le paquet d'essai de La Villedieu-du-Clain, que le jeu lit, installe, inscrit et ouvre ; un paquet à l'empreinte fausse est refusé et effacé ; hors ligne, la liste reste.
+
+```sh
+godot --headless --path . -s tools/test_portail.gd
+```
+
 ## Ce que le socle expose
 
 ### `Communes` (autoload, `scripts/socle/communes.gd`)
@@ -93,6 +157,10 @@ godot --headless --path . -s tools/test_communes.gd
 | `par_insee(code)` | la commune développée à ce code INSEE, ou `null` |
 | `carte()` | les 265 communes de la Vienne : `insee`, `nom`, `centre` (Vector2 longitude, latitude), `contour` (polygones de points [longitude, latitude]), `id` et `cliquable` (vrai si développée) |
 | `lister_pack(chemin)`, `repertoire_pack(chemin)` | les fichiers d'un pack (formats 2 à 4 de Godot 4), ou `null` |
+| `catalogue`, `catalogue_etat`, `lire_catalogue()`, `catalogue_lu` | les communes publiées sur le portail, lues au lancement (voir « Publier sa commune ») |
+| `publiees()`, `installees()`, `au_catalogue(id)` | les deux listes pour la carte, et une entrée du catalogue |
+| `installer(id)`, `installee`, `en_cours`, `installations` | installer une commune publiée ; versions installées |
+| `visiter(id)`, `revenir()` | entrer dans une commune greffée, et revenir à Smarves |
 
 ### `Commune` (classe, `scripts/socle/commune.gd`)
 

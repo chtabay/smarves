@@ -1,0 +1,25 @@
+[gd_scene load_steps=3 format=3]
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_sol"]
+size = Vector2(40, 40)
+
+[sub_resource type="StandardMaterial3D" id="Materiau_sol"]
+albedo_color = Color(0.45, 0.55, 0.32, 1)
+
+[node name="Commune" type="Node3D"]
+
+[node name="Soleil" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.707, -0.707, 0, 0.707, 0.707, 0, 10, 0)
+
+[node name="Sol" type="MeshInstance3D" parent="."]
+mesh = SubResource("PlaneMesh_sol")
+surface_material_override/0 = SubResource("Materiau_sol")
+
+[node name="Panneau" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)
+pixel_size = 0.02
+text = "La Villedieu-du-Clain"
+
+[node name="Camera" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.94, -0.34, 0, 0.34, 0.94, 0, 4, 9)
+current = true
