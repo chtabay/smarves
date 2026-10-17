@@ -32,11 +32,6 @@ var _amenage := ""
 var _cover: Control
 var _sheet: PanelContainer
 var _sheet_box: VBoxContainer
-## La fenêtre de bienvenue : une feuille posée au milieu de l'écran à chaque lancement (ouvrir_accueil).
-var _accueil: Control
-var _accueil_box: VBoxContainer
-var _accueil_liste := false
-var _accueil_attendu := not "--capture" in " ".join(OS.get_cmdline_user_args())
 
 
 func _ready() -> void:
@@ -54,20 +49,11 @@ func _ready() -> void:
 	# Les communes du portail : la liste se lit au lancement, l'installation finit en arrière-plan.
 	Communes.catalogue_lu.connect(func():
 		if _root.visible:
-			_refresh()
-		if _accueil_ouvert():
-			_remplir_accueil(_accueil_liste))
+			_refresh())
 	Communes.installee.connect(func(_id, _ok, message):
 		show_slip(message)
 		if _root.visible:
-			_refresh()
-		if _accueil_ouvert():
-			_remplir_accueil(_accueil_liste))
-	var guet := Timer.new()
-	guet.wait_time = 1.0
-	guet.autostart = true
-	guet.timeout.connect(_essayer_accueil)
-	add_child(guet)
+			_refresh())
 	# Le village n'est pas un autoload : on se branche sur lui quand la place se monte.
 	get_tree().node_added.connect(_on_node_added)
 
@@ -77,13 +63,8 @@ func is_open() -> bool:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if _accueil_ouvert():
-		if event.is_action_pressed("ui_cancel"):
-			fermer_accueil()
-			get_viewport().set_input_as_handled()
-		return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_C:
-		if Settings.is_open() or get_tree().current_scene == null or get_tree().current_scene.name == "Titre":
+		if Settings.is_open() or Bienvenue.is_open() or get_tree().current_scene == null or get_tree().current_scene.name == "Titre":
 			return
 		toggle()
 		get_viewport().set_input_as_handled()
@@ -444,7 +425,6 @@ func _fill_communes(page: VBoxContainer = null, titre := true) -> void:
 
 
 func _visiter(id: String) -> void:
-	fermer_accueil()
 	if is_open():
 		toggle()
 	if not Communes.visiter(id):
@@ -680,149 +660,3 @@ func _fit_slip() -> void:
 	_slip.reset_size()
 	_slip.size = _slip.get_combined_minimum_size()
 	_slip.position = Vector2(28, get_viewport().get_visible_rect().size.y - _slip.size.y - 60)
-
-
-# --- La fenêtre de bienvenue ------------------------------------------------------------------------
-
-func _accueil_ouvert() -> bool:
-	return _accueil != null and _accueil.visible
-
-
-## Une fois par lancement, la bienvenue attend que le joueur soit sur la place, déjà accueilli par
-## Josiane, sans carnet, réglages ni partie en cours.
-func _essayer_accueil() -> void:
-	if not _accueil_attendu:
-		return
-	var scene := get_tree().current_scene
-	# Les outils de test (-s) mènent leur propre partie : pas de bienvenue qui la mettrait en pause.
-	if scene == null or scene.name != "Main" or get_tree().get_script() != null or scene.has_meta("vitrine") or not Game.welcomed \
-			or _root.visible or Settings.is_open() or get_tree().paused:
-		return
-	_accueil_attendu = false
-	ouvrir_accueil()
-
-
-## La bienvenue : une feuille au milieu de l'écran, avec ses rubriques (les villes de la Vienne ; le
-## compte, où viendra la connexion) et « Jouer ». « Voir les villes disponibles » y déplie la liste, à
-## installer et à visiter sans passer par le carnet.
-func ouvrir_accueil(liste := false) -> void:
-	if _accueil == null:
-		_construire_accueil()
-	if not _accueil.visible:
-		_mouse_before = Input.mouse_mode
-		_paused_before = get_tree().paused
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	get_tree().paused = true
-	_accueil.visible = true
-	_remplir_accueil(liste)
-
-
-func fermer_accueil() -> void:
-	if not _accueil_ouvert():
-		return
-	_accueil.visible = false
-	Communes.marquer_vues()
-	Input.mouse_mode = _mouse_before
-	get_tree().paused = _paused_before
-	if _pending_slip != "":
-		show_slip.call_deferred(_pending_slip)
-		_pending_slip = ""
-
-
-func _construire_accueil() -> void:
-	_accueil = Control.new()
-	_accueil.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(_accueil)
-	var dim := ColorRect.new()
-	dim.color = Color(0, 0, 0, 0.5)
-	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_accueil.add_child(dim)
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_accueil.add_child(center)
-	var feuille := Page.new()
-	var st := StyleBoxFlat.new()
-	st.bg_color = PAPER
-	st.set_content_margin_all(28)
-	st.content_margin_left = 72
-	st.content_margin_top = 22
-	st.shadow_color = Color(0, 0, 0, 0.45)
-	st.shadow_size = 14
-	feuille.add_theme_stylebox_override("panel", st)
-	feuille.custom_minimum_size = Vector2(640, 0)
-	feuille.rotation_degrees = -0.6
-	center.add_child(feuille)
-	var scroll := ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.custom_minimum_size = Vector2(540, 0)
-	feuille.add_child(scroll)
-	_accueil_box = VBoxContainer.new()
-	_accueil_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_accueil_box.add_theme_constant_override("separation", 4)
-	scroll.add_child(_accueil_box)
-
-
-func _remplir_accueil(liste: bool) -> void:
-	_accueil_liste = liste
-	for c in _accueil_box.get_children():
-		c.queue_free()
-	if liste:
-		_title(_accueil_box, "Les villes disponibles")
-		_fill_communes(_accueil_box, false)
-		_gap(_accueil_box, 10)
-		_link(_accueil_box, "← Retour à la bienvenue", _remplir_accueil.bind(false))
-	else:
-		_title(_accueil_box, "Bienvenue à Smarves")
-		_text(_accueil_box, "%s crédits en poche  ·  fortune nette %s" % [Game.fmt(Game.credits), Game.fmt(Game.credits + Biens.value() - Game.debt)], 18, INK_LIGHT)
-		_gap(_accueil_box, 10)
-		_text(_accueil_box, "Les villes de la Vienne", 20, INK, true)
-		_text(_accueil_box, _villes_en_une_ligne())
-		if not Communes.publiees().is_empty() or not Communes.installees().is_empty():
-			_link(_accueil_box, "→ Voir les villes disponibles", _remplir_accueil.bind(true))
-		_gap(_accueil_box, 8)
-		_text(_accueil_box, "Votre compte", 20, INK, true)
-		_text(_accueil_box, "La connexion viendra ici. En attendant, votre partie est gardée sur cet appareil.", 18, INK_LIGHT)
-		_gap(_accueil_box, 14)
-		var jouer := Button.new()
-		jouer.text = "Jouer"
-		jouer.custom_minimum_size = Vector2(200, 48)
-		jouer.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-		jouer.add_theme_font_override("font", _hand_bold)
-		jouer.add_theme_font_size_override("font_size", 22)
-		for etat in ["normal", "hover", "pressed", "focus"]:
-			var st := StyleBoxFlat.new()
-			st.bg_color = INK if etat != "hover" else INK_LIGHT
-			st.set_corner_radius_all(4)
-			jouer.add_theme_stylebox_override(etat, st)
-		for couleur in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
-			jouer.add_theme_color_override(couleur, PAPER)
-		jouer.pressed.connect(fermer_accueil)
-		_accueil_box.add_child(jouer)
-		jouer.grab_focus.call_deferred()
-	# La feuille prend la hauteur de son texte, sans dépasser l'écran : au-delà, la liste défile.
-	_ajuster_accueil.call_deferred()
-
-
-## Ce que la bienvenue dit des villes : les nouvelles d'abord, sinon ce qui est disponible.
-func _villes_en_une_ligne() -> String:
-	var noms: Array = Communes.nouvelles.map(func(id): return Communes.au_catalogue(id).get("nom", id))
-	if noms.size() == 1:
-		return "Nouvelle depuis votre dernière visite : %s." % noms[0]
-	if noms.size() > 1:
-		return "%d nouvelles depuis votre dernière visite : %s." % [noms.size(), ", ".join(noms)]
-	var n := Communes.publiees().size()
-	if n > 0:
-		return ("Une ville publiée par d'autres joueurs" if n == 1 else "%d villes publiées par d'autres joueurs" % n) + (", %d installée%s chez vous." % [Communes.installees().size(), "s" if Communes.installees().size() > 1 else ""] if not Communes.installees().is_empty() else ", à installer et à visiter.")
-	match Communes.catalogue_etat:
-		"lecture":
-			return "Lecture de la liste…"
-		"hors_ligne":
-			return "Hors ligne : la liste se lira à la prochaine connexion."
-	return "Aucune autre ville publiée pour l'instant. Les développeurs les construisent sur le portail."
-
-
-func _ajuster_accueil() -> void:
-	var scroll := _accueil_box.get_parent() as ScrollContainer
-	# Les lignes repliées ne connaissent leur hauteur qu'une fois leur largeur posée.
-	await get_tree().process_frame
-	scroll.custom_minimum_size.y = minf(_accueil_box.get_combined_minimum_size().y, get_viewport().get_visible_rect().size.y - 160.0)

@@ -810,8 +810,18 @@ const LOGEMENTS := {
 	"maison_eglise": [Vector3(-3.4, 0, -13.5), PI / 2.0],
 }
 
+## Les salles de jeu du village (scripts/village/salle.gd) : la porte où l'on ressort, sur le trottoir.
+## Le Café de la Place et la salle Rabelais donnent sur la place, l'arrière-salle du Moulin sur la berge.
+const SALLES := {
+	"cafe": [Vector3(-6.8, 0, -0.6), PI / 2.0],
+	"rabelais": [Vector3(-7.5, 0, 3.5), PI / 2.0],
+	"moulin": [Vector3(-69.4, 0, 0.5), PI / 2.0],
+}
+
 
 func _logements() -> void:
+	for id in SALLES:
+		lots[id] = {"pos": SALLES[id][0], "rot": SALLES[id][1], "w": 1.0, "d": 1.0, "door": SALLES[id][0]}
 	for id in LOGEMENTS:
 		var at: Vector3 = LOGEMENTS[id][0]
 		var rot: float = LOGEMENTS[id][1]

@@ -7,12 +7,10 @@ extends SceneTree
 const ESSAI := "res://tools/commune_essai/"
 const TMP := "user://test_communes/"
 
-## Les lieux et les salles tels qu'ils étaient écrits en dur avant le manifeste.
+## Les lieux et les salles de Smarves. Depuis le 17 octobre, seuls les lieux qui ont une salle à eux gardent un jeu.
 const PLACES_AVANT := [
 	["cafe", 0, "Josiane"], ["casino", 0, "Monsieur Armand"], ["banque", 0, "M. Brunet"],
-	["petanque", 1000, "Lucien"], ["boulangerie", 3000, "Mme Ferrand"], ["rabelais", 8000, "M. Gaudin"],
-	["eglise", 20000, "Le comité des fêtes"], ["zebres", 50000, "Le gardien du bois"],
-	["moulin", 120000, "Le meunier"], ["passelourdin", 300000, "Quelqu'un"],
+	["rabelais", 8000, "M. Gaudin"], ["moulin", 120000, "Le meunier"],
 ]
 const LOCKS_AVANT := [["ambassadeurs", 500], ["salon", 5000], ["loggia", 2000], ["musique", 10000], ["fetes", 25000], ["particuliers", 50000]]
 
@@ -50,7 +48,10 @@ func _smarves(c: Commune) -> void:
 		var a: Array = PLACES_AVANT[i]
 		check(p.id == a[0] and p.seuil == a[1] and typeof(p.seuil) == TYPE_INT and p.host == a[2] and p.name != "" and p.game != "",
 			"lieu %s : seuil %d, %s" % [a[0], a[1], a[2]])
-	check(places[3].get("accord", "") == "e" and places[9].get("accord", "") == "s" and not places[0].has("accord"), "les accords (ouverte, ouverts) suivent")
+	check(places[3].get("accord", "") == "e" and not places[4].has("accord") and not places[0].has("accord"), "les accords (ouverte) suivent")
+	# On ne joue plus dehors : chaque lieu de jeu a sa salle.
+	for id in ["cafe", "casino", "rabelais", "moulin"]:
+		check(c.interieur(id) != "" and ResourceLoader.exists(c.interieur(id)), "le jeu de %s se joue dans sa salle" % id)
 	var locks: Array = load("res://scripts/casino_interior.gd").LOCKS
 	check(locks.size() == LOCKS_AVANT.size(), "%d salles fermées au casino" % locks.size())
 	for i in mini(locks.size(), LOCKS_AVANT.size()):

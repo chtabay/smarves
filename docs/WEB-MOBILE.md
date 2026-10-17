@@ -85,6 +85,10 @@ Au premier APK signé par la clé de version, il faut désinstaller une fois l'A
 
 **Google Play** : pour une publication sur le Play Store, cette même clé servira de clé d'envoi (« upload key ») ; Google signe ensuite l'application avec sa propre clé (Play App Signing), et une clé d'envoi perdue peut y être réinitialisée par le support. Il faudra alors exporter un AAB (`gradle_build/export_format`) plutôt qu'un APK. Tant que le jeu n'est pas sur le Play Store, Android affiche l'avertissement « source inconnue » à l'installation, quelle que soit la clé.
 
+## Les mises à jour
+
+Chaque export range le commit construit dans `res://version.json` (le greffon d'éditeur `addons/smarves_version`, actif dans `project.godot` ; le workflow n'y est pour rien). Au lancement, le jeu exporté lit sur l'API de GitHub, sans compte, les derniers commits de l'étiquette `derniere-version` (autoload `Version`, `scripts/socle/version.gd`). Si l'étiquette est sur un autre commit, la bienvenue annonce une nouvelle version, avec les titres des commits arrivés depuis, et son bouton ouvre dans le navigateur le fichier de la Release pour cette plateforme (`Smarves-windows.zip` ou `Smarves.apk`). Lancé depuis l'éditeur (pas d'estampille), sur le web, hors ligne ou au-delà de la limite de GitHub (60 lectures par heure et par adresse), le jeu se tait. L'APK est ajouté à la Release quelques minutes après le déplacement de l'étiquette : le lien peut répondre 404 pendant ce temps. `tools/test_version.gd` vérifie la comparaison.
+
 ## Ce qu'il aurait fallu décider au départ
 
 - Choisir le rendu cible dès le premier jour : Compatibility si le web compte, Mobile si ce sont les applications. La direction artistique se règle alors sur ce rendu au lieu d'être rattrapée.

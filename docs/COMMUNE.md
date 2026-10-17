@@ -26,10 +26,10 @@ Un dossier `communes/<id>/` avec au moins un manifeste `commune.json` et la scè
 	"carte": {"socle": ""},
 	"scene": "res://scenes/main.tscn",
 	"arrivee": {"lot": "place", "par": []},
-	"interieurs": {"casino": "res://scenes/casino.tscn", "notaire": "res://scenes/notaire.tscn"},
+	"interieurs": {"casino": "res://scenes/casino.tscn", "notaire": "res://scenes/notaire.tscn", "rabelais": "res://scenes/rabelais.tscn"},
 	"lots": {"source": "Village.lots", "script": "res://scripts/village/village.gd"},
 	"lieux": [
-		{"id": "petanque", "nom": "La pétanque de la place", "jeu": "les paris de Lucien", "seuil": 1000, "hote": "Lucien", "accord": "e"}
+		{"id": "rabelais", "nom": "La salle François-Rabelais", "jeu": "le grand loto", "seuil": 8000, "hote": "M. Gaudin", "accord": "e"}
 	],
 	"salles": {"casino": [{"id": "fetes", "nom": "La Salle des fêtes", "seuil": 25000, "sur": "staked", "hote": "Le maître de cérémonie"}]},
 	"personnages": {"source": "res://scripts/cast.gd", "nommes": ["josiane", "brunet"]},
@@ -51,7 +51,7 @@ Un dossier `communes/<id>/` avec au moins un manifeste `commune.json` et la scè
 | `arrivee` | non | le lot où l'on arrive, et les communes d'où l'on vient (le car départemental) |
 | `interieurs` | non | les scènes des intérieurs, par id |
 | `lots` | non | d'où viennent les portes de la commune ; pour Smarves, le dictionnaire `lots` du nœud `Village` |
-| `lieux` | oui | les lieux de jeu, dans l'ordre où ils s'ouvrent : `id`, `nom`, `jeu`, `seuil` (total gagné au jeu), `hote` (qui fait signe à l'ouverture), `accord` (`e`, `s` ou rien : « ouverte », « ouverts ») |
+| `lieux` | oui | les lieux de jeu, dans l'ordre où ils s'ouvrent : `id`, `nom`, `jeu`, `seuil` (total gagné au jeu), `hote` (qui fait signe à l'ouverture), `accord` (`e`, `s` ou rien : « ouverte », « ouverts »). On ne joue pas dehors : un lieu de jeu se joue dans l'intérieur de même id (`interieurs`), sinon il reste fermé |
 | `salles` | non | les salles fermées d'un intérieur, par intérieur : `id`, `nom`, `seuil`, `sur` (`staked` pour un seuil sur le total misé), `hote` |
 | `personnages` | non | où sont les fiches des personnages, et la liste des personnages nommés |
 | `banque` | oui | la banque de la commune et son banquier ; `preteur` est la clé de la dette envers cette banque dans le socle |
@@ -131,7 +131,7 @@ La page refuse ce que le jeu refuserait, règle pour règle (`src/lib/communes/p
 ### Dans le jeu
 
 - **Au lancement**, `Communes` lit le catalogue s'il y a du réseau (dix secondes au plus, en arrière-plan, sans rien bloquer) ; sinon il garde la dernière copie (`user://communes/catalogue.json`). `Communes.catalogue_etat` dit `en_ligne` ou `hors_ligne`, le signal `catalogue_lu` l'annonce. `Portail.entrees()` ignore sans bruit une entrée abîmée.
-- **La bienvenue** : à chaque lancement, dès que le joueur est sur la place (après l'accueil de Josiane, hors carnet et réglages), une feuille s'ouvre au milieu de l'écran : ses crédits, la rubrique « Les villes de la Vienne » (les nouvelles depuis sa dernière visite, `Communes.nouvelles`, ou ce qui est disponible) avec « → Voir les villes disponibles », la même liste que le carnet, à installer et à visiter sur place, la rubrique « Votre compte » où viendra la connexion, et « Jouer ». En la refermant, les villes vues ne sont plus nouvelles (`user://communes/vues.json`).
+- **La bienvenue** (autoload `Bienvenue`, `scripts/bienvenue.gd`) : à chaque lancement, dès que le joueur est sur la place (après l'accueil de Josiane, hors carnet et réglages), une fenêtre s'ouvre. À gauche, la carte de la Vienne (`CarteVienne`, `scripts/socle/carte_vienne.gd`) : Smarves en or, les villes publiées en vert d'eau, plus vif quand elles sont installées. À droite, les crédits, « Les villes de la Vienne » (les nouvelles depuis la dernière visite, `Communes.nouvelles`, sinon ce qui est disponible) avec « Voir les villes », qui déplie la liste à installer et à visiter sur place, « Votre compte », où viendra la connexion, et « Jouer ». En la refermant, les villes vues ne sont plus nouvelles (`user://communes/vues.json`).
 - **Le carnet** (touche C) a une rubrique « Les communes de la Vienne » : chaque commune publiée, sa description, « → l'installer » (taille, auteur), puis « → y aller ». Une version plus récente au catalogue se propose à la place ; elle s'installe à côté et prend la place de l'ancienne au lancement suivant, parce qu'un pack déjà ouvert ne se remplace pas en cours de partie.
 - **L'installation** (`Communes.installer(id)`) télécharge le paquet dans `user://communes/<id>.pck`, vérifie son empreinte sha256 contre le catalogue, puis le soumet aux refus d'une greffe déposée à la main ; un paquet refusé est effacé. Le signal `installee(id, ok, message)` donne la phrase montrée au joueur.
 - **Y aller** (`Communes.visiter(id)`) monte le pack, ouvre la scène de la commune et pose un bouton « Revenir à Smarves » (`Communes.revenir()`), en attendant le car départemental de la carte.

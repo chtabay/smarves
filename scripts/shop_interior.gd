@@ -26,7 +26,7 @@ const KEEPERS := {
 	"notaire": {"lines": ["« Maître Garnier, pour vous servir. Le village cède ses parts : une occasion qui ne se représentera pas avant la prochaine. »",
 			"« Un acte notarié, c'est une promesse qui ne peut pas mentir. Les rentes, c'est autre chose, mais l'acte est parfait. »",
 			"« Josiane cède des parts de sa Smarvoise. Une machine qui tourne tous les soirs, voyez-vous ça. »",
-			"« Je joue un peu, le samedi, du côté de Passelourdin. Pour connaître le marché. »"]},
+			"« Je joue un peu, le samedi, dans l'arrière-salle du Moulin. Pour connaître le marché. »"]},
 	"couture": {"lines": ["« Raymonde, couture et retouches. Un costume, c'est la moitié d'une martingale. »",
 			"« Au casino, on ne fait pas crédit à une veste froissée. Enfin, M. Brunet si, mais lui il fait crédit à tout le monde. »",
 			"« Le smoking, je le réserve aux clients du Salon privé. Ils ont besoin de poches profondes. »"]},

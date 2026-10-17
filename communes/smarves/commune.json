@@ -15,20 +15,18 @@
 		"couture": "res://scenes/couture.tscn",
 		"garage": "res://scenes/garage.tscn",
 		"brocante": "res://scenes/brocante.tscn",
-		"logement": "res://scenes/logement.tscn"
+		"logement": "res://scenes/logement.tscn",
+		"cafe": "res://scenes/cafe.tscn",
+		"rabelais": "res://scenes/rabelais.tscn",
+		"moulin": "res://scenes/moulin.tscn"
 	},
 	"lots": {"source": "Village.lots", "script": "res://scripts/village/village.gd"},
 	"lieux": [
 		{"id": "cafe", "nom": "Le Café de la Place", "jeu": "La Smarvoise", "seuil": 0, "hote": "Josiane"},
 		{"id": "casino", "nom": "Le Casino de Smarves", "jeu": "salles de jeu", "seuil": 0, "hote": "Monsieur Armand"},
 		{"id": "banque", "nom": "Le Crédit Smarvois", "jeu": "prêts pour investir", "seuil": 0, "hote": "M. Brunet"},
-		{"id": "petanque", "nom": "La pétanque de la place", "jeu": "les paris de Lucien", "seuil": 1000, "hote": "Lucien", "accord": "e"},
-		{"id": "boulangerie", "nom": "La boulangerie", "jeu": "la roulette du comptoir", "seuil": 3000, "hote": "Mme Ferrand", "accord": "e"},
 		{"id": "rabelais", "nom": "La salle François-Rabelais", "jeu": "le grand loto", "seuil": 8000, "hote": "M. Gaudin", "accord": "e"},
-		{"id": "eglise", "nom": "Le parvis Saint-Félix", "jeu": "la roue de la kermesse", "seuil": 20000, "hote": "Le comité des fêtes"},
-		{"id": "zebres", "nom": "L'allée des trois zèbres", "jeu": "la course des zèbres", "seuil": 50000, "hote": "Le gardien du bois", "accord": "e"},
-		{"id": "moulin", "nom": "Le Moulin des Dames", "jeu": "le blackjack de l'arrière-salle", "seuil": 120000, "hote": "Le meunier"},
-		{"id": "passelourdin", "nom": "Les rochers de Passelourdin", "jeu": "la partie de poker", "seuil": 300000, "hote": "Quelqu'un", "accord": "s"}
+		{"id": "moulin", "nom": "Le Moulin des Dames", "jeu": "le blackjack de l'arrière-salle", "seuil": 120000, "hote": "Le meunier"}
 	],
 	"salles": {
 		"casino": [

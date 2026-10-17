@@ -155,8 +155,8 @@ rect(-58.9, 8.6, -49.9, 13.2, (150, 135, 110))
 d.text(P(-54.4, 12.0), "placette", fill=(40, 30, 20), font=small, anchor="mm")
 # Les lieux de la place et des environs, pour se repérer.
 marks = {"Café": (-8.8, -0.6), "Rabelais": (-9, 4.4), "Mairie": (-4.6, -5.8), "Église": (0.4, -6), "Casino": (6.4, -6),
-         "Boulangerie": (9, -1.2), "Crédit Smarvois": (9, 3.8), "pétanque": (4.5, 3), "érable": (0.6, -0.4),
-         "moulin": (-72, -1), "pont": (-64.5, 3.2), "zèbres": (64, 3.5), "château": (70, -6.2), "table de poker": (0, -71),
+         "Boulangerie": (9, -1.2), "Crédit Smarvois": (9, 3.8), "érable": (0.6, -0.4),
+         "moulin": (-72, -1), "pont": (-64.5, 3.2), "zèbres": (64, 3.5), "château": (70, -6.2),
          "calvaire": (-0.3, -24.0), "château d'eau": (5.6, -45.0), "cabane de vigne": (-7.2, -43.0), "presbytère": (-0.2, -10.7)}
 for k, (x, z) in marks.items():
     px, pz = P(x, z)
