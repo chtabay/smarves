@@ -87,7 +87,8 @@ func _build() -> void:
 	glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	KIT.box(Vector3(0.1, 0.07, 0.13), Vector3(0, 0.035, 0), glass, discard)
 	if with_lamp:
-		KIT.table_spot(self, Vector3(0.0, 2.6, 0.1), Vector3(0.0, felt_y, -0.05), 1.8, 50.0)
+		# Peu de reflet direct : le râtelier verni et les plaques renvoyaient la lampe en tache vive.
+		KIT.table_spot(self, Vector3(0.0, 2.6, 0.1), Vector3(0.0, felt_y, -0.05), 1.8, 50.0).light_specular = 0.15
 
 
 ## Un point du contour ovale, à la distance r du centre de son arrondi, et sa normale.
@@ -228,7 +229,7 @@ func deal(who: String, c: Dictionary) -> void:
 		schedule(0.42, func(): _deal_now(who, c, k, true))
 		# Les quatre premières cartes posées, le croupier les retourne : Joueur, puis Banque.
 		if who == "dealer" and k == 1:
-			schedule(0.5, func(): shot(look(Vector3(0.0, 1.3, 0.62), Vector3(0.0, felt_y, -0.24)), 0.6, 42.0))
+			schedule(0.5, func(): shot(look(Vector3(0.0, 1.22, 0.72), Vector3(0.0, 0.98, -0.5)), 0.6, 50.0))
 			for w in ["player", "dealer"]:
 				schedule(0.75, _flip_pair.bind(w))
 	else:
