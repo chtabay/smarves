@@ -4,6 +4,8 @@ Ce document fixe ce qui est vrai dans le monde de Smarves : les lieux, les gens,
 
 La fiche de cadrage ([`CADRAGE.md`](CADRAGE.md)) dit ce qu'on construit ; la bible dit dans quel monde.
 
+**Smarves et les autres communes.** D'autres communes de la Vienne viendront un jour se greffer à côté, sur une carte du département. Ce qui vaut pour toutes : le ton (section 2), l'époque (3), la règle des lieux et des seuils (5), l'économie en crédits (8), le vocabulaire et la typographie (9). Ce qui est **propre à Smarves** : sa géographie (4), ses lieux et leurs tenanciers (5), son casino (6), ses personnages (7), le Crédit Smarvois et M. Brunet, la Smarvoise et les enseignes. Une autre commune garde les règles communes et invente le reste, ancré dans sa propre géographie réelle.
+
 ## 1. Le monde en trois phrases
 
 Smarves est un vrai village de la Vienne où, dans le jeu, tout le monde joue, à chaque coin de rue, et le dit avec le sourire. On y arrive avec un petit pécule, on joue au café, et chaque gain ouvre un nouveau lieu, du comptoir de la boulangerie jusqu'aux rochers de Passelourdin, pendant que le Casino de Smarves, sur la place, ouvre ses salons à ceux qui « ont fait leurs preuves ». Personne ne dit que ça tourne mal : ce sont les chiffres qui le disent, en silence.
@@ -148,7 +150,7 @@ La Salle des fêtes est la seule pièce qui s'ouvre sur le total **misé**, comm
 
 ## 7. Les personnages
 
-Les personnages sont des adultes, décrits ici par leur âge, leur allure, leur tenue et leur accessoire, c'est-à-dire ce qu'on doit reconnaître d'un coup d'œil, de dessus comme à hauteur d'yeux. Le dessin et les animations sont dans [`PERSONNAGES.md`](PERSONNAGES.md). Les figurants sont des gens du coin de tous les âges adultes, en tenue de samedi soir.
+Les personnages sont des adultes, décrits ici par leur âge, leur allure, leur tenue et leur accessoire, c'est-à-dire ce qu'on doit reconnaître d'un coup d'œil, de dessus comme à hauteur d'yeux. Le style est la **ligne claire** : proportions d'adulte, yeux en point, aplats de couleur, contour noir. Le dessin et les animations sont dans [`PERSONNAGES.md`](PERSONNAGES.md). Les figurants sont des gens du coin de tous les âges adultes, en tenue de samedi soir.
 
 ### Le joueur
 
