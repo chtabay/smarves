@@ -545,18 +545,26 @@ class Plan extends Control:
 			var words := t.split(" ")
 			var cut := words.size() / 2
 			lines = [" ".join(words.slice(0, cut)), " ".join(words.slice(cut))]
-		# En haut du quartier : le milieu est souvent pris par « vous êtes ici ».
-		var y := box.position.y + 24.0
-		for l in lines:
-			var w := font.get_string_size(l, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-			_ink(l, Vector2(box.get_center().x - w / 2.0, y), fs, ink)
-			y += 20.0
+		# En haut du quartier (le milieu est souvent pris par « vous êtes ici »), et toujours dans la feuille.
+		var lh := font.get_height(fs)
+		var widths := lines.map(func(l): return font.get_string_size(l, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x)
+		var top := clampf(box.position.y + 4.0, 4.0, size.y - lh * lines.size() - 4.0)
+		for i in lines.size():
+			var x := clampf(box.get_center().x - widths[i] / 2.0, 4.0, size.x - widths[i] - 4.0)
+			_paper(Rect2(x - 3.0, top + i * lh, widths[i] + 6.0, lh))
+		for i in lines.size():
+			var x := clampf(box.get_center().x - widths[i] / 2.0, 4.0, size.x - widths[i] - 4.0)
+			draw_string(font, Vector2(x, top + i * lh + font.get_ascent(fs)), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, fs, ink)
 
-	## Un mot au crayon sur un fond de papier, pour qu'il se lise par-dessus les traits.
+	## Un mot au crayon sur un fond de papier, pour qu'il se lise par-dessus les traits ; at est le pied du mot.
 	func _ink(t: String, at: Vector2, fs: int, color: Color) -> void:
-		var sz := font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs)
-		draw_rect(Rect2(at + Vector2(-3, -sz.y * 0.8), sz + Vector2(6, 2)), Color(0.97, 0.95, 0.88, 0.85))
-		draw_string(font, at, t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, color)
+		var w := font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var p := Vector2(clampf(at.x, 4.0, size.x - w - 4.0), clampf(at.y, font.get_ascent(fs) + 4.0, size.y - font.get_descent(fs) - 4.0))
+		_paper(Rect2(p.x - 3.0, p.y - font.get_ascent(fs), w + 6.0, font.get_height(fs)))
+		draw_string(font, p, t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, color)
+
+	func _paper(r: Rect2) -> void:
+		draw_rect(r, Color(0.97, 0.95, 0.88, 0.85))
 
 
 # --- La fiche de papier ------------------------------------------------------------------------
@@ -579,6 +587,8 @@ func show_slip(text: String) -> void:
 		_slip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_slip.custom_minimum_size.x = 420
 		add_child(_slip)
+		# Sous le carnet : une fiche arrivée juste avant qu'on l'ouvre ne vient pas sur la page.
+		move_child(_slip, 0)
 		_slip_label = _text(_slip, "", 17)
 		_slip_label.custom_minimum_size.x = 400
 	_slip_label.text = text
