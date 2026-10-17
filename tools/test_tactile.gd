@@ -14,6 +14,8 @@ func _ready() -> void:
 	root.add_child(self)
 	Game.saving_enabled = false
 	Game.welcomed = true
+	# La fenêtre de bienvenue du carnet met le jeu en pause : pas pendant le test.
+	Carnet._accueil_attendu = false
 	if not "--tactile" in OS.get_cmdline_user_args():
 		_check("PC : pas de commandes tactiles", not Tactile.active and Tactile.get_child_count() == 0)
 		_end()
