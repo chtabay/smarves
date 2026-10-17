@@ -6,6 +6,10 @@ extends Node3D
 const ROULETTE := preload("res://scripts/roulette_panel.gd")
 const ROULETTE_3D := preload("res://scripts/jeux/roulette_3d.gd")
 const BARRE := preload("res://scripts/jeux/barre.gd")
+const BLACKJACK := preload("res://scripts/blackjack_panel.gd")
+const BLACKJACK_3D := preload("res://scripts/jeux/blackjack_3d.gd")
+const SLOT := preload("res://scripts/slot_machine.gd")
+const SLOT_3D := preload("res://scripts/jeux/slot_3d.gd")
 
 var game := "roulette"
 var path := ""
@@ -51,6 +55,45 @@ func _ready() -> void:
 			if path != "":
 				await _shot(0)
 			p.spin()
+		"blackjack":
+			var t := BLACKJACK_3D.new()
+			add_child(t)
+			var p: PanelContainer = BLACKJACK.new()
+			t.attach(p)
+			t.sit(eye)
+			BARRE.dock(p, ui)
+			await get_tree().create_timer(1.2).timeout
+			if path != "":
+				await _shot(0)
+			p.bet_index = 2
+			p._start()
+			await get_tree().create_timer(2.6).timeout
+			if p.in_hand and BLACKJACK.total(p.player) < 15:
+				p._on_hit()
+			await get_tree().create_timer(1.2).timeout
+			if p.in_hand:
+				p._on_stand()
+		"slot":
+			var t := SLOT_3D.new()
+			t.title = "La Grande Smarvoise"
+			add_child(t)
+			var p: PanelContainer = SLOT.new()
+			p.game = Game
+			t.attach(p)
+			t.sit(eye)
+			BARRE.dock(p, ui)
+			p.reels_stopped.connect(func(line): print("ligne : ", line))
+			await get_tree().create_timer(1.2).timeout
+			if path != "":
+				await _shot(0)
+			p.spin()
+			# Un gain, pour voir la fête : trois étoiles sur la ligne (ou une ligne perdante donnée).
+			var want := ["★", "★", "★"]
+			for arg in OS.get_cmdline_user_args():
+				if arg.begins_with("--line="):
+					want = Array(arg.trim_prefix("--line=").split(","))
+			for r in 3:
+				p.stop_at[r] = p.strips[r].find(want[r])
 	if path == "":
 		return
 	var elapsed := 0.0

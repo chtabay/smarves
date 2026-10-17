@@ -10,6 +10,7 @@ signal hand_started
 signal hole_revealed(card: Dictionary)
 
 const BETS := [5, 10, 25, 100, 500]
+const BARRE := preload("res://scripts/jeux/barre.gd")
 const SUITS := ["♠", "♥", "♦", "♣"]
 const RANKS := ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "V", "D", "R"]
 
@@ -31,11 +32,19 @@ var _hit: Button
 var _stand: Button
 var _double: Button
 var _symbol_font: SystemFont
+## Assis à une table 3D : les cartes sont sur le feutre, le panneau devient une barre basse,
+## et ses messages attendent que le croupier ait fini ses gestes.
+var embedded := false
+var table3d: Node
+var _chip_row: HBoxContainer
 
 
 func _ready() -> void:
 	_symbol_font = SystemFont.new()
 	_symbol_font.font_names = PackedStringArray(["Georgia", "Segoe UI Symbol"])
+	if embedded:
+		_build_bar()
+		return
 	custom_minimum_size = Vector2(760, 0)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 10)
@@ -89,6 +98,59 @@ func _ready() -> void:
 	_set_buttons()
 
 
+func _build_bar() -> void:
+	BARRE.style(self)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 4)
+	add_child(v)
+	_info = BARRE.label("Choisissez votre mise et distribuez.", 18)
+	_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_info.add_theme_font_override("font", _symbol_font)
+	v.add_child(_info)
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 12)
+	h.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_child(h)
+	_chip_row = BARRE.chip_row(BETS, bet_index, _pick_bet)
+	h.add_child(_chip_row)
+	_bet_label = BARRE.label("", 15, BARRE.MUTED)
+	_bet_label.custom_minimum_size = Vector2(80, 0)
+	h.add_child(_bet_label)
+	h.add_child(BARRE.separator())
+	_deal = BARRE.main_button("  Distribuer  (Espace)  ")
+	_deal.pressed.connect(_start)
+	h.add_child(_deal)
+	_hit = BARRE.pill("Carte  (C)")
+	_hit.pressed.connect(_on_hit)
+	h.add_child(_hit)
+	_stand = BARRE.pill("Rester  (R)")
+	_stand.pressed.connect(_on_stand)
+	h.add_child(_stand)
+	_double = BARRE.pill("Doubler  (D)")
+	_double.pressed.connect(_on_double)
+	h.add_child(_double)
+	var leave := BARRE.pill("Quitter  (Échap)")
+	leave.pressed.connect(func(): closed.emit())
+	h.add_child(leave)
+	_change_bet(0)
+	_set_buttons()
+
+
+func _pick_bet(i: int) -> void:
+	if in_hand:
+		return
+	bet_index = i
+	_change_bet(0)
+
+
+## Un message, affiché quand le croupier a fini ce qu'il fait sur la table.
+func _say(text: String) -> void:
+	if embedded and table3d and table3d.busy_time() > 0.0:
+		get_tree().create_timer(table3d.busy_time()).timeout.connect(func(): _info.text = text)
+	else:
+		_info.text = text
+
+
 func _row_label(v: VBoxContainer, who: String) -> Label:
 	var l := Label.new()
 	l.text = who
@@ -125,6 +187,8 @@ func _change_bet(d: int) -> void:
 		return
 	bet_index = clampi(bet_index + d, 0, BETS.size() - 1)
 	_bet_label.text = "Mise : %d" % BETS[bet_index]
+	if _chip_row:
+		BARRE.select(_chip_row, bet_index)
 
 
 func _draw_card() -> Dictionary:
@@ -159,7 +223,7 @@ func _start() -> void:
 		return
 	var amount: int = BETS[bet_index]
 	if not Game.spend(amount):
-		_info.text = "Pas assez de crédits pour cette mise."
+		_say("Pas assez de crédits pour cette mise.")
 		return
 	bet = amount
 	in_hand = true
@@ -174,7 +238,7 @@ func _start() -> void:
 	if total(player) == 21:
 		_finish()
 	else:
-		_info.text = "Carte ou rester ?"
+		_say("Carte ou rester ?")
 	_set_buttons()
 
 
@@ -195,7 +259,7 @@ func _on_double() -> void:
 	if not in_hand or player.size() != 2:
 		return
 	if not Game.spend(bet):
-		_info.text = "Pas assez de crédits pour doubler."
+		_say("Pas assez de crédits pour doubler.")
 		return
 	bet *= 2
 	player.append(_draw_card())
@@ -221,20 +285,20 @@ func _finish() -> void:
 	var dealer_natural := d == 21 and dealer.size() == 2
 	var payout := 0
 	if p > 21:
-		_info.text = "Vous sautez à %d. Une prochaine main vous attend." % p
+		_say("Vous sautez à %d. Une prochaine main vous attend." % p)
 	elif natural and not dealer_natural:
 		payout = bet + bet * 3 / 2
-		_info.text = "Blackjack ! Vous encaissez %s." % Game.fmt(payout)
+		_say("Blackjack ! Vous encaissez %s." % Game.fmt(payout))
 	elif dealer_natural and not natural:
-		_info.text = "Blackjack du croupier."
+		_say("Blackjack du croupier.")
 	elif d > 21 or p > d:
 		payout = bet * 2
-		_info.text = "Gagné, %d contre %d. Vous encaissez %s." % [p, d, Game.fmt(payout)]
+		_say("Gagné, %d contre %d. Vous encaissez %s." % [p, d, Game.fmt(payout)])
 	elif p == d:
 		payout = bet
-		_info.text = "Égalité à %d, la mise est rendue." % p
+		_say("Égalité à %d, la mise est rendue." % p)
 	else:
-		_info.text = "Le croupier fait %d. Un investissement se mesure sur la durée." % d
+		_say("Le croupier fait %d. Un investissement se mesure sur la durée." % d)
 	in_hand = false
 	_render(false)
 	_set_buttons()
@@ -242,6 +306,15 @@ func _finish() -> void:
 
 
 func _set_buttons() -> void:
+	if embedded and table3d and table3d.busy_time() > 0.0:
+		for b in [_deal, _hit, _stand, _double]:
+			b.disabled = true
+		get_tree().create_timer(table3d.busy_time()).timeout.connect(_apply_buttons)
+		return
+	_apply_buttons()
+
+
+func _apply_buttons() -> void:
 	_deal.disabled = in_hand
 	_hit.disabled = not in_hand
 	_stand.disabled = not in_hand
@@ -249,6 +322,8 @@ func _set_buttons() -> void:
 
 
 func _render(hide_hole: bool) -> void:
+	if embedded:
+		return
 	for c in _dealer_box.get_children():
 		c.queue_free()
 	for c in _player_box.get_children():
@@ -286,6 +361,14 @@ func _card_view(c: Dictionary, hidden: bool) -> PanelContainer:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if visible and embedded and event is InputEventKey and event.pressed and not event.echo:
+		var b: Button = {KEY_SPACE: _deal, KEY_C: _hit, KEY_R: _stand, KEY_D: _double}.get(event.keycode)
+		if b and not b.disabled:
+			b.pressed.emit()
+			get_viewport().set_input_as_handled()
+			return
+		if event.keycode >= KEY_1 and event.keycode < KEY_1 + BETS.size():
+			_pick_bet(event.keycode - KEY_1)
 	if visible and event.is_action_pressed("ui_cancel"):
 		closed.emit()
 		get_viewport().set_input_as_handled()

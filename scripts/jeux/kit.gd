@@ -20,8 +20,8 @@ const CHIP_STYLES := {
 const CHIP_R := 0.026
 const CHIP_H := 0.0045
 
-const CARD_W := 0.072
-const CARD_H := 0.101
+const CARD_W := 0.088
+const CARD_H := 0.123
 const SUIT_NAMES := ["pique", "coeur", "carreau", "trefle"]
 const RANKS := ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "V", "D", "R"]
 
@@ -482,8 +482,8 @@ static func suit_color(s: int) -> Color:
 
 
 ## Les quatre enseignes, dessinées en vectoriel (aucune police n'est nécessaire).
-static func draw_suit(c: Control, s: int, at: Vector2, size: float, col: Color, flip := false) -> void:
-	c.draw_set_transform(at, PI if flip else 0.0, Vector2.ONE)
+static func draw_suit(c: Control, s: int, at: Vector2, size: float, col: Color, flip := false, rot := 0.0) -> void:
+	c.draw_set_transform(at, (PI if flip else 0.0) + rot, Vector2.ONE)
 	var k := size
 	match s:
 		1:
@@ -522,7 +522,7 @@ const PIPS := {
 static func _draw_card_face(c: Control, cell: Rect2, r: int, s: int) -> void:
 	var card := cell.grow(-3)
 	_rounded(c, card, 16, Color(0.78, 0.76, 0.72))
-	_rounded(c, card.grow(-1.5), 15, Color(0.985, 0.975, 0.95))
+	_rounded(c, card.grow(-1.5), 15, Color(0.93, 0.92, 0.88))
 	var col := suit_color(s)
 	var f := serif()
 	var o := card.position
@@ -531,17 +531,17 @@ static func _draw_card_face(c: Control, cell: Rect2, r: int, s: int) -> void:
 	# Les index, en haut à gauche et (retournés) en bas à droite.
 	for flip in [false, true]:
 		c.draw_set_transform(o + Vector2(w, h) if flip else o, PI if flip else 0.0, Vector2.ONE)
-		c.draw_string(f, Vector2(4, 40), RANKS[r], HORIZONTAL_ALIGNMENT_CENTER, 36, 34 if r != 9 else 28, col)
+		c.draw_string(f, Vector2(2, 52), RANKS[r], HORIZONTAL_ALIGNMENT_CENTER, 50, 50 if r != 9 else 38, col)
 		c.draw_set_transform(Vector2.ZERO)
-		var sp := o + (Vector2(w - 22, h - 60) if flip else Vector2(22, 60))
-		draw_suit(c, s, sp, 22.0, col, flip)
-	var inner := Rect2(o + Vector2(44, 34), Vector2(w - 88, h - 68))
+		var sp := o + (Vector2(w - 27, h - 80) if flip else Vector2(27, 80))
+		draw_suit(c, s, sp, 30.0, col, flip)
+	var inner := Rect2(o + Vector2(62, 40), Vector2(w - 124, h - 80))
 	if r == 0:
 		draw_suit(c, s, card.get_center(), 78.0, col)
 	elif r <= 9:
 		for p in PIPS[r + 1]:
 			var at := inner.position + Vector2(p[0], p[1]) * inner.size
-			draw_suit(c, s, at, 30.0, col, p[1] > 0.55)
+			draw_suit(c, s, at, 34.0 if r < 8 else 28.0, col, p[1] > 0.55)
 	else:
 		# Les figures : un cadre doré, la lettre et l'enseigne, au tampon.
 		var fr := inner.grow(4)
@@ -579,7 +579,7 @@ static func _draw_card_back(c: Control, cell: Rect2) -> void:
 static func _card_mat(idx: int) -> StandardMaterial3D:
 	var key := "card_%d" % idx
 	if not _mats.has(key):
-		var m := mat(Color.WHITE, 0.45)
+		var m := mat(Color(0.8, 0.8, 0.8), 0.55)
 		m.albedo_texture = card_atlas()
 		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
 		m.alpha_scissor_threshold = 0.5

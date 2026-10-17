@@ -15,6 +15,8 @@ const WHEEL := preload("res://scripts/wheel_panel.gd")
 const POKER := preload("res://scripts/poker_panel.gd")
 const LOAN := preload("res://scripts/loan_panel.gd")
 const ROULETTE_3D := preload("res://scripts/jeux/roulette_3d.gd")
+const BLACKJACK_3D := preload("res://scripts/jeux/blackjack_3d.gd")
+const SLOT_3D := preload("res://scripts/jeux/slot_3d.gd")
 const BARRE := preload("res://scripts/jeux/barre.gd")
 ## Niveau du plancher de l'étage.
 const UP := 5.2
@@ -973,7 +975,11 @@ func _maybe_capture() -> void:
 						await get_tree().create_timer(0.15).timeout
 					pnl.spin()
 				"blackjack":
+					pnl.bet_index = 2
 					pnl._start()
+					await get_tree().create_timer(2.6).timeout
+					if pnl.in_hand:
+						pnl._on_stand()
 				"slot":
 					pnl.spin()
 				"dice":
@@ -1008,7 +1014,7 @@ var mirror: StandardMaterial3D
 var cream: StandardMaterial3D
 var brass: StandardMaterial3D
 var lamp_shade: StandardMaterial3D
-var _reel_tex: Texture2D
+var _slot_count := 0
 var _paintings: Array[Texture2D] = []
 
 
@@ -1022,7 +1028,6 @@ func _extra_materials() -> void:
 	lamp_shade.emission_enabled = true
 	lamp_shade.emission = Color(0.25, 0.6, 0.3)
 	lamp_shade.emission_energy_multiplier = 0.6
-	_reel_tex = _make_reel_texture()
 	for k in 6:
 		_paintings.append(_make_painting(k))
 
@@ -1825,138 +1830,22 @@ func _stool(at: Vector3, rot_y: float) -> void:
 	_box(Vector3(0.34, 0.22, 0.05), Vector3(0, 0.95, 0.17), velvet, false, root)
 
 
-## Une machine à sous de salon : meuble laqué, rouleaux qui tournent derrière la vitre,
-## fronton lumineux à bulbes, pupitre à boutons, bac à pièces, bras chromé, et son tabouret.
+## Une machine à sous de salon (scripts/jeux/slot_3d.gd) : caisson laqué, vrais tambours derrière
+## la vitre, fronton à ampoules qui chassent, bras qu'on tire ; et son tabouret.
 func _slot_machine(pos: Vector3, rot_y: float, title: String) -> void:
-	var root := Node3D.new()
+	var root := SLOT_3D.new()
+	root.title = title if title != "" else "JACKPOT"
+	root.theme = _slot_count
+	_slot_count += 1
 	root.position = pos
 	root.rotation_degrees.y = rot_y
 	add_child(root)
+	root.set_meta("table3d", root)
 	_solid(Vector3(0.75, 2.0, 0.65), pos + Vector3(0, 1.0, 0), deg_to_rad(rot_y))
-	# Socle et caisson.
-	_box(Vector3(0.72, 0.85, 0.62), Vector3(0, 0.425, -0.02), dark_wood, false, root)
-	_box(Vector3(0.74, 0.05, 0.64), Vector3(0, 0.03, -0.02), gold, false, root)
-	_box(Vector3(0.68, 0.72, 0.5), Vector3(0, 1.2, -0.08), lacquer, false, root)
-	for x in [-0.35, 0.35]:
-		_box(Vector3(0.03, 1.5, 0.52), Vector3(x, 1.0, -0.07), chrome, false, root)
-	# Bac à pièces et pupitre incliné à boutons.
-	_box(Vector3(0.5, 0.08, 0.12), Vector3(0, 0.45, 0.3), chrome, false, root)
-	var deck := _box(Vector3(0.66, 0.05, 0.24), Vector3(0, 0.88, 0.2), lacquer, false, root)
-	deck.rotation_degrees.x = 18
-	var cols := [Color(1, 0.3, 0.2), Color(1, 0.85, 0.3), Color(0.3, 0.9, 0.4)]
-	for k in 3:
-		var bm := _std(cols[k], 0.3)
-		bm.emission_enabled = true
-		bm.emission = cols[k]
-		bm.emission_energy_multiplier = 1.5
-		var btn := _cyl(0.035, 0.03, Vector3(-0.16 + k * 0.16, 0.92, 0.22), bm, root)
-		btn.rotation_degrees.x = 18
-	# La vitre et les trois rouleaux.
-	var bezel := _box(Vector3(0.6, 0.34, 0.03), Vector3(0, 1.32, 0.18), gold, false, root)
-	bezel.name = "Cadre"
-	var reel_mats: Array[StandardMaterial3D] = []
-	for k in 3:
-		var rm := _std(Color.WHITE, 0.4)
-		rm.albedo_texture = _reel_tex
-		rm.emission_enabled = true
-		rm.emission_texture = _reel_tex
-		rm.emission_energy_multiplier = 0.35
-		rm.uv1_scale = Vector3(1.0, 3.0 / 12.0, 1.0)
-		rm.uv1_offset = Vector3(0, float(randi() % 12) / 12.0, 0)
-		var q := MeshInstance3D.new()
-		var qm := QuadMesh.new()
-		qm.size = Vector2(0.15, 0.27)
-		q.mesh = qm
-		q.material_override = rm
-		q.position = Vector3(-0.17 + k * 0.17, 1.32, 0.17)
-		root.add_child(q)
-		reel_mats.append(rm)
-	# Ombre de courbure en haut et en bas de la fenêtre.
-	for y in [1.43, 1.21]:
-		var sh := _std(Color(0, 0, 0, 0.45), 1.0)
-		sh.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		_box(Vector3(0.52, 0.05, 0.002), Vector3(0, y, 0.176), sh, false, root)
-	root.set_meta("reel_mats", reel_mats)
-	var glass := _box(Vector3(0.54, 0.3, 0.01), Vector3(0, 1.32, 0.195), _glass(), false, root)
-	glass.name = "Vitre"
-	var line := _box(Vector3(0.54, 0.008, 0.005), Vector3(0, 1.32, 0.2), brass_glow, false, root)
-	line.name = "Ligne"
-	# Le fronton : caisson lumineux, nom de la machine, rangée de bulbes.
-	var top_mat := _std(Color(0.55, 0.05, 0.1), 0.3)
-	top_mat.emission_enabled = true
-	top_mat.emission = Color(0.9, 0.12, 0.2)
-	top_mat.emission_energy_multiplier = 1.2
-	_box(Vector3(0.66, 0.34, 0.36), Vector3(0, 1.78, -0.12), top_mat, false, root)
-	var arch := _cyl(0.33, 0.36, Vector3(0, 1.95, -0.12), top_mat, root)
-	arch.rotation_degrees.x = 90
-	arch.scale = Vector3(1.0, 1.0, 0.5)
-	for k in 9:
-		var a := PI * k / 8.0
-		var b := MeshInstance3D.new()
-		var sm := SphereMesh.new()
-		sm.radius = 0.022
-		sm.height = 0.044
-		b.mesh = sm
-		b.material_override = brass_glow
-		b.position = Vector3(cos(a) * 0.34, 1.95 + sin(a) * 0.17, 0.07)
-		root.add_child(b)
-	var name_l := _label(title if title != "" else "JACKPOT", Vector3(0, 1.8, 0.07), 0.0, 34 if title != "" else 40, Color(1.0, 0.95, 0.8), root)
-	name_l.outline_size = 4
-	# Le bras.
-	_cyl(0.035, 0.12, Vector3(0.38, 1.15, 0.0), chrome, root).rotation_degrees.z = 90
-	_cyl(0.022, 0.5, Vector3(0.44, 1.38, 0.0), chrome, root)
-	var knob := MeshInstance3D.new()
-	var ks := SphereMesh.new()
-	ks.radius = 0.055
-	ks.height = 0.11
-	knob.mesh = ks
-	knob.material_override = _std(Color(0.8, 0.05, 0.08), 0.15)
-	knob.position = Vector3(0.44, 1.65, 0.0)
-	root.add_child(knob)
-	# Le tabouret, et une petite lumière qui fait luire la vitre.
 	var stool_at := pos + Basis(Vector3.UP, deg_to_rad(rot_y)) * Vector3(0, 0, 0.72)
 	_stool(stool_at, rot_y)
-	var glow := OmniLight3D.new()
-	glow.light_color = Color(1.0, 0.5, 0.45)
-	glow.light_energy = 0.35
-	glow.omni_range = 1.4
-	glow.position = Vector3(0, 1.6, 0.4)
-	root.add_child(glow)
 	_interactive(root, "slot", "E : jouer à %s" % (title if title != "" else "la machine"), Vector3(0.9, 2.0, 1.2), Vector3(0, 1.0, 0.3))
 	root.set_meta("name", title if title != "" else "Machine de la salle")
-
-
-## La bande des rouleaux : douze symboles dessinés une fois dans une petite vue hors écran.
-func _make_reel_texture() -> Texture2D:
-	var vp := SubViewport.new()
-	vp.size = Vector2i(128, 768)
-	vp.transparent_bg = false
-	vp.render_target_update_mode = SubViewport.UPDATE_ONCE
-	add_child(vp)
-	var bg := ColorRect.new()
-	bg.color = Color(0.97, 0.94, 0.86)
-	bg.size = Vector2(128, 768)
-	vp.add_child(bg)
-	var sym := SystemFont.new()
-	sym.font_names = PackedStringArray(["Segoe UI Symbol", "Georgia"])
-	for k in 12:
-		var s: String = SLOT.SYMBOLS[k % SLOT.SYMBOLS.size()]
-		var l := Label.new()
-		l.text = s
-		l.add_theme_font_override("font", sym)
-		l.add_theme_font_size_override("font_size", 46)
-		l.add_theme_color_override("font_color", SLOT.COLORS[k % SLOT.SYMBOLS.size()].darkened(0.1))
-		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		l.size = Vector2(128, 64)
-		l.position = Vector2(0, k * 64)
-		vp.add_child(l)
-		var sep := ColorRect.new()
-		sep.color = Color(0.8, 0.75, 0.65)
-		sep.size = Vector2(128, 2)
-		sep.position = Vector2(0, k * 64)
-		vp.add_child(sep)
-	return vp.get_texture()
 
 
 ## Un tapis de jeu imprimé (roulette, blackjack, craps), dessiné une fois dans une vue hors écran.
@@ -2075,13 +1964,15 @@ func _roulette_table(pos: Vector3) -> void:
 	root.rotation_degrees.y = 90
 	# La table et son cylindre : voir scripts/jeux/roulette_3d.gd.
 	var t := ROULETTE_3D.new()
+	t.with_lamp = false
 	root.add_child(t)
 	root.set_meta("table3d", t)
 	_solid(Vector3(1.5, 0.9, 3.4), pos + Vector3(0, 0.45, 0))
 	# Chaises côté joueurs, croupier côté cylindre, râteau et jetons.
 	for k in 4:
 		_chair(root, Vector3(-0.2 + k * 0.6, 0, 1.15), 180.0)
-	_person("croupier-roulette", pos + Vector3(-1.1, 0, 0.3), 90.0, "idle", "noeud")
+	# Le croupier se tient derrière le cylindre, hors du regard du joueur assis.
+	_person("croupier-roulette", pos + Vector3(-0.95, 0, 1.15), 90.0, "idle", "noeud")
 	_person("character-male-f.glb", pos + Vector3(1.4, 0, -1.6), -90.0)
 	_bill(_label("Roulette", Vector3(0, 2.0, 0), 0.0, 72, Color(1.0, 0.85, 0.5), root))
 	_interactive(root, "roulette", "E : s'asseoir à la roulette", Vector3(3.6, 2.0, 2.8), Vector3(0, 1.0, 0.4))
@@ -2090,56 +1981,16 @@ func _roulette_table(pos: Vector3) -> void:
 func _blackjack_table(pos: Vector3) -> void:
 	var root := _node(pos)
 	root.rotation_degrees.y = -90
-	var csg := CSGCombiner3D.new()
-	csg.use_collision = true
-	root.add_child(csg)
-	var top := CSGCylinder3D.new()
-	top.radius = 1.55
-	top.height = 0.78
-	top.sides = 64
-	top.position.y = 0.39
-	top.material = wood
-	csg.add_child(top)
-	var hollow := CSGCylinder3D.new()
-	hollow.operation = CSGShape3D.OPERATION_SUBTRACTION
-	hollow.radius = 1.3
-	hollow.height = 0.62
-	hollow.sides = 64
-	hollow.position.y = 0.3
-	hollow.material = dark_wood
-	csg.add_child(hollow)
-	var cut := CSGBox3D.new()
-	cut.operation = CSGShape3D.OPERATION_SUBTRACTION
-	cut.size = Vector3(4, 2, 2)
-	cut.position = Vector3(0, 0.4, -1.0)
-	csg.add_child(cut)
-	_box(Vector3(3.1, 0.62, 0.3), Vector3(0, 0.39, -0.15), dark_wood, false, root)
-	_felt_quad(root, Vector2(2.9, 1.45), 0.785, _layout_texture("blackjack", Vector2i(1024, 512)), true)
-	var rail := CSGCombiner3D.new()
-	root.add_child(rail)
-	var torus := CSGTorus3D.new()
-	torus.inner_radius = 1.45
-	torus.outer_radius = 1.68
-	torus.sides = 64
-	torus.ring_sides = 14
-	torus.position.y = 0.8
-	torus.material = leather
-	rail.add_child(torus)
-	var cut3 := CSGBox3D.new()
-	cut3.operation = CSGShape3D.OPERATION_SUBTRACTION
-	cut3.size = Vector3(4, 1, 2)
-	cut3.position = Vector3(0, 0.8, -1.0)
-	rail.add_child(cut3)
-	root.set_meta("felt_y", 0.79)
-	# Le sabot, le râtelier à jetons, le présentoir des mises.
-	_box(Vector3(0.22, 0.14, 0.36), Vector3(0.75, 0.86, 0.12), dark_wood, false, root)
-	_box(Vector3(0.8, 0.06, 0.22), Vector3(0, 0.82, 0.12), lacquer, false, root)
-	for k in 6:
-		_chips(root, Vector3(-0.32 + k * 0.13, 0.85, 0.12), 10, [Color(0.85, 0.1, 0.1), Color(0.1, 0.25, 0.7), Color(0.1, 0.5, 0.2), Color(0.95, 0.85, 0.3), Color(0.1, 0.1, 0.1), Color(0.6, 0.2, 0.7)][k])
+	# La table, le sabot et les cartes : voir scripts/jeux/blackjack_3d.gd.
+	var t := BLACKJACK_3D.new()
+	t.with_lamp = false
+	root.add_child(t)
+	root.set_meta("table3d", t)
+	_solid(Vector3(1.45, 0.9, 2.8), pos + Vector3(-0.22, 0.45, 0))
 	for k in 5:
 		var a := deg_to_rad(-60.0 + k * 30.0)
 		_stool(pos + Basis(Vector3.UP, deg_to_rad(-90.0)) * Vector3(sin(a) * 2.0, 0, cos(a) * 2.0), rad_to_deg(a) - 90.0 + 180.0)
-	_person("croupiere-blackjack", pos + Basis(Vector3.UP, deg_to_rad(-90.0)) * Vector3(0, 0, -0.45), -90.0, "idle", "noeud")
+	_person("croupiere-blackjack", pos + Basis(Vector3.UP, deg_to_rad(-90.0)) * Vector3(0, 0, -0.78), -90.0, "idle", "noeud")
 	_person("character-female-b.glb", pos + Basis(Vector3.UP, deg_to_rad(-90.0)) * Vector3(1.6, 0, 1.4), 120.0)
 	_bill(_label("Blackjack", Vector3(0, 2.0, 0), 0.0, 72, Color(1.0, 0.85, 0.5), root))
 	_interactive(root, "blackjack", "E : s'asseoir au blackjack", Vector3(3.6, 2.0, 2.6), Vector3(0, 1.0, 0.8))
