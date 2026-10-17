@@ -55,10 +55,7 @@ static func _add_viewport(vp: SubViewport) -> void:
 
 static func serif() -> Font:
 	if _font == null:
-		var f := SystemFont.new()
-		f.font_names = PackedStringArray(["Georgia", "Palatino Linotype", "Book Antiqua", "DejaVu Serif", "serif"])
-		f.font_weight = 600
-		_font = f
+		_font = Polices.gras()
 	return _font
 
 

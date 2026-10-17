@@ -1,6 +1,6 @@
 # Licences des assets
 
-Tous les assets de ce dossier sont sous licence CC0 (domaine public). Crédit volontaire : Kay Lousberg (KayKit) et Kenney (www.kenney.nl).
+Les assets de ce dossier sont sous licence CC0 (domaine public), sauf les polices (plus bas). Crédit volontaire : Kay Lousberg (KayKit) et Kenney (www.kenney.nl).
 
 - `kaykit/medieval_buildings`, `kaykit/medieval_decoration` : KayKit Medieval Hexagon Pack — https://github.com/KayKit-Game-Assets/KayKit-Medieval-Hexagon-Pack-1.0
 - `kaykit/city` : KayKit City Builder Bits — https://github.com/KayKit-Game-Assets/KayKit-City-Builder-Bits-1.0
@@ -14,5 +14,13 @@ Tous les assets de ce dossier sont sous licence CC0 (domaine public). Crédit vo
 - `audio/casino` : Kenney, Casino Audio — https://kenney.nl/assets/casino-audio
 - `audio/ui` : Kenney, UI Audio (sélection) — https://kenney.nl/assets/ui-audio
 - `audio/jingles` : Kenney, Music Jingles (sélection) — https://kenney.nl/assets/music-jingles
+
+## Polices (`polices/`)
+
+Elles ne sont pas en CC0 ; leurs licences libres sont jointes dans le dossier.
+
+- `FiraSans-Regular.ttf`, `FiraSans-SemiBold.ttf`, `FiraSans-Bold.ttf` : Fira Sans, Mozilla Foundation et Telefonica S.A., SIL Open Font License 1.1 (`polices/OFL.txt`) — https://github.com/mozilla/Fira
+- `Symboles-DejaVuSans.ttf` : extrait de DejaVu Sans (flèches, formes géométriques, symboles divers : cartes, dés, étoiles), licence Bitstream Vera et domaine public (`polices/LICENCE-DejaVu.txt`) — https://dejavu-fonts.github.io/
+- `texte.tres`, `gras.tres`, `titre.tres` : les trois graisses du jeu, chacune avec l'extrait de DejaVu en secours (`scripts/polices.gd`).
 
 Fait maison, dans le code : les façades des rues du bourg (`scripts/village/`), les tuiles et les vitres (`shaders/roof_tiles.gdshader`, `shaders/window_glow.gdshader`), les habitants (`scripts/critter.gd`), la façade du casino, l'intérieur du casino, les zèbres, les matériaux (`shaders/`) et les ambiances sonores (`scripts/sfx.gd`).

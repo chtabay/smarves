@@ -140,9 +140,7 @@ func say(text: String) -> void:
 		_bubble_label = Label.new()
 		_bubble_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_bubble_label.custom_minimum_size = Vector2(320, 0)
-		var f := SystemFont.new()
-		f.font_names = PackedStringArray(["Georgia", "serif"])
-		_bubble_label.add_theme_font_override("font", f)
+		_bubble_label.add_theme_font_override("font", Polices.texte())
 		_bubble_label.add_theme_font_size_override("font_size", 17)
 		_bubble_label.add_theme_color_override("font_color", Color(0.18, 0.1, 0.08))
 		_bubble.add_child(_bubble_label)

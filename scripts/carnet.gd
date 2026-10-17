@@ -22,8 +22,8 @@ var _slip_label: Label
 var _slip_tween: Tween
 ## Une fiche arrivée carnet ouvert : elle attend qu'on le referme.
 var _pending_slip := ""
-var _hand: SystemFont
-var _hand_bold: SystemFont
+var _hand: Font
+var _hand_bold: Font
 var _mouse_before := Input.MOUSE_MODE_VISIBLE
 var _paused_before := false
 ## Le logement qu'on est en train d'aménager dans le carnet (« » : aucun).
@@ -37,11 +37,9 @@ var _sheet_box: VBoxContainer
 func _ready() -> void:
 	layer = 40
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	_hand = SystemFont.new()
-	_hand.font_names = PackedStringArray(["Segoe Print", "Bradley Hand", "Comic Sans MS", "Georgia", "serif"])
-	_hand.font_italic = true
-	_hand_bold = _hand.duplicate()
-	_hand_bold.font_weight = 700
+	# Le cahier d'écolier tient au papier quadrillé et aux filets ; l'écriture reste celle du jeu.
+	_hand = Polices.texte()
+	_hand_bold = Polices.gras()
 	_build()
 	_root.visible = false
 	Biens.changed.connect(func():

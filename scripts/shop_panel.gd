@@ -35,12 +35,11 @@ const TOO_POOR := "« Il vous manque quelques crédits. M. Brunet finance, vous 
 
 var _list: VBoxContainer
 var _status: Label
-var _serif: SystemFont
+var _serif: Font
 
 
 func _ready() -> void:
-	_serif = SystemFont.new()
-	_serif.font_names = PackedStringArray(["Georgia", "Palatino Linotype", "Book Antiqua", "Times New Roman", "serif"])
+	_serif = Polices.texte()
 	custom_minimum_size = Vector2(940, 620)
 	var st := StyleBoxFlat.new()
 	st.bg_color = PAPER
@@ -81,11 +80,7 @@ func _label(parent: Control, t: String, size: int, color: Color, bold := false) 
 	var l := Label.new()
 	l.text = t
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	var f := _serif
-	if bold:
-		f = _serif.duplicate()
-		f.font_weight = 700
-	l.add_theme_font_override("font", f)
+	l.add_theme_font_override("font", Polices.gras() if bold else _serif)
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", color)
 	parent.add_child(l)

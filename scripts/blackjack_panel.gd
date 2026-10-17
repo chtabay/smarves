@@ -31,7 +31,7 @@ var _deal: Button
 var _hit: Button
 var _stand: Button
 var _double: Button
-var _symbol_font: SystemFont
+var _symbol_font: Font
 ## Assis à une table 3D : les cartes sont sur le feutre, le panneau devient une barre basse,
 ## et ses messages attendent que le croupier ait fini ses gestes.
 var embedded := false
@@ -40,8 +40,7 @@ var _chip_row: HBoxContainer
 
 
 func _ready() -> void:
-	_symbol_font = SystemFont.new()
-	_symbol_font.font_names = PackedStringArray(["Georgia", "Segoe UI Symbol"])
+	_symbol_font = Polices.texte()
 	if embedded:
 		_build_bar()
 		return

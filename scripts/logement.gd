@@ -19,8 +19,7 @@ var _placed := {}
 
 
 func _ready() -> void:
-	_serif = SystemFont.new()
-	_serif.font_names = PackedStringArray(["Georgia", "Palatino Linotype", "Book Antiqua", "Times New Roman", "serif"])
+	_serif = Polices.texte()
 	# Capture : le logement et les biens viennent de la ligne de commande, avant de bâtir.
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--logement="):

@@ -46,8 +46,7 @@ func toggle() -> void:
 
 
 func _build() -> void:
-	var serif := SystemFont.new()
-	serif.font_names = PackedStringArray(["Georgia", "Palatino Linotype", "serif"])
+	var serif := Polices.texte()
 	var theme := Theme.new()
 	theme.default_font = serif
 	theme.default_font_size = 20
