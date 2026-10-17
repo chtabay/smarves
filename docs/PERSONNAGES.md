@@ -4,32 +4,35 @@ Direction artistique et animation des habitants, du personnel du casino et du jo
 
 ## La famille
 
-Des figurines floquées de maquette, façon Happy Tree Friends en plus tendre : grosse tête (près de la moitié de la hauteur), grands yeux brillants, joues roses, corps en poire, petites jambes. Hauteur commune d'environ 0,75 (avant échelle de scène). Chaque personnage se reconnaît d'abord à sa silhouette (oreilles, chapeau, carrure), puis à sa couleur, puis à son accessoire, ce qui marche aussi bien vu de dessus qu'à hauteur d'yeux.
+Des adultes de bande dessinée, en **ligne claire** (la veine de Spirou ou de Tintin) : proportions d'adulte, la tête vers un sixième de la hauteur, yeux en point, nez qui signe le visage, aplats de couleur et contour noir. Le décalage vient des couleurs franches de figurine de maquette face aux jeux d'argent, jamais d'un ton d'enfant : le public visé a de 30 à 45 ans. Hauteur commune d'environ 0,7 (avant échelle de scène). Chaque personnage se reconnaît d'abord à sa coupe ou à son chapeau et à la couleur de ses épaules, ce qui se lit de dessus, puis à son nez, sa carrure et son accessoire.
 
-- **Palette.** Le village est en couleurs de terroir (brique, moutarde, vert bouteille, bleu de travail, crème). Le casino est sobre et classe : noir, blanc cassé, bordeaux, or. Les fourrures restent naturelles.
-- **Matière.** Un seul matériau partagé (`shaders/critter.gdshader`) : couleur peinte par sommet, rugosité par pièce, léger velours sur les bords, éclat pour les lunettes et les dorures.
-- **Les renards** sont réservés au joueur et à l'Inconnu (un renard plus âgé, en trench et feutre). Aucun figurant n'est un renard.
-- **Espèces** : celles de la bible (section 7) pour les personnages nommés. Les figurants piochent aussi le chien, le blaireau, le hérisson et le sanglier, pour que la foule varie.
+- **Palette.** Le village est en couleurs de terroir (brique, moutarde, vert bouteille, bleu de travail, crème). Le casino est sobre et classe : noir, blanc cassé, bordeaux, or. Teints et cheveux en aplats (`Cast.PEAU`, `Cast.CHEVEUX`) ; les cheveux gris restent plus foncés que la peau pour qu'une tête ne paraisse pas chauve de loin.
+- **Matière.** Un seul matériau partagé (`shaders/critter.gdshader`) : couleur peinte par sommet, rugosité par pièce, éclat pour les lunettes et les dorures. Le contour noir est une seconde passe (`shaders/critter_outline.gdshader`, coque inversée) ; les yeux, sourcils et bouche en sont exclus par l'alpha de la couleur.
+- **Visage.** Coupes (`hair`) : court, raie, houppe, gomina, dégarni, chauve, brushing, carré, permanente, chignon, queue, frange. Nez (`nose`) : rond, patate, long, busqué, retroussé, avec `nose_red` pour les nez de comptoir. Pilosité (`face`) : moustache, barbe, favoris, bouc.
+- **Les figures animales** d'avant le 17 octobre restent dans le code (`species` autre que `humain`) mais ne sont plus utilisées.
 
 ## Distribution
 
-| Personnage | Espèce | Ce qui le signe |
-|---|---|---|
-| le joueur | renard | costume bleu nuit, nœud papillon or (ou la tenue achetée) |
-| l'Inconnu | renard âgé | trench gris, feutre noir, moustache grise |
-| Josiane | chatte crème | robe brique, tablier, chignon, perles |
-| Dédé | ours brun | béret, marinière, gobelet de 421 |
-| Lucien | lapin gris | gilet moutarde, casquette, lunettes, carnet |
-| M. Brunet | castor | costume anthracite, cravate bordeaux, demi-lunes, chaîne de montre, mallette |
-| Mme Ferrand | souris | robe bleue, tablier, nœud, baguette |
-| M. Gaudin | ours miel | blazer vert, canotier, micro |
-| le gardien du bois | lapin brun | veste loden, chapeau de chasse à plume, canne |
-| le meunier | castor clair | chemise bleue, tablier à bavette, bonnet de meunier |
-| Monsieur Castel | ours blanc | smoking |
-| Monsieur Armand | chat noir et blanc | queue-de-pie, gants blancs, moustache |
-| Maître Garnier | chat gris-brun | costume noir, lunettes dorées, mallette |
-| Raymonde Chauvet | souris blanche | robe lavande, mètre ruban au cou, lunettes, fleur |
-| Roger Fradin | ours | bleu de travail, casquette, clé plate |
+Les fiches suivent la section 7 de la bible.
+
+| Personnage | Ce qui le signe |
+|---|---|
+| le joueur, le nouveau venu | la trentaine, roux, raie, costume bleu nuit, nœud papillon or (ou la tenue achetée) |
+| l'Inconnu | cheveux gris, moustache, trench gris, feutre noir, le même nœud or |
+| Josiane | permanente blonde, robe rose, tablier, perles |
+| Dédé | casquette rouge, moustache, nez rouge, blouson de skaï, gobelet de 421 |
+| Lucien | chapeau de paille, lunettes rondes, gilet moutarde, carnet |
+| M. Brunet | raie sur le côté, trois-pièces gris, cravate bordeaux, chaîne de montre, mallette |
+| Mme Ferrand | permanente brune, blouse blanche, tablier bleu, baguette |
+| M. Gaudin | dégarni, rond, blazer vert, nœud rouge, micro |
+| le gardien du bois | veste de chasse, feutre à plume, canne |
+| le meunier | cheveux blancs, moustache, tablier de toile, casquette farinée |
+| Monsieur Castel | cheveux blancs gominés, smoking blanc |
+| Monsieur Armand | gomina noire, fine moustache, queue-de-pie, gants blancs |
+| Maître Garnier | chauve, costume noir, lunettes dorées, mallette |
+| Raymonde Chauvet | carré, robe lavande, mètre ruban au cou, lunettes, fleur |
+| Roger Fradin | moustache, bleu de travail, casquette, clé plate |
+| Ginette Boutin | permanente grise, robe-gilet vert sauge, demi-lunes dorées, sac |
 
 Les croupiers sont un peu plus menus que les autres (`Villager.CROUPIER_SCALE`, 80 %) pour ne pas boucher la vue du joueur assis. Le personnel du casino (croupiers en gilet noir et badge, hôtesses en bordeaux et calot, caissier à visière verte, barmans, pianistes) et les figurants sont tirés de `Cast.resolve()` : même nom de modèle et même place donnent toujours le même habitant.
 
@@ -45,9 +48,9 @@ Squelette commun de 28 os, une `AnimationTree` partagée (bibliothèque et graph
 
 ## Ajouter un personnage ou une tenue
 
-- Un personnage nommé : une entrée dans `Cast.NAMED` (espèce, fourrure, haut, bas, chapeau, cou, visage, accessoires), puis sa clé dans `BY_SPEAKER` ou `BY_MODEL`.
-- Une tenue du joueur : une entrée dans `Cast.PLAYER_OUTFITS` dont la clé est l'`id` de la tenue dans `Biens`. La tenue portée (`Biens.worn`) habille le renard, et elle change dès qu'on en achète une autre.
-- Vérifier : `godot --path . tools/lineup.tscn -- --capture=out.png` avec `--part=0|1|2`, `--tenues`, `--top`, `--close` ou `--moves --only=wave,jump`.
+- Un personnage nommé : une entrée dans `Cast.NAMED` (`"species": "humain"`, teint dans `fur`, coupe, nez, haut, bas, chapeau, cou, visage, accessoires), puis sa clé dans `BY_SPEAKER` ou `BY_MODEL`.
+- Une tenue du joueur : une entrée dans `Cast.PLAYER_OUTFITS` dont la clé est l'`id` de la tenue dans `Biens`. La tenue portée (`Biens.worn`) habille le nouveau venu, et elle change dès qu'on en achète une autre.
+- Vérifier : `godot --path . tools/lineup.tscn -- --capture=out.png` avec `--part=0|1|2`, `--tenues`, `--top`, `--rue` ou `--quartier` (les crans de caméra de la suite), `--close` ou `--moves --only=wave,jump`.
 
 ## Ressources
 

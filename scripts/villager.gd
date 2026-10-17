@@ -195,10 +195,17 @@ func react(kind: String) -> void:
 	elif kind == "big":
 		critter.gesture("jump" if pose != "sit" else "cheer")
 		critter.set_expression("surprise", 0.6)
-		get_tree().create_timer(0.5).timeout.connect(func(): if is_instance_valid(critter): critter.set_expression("joie", 1.8))
+		# Des Callable liés plutôt que des lambdas : la connexion tombe d'elle-même si le nœud disparaît.
+		get_tree().create_timer(0.5).timeout.connect(critter.set_expression.bind("joie", 1.8))
 	else:
 		critter.gesture(["sulk", "facepalm", "shrug", "stomp"].pick_random() if pose != "sit" else ["sulk", "facepalm", "shrug"].pick_random())
 		critter.set_expression("depit", 1.4)
+
+
+## La réplique d'un voisin à qui l'on vient de parler.
+func answer() -> void:
+	if not critter.is_busy():
+		critter.gesture(["nod", "shrug", "talk"].pick_random())
 
 
 ## Un geste du métier : le croupier qui lance la bille, donne une carte, ramasse ; le joueur qui mise.
@@ -214,7 +221,7 @@ static func crowd_react(tree: SceneTree, at: Vector3, radius: float, kind: Strin
 			continue
 		if v.role == "public":
 			var delay := randf_range(0.0, 0.35)
-			tree.create_timer(delay).timeout.connect(func(): if is_instance_valid(v): v.react(kind))
+			tree.create_timer(delay).timeout.connect(v.react.bind(kind))
 		elif kind != "lose" and randf() < 0.6:
 			v.gesture("nod")
 
@@ -318,7 +325,7 @@ func _fidget() -> void:
 			critter.gesture("talk")
 			critter.talk(1.8)
 			if randf() < 0.6:
-				get_tree().create_timer(2.2).timeout.connect(func(): if is_instance_valid(best) and not best.critter.is_busy(): best.critter.gesture(["nod", "shrug", "talk"].pick_random()))
+				get_tree().create_timer(2.2).timeout.connect(best.answer)
 			return
 	_chat_with = null
 	if _fidgets.is_empty():

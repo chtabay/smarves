@@ -31,6 +31,7 @@ const CAST := [
 	["character-female-c.glb", "", "habitant", "habitante", "idle"],
 	["maitre-garnier", "", "garnier", "Maître Garnier", "idle"],
 	["raymonde", "", "raymonde", "Raymonde", "idle"],
+	["ginette-boutin", "", "ginette", "Ginette Boutin", "idle"],
 ]
 
 ## La planche des mouvements : [modèle, voix, mouvement, légende].
@@ -139,7 +140,7 @@ func _ready() -> void:
 		l.modulate = Color(1.0, 0.86, 0.55)
 		l.outline_size = 8
 		l.position = Vector3(0, 0.02, 0.32)
-		l.rotation_degrees.x = -90 if "--top" in args else -20
+		l.rotation_degrees.x = -90 if "--top" in args or "--rue" in args or "--quartier" in args else -20
 		v.add_child(l)
 
 	var cam := Camera3D.new()
@@ -156,6 +157,12 @@ func _ready() -> void:
 		cam.position = Vector3(0, 2.3, 4.3)
 		cam.rotation_degrees = Vector3(-25, 0, 0)
 		cam.fov = 50
+	# Les crans de la caméra extérieure de la suite (docs/SUITE.md) : Rue à 22 u et 52°, Quartier à 40 u et 60°.
+	for cran in [["--rue", 22.0, 52.0], ["--quartier", 40.0, 60.0]]:
+		if cran[0] in args:
+			cam.position = Vector3(0, cran[1], cran[1] / tan(deg_to_rad(cran[2])))
+			cam.rotation_degrees = Vector3(-cran[2], 0, 0)
+			cam.fov = 30
 	if part >= 0 and not "--top" in args:
 		cam.position = Vector3(0, 0.5, 3.35)
 		cam.rotation_degrees = Vector3(-3, 0, 0)

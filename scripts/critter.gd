@@ -31,6 +31,9 @@ var height := 0.75
 
 var _rest: Array = []
 var _hip_y := 0.18
+## La taille du visage (les sourcils bougent moins sur une petite tête) et la hauteur d'assise.
+var _face_scale := 1.0
+var _seat := 0.09
 var _look_mod: LookAtModifier3D
 var _look_target: Marker3D
 var _look_weight := 0.0
@@ -101,6 +104,8 @@ func _build() -> void:
 	_rest = data.rest
 	height = data.height
 	_hip_y = _rest[CritterMesh.HIPS].y
+	_face_scale = data.get("face", 1.0)
+	_seat = maxf(0.09, lerpf(0.09, float(data.leg) * 0.5 + 0.02, 0.5))
 	skeleton = Skeleton3D.new()
 	skeleton.name = "Skeleton3D"
 	for i in CritterMesh.BONES.size():
@@ -265,7 +270,7 @@ func _process(delta: float) -> void:
 		tree.set("parameters/speed/scale", 1.0)
 	tree.advance(dt)
 	# Assis : le corps descend sur la chaise.
-	var sit_goal := (_hip_y - 0.09) if pose == Pose.SIT else 0.0
+	var sit_goal := (_hip_y - _seat) if pose == Pose.SIT else 0.0
 	_sit = lerpf(_sit, sit_goal, 1.0 - exp(-8.0 * dt))
 	skeleton.position.y = -_sit
 	_look_weight = move_toward(_look_weight, _look_goal, dt * 2.5)
@@ -326,7 +331,7 @@ func _update_face(dt: float) -> void:
 		skeleton.set_bone_pose_scale(S.EYE_L if side > 0 else S.EYE_R, Vector3(1.0, eye, 1.0))
 		var b := S.BROW_L if side > 0 else S.BROW_R
 		skeleton.set_bone_pose_rotation(b, Quaternion(Vector3.BACK, side * _face.brow))
-		skeleton.set_bone_pose_position(b, skeleton.get_bone_rest(b).origin + Vector3(0, _face.brow_up, 0))
+		skeleton.set_bone_pose_position(b, skeleton.get_bone_rest(b).origin + Vector3(0, _face.brow_up * _face_scale, 0))
 
 
 ## Pour les planches et les captures : force une pose, un geste ou une expression.

@@ -62,6 +62,9 @@ static func material() -> ShaderMaterial:
 	if _material == null:
 		_material = ShaderMaterial.new()
 		_material.shader = preload("res://shaders/critter.gdshader")
+		var outline := ShaderMaterial.new()
+		outline.shader = preload("res://shaders/critter_outline.gdshader")
+		_material.next_pass = outline
 	return _material
 
 
@@ -99,7 +102,7 @@ func _make() -> Dictionary:
 	var skin := Skin.new()
 	for bi in BONES.size():
 		skin.add_bind(bi, Transform3D(Basis(), -rest[bi]))
-	return {"mesh": mesh, "skin": skin, "rest": rest.duplicate(), "height": head_c.y + head_r.y, "leg": leg}
+	return {"mesh": mesh, "skin": skin, "rest": rest.duplicate(), "height": head_c.y + head_r.y, "leg": leg, "face": head_r.y / 0.158}
 
 
 # --- Le gabarit ---------------------------------------------------------------------------
@@ -126,6 +129,18 @@ func _rig() -> void:
 	neck_y = hip_y + torso_h
 	head_r = Vector3(0.175, 0.158, 0.152) * k
 	head_c = Vector3(0, neck_y + head_r.y * 0.78, 0)
+	if _human():
+		# Ligne claire : des proportions d'adulte, la tête vers un sixième de la hauteur.
+		leg = 0.255 * float(build.get("leg", 1.0))
+		torso_h = 0.25 * float(build.get("torso", 1.0))
+		w = 0.84 * float(build.get("width", 1.0))
+		arm_len = 0.215 * float(build.get("arm", 1.0)) * lerpf(1.0, float(build.get("torso", 1.0)), 0.5)
+		hip_y = leg + 0.006
+		shoulder_y = hip_y + torso_h * 0.86
+		neck_y = hip_y + torso_h
+		k = 0.44 * float(build.get("head", 1.0))
+		head_r = Vector3(0.172, 0.2, 0.18) * k
+		head_c = Vector3(0, neck_y + 0.026 + head_r.y * 0.86, 0)
 	rest.resize(BONES.size())
 	var sx := 0.07 * w * lerpf(1.0, belly, 0.3)
 	var hx := 0.043 * w * lerpf(1.0, belly, 0.4)
@@ -134,8 +149,9 @@ func _rig() -> void:
 	rest[SPINE] = Vector3(0, hip_y + torso_h * 0.42, 0)
 	rest[CHEST] = Vector3(0, hip_y + torso_h * 0.72, 0)
 	rest[HEAD] = Vector3(0, neck_y, 0)
+	var eye_yaw := 0.3 if _human() else 0.36
 	for s in [1.0, -1.0]:
-		var e := _on_head(s * 0.36, 0.06)
+		var e := _on_head(s * eye_yaw, 0.06)
 		rest[EYE_L if s > 0 else EYE_R] = e[0]
 		rest[BROW_L if s > 0 else BROW_R] = _on_head(s * 0.34, 0.36)[0]
 		var arm := Vector3(s * sx, shoulder_y, 0)
@@ -356,7 +372,16 @@ static func band(a: Color, t: float, b: Color) -> Array:
 # --- Le corps -----------------------------------------------------------------------------
 
 func _species() -> String:
-	return _g("species", "ours")
+	return _g("species", "humain")
+
+
+func _human() -> bool:
+	return _species() == "humain"
+
+
+## Une couleur sans contour noir (les petits détails : yeux, bouche, boutons).
+static func _bare(c: Color) -> Color:
+	return Color(c, 0.0)
 
 
 func _body() -> void:
@@ -388,6 +413,10 @@ func _body() -> void:
 		bands.append([waist_t, top])
 	var bones := {"y": [[hip_y - 0.01, HIPS], [hip_y + torso_h * 0.45, SPINE], [shoulder_y, CHEST]]}
 	lathe(Vector3.ZERO, fine, Basis(), bands, 0.75, bones, 0.84, 20)
+	if _human():
+		# Le cou.
+		tube([Vector3(0, neck_y - 0.01, 0.002), Vector3(0, neck_y + 0.012, 0.004), Vector3(0, head_c.y - head_r.y * 0.6, 0.006)],
+			[0.022 * w, 0.02 * w, 0.019 * w], fur, 0.8, {"y": [[neck_y, CHEST], [neck_y + 0.02, HEAD]]}, 10, false)
 	# Le ventre clair, visible quand rien ne le couvre.
 	if style == "nu":
 		var fur2 := _col("fur2", fur.lightened(0.4))
@@ -467,6 +496,8 @@ func _tail(fur: Color) -> void:
 
 
 func _default_tail() -> String:
+	if _human():
+		return ""
 	return {"renard": "touffe", "chat": "fine", "souris": "rose", "lapin": "pompon", "castor": "plate",
 		"sanglier": "tire_bouchon", "blaireau": "courte", "chien": "leve", "ours": "moignon", "herisson": "moignon"}.get(_species(), "moignon")
 
@@ -474,6 +505,9 @@ func _default_tail() -> String:
 # --- La tête ------------------------------------------------------------------------------
 
 func _head() -> void:
+	if _human():
+		_human_head()
+		return
 	var sp := _species()
 	var fur := _col("fur")
 	var fur2 := _col("fur2", fur.lightened(0.45))
@@ -510,6 +544,127 @@ func _head() -> void:
 			lathe(cr[0], [[0.016 * k, 0.0], [0.009 * k, 0.03 * k], [0.0, 0.05 * k]], _facing(cr[1]) * Basis(Vector3.RIGHT, PI / 2), acc, 0.9, hb, 1.0, 6)
 	_face_extras()
 	_hat()
+
+
+## Un visage de bande dessinée : deux points pour les yeux, un nez rond, une bouche d'un trait.
+func _human_head() -> void:
+	var skin := _col("fur")
+	var hb := HEAD
+	var dark := _col("brow", _col("hair_color", DARK).darkened(0.2))
+	# Le crâne, un peu plus étroit vers le menton.
+	ellipsoid(head_c, head_r, Basis(), skin, 0.8, hb, 0.12, 22, 14)
+	var jaw := float(_g("jaw", 1.0))
+	if jaw != 1.0:
+		ellipsoid(head_c + Vector3(0, -head_r.y * 0.45, head_r.z * 0.1), head_r * Vector3(0.8 * jaw, 0.5, 0.82), Basis(), skin, 0.8, hb, 0.0, 16, 8)
+	# Les oreilles.
+	for s in [-1.0, 1.0]:
+		var e := _on_head(s * 1.52, -0.02, -0.004)
+		ellipsoid(e[0], Vector3(0.022, 0.04, 0.03) * k, _facing(Vector3(s, 0, 0.25)), skin.darkened(0.04), 0.8, hb, 0.0, 10, 8)
+	# Le nez : rond par défaut, ou la forme qui signe le personnage.
+	var n0 := _on_head(0.0, -0.06, -0.006)
+	var nose_col := skin.lerp(Color(0.85, 0.4, 0.35), float(_g("nose_red", 0.12)))
+	match _g("nose", "rond"):
+		"rond":
+			ellipsoid(n0[0] + Vector3(0, -0.006, 0.028) * k, Vector3(0.036, 0.034, 0.036) * k, Basis(), nose_col, 0.7, hb, 0.0, 12, 8)
+		"patate":
+			ellipsoid(n0[0] + Vector3(0, -0.012, 0.034) * k, Vector3(0.05, 0.046, 0.044) * k, Basis(), nose_col, 0.7, hb, 0.0, 12, 8)
+		"long":
+			ellipsoid(n0[0] + Vector3(0, -0.012, 0.05) * k, Vector3(0.026, 0.03, 0.062) * k, Basis(Vector3.RIGHT, 0.35), nose_col, 0.7, hb, -0.3, 12, 8)
+		"busque":
+			ellipsoid(n0[0] + Vector3(0, -0.004, 0.044) * k, Vector3(0.026, 0.05, 0.05) * k, Basis(Vector3.RIGHT, -0.5), nose_col, 0.7, hb, 0.3, 12, 8)
+		"retrousse":
+			ellipsoid(n0[0] + Vector3(0, -0.01, 0.026) * k, Vector3(0.026, 0.024, 0.03) * k, Basis(Vector3.RIGHT, -0.4), nose_col, 0.7, hb, 0.0, 10, 6)
+	# Les yeux : deux points noirs, avec ou sans le blanc autour.
+	var size := float(_g("eyes", 1.0))
+	for s in [-1.0, 1.0]:
+		var bone := EYE_L if s > 0 else EYE_R
+		var e := _on_head(s * 0.3, 0.06, -0.004)
+		var nb := _facing(e[1])
+		if bool(_g("eye_whites", false)):
+			ellipsoid(e[0], Vector3(0.036, 0.034, 0.012) * k * size, nb, _bare(WHITE), 0.3, bone, 0.0, 10, 6)
+		ellipsoid(e[0] + e[1] * 0.006 * k, Vector3(0.017, 0.026, 0.009) * k * size, nb, _bare(DARK), 0.15, bone, 0.0, 10, 6)
+		rest[bone] = e[0]
+		var brow := []
+		for j in 4:
+			var bp := _on_head(s * lerpf(0.15, 0.46, j / 3.0), 0.3 + sin(PI * j / 3.0) * 0.04, 0.004)
+			brow.append(bp[0])
+		var bw := float(_g("brow_size", 1.0))
+		tube(brow, [0.007 * k * bw, 0.009 * k * bw, 0.009 * k * bw, 0.006 * k * bw], _bare(dark), 0.8, BROW_L if s > 0 else BROW_R, 6)
+		rest[BROW_L if s > 0 else BROW_R] = (brow[1] + brow[2]) / 2.0
+	# La bouche, d'un trait, sous le nez.
+	var mc: Vector3 = _on_head(0.0, -0.42, 0.003)[0]
+	var lip := _bare(_col("lip", skin.darkened(0.5)))
+	var arc := []
+	var frown := []
+	var rr := []
+	for j in 7:
+		var a := lerpf(-1.0, 1.0, j / 6.0)
+		arc.append(mc + Vector3(a * 0.05 * k, a * a * 0.016 * k, -absf(a) * 0.022 * k))
+		frown.append(mc + Vector3(a * 0.044 * k, -a * a * 0.014 * k - 0.002, -absf(a) * 0.022 * k))
+		rr.append(0.006 * k)
+	tube(arc, rr, lip, 0.4, SMILE, 6)
+	tube(frown, rr, lip, 0.4, FROWN, 6)
+	ellipsoid(mc + Vector3(0, -0.012 * k, -0.004), Vector3(0.034, 0.026, 0.01) * k, _facing(Vector3(0, -0.3, 1)), _bare(MOUTH_IN), 0.5, MOUTH, 0.0, 10, 6)
+	rest[SMILE] = mc
+	rest[FROWN] = mc
+	rest[MOUTH] = mc + Vector3(0, -0.004, 0)
+	_hair()
+	_face_extras()
+	_hat()
+
+
+## Les cheveux : une calotte posée en arrière du front, et la coupe qui fait la silhouette.
+func _hair() -> void:
+	var style: String = _g("hair", "court")
+	var c := _col("hair_color", Color("#4a3426"))
+	var hb := HEAD
+	var cap := func(scale: Vector3, tilt: float, lift := 0.0) -> void:
+		ellipsoid(head_c + Vector3(0, head_r.y * (0.12 + lift), -head_r.z * 0.1), head_r * scale, Basis(Vector3.RIGHT, -tilt), c, 0.9, hb, 0.12, 22, 12)
+	match style:
+		"court":
+			cap.call(Vector3(1.06, 0.9, 1.08), 0.42)
+		"raie":
+			cap.call(Vector3(1.07, 0.92, 1.08), 0.38)
+			ellipsoid(head_c + Vector3(head_r.x * 0.35, head_r.y * 0.82, head_r.z * 0.25), head_r * Vector3(0.6, 0.25, 0.55), Basis(Vector3.BACK, -0.3), c, 0.9, hb, 0.0, 14, 8)
+		"houppe":
+			# La houppe de Tintin, le cheveu sur la tête qui dépasse.
+			cap.call(Vector3(1.05, 0.88, 1.07), 0.45)
+			ellipsoid(head_c + Vector3(0.0, head_r.y * 1.02, head_r.z * 0.5), Vector3(0.05, 0.1, 0.04) * k, Basis(Vector3.RIGHT, 0.5), c, 0.9, hb, -0.8, 10, 8)
+		"gomina":
+			cap.call(Vector3(1.06, 0.92, 1.1), 0.3, 0.05)
+		"degarni":
+			cap.call(Vector3(1.06, 0.75, 1.08), 0.95, -0.1)
+		"chauve":
+			# Une couronne autour de l'arrière du crâne.
+			for j in 9:
+				var a := lerpf(1.25, TAU - 1.25, j / 8.0)
+				var pp := _on_head(a, 0.05, 0.004)
+				ellipsoid(pp[0], Vector3(0.045, 0.045, 0.03) * k, _facing(pp[1]), c, 0.95, hb, 0.0, 8, 6)
+		"brushing":
+			cap.call(Vector3(1.2, 1.0, 1.18), 0.3, 0.08)
+			for s in [-1.0, 1.0]:
+				ellipsoid(head_c + Vector3(s * head_r.x * 0.85, -head_r.y * 0.15, -head_r.z * 0.1), Vector3(0.07, 0.11, 0.1) * k, Basis(), c, 0.9, hb, 0.2, 12, 8)
+		"carre":
+			cap.call(Vector3(1.1, 0.95, 1.12), 0.25)
+			lathe(head_c + Vector3(0, -head_r.y * 0.5, -head_r.z * 0.12), [[head_r.x * 1.12, 0.0], [head_r.x * 1.12, head_r.y * 0.9]], Basis(Vector3.UP, PI), c, 0.9, hb, 1.0, 20, 0.0, 4.2)
+		"permanente":
+			for j in 16:
+				var pp := _on_head(lerpf(0.0, TAU, j / 16.0) + 0.2 * (j % 2), 0.55 + 0.35 * (j % 3) / 2.0, 0.0)
+				if absf(angle_difference(lerpf(0.0, TAU, j / 16.0), 0.0)) < 0.7 and j % 3 != 2:
+					continue
+				ellipsoid(pp[0], Vector3(0.06, 0.055, 0.06) * k, _facing(pp[1]), c, 0.95, hb, 0.0, 10, 6)
+			cap.call(Vector3(1.08, 0.92, 1.08), 0.4)
+		"chignon":
+			cap.call(Vector3(1.07, 0.92, 1.08), 0.3)
+			ellipsoid(head_c + Vector3(0, head_r.y * 0.65, -head_r.z * 0.85), Vector3(0.075, 0.07, 0.07) * k, Basis(), c, 0.9, hb, 0.0, 12, 8)
+		"queue":
+			cap.call(Vector3(1.07, 0.92, 1.08), 0.32)
+			var b0 := head_c + Vector3(0, head_r.y * 0.3, -head_r.z * 0.95)
+			tube([b0, b0 + Vector3(0, -0.04, -0.02) * k * 2.0, b0 + Vector3(0, -0.12, -0.01) * k * 2.0], [0.03 * k, 0.04 * k, 0.02 * k], c, 0.9, hb, 8)
+		"frange":
+			cap.call(Vector3(1.1, 0.95, 1.1), 0.12)
+		"":
+			pass
 
 
 func _muzzle(sp: String, fur: Color, fur2: Color, acc: Color, pink: Color) -> void:
@@ -690,17 +845,39 @@ func _face_extras() -> void:
 					var l := _on_head(0.1, 0.05, 0.02)
 					var r2 := _on_head(-0.1, 0.05, 0.02)
 					tube([l[0], (l[0] + r2[0]) / 2.0 + Vector3(0, 0.006, 0.01), r2[0]], [0.004, 0.004, 0.004], gold if f == "demi_lune" else _col("frame", DARK), 0.3, hb, 5)
+			"moustache", "barbe", "favoris", "bouc" when _human():
+				_human_hair_face(f)
 			"moustache":
 				var m := _on_head(0.0, -0.3, -0.02)
 				var tip: Vector3 = m[0] + m[1] * (0.11 if _species() == "renard" else 0.06) * k
 				for s in [-1.0, 1.0]:
 					tube([tip + Vector3(0, -0.012, 0.004), tip + Vector3(s * 0.03, -0.02, -0.004) * k, tip + Vector3(s * 0.06, -0.008, -0.02) * k],
 						[0.009 * k, 0.011 * k, 0.004 * k], _col("moustache", _col("fur").darkened(0.5)), 0.85, hb, 8)
-			"cils":
+			"cils" when not _human():
 				for s in [-1.0, 1.0]:
 					for j in 3:
 						var e := _on_head(s * (0.5 + j * 0.05), 0.2 - j * 0.07, 0.0)
 						tube([e[0], e[0] + (e[1] + Vector3(s * 0.8, 0.6, 0)).normalized() * 0.022 * k], [0.004, 0.002], DARK, 0.5, EYE_L if s > 0 else EYE_R, 4, false)
+
+
+## Moustache, barbe, favoris et bouc d'un humain, de la couleur de ses cheveux (ou « moustache »).
+func _human_hair_face(f: String) -> void:
+	var c := _col("moustache", _col("hair_color", Color("#4a3426")))
+	var hb := HEAD
+	match f:
+		"moustache":
+			var m: Vector3 = _on_head(0.0, -0.27, 0.006)[0]
+			for s in [-1.0, 1.0]:
+				tube([m + Vector3(0, 0.002, 0.004) * k, m + Vector3(s * 0.04, -0.004, -0.004) * k, m + Vector3(s * 0.075, -0.018, -0.024) * k],
+					[0.016 * k, 0.017 * k, 0.007 * k], c, 0.9, hb, 8)
+		"barbe":
+			ellipsoid(head_c + Vector3(0, -head_r.y * 0.48, head_r.z * 0.22), head_r * Vector3(0.86, 0.55, 0.86), Basis(), c, 0.95, hb, 0.25, 18, 10)
+		"favoris":
+			for s in [-1.0, 1.0]:
+				var e := _on_head(s * 1.25, -0.25, 0.003)
+				ellipsoid(e[0], Vector3(0.03, 0.06, 0.03) * k, _facing(e[1]), c, 0.9, hb, 0.0, 8, 6)
+		"bouc":
+			ellipsoid(_on_head(0.0, -0.75, 0.004)[0], Vector3(0.04, 0.04, 0.035) * k, Basis(), c, 0.9, hb, -0.3, 10, 6)
 
 
 func _hat() -> void:
@@ -783,8 +960,9 @@ func _limbs() -> void:
 	var legs: String = _g("legs", "nu")
 	var lc := _legs_color()
 	var shoe := _col("shoes", DARK.lightened(0.05))
-	var ra := 0.026 * sqrt(w) * lerpf(1.0, belly, 0.25)
-	var rl := 0.031 * sqrt(w) * lerpf(1.0, belly, 0.35)
+	var thin := 0.74 if _human() else 1.0
+	var ra := 0.026 * sqrt(w) * lerpf(1.0, belly, 0.25) * thin
+	var rl := 0.031 * sqrt(w) * lerpf(1.0, belly, 0.35) * thin
 	for s in [1.0, -1.0]:
 		var arm := ARM_L if s > 0 else ARM_R
 		var fore := FOREARM_L if s > 0 else FOREARM_R
@@ -804,8 +982,8 @@ func _limbs() -> void:
 			{"t": [[0.38, arm], [0.56, fore]]}, 10)
 		# Une moufle et un pouce.
 		var hc := rest[hnd] + Vector3(s * 0.002, -0.006, 0.004)
-		ellipsoid(hc, Vector3(0.03, 0.033, 0.025) * sqrt(w), Basis(Vector3.BACK, s * 0.1), hand, 0.8, hnd, -0.1, 12, 8)
-		ellipsoid(hc + Vector3(-s * 0.012, 0.004, 0.02), Vector3(0.012, 0.016, 0.012), Basis(Vector3.RIGHT, -0.4), hand, 0.8, hnd, 0.0, 8, 6)
+		ellipsoid(hc, Vector3(0.03, 0.033, 0.025) * sqrt(w) * thin, Basis(Vector3.BACK, s * 0.1), hand, 0.8, hnd, -0.1, 12, 8)
+		ellipsoid(hc + Vector3(-s * 0.012, 0.004, 0.02) * thin, Vector3(0.012, 0.016, 0.012) * thin, Basis(Vector3.RIGHT, -0.4), hand, 0.8, hnd, 0.0, 8, 6)
 		# La jambe.
 		var th := THIGH_L if s > 0 else THIGH_R
 		var sh := SHIN_L if s > 0 else SHIN_R
@@ -818,7 +996,7 @@ func _limbs() -> void:
 			lcol = band(lc, 0.38, fur)
 		tube([l0, l0.lerp(l1, 0.5), l1, l1.lerp(l2, 0.5), l2], [rl, rl * 0.95, rl * 0.86, rl * 0.8, rl * 0.76], lcol, 0.8,
 			{"t": [[0.36, th], [0.54, sh]]}, 10)
-		ellipsoid(Vector3(rest[ft].x, 0.024, 0.016), Vector3(0.036, 0.026, 0.054) * sqrt(w), Basis(), shoe, 0.35, ft, -0.15, 12, 8)
+		ellipsoid(Vector3(rest[ft].x, 0.022, 0.02 if _human() else 0.016), Vector3(0.036, 0.026, 0.054) * sqrt(w) * Vector3(0.78, 0.8, 1.08) if _human() else Vector3(0.036, 0.026, 0.054) * sqrt(w), Basis(), shoe, 0.35, ft, -0.15, 12, 8)
 		rest[ft] = Vector3(rest[ft].x, 0.03, 0)
 
 
