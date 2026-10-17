@@ -7,7 +7,7 @@ extends "res://scripts/jeux/table_3d.gd"
 ## Géométrie de la cuve (mètres, repère de la table ; le joueur est du côté +z).
 const IN := Vector2(3.0, 1.36)
 const OUT := Vector2(3.4, 1.76)
-const DIE := 0.034
+const DIE := 0.042
 
 ## Les cases : clé -> Rect2(x, z, largeur, profondeur) sur le tapis.
 const POINTS := [4, 5, 6, 8, 9, 10]
@@ -28,8 +28,9 @@ var _point := 0
 
 func _ready() -> void:
 	felt_y = 0.74
-	seat = look(Vector3(0.0, 1.95, 1.32), Vector3(0.0, felt_y, -0.08))
-	seat_fov = 50.0
+	# Assez relevé pour voir les croupiers entiers derrière la cuve, assez large pour la Pass Line.
+	seat = look(Vector3(0.0, 1.95, 1.32), Vector3(0.0, felt_y, -0.62))
+	seat_fov = 60.0
 	cells = {
 		"pass": Rect2(PX0, 0.27, X1 - PX0, 0.2),
 		"dont": Rect2(PX0, 0.13, X1 - PX0, 0.13),
@@ -227,6 +228,7 @@ func throw(values: Array) -> void:
 		t.tween_property(d, "position", Vector3(0.0, felt_y + DIE / 2.0, -IN.y / 2.0 + 0.1), 0.3).set_trans(Tween.TRANS_CUBIC)
 		t.tween_callback(d.queue_free)
 	_dice.clear()
+	var mid := Vector3.ZERO
 	for i in values.size():
 		var d := Node3D.new()
 		add_child(d)
@@ -234,13 +236,21 @@ func throw(values: Array) -> void:
 		_dice.append(d)
 		var start := Vector3(0.28 + i * 0.05, felt_y + 0.32, IN.y / 2.0 + 0.05)
 		var wall := Vector3(randf_range(-0.55, 0.15) + i * 0.12, felt_y + randf_range(0.05, 0.12), -IN.y / 2.0 + DIE)
-		var rest := Vector3(-0.35 + i * 0.17 + randf_range(-0.08, 0.08), felt_y + DIE / 2.0, randf_range(-0.42, -0.15))
+		var rest := Vector3(-0.3 + i * 0.2 + randf_range(-0.06, 0.06), felt_y + DIE / 2.0, randf_range(-0.12, 0.04))
 		var final := Quaternion(KIT.die_basis(int(values[i]), randf() * TAU))
 		var axis := Vector3(randf_range(-1, 1), randf_range(-0.3, 0.3), 1.0).normalized()
 		var turns := TAU * randf_range(3.0, 4.5)
 		var tw := d.create_tween()
 		tw.tween_method(_fly.bind(d, start, wall, rest, final, axis, turns), 0.0, 1.0, throw_time - randf_range(0.0, 0.15))
+		mid += rest
 	Sfx.play("dice", -8.0, 1.2)
+	# Le plan serré arrive pendant que les dés finissent de rouler, pour lire leurs faces.
+	mid /= maxf(values.size(), 1)
+	get_tree().create_timer(throw_time * 0.55).timeout.connect(_close_up.bind(mid))
+
+
+func _close_up(mid: Vector3) -> void:
+	shot(look(mid + Vector3(0.05, 0.42, 0.5), mid + Vector3(0, 0.05, 0)), 0.7, 38.0)
 
 
 ## Une position du dé sur son trajet (t de 0 à 1) : une parabole jusqu'au fond, puis des rebonds
@@ -306,12 +316,10 @@ func settle(total: int, wins: Dictionary, call: String) -> void:
 	for d in _dice:
 		mid += d.position
 	mid /= maxf(_dice.size(), 1)
-	KIT.popup(self, mid + Vector3(0, 0.16, 0), "%d" % total, 120, Color(1.0, 0.88, 0.6), 1.2)
-	KIT.popup(self, mid + Vector3(0, 0.08, 0.02), call, 56, Color(0.97, 0.94, 0.86), 1.4)
-	# Un plan serré sur les dés, puis retour à la place.
-	shot(look(mid + Vector3(0.05, 0.5, 0.62), mid + Vector3(0, 0.07, 0)), 0.6, 40.0)
+	KIT.popup(self, mid + Vector3(0, 0.1, 0.02), "%d  ·  %s" % [total, call], 48, Color(1.0, 0.9, 0.66), 1.8)
+	# On reste sur les dés le temps de lire l'annonce, puis retour à la place.
 	var new_point: int = panel.point if panel else 0
-	await get_tree().create_timer(1.5).timeout
+	await get_tree().create_timer(2.2).timeout
 	shot(seat, 0.8, seat_fov)
 	if new_point != _point:
 		_point = new_point
