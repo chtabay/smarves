@@ -51,8 +51,29 @@ func _ready() -> void:
 	Biens._since_reprise = Biens.REPRISE_EVERY
 	_bets(20)
 	_check(Biens.reprises == 1 and Biens.count("mobylette") == 0, "M. Brunet reprend la mobylette")
+	# Les logements : louer ou habiter.
+	Game.credits = 5000
+	_check(Biens.buy("chambre") and Biens.logements.has("chambre"), "la chambre achetée devient un logement")
+	_check(Biens.logements.chambre.lot == "chambre_cafe" and not Biens.is_habite("chambre"), "lot chambre_cafe, louée d'abord")
+	var s0 := Biens.standing()
+	var r0 := Biens.rente_annoncee()
+	Biens.habiter("chambre")
+	_check(Biens.habite() == "chambre" and Biens.rente_annoncee() == r0 - 80, "habitée : plus de rente annoncée")
+	_check(Biens.standing() == s0 + 1, "habitée : standing compté deux fois (%d → %d)" % [s0, Biens.standing()])
+	Biens.logements.chambre.meubles["mur_gauche"] = "affiche_loto_1987"
+	Biens.louer("chambre")
+	_check(Biens.habite() == "" and Biens.rente_annoncee() == r0, "remise en location")
+	# Saisie d'une maison habitée, avec une trouvaille au mur : un carton, et retour à l'hôtel.
+	Biens.habiter("chambre")
+	var noted := []
+	Biens.note.connect(func(t): noted.append(t))
+	Game.debt = 20000
+	Biens._since_reprise = Biens.REPRISE_EVERY
+	_bets(20)
+	_check(not Biens.logements.has("chambre") and Biens.habite() == "", "M. Brunet reprend la chambre, retour à l'hôtel")
+	_check(noted.size() > 0 and "carton" in noted[-1], "la trouvaille revient dans un carton")
 	Game.staked = 0
 	Game.changed.emit()
-	_check(Biens.owned.is_empty() and Biens.recettes == 0, "nouvelle partie : plus de biens")
+	_check(Biens.owned.is_empty() and Biens.recettes == 0 and Biens.logements.is_empty(), "nouvelle partie : plus de biens")
 	print("\n%s" % ("Tout est bon." if _fails == 0 else "%d échec(s)." % _fails))
 	get_tree().quit(_fails)

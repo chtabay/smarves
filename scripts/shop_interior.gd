@@ -3,7 +3,7 @@ extends Node3D
 ## de Raymonde, le garage Fradin. Une pièce, un comptoir, le vendeur derrière ; on lui parle (E) et il
 ## ouvre sa vitrine (scripts/shop_panel.gd). La porte ramène sur la place.
 ## Capture : godot --path . res://scenes/notaire.tscn -- --capture=sortie.png [--at=x,z,lacet,tangage] [--open=vitrine]
-## [--won=5000] [--biens=smarvoise,dimanche,…] [--carnet]
+## [--won=5000] [--biens=smarvoise,dimanche,…] [--habite=chambre] [--carnet]
 
 const PLAYER := preload("res://scripts/fp_player.gd")
 const CRITTER := preload("res://scripts/critter.gd")
@@ -725,6 +725,8 @@ func _maybe_capture() -> void:
 			Game.credits -= 40000
 			for k in 60:
 				Game.spend(25)
+		elif arg.begins_with("--habite="):
+			Biens.habiter(arg.trim_prefix("--habite="))
 		elif arg == "--carnet":
 			carnet = true
 		elif arg.begins_with("--won="):
