@@ -47,6 +47,15 @@ func _shops() -> void:
 				break
 		report.append(("ok " if bought else "ÉCHEC ") + "vendeur : %s" % Biens.SELLERS[id].name)
 		await _fps(Biens.SELLERS[id].name)
+	# Chez soi : la chambre au-dessus du café, habitée, un emplacement meublé.
+	Game.credits += 2000
+	Biens.buy("chambre")
+	Biens.habiter("chambre")
+	Biens.enter("chambre")
+	await _wait(2.0)
+	var inside := get_tree().current_scene.scene_file_path == Biens.LOGEMENT_SCENE
+	report.append(("ok " if inside else "ÉCHEC ") + "logement : la chambre au-dessus du café")
+	await _fps("La chambre au-dessus du café")
 	Carnet.toggle()
 	await _wait(0.5)
 	report.append(("ok " if Carnet.is_open() else "ÉCHEC ") + "le carnet s'ouvre")

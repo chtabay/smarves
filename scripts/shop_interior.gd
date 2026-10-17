@@ -52,6 +52,8 @@ var _panel_layer: CenterContainer
 var _panel: Control
 var _serif: SystemFont
 var _speech_tween: Tween
+## La capture a déjà posé ses biens avant de construire la pièce (l'intérieur d'un logement en dépend).
+var _prepared := false
 
 
 func _ready() -> void:
@@ -690,7 +692,7 @@ func _build_ui() -> void:
 	var v := VBoxContainer.new()
 	box.add_child(v)
 	var t := Label.new()
-	t.text = Biens.SELLERS[shop].name.to_upper()
+	t.text = _place_name().to_upper()
 	t.add_theme_font_override("font", _serif)
 	t.add_theme_font_size_override("font_size", 13)
 	t.add_theme_color_override("font_color", Color(0.7, 0.62, 0.5))
@@ -739,6 +741,11 @@ func _build_ui() -> void:
 	_panel_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_panel_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_panel_layer)
+
+
+## Le nom du lieu, en haut à gauche.
+func _place_name() -> String:
+	return Biens.SELLERS[shop].name
 
 
 func say(text: String) -> void:
@@ -797,6 +804,31 @@ func open_vitrine() -> void:
 
 # --- Capture ------------------------------------------------------------------------------------
 
+## Les arguments de capture qui changent l'état du joueur : gains, biens, logement habité et meublé.
+func _capture_setup(arg: String) -> void:
+	if arg.begins_with("--biens="):
+		# Des biens déjà achetés, et quelques recettes passées, pour voir le carnet rempli.
+		Game.credits += 50000
+		for id in arg.trim_prefix("--biens=").split(","):
+			Biens.buy(id)
+		Game.credits = maxi(Game.credits - 40000, 2500)
+		for k in 60:
+			Game.spend(25)
+	elif arg.begins_with("--habite="):
+		Biens.habiter(arg.trim_prefix("--habite="))
+	elif arg.begins_with("--amenage="):
+		# Un logement meublé de ce qu'on a acheté, et son plan ouvert dans le carnet.
+		var home := arg.trim_prefix("--amenage=")
+		for sl in Biens.slots(home):
+			var options: Array = Biens.posables(sl.genre)
+			if not options.is_empty():
+				Biens.poser(home, sl.id, options[0])
+		Carnet._amenage = home
+	elif arg.begins_with("--won="):
+		Game.won = int(arg.trim_prefix("--won="))
+		Game.credits += Game.won / 2
+
+
 func _maybe_capture() -> void:
 	var path := ""
 	var open := false
@@ -812,29 +844,10 @@ func _maybe_capture() -> void:
 				player.camera.rotation.x = deg_to_rad(v[3])
 		elif arg == "--open=vitrine":
 			open = true
-		elif arg.begins_with("--biens="):
-			# Des biens déjà achetés, et quelques recettes passées, pour voir le carnet rempli.
-			Game.credits += 50000
-			for id in arg.trim_prefix("--biens=").split(","):
-				Biens.buy(id)
-			Game.credits -= 40000
-			for k in 60:
-				Game.spend(25)
-		elif arg.begins_with("--habite="):
-			Biens.habiter(arg.trim_prefix("--habite="))
-		elif arg.begins_with("--amenage="):
-			# Un logement meublé de ce qu'on a acheté, et son plan ouvert dans le carnet.
-			var home := arg.trim_prefix("--amenage=")
-			for sl in Biens.slots(home):
-				var options: Array = Biens.posables(sl.genre)
-				if not options.is_empty():
-					Biens.poser(home, sl.id, options[0])
-			Carnet._amenage = home
 		elif arg == "--carnet":
 			carnet = true
-		elif arg.begins_with("--won="):
-			Game.won = int(arg.trim_prefix("--won="))
-			Game.credits += Game.won / 2
+		elif not _prepared:
+			_capture_setup(arg)
 	if path == "":
 		return
 	_retag()

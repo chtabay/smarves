@@ -272,6 +272,8 @@ func _fill_logement() -> void:
 			_link(_left, "→ la remettre en location", Biens.louer.bind(it.id))
 		else:
 			_link(_left, "→ m'y installer", Biens.habiter.bind(it.id))
+		var here := get_tree().current_scene.scene_file_path if get_tree().current_scene else ""
+		_link(_left, "→ y aller", _go_home.bind(it.id), not (here == Biens.LOGEMENT_SCENE and Biens.visiting == it.id))
 		if _amenage != it.id:
 			_link(_left, "→ l'aménager  (%d meubles posés)" % Biens.logements[it.id].meubles.size(), _set_amenage.bind(it.id))
 			continue
@@ -289,24 +291,19 @@ func _fill_logement() -> void:
 		_text(_left, "Dans le carton : " + ", ".join(loose.map(func(t): return Biens.name_of(t))), 16, INK_LIGHT)
 
 
+func _go_home(id: String) -> void:
+	if is_open():
+		toggle()
+	Biens.enter(id)
+
+
 func _set_amenage(id: String) -> void:
 	_amenage = id
 	_refresh()
 
 
-## Un clic sur un emplacement : le meuble suivant qui lui convient, puis rien, puis on recommence.
 func _cycle(home: String, sl: Dictionary) -> void:
-	var cur := str(Biens.logements[home].meubles.get(sl.id, ""))
-	if cur != "":
-		Biens.retirer(home, sl.id)
-	var options: Array = Biens.posables(sl.genre)
-	var i := options.find(cur)
-	var next: String = options[i + 1] if i + 1 < options.size() else ""
-	if cur == "" and not options.is_empty():
-		next = options[0]
-	if next != "":
-		Biens.poser(home, sl.id, next)
-	_refresh()
+	Biens.cycle(home, sl.id)
 
 
 func _fill_right() -> void:
