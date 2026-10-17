@@ -315,5 +315,4 @@ Corrigés (PR #2 pour les textes du jeu, PR #3 pour la fiche de cadrage et le RE
 
 À signaler aux autres fils :
 
-- Les figurines du jeu sont encore des animaux : depuis le 17 octobre, les personnages sont des adultes (décision de Guillaume), et le fil « Personnages » refait la famille de figurines. Les descriptions de la section 7 sont la cible.
 - Le 421 de Dédé est cité partout mais n'existe pas comme jeu (piste pour le fil des jeux, pas une obligation).
