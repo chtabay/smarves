@@ -50,6 +50,9 @@ func _ready() -> void:
 	Biens.note.connect(show_slip)
 	# Les communes du portail : la liste se lit au lancement, l'installation finit en arrière-plan.
 	Communes.catalogue_lu.connect(func():
+		if not Communes.nouvelles.is_empty() and not _root.visible:
+			var noms: Array = Communes.nouvelles.map(func(id): return Communes.au_catalogue(id).nom)
+			show_slip(("Nouvelle commune publiée : %s." if noms.size() == 1 else "Nouvelles communes publiées : %s.") % ", ".join(noms) + " Voir le carnet (C).")
 		if _root.visible:
 			_refresh())
 	Communes.installee.connect(func(_id, _ok, message):
@@ -400,7 +403,7 @@ func _fill_communes() -> void:
 	for e in Communes.publiees():
 		vues[e.id] = true
 		var installee: bool = Communes.commune(e.id) != null
-		_text(_right, "%s  ·  %s" % [e.nom, ("version %s" % e.version) if e.version != "" else e.insee], 18, INK, true)
+		_text(_right, "%s  ·  %s%s" % [e.nom, ("version %s" % e.version) if e.version != "" else e.insee, "  ·  nouvelle" if Communes.nouvelles.has(e.id) else ""], 18, INK, true)
 		if e.description != "":
 			_text(_right, e.description, 18, INK_LIGHT)
 		if Communes.en_cours == e.id:
@@ -419,6 +422,8 @@ func _fill_communes() -> void:
 		_text(_right, "Aucune autre commune publiée pour l'instant." if Communes.catalogue_etat == "en_ligne" else "Le catalogue se lit quand le jeu est en ligne.", 18, INK_LIGHT)
 	for r in Communes.refusees():
 		_text(_right, "%s : paquet refusé, %s" % [r.nom, r.raison], 18, Color(0.7, 0.12, 0.12))
+	_link(_right, "→ relire la liste" if Communes.catalogue_etat != "lecture" else "Lecture de la liste…", Communes.lire_catalogue, Communes.catalogue_etat != "lecture" and Communes.en_cours == "")
+	Communes.marquer_vues.call_deferred()
 
 
 func _visiter(id: String) -> void:

@@ -34,6 +34,10 @@ var en_cours := ""
 ## ligne) et les versions installées (installees.json). Un test le déplace.
 var dossier_greffes := GREFFES
 var _retour: CanvasLayer
+## Les communes publiées que le joueur n'a pas encore vues dans son carnet (ids), et celles qu'il a
+## vues : le carnet les marque « nouvelle », et le jeu en avertit au lancement.
+var nouvelles: Array = []
+var _vues: Array = []
 
 
 func _ready() -> void:
@@ -123,6 +127,7 @@ func lire_catalogue(adresse := Portail.adresse()) -> void:
 			catalogue = Portail.entrees(texte)
 			catalogue_etat = "en_ligne"
 			Portail.ecrire(dossier_greffes.path_join("catalogue.json"), texte)
+			nouvelles = catalogue.map(func(e): return e.id).filter(func(id): return not _vues.has(id) and not communes.has(id))
 		else:
 			catalogue_etat = "hors_ligne"
 		catalogue_lu.emit())
@@ -224,6 +229,20 @@ func _lire_copies() -> void:
 	var inst = Portail.lire_json(dossier_greffes.path_join("installees.json"))
 	if inst is Dictionary:
 		installations = inst
+	var vues = Portail.lire_json(dossier_greffes.path_join("vues.json"))
+	if vues is Array:
+		_vues = vues
+
+
+## Le joueur a vu la liste : plus rien n'y est nouveau.
+func marquer_vues() -> void:
+	if nouvelles.is_empty():
+		return
+	for id in nouvelles:
+		if not _vues.has(id):
+			_vues.append(id)
+	nouvelles = []
+	Portail.ecrire(dossier_greffes.path_join("vues.json"), JSON.stringify(_vues))
 
 
 ## Inscrit une commune lue et vérifiée. Refuse un manifeste en erreur ou un id déjà pris.
