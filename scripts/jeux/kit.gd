@@ -579,7 +579,8 @@ static func _draw_card_back(c: Control, cell: Rect2) -> void:
 static func _card_mat(idx: int) -> StandardMaterial3D:
 	var key := "card_%d" % idx
 	if not _mats.has(key):
-		var m := mat(Color(0.8, 0.8, 0.8), 0.55)
+		# Carton mat et un peu sombre : sous les lampes du casino, une carte plus claire brûle au blanc.
+		var m := mat(Color(0.62, 0.62, 0.62), 0.8)
 		m.albedo_texture = card_atlas()
 		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
 		m.alpha_scissor_threshold = 0.5
