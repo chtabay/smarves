@@ -877,6 +877,15 @@ func _solid(n: Node3D, shrink := 1.0) -> void:
 	n.add_child(body)
 
 
+var _worn := ""
+
+
+func _on_biens_changed() -> void:
+	if player and is_instance_valid(player.avatar) and Biens.worn != _worn:
+		_worn = Biens.worn
+		player.avatar.set_look(Cast.player(Biens.worn))
+
+
 func _spawn_player() -> void:
 	player = PLAYER.new()
 	player.eye = PLAYER_EYE
@@ -890,11 +899,9 @@ func _spawn_player() -> void:
 	var me := VILLAGER.CRITTER.new()
 	# La tenue achetée chez Raymonde habille le renard (Biens.worn).
 	me.look = Cast.player(Biens.worn)
-	var worn := [Biens.worn]
-	Biens.changed.connect(func():
-		if is_instance_valid(me) and Biens.worn != worn[0]:
-			worn[0] = Biens.worn
-			me.set_look(Cast.player(Biens.worn)))
+	_worn = Biens.worn
+	# Méthode et non lambda : la connexion à l'autoload tombe avec la scène.
+	Biens.changed.connect(_on_biens_changed)
 	me.walk_speed = 1.0
 	me.run_speed = 1.9
 	me.rotation.y = PI
