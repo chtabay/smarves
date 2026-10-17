@@ -7,9 +7,9 @@ const KK := "res://assets/kaykit/"
 const KN := "res://assets/kenney/nature/"
 
 const AREAS := {
-	"bois": {"name": "Le bois de Saint-Pierre", "center": Vector3(70, 0, 0), "place": "zebres"},
+	"bois": {"name": "Le bois de Saint-Pierre", "center": Vector3(70, 0, 0), "place": ""},
 	"moulin": {"name": "Le Moulin des Dames", "center": Vector3(-70, 0, 0), "place": "moulin"},
-	"passelourdin": {"name": "Les rochers de Passelourdin", "center": Vector3(0, 0, -70), "place": "passelourdin"},
+	"passelourdin": {"name": "Les rochers de Passelourdin", "center": Vector3(0, 0, -70), "place": ""},
 }
 
 var main: Node3D
@@ -129,18 +129,11 @@ func _bois(c: Vector3) -> void:
 	_p(KK + "medieval_buildings/neutral/building_destroyed.gltf", c + Vector3(0, 0, -6.2), 3.6)
 	_p(KK + "medieval_buildings/neutral/wall_straight_gate.gltf", c + Vector3(-4.0, 0, -6.6), 2.2)
 	_p(KK + "medieval_buildings/neutral/wall_straight.gltf", c + Vector3(4.0, 0, -6.6), 2.2)
-	# Les trois zèbres de béton peint, et leur piste de course.
-	main._box(Vector3(9.0, 0.12, 3.0), c + Vector3(-6.0, -0.03, 3.5), gravel)
+	# Les trois zèbres de béton peint, au bord de l'allée.
 	var zebra := ShaderMaterial.new()
 	zebra.shader = load("res://shaders/zebra.gdshader")
 	for i in 3:
 		_zebra(c + Vector3(-9.5, 0, 2.5 + i * 1.0), zebra, 90.0)
-		main._box(Vector3(0.05, 0.13, 3.0), c + Vector3(-1.6, -0.02, 3.5), main.pave_material)
-	for i in 4:
-		main._box(Vector3(9.0, 0.13, 0.04), c + Vector3(-6.0, -0.02, 2.0 + i * 1.0), main.bulb_material)
-	main._neon("COURSE DES ZÈBRES", c + Vector3(-6.0, 2.4, 1.6), 0.0, Color(1.0, 0.95, 0.8), 56)
-	main._neon("Paris à la cote · départ toutes les cinq minutes", c + Vector3(-6.0, 1.9, 1.6), 0.0, Color(1.0, 0.8, 0.4), 30)
-	_attraction("zebres", c + Vector3(-6.0, 0, 3.5), Vector3(9.0, 2.0, 3.2), c + Vector3(-6.0, 3.6, 3.5))
 	# Arbres serrés tout autour.
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 1983
@@ -150,10 +143,8 @@ func _bois(c: Vector3) -> void:
 			continue
 		var model: String = ["trees_A_large", "trees_A_medium", "trees_B_large", "trees_B_medium", "tree_single_A", "tree_single_B"][rng.randi() % 6]
 		_p(KK + "medieval_decoration/nature/%s.gltf" % model, c + p, rng.randf_range(2.0, 2.8), rng.randf() * 360.0)
-	# Le gardien du bois et les parieurs.
+	# Le gardien du bois.
 	main._villager("gardien-du-bois", c + Vector3(-1.2, 0, 4.6), -100.0, "idle", [], "chapeau", "gardien")
-	main._villager("parieur-bois-1", c + Vector3(-4.0, 0, 1.0), 0.0)
-	main._villager("parieur-bois-2", c + Vector3(-7.5, 0, 0.9), 20.0)
 	main._villager("promeneuse-bois", c + Vector3(0.5, 0, 2.0), 0.0, "idle", [c + Vector3(0.5, 0, 2.0), c + Vector3(-0.5, 0, -4.5)])
 
 
@@ -283,15 +274,6 @@ func _passelourdin(c: Vector3) -> void:
 		_p(KK + "medieval_decoration/nature/%s.gltf" % ["mountain_A", "mountain_B", "mountain_C", "mountain_A_grass", "mountain_B_grass_trees"][rng.randi() % 5], c + p, rng.randf_range(2.6, 3.6), rng.randf() * 360.0)
 	for k in 14:
 		_p(KK + "medieval_decoration/nature/rock_single_%s.gltf" % ["A", "B", "C", "D", "E"][rng.randi() % 5], c + Vector3(rng.randf_range(-9.5, 9.5), 0, rng.randf_range(-6.5, 7.0)), rng.randf_range(3.0, 6.0), rng.randf() * 360.0)
-	# La table clandestine : feutre usé, bougies, lanterne.
-	var felt := StandardMaterial3D.new()
-	felt.albedo_color = Color(0.05, 0.25, 0.14)
-	main._box(Vector3(2.0, 0.08, 1.2), c + Vector3(0, 0.75, -1.0), felt)
-	main._box(Vector3(1.9, 0.72, 1.1), c + Vector3(0, 0.36, -1.0), walnut)
-	for x in [-0.6, 0.6]:
-		var candle: MeshInstance3D = main._box(Vector3(0.05, 0.16, 0.05), c + Vector3(x, 0.87, -1.4), main.bulb_material)
-		candle.name = "Bougie"
-	_lamp(c + Vector3(0, 1.4, -1.0), 2.2, Color(1.0, 0.6, 0.3), 5.0)
 	var mist := FogVolume.new()
 	mist.size = Vector3(16.0, 2.0, 12.0)
 	mist.position = c + Vector3(0, 0.6, 0)
@@ -300,8 +282,3 @@ func _passelourdin(c: Vector3) -> void:
 	fm.albedo = Color(0.6, 0.65, 0.8)
 	mist.material = fm
 	main.add_child(mist)
-	main._neon("PARTIE PRIVÉE", c + Vector3(0, 2.4, -2.2), 0.0, Color(0.8, 0.2, 0.25), 48)
-	_attraction("passelourdin", c + Vector3(0, 0, -1.0), Vector3(3.0, 2.0, 2.4), c + Vector3(0, 3.1, -1.0))
-	for k in 5:
-		var a := PI + PI * k / 4.0
-		main._villager("passelourdin-%d" % k, c + Vector3(cos(a) * 1.5, 0, -1.0 + sin(a) * 1.0), rad_to_deg(a) + 90.0, "idle", [], "chapeau" if k == 2 else "", "inconnu" if k == 2 else "habitant")

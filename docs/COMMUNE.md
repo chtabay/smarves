@@ -26,10 +26,10 @@ Un dossier `communes/<id>/` avec au moins un manifeste `commune.json` et la scè
 	"carte": {"socle": ""},
 	"scene": "res://scenes/main.tscn",
 	"arrivee": {"lot": "place", "par": []},
-	"interieurs": {"casino": "res://scenes/casino.tscn", "notaire": "res://scenes/notaire.tscn"},
+	"interieurs": {"casino": "res://scenes/casino.tscn", "notaire": "res://scenes/notaire.tscn", "rabelais": "res://scenes/rabelais.tscn"},
 	"lots": {"source": "Village.lots", "script": "res://scripts/village/village.gd"},
 	"lieux": [
-		{"id": "petanque", "nom": "La pétanque de la place", "jeu": "les paris de Lucien", "seuil": 1000, "hote": "Lucien", "accord": "e"}
+		{"id": "rabelais", "nom": "La salle François-Rabelais", "jeu": "le grand loto", "seuil": 8000, "hote": "M. Gaudin", "accord": "e"}
 	],
 	"salles": {"casino": [{"id": "fetes", "nom": "La Salle des fêtes", "seuil": 25000, "sur": "staked", "hote": "Le maître de cérémonie"}]},
 	"personnages": {"source": "res://scripts/cast.gd", "nommes": ["josiane", "brunet"]},
@@ -51,7 +51,7 @@ Un dossier `communes/<id>/` avec au moins un manifeste `commune.json` et la scè
 | `arrivee` | non | le lot où l'on arrive, et les communes d'où l'on vient (le car départemental) |
 | `interieurs` | non | les scènes des intérieurs, par id |
 | `lots` | non | d'où viennent les portes de la commune ; pour Smarves, le dictionnaire `lots` du nœud `Village` |
-| `lieux` | oui | les lieux de jeu, dans l'ordre où ils s'ouvrent : `id`, `nom`, `jeu`, `seuil` (total gagné au jeu), `hote` (qui fait signe à l'ouverture), `accord` (`e`, `s` ou rien : « ouverte », « ouverts ») |
+| `lieux` | oui | les lieux de jeu, dans l'ordre où ils s'ouvrent : `id`, `nom`, `jeu`, `seuil` (total gagné au jeu), `hote` (qui fait signe à l'ouverture), `accord` (`e`, `s` ou rien : « ouverte », « ouverts »). On ne joue pas dehors : un lieu de jeu se joue dans l'intérieur de même id (`interieurs`), sinon il reste fermé |
 | `salles` | non | les salles fermées d'un intérieur, par intérieur : `id`, `nom`, `seuil`, `sur` (`staked` pour un seuil sur le total misé), `hote` |
 | `personnages` | non | où sont les fiches des personnages, et la liste des personnages nommés |
 | `banque` | oui | la banque de la commune et son banquier ; `preteur` est la clé de la dette envers cette banque dans le socle |

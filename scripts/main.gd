@@ -3,14 +3,7 @@ extends Node3D
 
 const ORBIT := preload("res://scripts/orbit_camera.gd")
 const VILLAGER := preload("res://scripts/villager.gd")
-const SLOT := preload("res://scripts/slot_machine.gd")
 const LOAN := preload("res://scripts/loan_panel.gd")
-const RACE := preload("res://scripts/race_panel.gd")
-const LOTO := preload("res://scripts/loto_panel.gd")
-const ROULETTE := preload("res://scripts/roulette_panel.gd")
-const WHEEL := preload("res://scripts/wheel_panel.gd")
-const BLACKJACK := preload("res://scripts/blackjack_panel.gd")
-const POKER := preload("res://scripts/poker_panel.gd")
 const OUTSKIRTS := preload("res://scripts/outskirts.gd")
 const PLAYER := preload("res://scripts/fp_player.gd")
 const VILLAGE := preload("res://scripts/village/village.gd")
@@ -18,15 +11,6 @@ const VILLAGE := preload("res://scripts/village/village.gd")
 const PLAYER_EYE := 0.6
 
 ## Où regarde la caméra quand on joue dans chaque lieu de la place : [cible, distance, lacet, tangage].
-const FOCUS := {
-	"petanque": [Vector3(4.5, 0.6, 3.0), 7.0, 0.0, -30.0],
-	"boulangerie": [Vector3(7.0, 1.0, -1.0), 6.0, -90.0, -18.0],
-	"rabelais": [Vector3(-7.4, 1.2, 3.5), 6.5, 90.0, -18.0],
-	"eglise": [Vector3(2.6, 1.0, -3.4), 6.0, 0.0, -14.0],
-	"zebres": [Vector3(64.0, 0.8, 3.5), 9.0, 0.0, -24.0],
-	"moulin": [Vector3(-72.0, 1.4, 0.5), 9.0, 0.0, -18.0],
-	"passelourdin": [Vector3(0.0, 1.0, -71.0), 6.0, 0.0, -24.0],
-}
 
 ## Les panneaux de la place, vers les environs : [lieu, position, rotation, texte].
 const SIGNPOSTS := [
@@ -61,7 +45,8 @@ var _credits_label: Label
 var _won_label: Label
 var _places_box: VBoxContainer
 var _banner: Label
-var _slot: PanelContainer
+## Les panneaux ouverts sur la place (le prêt de M. Brunet), au centre de l'écran.
+var _panels: CenterContainer
 var _hint: Label
 var _back: Button
 var area := ""
@@ -305,18 +290,6 @@ func _build_square() -> void:
 	for x in range(-10, 11, 2):
 		_box(Vector3(0.9, 0.12, 0.08), Vector3(x, -0.035, 6.4), line)
 
-	# Le terrain de pétanque, en sable clair, bordé de planches.
-	var sand := StandardMaterial3D.new()
-	sand.albedo_color = Color(0.7, 0.6, 0.45)
-	sand.albedo_texture = _noise_tex(false, 0.3, Color(0.8, 0.75, 0.7))
-	sand.uv1_triplanar = true
-	sand.roughness = 1.0
-	_box(Vector3(5.0, 0.12, 2.4), Vector3(4.5, -0.03, 3.0), sand)
-	var wood := StandardMaterial3D.new()
-	wood.albedo_color = Color(0.35, 0.22, 0.12)
-	_box(Vector3(5.1, 0.16, 0.08), Vector3(4.5, 0.02, 1.8), wood)
-	_box(Vector3(5.1, 0.16, 0.08), Vector3(4.5, 0.02, 4.2), wood)
-
 	# Le monument aux morts et l'érable rouge de 1986.
 	_box(Vector3(0.9, 0.25, 0.9), Vector3(-1.6, 0.12, -0.6), stone_material)
 	_box(Vector3(0.35, 1.6, 0.35), Vector3(-1.6, 1.0, -0.6), stone_material)
@@ -337,7 +310,6 @@ func _build_square() -> void:
 # --- Les bâtiments ------------------------------------------------------------------
 
 const KK := "res://assets/kaykit/"
-const KA := "res://assets/kenney/arcade/"
 const BUILDING_SCALE := 3.2
 
 
@@ -368,7 +340,7 @@ func _build_buildings() -> void:
 	# Le fond de la place : maisons, mairie, église, salle Rabelais.
 	_building("", "home_B", "green", Vector3(-8.6, 0, -5.6), 0.0)
 	_building("mairie", "home_B", "blue", Vector3(-4.6, 0, -5.8), 0.0, 3.6)
-	_building("eglise", "church", "yellow", Vector3(0.4, 0, -6.0), 0.0, 3.6)
+	_building("", "church", "yellow", Vector3(0.4, 0, -6.0), 0.0, 3.6)
 	var casino := CasinoExterior.build(self, Vector3(6.4, 0, -6.0), 0.0, serif)
 	_solid_box(Vector3(CasinoExterior.W + 0.6, 4.0, CasinoExterior.D + 0.6), Vector3(6.4, 2.0, -6.0))
 	_add_place_marker("casino", casino, Vector3(0, 5.6, 0), Vector3(CasinoExterior.W, 3.5, CasinoExterior.D))
@@ -376,7 +348,7 @@ func _build_buildings() -> void:
 	_building("cafe", "tavern", "red", Vector3(-8.8, 0, -0.6), 90.0)
 	# Reculée vers le nord pour laisser passer la route de la rue du Clain.
 	_building("rabelais", "market", "red", Vector3(-9.0, 0, 3.5), 90.0, 2.4)
-	_building("boulangerie", "home_A", "yellow", Vector3(9.0, 0, -1.2), -90.0)
+	_building("", "home_A", "yellow", Vector3(9.0, 0, -1.2), -90.0)
 	_building("banque", "home_B", "red", Vector3(9.0, 0, 3.8), -90.0)
 	_build_gambling()
 
@@ -405,9 +377,7 @@ func _neon(text: String, pos: Vector3, rot_y: float, color: Color, size := 64) -
 
 
 func _build_gambling() -> void:
-	# Les machines à sous alignées sous la façade du café.
-	for z in [-2.6, -1.8, 1.0, 1.8]:
-		_place(KA + "gambling-machine.glb", Vector3(-6.7, 0, z), 1.0, 90.0)
+	# Les Smarvoise sont dans le café (scripts/village/salle.gd) : dehors, rien que la lumière qui en sort.
 	var cafe_glow := OmniLight3D.new()
 	cafe_glow.light_color = Color(1.0, 0.75, 0.3)
 	cafe_glow.light_energy = 2.0
@@ -417,12 +387,9 @@ func _build_gambling() -> void:
 	_neon("JACKPOT", Vector3(-6.3, 3.4, -0.6), 90.0, Color(1.0, 0.3, 0.7), 96)
 	_neon("Café de la Place · Tabac · Jeux", Vector3(-6.3, 2.75, -0.6), 90.0, Color(1.0, 0.8, 0.4), 40)
 
-	# La roue de la kermesse sur le parvis, la boulangerie qui vend des grilles avec le pain.
-	_place(KA + "prize-wheel.glb", Vector3(2.6, 0.3, -3.4), 1.6, -20.0)
-	_neon("ROUE DE LA FORTUNE", Vector3(0.4, 4.9, -4.1), 0.0, Color(0.6, 0.9, 1.0), 56)
+	# Le parvis reste libre ; la boulangerie vend du pain, et rien d'autre.
 	_place("res://assets/kenney/market/display-bread.glb", Vector3(7.0, 0, -1.6), 1.2, -90.0)
-	_place(KA + "claw-machine.glb", Vector3(7.0, 0, -0.4), 1.1, -90.0)
-	_neon("PAIN · LOTO · GRATTAGE", Vector3(6.6, 2.5, -1.2), -90.0, Color(0.5, 1.0, 0.6), 44)
+	_neon("PAIN · VIENNOISERIES", Vector3(6.6, 2.5, -1.2), -90.0, Color(0.5, 1.0, 0.6), 44)
 	_neon("LOTO CE SOIR", Vector3(-7.4, 2.6, 4.4), 90.0, Color(1.0, 0.85, 0.3), 56)
 	_neon("CRÉDIT SMARVOIS", Vector3(6.7, 3.1, 3.8), -90.0, Color(0.4, 0.6, 1.0), 52)
 	_neon("Investissez dans votre avenir", Vector3(6.7, 2.55, 3.8), -90.0, Color(0.4, 0.6, 1.0), 34)
@@ -434,8 +401,7 @@ func _build_gambling() -> void:
 		_place(KK + "furniture/chair_A.gltf", t + Vector3(-0.45, 0, 0), 0.3, 90.0)
 		_place(KK + "furniture/chair_A.gltf", t + Vector3(0.45, 0, 0), 0.3, -90.0)
 
-	# Le tableau des cotes de la pétanque, et le banc de celui qui a tout misé.
-	_neon("COTES DU JOUR\nLucien et Dédé 3 contre 2\nles Rabelais 3 contre 1\nles jeunes du Clain 5 contre 1", Vector3(4.5, 1.4, 4.4), 0.0, Color(1.0, 1.0, 0.9), 30)
+	# Le banc de celui qui a tout misé.
 	_place(KK + "city/bench.gltf", Vector3(-2.0, 0, 4.6), 2.6, 180.0)
 
 
@@ -605,7 +571,7 @@ func _build_villagers() -> void:
 	_villager("character-male-b.glb", Vector3(-5.85, 0.07, -2.2), 90.0, "sit", [], "", "dede")
 	josiane = _villager("character-female-c.glb", Vector3(-4.95, 0.07, -2.2), -90.0, "sit", [], "collier", "josiane")
 	_villager("character-male-d.glb", Vector3(-4.95, 0.07, 1.4), -90.0, "sit")
-	# Les boulistes.
+	# Lucien et un voisin, qui refont la partie de l'après-midi.
 	_villager("character-male-f.glb", Vector3(2.6, 0, 3.0), 90.0, "idle", [], "chapeau", "lucien")
 	_villager("character-male-a.glb", Vector3(3.0, 0, 2.3), 70.0)
 	_villager("character-female-a.glb", Vector3(6.6, 0, 3.4), -100.0)
@@ -618,44 +584,12 @@ func _build_villagers() -> void:
 		[Vector3(-3.0, 0, -3.2), Vector3(-4.2, 0, 3.4), Vector3(0.0, 0, 3.6)])
 
 
-# --- Économie -----------------------------------------------------------------------
-
-func spend(amount: int) -> bool:
-	return Game.spend(amount)
-
-
-func _on_slot_played(bet: int, payout: int) -> void:
-	Sfx.result(bet, payout)
-	var before := Game.won
-	Game.cash_in(payout)
-	for v in villagers:
-		if v.position.x < -4.0 and randf() < 0.6:
-			v.react("win" if payout >= bet * 10 else "lose")
-	if payout >= bet * 20:
-		_announce("Jackpot ! Toute la terrasse se lève.")
-	_check_unlocks(before)
-	if Game.advance_if_broke(SLOT.BETS[0]):
-		_announce("Josiane vous avance %d crédits. « Un placement, ça se soutient. »" % Game.ADVANCE)
-
-
-func _check_unlocks(before: int) -> void:
-	for p in PLACES:
-		if p.seuil > 0 and before < p.seuil and Game.won >= p.seuil:
-			_announce("%s vous fait signe : %s %s." % [p.host, _in_sentence(p.name), _agree(p, "est ouvert")])
-	_refresh_places()
-
-
 ## « ouvert », « ouverte », « ouverts » : l'accord suit le nom du lieu (clé « accord » de PLACES).
 func _agree(p: Dictionary, words: String) -> String:
 	var a: String = p.get("accord", "")
 	if a == "s":
 		words = words.replace("est ", "sont ")
 	return words + a
-
-
-## Un nom de lieu au milieu d'une phrase : l'article reprend sa minuscule (« la boulangerie »).
-static func _in_sentence(n: String) -> String:
-	return n.substr(0, 1).to_lower() + n.substr(1)
 
 
 func is_open(id: String) -> bool:
@@ -672,7 +606,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		set_fps(true)
 		get_viewport().set_input_as_handled()
 		return
-	if _slot.visible or fps:
+	if fps or _panels.get_child_count() > 0:
 		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var from := camera.project_ray_origin(event.position)
@@ -729,32 +663,20 @@ func _enter(id: String) -> void:
 			loan.queue_free()
 			_hint.visible = true
 			_cam_release())
-		_slot.get_parent().add_child(loan)
+		_panels.add_child(loan)
 		_hint.visible = false
 		return
 	if id == "casino":
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		get_tree().change_scene_to_file("res://scenes/casino.tscn")
 		return
-	if id != "cafe":
-		var panel := _game_panel(id)
-		if panel == null:
-			_announce("%s %s, mais %s n'est pas encore installé." % [p.name, _agree(p, "est ouvert"), p.game])
-			return
-		if FOCUS.has(id):
-			var f: Array = FOCUS[id]
-			_cam_focus(f[0], f[1], deg_to_rad(f[2]), deg_to_rad(f[3]))
-		panel.played.connect(_on_game_played)
-		panel.closed.connect(func():
-			panel.queue_free()
-			_hint.visible = true
-			_cam_release())
-		_slot.get_parent().add_child(panel)
-		_hint.visible = false
+	# On ne joue plus dehors : chaque jeu du village a sa salle (scripts/village/salle.gd).
+	var scene := Commune.smarves().interieur(id)
+	if scene == "":
+		_announce("%s %s, mais %s n'est pas encore installé." % [p.name, _agree(p, "est ouvert"), p.game])
 		return
-	_cam_focus(Vector3(-6.7, 0.8, -2.2), 5.0, deg_to_rad(70.0), deg_to_rad(-14.0))
-	_slot.visible = true
-	_hint.visible = false
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	get_tree().change_scene_to_file(scene)
 
 
 ## La première fois, Josiane accueille le joueur et l'envoie vers sa machine, en trois phrases.
@@ -765,7 +687,7 @@ func _welcome() -> void:
 		camera.focus(Vector3(-5.6, 0.6, -1.4), 9.0, deg_to_rad(55.0), deg_to_rad(-24.0))
 	var lines := [
 		"Bienvenue à Smarves ! Vous avez une tête à avoir de l'avenir.",
-		"Ici, on ne dépense pas son argent : on le fait travailler. Ma Smarvoise vous attend devant le café.",
+		"Ici, on ne dépense pas son argent : on le fait travailler. Ma Smarvoise vous attend au comptoir, entrez donc.",
 		"Et si un jour vous manquez de liquidités, M. Brunet est juste en face. Un homme charmant.",
 	]
 	for l in lines:
@@ -775,7 +697,7 @@ func _welcome() -> void:
 		camera.release()
 	Game.welcomed = true
 	Game.save_game()
-	_announce("La Smarvoise est au Café de la Place : approchez-vous de la façade et appuyez sur E." if fps else "Cliquez sur le Café de la Place pour jouer à la Smarvoise.")
+	_announce("La Smarvoise est dans le Café de la Place : approchez-vous de la façade et appuyez sur E pour entrer." if fps else "Cliquez sur le Café de la Place pour entrer jouer à la Smarvoise.")
 
 
 func _build_signposts() -> void:
@@ -1001,56 +923,6 @@ func _update_prompt() -> void:
 		_prompt.text = str(t.get_meta("prompt", ""))
 
 
-## Le jeu de chaque lieu du village, sur les règles du casino.
-func _game_panel(id: String) -> Control:
-	match id:
-		"petanque":
-			var r: PanelContainer = RACE.new()
-			r.title = "Les paris de Lucien"
-			r.subtitle = "Partie en 13 points sur la place  ·  cotes à la craie"
-			r.verb = "gagne la partie"
-			r.runners = [["Lucien et Dédé", 1.5], ["Les Rabelais", 3.0], ["Les jeunes du Clain", 5.0]]
-			return r
-		"boulangerie":
-			var ro: PanelContainer = ROULETTE.new()
-			ro.title = "La roulette du comptoir"
-			return ro
-		"rabelais":
-			return LOTO.new()
-		"eglise":
-			var w: PanelContainer = WHEEL.new()
-			w.mode = "roue"
-			w.title = "La roue de la kermesse"
-			return w
-		"zebres":
-			var z: PanelContainer = RACE.new()
-			z.title = "La course des trois zèbres"
-			z.subtitle = "Allée du château, bois de Saint-Pierre  ·  paris à la cote"
-			z.verb = "franchit la ligne"
-			z.runners = [["Zébulon", 2.0], ["Zéphyr", 3.0], ["Zoé", 4.0]]
-			return z
-		"passelourdin":
-			var pk: PanelContainer = POKER.new()
-			pk.title = "La partie des rochers de Passelourdin"
-			pk.regulars = [["le Notaire", 0.6, 0.6], ["la Meunière", 0.3, 0.4], ["Gégé", 0.2, 0.9], ["l'Inconnu", 0.8, 0.7], ["le Docteur", 0.45, 0.3]]
-			return pk
-		"moulin":
-			var b: PanelContainer = BLACKJACK.new()
-			b.title = "Le blackjack du Moulin des Dames"
-			return b
-	return null
-
-
-func _on_game_played(bet: int, payout: int) -> void:
-	_on_slot_played(bet, payout)
-
-
-func _leave_slot() -> void:
-	_slot.visible = false
-	_hint.visible = true
-	_cam_release()
-
-
 # --- Interface -------------------------------------------------------------------------
 
 func _fmt(n: int) -> String:
@@ -1065,7 +937,7 @@ func _list_enter(id: String) -> void:
 			await get_tree().create_timer(0.8).timeout
 			_enter(id)
 			return
-	if area != "" and area != "place" and not FOCUS.has(id) and id != "cafe" and id != "banque" and id != "casino":
+	if area != "" and area != "place" and id == "banque":
 		travel("place")
 	_enter(id)
 
@@ -1305,12 +1177,7 @@ func _build_ui() -> void:
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(center)
-	_slot = SLOT.new()
-	_slot.game = self
-	_slot.visible = false
-	_slot.played.connect(_on_slot_played)
-	_slot.closed.connect(_leave_slot)
-	center.add_child(_slot)
+	_panels = center
 
 
 # --- Capture d'écran : godot -- --capture=chemin.png [--open=cafe] [--view=d,x,y] ---
@@ -1347,10 +1214,8 @@ func _maybe_capture() -> void:
 		await get_tree().create_timer(1.0).timeout
 		_enter(open)
 		await get_tree().create_timer(1.5).timeout
-		if open == "cafe":
-			_slot.spin()
-		elif open == "banque":
-			for c in _slot.get_parent().get_children():
+		if open == "banque":
+			for c in _panels.get_children():
 				if c.has_method("_borrow"):
 					c._borrow(500)
 					c._borrow(1000)
