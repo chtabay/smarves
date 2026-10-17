@@ -74,29 +74,39 @@ func _ready() -> void:
 	add_child(area)
 
 
-## Une pastille de la couleur qui signe le personnage (chapeau, sinon veste), cerclée de noir, à taille
-## d'écran constante ; elle n'apparaît que quand la caméra est loin, là où la figurine n'est plus qu'un point.
+## Une pastille de la couleur qui signe le personnage (chapeau, sinon veste), cerclée de noir ; elle n'apparaît
+## que quand la caméra est loin, là où la figurine n'est plus qu'un point. Sa taille se compte en pixels d'écran
+## (BADGE_PX pour 1080 de haut), recalculée à chaque coup d'œil d'après la distance et le champ de la caméra.
 const BADGE_FROM := 30.0
+const BADGE_PX := 18.0
+## Part de la hauteur de ligne qu'occupe le disque « ● » dans la police.
+const BADGE_GLYPH := 0.5
 
 func _add_badge(look: Dictionary) -> void:
 	_badge = Label3D.new()
 	_badge.text = "●"
 	_badge.font_size = 64
-	_badge.pixel_size = 0.00022
-	_badge.fixed_size = true
 	_badge.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_badge.no_depth_test = true
 	_badge.modulate = Color(look.get("hat_color", look.get("top_color", "#d4a443")))
-	_badge.outline_size = 12
+	_badge.outline_size = 10
 	_badge.outline_modulate = Color(0.07, 0.05, 0.06)
-	_badge.position.y = 1.0
+	_badge.position.y = 1.3
 	_badge.visible = false
 	add_child(_badge)
 
 
 func _update_badge() -> void:
 	var cam := get_viewport().get_camera_3d()
-	_badge.visible = cam != null and cam.global_position.distance_to(global_position) > BADGE_FROM
+	var d := cam.global_position.distance_to(_badge.global_position) if cam else 0.0
+	_badge.visible = d > BADGE_FROM
+	if not _badge.visible:
+		return
+	var h := get_viewport().get_visible_rect().size.y
+	# Unités du monde par pixel à cette distance, puis la taille voulue (rapportée à 1080 de haut).
+	var per_px := 2.0 * d * tan(deg_to_rad(cam.fov) * 0.5) / h
+	var px := BADGE_PX * h / 1080.0
+	_badge.pixel_size = px * per_px / (_badge.font_size * BADGE_GLYPH) / global_basis.get_scale().y
 
 
 func _in_casino() -> bool:
