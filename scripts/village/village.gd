@@ -13,8 +13,9 @@ const KN := "res://assets/kenney/nature/"
 const KC := "res://assets/kenney/cars/"
 
 ## La vue extérieure qui suit l'habitant, en trois crans de molette (docs/SUITE.md, section 2) :
-## [distance, tangage, champ]. Proche pour les détails, Rue pour parcourir (par défaut), Quartier pour s'orienter.
-const CAMERA_NOTCHES := [[9.0, -48.0, 34.0], [22.0, -52.0, 30.0], [40.0, -60.0, 30.0]]
+## [distance, tangage, champ]. Proche pour les détails, Rue pour parcourir (par défaut ; 18 u est le plus haut
+## où l'on reconnaît encore quelqu'un à sa coiffure et à ses épaules), Quartier pour s'orienter.
+const CAMERA_NOTCHES := [[9.0, -48.0, 34.0], [18.0, -51.0, 30.0], [40.0, -60.0, 30.0]]
 const CAMERA_DEFAULT := 1
 
 const ROAD_Z := 6.4
@@ -865,7 +866,12 @@ func _capture_view() -> void:
 			# Pour comparer les cadrages de la vue qui suit l'habitant : -- --cran=0 (proche), 1 (rue), 2 (quartier).
 			main._bark_timer = INF
 			await get_tree().create_timer(0.4).timeout
-			main.camera.set_notch(int(arg.trim_prefix("--cran=")))
+			var c := arg.trim_prefix("--cran=").split_floats(",")
+			if c.size() == 1:
+				main.camera.set_notch(int(c[0]))
+			else:
+				# Ou un cadrage libre à essayer : -- --cran=distance,tangage,champ
+				main.camera.use_notches([[c[0], c[1], c[2]]], 0)
 			continue
 		if not arg.begins_with("--vue="):
 			continue
