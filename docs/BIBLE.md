@@ -10,7 +10,9 @@ Smarves est un vrai village de la Vienne où, dans le jeu, tout le monde joue, �
 
 ## 2. Le ton
 
-**Mignon, au premier degré.** Les habitants sont de petits animaux à grosse tête (façon Happy Tree Friends), sincèrement heureux, sincèrement enthousiastes. Ils croient tout ce qu'ils disent. Le jeu est un placement, le prêt une prudence, la perte un apprentissage.
+**Coloré et décalé, au premier degré.** Les habitants sont des gens du coin, des adultes de 30 à 70 ans, dessinés comme des figurines de maquette aux couleurs vives : un village de jouets peuplé de grandes personnes, avec leurs dettes, leurs mariages ratés, leurs voitures et leurs certitudes. Ils sont sincèrement enthousiastes et croient tout ce qu'ils disent. Le jeu est un placement, le prêt une prudence, la perte un apprentissage.
+
+**Pour des adultes, jamais puéril.** Le jeu s'adresse à des 30-45 ans. Le comique vient de l'aplomb de gens sérieux qui disent des énormités sans ciller, dans la veine d'*OSS 117* ou des *Deschiens* : le décalage, ce sont les couleurs de jouet et la maquette face à l'argent, pas un ton d'enfant. Pas de bébé-langage, pas d'onomatopées, pas de diminutifs attendris (« petit », « mignon »), pas d'émerveillement naïf, pas de gag de cour de récré. Le texte reste tenu, sec et précis ; c'est la situation qui est drôle.
 
 **L'humour noir est en filigrane, jamais en surface.** Il naît de l'écart entre ce que dit le personnage et ce que le joueur comprend : Dédé a perdu sa voiture au 421, « mais il a appris un truc sur les dés ». Le personnage, lui, ne voit pas l'écart.
 
@@ -47,7 +49,7 @@ On garde les noms et la géographie réels. Les **commerces, habitants et histoi
 
 ### Le village tel que le jeu le montre
 
-Le monde est une **maquette posée sur des socles de bois**. Le socle central porte la place ; trois socles plus petits, reliés par des panneaux, portent les environs. Dehors, on voit la maquette de dessus et on y dirige le petit renard ; dans les bâtiments, on passe à la première personne.
+Le monde est une **maquette posée sur des socles de bois**. Le socle central porte la place ; trois socles plus petits, reliés par des panneaux, portent les environs. Dehors, on voit la maquette de dessus et on y dirige le nouveau venu ; dans les bâtiments, on passe à la première personne.
 
 **La place de la Mairie** (socle central). On arrive par la route du sud, bordée de platanes, au bitume mouillé qui reflète les ampoules. Sur la place pavée, le terrain de pétanque, le monument aux morts et l'érable rouge.
 
@@ -146,50 +148,50 @@ La Salle des fêtes est la seule pièce qui s'ouvre sur le total **misé**, comm
 
 ## 7. Les personnages
 
-Le joueur et tous les habitants sont de petits animaux à grosse tête ronde. Les espèces et les silhouettes ci-dessous sont celles du jeu ; le dessin, les tenues et les animations sont décrits dans [`PERSONNAGES.md`](PERSONNAGES.md). **Seuls le joueur et l'Inconnu sont des renards.** Les figurants piochent aussi le chien, le blaireau, le hérisson et le sanglier.
+Les personnages sont des adultes, décrits ici par leur âge, leur allure, leur tenue et leur accessoire, c'est-à-dire ce qu'on doit reconnaître d'un coup d'œil, de dessus comme à hauteur d'yeux. Le dessin et les animations sont dans [`PERSONNAGES.md`](PERSONNAGES.md). Les figurants sont des gens du coin de tous les âges adultes, en tenue de samedi soir.
 
 ### Le joueur
 
-**Le petit renard en costume.** Un nouveau venu, arrivé à Smarves avec 1 000 crédits en poche. Il ne parle pas. Personne ne lui demande d'où il vient ni ce qu'il fait là : il a « une tête à avoir de l'avenir », dit Josiane, et le village l'appelle volontiers « notre investisseur ».
+**Le nouveau venu** (la trentaine, costume bleu nuit, nœud papillon or, ou la tenue achetée chez Raymonde). Arrivé à Smarves avec 1 000 crédits en poche. Il ne parle pas. Personne ne lui demande d'où il vient ni ce qu'il fait là : il a « une tête à avoir de l'avenir », dit Josiane, et le village l'appelle volontiers « notre investisseur ».
 
 ### Au village
 
-**Josiane** (chatte, collier) — patronne du Café de la Place et de sa machine, la Smarvoise. *Voix* : chaleureuse, formules de comptoir, philosophie de patronne. *Obsession* : la Smarvoise, qu'elle considère comme un livret A avec des lumières. *Liens* : elle accueille le nouveau venu, lui avance deux fois 200 crédits, l'envoie chez M. Brunet « un homme charmant ». Son mari jouait la Smarvoise tous les soirs ; il dit qu'il était à deux doigts. On ne le voit pas.
+**Josiane** (la cinquantaine, permanente blonde, tablier sur une robe à fleurs, collier de fausses perles) — patronne du Café de la Place et de sa machine, la Smarvoise. *Voix* : chaleureuse, formules de comptoir, philosophie de patronne. *Obsession* : la Smarvoise, qu'elle considère comme un livret A avec des lumières. *Liens* : elle accueille le nouveau venu, lui avance deux fois 200 crédits, l'envoie chez M. Brunet « un homme charmant ». Son mari jouait la Smarvoise tous les soirs ; il dit qu'il était à deux doigts. On ne le voit pas.
 > « Ce n'est pas perdu, c'est en circulation. »
 
-**Dédé** (ours) — l'habitué accoudé au comptoir, joueur de 421 et équipier de Lucien à la pétanque. *Voix* : tutoie, phrases à rallonge qui finissent en « je dis ça, je dis rien ». *Obsession* : la dernière formule du 421, qu'il n'a pas encore trouvée. *Liens* : a perdu sa voiture au 421 ; sa femme trouve qu'il joue trop, il lui a expliqué que c'était de l'épargne active ; c'est lui qui souffle la rumeur du Moulin.
+**Dédé** (la soixantaine, moustache, casquette, blouson en skaï) — l'habitué accoudé au comptoir, joueur de 421 et équipier de Lucien à la pétanque. *Voix* : tutoie, phrases à rallonge qui finissent en « je dis ça, je dis rien ». *Obsession* : la dernière formule du 421, qu'il n'a pas encore trouvée. *Liens* : a perdu sa voiture au 421 ; sa femme trouve qu'il joue trop, il lui a expliqué que c'était de l'épargne active ; c'est lui qui souffle la rumeur du Moulin.
 > « Un jour je gagne, et ce jour-là tout le monde comprendra. »
 
-**Lucien** (lapin, chapeau) — le bouliste qui prend les paris sur la pétanque. *Voix* : sentencieuse, fausse rigueur, « statistiquement ». *Obsession* : ne pas être un parieur (« je ne parie pas, j'analyse »). *Liens* : fait équipe avec Dédé, affiche ses propres cotes, et c'est lui qui parle le premier des zèbres et du gardien.
+**Lucien** (la soixantaine sèche, chapeau de paille, crayon derrière l'oreille) — le bouliste qui prend les paris sur la pétanque. *Voix* : sentencieuse, fausse rigueur, « statistiquement ». *Obsession* : ne pas être un parieur (« je ne parie pas, j'analyse »). *Liens* : fait équipe avec Dédé, affiche ses propres cotes, et c'est lui qui parle le premier des zèbres et du gardien.
 > « La pétanque, c'est comme la Bourse, avec du gravier. »
 
-**M. Brunet** (castor, cravate) — conseiller au Crédit Smarvois, le meilleur ami du joueur. *Voix* : onctueuse, vocabulaire bancaire retourné (« projet », « profil », « liquidités »), jamais un mot plus haut que l'autre. *Obsession* : n'avoir jamais refusé un prêt. *Liens* : tout le village lui doit quelque chose ; il a financé le casino et tient un guichet à sa caisse ; son prédécesseur refusait les prêts pour jouer, « il est parti à Poitiers ». Il se manifeste de lui-même quand les crédits du joueur ont fondu.
+**M. Brunet** (la quarantaine lisse, costume trois-pièces gris, cravate, raie sur le côté) — conseiller au Crédit Smarvois, le meilleur ami du joueur. *Voix* : onctueuse, vocabulaire bancaire retourné (« projet », « profil », « liquidités »), jamais un mot plus haut que l'autre. *Obsession* : n'avoir jamais refusé un prêt. *Liens* : tout le village lui doit quelque chose ; il a financé le casino et tient un guichet à sa caisse ; son prédécesseur refusait les prêts pour jouer, « il est parti à Poitiers ». Il se manifeste de lui-même quand les crédits du joueur ont fondu.
 > « La dette, c'est la preuve qu'on vous fait confiance. »
 
-**Mme Ferrand** (souris) — la boulangère. *Voix* : pratique, proverbes de boulangerie. *Obsession* : rendre la monnaie plus intéressante. *Liens* : vend les grilles de loto de M. Gaudin avec le pain.
+**Mme Ferrand** (la quarantaine, blouse blanche de boulangère, farine aux avant-bras) — la boulangère. *Voix* : pratique, proverbes de boulangerie. *Obsession* : rendre la monnaie plus intéressante. *Liens* : vend les grilles de loto de M. Gaudin avec le pain.
 > « Le pain, ça nourrit le corps. Le loto, ça nourrit l'espoir. »
 
-**M. Gaudin** (ours, nœud papillon) — président du comité des fêtes, tire les boules du grand loto à la salle Rabelais et organise la kermesse du parvis. *Voix* : micro de salle des fêtes, annonces au superlatif. *Obsession* : le carton historique, chaque samedi. *Liens* : capitaine de l'équipe des Rabelais à la pétanque ; cite Rabelais à tout propos.
+**M. Gaudin** (la soixantaine ronde, nœud papillon, micro de salle des fêtes à la main) — président du comité des fêtes, tire les boules du grand loto à la salle Rabelais et organise la kermesse du parvis. *Voix* : micro de salle des fêtes, annonces au superlatif. *Obsession* : le carton historique, chaque samedi. *Liens* : capitaine de l'équipe des Rabelais à la pétanque ; cite Rabelais à tout propos.
 > « Le 22, les deux petits canards ! Et ce soir, mes amis, un carton historique. »
 
-**Le gardien du bois** (lapin, chapeau) — garde l'allée du château et ses zèbres, prend les paris sur leur course. *Voix* : lente, rurale, d'une sincérité totale sur des zèbres en béton. *Obsession* : Zébulon, « des bonnes jambes, pour un zèbre de béton ». *Liens* : le seul à connaître l'histoire du château, où l'on jouait « au temps des seigneurs ».
+**Le gardien du bois** (la soixantaine, veste de chasse, chapeau de feutre, sifflet) — garde l'allée du château et ses zèbres, prend les paris sur leur course. *Voix* : lente, rurale, d'une sincérité totale sur des zèbres en béton. *Obsession* : Zébulon, « des bonnes jambes, pour un zèbre de béton ». *Liens* : le seul à connaître l'histoire du château, où l'on jouait « au temps des seigneurs ».
 
-**Le meunier** (castor, chapeau) — tient le Moulin des Dames et le blackjack de l'arrière-salle. *Voix* : métaphores de farine et de meule. *Liens* : sa femme, **la Meunière**, joue à Passelourdin ; c'est lui qui en souffle la rumeur.
+**Le meunier** (la cinquantaine, tablier de toile, casquette blanchie de farine) — tient le Moulin des Dames et le blackjack de l'arrière-salle. *Voix* : métaphores de farine et de meule. *Liens* : sa femme, **la Meunière**, joue à Passelourdin ; c'est lui qui en souffle la rumeur.
 > « Le moulin tourne avec l'eau, et l'arrière-salle avec les cartes. »
 
-**L'Inconnu** (vieux renard, trench gris et feutre noir) — le joueur de Passelourdin dont personne ne sait le nom. *Voix* : rare, courte, élégante. *Obsession* : beaucoup d'argent (« pas l'argent : beaucoup d'argent »). Un renard, comme le joueur, en plus vieux : le jeu ne dit jamais pourquoi, et ne le dira pas.
+**L'Inconnu** (âge incertain, trench gris, feutre noir, et sous le trench le même nœud papillon or que le joueur) — le joueur de Passelourdin dont personne ne sait le nom. *Voix* : rare, courte, élégante. *Obsession* : beaucoup d'argent (« pas l'argent : beaucoup d'argent »). Il a l'allure du joueur, en plus vieux : le jeu ne dit jamais pourquoi, et ne le dira pas.
 > « Personne ne perd, à Passelourdin. Certains gagnent moins longtemps. »
 
 **Les habitués de Passelourdin** — *le Notaire* (qu'on croise au casino sous le nom de Maître Garnier, mais à Passelourdin on ne demande pas les noms), *la Meunière*, *Gégé* (qui relance tout), *le Docteur* (qui ne relance jamais).
 
 **Les habitants** — tous les autres, anonymes, qui jouent aussi et y croient autant : celui qui a tout placé sur la roue de la kermesse, celui qui a revendu sa tondeuse pour les zèbres, celui à qui M. Brunet a dit qu'il avait un profil d'investisseur.
 
-**Maître Garnier** (chat, costume noir, lunettes dorées) — le notaire, dans son étude. *Voix* : formules d'acte, « un placement de père de famille ». *Obsession* : que tout soit signé. *Liens* : il vend les parts du village et les maisons, et reprend tout à 60 % ; il joue aux Ambassadeurs sous son nom et à Passelourdin sous celui du Notaire.
+**Maître Garnier** (la soixantaine, costume noir, lunettes dorées) — le notaire, dans son étude. *Voix* : formules d'acte, « un placement de père de famille ». *Obsession* : que tout soit signé. *Liens* : il vend les parts du village et les maisons, et reprend tout à 60 % ; il joue aux Ambassadeurs sous son nom et à Passelourdin sous celui du Notaire.
 
-**Raymonde Chauvet** (souris, robe lavande, mètre ruban au cou) — couture et retouches. *Voix* : petite, rapide, compliments de cabine d'essayage. *Obsession* : qu'on vous prenne pour quelqu'un qui gagne. *Liens* : habille le petit renard ; Monsieur Armand reconnaît ses smokings au premier coup d'œil.
+**Raymonde Chauvet** (la cinquantaine menue, robe lavande, mètre ruban au cou) — couture et retouches. *Voix* : petite, rapide, compliments de cabine d'essayage. *Obsession* : qu'on vous prenne pour quelqu'un qui gagne. *Liens* : habille le nouveau venu ; Monsieur Armand reconnaît ses smokings au premier coup d'œil.
 > « Bleu roi. On vous prendra pour un homme qui gagne. »
 
-**Roger Fradin** (ours, bleu de travail, clé plate) — le garage Fradin : Mobylette, 2 CV, DS. *Voix* : de mécanicien, des chiffres de cylindrée. *Liens* : la 2 CV qu'il vend est celle que Dédé a perdue au 421, remise à neuf.
+**Roger Fradin** (la cinquantaine, bleu de travail, clé plate) — le garage Fradin : Mobylette, 2 CV, DS. *Voix* : de mécanicien, des chiffres de cylindrée. *Liens* : la 2 CV qu'il vend est celle que Dédé a perdue au 421, remise à neuf.
 > « Suspension hydraulique. On ne sent plus les pavés, ni les pertes. »
 
 **Le maire** — on ne le voit jamais ; il a coupé le ruban du casino et il est « en réunion », au casino justement.
@@ -198,8 +200,8 @@ Le joueur et tous les habitants sont de petits animaux à grosse tête ronde. Le
 
 Le personnel du casino est en noir et blanc, nœud papillon ou collier, et parle bas.
 
-- **Monsieur Castel** (ours, smoking) — le patron, voir section 6.
-- **Monsieur Armand** (chat, nœud) — directeur de salle, à la porte du Salon privé. « Un client qui revient, c'est un client qui a compris. »
+- **Monsieur Castel** (la soixantaine, cheveux blancs, smoking blanc) — le patron, voir section 6.
+- **Monsieur Armand** (la quarantaine, fine moustache, nœud papillon) — directeur de salle, à la porte du Salon privé. « Un client qui revient, c'est un client qui a compris. »
 - **Les hôtesses d'accueil** (deux, à la réception du hall) — « Le jeu est un investissement, et vous êtes un investisseur. »
 - **La préposée au vestiaire**, **le caissier** (« La caisse croit en vous ») qui avance deux fois 200 crédits, comme Josiane, puis renvoie au guichet de M. Brunet.
 - **Les croupiers** de la roulette, du blackjack (une croupière), du craps (le stickman et le boxman), de la Boule et du Banco — « Faites vos jeux. Le hasard ne récompense que ceux qui jouent. »
@@ -212,7 +214,7 @@ Le personnel du casino est en noir et blanc, nœud papillon ou collier, et parle
 
 Les clients du casino :
 
-- **Le baron de Vasseur** (chien) — habitué du Salon privé, chapeau haut de forme. Son père, **le vieux baron**, ne quitte pas les Salons particuliers.
+- **Le baron de Vasseur** (la cinquantaine, chapeau haut de forme) — habitué du Salon privé. Son père, **le vieux baron**, ne quitte pas les Salons particuliers.
 - **Capucine Varenne** — au Bar du Fumoir, sa carte dépliée sur le comptoir : une chasseuse de « pépites », qui sillonne les villages où l'on gagne. Elle est à Smarves parce qu'on lui a dit que c'était le meilleur.
 - **Les joueurs du Poker des Ambassadeurs** — *le Commandant* (qui salue d'un signe de tête), *Mme Duval*, *Teddy*, *la comtesse Orlov*, *Maître Garnier* (le Notaire de Passelourdin).
 - **Les dîneurs du Lustre**, et quelques habitants du village venus « placer sérieusement ».
@@ -308,4 +310,5 @@ Corrigés (PR #2 pour les textes du jeu, PR #3 pour la fiche de cadrage et le RE
 
 À signaler aux autres fils :
 
+- Les figurines du jeu sont encore des animaux : depuis le 17 octobre, les personnages sont des adultes (décision de Guillaume), et le fil « Personnages » refait la famille de figurines. Les descriptions de la section 7 sont la cible.
 - Le 421 de Dédé est cité partout mais n'existe pas comme jeu (piste pour le fil des jeux, pas une obligation).
