@@ -12,6 +12,10 @@ var _yaw_goal := yaw
 var _pitch_goal := pitch
 var _dist_goal := distance
 var _dragging := false
+## Les crans de la vue extérieure : [distance, tangage en degrés, champ]. Vide : la molette zoome librement.
+var notches: Array = []
+var notch := 0
+var _fov_goal := 34.0
 
 
 func _ready() -> void:
@@ -74,16 +78,40 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.button_index == MOUSE_BUTTON_RIGHT:
 			_dragging = event.pressed
 		elif event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
-			_dist_goal = maxf(8.0, _dist_goal - 1.5)
+			if notches.is_empty():
+				_dist_goal = maxf(8.0, _dist_goal - 1.5)
+			else:
+				set_notch(notch - 1)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
-			_dist_goal = minf(45.0, _dist_goal + 1.5)
+			if notches.is_empty():
+				_dist_goal = minf(45.0, _dist_goal + 1.5)
+			else:
+				set_notch(notch + 1)
 	elif event is InputEventMouseMotion and _dragging:
 		_yaw_goal -= event.relative.x * 0.005
 		_pitch_goal = clampf(_pitch_goal - event.relative.y * 0.004, deg_to_rad(-75), deg_to_rad(-8))
 
 
+## Passe la molette en crans (vue extérieure qui suit l'habitant) ; une liste vide rend le zoom libre.
+func use_notches(list: Array, start: int) -> void:
+	notches = list
+	if list.is_empty():
+		_fov_goal = 34.0
+		return
+	set_notch(start)
+
+
+func set_notch(i: int) -> void:
+	notch = clampi(i, 0, notches.size() - 1)
+	var n: Array = notches[notch]
+	_dist_goal = n[0]
+	_pitch_goal = deg_to_rad(n[1])
+	_fov_goal = n[2]
+
+
 func _process(delta: float) -> void:
 	var k := 1.0 - exp(-8.0 * delta)
+	fov = lerpf(fov, _fov_goal, k)
 	yaw = lerpf(yaw, _yaw_goal, k)
 	pitch = lerpf(pitch, _pitch_goal, k)
 	distance = lerpf(distance, _dist_goal, k)
