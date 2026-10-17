@@ -6,6 +6,13 @@ extends PanelContainer
 
 signal played(bet: int, payout: int)
 signal closed
+## Pour la table 3D : la case tirée (index dans « segments ») et la durée du lancer, les mises posées,
+## et le coup réglé (ce que rend chaque mise, mise comprise).
+signal spin_started(index: int, duration: float)
+signal bets_changed(bets: Dictionary)
+signal settled(result: String, wins: Dictionary)
+
+const BARRE := preload("res://scripts/jeux/barre.gd")
 
 const CHIPS := [10, 20, 100, 500]
 const ROUE_COUNTS := {"1": 24, "2": 15, "5": 7, "10": 4, "20": 2, "Joker": 1, "Étoile": 1}
@@ -26,18 +33,19 @@ var _info: Label
 var _chip_label: Label
 var _buttons := {}
 var _font: Font
+## Assis à la table 3D : on mise sur le tapis, le panneau devient une barre basse.
+var embedded := false
+var table3d: Node
+var _chip_row: HBoxContainer
+var _total_label: Label
 
 
 func _ready() -> void:
 	_font = get_theme_default_font()
-	if mode == "roue":
-		for k in ROUE_COUNTS:
-			for i in ROUE_COUNTS[k]:
-				segments.append(k)
-		segments.shuffle()
-	else:
-		for n in range(1, 10):
-			segments.append(str(n))
+	make_segments()
+	if embedded:
+		_build_bar()
+		return
 	custom_minimum_size = Vector2(820, 0)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 10)
@@ -96,9 +104,93 @@ func _ready() -> void:
 	controls.add_child(spin_b)
 	var leave := Button.new()
 	leave.text = "Quitter (Échap)"
-	leave.pressed.connect(func(): closed.emit())
+	leave.pressed.connect(_leave)
 	controls.add_child(leave)
 	_chip(0)
+
+
+## Les cases de la roue (la table 3D les lit avant que le panneau soit affiché).
+func make_segments() -> void:
+	if not segments.is_empty():
+		return
+	if mode == "roue":
+		for k in ROUE_COUNTS:
+			for i in ROUE_COUNTS[k]:
+				segments.append(k)
+		segments.shuffle()
+	else:
+		for n in range(1, 10):
+			segments.append(str(n))
+
+
+## La barre basse : jetons, mises sur le tapis, message du croupier, lancer.
+func _build_bar() -> void:
+	BARRE.style(self)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 4)
+	add_child(v)
+	_info = BARRE.label("Misez en touchant le tapis, puis lancez la roue." if mode == "roue" else "Misez en touchant le tapis, puis lancez la boule. Le 5 est à la maison.", 20, BARRE.CREAM)
+	_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_info.add_theme_font_override("font", BARRE.KIT.serif())
+	v.add_child(_info)
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 14)
+	h.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_child(h)
+	_chip_row = BARRE.chip_row(CHIPS, chip_index, _pick_chip)
+	h.add_child(_chip_row)
+	_chip_label = BARRE.label("", 20, BARRE.MUTED)
+	_chip_label.custom_minimum_size = Vector2(110, 0)
+	h.add_child(_chip_label)
+	h.add_child(BARRE.separator())
+	_total_label = BARRE.label("Sur le tapis : 0", 20, BARRE.CREAM)
+	_total_label.custom_minimum_size = Vector2(170, 0)
+	h.add_child(_total_label)
+	var clear := BARRE.pill("Retirer")
+	clear.pressed.connect(_clear)
+	h.add_child(clear)
+	var go := BARRE.main_button("  Lancer la roue  (Espace)  " if mode == "roue" else "  Lancer la boule  (Espace)  ")
+	go.pressed.connect(_spin)
+	h.add_child(go)
+	var leave := BARRE.pill("Quitter  (Échap)")
+	leave.pressed.connect(_leave)
+	h.add_child(leave)
+	_chip(0)
+
+
+func _pick_chip(i: int) -> void:
+	chip_index = i
+	_chip(0)
+
+
+## Les mises reviennent au joueur (bouton Retirer, ou en quittant la table).
+func _clear() -> void:
+	if busy:
+		return
+	for k in bets:
+		Game.credits += bets[k]
+		Game.staked -= bets[k]
+	bets.clear()
+	Game.changed.emit()
+	_show_bets()
+
+
+func _leave() -> void:
+	if busy:
+		return
+	_clear()
+	closed.emit()
+
+
+func _show_bets() -> void:
+	for k in _buttons:
+		_buttons[k].text = _buttons[k].get_meta("label") + ("  ●%d" % bets[k] if bets.has(k) else "")
+	if embedded:
+		var t := 0
+		for k in bets:
+			t += bets[k]
+		_total_label.text = "Sur le tapis : %s" % Game.fmt(t)
+		bets_changed.emit(bets.duplicate())
 
 
 func _label_for(k: String) -> String:
@@ -117,6 +209,8 @@ func _label_for(k: String) -> String:
 func _chip(d: int) -> void:
 	chip_index = clampi(chip_index + d, 0, CHIPS.size() - 1)
 	_chip_label.text = "Jeton : %d" % CHIPS[chip_index]
+	if _chip_row:
+		BARRE.select(_chip_row, chip_index)
 
 
 func _place(k: String) -> void:
@@ -126,7 +220,7 @@ func _place(k: String) -> void:
 		_info.text = "Pas assez de crédits pour ce jeton."
 		return
 	bets[k] = bets.get(k, 0) + CHIPS[chip_index]
-	_buttons[k].text = _buttons[k].get_meta("label") + "  ●%d" % bets[k]
+	_show_bets()
 
 
 func _spin() -> void:
@@ -142,18 +236,30 @@ func _spin() -> void:
 	var target := -PI / 2.0 - idx * step
 	while target < _angle + TAU * 4.0:
 		target += TAU
-	var tw := create_tween()
-	tw.tween_method(func(a): _angle = a; _wheel.queue_redraw(), _angle, target, 3.6).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUART)
-	await tw.finished
+	if embedded:
+		# La roue (ou la boule) tourne sur la table ; le coup se règle quand elle s'arrête.
+		var dur: float = table3d.spin_time if table3d else 3.6
+		_info.text = "La roue tourne." if mode == "roue" else "La boule roule."
+		spin_started.emit(idx, dur)
+		await get_tree().create_timer(dur).timeout
+	else:
+		spin_started.emit(idx, 3.6)
+		var tw := create_tween()
+		tw.tween_method(func(a): _angle = a; _wheel.queue_redraw(), _angle, target, 3.6).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUART)
+		await tw.finished
 	var result: String = segments[idx]
 	var total := 0
 	var payout := 0
+	var wins := {}
 	for k in bets:
 		total += bets[k]
-		payout += bets[k] * _mult(k, result)
+		var w: int = bets[k] * _mult(k, result)
+		if w > 0:
+			wins[k] = w
+		payout += w
+	settled.emit(result, wins)
 	bets.clear()
-	for k in _buttons:
-		_buttons[k].text = _buttons[k].get_meta("label")
+	_show_bets()
 	_info.text = "%s. %s" % [result if mode == "roue" else "Le %s" % result, "Vous encaissez %s." % Game.fmt(payout) if payout > 0 else "Le hasard prépare la suite."]
 	busy = false
 	played.emit(total, payout)
@@ -217,6 +323,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and event.keycode == KEY_SPACE:
 		_spin()
 		get_viewport().set_input_as_handled()
+	elif embedded and event is InputEventKey and event.pressed and event.keycode >= KEY_1 and event.keycode < KEY_1 + CHIPS.size():
+		chip_index = event.keycode - KEY_1
+		_chip(0)
+		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_cancel"):
-		closed.emit()
+		_leave()
 		get_viewport().set_input_as_handled()

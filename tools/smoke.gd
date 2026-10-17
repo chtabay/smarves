@@ -108,7 +108,7 @@ func _play(p: Node) -> void:
 			p._place("pass")
 			p._roll()
 		"wheel_panel.gd":
-			p._place(p._buttons.keys()[0])
+			p._place("1")
 			p._spin()
 		"race_panel.gd":
 			p._choose(0)
