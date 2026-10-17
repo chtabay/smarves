@@ -32,6 +32,11 @@ var _amenage := ""
 var _cover: Control
 var _sheet: PanelContainer
 var _sheet_box: VBoxContainer
+## L'accueil des communes : une feuille posée au milieu de l'écran au lancement (voir ouvrir_accueil).
+var _accueil: Control
+var _accueil_box: VBoxContainer
+var _accueil_liste := false
+var _accueil_attendu := false
 
 
 func _ready() -> void:
@@ -50,15 +55,23 @@ func _ready() -> void:
 	Biens.note.connect(show_slip)
 	# Les communes du portail : la liste se lit au lancement, l'installation finit en arrière-plan.
 	Communes.catalogue_lu.connect(func():
-		if not Communes.nouvelles.is_empty() and not _root.visible:
-			var noms: Array = Communes.nouvelles.map(func(id): return Communes.au_catalogue(id).nom)
-			show_slip(("Nouvelle commune publiée : %s." if noms.size() == 1 else "Nouvelles communes publiées : %s.") % ", ".join(noms) + " Voir le carnet (C).")
+		if not Communes.nouvelles.is_empty():
+			_accueil_attendu = true
 		if _root.visible:
-			_refresh())
+			_refresh()
+		if _accueil_ouvert():
+			_remplir_accueil(_accueil_liste))
 	Communes.installee.connect(func(_id, _ok, message):
 		show_slip(message)
 		if _root.visible:
-			_refresh())
+			_refresh()
+		if _accueil_ouvert():
+			_remplir_accueil(_accueil_liste))
+	var guet := Timer.new()
+	guet.wait_time = 1.0
+	guet.autostart = true
+	guet.timeout.connect(_essayer_accueil)
+	add_child(guet)
 	# Le village n'est pas un autoload : on se branche sur lui quand la place se monte.
 	get_tree().node_added.connect(_on_node_added)
 
@@ -68,6 +81,11 @@ func is_open() -> bool:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _accueil_ouvert():
+		if event.is_action_pressed("ui_cancel"):
+			fermer_accueil()
+			get_viewport().set_input_as_handled()
+		return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_C:
 		if Settings.is_open() or get_tree().current_scene == null or get_tree().current_scene.name == "Titre":
 			return
@@ -396,37 +414,41 @@ func _fill_right() -> void:
 
 ## « Les communes de la Vienne » : celles que d'autres ont publiées sur le portail, à installer, et
 ## celles qui sont installées, où l'on peut aller. La carte de la Vienne les montrera à leur place.
-func _fill_communes() -> void:
-	_gap(_right)
-	_title(_right, "Les communes de la Vienne")
+func _fill_communes(page: VBoxContainer = null, titre := true) -> void:
+	if page == null:
+		page = _right
+	if titre:
+		_gap(page)
+		_title(page, "Les communes de la Vienne")
 	var vues := {}
 	for e in Communes.publiees():
 		vues[e.id] = true
 		var installee: bool = Communes.commune(e.id) != null
-		_text(_right, "%s  ·  %s%s" % [e.nom, ("version %s" % e.version) if e.version != "" else e.insee, "  ·  nouvelle" if Communes.nouvelles.has(e.id) else ""], 18, INK, true)
+		_text(page, "%s  ·  %s%s" % [e.nom, ("version %s" % e.version) if e.version != "" else e.insee, "  ·  nouvelle" if Communes.nouvelles.has(e.id) else ""], 18, INK, true)
 		if e.description != "":
-			_text(_right, e.description, 18, INK_LIGHT)
+			_text(page, e.description, 18, INK_LIGHT)
 		if Communes.en_cours == e.id:
-			_text(_right, "Téléchargement en cours…", 18, PENCIL)
+			_text(page, "Téléchargement en cours…", 18, PENCIL)
 		elif not installee:
-			_link(_right, "→ l'installer  (%s, par %s)" % [Portail.taille(e.taille), e.auteur], Communes.installer.bind(e.id), Communes.en_cours == "")
+			_link(page, "→ l'installer  (%s, par %s)" % [Portail.taille(e.taille), e.auteur], Communes.installer.bind(e.id), Communes.en_cours == "")
 		else:
 			if str(Communes.installations.get(e.id, e.version)) != e.version:
-				_link(_right, "→ installer la version %s" % e.version, Communes.installer.bind(e.id), Communes.en_cours == "")
-			_link(_right, "→ y aller", _visiter.bind(e.id))
+				_link(page, "→ installer la version %s" % e.version, Communes.installer.bind(e.id), Communes.en_cours == "")
+			_link(page, "→ y aller", _visiter.bind(e.id))
 	for id in Communes.installees():
 		if not vues.has(id):
-			_text(_right, Communes.commune(id).nom, 18, INK, true)
-			_link(_right, "→ y aller", _visiter.bind(id))
+			_text(page, Communes.commune(id).nom, 18, INK, true)
+			_link(page, "→ y aller", _visiter.bind(id))
 	if Communes.publiees().is_empty() and Communes.installees().is_empty():
-		_text(_right, "Aucune autre commune publiée pour l'instant." if Communes.catalogue_etat == "en_ligne" else "Le catalogue se lit quand le jeu est en ligne.", 18, INK_LIGHT)
+		_text(page, "Aucune autre commune publiée pour l'instant." if Communes.catalogue_etat == "en_ligne" else "Le catalogue se lit quand le jeu est en ligne.", 18, INK_LIGHT)
 	for r in Communes.refusees():
-		_text(_right, "%s : paquet refusé, %s" % [r.nom, r.raison], 18, Color(0.7, 0.12, 0.12))
-	_link(_right, "→ relire la liste" if Communes.catalogue_etat != "lecture" else "Lecture de la liste…", Communes.lire_catalogue, Communes.catalogue_etat != "lecture" and Communes.en_cours == "")
+		_text(page, "%s : paquet refusé, %s" % [r.nom, r.raison], 18, Color(0.7, 0.12, 0.12))
+	_link(page, "→ relire la liste" if Communes.catalogue_etat != "lecture" else "Lecture de la liste…", Communes.lire_catalogue, Communes.catalogue_etat != "lecture" and Communes.en_cours == "")
 	Communes.marquer_vues.call_deferred()
 
 
 func _visiter(id: String) -> void:
+	fermer_accueil()
 	if is_open():
 		toggle()
 	if not Communes.visiter(id):
@@ -662,3 +684,116 @@ func _fit_slip() -> void:
 	_slip.reset_size()
 	_slip.size = _slip.get_combined_minimum_size()
 	_slip.position = Vector2(28, get_viewport().get_visible_rect().size.y - _slip.size.y - 60)
+
+
+# --- L'accueil des communes ------------------------------------------------------------------------
+
+func _accueil_ouvert() -> bool:
+	return _accueil != null and _accueil.visible
+
+
+## Le portail a publié des communes que le joueur n'a jamais vues : la feuille d'accueil attend qu'il
+## soit sur la place, déjà accueilli par Josiane, sans carnet, réglages ni partie en cours.
+func _essayer_accueil() -> void:
+	if not _accueil_attendu:
+		return
+	if Communes.nouvelles.is_empty():
+		_accueil_attendu = false
+		return
+	var scene := get_tree().current_scene
+	if scene == null or scene.name != "Main" or scene.has_meta("vitrine") or not Game.welcomed \
+			or _root.visible or Settings.is_open() or get_tree().paused:
+		return
+	_accueil_attendu = false
+	ouvrir_accueil()
+
+
+## Une feuille au milieu de l'écran : les communes nouvellement publiées, puis, sur un geste, la liste
+## des villes disponibles, à installer et à visiter sans passer par le carnet.
+func ouvrir_accueil(liste := false) -> void:
+	if _accueil == null:
+		_construire_accueil()
+	if not _accueil.visible:
+		_mouse_before = Input.mouse_mode
+		_paused_before = get_tree().paused
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	get_tree().paused = true
+	_accueil.visible = true
+	_remplir_accueil(liste)
+
+
+func fermer_accueil() -> void:
+	if not _accueil_ouvert():
+		return
+	_accueil.visible = false
+	Communes.marquer_vues()
+	Input.mouse_mode = _mouse_before
+	get_tree().paused = _paused_before
+	if _pending_slip != "":
+		show_slip.call_deferred(_pending_slip)
+		_pending_slip = ""
+
+
+func _construire_accueil() -> void:
+	_accueil = Control.new()
+	_accueil.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(_accueil)
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.5)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_accueil.add_child(dim)
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_accueil.add_child(center)
+	var feuille := Page.new()
+	var st := StyleBoxFlat.new()
+	st.bg_color = PAPER
+	st.set_content_margin_all(28)
+	st.content_margin_left = 72
+	st.content_margin_top = 22
+	st.shadow_color = Color(0, 0, 0, 0.45)
+	st.shadow_size = 14
+	feuille.add_theme_stylebox_override("panel", st)
+	feuille.custom_minimum_size = Vector2(640, 0)
+	feuille.rotation_degrees = -0.6
+	center.add_child(feuille)
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.custom_minimum_size = Vector2(540, 0)
+	feuille.add_child(scroll)
+	_accueil_box = VBoxContainer.new()
+	_accueil_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_accueil_box.add_theme_constant_override("separation", 4)
+	scroll.add_child(_accueil_box)
+
+
+func _remplir_accueil(liste: bool) -> void:
+	_accueil_liste = liste
+	for c in _accueil_box.get_children():
+		c.queue_free()
+	if not liste:
+		var noms: Array = Communes.nouvelles.map(func(id): return Communes.au_catalogue(id).get("nom", id))
+		_title(_accueil_box, "Les communes de la Vienne")
+		_gap(_accueil_box, 6)
+		if noms.size() == 1:
+			_text(_accueil_box, "Une commune a été publiée depuis votre dernière visite : %s." % noms[0])
+		else:
+			_text(_accueil_box, "%d communes ont été publiées depuis votre dernière visite : %s." % [noms.size(), ", ".join(noms)])
+		_text(_accueil_box, "D'autres joueurs construisent les villes autour de Smarves. Installez celles qui vous tentent, et allez les visiter.", 18, INK_LIGHT)
+		_gap(_accueil_box, 10)
+		_link(_accueil_box, "→ Voir les villes disponibles", _remplir_accueil.bind(true)).add_theme_font_size_override("font_size", 22)
+		_link(_accueil_box, "Plus tard (elles restent dans le carnet, touche C)", fermer_accueil)
+	else:
+		_title(_accueil_box, "Les villes disponibles")
+		_fill_communes(_accueil_box, false)
+		_gap(_accueil_box, 10)
+		_link(_accueil_box, "Fermer", fermer_accueil)
+	# La feuille prend la hauteur de son texte, sans dépasser l'écran : au-delà, la liste défile.
+	_ajuster_accueil.call_deferred()
+
+
+func _ajuster_accueil() -> void:
+	var scroll := _accueil_box.get_parent() as ScrollContainer
+	# Les lignes repliées ne connaissent leur hauteur qu'une fois leur largeur posée.
+	await get_tree().process_frame
+	scroll.custom_minimum_size.y = minf(_accueil_box.get_combined_minimum_size().y, get_viewport().get_visible_rect().size.y - 160.0)
