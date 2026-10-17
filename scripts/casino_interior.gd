@@ -3,6 +3,7 @@ extends Node3D
 ## vestiaire, bar Le Nocturne, salle des jeux ; la Salle des Ambassadeurs et le salon privé s'ouvrent
 ## par des seuils de gains. On y marche à la première personne. 1 unité = 1 mètre.
 
+const STATIC_BATCH := preload("res://scripts/static_batch.gd")
 const PLAYER := preload("res://scripts/fp_player.gd")
 const VILLAGER := preload("res://scripts/villager.gd")
 const SLOT := preload("res://scripts/slot_machine.gd")
@@ -96,6 +97,11 @@ func _ready() -> void:
 	player.interact.connect(_on_interact)
 	_shown = Game.credits
 	_refresh_locks(true)
+	# L'architecture ne bouge plus : ses milliers de pièces se fondent en quelques maillages par matériau.
+	var keep: Array = [player]
+	for id in barriers:
+		keep.append_array(barriers[id])
+	STATIC_BATCH.bake(self, keep)
 	Sfx.set_ambience("casino")
 	Game.brunet_calls.connect(_on_brunet_calls)
 	_maybe_capture()
