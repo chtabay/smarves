@@ -15,6 +15,7 @@ var _left: VBoxContainer
 var _right: VBoxContainer
 var _slip: PanelContainer
 var _slip_label: Label
+var _slip_tween: Tween
 var _hand: SystemFont
 var _hand_bold: SystemFont
 var _mouse_before := Input.MOUSE_MODE_VISIBLE
@@ -315,18 +316,22 @@ func show_slip(text: String) -> void:
 		st.border_color = MARGIN_RED
 		st.border_width_left = 3
 		_slip.add_theme_stylebox_override("panel", st)
-		_slip.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-		_slip.grow_vertical = Control.GROW_DIRECTION_BEGIN
 		_slip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_slip.custom_minimum_size.x = 420
 		add_child(_slip)
 		_slip_label = _text(_slip, "", 17)
 		_slip_label.custom_minimum_size.x = 400
 	_slip_label.text = text
-	_slip.position = Vector2(28, get_viewport().get_visible_rect().size.y - 130)
+	# La fiche reprend la taille de son texte, puis se pose en bas à gauche.
+	_slip.reset_size()
+	_slip.size = _slip.get_combined_minimum_size()
+	_slip.position = Vector2(28, get_viewport().get_visible_rect().size.y - _slip.size.y - 60)
 	_slip.rotation_degrees = -1.5
 	_slip.modulate.a = 0.0
+	if _slip_tween:
+		_slip_tween.kill()
 	var tw := create_tween()
+	_slip_tween = tw
 	tw.tween_property(_slip, "modulate:a", 1.0, 0.3)
 	tw.tween_interval(5.0 + text.length() * 0.03)
 	tw.tween_property(_slip, "modulate:a", 0.0, 0.8)
