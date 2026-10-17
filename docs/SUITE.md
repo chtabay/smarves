@@ -77,15 +77,17 @@ Trois crans de molette, la caméra glisse de l'un à l'autre :
 | Cran | Distance | Hauteur | Inclinaison | Champ vertical | Largeur vue (16:9) | Taille d'un habitant à l'écran (900 px de haut) | Usage |
 |---|---:|---:|---:|---:|---:|---:|---|
 | Proche | 9 u (≈ 22 m) | ≈ 16 m | 48° | 34° | ≈ 23 m | ≈ 110 px | parler, entrer, regarder une devanture (l'actuel) |
-| **Rue (par défaut)** | **22 u (≈ 53 m)** | **≈ 42 m** | **52°** | **30°** | **≈ 50 m** | **≈ 50 px** | marcher, voir le bout de la rue |
+| **Rue (par défaut)** | **18 u (≈ 43 m)** | **≈ 34 m** | **51°** | **30°** | **≈ 41 m** | **≈ 45 px** | marcher, voir le bout de la rue |
 | Quartier | 40 u (≈ 96 m) | ≈ 83 m | 60° | 30° | ≈ 90 m | ≈ 30 px | s'orienter, voir les repères |
+
+**Retenu sur captures** (fil « Extension du village ») : le cran Rue était proposé à 22 u ; avec les personnages en ligne claire, on n'y voit plus que des points d'environ 30 px. À 18 u, on reconnaît encore une coiffure et la couleur des épaules, et toute la place tient à l'écran. Les crans sont dans `scripts/village/village.gd` (`CAMERA_NOTCHES`) ; la molette passe de l'un à l'autre.
 
 Au-delà du cran « quartier », on ne dézoome plus : on ouvre le plan du village (carnet) ou, plus tard, la carte de la Vienne. Le flou de bascule (tilt-shift) reste à tous les crans et s'accorde à la distance, comme aujourd'hui ; c'est lui qui garde l'effet maquette quand on s'éloigne. Sur téléphone en paysage, le cran par défaut se rapproche d'environ 20 % (le fil web et mobile tranchera).
 
 ### Ce que cela impose aux personnages
 
-- **Vus à 52°, on voit surtout le dessus de la tête et les épaules.** Un personnage se reconnaît donc d'abord à sa coiffure ou à son chapeau, puis à la couleur de ses épaules. Les fiches de la bible doivent avoir, pour chaque personnage nommé, un **signe vu d'en haut** : la permanente blonde de Josiane, le béret de Dédé, la casquette de Lucien, la raie sur le côté et les épaules gris anthracite de M. Brunet, le nœud papillon or et le costume bleu nuit du nouveau venu.
-- **Taille minimale : 50 px au cran « rue ».** En dessous de 40 px, on ne lit plus un visage, seulement une silhouette ; c'est le contour noir de la ligne claire qui la tient.
+- **Vus à 51°, on voit surtout le dessus de la tête et les épaules.** Un personnage se reconnaît donc d'abord à sa coiffure ou à son chapeau, puis à la couleur de ses épaules. Les fiches de la bible doivent avoir, pour chaque personnage nommé, un **signe vu d'en haut** : la permanente blonde de Josiane, le béret de Dédé, la casquette de Lucien, la raie sur le côté et les épaules gris anthracite de M. Brunet, le nœud papillon or et le costume bleu nuit du nouveau venu.
+- **Taille minimale : environ 45 px au cran « rue ».** En dessous de 40 px, on ne lit plus un visage, seulement une silhouette ; c'est le contour noir de la ligne claire qui la tient.
 - **Une ombre portée nette sous chaque personnage**, qui le pose sur le sol et le détache des pavés.
 - **Au cran « quartier »**, les personnages nommés gagnent une petite pastille au-dessus de la tête (leur signe vu d'en haut, en icône), les figurants non.
 - **Coût** : au-delà de 40 m, l'animation tombe à quelques images par seconde et le visage ne s'anime plus ; au-delà de 90 m, les figurants disparaissent (c'est déjà le principe de `villager.gd`, à étendre).
@@ -93,7 +95,7 @@ Au-delà du cran « quartier », on ne dézoome plus : on ouvre le plan du villa
 ### Ce que cela impose aux façades
 
 - **Les toits font la moitié de l'image.** Ils doivent varier : tuile canal ocre pour le bourg, ardoise pour la mairie, le Crédit Smarvois et les maisons de maître, zinc pour les ateliers, cheminées, lucarnes, chiens-assis, antennes râteau. Aujourd'hui les toits sont tous les mêmes.
-- **Les enseignes doivent se lire d'en haut.** Une enseigne plaquée sur la façade disparaît à 52°. Les lieux de jeu ont donc une **enseigne en potence** (perpendiculaire à la rue) ou une **enseigne sur le toit** (CASINO, JACKPOT, LOTO CE SOIR), avec des lettres d'au moins 0,5 unité de haut.
+- **Les enseignes doivent se lire d'en haut.** Une enseigne plaquée sur la façade disparaît à 51°. Les lieux de jeu ont donc une **enseigne en potence** (perpendiculaire à la rue) ou une **enseigne sur le toit** (CASINO, JACKPOT, LOTO CE SOIR), avec des lettres d'au moins 0,5 unité de haut.
 - **La lumière guide.** Une vitrine allumée veut dire « ouvert » ; une fenêtre éteinte et des volets clos, « fermé » ; une porte entrouverte avec un rai de lumière, « lieu caché ». C'est le seul code couleur du village, et il ne s'écrit nulle part.
 - **Construction par distance**, comme les îlots d'Addict : les façades détaillées dans un rayon d'environ 70 m, des volumes simples avec toit et fenêtres allumées au-delà, rien après 150 m sauf les repères.
 
