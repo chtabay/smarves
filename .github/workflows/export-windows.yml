@@ -69,10 +69,89 @@ jobs:
           name: Smarves — dernière version
           body: |
             Version construite automatiquement depuis main (${{ github.sha }}).
-            Télécharger, décompresser, lancer Smarves.exe (Windows 64 bits).
+            Sur Windows (64 bits) : télécharger Smarves-installateur.exe et le lancer ; il installe le jeu
+            sans droits administrateur et pose un raccourci dans le menu Démarrer et sur le bureau.
+            Sans installation : Smarves-windows.zip, à décompresser, puis lancer Smarves.exe.
             Sur téléphone Android : télécharger Smarves.apk depuis le téléphone et l'installer.
           files: Smarves-windows.zip
           make_latest: true
+
+  # L'installateur Windows (Inno Setup, installer/smarves.iss), construit sur un runner Windows à
+  # partir de l'exécutable exporté, puis essayé de bout en bout : installation silencieuse, raccourcis,
+  # lancement du jeu par le raccourci, désinstallation. Sur main, il rejoint la Release.
+  installateur-windows:
+    needs: export
+    if: github.event_name != 'schedule'
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: Smarves-windows
+          path: build
+
+      - name: Construire l'installateur
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress | Out-Null
+          }
+          if (-not (Test-Path $iscc)) { throw "Inno Setup introuvable" }
+          $version = "${{ github.sha }}".Substring(0, 7)
+          & $iscc /Q "/DVersion=$version" installer\smarves.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC a échoué ($LASTEXITCODE)" }
+          if (-not (Test-Path build\Smarves-installateur.exe)) { throw "Pas d'installateur" }
+          "Taille de l'installateur : {0:N1} Mo" -f ((Get-Item build\Smarves-installateur.exe).Length / 1MB) >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Essayer l'installateur
+        run: |
+          $dossier = Join-Path $env:LOCALAPPDATA "Programs\Smarves"
+          $menu = Join-Path ([Environment]::GetFolderPath("Programs")) "Smarves.lnk"
+          $bureau = Join-Path ([Environment]::GetFolderPath("Desktop")) "Smarves.lnk"
+          $p = Start-Process build\Smarves-installateur.exe -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=installation.log" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { Get-Content installation.log; throw "Installation : code $($p.ExitCode)" }
+          foreach ($f in @("$dossier\Smarves.exe", "$dossier\unins000.exe", $menu, $bureau)) {
+            if (-not (Test-Path $f)) { Get-Content installation.log; throw "Absent après installation : $f" }
+            "Installé : $f"
+          }
+          $cle = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{6F3B0C52-8A0E-4B8D-9E1C-5D2A7C4E9B31}_is1"
+          if (-not (Test-Path $cle)) { throw "Smarves absent de « Applications installées »" }
+
+          # Lancer le jeu comme le ferait un double-clic sur le raccourci du bureau.
+          $cible = (New-Object -ComObject WScript.Shell).CreateShortcut($bureau).TargetPath
+          if ($cible -ne "$dossier\Smarves.exe") { throw "Le raccourci vise $cible" }
+          $jeu = Start-Process $cible -ArgumentList "--headless", "--quit-after", "600" -Wait -PassThru -RedirectStandardOutput jeu.log -RedirectStandardError jeu-erreurs.log
+          Get-Content jeu.log, jeu-erreurs.log | Select-Object -Last 20
+          if ($jeu.ExitCode -ne 0) { throw "Le jeu installé s'est arrêté avec le code $($jeu.ExitCode)" }
+
+          # Réinstaller par-dessus (mise à jour), puis désinstaller.
+          $p = Start-Process build\Smarves-installateur.exe -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Réinstallation : code $($p.ExitCode)" }
+          Start-Process "$dossier\unins000.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait
+          # Le désinstallateur se relance depuis un dossier temporaire : attendre qu'il ait fini.
+          for ($i = 0; $i -lt 60 -and (Test-Path "$dossier\Smarves.exe"); $i++) { Start-Sleep 1 }
+          foreach ($f in @("$dossier\Smarves.exe", $menu, $bureau, $cle)) {
+            if (Test-Path $f) { throw "Encore là après désinstallation : $f" }
+          }
+          "Installation, raccourcis, lancement, mise à jour et désinstallation vérifiés." >> $env:GITHUB_STEP_SUMMARY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Smarves-installateur
+          path: build/Smarves-installateur.exe
+          retention-days: 30
+
+      - name: Ajouter l'installateur à la Release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: derniere-version
+          files: build/Smarves-installateur.exe
 
   android:
     if: github.event_name != 'schedule'

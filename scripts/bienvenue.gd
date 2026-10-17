@@ -178,7 +178,7 @@ func _remplir_version() -> void:
 		lignes.append("Une version plus récente du jeu est prête.")
 	_box.add_child(_mot("\n".join(lignes), 16, TEXTE, null, true))
 	_box.add_child(_bouton("Télécharger la nouvelle version", Color(0, 0, 0, 0), OR, OR, Version.telecharger))
-	var mode := {"Windows": "Décompressez l'archive puis lancez Smarves.exe : votre partie vous suit.",
+	var mode := {"Windows": "Lancez l'installateur : il remplace le jeu, et votre partie vous suit.",
 			"Android": "Installez l'APK par-dessus le jeu : votre partie vous suit."}
 	if mode.has(OS.get_name()):
 		_box.add_child(_mot(mode[OS.get_name()], 15, DOUX, null, true))
