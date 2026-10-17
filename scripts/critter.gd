@@ -1,257 +1,344 @@
 extends Node3D
-## Un habitant de Smarves, façon Happy Tree Friends : grosse tête ronde, grands yeux brillants,
-## petit corps fin, oreilles d'animal. Animé par le code (respiration, marche, assis, joie, dépit).
-## Il regarde +Z ; hauteur totale environ 0,72 à l'échelle 1.
+## Un habitant de Smarves, façon Happy Tree Friends : grosse tête ronde, grands yeux brillants, petit corps.
+## Le corps vient de sa fiche (Cast, CritterMesh), les mouvements de la bibliothèque commune (CritterAnims) ;
+## le visage (clignements, sourire, moue, bouche qui parle, sourcils) et le regard sont tenus ici, par le code.
+## Il regarde +Z ; environ 0,75 de haut à l'échelle 1.
 
 enum Pose { IDLE, WALK, SIT, CHEER, SULK }
 
-const SPECIES := ["ours", "lapin", "chat", "souris", "renard", "castor"]
-const FURS := [Color(0.98, 0.72, 0.42), Color(0.72, 0.85, 1.0), Color(1.0, 0.78, 0.86), Color(0.8, 0.95, 0.7),
-	Color(0.85, 0.75, 1.0), Color(1.0, 0.92, 0.55), Color(0.95, 0.55, 0.45), Color(0.75, 0.62, 0.5)]
-const OUTFITS := [Color(0.85, 0.15, 0.2), Color(0.15, 0.3, 0.75), Color(0.12, 0.12, 0.16), Color(0.95, 0.95, 0.92),
-	Color(0.2, 0.55, 0.35), Color(0.55, 0.2, 0.6), Color(0.95, 0.6, 0.15)]
-
-@export var species := "ours"
+## Ancienne façon de l'habiller, encore comprise : espèce, pelage, tenue, accessoire.
+@export var species := ""
 @export var fur := Color(0.98, 0.72, 0.42)
 @export var outfit := Color(0.85, 0.15, 0.2)
-## "", "noeud" (croupier), "cravate" (banquier), "chapeau", "collier"
 @export var accessory := ""
 
-var pose := Pose.IDLE
-var _t := randf() * 10.0
-var _body: Node3D
-var _head: Node3D
-var _arm_l: Node3D
-var _arm_r: Node3D
-var _leg_l: Node3D
-var _leg_r: Node3D
-var _cheer_time := 0.0
+## Sa fiche (voir Cast) ; vide = tirée de l'ancienne façon ou au hasard.
+var look: Dictionary = {}
+## La pose de fond au repos et assis (voir CritterAnims.BASE).
+var idle_anim := "idle"
+var sit_anim := "sit"
+## Vitesse de marche de référence (unités par seconde à l'échelle 1) et seuil de course.
+var walk_speed := 0.6
+var run_speed := 1.1
+
+var pose := Pose.IDLE:
+	set = set_pose
+
+var skeleton: Skeleton3D
+var body: MeshInstance3D
+var tree: AnimationTree
+var height := 0.75
+
+var _rest: Array = []
+var _hip_y := 0.18
+var _look_mod: LookAtModifier3D
+var _look_target: Marker3D
+var _look_weight := 0.0
+var _look_goal := 0.0
+var _base := ""
+var _speed := 0.0
+var _last_pos := Vector3.INF
+var _sit := 0.0
+var _seed := 0
+var _forced := ""
+
+# Le visage.
+var _blink := 0.0
+var _blink_wait := 3.0
+var _expr := "neutre"
+var _expr_time := 0.0
+var _talk := 0.0
+var _face := {"smile": 1.0, "frown": 0.0, "mouth": 0.0, "brow": 0.0, "brow_up": 0.0, "eye": 1.0}
+var _t := 0.0
+
+# Mise à jour économe : plus loin, moins souvent ; hors champ, presque jamais.
+var _lod_wait := 0.0
+var _step := 1
+var _frame := 0
+var _acc := 0.0
+var _on_screen := true
+
+const EXPRESSIONS := {
+	"neutre": {"smile": 1.0, "frown": 0.0, "mouth": 0.0, "brow": 0.0, "brow_up": 0.0, "eye": 1.0},
+	"joie": {"smile": 1.3, "frown": 0.0, "mouth": 0.8, "brow": 0.1, "brow_up": 0.012, "eye": 0.72},
+	"depit": {"smile": 0.0, "frown": 1.0, "mouth": 0.0, "brow": -0.4, "brow_up": 0.005, "eye": 0.82},
+	"surprise": {"smile": 0.15, "frown": 0.0, "mouth": 1.0, "brow": 0.15, "brow_up": 0.02, "eye": 1.15},
+	"attention": {"smile": 0.7, "frown": 0.0, "mouth": 0.0, "brow": 0.18, "brow_up": -0.003, "eye": 0.95},
+}
 
 
 ## Tire un habitant au hasard, à partir d'une graine (pour qu'un même nom donne toujours le même).
 func randomize_look(seed_value: int) -> void:
-	var rng := RandomNumberGenerator.new()
-	rng.seed = seed_value
-	species = SPECIES[rng.randi() % SPECIES.size()]
-	fur = FURS[rng.randi() % FURS.size()]
-	outfit = OUTFITS[rng.randi() % OUTFITS.size()]
+	_seed = seed_value
+	look = Cast.resolve("", "habitant", "", seed_value, "idle", false).look
 
 
 func _ready() -> void:
-	var fur_m := _mat(fur, 0.65)
-	var light_fur := _mat(fur.lerp(Color.WHITE, 0.55), 0.7)
-	var cloth := _mat(outfit, 0.55)
-	var dark := _mat(Color(0.08, 0.06, 0.08), 0.3)
-	var white := _mat(Color(1, 1, 1), 0.15)
-	var pink := _mat(Color(1.0, 0.55, 0.65), 0.8)
-
-	_body = Node3D.new()
-	add_child(_body)
-	# Jambes fines et petites chaussures.
-	_leg_l = _limb(_body, Vector3(-0.045, 0.2, 0), 0.026, 0.19, fur_m)
-	_leg_r = _limb(_body, Vector3(0.045, 0.2, 0), 0.026, 0.19, fur_m)
-	for leg in [_leg_l, _leg_r]:
-		var shoe := _sphere(leg, Vector3(0, -0.19, 0.02), Vector3(0.045, 0.03, 0.065), dark)
-		shoe.name = "Shoe"
-	# Le corps : un petit tronc en poire habillé.
-	_sphere(_body, Vector3(0, 0.3, 0), Vector3(0.085, 0.12, 0.07), cloth)
-	_sphere(_body, Vector3(0, 0.25, 0.0), Vector3(0.095, 0.07, 0.08), cloth)
-	# Bras fins, mains rondes.
-	_arm_l = _limb(_body, Vector3(-0.085, 0.38, 0), 0.02, 0.17, cloth)
-	_arm_r = _limb(_body, Vector3(0.085, 0.38, 0), 0.02, 0.17, cloth)
-	for arm in [_arm_l, _arm_r]:
-		_sphere(arm, Vector3(0, -0.18, 0), Vector3(0.03, 0.03, 0.03), fur_m)
-	# La tête : grosse, ronde, un museau clair, des joues roses.
-	_head = Node3D.new()
-	_head.position = Vector3(0, 0.56, 0)
-	_body.add_child(_head)
-	_sphere(_head, Vector3(0, 0, 0), Vector3(0.165, 0.155, 0.15), fur_m)
-	_sphere(_head, Vector3(0, -0.05, 0.11), Vector3(0.07, 0.05, 0.05), light_fur)
-	_sphere(_head, Vector3(0, -0.025, 0.155), Vector3(0.018, 0.014, 0.012), dark)
-	for s in [-1.0, 1.0]:
-		_sphere(_head, Vector3(s * 0.1, -0.05, 0.105), Vector3(0.025, 0.015, 0.01), pink)
-		# Grands yeux : blanc, pupille, reflet.
-		_sphere(_head, Vector3(s * 0.058, 0.02, 0.118), Vector3(0.048, 0.058, 0.03), white)
-		_sphere(_head, Vector3(s * 0.054, 0.012, 0.142), Vector3(0.028, 0.036, 0.012), dark)
-		var glint := _sphere(_head, Vector3(s * 0.045 + 0.008, 0.03, 0.152), Vector3(0.009, 0.009, 0.004), white)
-		glint.material_override = _glow()
-	# La bouche : un petit sourire.
-	var smile := MeshInstance3D.new()
-	var tm := TorusMesh.new()
-	tm.inner_radius = 0.018
-	tm.outer_radius = 0.024
-	tm.rings = 12
-	smile.mesh = tm
-	smile.material_override = dark
-	smile.position = Vector3(0, -0.075, 0.143)
-	smile.rotation_degrees = Vector3(90, 0, 0)
-	smile.scale = Vector3(1, 1, 0.4)
-	_head.add_child(smile)
-	_ears(fur_m, pink)
-	_accessory(dark, cloth)
+	if look.is_empty():
+		if species != "":
+			look = Cast.from_legacy(species, fur, outfit, accessory)
+		else:
+			randomize_look(randi())
+	_t = randf() * 10.0
+	_blink_wait = randf_range(1.0, 4.0)
+	_build()
 
 
-func _ears(fur_m: Material, pink: Material) -> void:
-	match species:
-		"lapin":
-			for s in [-1.0, 1.0]:
-				var e := _sphere(_head, Vector3(s * 0.06, 0.2, -0.01), Vector3(0.035, 0.11, 0.025), fur_m)
-				e.rotation_degrees.z = s * -12.0
-				_sphere(e, Vector3(0, 0, 0.6), Vector3(0.55, 0.8, 0.3), pink)
-		"chat", "renard":
-			for s in [-1.0, 1.0]:
-				var e := MeshInstance3D.new()
-				var c := CylinderMesh.new()
-				c.top_radius = 0.0
-				c.bottom_radius = 0.06
-				c.height = 0.11 if species == "chat" else 0.14
-				c.radial_segments = 4
-				e.mesh = c
-				e.material_override = fur_m
-				e.position = Vector3(s * 0.1, 0.14, 0)
-				e.rotation_degrees = Vector3(0, 45, s * -22.0)
-				_head.add_child(e)
-		"souris":
-			for s in [-1.0, 1.0]:
-				var e := _sphere(_head, Vector3(s * 0.13, 0.12, -0.02), Vector3(0.075, 0.075, 0.02), fur_m)
-				_sphere(e, Vector3(0, 0, 0.6), Vector3(0.7, 0.7, 0.4), pink)
-		"castor":
-			for s in [-1.0, 1.0]:
-				_sphere(_head, Vector3(s * 0.12, 0.11, 0), Vector3(0.035, 0.035, 0.02), fur_m)
-			var teeth := _sphere(_head, Vector3(0, -0.09, 0.15), Vector3(0.022, 0.02, 0.008), _mat(Color.WHITE, 0.3))
-			teeth.name = "Teeth"
-		_:
-			for s in [-1.0, 1.0]:
-				_sphere(_head, Vector3(s * 0.115, 0.12, -0.01), Vector3(0.05, 0.05, 0.03), fur_m)
+## Change d'habit (le joueur au vestiaire, par exemple) sans perdre sa pose.
+func set_look(l: Dictionary) -> void:
+	look = l
+	if skeleton:
+		skeleton.queue_free()
+		tree.queue_free()
+		_look_target.queue_free()
+		skeleton = null
+		_base = ""
+		_build()
 
 
-func _accessory(dark: Material, cloth: Material) -> void:
-	match accessory:
-		"noeud":
-			for s in [-1.0, 1.0]:
-				var b := _sphere(_body, Vector3(s * 0.022, 0.415, 0.062), Vector3(0.022, 0.016, 0.01), dark)
-				b.rotation_degrees.z = s * 20.0
-		"cravate":
-			_sphere(_body, Vector3(0, 0.36, 0.07), Vector3(0.012, 0.05, 0.008), _mat(Color(0.75, 0.1, 0.15), 0.4))
-		"chapeau":
-			var brim := MeshInstance3D.new()
-			var c := CylinderMesh.new()
-			c.top_radius = 0.16
-			c.bottom_radius = 0.16
-			c.height = 0.01
-			brim.mesh = c
-			brim.material_override = dark
-			brim.position = Vector3(0, 0.12, 0)
-			_head.add_child(brim)
-			var top := MeshInstance3D.new()
-			var t := CylinderMesh.new()
-			t.top_radius = 0.09
-			t.bottom_radius = 0.1
-			t.height = 0.12
-			top.mesh = t
-			top.material_override = dark
-			top.position = Vector3(0, 0.18, 0)
-			_head.add_child(top)
-		"collier":
-			for k in 9:
-				var a := PI * (k / 8.0)
-				_sphere(_body, Vector3(cos(a) * 0.06, 0.415 - sin(a) * 0.03, 0.04 + sin(a) * 0.02), Vector3(0.008, 0.008, 0.008), _mat(Color(0.98, 0.95, 0.9), 0.1))
+func _build() -> void:
+	var data := CritterMesh.build(look)
+	_rest = data.rest
+	height = data.height
+	_hip_y = _rest[CritterMesh.HIPS].y
+	skeleton = Skeleton3D.new()
+	skeleton.name = "Skeleton3D"
+	for i in CritterMesh.BONES.size():
+		skeleton.add_bone(CritterMesh.BONES[i][0])
+	for i in CritterMesh.BONES.size():
+		var parent: int = CritterMesh.BONES[i][1]
+		skeleton.set_bone_parent(i, parent)
+		var local: Vector3 = _rest[i] - (_rest[parent] if parent >= 0 else Vector3.ZERO)
+		skeleton.set_bone_rest(i, Transform3D(Basis(), local))
+	skeleton.reset_bone_poses()
+	add_child(skeleton)
+	body = MeshInstance3D.new()
+	body.mesh = data.mesh
+	body.skin = data.skin
+	skeleton.add_child(body)
+	body.skeleton = NodePath("..")
+	for b in [CritterMesh.FROWN, CritterMesh.MOUTH]:
+		skeleton.set_bone_pose_scale(b, Vector3.ONE * 0.001)
+	# Le regard : la tête se tourne vers un point, en douceur et sans dévisser.
+	_look_target = Marker3D.new()
+	_look_target.top_level = true
+	add_child(_look_target)
+	_look_mod = LookAtModifier3D.new()
+	_look_mod.bone_name = "head"
+	_look_mod.forward_axis = SkeletonModifier3D.BONE_AXIS_PLUS_Z
+	_look_mod.primary_rotation_axis = Vector3.AXIS_Y
+	_look_mod.use_angle_limitation = true
+	_look_mod.symmetry_limitation = true
+	_look_mod.primary_limit_angle = deg_to_rad(150.0)
+	_look_mod.primary_damp_threshold = 0.6
+	_look_mod.secondary_limit_angle = deg_to_rad(70.0)
+	_look_mod.secondary_damp_threshold = 0.6
+	_look_mod.duration = 0.35
+	_look_mod.transition_type = Tween.TRANS_SINE
+	_look_mod.ease_type = Tween.EASE_IN_OUT
+	_look_mod.influence = 0.0
+	skeleton.add_child(_look_mod)
+	_look_mod.target_node = _look_mod.get_path_to(_look_target)
+	tree = AnimationTree.new()
+	tree.add_animation_library("", CritterAnims.library())
+	tree.tree_root = CritterAnims.tree_root()
+	tree.deterministic = false
+	tree.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
+	add_child(tree)
+	tree.active = true
+	_play_base(_wanted_base(), true)
+	tree.set("parameters/seek/seek_request", randf() * 3.0)
+	tree.advance(0.0)
 
 
-func _mat(c: Color, rough: float) -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.albedo_color = c
-	m.roughness = rough
-	m.rim_enabled = true
-	m.rim = 0.25
-	return m
+# --- Poses et gestes -------------------------------------------------------------------------
+
+func set_pose(p: Pose) -> void:
+	match p:
+		Pose.CHEER:
+			cheer()
+			return
+		Pose.SULK:
+			gesture("sulk")
+			set_expression("depit", 1.6)
+			return
+	pose = p
 
 
-var _glint_mat: StandardMaterial3D
+func _wanted_base() -> String:
+	if _forced != "":
+		return _forced
+	match pose:
+		Pose.SIT:
+			return sit_anim
+		Pose.WALK:
+			if _speed > run_speed:
+				return "run"
+			if _speed > 0.05:
+				return "walk"
+	return idle_anim
 
 
-func _glow() -> StandardMaterial3D:
-	if _glint_mat == null:
-		_glint_mat = StandardMaterial3D.new()
-		_glint_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		_glint_mat.albedo_color = Color(1, 1, 1)
-	return _glint_mat
+func _play_base(name: String, now := false) -> void:
+	if name == _base or tree == null:
+		return
+	_base = name
+	tree.set("parameters/base/transition_request", name)
+	if now:
+		tree.advance(0.31)
 
 
-func _sphere(parent: Node3D, pos: Vector3, radii: Vector3, mat: Material) -> MeshInstance3D:
-	var m := MeshInstance3D.new()
-	var s := SphereMesh.new()
-	s.radius = 1.0
-	s.height = 2.0
-	s.radial_segments = 20
-	s.rings = 10
-	m.mesh = s
-	m.scale = radii
-	m.position = pos
-	m.material_override = mat
-	parent.add_child(m)
-	return m
+## Un geste par-dessus la pose de fond : talk, wave, cheer, sulk, shrug, clap, bet, deal, spin, rake, nod, bow,
+## scratch, look_watch, drink, point, facepalm ; ou du corps entier, debout : jump, stomp.
+func gesture(name: String) -> void:
+	if tree == null:
+		return
+	if name in CritterAnims.FULL:
+		if pose == Pose.SIT or _speed > 0.05:
+			name = {"jump": "cheer", "stomp": "sulk"}[name]
+		else:
+			tree.set("parameters/fullg/transition_request", name)
+			tree.set("parameters/full/request", AnimationNodeOneShot.ONE_SHOT_REQUEST_FIRE)
+			return
+	if name in CritterAnims.GESTURES:
+		tree.set("parameters/gest/transition_request", name)
+		tree.set("parameters/shot/request", AnimationNodeOneShot.ONE_SHOT_REQUEST_FIRE)
 
 
-## Un membre qui pivote à son attache (épaule, hanche) : l'origine est en haut.
-func _limb(parent: Node3D, pivot: Vector3, r: float, length: float, mat: Material) -> Node3D:
-	var root := Node3D.new()
-	root.position = pivot
-	parent.add_child(root)
-	var m := MeshInstance3D.new()
-	var c := CapsuleMesh.new()
-	c.radius = r
-	c.height = length
-	c.radial_segments = 10
-	m.mesh = c
-	m.material_override = mat
-	m.position = Vector3(0, -length / 2.0, 0)
-	root.add_child(m)
-	return root
+func is_busy() -> bool:
+	return tree != null and (bool(tree.get("parameters/shot/active")) or bool(tree.get("parameters/full/active")))
 
 
+## La joie : un saut debout, les bras levés assis.
 func cheer(duration := 1.6) -> void:
-	_cheer_time = duration
+	gesture("jump" if duration > 0.8 else "cheer")
+	set_expression("joie", maxf(duration, 1.2))
 
+
+func set_expression(name: String, duration := 0.0) -> void:
+	_expr = name if EXPRESSIONS.has(name) else "neutre"
+	_expr_time = duration
+
+
+## La bouche bouge pendant qu'il parle.
+func talk(duration: float) -> void:
+	_talk = duration
+
+
+## Tourne la tête vers un point (weight 0 à 1) ; weight 0 la ramène.
+func look_at_point(p: Vector3, weight := 1.0) -> void:
+	if _look_target:
+		_look_target.global_position = p
+	_look_goal = weight
+
+
+func clear_look() -> void:
+	_look_goal = 0.0
+
+
+# --- Chaque image ------------------------------------------------------------------------------
 
 func _process(delta: float) -> void:
+	if tree == null:
+		return
 	_t += delta
-	var swing := 0.0
-	_body.position = Vector3.ZERO
-	_head.rotation = Vector3.ZERO
-	match pose:
-		Pose.WALK:
-			swing = sin(_t * 9.0) * 0.6
-			_body.position.y = absf(sin(_t * 9.0)) * 0.015
-			_leg_l.rotation.x = swing
-			_leg_r.rotation.x = -swing
-			_arm_l.rotation = Vector3(-swing * 0.8, 0, -0.12)
-			_arm_r.rotation = Vector3(swing * 0.8, 0, 0.12)
-		Pose.SIT:
-			_body.position.y = -0.11
-			_leg_l.rotation.x = -1.45
-			_leg_r.rotation.x = -1.45
-			_arm_l.rotation = Vector3(-0.6, 0, -0.1)
-			_arm_r.rotation = Vector3(-0.6 + sin(_t * 1.3) * 0.15, 0, 0.1)
-			_head.rotation.z = sin(_t * 0.7) * 0.06
-		Pose.SULK:
-			_head.rotation.x = 0.35
-			_arm_l.rotation = Vector3(0, 0, -0.05)
-			_arm_r.rotation = Vector3(0, 0, 0.05)
-			_leg_l.rotation.x = 0.0
-			_leg_r.rotation.x = 0.0
-		_:
-			_body.position.y = sin(_t * 2.0) * 0.004
-			_head.rotation.z = sin(_t * 0.9) * 0.05
-			_head.rotation.x = sin(_t * 0.6) * 0.04
-			_leg_l.rotation.x = 0.0
-			_leg_r.rotation.x = 0.0
-			_arm_l.rotation = Vector3(sin(_t * 1.1) * 0.05, 0, -0.15)
-			_arm_r.rotation = Vector3(-sin(_t * 1.1) * 0.05, 0, 0.15)
-	if _cheer_time > 0.0:
-		_cheer_time -= delta
-		var hop := absf(sin(_cheer_time * 10.0))
-		_arm_l.rotation = Vector3(0, 0, -2.6 - hop * 0.3)
-		_arm_r.rotation = Vector3(0, 0, 2.6 + hop * 0.3)
-		if pose != Pose.SIT:
-			_body.position.y += hop * 0.05
+	var gp := global_position
+	var sc := maxf(0.01, global_basis.get_scale().y)
+	if _last_pos != Vector3.INF and delta > 0.0:
+		var d := gp - _last_pos
+		d.y = 0.0
+		_speed = lerpf(_speed, d.length() / delta / sc, 1.0 - exp(-12.0 * delta))
+	_last_pos = gp
+	_lod(delta, gp, sc)
+	_frame += 1
+	_acc += delta
+	if (_frame % _step) != 0:
+		return
+	var dt := minf(_acc, 0.25)
+	_acc = 0.0
+	_play_base(_wanted_base())
+	if _base == "walk":
+		tree.set("parameters/speed/scale", clampf(_speed / walk_speed, 0.6, 1.6))
+	elif _base == "run":
+		tree.set("parameters/speed/scale", clampf(_speed / (walk_speed * 2.3), 0.8, 1.5))
+	else:
+		tree.set("parameters/speed/scale", 1.0)
+	tree.advance(dt)
+	# Assis : le corps descend sur la chaise.
+	var sit_goal := (_hip_y - 0.09) if pose == Pose.SIT else 0.0
+	_sit = lerpf(_sit, sit_goal, 1.0 - exp(-8.0 * dt))
+	skeleton.position.y = -_sit
+	_look_weight = move_toward(_look_weight, _look_goal, dt * 2.5)
+	_look_mod.influence = _look_weight
+	_look_mod.active = _look_weight > 0.001
+	if _step <= 2:
+		_update_face(dt)
+
+
+func _lod(delta: float, gp: Vector3, sc: float) -> void:
+	_lod_wait -= delta
+	if _lod_wait > 0.0:
+		return
+	_lod_wait = 0.3 + randf() * 0.1
+	var cam := get_viewport().get_camera_3d()
+	if cam == null:
+		_step = 1
+		return
+	var dist := cam.global_position.distance_to(gp) / sc
+	_on_screen = cam.is_position_in_frustum(gp + Vector3.UP * 0.4 * sc)
+	if not _on_screen:
+		_step = 8
+	elif dist < 7.0:
+		_step = 1
+	elif dist < 16.0:
+		_step = 2
+	else:
+		_step = 3
+
+
+func _update_face(dt: float) -> void:
+	if _expr_time > 0.0:
+		_expr_time -= dt
+		if _expr_time <= 0.0:
+			_expr = "neutre"
+	var goal: Dictionary = EXPRESSIONS[_expr]
+	var k := 1.0 - exp(-10.0 * dt)
+	for key in _face:
+		_face[key] = lerpf(_face[key], goal[key], k)
+	var mouth: float = _face.mouth
+	if _talk > 0.0:
+		_talk -= dt
+		mouth = maxf(mouth, 0.2 + 0.65 * absf(sin(_t * 13.0) * sin(_t * 4.7 + 1.0)))
+	# Les clignements.
+	_blink_wait -= dt
+	if _blink_wait <= 0.0:
+		_blink = 0.13
+		_blink_wait = randf_range(2.0, 5.5)
+	var eye: float = _face.eye
+	if _blink > 0.0:
+		_blink -= dt
+		eye = 0.08
+	var S := CritterMesh
+	skeleton.set_bone_pose_scale(S.SMILE, Vector3.ONE * maxf(0.001, _face.smile))
+	skeleton.set_bone_pose_scale(S.FROWN, Vector3.ONE * maxf(0.001, _face.frown))
+	skeleton.set_bone_pose_scale(S.MOUTH, Vector3(1.0, maxf(0.001, mouth), 1.0) * (0.001 if mouth < 0.02 else 1.0))
+	for side in [1.0, -1.0]:
+		skeleton.set_bone_pose_scale(S.EYE_L if side > 0 else S.EYE_R, Vector3(1.0, eye, 1.0))
+		var b := S.BROW_L if side > 0 else S.BROW_R
+		skeleton.set_bone_pose_rotation(b, Quaternion(Vector3.BACK, side * _face.brow))
+		skeleton.set_bone_pose_position(b, skeleton.get_bone_rest(b).origin + Vector3(0, _face.brow_up, 0))
+
+
+## Pour les planches et les captures : force une pose, un geste ou une expression.
+func debug_anim(what: String) -> void:
+	if what in CritterAnims.BASE:
+		idle_anim = what
+		sit_anim = what if what in ["sit", "sit_table", "piano"] else sit_anim
+		if what in ["sit", "sit_table", "piano"]:
+			pose = Pose.SIT
+		_forced = what
+		_play_base(what, true)
+	elif what in EXPRESSIONS:
+		set_expression(what, 100.0)
+	else:
+		gesture(what)

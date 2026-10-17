@@ -888,10 +888,15 @@ func _spawn_player() -> void:
 	player.interact.connect(_on_player_interact)
 	# L'habitant qu'on dirige en vue de dessus : un petit renard en costume.
 	var me := VILLAGER.CRITTER.new()
-	me.species = "renard"
-	me.fur = Color(1.0, 0.62, 0.32)
-	me.outfit = Biens.outfit_color(Color(0.1, 0.12, 0.25))
-	me.accessory = "noeud"
+	# La tenue achetée chez Raymonde habille le renard (Biens.worn).
+	me.look = Cast.player(Biens.worn)
+	var worn := [Biens.worn]
+	Biens.changed.connect(func():
+		if is_instance_valid(me) and Biens.worn != worn[0]:
+			worn[0] = Biens.worn
+			me.set_look(Cast.player(Biens.worn)))
+	me.walk_speed = 1.0
+	me.run_speed = 1.9
 	me.rotation.y = PI
 	player.add_child(me)
 	player.avatar = me

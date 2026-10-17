@@ -353,6 +353,11 @@ func _build_keeper() -> void:
 	c.fur = k.fur
 	c.outfit = k.outfit
 	c.accessory = k.acc
+	# Leur fiche de personnage (docs/PERSONNAGES.md), si elle existe.
+	var who: String = {"notaire": "garnier", "couture": "raymonde", "garage": "fradin"}.get(shop, "")
+	if Cast.NAMED.has(who):
+		c.look = Cast.NAMED[who].duplicate(true)
+		c.idle_anim = "attentive"
 	c.scale = Vector3.ONE * PEOPLE_SCALE
 	_keeper.add_child(c)
 	var host: String = Biens.SELLERS[shop].host
@@ -665,6 +670,10 @@ func _on_interact(target: Node) -> void:
 			get_tree().change_scene_to_file("res://scenes/main.tscn")
 		"keeper":
 			say((KEEPERS.get(shop, KEEPERS.notaire).lines as Array).pick_random())
+			var keeper := _keeper.get_child(0)
+			if keeper.has_method("gesture"):
+				keeper.gesture("talk")
+				keeper.talk(2.5)
 			open_vitrine()
 
 
