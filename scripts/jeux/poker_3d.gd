@@ -221,6 +221,9 @@ func _deal_board(cards: Array) -> void:
 
 ## Les mains encore en jeu se retournent.
 func _reveal() -> void:
+	# Le panneau a pu fermer pendant que le geste attendait son tour : plus de mains à lire.
+	if not is_instance_valid(panel):
+		return
 	for i in _hole:
 		if i == 0 or panel.seats[i].folded:
 			continue
@@ -359,6 +362,8 @@ func _on_showdown(winners: Array, show_all: bool, amount: int) -> void:
 		schedule(0.5, _reveal)
 		schedule(0.6, func(): shot(look(Vector3(0.0, 2.2, 1.45), Vector3(0.0, felt_y, -0.15)), 0.7, 66.0))
 	schedule(1.3, func():
+		if not is_instance_valid(panel):
+			return
 		var names: Array[String] = []
 		for w in winners:
 			names.append("Vous" if w == 0 else panel.seats[w].name)
