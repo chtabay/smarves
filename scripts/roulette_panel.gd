@@ -184,9 +184,7 @@ func _pick_chip(i: int) -> void:
 
 
 func _serif() -> Font:
-	var f := SystemFont.new()
-	f.font_names = PackedStringArray(["Georgia", "Palatino Linotype", "DejaVu Serif", "serif"])
-	return f
+	return Polices.texte()
 
 
 func _cell(text: String, key: String, color: Color) -> Button:

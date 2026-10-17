@@ -29,7 +29,7 @@ var offsets := [0.0, 0.0, 0.0]
 var speeds := [0.0, 0.0, 0.0]
 var stop_at := [-1, -1, -1]
 var reels: Array[Control] = []
-var symbol_font: SystemFont
+var symbol_font: Font
 var _result: Label
 var _bet_label: Label
 var _spin_button: Button
@@ -39,8 +39,7 @@ var _chip_row: HBoxContainer
 
 
 func _ready() -> void:
-	symbol_font = SystemFont.new()
-	symbol_font.font_names = PackedStringArray(["Segoe UI Symbol", "Georgia", "sans-serif"])
+	symbol_font = Polices.texte()
 	for r in 3:
 		var strip: Array[String] = []
 		for s in STRIP_WEIGHTS:

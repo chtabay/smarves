@@ -1,0 +1,8 @@
+[gd_resource type="FontVariation" load_steps=3 format=3]
+
+[ext_resource type="FontFile" path="res://assets/polices/FiraSans-Bold.ttf" id="1_fira"]
+[ext_resource type="FontFile" path="res://assets/polices/Symboles-DejaVuSans.ttf" id="2_sym"]
+
+[resource]
+base_font = ExtResource("1_fira")
+fallbacks = Array[Font]([ExtResource("2_sym")])

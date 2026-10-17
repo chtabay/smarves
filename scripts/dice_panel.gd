@@ -23,7 +23,7 @@ var _dice: Label
 var _info: Label
 var _chip_label: Label
 var _buttons := {}
-var _font: SystemFont
+var _font: Font
 ## Assis à la table 3D : on mise sur le tapis, le panneau devient une barre basse.
 var embedded := false
 var table3d: Node
@@ -32,8 +32,7 @@ var _total_label: Label
 
 
 func _ready() -> void:
-	_font = SystemFont.new()
-	_font.font_names = PackedStringArray(["Segoe UI Symbol", "Georgia"])
+	_font = Polices.texte()
 	if embedded:
 		_build_bar()
 		return

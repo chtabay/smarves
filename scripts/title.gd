@@ -22,8 +22,7 @@ func _process(delta: float) -> void:
 
 
 func _build_ui() -> void:
-	var serif := SystemFont.new()
-	serif.font_names = PackedStringArray(["Georgia", "Palatino Linotype", "serif"])
+	var serif := Polices.texte()
 	var layer := CanvasLayer.new()
 	layer.layer = 20
 	add_child(layer)
@@ -56,7 +55,7 @@ func _build_ui() -> void:
 	var title := Label.new()
 	title.text = "SMARVES"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_override("font", serif)
+	title.add_theme_font_override("font", Polices.titre())
 	title.add_theme_font_size_override("font_size", 120)
 	title.add_theme_color_override("font_color", Color(1.0, 0.82, 0.45))
 	title.add_theme_color_override("font_shadow_color", Color(1.0, 0.45, 0.1, 0.45))

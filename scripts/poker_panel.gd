@@ -44,7 +44,7 @@ var _log: Label
 var _buttons := {}
 var _raise_to := BB * 2
 var _raise_label: Label
-var _font: SystemFont
+var _font: Font
 ## Assis à la table 3D : la table montre les cartes et les plaques, le panneau devient une barre basse.
 var embedded := false
 var table3d: Node
@@ -54,8 +54,7 @@ var _info: Label
 
 
 func _ready() -> void:
-	_font = SystemFont.new()
-	_font.font_names = PackedStringArray(["Georgia", "Segoe UI Symbol"])
+	_font = Polices.texte()
 	seats.append({"name": "Vous", "ai": false})
 	for r in regulars:
 		seats.append({"name": r[0], "ai": true, "tight": r[1], "aggr": r[2], "stack": 5000})

@@ -46,15 +46,14 @@ var _credits: Label
 var _speech: Label
 var _panel_layer: CenterContainer
 var _panel: Control
-var _serif: SystemFont
+var _serif: Font
 var _speech_tween: Tween
 ## La capture a déjà posé ses biens avant de construire la pièce (l'intérieur d'un logement en dépend).
 var _prepared := false
 
 
 func _ready() -> void:
-	_serif = SystemFont.new()
-	_serif.font_names = PackedStringArray(["Georgia", "Palatino Linotype", "Book Antiqua", "Times New Roman", "serif"])
+	_serif = Polices.texte()
 	if shop == "garage":
 		W = 13.0
 		D = 11.0
@@ -827,6 +826,7 @@ func _maybe_capture() -> void:
 	var path := ""
 	var open := false
 	var carnet := false
+	var plan := false
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--capture="):
 			path = arg.trim_prefix("--capture=")
@@ -840,6 +840,9 @@ func _maybe_capture() -> void:
 			open = true
 		elif arg == "--carnet":
 			carnet = true
+		elif arg == "--plan":
+			carnet = true
+			plan = true
 		elif not _prepared:
 			_capture_setup(arg)
 	if path == "":
@@ -853,6 +856,11 @@ func _maybe_capture() -> void:
 	if carnet:
 		await get_tree().create_timer(1.0).timeout
 		Carnet.toggle()
+		if plan:
+			# Tout le village parcouru, pour voir le plan rempli et son bandeau.
+			Carnet._tiroir()["zones"] = Carnet.VILLAGE.ZONES.keys()
+			Carnet._show_sheet(true)
+			Carnet.show_slip("Au plan du carnet : la rue du Clain.")
 	await get_tree().create_timer(6.0).timeout
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(path)

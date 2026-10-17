@@ -56,7 +56,7 @@ const ROOMS := [
 	["Les Salons particuliers", 14.0, 26.0, -1.0, 6.0, 1],
 ]
 
-var serif: SystemFont
+var serif: Font
 var gold: StandardMaterial3D
 var wood: StandardMaterial3D
 var dark_wood: StandardMaterial3D
@@ -141,8 +141,7 @@ func _shader(path: String, params := {}) -> ShaderMaterial:
 
 
 func _materials() -> void:
-	serif = SystemFont.new()
-	serif.font_names = PackedStringArray(["Georgia", "Palatino Linotype", "Book Antiqua", "Times New Roman", "serif"])
+	serif = Polices.texte()
 	gold = _std(Color(1.0, 0.76, 0.36), 0.28, 1.0)
 	chrome = _std(Color(0.85, 0.85, 0.88), 0.15, 1.0)
 	# Acajou : un bruit étiré en long fait le fil du bois.
@@ -642,9 +641,7 @@ func _card_mesh(c: Dictionary, hidden: bool) -> Node3D:
 	face.material_override = _std(Color(0.55, 0.06, 0.12) if hidden else Color(0.98, 0.97, 0.93), 0.4)
 	root.add_child(face)
 	var l := Label3D.new()
-	var sym := SystemFont.new()
-	sym.font_names = PackedStringArray(["Georgia", "Segoe UI Symbol"])
-	l.font = sym
+	l.font = Polices.texte()
 	l.font_size = 64
 	l.pixel_size = 0.0011
 	l.rotation_degrees.x = -90

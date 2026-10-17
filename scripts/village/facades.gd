@@ -380,9 +380,8 @@ func _fit(l: Label3D, width: float) -> void:
 	for line in l.text.split("\n"):
 		if line.length() > longest.length():
 			longest = line
-	# La police système n'est pas la même partout : on prend la plus large des deux estimations.
-	var size := font.get_string_size(longest, HORIZONTAL_ALIGNMENT_LEFT, -1, l.font_size)
-	var real := maxf(size.x, longest.length() * l.font_size * 0.78) * l.pixel_size
+	# La police est embarquée : la mesure est la même sur le PC, le téléphone et les captures.
+	var real := font.get_string_size(longest, HORIZONTAL_ALIGNMENT_LEFT, -1, l.font_size).x * l.pixel_size
 	if real > width:
 		l.pixel_size *= width / real
 

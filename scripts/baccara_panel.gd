@@ -28,7 +28,7 @@ var _banker_box: HBoxContainer
 var _info: Label
 var _chip_label: Label
 var _bet_buttons := {}
-var _font: SystemFont
+var _font: Font
 ## Assis à la table 3D : on mise sur le tapis, le panneau devient une barre basse.
 var embedded := false
 var table3d: Node
@@ -37,8 +37,7 @@ var _total_label: Label
 
 
 func _ready() -> void:
-	_font = SystemFont.new()
-	_font.font_names = PackedStringArray(["Georgia", "Segoe UI Symbol"])
+	_font = Polices.texte()
 	if embedded:
 		_build_bar()
 		return

@@ -50,7 +50,7 @@ var stone_material: StandardMaterial3D
 var pave_material: StandardMaterial3D
 var bulb_material: StandardMaterial3D
 var window_material: StandardMaterial3D
-var serif: SystemFont
+var serif: Font
 
 var camera: Camera3D
 var villagers: Array[Node3D] = []
@@ -174,8 +174,7 @@ func _make_materials() -> void:
 	window_material.emission = Color(1.0, 0.68, 0.32)
 	window_material.emission_energy_multiplier = 2.5
 
-	serif = SystemFont.new()
-	serif.font_names = PackedStringArray(["Georgia", "Palatino Linotype", "Book Antiqua", "Times New Roman", "serif"])
+	serif = Polices.texte()
 
 
 func _place(path: String, pos: Vector3, scale := 1.0, rot_y := 0.0, parent: Node = self) -> Node3D:
