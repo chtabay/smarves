@@ -151,6 +151,8 @@ var _glass: Array[MultiMesh] = []
 var _flicker := 2.0
 var _cars: Array[Node3D] = []
 var _chemin: RefCounted
+## Les enseignes de toit, que l'on fait pâlir quand l'habitant passe derrière (Facades.roof_sign).
+var _roof_signs: Array[Node3D] = []
 ## Le quartier où se tient l'habitant (ZONES), "" hors maquette.
 var current_zone := ""
 
@@ -354,6 +356,7 @@ func _rue_du_clain() -> void:
 	_placette(f)
 	_street_props(f)
 	_glass.append(f.commit(mats, mats.glass, "RueDuClain"))
+	_roof_signs.append_array(f.roof_signs)
 	for g in f.glows:
 		var l := OmniLight3D.new()
 		l.light_color = g[1]
@@ -626,6 +629,7 @@ func _route_du_bois() -> void:
 	_place(KK + "city/bench.gltf", Vector3(BOIS.X0 + 4.6, 0.06, SOUTH_FRONT - 0.55), 2.2, 180.0)
 	_place(KK + "city/trash_A.gltf", Vector3(BOIS.X0 + 5.7, 0.06, SOUTH_FRONT - 0.5), 1.8)
 	_glass.append(f.commit(mats, mats.glass, "RouteDuBois"))
+	_roof_signs.append_array(f.roof_signs)
 	for g in f.glows:
 		var l := OmniLight3D.new()
 		l.light_color = g[1]
@@ -990,6 +994,21 @@ func _capture_view() -> void:
 		cam.pitch = cam._pitch_goal
 
 
+## Une enseigne de toit entre la caméra et l'habitant pâlit, au lieu de se brouiller sous la coupe.
+func _fade_roof_signs(delta: float) -> void:
+	var at: Vector3 = main.player.global_position if main.player and main.fps and main.topdown else Vector3(INF, 0, INF)
+	for sign in _roof_signs:
+		var p := sign.global_position
+		var near := Vector2(p.x - at.x, p.z - at.z).length() < 4.0
+		var mat: StandardMaterial3D = sign.get_meta("material")
+		var a := move_toward(mat.albedo_color.a, 0.12 if near else 1.0, delta * 3.0)
+		if a == mat.albedo_color.a:
+			continue
+		mat.albedo_color.a = a
+		var l: Label3D = sign.get_meta("label")
+		l.modulate.a = a
+
+
 ## Le quartier qui contient ce point du monde, "" s'il n'est sur aucun socle.
 static func zone_at(pos: Vector3) -> String:
 	for id in ZONES:
@@ -1069,6 +1088,7 @@ func _follow_road(car: Node3D) -> void:
 
 func _process(delta: float) -> void:
 	_update_cutaway()
+	_fade_roof_signs(delta)
 	if main.player:
 		var z := zone_at(main.player.global_position)
 		if z != current_zone:
