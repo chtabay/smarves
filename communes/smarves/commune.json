@@ -5,7 +5,8 @@
 	"auteur": "chtabay",
 	"version": "1.0.0",
 	"socle_min": "1.0",
-	"carte": {"lat": 46.51, "lon": 0.35, "socle": ""},
+	"insee": "86263",
+	"carte": {"socle": ""},
 	"scene": "res://scenes/main.tscn",
 	"arrivee": {"lot": "place", "par": []},
 	"interieurs": {

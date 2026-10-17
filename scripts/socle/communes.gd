@@ -36,6 +36,25 @@ func origine() -> Commune:
 	return communes.get(ORIGINE)
 
 
+## La commune développée à ce code INSEE, ou null.
+func par_insee(insee: String) -> Commune:
+	for id in communes:
+		if communes[id].insee == insee:
+			return communes[id]
+	return null
+
+
+## La carte de la Vienne : chaque commune réelle à sa place (centre et contour en longitude, latitude),
+## avec « id » non vide et « cliquable » vrai seulement si elle est développée.
+func carte() -> Array:
+	var out := []
+	for v in Vienne.communes():
+		var c := par_insee(str(v.insee))
+		out.append({"insee": str(v.insee), "nom": str(v.nom), "centre": Vector2(v.centre[0], v.centre[1]),
+			"contour": v.contour, "id": c.id if c else "", "cliquable": c != null})
+	return out
+
+
 ## Inscrit une commune lue et vérifiée. Refuse un manifeste en erreur ou un id déjà pris.
 func inscrire(c: Commune) -> bool:
 	if c == null or not c.valide():
@@ -43,6 +62,9 @@ func inscrire(c: Commune) -> bool:
 		return false
 	if communes.has(c.id):
 		_refuser(c.chemin, "la commune « %s » est déjà inscrite" % c.id)
+		return false
+	if par_insee(c.insee) != null:
+		_refuser(c.chemin, "la commune INSEE %s est déjà développée par « %s »" % [c.insee, par_insee(c.insee).id])
 		return false
 	communes[c.id] = c
 	ordre.append(c.id)
