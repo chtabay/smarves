@@ -8,6 +8,7 @@ extends Node3D
 ## et réagit aux coups (joie, dépit d'une seconde) quand la scène appelle react() ou crowd_react().
 
 const CRITTER := preload("res://scripts/critter.gd")
+const CROUPIER_SCALE := 0.8
 
 ## Nom de modèle (ancien nom de fichier, ou rôle : « croupier-roulette », « m-brunet »…), graine de l'allure.
 var model_path := "habitant"
@@ -48,6 +49,9 @@ func _ready() -> void:
 	critter.walk_speed = speed
 	role = info.role
 	_fidgets = info.fidgets
+	# Les croupiers un peu plus menus : ils restent dans le champ du joueur assis sans le boucher.
+	if role == "croupier":
+		scale *= CROUPIER_SCALE
 	add_child(critter)
 	_apply_pose(pose if route.size() < 2 else "walk")
 	_home_yaw = rotation.y
@@ -138,7 +142,42 @@ func _update_bubble(delta: float) -> void:
 		_bubble.modulate.a = 0.0
 		return
 	var p := cam.unproject_position(head)
-	_bubble.position = p - Vector2(_bubble.size.x / 2.0, _bubble.size.y + 6.0)
+	var view := get_viewport().get_visible_rect().size
+	var r := Rect2(p - Vector2(_bubble.size.x / 2.0, _bubble.size.y + 6.0), _bubble.size)
+	r.position.x = clampf(r.position.x, 12.0, maxf(12.0, view.x - r.size.x - 12.0))
+	# Pas par-dessus l'interface (crédits, liste des lieux) : sous la tête, sinon à côté du panneau.
+	for hud in _hud_rects():
+		if r.intersects(hud):
+			r.position.y = p.y + 24.0
+			if r.intersects(hud):
+				r.position.x = hud.end.x + 8.0 if p.x > hud.get_center().x else hud.position.x - r.size.x - 8.0
+	_bubble.position = r.position
+
+
+static var _hud_cache: Array[Rect2] = []
+static var _hud_time := -10.0
+
+
+## Les panneaux de l'interface à l'écran (rafraîchis toutes les secondes, pour toutes les bulles).
+func _hud_rects() -> Array[Rect2]:
+	var now := Time.get_ticks_msec() / 1000.0
+	if now - _hud_time < 1.0:
+		return _hud_cache
+	_hud_time = now
+	_hud_cache.clear()
+	var scene := get_tree().current_scene
+	if scene == null:
+		return _hud_cache
+	var view := get_viewport().get_visible_rect().size
+	for layer: CanvasLayer in scene.find_children("*", "CanvasLayer", true, false):
+		# Les bulles des autres habitants ne comptent pas.
+		if not layer.visible or layer.get_parent().is_in_group("villagers"):
+			continue
+		for panel: Control in layer.find_children("*", "PanelContainer", true, false):
+			var rect := panel.get_global_rect()
+			if panel.is_visible_in_tree() and rect.size.x < view.x * 0.6 and rect.size.y < view.y * 0.6:
+				_hud_cache.append(rect)
+	return _hud_cache
 
 
 func _apply_pose(p: String) -> void:

@@ -12,7 +12,7 @@ const SKEL := "Skeleton3D:"
 ## Poses de fond (en boucle).
 const BASE := ["idle", "attentive", "stand_table", "behind_back", "bar", "sing", "walk", "run", "sit", "sit_table", "piano"]
 ## Gestes du haut du corps (une fois).
-const GESTURES := ["talk", "wave", "cheer", "sulk", "shrug", "clap", "bet", "deal", "spin", "rake", "nod", "bow",
+const GESTURES := ["talk", "wave", "cheer", "sulk", "shrug", "clap", "bet", "deal", "spin", "rake", "pay", "nod", "bow",
 	"scratch", "look_watch", "drink", "point", "facepalm"]
 ## Gestes du corps entier (une fois, debout).
 const FULL := ["jump", "stomp"]
@@ -357,6 +357,14 @@ static func _specs() -> Dictionary:
 		"arm": [[0.0, V(-40, 0, -6)], [0.5, V(-80, 0, -4)], [1.1, V(-35, 0, -10)], [1.6, V(-40, 0, -6)]],
 		"forearm": [[0.0, V(-30)], [0.5, V(-10)], [1.1, V(-50)], [1.6, V(-30)]],
 		"head": [[0.0, V(-8)], [0.5, V(6)], [1.6, V(-8)]],
+	}}
+	# Distribuer les jetons : la main droite pousse une pile vers le gagnant, deux fois.
+	s.pay = {"len": 1.5, "rot": {
+		"spine": [[0.0, V(12)], [0.35, V(22)], [1.1, V(22)], [1.5, V(12)]],
+		"arm_r": [[0.0, V(-40, 0, -6)], [0.35, V(-62, 0, 4)], [0.6, V(-82, 0, -14)], [0.8, V(-62, 0, 4)], [1.05, V(-84, 0, -20)], [1.5, V(-40, 0, -6)]],
+		"forearm_r": [[0.0, V(-30)], [0.35, V(-45)], [0.6, V(-8)], [0.8, V(-45)], [1.05, V(-6)], [1.5, V(-30)]],
+		"hand_r": [[0.0, V(0)], [0.35, V(-20)], [0.6, V(-20)], [1.05, V(-20)], [1.5, V(0)]],
+		"head": [[0.0, V(-8)], [0.4, V(10, -8, 0)], [1.1, V(10, -8, 0)], [1.5, V(-8)]],
 	}}
 	s.nod = {"len": 1.0, "rot": {
 		"head": [[0.0, V(0)], [0.3, V(16)], [0.6, V(0)], [1.0, V(0)]],

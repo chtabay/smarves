@@ -1,7 +1,7 @@
 extends Node3D
 ## Banc d'essai des tables 3D, sans charger tout le casino : une table, la lumière du casino, la
 ## barre de jeu, un coup joué tout seul et des captures à des instants donnés.
-##   godot --path . res://tools/table_lab.tscn -- --game=roulette --capture=sortie.png --shots=1,4,8
+##   godot --path . res://tools/table_lab.tscn -- --game=roulette --capture=sortie.png --shots=1,4,8 [--croupier]
 
 const ROULETTE := preload("res://scripts/roulette_panel.gd")
 const ROULETTE_3D := preload("res://scripts/jeux/roulette_3d.gd")
@@ -10,6 +10,7 @@ const BLACKJACK := preload("res://scripts/blackjack_panel.gd")
 const BLACKJACK_3D := preload("res://scripts/jeux/blackjack_3d.gd")
 const SLOT := preload("res://scripts/slot_machine.gd")
 const SLOT_3D := preload("res://scripts/jeux/slot_3d.gd")
+const VILLAGER := preload("res://scripts/villager.gd")
 
 var game := "roulette"
 var path := ""
@@ -45,6 +46,7 @@ func _ready() -> void:
 			add_child(t)
 			var p: PanelContainer = ROULETTE.new()
 			p.title = "Roulette européenne"
+			_croupier("croupier-roulette", Vector3(-1.15, 0, -0.95), p)
 			t.attach(p)
 			t.sit(eye)
 			BARRE.dock(p, ui)
@@ -59,6 +61,7 @@ func _ready() -> void:
 			var t := BLACKJACK_3D.new()
 			add_child(t)
 			var p: PanelContainer = BLACKJACK.new()
+			_croupier("croupiere-blackjack", Vector3(0, 0, -0.78), p)
 			t.attach(p)
 			t.sit(eye)
 			BARRE.dock(p, ui)
@@ -146,3 +149,21 @@ func _environment() -> void:
 		o.omni_range = 7.0
 		o.position = at
 		add_child(o)
+
+
+## --croupier : le croupier à sa place du casino (même échelle, mêmes gestes que casino_interior.gd).
+func _croupier(model: String, at: Vector3, p: Control) -> void:
+	if not "--croupier" in OS.get_cmdline_user_args():
+		return
+	var v: Node3D = VILLAGER.new()
+	v.model_path = model
+	v.speaker = "croupier"
+	v.position = at
+	v.scale = Vector3.ONE * 2.6
+	add_child(v)
+	var tree := get_tree()
+	if p.has_signal("spin_started"):
+		p.spin_started.connect(func(_n, _d): VILLAGER.dealer_gesture(tree, Vector3.ZERO, 3.0, "spin"))
+	if p.has_signal("card_dealt"):
+		p.card_dealt.connect(func(_w, _c, _h): VILLAGER.dealer_gesture(tree, Vector3.ZERO, 3.0, "deal"))
+	p.played.connect(func(bet: int, payout: int): VILLAGER.dealer_gesture(tree, Vector3.ZERO, 3.0, "pay" if payout > bet else "rake"))
