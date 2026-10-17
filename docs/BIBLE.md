@@ -196,6 +196,9 @@ Les personnages sont des adultes, décrits ici par leur âge, leur allure, leur 
 **Roger Fradin** (la cinquantaine, bleu de travail, clé plate) — le garage Fradin : Mobylette, 2 CV, DS. *Voix* : de mécanicien, des chiffres de cylindrée. *Liens* : la 2 CV qu'il vend est celle que Dédé a perdue au 421, remise à neuf.
 > « Suspension hydraulique. On ne sent plus les pavés, ni les pertes. »
 
+**Ginette Boutin** (la soixantaine, gilet de laine, lunettes au bout d'une chaîne) — brocante et meubles, rue du Clain, sur le lot que personne ne voulait. *Voix* : de salle des ventes, chaque objet a eu une vie avant vous. *Obsession* : que rien ne reparte vide d'une maison. *Liens* : meuble les logements du nouveau venu, financés par M. Brunet ; reprend à 60 %, comme les autres vendeurs.
+> « Un buffet Henri II, ça ne perd jamais sa valeur. Vous, je ne sais pas. »
+
 **Le maire** — on ne le voit jamais ; il a coupé le ruban du casino et il est « en réunion », au casino justement.
 
 ### Au casino
