@@ -23,7 +23,7 @@ func _init() -> void:
 	var main: Node = current_scene
 	var village: Node = main.get_node_or_null("Village")
 	check(village != null, "le nœud Village est dans la scène principale")
-	for id in ["notaire", "couture", "poste", "boucherie", "coiffure", "pizzeria", "epicerie", "fleurs", "bibliotheque", "lot_reserve", "lot_a_ceder"]:
+	for id in ["notaire", "couture", "poste", "boucherie", "coiffure", "pizzeria", "epicerie", "fleurs", "bibliotheque", "lot_reserve", "lot_a_ceder", "garage", "pharmacie", "lot_bois", "ecole", "stade"]:
 		check(village.lots.has(id) and village.lots[id].has("area"), "emplacement %s posé avec son entrée" % id)
 	for id in village.SELLER_DOORS:
 		if village.lots.has(id):

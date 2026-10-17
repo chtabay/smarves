@@ -39,7 +39,8 @@ func pick(list: Array) -> Variant:
 # --- La maison ---------------------------------------------------------------------------------
 
 ## spec : w, d, floors, wall, shutter, roof (couleurs), roof_kind ("gable" ou "hip"), lit (0..1),
-## chimney, door ("left", "center", "right"), shop (Dictionary : name, sub, color, awning, ink), closed.
+## chimney, door ("left", "center", "right"), shop (Dictionary : name, sub, color, awning, ink), closed,
+## front (false : rez-de-chaussée nu, l'appelant y pose sa propre façade).
 ## Rend la hauteur des murs et la position de la porte (repère local).
 func house(xf: Transform3D, spec: Dictionary) -> Dictionary:
 	var w: float = spec.get("w", 3.0)
@@ -108,7 +109,9 @@ func house(xf: Transform3D, spec: Dictionary) -> Dictionary:
 	var door_x := -w / 2.0 + 0.1 + bay_w * (door_bay + 0.5)
 	var closed: bool = spec.get("closed", false)
 
-	if shop.is_empty():
+	if not spec.get("front", true):
+		pass  # La façade est dessinée par l'appelant (garage, école).
+	elif shop.is_empty():
 		for i in bays:
 			var x := -w / 2.0 + 0.1 + bay_w * (i + 0.5)
 			if i == door_bay:
