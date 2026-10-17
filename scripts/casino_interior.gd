@@ -103,9 +103,13 @@ func _ready() -> void:
 	_shown = Game.credits
 	_refresh_locks(true)
 	Sfx.set_ambience("casino")
-	Game.brunet_calls.connect(func():
-		_announce("Un mot de M. Brunet vous attend à la caisse : « Ne laissez pas passer votre chance, je suis là. »"))
+	Game.brunet_calls.connect(_on_brunet_calls)
 	_maybe_capture()
+
+
+## Méthode et non lambda : la connexion à l'autoload tombe avec la scène.
+func _on_brunet_calls() -> void:
+	_announce("Un mot de M. Brunet vous attend à la caisse : « Ne laissez pas passer votre chance, je suis là. »")
 
 
 # --- Matériaux ------------------------------------------------------------------

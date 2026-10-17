@@ -120,9 +120,13 @@ func _ready() -> void:
 		return
 	if not Game.welcomed and not "--capture" in " ".join(OS.get_cmdline_user_args()):
 		_welcome()
-	Game.brunet_calls.connect(func():
-		_announce("M. Brunet vous fait signe depuis le Crédit Smarvois : « Votre profil m'intéresse. Passez donc me voir. »"))
+	Game.brunet_calls.connect(_on_brunet_calls)
 	_maybe_capture()
+
+
+## Méthode et non lambda : la connexion à l'autoload tombe avec la scène.
+func _on_brunet_calls() -> void:
+	_announce("M. Brunet vous fait signe depuis le Crédit Smarvois : « Votre profil m'intéresse. Passez donc me voir. »")
 
 
 # --- Matériaux -----------------------------------------------------------------
