@@ -156,7 +156,7 @@ const SELLERS := {
 }
 
 const SAVE_PATH := "user://smarves_biens.save"
-## L'intérieur d'un logement (à venir) : la porte d'une maison possédée y mène.
+## L'intérieur d'un logement : la porte d'une maison possédée y mène (Biens.enter()).
 const LOGEMENT_SCENE := "res://scenes/logement.tscn"
 
 ## Combien d'exemplaires de chaque bien on possède.
@@ -383,10 +383,43 @@ func poser(id: String, slot: String, thing: String) -> bool:
 	return false
 
 
+## Un clic sur un emplacement : le meuble suivant qui lui convient, puis rien, puis on recommence.
+func cycle(id: String, slot: String) -> void:
+	var sl := {}
+	for s in slots(id):
+		if s.id == slot:
+			sl = s
+	if sl.is_empty():
+		return
+	var cur := str(logements[id].meubles.get(slot, ""))
+	if cur != "":
+		logements[id].meubles.erase(slot)
+	var options: Array = posables(sl.genre)
+	var i := options.find(cur)
+	var next: String = options[i + 1] if i + 1 < options.size() else ""
+	if next != "":
+		logements[id].meubles[slot] = next
+	changed.emit()
+
+
 func retirer(id: String, slot: String) -> void:
 	if logements.has(id) and logements[id].meubles.has(slot):
 		logements[id].meubles.erase(slot)
 		changed.emit()
+
+
+## Le logement dont on passe la porte (pour la scène d'intérieur ; pas sauvegardé).
+var visiting := ""
+
+
+## Entrer chez soi : la porte du village, ou le carnet.
+func enter(id: String) -> void:
+	if not logements.has(id) or not ResourceLoader.exists(LOGEMENT_SCENE):
+		return
+	visiting = id
+	get_tree().paused = false
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	get_tree().change_scene_to_file(LOGEMENT_SCENE)
 
 
 ## Pour les portes du village : le lot d'un logement, s'il est au joueur, et la scène qui l'ouvre.
