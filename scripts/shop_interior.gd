@@ -10,6 +10,8 @@ const CRITTER := preload("res://scripts/critter.gd")
 const PANEL := preload("res://scripts/shop_panel.gd")
 const KK := "res://assets/kaykit/"
 const PEOPLE_SCALE := 2.6
+## Hauteur de l'estrade où se tient le vendeur.
+const ESTRADE := 0.45
 
 ## notaire, couture ou garage (une clé de Biens.SELLERS).
 @export var shop := "notaire"
@@ -345,8 +347,12 @@ func _door() -> void:
 
 func _build_keeper() -> void:
 	var k: Dictionary = KEEPERS.get(shop, KEEPERS.notaire)
+	# L'estrade derrière le comptoir : le vendeur domine un peu son client, et on le voit en entier.
+	var wood: Color = {"notaire": Color(0.3, 0.13, 0.07), "couture": Color(0.55, 0.32, 0.18)}.get(shop, Color(0.3, 0.3, 0.32))
+	_box(Vector3(2.8, ESTRADE, 1.5), Vector3(0, ESTRADE / 2.0, -D / 2.0 + 1.15), _std(wood, 0.6), true)
+	_box(Vector3(2.84, 0.04, 0.06), Vector3(0, ESTRADE - 0.02, -D / 2.0 + 1.9), _std(Color(0.85, 0.68, 0.3), 0.25, 1.0))
 	_keeper = Node3D.new()
-	_keeper.position = Vector3(0, 0, -D / 2.0 + 1.3)
+	_keeper.position = Vector3(0, ESTRADE, -D / 2.0 + 1.3)
 	add_child(_keeper)
 	var c := CRITTER.new()
 	c.species = k.species
@@ -388,7 +394,7 @@ func _notaire() -> void:
 	_box(Vector3(0.3, 0.005, 0.42), Vector3(-0.15, 0.87, -D / 2.0 + 2.25), paper).rotation_degrees.y = 8.0
 	_box(Vector3(0.3, 0.005, 0.42), Vector3(-0.5, 0.872, -D / 2.0 + 2.15), paper).rotation_degrees.y = -12.0
 	_cyl(0.05, 0.07, Vector3(0.3, 0.9, -D / 2.0 + 2.0), _std(Color(0.05, 0.05, 0.1), 0.1))
-	_place(KK + "furniture/armchair.gltf", Vector3(0, 0, -D / 2.0 + 0.9), 0.6, 0.0)
+	_place(KK + "furniture/armchair.gltf", Vector3(0, ESTRADE, -D / 2.0 + 0.9), 0.6, 0.0)
 	_place(KK + "furniture/chair_A_wood.gltf", Vector3(-0.9, 0, -D / 2.0 + 3.3), 0.75, 200.0)
 	_place(KK + "furniture/chair_A_wood.gltf", Vector3(0.9, 0, -D / 2.0 + 3.3), 0.75, 160.0)
 	# Les rayonnages de dossiers, du sol au plafond, contre le mur ouest.
@@ -434,10 +440,10 @@ func _shelf_of_files(at: Vector3, wood: Material) -> void:
 func _couture() -> void:
 	var wood := _std(Color(0.62, 0.42, 0.26), 0.4)
 	# Le comptoir, sa caisse enregistreuse, le mètre ruban.
-	_box(Vector3(3.0, 1.0, 0.7), Vector3(0, 0.5, -D / 2.0 + 2.2), wood, true)
-	_box(Vector3(3.1, 0.05, 0.8), Vector3(0, 1.02, -D / 2.0 + 2.2), _std(Color(0.95, 0.92, 0.85), 0.3))
-	_box(Vector3(0.4, 0.28, 0.35), Vector3(1.0, 1.18, -D / 2.0 + 2.2), _std(Color(0.75, 0.62, 0.3), 0.3, 0.8))
-	_box(Vector3(1.2, 0.01, 0.03), Vector3(-0.5, 1.05, -D / 2.0 + 2.1), _std(Color(1.0, 0.9, 0.3), 0.6))
+	_box(Vector3(3.0, 0.85, 0.7), Vector3(0, 0.425, -D / 2.0 + 2.2), wood, true)
+	_box(Vector3(3.1, 0.05, 0.8), Vector3(0, 0.87, -D / 2.0 + 2.2), _std(Color(0.95, 0.92, 0.85), 0.3))
+	_box(Vector3(0.4, 0.28, 0.35), Vector3(1.0, 1.03, -D / 2.0 + 2.2), _std(Color(0.75, 0.62, 0.3), 0.3, 0.8))
+	_box(Vector3(1.2, 0.01, 0.03), Vector3(-0.5, 0.9, -D / 2.0 + 2.1), _std(Color(1.0, 0.9, 0.3), 0.6))
 	# Les mannequins, habillés des tenues de la maison.
 	var tenues := []
 	for it in Biens.CATALOGUE:
@@ -505,8 +511,8 @@ func _garage() -> void:
 	var steel := _std(Color(0.35, 0.37, 0.4), 0.45, 0.7)
 	var red := _std(Color(0.75, 0.12, 0.1), 0.4)
 	# L'établi au fond, le comptoir où l'on signe le bon de commande.
-	_box(Vector3(3.0, 1.0, 0.7), Vector3(0, 0.5, -D / 2.0 + 2.2), _std(Color(0.4, 0.3, 0.2), 0.6), true)
-	_box(Vector3(3.1, 0.05, 0.8), Vector3(0, 1.02, -D / 2.0 + 2.2), steel)
+	_box(Vector3(3.0, 0.85, 0.7), Vector3(0, 0.425, -D / 2.0 + 2.2), _std(Color(0.4, 0.3, 0.2), 0.6), true)
+	_box(Vector3(3.1, 0.05, 0.8), Vector3(0, 0.87, -D / 2.0 + 2.2), steel)
 	_box(Vector3(4.0, 1.4, 0.05), Vector3(-3.6, 1.7, -D / 2.0 + 0.04), _std(Color(0.55, 0.42, 0.28), 0.8))
 	for i in 9:
 		var tool := _box(Vector3(0.05, 0.35, 0.03), Vector3(-5.2 + i * 0.4, 1.8, -D / 2.0 + 0.08), steel)
