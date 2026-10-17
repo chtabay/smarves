@@ -1,5 +1,5 @@
 extends PanelContainer
-## Le grand loto de la salle François-Rabelais : on coche jusqu'à 5 numéros sur 30, le président
+## Le grand loto de la salle François-Rabelais : on coche jusqu'à 5 numéros sur 30, M. Gaudin, le président du comité des fêtes,
 ## en tire 10. Gains selon les numéros trouvés : 2 → mise rendue, 3 → 4 fois, 4 → 20 fois, 5 → 120 fois.
 
 signal played(bet: int, payout: int)
@@ -54,7 +54,7 @@ func _ready() -> void:
 	_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_info.custom_minimum_size = Vector2(660, 0)
 	_info.add_theme_font_size_override("font_size", 19)
-	_info.text = "Cochez vos numéros, puis le président tire les boules."
+	_info.text = "Cochez vos numéros, puis M. Gaudin tire les boules."
 	v.add_child(_info)
 	var controls := HBoxContainer.new()
 	controls.alignment = BoxContainer.ALIGNMENT_CENTER

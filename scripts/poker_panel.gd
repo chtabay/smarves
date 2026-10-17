@@ -107,7 +107,7 @@ func _ready() -> void:
 	_buttons["more"] = _button(controls, "+", func(): _adjust_raise(1))
 	_buttons["raise"] = _button(controls, "Relancer", _on_raise)
 	_button(controls, "Quitter (Échap)", _leave)
-	_log.text = "Le Commandant vous salue d'un signe de tête. Une donne ?"
+	_log.text = "%s vous salue d'un signe de tête. Une donne ?" % (regulars[0][0].substr(0, 1).to_upper() + regulars[0][0].substr(1))
 	_render()
 
 

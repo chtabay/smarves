@@ -1718,7 +1718,7 @@ func _build_games_room() -> void:
 	_chandelier(Vector3(9.5, WALL_H - 0.4, -11.2), 0.8)
 
 	# Neuf machines contre le mur du fond, deux îlots de quatre près des portes.
-	var names := ["La Smarvoise", "Le Clain", "Le Miosson", "Saint-Félix", "L'Érable", "Passelourdin", "Le Moulin", "Les Zèbres", "La Rabelais"]
+	var names := ["La Grande Smarvoise", "Le Clain", "Le Miosson", "Saint-Félix", "L'Érable", "Passelourdin", "Le Moulin", "Les Zèbres", "La Rabelais"]
 	for i in 9:
 		_slot_machine(Vector3(-8.0 + i * 2.0, 0, -13.25), 0.0, names[i])
 	for s in [-1.0, 1.0]:
@@ -2526,8 +2526,9 @@ func _refresh_locks(silent := false) -> void:
 				b.queue_free()
 			barriers.erase(l.id)
 			if not silent:
-				_announce("%s vous ouvre %s." % [l.host, l.name])
-				if l.id == "salon":
+				if l.id != "salon":
+					_announce("%s vous ouvre %s." % [l.host, l.name.substr(0, 1).to_lower() + l.name.substr(1)])
+				else:
 					Game.credits += 500
 					Game.changed.emit()
 					_announce("Monsieur Armand vous ouvre le salon et vous offre une plaque de 500. « Un client d'avenir. »")

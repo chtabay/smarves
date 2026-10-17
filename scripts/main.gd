@@ -44,13 +44,13 @@ const PLACES := [
 	{"id": "cafe", "name": "Le Café de la Place", "game": "La Smarvoise", "seuil": 0, "host": "Josiane"},
 	{"id": "casino", "name": "Le Casino de Smarves", "game": "salles de jeu", "seuil": 0, "host": "Monsieur Armand"},
 	{"id": "banque", "name": "Le Crédit Smarvois", "game": "prêts pour investir", "seuil": 0, "host": "M. Brunet"},
-	{"id": "petanque", "name": "La pétanque de la place", "game": "les paris de Lucien", "seuil": 1000, "host": "Lucien"},
-	{"id": "boulangerie", "name": "La boulangerie", "game": "la roulette du comptoir", "seuil": 3000, "host": "Mme Ferrand"},
-	{"id": "rabelais", "name": "La salle François-Rabelais", "game": "le grand loto", "seuil": 8000, "host": "Le président du comité"},
+	{"id": "petanque", "name": "La pétanque de la place", "game": "les paris de Lucien", "seuil": 1000, "host": "Lucien", "accord": "e"},
+	{"id": "boulangerie", "name": "La boulangerie", "game": "la roulette du comptoir", "seuil": 3000, "host": "Mme Ferrand", "accord": "e"},
+	{"id": "rabelais", "name": "La salle François-Rabelais", "game": "le grand loto", "seuil": 8000, "host": "M. Gaudin", "accord": "e"},
 	{"id": "eglise", "name": "Le parvis Saint-Félix", "game": "la roue de la kermesse", "seuil": 20000, "host": "Le comité des fêtes"},
-	{"id": "zebres", "name": "L'allée des trois zèbres", "game": "la course des zèbres", "seuil": 50000, "host": "Le gardien du bois"},
+	{"id": "zebres", "name": "L'allée des trois zèbres", "game": "la course des zèbres", "seuil": 50000, "host": "Le gardien du bois", "accord": "e"},
 	{"id": "moulin", "name": "Le Moulin des Dames", "game": "le blackjack de l'arrière-salle", "seuil": 120000, "host": "Le meunier"},
-	{"id": "passelourdin", "name": "Les rochers de Passelourdin", "game": "la partie de poker", "seuil": 300000, "host": "Quelqu'un"},
+	{"id": "passelourdin", "name": "Les rochers de Passelourdin", "game": "la partie de poker", "seuil": 300000, "host": "Quelqu'un", "accord": "s"},
 ]
 
 var shown_credits := float(Game.credits)
@@ -435,7 +435,7 @@ func _build_gambling() -> void:
 		_place(KK + "furniture/chair_A.gltf", t + Vector3(0.45, 0, 0), 0.3, -90.0)
 
 	# Le tableau des cotes de la pétanque, et le banc de celui qui a tout misé.
-	_neon("COTES DU JOUR\nLucien 3 contre 1\nles Rabelais 7 contre 2", Vector3(4.5, 1.4, 4.4), 0.0, Color(1.0, 1.0, 0.9), 30)
+	_neon("COTES DU JOUR\nLucien et Dédé 3 contre 2\nles Rabelais 3 contre 1\nles jeunes du Clain 5 contre 1", Vector3(4.5, 1.4, 4.4), 0.0, Color(1.0, 1.0, 0.9), 30)
 	_place(KK + "city/bench.gltf", Vector3(-2.0, 0, 4.6), 2.6, 180.0)
 
 
@@ -641,8 +641,21 @@ func _on_slot_played(bet: int, payout: int) -> void:
 func _check_unlocks(before: int) -> void:
 	for p in PLACES:
 		if p.seuil > 0 and before < p.seuil and Game.won >= p.seuil:
-			_announce("%s vous fait signe : %s est ouvert." % [p.host, p.name])
+			_announce("%s vous fait signe : %s %s." % [p.host, _in_sentence(p.name), _agree(p, "est ouvert")])
 	_refresh_places()
+
+
+## « ouvert », « ouverte », « ouverts » : l'accord suit le nom du lieu (clé « accord » de PLACES).
+func _agree(p: Dictionary, words: String) -> String:
+	var a: String = p.get("accord", "")
+	if a == "s":
+		words = words.replace("est ", "sont ")
+	return words + a
+
+
+## Un nom de lieu au milieu d'une phrase : l'article reprend sa minuscule (« la boulangerie »).
+static func _in_sentence(n: String) -> String:
+	return n.substr(0, 1).to_lower() + n.substr(1)
 
 
 func is_open(id: String) -> bool:
@@ -705,7 +718,7 @@ func _enter(id: String) -> void:
 	if p.is_empty():
 		return
 	if not is_open(id):
-		_announce("%s : encore fermé. Il faut avoir gagné %s crédits au jeu." % [p.name, _fmt(p.seuil)])
+		_announce("%s : encore " % p.name + _agree(p, "fermé") + ". Il faut avoir gagné %s crédits au jeu." % _fmt(p.seuil))
 		return
 	if id == "banque":
 		_cam_focus(Vector3(7.6, 1.6, 3.8), 5.5, deg_to_rad(-90.0), deg_to_rad(-28.0))
@@ -724,7 +737,7 @@ func _enter(id: String) -> void:
 	if id != "cafe":
 		var panel := _game_panel(id)
 		if panel == null:
-			_announce("%s est ouvert, mais %s n'est pas encore installé." % [p.name, p.game])
+			_announce("%s %s, mais %s n'est pas encore installé." % [p.name, _agree(p, "est ouvert"), p.game])
 			return
 		if FOCUS.has(id):
 			var f: Array = FOCUS[id]
@@ -750,7 +763,7 @@ func _welcome() -> void:
 		camera.focus(Vector3(-5.6, 0.6, -1.4), 9.0, deg_to_rad(55.0), deg_to_rad(-24.0))
 	var lines := [
 		"Bienvenue à Smarves ! Vous avez une tête à avoir de l'avenir.",
-		"Ici, on ne dépense pas son argent : on le fait travailler. Ma Smarvoise vous attend au fond du café.",
+		"Ici, on ne dépense pas son argent : on le fait travailler. Ma Smarvoise vous attend devant le café.",
 		"Et si un jour vous manquez de liquidités, M. Brunet est juste en face. Un homme charmant.",
 	]
 	for l in lines:
@@ -959,7 +972,7 @@ func _update_prompt() -> void:
 		elif is_open(p.id):
 			_prompt.text = "E : %s — %s" % [p.name, p.game]
 		else:
-			_prompt.text = "%s — fermé, ouvre à %s gagnés" % [p.name, _fmt(p.seuil)]
+			_prompt.text = "%s — %s, ouvre à %s gagnés" % [p.name, _agree(p, "fermé"), _fmt(p.seuil)]
 	else:
 		_prompt.text = str(t.get_meta("prompt", ""))
 
@@ -1054,7 +1067,7 @@ func _refresh_places() -> void:
 		_places_box.add_child(l)
 		if place_signs.has(p.id):
 			var s: Label3D = place_signs[p.id]
-			s.text = p.name if open else "%s\nfermé · %s" % [p.name, _fmt(p.seuil)]
+			s.text = p.name if open else "%s\n%s · %s" % [p.name, _agree(p, "fermé"), _fmt(p.seuil)]
 			s.modulate = Color(1.0, 0.85, 0.5) if open else Color(0.7, 0.72, 0.8, 0.85)
 
 

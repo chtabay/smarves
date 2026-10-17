@@ -1,6 +1,6 @@
 extends Node3D
 ## Les environs de Smarves, chacun sur son propre socle, à l'écart de la place : le bois de Saint-Pierre
-## et ses trois zèbres en béton, le Moulin des Dames sur le Miosson, les rochers de Passelourdin.
+## et ses trois zèbres en béton, le Moulin des Dames sur le Clain, les rochers de Passelourdin au-dessus du Miosson.
 ## On s'y rend depuis les panneaux de la place ; la caméra voyage d'un socle à l'autre.
 
 const KK := "res://assets/kaykit/"
