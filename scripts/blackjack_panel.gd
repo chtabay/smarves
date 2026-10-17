@@ -146,9 +146,14 @@ func _pick_bet(i: int) -> void:
 ## Un message, affiché quand le croupier a fini ce qu'il fait sur la table.
 func _say(text: String) -> void:
 	if embedded and table3d and table3d.busy_time() > 0.0:
-		get_tree().create_timer(table3d.busy_time()).timeout.connect(func(): _info.text = text)
+		# Une méthode liée, pas une lambda : la connexion tombe d'elle-même si le panneau est libéré.
+		get_tree().create_timer(table3d.busy_time()).timeout.connect(_set_info.bind(text))
 	else:
-		_info.text = text
+		_set_info(text)
+
+
+func _set_info(text: String) -> void:
+	_info.text = text
 
 
 func _row_label(v: VBoxContainer, who: String) -> Label:
