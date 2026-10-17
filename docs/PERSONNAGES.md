@@ -9,7 +9,8 @@ Des adultes de bande dessinée, en **ligne claire** (la veine de Spirou ou de Ti
 - **Palette.** Le village est en couleurs de terroir (brique, moutarde, vert bouteille, bleu de travail, crème). Le casino est sobre et classe : noir, blanc cassé, bordeaux, or. Teints et cheveux en aplats (`Cast.PEAU`, `Cast.CHEVEUX`) ; les cheveux gris restent plus foncés que la peau pour qu'une tête ne paraisse pas chauve de loin.
 - **Matière.** Un seul matériau partagé (`shaders/critter.gdshader`) : couleur peinte par sommet, rugosité par pièce, éclat pour les lunettes et les dorures. Le contour noir est une seconde passe (`shaders/critter_outline.gdshader`, coque inversée), d'environ 2,5 pixels pour un écran de 1080 de haut quelle que soit la distance ; les yeux, sourcils et bouche en sont exclus par l'alpha de la couleur.
 - **Visage.** Coupes (`hair`) : court, raie, houppe, gomina, dégarni, chauve, brushing, carré, permanente, chignon, queue, frange. Nez (`nose`) : rond, patate, long, busqué, retroussé, avec `nose_red` pour les nez de comptoir. Pilosité (`face`) : moustache, barbe, favoris, bouc.
-- **Les figures animales** d'avant le 17 octobre restent dans le code (`species` autre que `humain`) mais ne sont plus utilisées.
+- **De loin**, au cran Quartier de la caméra (plus de 30 u), chaque personnage nommé porte une pastille de la couleur de son chapeau ou de sa veste, cerclée de noir (`Villager._add_badge`).
+- **Les figures animales** d'avant le 17 octobre restent dans `critter_mesh.gd` mais ne sont plus accessibles : les personnages n'ont plus de propriété `species`, seulement une fiche `Cast`.
 
 ## Distribution
 
@@ -50,7 +51,7 @@ Squelette commun de 28 os, une `AnimationTree` partagée (bibliothèque et graph
 
 - Un personnage nommé : une entrée dans `Cast.NAMED` (`"species": "humain"`, teint dans `fur`, coupe, nez, haut, bas, chapeau, cou, visage, accessoires), puis sa clé dans `BY_SPEAKER` ou `BY_MODEL`.
 - Une tenue du joueur : une entrée dans `Cast.PLAYER_OUTFITS` dont la clé est l'`id` de la tenue dans `Biens`. La tenue portée (`Biens.worn`) habille le nouveau venu, et elle change dès qu'on en achète une autre.
-- Vérifier : `godot --path . tools/lineup.tscn -- --capture=out.png` avec `--part=0|1|2`, `--tenues`, `--top`, `--rue` ou `--quartier` (les crans de caméra de la suite), `--close` ou `--moves --only=wave,jump`.
+- Vérifier : `godot --path . tools/lineup.tscn -- --capture=out.png` avec `--part=0|1|2`, `--tenues`, `--top`, `--rue` ou `--quartier` (les crans de caméra de la suite, 18 u et 40 u), `--close` ou `--moves --only=wave,jump`.
 
 ## Ressources
 

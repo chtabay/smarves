@@ -183,6 +183,7 @@ static func resolve(id: String, speaker: String, accessory: String, seed_value: 
 	var out := {"idle": "idle", "sit": "sit", "role": "public", "fidgets": ["scratch", "look_watch", "shrug", "nod"]}
 	if key != "":
 		out.look = NAMED[key].duplicate(true)
+		out.named = key
 		match key:
 			"brunet", "castel", "armand", "garnier":
 				out.idle = "attentive"
@@ -434,22 +435,3 @@ static func _staff(id: String, rng: RandomNumberGenerator) -> Dictionary:
 		return {}
 	out.look = d
 	return out
-
-
-## Pour l'ancien code qui fabriquait un habitant à la main (espèce, pelage, tenue, accessoire).
-static func from_legacy(species: String, fur: Color, outfit: Color, accessory: String) -> Dictionary:
-	if species == "renard":
-		var p := player()
-		p.top_color = outfit.to_html(false)
-		p.legs_color = outfit.to_html(false)
-		return p
-	var d := {"species": "humain", "fur": PEAU[0], "hair": "court", "top": "veste", "top_color": outfit.to_html(false), "legs": "pantalon",
-		"legs_color": outfit.darkened(0.3).to_html(false)}
-	match accessory:
-		"noeud": d.neck = "noeud"
-		"cravate":
-			d.neck = "cravate"
-			d.neck_color = BORDEAUX
-		"collier": d.neck = "collier"
-		"chapeau": d.hat = "haut_de_forme"
-	return d
