@@ -6,7 +6,7 @@ La fiche de cadrage est dans [`docs/CADRAGE.md`](docs/CADRAGE.md), la bible du m
 
 ## Jouer
 
-**Sans Godot** : [télécharger la dernière version pour Windows](https://github.com/chtabay/smarves/releases/latest/download/Smarves-windows.zip), décompresser, lancer `Smarves.exe`. Elle est reconstruite à chaque poussée sur `main`. Tant que le dépôt est privé, le lien demande d'être connecté à GitHub avec un compte qui y a accès.
+**Sans Godot** : [télécharger la dernière version pour Windows](https://github.com/chtabay/smarves/releases/latest/download/Smarves-windows.zip), décompresser, lancer `Smarves.exe`. Elle est reconstruite à chaque poussée sur `main`. **Sur téléphone Android** : depuis le téléphone, [télécharger Smarves.apk](https://github.com/chtabay/smarves/releases/latest/download/Smarves.apk) et l'ouvrir pour l'installer (autoriser l'installation depuis le navigateur la première fois). Le téléphone utilise le rendu Mobile, plus léger que celui du PC. Tant que le dépôt est privé, le lien demande d'être connecté à GitHub avec un compte qui y a accès.
 
 **Avec Godot** : installez [Godot 4.7](https://godotengine.org/download) (version standard), ouvrez le dossier du projet dans Godot, puis appuyez sur **F5**.
 

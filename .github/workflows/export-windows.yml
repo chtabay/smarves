@@ -66,5 +66,84 @@ jobs:
           body: |
             Version construite automatiquement depuis main (${{ github.sha }}).
             Télécharger, décompresser, lancer Smarves.exe (Windows 64 bits).
+            Sur téléphone Android : télécharger Smarves.apk depuis le téléphone et l'installer.
           files: Smarves-windows.zip
           make_latest: true
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Récupérer Godot et les modèles d'export
+        run: |
+          base="https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable"
+          curl -sSL -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          curl -sSL -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q godot.zip
+          mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot
+          mkdir -p "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          unzip -q templates.tpz
+          mv templates/* "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable/"
+          rm -f templates.tpz godot.zip
+
+      - name: Installer les outils Android
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "build-tools;35.0.1" "platforms;android-35" > /dev/null
+
+      # La clé de signature n'est jamais dans le dépôt : elle est fabriquée dans le job
+      # et gardée en cache, pour que chaque APK de main s'installe par-dessus le précédent.
+      - name: Retrouver la clé de signature
+        id: cle
+        uses: actions/cache@v4
+        with:
+          path: ~/smarves-android.keystore
+          key: smarves-android-keystore-v1
+
+      - name: Fabriquer la clé de signature
+        if: steps.cle.outputs.cache-hit != 'true'
+        run: |
+          keytool -genkeypair -keystore ~/smarves-android.keystore -storepass smarves -keypass smarves \
+            -alias smarves -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Smarves, O=Smarves, C=FR"
+
+      - name: Importer les ressources
+        run: ./godot --headless --path . --import || true
+
+      - name: Exporter l'APK
+        env:
+          GODOT_ANDROID_KEYSTORE_RELEASE_USER: smarves
+          GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: smarves
+        run: |
+          export GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$HOME/smarves-android.keystore"
+          mkdir -p build
+          ./godot --headless --path . --export-release "Android" build/Smarves.apk
+          test -f build/Smarves.apk
+          rm -f build/Smarves.apk.idsig
+          echo "Taille de l'APK : $(du -h build/Smarves.apk | cut -f1)" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Smarves-android
+          path: build/Smarves.apk
+          retention-days: 30
+
+  publier-android:
+    needs: [export, android]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Smarves-android
+
+      - name: Ajouter l'APK à la Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: derniere-version
+          files: Smarves.apk
