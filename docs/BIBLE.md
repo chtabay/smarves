@@ -8,7 +8,7 @@ La fiche de cadrage ([`CADRAGE.md`](CADRAGE.md)) dit ce qu'on construit ; la bib
 
 ## 1. Le monde en trois phrases
 
-Smarves est un vrai village de la Vienne où, dans le jeu, tout le monde joue, à chaque coin de rue, et le dit avec le sourire. On y arrive avec un petit pécule, on joue au café, et chaque gain ouvre un nouveau lieu, du comptoir de la boulangerie jusqu'aux rochers de Passelourdin, pendant que le Casino de Smarves, sur la place, ouvre ses salons à ceux qui « ont fait leurs preuves ». Personne ne dit que ça tourne mal : ce sont les chiffres qui le disent, en silence.
+Smarves est un vrai village de la Vienne où, dans le jeu, tout le monde joue, à chaque coin de rue, et le dit avec le sourire. On y arrive avec un petit pécule, on joue au café, et chaque gain ouvre une nouvelle salle, de la salle Rabelais jusqu'à l'arrière-salle du Moulin des Dames, pendant que le Casino de Smarves, sur la place, ouvre ses salons à ceux qui « ont fait leurs preuves ». Personne ne dit que ça tourne mal : ce sont les chiffres qui le disent, en silence.
 
 ## 2. Le ton
 
@@ -77,42 +77,29 @@ Toute nouvelle zone reste dans le vrai Smarves ou ses abords immédiats (vallée
 
 ## 5. Les lieux
 
-Règle du monde : **chaque lieu du village cache un jeu du casino, déguisé en coutume locale**, tenu par quelqu'un du village qui prend sa petite marge (« les cotes sont honnêtes »). **Seuls les gains au jeu ouvrent les lieux**, jamais l'argent qu'on a en poche. Chaque ouverture est annoncée par le tenancier, qui fait signe au joueur.
+Règle du monde : **chaque lieu de jeu du village cache un jeu du casino, déguisé en coutume locale**, et **il se joue à l'intérieur, dans sa salle** : plus rien ne se joue dehors. La rue sert à marcher, à se croiser et à se faire signe. **Seuls les gains au jeu ouvrent les salles**, jamais l'argent qu'on a en poche. Chaque ouverture est annoncée par le tenancier, qui fait signe au joueur.
 
 ### Au village
 
-> **Provisoire, destiné à changer.** Les jeux de la rue (machine du café, paris de Lucien, roulette du comptoir, loto, roue de la kermesse, course des zèbres, blackjack du Moulin, poker de Passelourdin) restent en l'état mais ne perdureront pas sous cette forme (décision de Guillaume, 17 octobre). On n'y attache ni nouvelle réplique, ni nouveau personnage, ni nouvelle fiche ; le casino et le village restent le socle.
+> **Provisoire, destiné à changer.** Les jeux du village (la Smarvoise du café, le loto de la salle Rabelais, le blackjack du Moulin) restent en l'état mais ne perdureront pas sous cette forme (décision de Guillaume, 17 octobre). On n'y attache ni nouvelle réplique, ni nouveau personnage, ni nouvelle fiche ; le casino et le village restent le socle.
 
 | Lieu | Jeu (déguisé en) | Tenancier | Seuil (gagné au jeu) |
 |---|---|---|---|
 | Le Café de la Place | La Smarvoise, machine à sous (le 421 du comptoir est un décor) | Josiane | dès le départ |
 | Le Crédit Smarvois | les prêts « pour investir » | M. Brunet | dès le départ |
 | Le Casino de Smarves | ses salles (voir section 6) | Monsieur Armand | dès le départ |
-| La pétanque de la place | les paris de Lucien (paris à la cote) | Lucien | 1 000 |
-| La boulangerie | la roulette du comptoir | Mme Ferrand | 3 000 |
 | La salle François-Rabelais | le grand loto du samedi soir | M. Gaudin | 8 000 |
-| Le parvis Saint-Félix | la roue de la kermesse | le comité des fêtes | 20 000 |
-| L'allée des trois zèbres | la course des trois zèbres (façon PMU) | le gardien du bois | 50 000 |
 | Le Moulin des Dames | le blackjack de l'arrière-salle | le meunier | 120 000 |
-| Les rochers de Passelourdin | la partie de poker clandestine | « quelqu'un » | 300 000 |
 
-**Le Café de la Place** · *Café de la Place · Tabac · Jeux*, néon *JACKPOT*. Le premier lieu, le cœur du village. Les machines à sous sont alignées sous la façade ; la Smarvoise est celle de Josiane. Dédé y joue au 421 au comptoir, contre lui-même. Ce qu'il raconte : ici on ne dépense pas son argent, on le fait travailler. C'est Josiane qui accueille le nouveau venu et lui avance de quoi continuer, deux fois (« Un placement, ça se soutient »).
+La place de pétanque, la boulangerie, le parvis Saint-Félix, l'allée des trois zèbres et les rochers de Passelourdin restent dans le décor et dans les conversations, mais on n'y joue plus. Les zèbres de béton sont toujours là, immobiles, et le village en parle comme d'un monument.
+
+**Le Café de la Place** · *Café de la Place · Tabac · Jeux*, néon *JACKPOT*. Le premier lieu, le cœur du village. Les machines à sous sont alignées dans la salle ; la Smarvoise est celle de Josiane. Dédé y joue au 421 au comptoir, contre lui-même. Ce qu'il raconte : ici on ne dépense pas son argent, on le fait travailler. C'est Josiane qui accueille le nouveau venu et lui avance de quoi continuer, deux fois (« Un placement, ça se soutient »).
 
 **Le Crédit Smarvois** · *CRÉDIT SMARVOIS*, *Investissez dans votre avenir*. La banque du village, juste en face du café. M. Brunet y reçoit dans son bureau et accorde tous les prêts. Il a aussi un guichet à la caisse du casino. Ce qu'il raconte : un projet de vie, ça se finance.
 
-**La pétanque de la place** · tableau à la craie *COTES DU JOUR*. Partie en 13 points, Lucien prend les paris à la cote. Trois équipes : **Lucien et Dédé** (les favoris, 3 contre 2), **les Rabelais** (l'équipe de la salle des fêtes, 3 contre 1), **les jeunes du Clain** (les outsiders, 5 contre 1). Ce qu'il raconte : la pétanque, c'est la Bourse avec du gravier.
-
-**La boulangerie** · *PAIN · LOTO · GRATTAGE*. Mme Ferrand rend la monnaie à la roulette : une petite roue de comptoir, entre deux baguettes. Ce qu'elle raconte : une baguette, un ticket, on ne sait jamais.
-
 **La salle François-Rabelais** · *LOTO CE SOIR*. Le grand loto du samedi soir, tiré par M. Gaudin, président du comité des fêtes, qui promet chaque semaine « un carton historique ». Ce qu'il raconte : on y va pour l'ambiance, et pour le gros lot.
 
-**Le parvis Saint-Félix** · *ROUE DE LA FORTUNE*. La roue de la kermesse, tenue par le comité des fêtes devant l'église. Saint Félix veille, paraît-il. Ce qu'il raconte : même le parvis encourage à tenter sa chance ; personne n'y voit malice.
-
-**L'allée des trois zèbres** (bois de Saint-Pierre). Les trois zèbres de béton de 1983 « courent » : **Zébulon** (le favori, 2 contre 1), **Zéphyr** (3 contre 1), **Zoé** (4 contre 1). Le gardien du bois prend les paris. Ce qu'il raconte : au château, on jouait déjà au temps des seigneurs ; on ne fait que continuer.
-
 **Le Moulin des Dames**. Le moulin tourne avec l'eau du Clain, l'arrière-salle avec les cartes : le meunier y distribue un blackjack après minuit. Ce qu'il raconte : un as et une figure, c'est comme la farine, ça se transforme en or.
-
-**Les rochers de Passelourdin**. Sur une table de pierre au bord de la falaise, une partie de poker « sans nom ni limite ». On ne demande pas les noms : les joueurs sont *le Notaire*, *la Meunière*, *Gégé*, *le Docteur*, et *l'Inconnu*, qui ne s'assoit jamais ailleurs. Celui qui ouvre la partie au joueur n'a pas de nom non plus : « quelqu'un » vous fait signe. Ce qu'il raconte : personne ne perd, à Passelourdin ; certains gagnent moins longtemps.
 
 ## 6. Le Casino de Smarves
 
@@ -127,7 +114,7 @@ Smarves jouait bien avant le casino : au comptoir, sur la place, au bois, « au 
 
 ### Comment il s'articule avec le village
 
-Les coutumes du village sont l'endroit où l'on joue entre soi ; le casino est l'endroit où l'on joue « sérieusement », sur le modèle d'Addict Casino. Les deux s'ouvrent avec **la même clé**, le total gagné au jeu, et leurs seuils s'entrelacent : on passe sans cesse de la place aux salons et retour (Ambassadeurs à 500, pétanque à 1 000, Loggia à 2 000, boulangerie à 3 000…). L'argent fait le tour : le village prête au joueur (Crédit Smarvois), le joueur mise au village et au casino, le casino rembourse le Crédit Smarvois. Personne ne voit la boucle.
+Les coutumes du village sont l'endroit où l'on joue entre soi ; le casino est l'endroit où l'on joue « sérieusement », sur le modèle d'Addict Casino. Les deux s'ouvrent avec **la même clé**, le total gagné au jeu, et leurs seuils s'entrelacent : on passe sans cesse de la place aux salons et retour (Ambassadeurs à 500, Loggia à 2 000, Salon privé à 5 000, salle Rabelais à 8 000…). L'argent fait le tour : le village prête au joueur (Crédit Smarvois), le joueur mise au village et au casino, le casino rembourse le Crédit Smarvois. Personne ne voit la boucle.
 
 Les noms des machines de la salle des jeux sont ceux du village (*Le Clain*, *Le Miosson*, *Saint-Félix*, *L'Érable*, *Passelourdin*, *Le Moulin*, *Les Zèbres*, *La Rabelais*), et la première s'appelle **La Grande Smarvoise**, en hommage à la machine de Josiane, qui garde la seule vraie Smarvoise et le fait savoir.
 
@@ -277,13 +264,13 @@ Elles reviennent d'un lieu à l'autre ; on peut les reprendre, les varier, jamai
 
 ### Noms des jeux
 
-Au village, les jeux portent le nom de la coutume (« la roulette du comptoir », « la roue de la kermesse », « les paris de Lucien ») ; au casino, leur nom de grande maison (« Roulette européenne », « Poker des Ambassadeurs », « Baccara du salon privé », « Banco des Salons particuliers », « le Grand Hasard », « la Boule », « la Roue de la fortune »). Les règles s'écrivent en français de table : « 3 contre 2 », « le croupier reste sur 17 », « Rien ne va plus ».
+Au village, les jeux portent le nom de la coutume (« la Smarvoise », « le grand loto », « le blackjack de l'arrière-salle ») ; au casino, leur nom de grande maison (« Roulette européenne », « Poker des Ambassadeurs », « Baccara du salon privé », « Banco des Salons particuliers », « le Grand Hasard », « la Boule », « la Roue de la fortune »). Les règles s'écrivent en français de table : « 3 contre 2 », « le croupier reste sur 17 », « Rien ne va plus ».
 
 ### Typographie et interface
 
 - Guillemets français « » avec espaces ; les répliques citées dans une annonce sont entre guillemets.
 - Nombres groupés par trois avec une espace : 1 000, 25 000.
-- Noms de lieux avec leur article et leur majuscule : *le Café de la Place*, *la salle François-Rabelais* (ou *la salle Rabelais*), *le parvis Saint-Félix*, *le Moulin des Dames*, *les rochers de Passelourdin*, *le Casino de Smarves*. Dans une phrase, l'article reprend sa minuscule (« Lucien vous fait signe : la pétanque de la place est ouverte »).
+- Noms de lieux avec leur article et leur majuscule : *le Café de la Place*, *la salle François-Rabelais* (ou *la salle Rabelais*), *le parvis Saint-Félix*, *le Moulin des Dames*, *les rochers de Passelourdin*, *le Casino de Smarves*. Dans une phrase, l'article reprend sa minuscule (« M. Gaudin vous fait signe : la salle François-Rabelais est ouverte »).
 - Les libellés d'interface sont factuels et courts, verbe à l'infinitif, touche entre parenthèses : « Tirer le bras (Espace) », « Quitter (Échap) », « E : s'asseoir au blackjack ». L'interface ne fait pas d'humour ; ce sont les personnages qui en font.
 
 ## 10. L'ordre du récit
@@ -292,17 +279,21 @@ L'ordre dans lequel le monde se dévoile, tel que les seuils le produisent (simu
 
 1. Josiane accueille le nouveau venu et l'envoie à la Smarvoise ; elle mentionne M. Brunet.
 2. Le casino est ouvert d'emblée : hall, Nocturne, salle des jeux. L'inspecteur ouvre les Ambassadeurs presque tout de suite.
-3. Lucien fait signe (pétanque), le chef de partie ouvre la Loggia, Mme Ferrand fait signe (boulangerie).
+3. Le chef de partie ouvre la Loggia.
 4. Les crédits fondent, M. Brunet se manifeste de lui-même, vers la demi-heure.
 5. Monsieur Armand ouvre le Salon privé ; M. Gaudin fait signe (loto) ; le pianiste ouvre le Salon de musique.
-6. Le comité des fêtes, le maître de cérémonie, le gardien du bois, Monsieur Castel : ceux qui y arrivent ont déjà une dette.
-7. Le meunier, puis « quelqu'un » à Passelourdin : presque personne n'y arrive. C'est voulu.
+6. Le maître de cérémonie, puis Monsieur Castel : ceux qui y arrivent ont déjà une dette.
+7. Le meunier : presque personne n'y arrive. C'est voulu.
 
 Chaque habitant, chaque employé du casino peut souffler la rumeur du lieu suivant ; une rumeur donne envie, elle ne donne jamais le chiffre du seuil sauf au casino, où l'on parle chiffres.
 
 ## 11. Écarts connus
 
 Différences entre le jeu actuel et cette bible, et qui s'en charge.
+
+Ouvert :
+
+- Depuis que les jeux du village se jouent en salle, la pétanque, la roulette de la boulangerie, la roue du parvis, la course des zèbres et le poker de Passelourdin n'existent plus. Lucien, Mme Ferrand, le gardien du bois, le comité des fêtes et les habitués de Passelourdin gardent leur fiche de la section 7 comme habitants, sans jeu ; leurs mentions de paris restent à reprendre quand la forme définitive des jeux du village sera décidée.
 
 Corrigés (PR #2 pour les textes du jeu, PR #3 pour la fiche de cadrage et le README) :
 
