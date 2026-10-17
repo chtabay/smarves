@@ -21,6 +21,9 @@ var batch := BATCH.new()
 var glass: Array = []
 ## Ce qui doit s'allumer la nuit à côté des vitrines : [position monde, couleur].
 var glows: Array = []
+## Les enseignes de toit posées : chacune un Node3D (panneau et lettres) que le village fait pâlir
+## quand l'habitant passe derrière, à la place de la coupe en pointillé.
+var roof_signs: Array[Node3D] = []
 var rng := RandomNumberGenerator.new()
 var parent: Node3D
 var font: Font
@@ -338,8 +341,22 @@ func roof_sign(xf: Transform3D, w: float, d: float, h: float, text: String, colo
 	var bw := w - 0.1
 	for s in [-1.0, 1.0]:
 		batch.box("trim", xf * face, Vector3(s * bw * 0.35, ridge + 0.1, 0), Vector3(0.05, 0.5, 0.05), Color(0.3, 0.3, 0.32))
-	batch.box("trim", xf * tilt, Vector3.ZERO, Vector3(bw, 0.62, 0.05), color)
-	batch.box("trim", xf * tilt, Vector3(0, 0.33, 0), Vector3(bw + 0.04, 0.04, 0.07), ink.darkened(0.2))
+	var sign := Node3D.new()
+	sign.name = "EnseigneToit"
+	sign.transform = xf * tilt
+	parent.add_child(sign)
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = color
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.roughness = 0.6
+	for part in [[Vector3.ZERO, Vector3(bw, 0.62, 0.05)], [Vector3(0, 0.33, 0), Vector3(bw + 0.04, 0.04, 0.07)]]:
+		var mi := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = part[1]
+		mi.mesh = bm
+		mi.position = part[0]
+		mi.material_override = mat
+		sign.add_child(mi)
 	var l := Label3D.new()
 	l.text = text
 	l.font = font
@@ -349,9 +366,12 @@ func roof_sign(xf: Transform3D, w: float, d: float, h: float, text: String, colo
 	l.outline_size = 0
 	l.shaded = false
 	l.double_sided = false
-	l.transform = xf * tilt * Transform3D(Basis(), Vector3(0, 0, 0.03))
-	parent.add_child(l)
+	l.position = Vector3(0, 0, 0.03)
+	sign.add_child(l)
 	_fit(l, bw - 0.2)
+	sign.set_meta("material", mat)
+	sign.set_meta("label", l)
+	roof_signs.append(sign)
 
 
 ## Réduit une étiquette pour qu'elle tienne dans la largeur voulue.

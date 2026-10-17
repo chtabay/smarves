@@ -66,6 +66,19 @@ func _init() -> void:
 					blocked.append(Vector2(snappedf(q.x, 0.5), snappedf(q.y, 0.5)))
 					break
 	check(blocked.is_empty(), "le chemin est libre de la place aux rochers %s" % ("" if blocked.is_empty() else str(blocked.slice(0, 8))))
+	# L'allée entre les rangs mène à la porte de la cabane ; on ne traverse pas un rang.
+	blocked = []
+	for q in [Vector2(-2.5, -45.0), Vector2(-4.0, -45.0), Vector2(-5.5, -45.0), Vector2(-7.2, -45.0), Vector2(-7.2, -44.6)]:
+		probe.transform = Transform3D(Basis(), Vector3(q.x, 0.6, q.y))
+		for hit in space.intersect_shape(probe, 4):
+			if not (hit.collider is Area3D):
+				blocked.append(q)
+				break
+	check(blocked.is_empty(), "l'allée des vignes mène à la cabane %s" % str(blocked))
+	ball.radius = 0.1
+	probe.transform = Transform3D(Basis(), Vector3(-7.0, 0.3, -23.45))
+	check(not space.intersect_shape(probe, 1).is_empty(), "un rang de vigne arrête l'habitant")
+	ball.radius = 0.35
 	for id in village.SELLER_DOORS:
 		if village.lots.has(id):
 			check(ResourceLoader.exists(biens.SELLERS[id].scene), "la porte %s mène à %s" % [id, biens.SELLERS[id].scene])

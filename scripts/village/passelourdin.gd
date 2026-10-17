@@ -135,35 +135,65 @@ func _chemin() -> void:
 		seg.rotation.y = atan2(b.x - a.x, b.y - a.y)
 
 
-## Les rangs de vigne, ceps par ceps, en feuilles d'automne, sur leur terre labourée ;
-## hole : [x0, x1, z0, z1] laissé libre.
-func _parcelle(x0: float, x1: float, z0: float, z1: float, hole := []) -> void:
+## Une parcelle de vigne sur sa terre labourée : des rangs continus, chacun d'un ton d'automne proche
+## de celui de la parcelle, avec ses touffes sur le dessus, son fil et ses piquets. Les rangs arrêtent
+## l'habitant (on passe entre eux, pas au travers). holes : [x0, x1, z0, z1] laissés libres.
+func _parcelle(x0: float, x1: float, z0: float, z1: float, tone: Color, holes := []) -> void:
 	v.main._box(Vector3(x1 - x0, 0.05, absf(z1 - z0)), Vector3((x0 + x1) / 2.0, 0.0, (z0 + z1) / 2.0), v.mats.earth, v)
 	var z := maxf(z0, z1) - 0.45
 	while z > minf(z0, z1) + 0.3:
-		# Le fil de palissage tendu d'un piquet à l'autre.
-		f.batch.box("trim", Transform3D(), Vector3((x0 + x1) / 2.0, 0.42, z), Vector3(x1 - x0 - 0.4, 0.02, 0.02), Color(0.4, 0.38, 0.36))
-		for px in [x0 + 0.2, x1 - 0.2]:
-			f.batch.box("trim", Transform3D(), Vector3(px, 0.3, z), Vector3(0.06, 0.6, 0.06), Color(0.5, 0.4, 0.3))
-		var x := x0 + 0.45
-		while x < x1 - 0.35:
-			if not (hole.size() == 4 and x > hole[0] and x < hole[1] and z < hole[3] and z > hole[2]):
-				var h: float = f.rng.randf_range(0.28, 0.4)
-				var col: Color = (f.pick(AUTUMN) as Color).lerp(f.pick(AUTUMN), f.rng.randf() * 0.4)
-				f.batch.box("foliage", Transform3D(Basis(Vector3.UP, f.rng.randf_range(-0.1, 0.1)), Vector3(x, 0.1 + h / 2.0, z)), Vector3.ZERO, Vector3(0.6, h, 0.34), col)
-				f.batch.box("trim", Transform3D(), Vector3(x, 0.08, z), Vector3(0.05, 0.16, 0.05), Color(0.32, 0.22, 0.14))
-			x += f.rng.randf_range(0.36, 0.44)
+		# Le rang, coupé là où une allée ou la cabane passe.
+		var spans := [[x0 + 0.25, x1 - 0.25]]
+		for hole in holes:
+			if z > hole[2] and z < hole[3]:
+				var nxt := []
+				for sp in spans:
+					if hole[1] <= sp[0] or hole[0] >= sp[1]:
+						nxt.append(sp)
+						continue
+					if hole[0] > sp[0]:
+						nxt.append([sp[0], hole[0]])
+					if hole[1] < sp[1]:
+						nxt.append([hole[1], sp[1]])
+				spans = nxt
+		var row_col: Color = tone.lerp(f.pick(AUTUMN), f.rng.randf_range(0.1, 0.3))
+		for sp in spans:
+			var a: float = sp[0]
+			var b: float = sp[1]
+			if b - a < 0.4:
+				continue
+			var mid := (a + b) / 2.0
+			f.batch.box("foliage", Transform3D(), Vector3(mid, 0.27, z), Vector3(b - a, 0.34, 0.26), row_col.darkened(0.15))
+			var x := a + 0.25
+			while x < b - 0.2:
+				var c: Color = row_col.lerp(f.pick(AUTUMN), f.rng.randf() * 0.25).lightened(f.rng.randf_range(0.0, 0.12))
+				f.batch.box("foliage", Transform3D(), Vector3(x, 0.47 + f.rng.randf() * 0.04, z), Vector3(f.rng.randf_range(0.35, 0.55), 0.08, 0.32), c)
+				x += f.rng.randf_range(0.3, 0.45)
+			f.batch.box("trim", Transform3D(), Vector3(mid, 0.5, z), Vector3(b - a, 0.02, 0.02), Color(0.4, 0.38, 0.36))
+			for px in [a, b]:
+				f.batch.box("trim", Transform3D(), Vector3(px, 0.3, z), Vector3(0.06, 0.6, 0.06), Color(0.5, 0.4, 0.3))
+			v.main._solid_box(Vector3(b - a, 0.8, 0.2), Vector3(mid, 0.4, z))
 		z -= 0.9
 
 
 func _vignes() -> void:
-	_parcelle(X0 + 0.4, -4.6, -23.0, -36.5)
-	_parcelle(1.4, X1 - 0.4, -22.6, -28.8)
-	_parcelle(4.0, X1 - 0.4, -31.0, -40.0)
-	_parcelle(X0 + 0.4, -4.4, -38.0, -48.5, [-8.9, -5.5, -45.0, -41.0])
-	# Des murets de pierre sèche entre les parcelles, et les piquets de bout de rang.
+	_parcelle(X0 + 0.4, -4.6, -23.0, -36.5, AUTUMN[1])
+	_parcelle(1.4, X1 - 0.4, -22.6, -28.8, AUTUMN[2])
+	_parcelle(4.0, X1 - 0.4, -31.0, -40.0, AUTUMN[0])
+	# Autour de la cabane, et l'allée qui y mène depuis le chemin.
+	_parcelle(X0 + 0.4, -4.4, -38.0, -48.5, AUTUMN[4], [[-8.9, -5.5, -45.0, -41.0], [-8.9, -4.0, -45.5, -44.4]])
+	# Des murets de pierre sèche entre les parcelles.
 	f.garden_wall(Vector3(X0 + 0.3, 0, -37.3), Vector3(-4.4, 0, -37.3), 0.45, Color(0.85, 0.8, 0.68))
 	f.garden_wall(Vector3(4.0, 0, -30.0), Vector3(X1 - 0.3, 0, -30.0), 0.45, Color(0.85, 0.8, 0.68))
+	# La nuit, la lune éclaire les vignes : trois grandes lueurs froides et douces au-dessus du coteau.
+	for p in [Vector3(-5.0, 7.0, -30.0), Vector3(3.0, 7.0, -36.0), Vector3(-4.0, 7.0, -45.0), Vector3(1.0, 7.0, -55.0)]:
+		var moon := OmniLight3D.new()
+		moon.light_color = Color(0.75, 0.8, 1.0)
+		moon.light_energy = 0.9
+		moon.omni_range = 13.0
+		moon.omni_attenuation = 0.6
+		moon.position = p
+		v.add_child(moon)
 
 
 # --- Les repères ---------------------------------------------------------------------------------
