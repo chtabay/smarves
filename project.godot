@@ -23,6 +23,7 @@ Sfx="*res://scripts/sfx.gd"
 Settings="*res://scripts/settings.gd"
 Biens="*res://scripts/biens.gd"
 Carnet="*res://scripts/carnet.gd"
+Bienvenue="*res://scripts/bienvenue.gd"
 Tactile="*res://scripts/tactile/tactile.gd"
 
 [display]
