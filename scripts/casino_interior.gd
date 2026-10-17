@@ -221,7 +221,7 @@ func _environment() -> void:
 		env.set_glow_level(i, [0.0, 0.8, 0.5, 0.15, 0.0, 0.0, 0.0][i])
 	env.glow_intensity = 0.4
 	env.glow_bloom = 0.0
-	env.glow_hdr_threshold = 1.2
+	env.glow_hdr_threshold = 1.4
 	env.volumetric_fog_density = 0.003
 	# Reflets dans les miroirs, le marbre ciré et le laque.
 	env.ssr_enabled = true
@@ -345,15 +345,27 @@ func _sconce(pos: Vector3, rot_y: float) -> void:
 	root.rotation_degrees.y = rot_y
 	add_child(root)
 	_box(Vector3(0.18, 0.3, 0.06), Vector3(0, 0, 0), gold, false, root)
-	_cyl(0.07, 0.16, Vector3(0, 0.15, 0.12), brass_glow, root, 0.1)
+	_cyl(0.07, 0.16, Vector3(0, 0.15, 0.12), _sconce_shade(), root, 0.1)
 	var l := OmniLight3D.new()
 	l.light_color = Color(1.0, 0.72, 0.45)
-	l.light_energy = 0.9
-	l.omni_range = 3.5
-	l.position = Vector3(0, 0.2, 0.3)
+	l.light_energy = 0.6
+	l.omni_range = 3.0
+	l.light_volumetric_fog_energy = 0.2
+	l.position = Vector3(0, 0.2, 0.4)
 	root.add_child(l)
 
 
+
+
+## L'abat-jour des appliques : il luit sans éblouir le mur qui le porte.
+var _shade_mat: StandardMaterial3D
+
+
+func _sconce_shade() -> StandardMaterial3D:
+	if _shade_mat == null:
+		_shade_mat = brass_glow.duplicate()
+		_shade_mat.emission_energy_multiplier = 1.6
+	return _shade_mat
 
 
 func _glass() -> StandardMaterial3D:
@@ -1127,7 +1139,10 @@ func _wall(a: Vector3, b: Vector3, openings: Array = [], h := WALL_H, y0 := 0.0,
 func _mirror(parent: Node3D, at: Vector3, size: Vector2) -> void:
 	_box(Vector3(size.x + 0.2, size.y + 0.2, 0.05), at, gold, false, parent)
 	_box(Vector3(size.x, size.y, 0.02), at + Vector3(0, 0, 0.03), mirror, false, parent)
-	var crest := _cyl(0.16, 0.06, at + Vector3(0, size.y / 2.0 + 0.16, 0.0), gold, parent)
+	# Un laiton satiné : poli, le cimier renvoyait le lustre en un point qui bavait sur le palier.
+	var satin: StandardMaterial3D = gold.duplicate()
+	satin.roughness = maxf(satin.roughness, 0.45)
+	var crest := _cyl(0.16, 0.06, at + Vector3(0, size.y / 2.0 + 0.16, 0.0), satin, parent)
 	crest.rotation_degrees.x = 90
 
 
@@ -1295,11 +1310,13 @@ func _chandelier(pos: Vector3, size := 1.0, shadows := false) -> void:
 	root.add_child(dmi)
 	var light := OmniLight3D.new()
 	light.light_color = Color(1.0, 0.78, 0.52)
-	light.light_energy = 4.0 * size
+	# Les grands lustres ne montent pas en proportion : au-delà, ils brûlaient les murs proches.
+	light.light_energy = 4.0 * size if size <= 1.0 else 4.0 + 1.5 * (size - 1.0)
 	light.omni_range = 10.0 * size
 	light.shadow_enabled = shadows
 	light.light_volumetric_fog_energy = 0.25
-	light.position.y = -0.4 * size
+	# Sous la coupe, assez bas pour ne pas brûler le plafond tout proche (dessous des galeries).
+	light.position.y = -0.4 * size - 0.25
 	root.add_child(light)
 
 
