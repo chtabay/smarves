@@ -333,42 +333,38 @@ static func _porte_cavaliers(f, b: Dictionary, hauteur: Callable) -> void:
 		var wxf := xf * Transform3D(Basis(Vector3.UP, -a + PI / 2.0), p)
 		f.batch.box("trim", wxf, Vector3(0, 0, 0.0), Vector3(0.42, 0.7, 0.05), clair)
 		f._glass(wxf, Vector3(0, 0, 0.03), Vector2(0.28, 0.56), 0, false, Color(1.0, 0.8, 0.5))
-	# Le mur de la porte, en retrait de la façade, et le passage voûté qui le perce vers la ruelle.
-	var pw := 1.6
+	# Le mur de la porte, en retrait de la façade, percé du passage voûté qui mène à la ruelle derrière.
+	var pw := 2.0
 	var p0 := ouest * (w / 2.0 + 0.1)
 	var pxf := xf * Transform3D(Basis(), Vector3(p0 + ouest * pw / 2.0, 0, -1.1))
 	var pd := 4.6
 	var ph := 2.45
-	var passage_z := -3.85
-	var passage_w := 1.5
-	var passage_h := 1.55
+	var passage_w := 1.2
+	var passage_h := 1.6
+	var pied := (pw - passage_w) / 2.0
 	_socle(f, pxf, pw, pd, fa.socle, joint)
-	# Le mur plein devant le passage, et le pan au-dessus de la voûte.
-	var avant := passage_z + passage_w / 2.0
-	f.batch.box("wall", pxf, Vector3(0, ph / 2.0, avant / 2.0), Vector3(pw, ph, -avant), pierre)
-	f.batch.box("wall", pxf, Vector3(0, ph / 2.0, (passage_z - passage_w / 2.0 - pd) / 2.0), Vector3(pw, ph, pd + passage_z - passage_w / 2.0), pierre)
-	f.batch.box("wall", pxf, Vector3(0, (ph + passage_h) / 2.0, passage_z), Vector3(pw, ph - passage_h, passage_w + 0.02), pierre)
-	# La voûte en plein cintre, en claveaux de pierre claire, sur les deux faces du passage.
 	for s in [-1.0, 1.0]:
-		var vx: float = s * pw / 2.0
-		for k in 5:
-			var a0 := PI * k / 5.0
-			var a1 := PI * (k + 1) / 5.0
-			var am := (a0 + a1) / 2.0
-			var rr := passage_w / 2.0
-			var c := Vector3(vx + s * 0.03, passage_h - rr + rr * 0.86 * sin(am), passage_z + rr * 0.86 * cos(am))
-			f.batch.box("wall", pxf * Transform3D(Basis(Vector3.RIGHT, -am + PI / 2.0), c), Vector3.ZERO, Vector3(0.1, 0.3, 0.18), clair)
-		f.batch.box("trim", pxf, Vector3(vx + s * 0.02, passage_h - 0.5, passage_z + passage_w / 2.0 + 0.06), Vector3(0.08, 1.0, 0.14), clair)
-		f.batch.box("trim", pxf, Vector3(vx + s * 0.02, passage_h - 0.5, passage_z - passage_w / 2.0 - 0.06), Vector3(0.08, 1.0, 0.14), clair)
+		f.batch.box("wall", pxf, Vector3(s * (pw / 2.0 - pied / 2.0), ph / 2.0, -pd / 2.0), Vector3(pied, ph, pd), pierre)
+	f.batch.box("wall", pxf, Vector3(0, (ph + passage_h) / 2.0, -pd / 2.0), Vector3(passage_w + 0.02, ph - passage_h, pd), pierre)
+	# La voûte en plein cintre, en claveaux de pierre claire, sur les deux faces du passage.
+	var rr := passage_w / 2.0
+	for s in [-1.0, 1.0]:
+		var vz := 0.03 if s > 0.0 else -pd - 0.03
+		for k in 7:
+			var am := PI * (k + 0.5) / 7.0
+			var c := Vector3(rr * 0.92 * cos(am), passage_h - rr + rr * 0.92 * sin(am), vz)
+			f.batch.box("wall", pxf * Transform3D(Basis(Vector3.BACK, am - PI / 2.0), c), Vector3.ZERO, Vector3(0.26, 0.3, 0.08), clair)
+		for q in [-1.0, 1.0]:
+			# Les écoinçons, qui ferment les angles carrés au-dessus de la naissance de la voûte.
+			f.batch.box("wall", pxf, Vector3(q * (rr - 0.14), passage_h - 0.14, vz), Vector3(0.28, 0.28, 0.07), pierre)
+			f.batch.box("trim", pxf, Vector3(q * (rr + 0.06), (passage_h - rr) / 2.0, vz), Vector3(0.12, passage_h - rr, 0.08), clair)
 	# Le dessous de la voûte, sombre, et le pavé du passage.
-	f.batch.box("trim", pxf, Vector3(0, passage_h + 0.02, passage_z), Vector3(pw + 0.02, 0.04, passage_w), joint.darkened(0.45))
-	f.batch.box("trim", pxf, Vector3(0, 0.02, passage_z), Vector3(pw + 0.3, 0.04, passage_w), joint.darkened(0.2))
-	# Une fenêtre à volets blancs au-dessus de la voûte, côté rue, et le petit toit du mur.
-	var wxf := pxf * Transform3D(Basis(Vector3.UP, ouest * PI / 2.0), Vector3(ouest * pw / 2.0, 0, passage_z))
-	f._window(wxf, Vector3(0, passage_h + 0.25, 0), Vector2(0.42, 0.55), blanc, clair, 0.2)
+	f.batch.box("trim", pxf, Vector3(0, passage_h + 0.02, -pd / 2.0), Vector3(passage_w + 0.02, 0.04, pd), joint.darkened(0.45))
+	f.batch.box("trim", pxf, Vector3(0, 0.02, -pd / 2.0), Vector3(passage_w, 0.04, pd + 0.6), joint.darkened(0.2))
+	# Une fenêtre à volets blancs au-dessus de la voûte, côté place, et le petit toit du mur.
+	f._window(pxf, Vector3(0, passage_h + 0.22, 0), Vector2(0.42, 0.55), blanc, clair, 0.2)
 	f.batch.box("trim", pxf, Vector3(0, ph - 0.05, -pd / 2.0), Vector3(pw + 0.12, 0.08, pd + 0.12), joint)
 	f._roof(pxf, pw, pd, ph, tuile, pierre, "hip")
-
 
 # --- Les outils ------------------------------------------------------------------------------------
 
