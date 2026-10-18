@@ -122,6 +122,9 @@ func _ready() -> void:
 			page = arg.get_slice("=", 1)
 		elif arg.begins_with("--bureau-onglet="):
 			onglet_championnat = arg.get_slice("=", 1)
+		elif arg.begins_with("--bureau-case="):
+			# Un poste choisi sur le terrain, sa consigne individuelle ouverte (captures).
+			case_choisie = int(arg.get_slice("=", 1))
 	foot().change.connect(_rafraichir)
 	var m := _mercato_noeud()
 	if m != null:
@@ -641,7 +644,9 @@ func _charger_compo() -> void:
 	var joueurs := _joueurs()
 	# La compo posée (Football : « compo », 11 ids, "" pour une case laissée à l'adjoint), que l'équipe type complète.
 	var posee: Array = d.get("compo", [])
+	var choisie := case_choisie
 	_equipe_type()
+	case_choisie = choisie
 	if posee.size() == compo.onze.size():
 		for i in posee.size():
 			var id := str(posee[i])
