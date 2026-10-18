@@ -397,7 +397,7 @@ static func _porte_cavaliers(f, b: Dictionary, hauteur: Callable) -> void:
 		else:
 			f.glows.append([pxf * (p + Vector3(0, 0.5, 0.2)), Color(1.0, 0.8, 0.5)])
 	# Le lampadaire du carrefour.
-	_lampadaire(f, pxf, Vector3(ouest * (pw / 2.0 + 1.6), 0, zc + 1.6))
+	_lampadaire(f, pxf, Vector3(ouest * (pw / 2.0 + 2.6), 0, zc + 2.6))
 
 
 # --- Le 7 place de la Mairie : l'agence Groupama ----------------------------------------------------
@@ -413,10 +413,10 @@ static func _groupama(f, b: Dictionary, hauteur: Callable) -> void:
 	var d := 2.6
 	# Le bout de la façade le plus à l'est est l'angle de la rue des Cavaliers : l'agence est de ce côté.
 	var est: float = (1.0 if fa.a.x > fa.c.x else -1.0) * fa.sens
-	var pierre := Color(0.7, 0.63, 0.52)
-	var joint := Color(0.5, 0.44, 0.36)
+	var pierre := Color(0.76, 0.68, 0.56)
+	var joint := Color(0.52, 0.46, 0.38)
 	var blanc := Color(0.95, 0.95, 0.93)
-	var clair := Color(0.9, 0.86, 0.76)
+	var clair := Color(0.92, 0.88, 0.78)
 	var tuile := Color(0.78, 0.5, 0.33)
 	var vert := Color(0.0, 0.42, 0.3)
 	var h := BASE_H + 2.0 * FLOOR_H
@@ -637,14 +637,14 @@ static func _maison_21(f, b: Dictionary, hauteur: Callable) -> void:
 		for i in 10:
 			f.batch.box("trim", gxf, Vector3(cx - pil / 2.0 + 0.08 + i * 0.09, y + 1.0, 0), Vector3(0.025, 0.9, 0.025), fer)
 	# Deux tilleuls taillés en boule dans la cour.
-	for q in [Vector2(15.3, 44.3), Vector2(18.2, 46.1)]:
+	for q in [Vector2(15.1, 43.9), Vector2(19.0, 45.7)]:
 		var yt: float = hauteur.call(q.x, q.y) - 0.05
 		var txf := Transform3D(Basis(), Vector3(q.x, yt, q.y))
 		f.batch.cylinder("trim", txf, Vector3.ZERO, 0.08, 1.1, Color(0.36, 0.28, 0.2), 6)
 		var feuille := Color(0.3, 0.48, 0.2)
-		f.batch.cylinder("trim", txf, Vector3(0, 1.0, 0), 0.6, 0.45, feuille.darkened(0.1), 8)
-		f.batch.cylinder("trim", txf, Vector3(0, 1.45, 0), 0.85, 0.7, feuille, 8)
-		f.batch.cylinder("trim", txf, Vector3(0, 2.15, 0), 0.55, 0.45, feuille.lightened(0.1), 8)
+		f.batch.cylinder("trim", txf, Vector3(0, 1.0, 0), 0.5, 0.4, feuille.darkened(0.1), 8)
+		f.batch.cylinder("trim", txf, Vector3(0, 1.4, 0), 0.7, 0.6, feuille, 8)
+		f.batch.cylinder("trim", txf, Vector3(0, 2.0, 0), 0.45, 0.4, feuille.lightened(0.1), 8)
 	var lp: Vector3 = gxf * Vector3(long - 0.6, 0, -0.7)
 	_lampadaire(f, gxf, Vector3(long - 0.6, hauteur.call(lp.x, lp.z) - 0.03, -0.7))
 
