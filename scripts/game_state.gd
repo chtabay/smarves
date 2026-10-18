@@ -41,6 +41,9 @@ var debt: int:
 				debts.erase(k)
 ## Les tiroirs des communes (id -> données) : chacune y range ce qui n'appartient qu'à elle.
 var tiroirs := {}
+## Les pages des communes au carnet du joueur (Carnet.noter) : id -> {nom, compteurs, valeurs, vu}. Au socle,
+## pas dans les tiroirs : une commune n'y écrit que par le carnet, qui vérifie ce qu'elle déclare.
+var carnet := {}
 var loans_taken := 0
 ## L'accueil de Josiane a eu lieu (première partie).
 var welcomed := false
@@ -107,6 +110,7 @@ func _remettre_a_zero() -> void:
 	advances_left = MAX_ADVANCES
 	debts = {}
 	tiroirs = {}
+	carnet = {}
 	loans_taken = 0
 	peak_credits = START_CREDITS
 	_last_call_staked = -100000

@@ -1,7 +1,7 @@
 extends RefCounted
 ## La sauvegarde de la partie, rangée en tiroirs (docs/COMMUNE.md) :
 ## - le socle (socle.save) tient ce qui vaut pour toutes les communes : la bourse, le total gagné au jeu
-##   (la clé), le total misé, le pic de crédits et la dette par prêteur ;
+##   (la clé), le total misé, le pic de crédits, la dette par prêteur et les pages des communes au carnet ;
 ## - chaque commune a son tiroir (communes/<id>.save) : pour Smarves, les avances de Josiane, les prêts
 ##   déjà accordés par M. Brunet et l'accueil du premier soir ; une commune greffée y range ce qu'elle veut.
 ## Les biens gardent leur propre fichier (smarves_biens.save), tenu par l'autoload Biens.
@@ -17,7 +17,7 @@ const ANCIEN := "smarves.save"
 ## Écrit le socle et tous les tiroirs sous dossier (« user:// » pour la vraie partie).
 static func ecrire(game: Node, dossier := "user://") -> void:
 	_ecrire_json(dossier + SOCLE, {"format": FORMAT, "bourse": game.credits, "gagne": game.won, "mise": game.staked,
-		"pic": game.peak_credits, "dettes": game.debts})
+		"pic": game.peak_credits, "dettes": game.debts, "carnet": game.carnet})
 	game.tiroirs[game.lender] = game.tiroir(game.lender).merged({"avances": game.advances_left,
 		"prets": game.loans_taken, "accueil": game.welcomed}, true)
 	DirAccess.make_dir_recursive_absolute(dossier + TIROIRS)
@@ -41,6 +41,8 @@ static func charger(game: Node, dossier := "user://", migrer := true) -> String:
 			for k in d:
 				if int(d[k]) > 0:
 					game.debts[str(k)] = int(d[k])
+		var cn = s.get("carnet", {})
+		game.carnet = cn if typeof(cn) == TYPE_DICTIONARY else {}
 		var dir := DirAccess.open(dossier + TIROIRS)
 		if dir:
 			for f in dir.get_files():
