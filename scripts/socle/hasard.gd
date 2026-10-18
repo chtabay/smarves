@@ -43,6 +43,22 @@ func choix(liste: Array) -> Variant:
 	return liste[int(floor(suivant() * liste.size()))]
 
 
+## Un choix pondéré : poids(élément) >= 0 ; tout à zéro, un choix simple.
+func pondere(liste: Array, poids: Callable) -> Variant:
+	var w: Array = liste.map(poids)
+	var total := 0.0
+	for x in w:
+		total += x
+	if total <= 0.0:
+		return choix(liste)
+	var r := suivant() * total
+	for i in liste.size():
+		r -= w[i]
+		if r < 0.0:
+			return liste[i]
+	return liste[-1]
+
+
 ## Loi normale approchée (Box-Muller).
 func normal(moyenne := 0.0, ecart := 1.0) -> float:
 	var u := maxf(suivant(), 1e-9)

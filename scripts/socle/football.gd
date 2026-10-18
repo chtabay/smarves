@@ -7,11 +7,34 @@ extends Node
 ## groupes fils. Le championnat vit sur le calendrier réel : un match le dimanche à 15 h, quatorze
 ## journées puis une semaine de trêve et une de mercato, trois saisons par an. Un résultat ne dépend
 ## que d'une graine (saison, journée, clubs) et des décisions prises avant le coup d'envoi : tout le
-## monde calcule le même, hors ligne. La simulation du match minute par minute viendra de Zeus ; ici,
-## le résultat est tiré d'un seul coup, dans l'ordre où les choses s'empilent.
+## monde calcule le même, hors ligne : le match est joué minute par minute (FootMatch, repris du
+## Vestiaire) avec les effectifs de la saison, et son score est le résultat officiel.
 
 ## La pyramide a changé (une saison s'est finie, un club est entré).
 signal change
+
+## L'effectif d'un club pour une saison : deux gardiens, six défenseurs, six milieux, quatre attaquants,
+## tirés de la graine du club et de la saison ; des noms inventés, combinés sans viser personne.
+const EFFECTIF := [["G", 2], ["D", 6], ["M", 6], ["A", 4]]
+const PRENOMS := ["Adrien", "Alban", "Alexis", "Amaury", "Anselme", "Arno", "Aurèle", "Bastien", "Benoît", "Bertrand",
+	"Bruno", "Cédric", "Célestin", "Clément", "Corentin", "Damien", "Denis", "Dorian", "Edgar", "Élie",
+	"Émile", "Enzo", "Éric", "Étienne", "Fabien", "Félix", "Firmin", "Florent", "Gaël", "Gaspard",
+	"Gilles", "Gustave", "Hugo", "Ilan", "Isaac", "Jasper", "Joachim", "Jonas", "Jules", "Kilian",
+	"Léandre", "Léon", "Loïc", "Lucien", "Malo", "Marius", "Mathis", "Maxence", "Milo", "Nathan",
+	"Nils", "Noé", "Octave", "Olivier", "Oscar", "Pablo", "Pascal", "Quentin", "Rafael", "Rémi",
+	"Romain", "Ruben", "Sacha", "Samir", "Simon", "Stan", "Sylvain", "Théo", "Thibault", "Timéo",
+	"Tristan", "Ugo", "Valentin", "Victor", "Willem", "Xavier", "Yanis", "Yohan", "Zacharie", "Ziad",
+	"Kofi", "Moussa", "Idrissa", "Tomás", "Matteo", "Luka", "Jens", "Sören", "Iker", "Davide"]
+const NOMS := ["Aubrac", "Barneville", "Belcastel", "Bérard", "Boisseau", "Brémond", "Carvin", "Castagné", "Chabrol", "Chauvelin",
+	"Cordier", "Courtil", "Dalbret", "Daumas", "Delorme", "Desvignes", "Dorval", "Duclair", "Escoffier", "Faverge",
+	"Fenouil", "Flamand", "Fourcade", "Gaillac", "Garrigou", "Gauvrit", "Guérande", "Hallier", "Hébrard", "Jaouen",
+	"Joubert", "Kerlaz", "Labarthe", "Lacombe", "Lagarde", "Lamothe", "Larcher", "Lebrun", "Lemarié", "Loubière",
+	"Malaurie", "Marceau", "Maréchal", "Mazière", "Méjean", "Montel", "Morvan", "Nadeau", "Navarre", "Noblet",
+	"Ollivier", "Orsini", "Pagès", "Perrault", "Peyrol", "Pichon", "Plantier", "Quéré", "Rabier", "Raynal",
+	"Renaudin", "Rivière", "Rochette", "Roustan", "Sabatier", "Saulnier", "Ségalen", "Solère", "Tardieu", "Tessier",
+	"Thouvenel", "Trémolet", "Vachon", "Valette", "Vasseur", "Verdier", "Vidalenc", "Villard", "Yvinec", "Zaragoz",
+	"Abadie", "Bakary", "Diarrao", "Ekwalla", "Fonsagrives", "Haddadi", "Kabila", "Mbango", "Ndoumbé", "Okafar",
+	"Brandvold", "Halvard", "Iturbe", "Lindqvar", "Moravec", "Ostrovan", "Pellegrina", "Sandoret", "Torvik", "Valdemar"]
 
 ## Le premier dimanche de la première saison, à 15 h locale, et la longueur d'une saison en semaines.
 const EPOQUE := {"year": 2026, "month": 10, "day": 25}
@@ -41,6 +64,9 @@ var decisions := {}
 ## Où lire et écrire la pyramide ; un test le déplace. « » : rien n'est écrit.
 var dossier := Communes.GREFFES
 var _horloge: Callable = Callable()
+## Les matchs déjà joués et les effectifs déjà tirés, en mémoire : tout se recalcule à l'identique.
+var _matchs := {}
+var _effectifs := {}
 
 
 func _ready() -> void:
@@ -417,42 +443,70 @@ func force(club: String, s: int) -> float:
 	return clampf(h.normal(60.0, 8.0), 40.0, 80.0)
 
 
-## Le score d'un match, le même pour tout le monde : la graine ne dépend que de la saison, de la
-## journée, des deux clubs et des décisions prises avant le coup d'envoi (Football.decider).
-func resultat(s: int, j: int, dom: String, ext: String) -> Array:
+## L'effectif d'un club pour une saison : {id: {prenom, nom, poste, age, note, condition, moral}}, les notes
+## autour de la force du club (les premiers de chaque poste un peu au-dessus, les autres un peu en dessous).
+func effectif(club: String, s: int) -> Dictionary:
+	var cle := "%d/%s" % [s, club]
+	if _effectifs.has(cle):
+		return _effectifs[cle]
+	var h := Hasard.depuis(Hasard.graine("effectif/" + cle))
+	var niveau := force(club, s)
+	var out := {}
+	var n := 0
+	for ligne in EFFECTIF:
+		var poste: String = ligne[0]
+		var titulaires: int = 1 if poste == "G" else (2 if poste == "A" else 4)
+		for k in ligne[1]:
+			n += 1
+			var age: int = clampi(int(roundf(h.normal(26.0, 4.0))), 17, 36)
+			var bonus := 3.0 if k < titulaires else -3.0
+			out["%s/%d" % [club, n]] = {"prenom": h.choix(PRENOMS), "nom": h.choix(NOMS), "poste": poste, "age": age,
+				"note": clampi(int(roundf(h.normal(niveau + bonus, 5.0))), 35, 92), "condition": 100, "moral": 70}
+	_effectifs[cle] = out
+	return out
+
+
+## La rencontre de la journée j de la saison s, jouée d'une traite minute par minute (FootMatch) et gardé en
+## mémoire : la graine ne dépend que de la saison, de la journée, des deux clubs et des décisions prises
+## avant le coup d'envoi (decider), donc tout le monde voit le même match.
+func rencontre(s: int, j: int, dom: String, ext: String) -> Dictionary:
 	var cle := "match/%d/%d/%s/%s" % [s, j, dom, ext]
 	for c in [dom, ext]:
 		var d: Dictionary = decisions.get("%d/%d/%s" % [s, j, c], {})
 		if not d.is_empty():
 			cle += "|%s:%s" % [c, JSON.stringify(d)]
+	if _matchs.has(cle):
+		return _matchs[cle]
+	var joueurs := {}
+	joueurs.merge(effectif(dom, s))
+	joueurs.merge(effectif(ext, s))
 	var h := Hasard.depuis(Hasard.graine(cle))
-	var fd := force(dom, s) + 4.0 + _bonus(decisions.get("%d/%d/%s" % [s, j, dom], {}))
-	var fe := force(ext, s) + _bonus(decisions.get("%d/%d/%s" % [s, j, ext], {}))
-	var ecart := (fd - fe) / 20.0
-	return [_buts(h, 1.35 + ecart * 0.6), _buts(h, 1.1 - ecart * 0.6)]
+	var etat := FootMatch.creer(_equipe(s, j, dom, joueurs), _equipe(s, j, ext, joueurs), joueurs, h)
+	FootMatch.simuler(etat, joueurs, h)
+	_matchs[cle] = etat
+	return etat
 
 
-static func _bonus(d: Dictionary) -> float:
-	match str(d.get("mentalite", "")):
-		"offensive":
-			return 2.0
-		"prudente":
-			return -1.0
-	return 0.0
+## Ce que FootMatch attend d'un club : son identité, sa tactique du jour (les décisions) et son effectif.
+func _equipe(s: int, j: int, club: String, joueurs: Dictionary) -> Dictionary:
+	var c: Dictionary = clubs[club]
+	var d: Dictionary = decisions.get("%d/%d/%s" % [s, j, club], {})
+	var ids: Array = joueurs.keys().filter(func(id): return str(id).begins_with(club + "/"))
+	return {"id": club, "nom": c.nom, "court": c.court, "stade": str(c.get("stade", "le stade %s" % _de(c.nom))),
+		"formation": str(d.get("formation", "4-4-2")) if FootMatch.FORMATIONS.has(str(d.get("formation", ""))) else "4-4-2",
+		"mentalite": str(d.get("mentalite", "equilibree")) if FootMatch.MENTALITES.has(str(d.get("mentalite", ""))) else "equilibree",
+		"pressing": str(d.get("pressing", "normal")) if FootMatch.PRESSINGS.has(str(d.get("pressing", ""))) else "normal",
+		"effectif": ids}
 
 
-## Des buts tirés d'une loi de Poisson d'espérance lambda (bornée à 7).
-static func _buts(h: Hasard, lambda: float) -> int:
-	lambda = maxf(0.15, lambda)
-	var l := exp(-lambda)
-	var k := 0
-	var p := 1.0
-	while k < 7:
-		p *= h.suivant()
-		if p <= l:
-			break
-		k += 1
-	return k
+## « de l'Étoile », « d'Avenir », « de Jeunesse »…
+static func _de(nom: String) -> String:
+	return ("d'%s" if nom.left(1).to_lower() in ["a", "e", "i", "o", "u", "y", "é", "h"] else "de %s") % nom
+
+
+## Le score d'un match, le même pour tout le monde : celui du match joué minute par minute.
+func resultat(s: int, j: int, dom: String, ext: String) -> Array:
+	return (rencontre(s, j, dom, ext).score as Array).duplicate()
 
 
 ## Une décision prise avant un match (la tactique du dimanche) ; sans effet sur un match déjà joué.
@@ -491,5 +545,7 @@ func effacer() -> void:
 	clubs = {}
 	historique = []
 	decisions = {}
+	_matchs = {}
+	_effectifs = {}
 	if dossier != "":
 		DirAccess.remove_absolute(dossier.path_join(FICHIER))

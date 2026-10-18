@@ -3,7 +3,7 @@ extends "res://scripts/shop_interior.gd"
 ## François-Rabelais et son grand loto, l'arrière-salle du Moulin des Dames et son blackjack. On ne joue
 ## plus dehors : on entre, on s'approche de la machine ou de la table, E ouvre le jeu (docs/VILLAGE.md).
 ## La pièce, les matériaux, la porte et l'interface viennent de l'intérieur des vendeurs (shop_interior.gd).
-## Capture : godot --path . res://scenes/cafe.tscn -- --capture=sortie.png [--at=x,z,lacet,tangage] [--open=jeu|tableau] [--won=…] [--journee=n]
+## Capture : godot --path . res://scenes/cafe.tscn -- --capture=sortie.png [--at=x,z,lacet,tangage] [--open=jeu|tableau|feuille] [--won=…] [--journee=n]
 
 const SLOT := preload("res://scripts/slot_machine.gd")
 const TABLEAU := preload("res://scripts/socle/foot_tableau.gd")
@@ -538,6 +538,7 @@ func _maybe_capture() -> void:
 	var path := ""
 	var open := false
 	var tableau := false
+	var feuille := false
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--capture="):
 			path = arg.trim_prefix("--capture=")
@@ -553,6 +554,9 @@ func _maybe_capture() -> void:
 			open = true
 		elif arg == "--open=tableau":
 			tableau = true
+		elif arg == "--open=feuille":
+			tableau = true
+			feuille = true
 		elif arg.begins_with("--journee="):
 			# L'horloge du football posée une heure après le coup d'envoi de cette journée de la saison 1.
 			var t: int = Football.coup_envoi(1, int(arg.trim_prefix("--journee="))) + 3600
@@ -568,6 +572,11 @@ func _maybe_capture() -> void:
 		await get_tree().create_timer(1.0).timeout
 		if tableau:
 			open_tableau()
+			if feuille:
+				# La feuille du premier match de la dernière journée jouée.
+				var d: Array = _game.division
+				var m: Dictionary = Football.journee(Football.saison, d[0], d[1], Football.journee_jouee())[0]
+				_game.ouvrir_feuille(Football.saison, Football.journee_jouee(), m.dom, m.ext)
 		else:
 			open_game()
 	await get_tree().create_timer(6.0).timeout
