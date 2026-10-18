@@ -376,6 +376,17 @@ func open_locaux() -> void:
 	_causerie = p
 
 
+## Ce que le parcours automatique (tools/smoke.gd) attend de tout intérieur : open_game() ouvre « le jeu »
+## du lieu, _game est sa fenêtre. Au stade, le jeu, c'est le club : le siège, qui ouvre tout le reste.
+var _game: Control:
+	get:
+		return _causerie
+
+
+func open_game() -> void:
+	open_locaux()
+
+
 ## Le registre des obligations du club, le même qu'à l'étude de Maître Garnier.
 func open_obligations() -> void:
 	if _causerie != null:
