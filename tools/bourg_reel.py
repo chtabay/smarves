@@ -57,6 +57,7 @@ BOURGS = {
             ("monument_morts", "Le monument aux morts", "monument", "node/13329356359"),
             ("croix", "La croix", "monument", "node/13329356353"),
             ("hotel", "L'hôtel-restaurant de la Châtellenie", "commerce", "node/4280211690"),
+            ("adrien_bernard", "Le 10 place Adrien-Bernard", "maison", "way/64160464"),
             ("office_tourisme", "L'office de tourisme", "lieu", "way/64158780"),
             ("ecole", "L'école", "lieu", "node/4294659881"),
             ("pompiers", "La caserne des pompiers", "lieu", "way/64158776"),

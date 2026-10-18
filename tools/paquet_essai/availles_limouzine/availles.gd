@@ -16,6 +16,7 @@ const PIERRE := Color(0.86, 0.8, 0.68)
 const OR := Color(0.95, 0.82, 0.5)
 ## Les monuments dont les murs restent nus, en attendant leur vraie silhouette.
 const FACADES := preload("res://scripts/village/facades.gd")
+const REMARQUABLES := preload(DOSSIER + "remarquables.gd")
 const SANS_FENETRES := ["eglise", "porte_cavaliers", "porte_riviere"]
 ## Où l'on arrive : la place de la Mairie, entre la porte des Cavaliers et la rue qui descend au pont.
 const ARRIVEE_NOM := "Place de la Mairie"
@@ -75,6 +76,13 @@ func _ready() -> void:
 			if v.size() > 3:
 				camera.yaw = deg_to_rad(v[3])
 				camera.set("_yaw_goal", camera.yaw)
+		elif a.begins_with("--oeil="):
+			# Un œil posé à hauteur d'homme : x,y,z de l'œil, puis x,y,z du point regardé, y au-dessus du sol.
+			var v := a.trim_prefix("--oeil=").split_floats(",")
+			_suivre = false
+			camera.set_process(false)
+			camera.global_position = Vector3(v[0], hauteur(v[0], v[2]) + v[1], v[2])
+			camera.look_at(Vector3(v[3], hauteur(v[3], v[5]) + v[4], v[5]))
 	if _capture != "":
 		_capturer()
 
@@ -470,7 +478,8 @@ func _batiments() -> void:
 			noeud.set_meta("osm", rem.osm)
 			add_child(noeud)
 			var fr = FACADES.new(noeud, Polices.texte(), 86015 + i)
-			_maison(fr, b, rem)
+			if not REMARQUABLES.construire(rem.id, fr, b, hauteur):
+				_maison(fr, b, rem)
 			fr.commit(_mats, _mats.glass, "Remarquable_" + str(rem.id))
 			continue
 		_maison(f, b, {})
@@ -565,8 +574,13 @@ func _maison(f, b: Dictionary, rem: Dictionary) -> void:
 	var v := Vector2(-u.y, u.x) * float(b.face)
 	var c := Vector2(r[0], r[1])
 	var avant: Vector2 = c + v * (r[3] / 2.0)
-	var xf := Transform3D(Basis(Vector3.UP, atan2(v.x, v.y)), Vector3(avant.x, b.sol, avant.y))
+	# La maison se pose au niveau du sol devant sa porte ; en pente, un socle de pierre sombre descend
+	# jusqu'au bas de l'emprise, derrière.
+	var y_sol: float = maxf(b.sol, hauteur(avant.x + v.x * 0.6, avant.y + v.y * 0.6) - 0.04)
+	var xf := Transform3D(Basis(Vector3.UP, atan2(v.x, v.y)), Vector3(avant.x, y_sol, avant.y))
 	if b.rempli >= 0.72 or annexe:
+		if y_sol - b.sol > 0.02:
+			f.batch.box("trim", xf, Vector3(0, -(y_sol - b.sol) / 2.0, -r[3] / 2.0), Vector3(r[2] + 0.05, y_sol - b.sol, r[3] + 0.05), teinte.darkened(0.3))
 		var spec := {
 			"w": r[2], "d": r[3], "floors": etages, "wall": teinte, "roof": toit,
 			"roof_kind": "hip" if b.pans == 4 else "gable", "lit": 0.0 if annexe else 0.22,
@@ -587,12 +601,16 @@ func _maison(f, b: Dictionary, rem: Dictionary) -> void:
 	var bas: float = b.sol
 	var h: float = etages * f.FLOOR_H + 0.15
 	var poly: Array = b.p
+	var aire := 0.0
+	for k in poly.size():
+		aire += poly[k][0] * poly[(k + 1) % poly.size()][1] - poly[(k + 1) % poly.size()][0] * poly[k][1]
+	var sens := 1.0 if aire > 0.0 else -1.0
 	for k in poly.size():
 		var a := Vector2(poly[k][0], poly[k][1])
 		var d := Vector2(poly[(k + 1) % poly.size()][0], poly[(k + 1) % poly.size()][1])
 		var l := a.distance_to(d)
 		var dir := (d - a) / l
-		var n := Vector2(dir.y, -dir.x)  # vers l'extérieur (le pourtour tourne dans le sens direct en x, z)
+		var n := Vector2(dir.y, -dir.x) * sens  # vers l'extérieur, quel que soit le sens du pourtour
 		var m := (a + d) / 2.0
 		var mxf := Transform3D(Basis(Vector3.UP, atan2(n.x, n.y)), Vector3(m.x, bas, m.y))
 		f.batch.box("wall", mxf, Vector3(0, h / 2.0, -0.05), Vector3(l, h, 0.1), teinte)
@@ -611,7 +629,7 @@ func _maison(f, b: Dictionary, rem: Dictionary) -> void:
 	# Le toit : à quatre pans sur le rectangle quand il couvre à peu près l'emprise, sinon une
 	# terrasse de tuiles entre ses murs.
 	if b.rempli >= 0.5:
-		f._roof(xf, r[2], r[3], h, toit, teinte, "hip")
+		f._roof(Transform3D(xf.basis, Vector3(avant.x, b.sol, avant.y)), r[2], r[3], h, toit, teinte, "hip")
 	else:
 		var pts := PackedVector2Array()
 		for q in poly:
@@ -840,7 +858,7 @@ func _process(_delta: float) -> void:
 		player.velocity = Vector3.ZERO
 
 
-## Pour les captures de vérification : -- --capture=sortie.png [--a=x,z,cran,lacet] [--view=…]
+## Pour les captures de vérification : -- --capture=sortie.png [--a=x,z,cran,lacet] [--oeil=x,y,z,cx,cy,cz]
 func _capturer() -> void:
 	for k in 90:
 		await get_tree().process_frame
