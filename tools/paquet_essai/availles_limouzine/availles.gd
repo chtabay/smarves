@@ -2,7 +2,8 @@ extends Node3D
 ## Availles-Limouzine, le bourg dans sa disposition réelle : les rues, les places, les bâtiments à
 ## leur place et à leur hauteur, la Vienne et son pont, le relief du coteau. Tout vient de bourg.json,
 ## construit par tools/bourg_reel.py à partir d'OpenStreetMap, de la BD TOPO et du RGE ALTI de l'IGN,
-## à l'échelle de Smarves (une unité vaut 2,4 m). Les bâtiments sont des volumes simples ; les lieux
+## à l'échelle de Smarves (une unité vaut 2,4 m). Les bâtiments sont les maisons du Poitou de Smarves
+## (scripts/village/facades.gd), posées sur leur emprise réelle, façade sur la rue ; les lieux
 ## remarquables (l'église, la mairie, le pont, les portes…) sont des nœuds à part, nommés
 ## « Remarquable_<id> », prêts à être remplacés par leur vraie silhouette. Du décor que l'on parcourt :
 ## l'habitant de Smarves y marche, avec la caméra à crans du village et un cran de plus pour voir
@@ -12,11 +13,9 @@ const DOSSIER := "res://communes/availles_limouzine/"
 const KN := "res://assets/kenney/nature/"
 const CRANS := [[9.0, -48.0, 34.0], [18.0, -51.0, 30.0], [40.0, -60.0, 30.0], [100.0, -62.0, 30.0]]
 const PIERRE := Color(0.86, 0.8, 0.68)
-const ENDUIT := Color(0.9, 0.86, 0.76)
-const TUILE := Color(0.72, 0.38, 0.24)
-const ARDOISE := Color(0.3, 0.33, 0.38)
 const OR := Color(0.95, 0.82, 0.5)
 ## Les monuments dont les murs restent nus, en attendant leur vraie silhouette.
+const FACADES := preload("res://scripts/village/facades.gd")
 const SANS_FENETRES := ["eglise", "porte_cavaliers", "porte_riviere"]
 ## Où l'on arrive : la place de la Mairie, entre la porte des Cavaliers et la rue qui descend au pont.
 const ARRIVEE_NOM := "Place de la Mairie"
@@ -35,7 +34,6 @@ var _x0 := 0.0
 var _z0 := 0.0
 var _pas := 1.0
 var _mats := {}
-var _facades: ShaderMaterial
 var _ici: Label
 var _capture := ""
 var _suivre := true
@@ -448,38 +446,40 @@ func _boite(taille: Vector3, c: Color, parent: Node) -> MeshInstance3D:
 
 # --- Les bâtiments ---------------------------------------------------------------------------------
 
-func _teinte(b: Dictionary, i: int) -> Array:
-	var mur: Color = {"pierre": PIERRE, "brique": Color(0.68, 0.44, 0.34), "bois": Color(0.52, 0.4, 0.3)}.get(b.mur, ENDUIT)
-	mur = mur.darkened(fmod(i * 0.137, 1.0) * 0.12)
-	if b.get("annexe", false):
-		mur = mur.lerp(Color(0.62, 0.6, 0.56), 0.5)
-	var toit: Color = {"ardoise": ARDOISE, "zinc": Color(0.55, 0.57, 0.6), "plat": Color(0.5, 0.49, 0.47)}.get(b.toit, TUILE)
-	toit = toit.darkened(fmod(i * 0.291, 1.0) * 0.18).lightened(fmod(i * 0.173, 1.0) * 0.06)
-	return [mur, toit]
-
-
 func _batiments() -> void:
-	var st := _surfaces()
+	_materiaux()
+	# Les maisons du Poitou de Smarves (scripts/village/facades.gd) : calcaire, chaînes d'angle,
+	# encadrements, volets, tuiles canal. Une graine fixe : le bourg est le même à chaque visite.
+	var f = FACADES.new(self, Polices.texte(), 86015)
 	var murs := PackedVector3Array()
 	var a_part := {}
 	for r in data.remarquables:
 		if r.has("batiment"):
 			a_part[int(r.batiment)] = r
+	var lot := 0
 	for i in data.batiments.size():
 		var b: Dictionary = data.batiments[i]
-		var t := _teinte(b, i)
-		if a_part.has(i):
-			var rem: Dictionary = a_part[i]
-			var st2 := _surfaces()
-			_volume(st2, b, t[0].lerp(OR, 0.25), t[1], murs, rem.id in SANS_FENETRES)
-			var mi := _maillage(st2)
-			mi.name = "Remarquable_" + str(rem.id)
-			mi.set_meta("remarquable", rem.id)
-			mi.set_meta("nom", rem.nom)
-			mi.set_meta("osm", rem.osm)
-		else:
-			_volume(st, b, t[0], t[1], murs)
-	_maillage(st).name = "Batiments"
+		var rem: Dictionary = a_part.get(i, {})
+		_collision(b, murs)
+		if not rem.is_empty():
+			# Un lieu remarquable : son propre lot, nommé, prêt à être remplacé par sa vraie silhouette.
+			var noeud := Node3D.new()
+			noeud.name = "Remarquable_" + str(rem.id)
+			noeud.set_meta("remarquable", rem.id)
+			noeud.set_meta("nom", rem.nom)
+			noeud.set_meta("osm", rem.osm)
+			add_child(noeud)
+			var fr = FACADES.new(noeud, Polices.texte(), 86015 + i)
+			_maison(fr, b, rem)
+			fr.commit(_mats, _mats.glass, "Remarquable_" + str(rem.id))
+			continue
+		_maison(f, b, {})
+		lot += 1
+		if lot % 120 == 0:
+			# Un maillage par matériau pour cent vingt maisons : assez gros pour peu d'appels de dessin,
+			# assez petit pour que l'élagage par la caméra en écarte une partie.
+			f.commit(_mats, _mats.glass, "Maisons%d" % (lot / 120))
+	f.commit(_mats, _mats.glass, "Maisons")
 	var c := ConcavePolygonShape3D.new()
 	c.backface_collision = true
 	c.set_faces(murs)
@@ -491,133 +491,151 @@ func _batiments() -> void:
 	add_child(corps)
 
 
-## Deux surfaces par maillage : les murs, avec leurs fenêtres (FACADES), et les toits.
-func _surfaces() -> Array:
-	var out := []
-	for k in 2:
-		var st := SurfaceTool.new()
-		st.begin(Mesh.PRIMITIVE_TRIANGLES)
-		out.append(st)
-	return out
+## Les matières des maisons, celles du village de Smarves : la teinte vient du sommet, le grain
+## de calcaire et les tuiles canal des nuanceurs du jeu.
+func _materiaux() -> void:
+	var stone: Shader = load("res://shaders/village_stone.gdshader")
+	var wall := ShaderMaterial.new()
+	wall.shader = stone
+	wall.set_shader_parameter("grain", _grain(0.06, Color(0.8, 0.76, 0.7)))
+	wall.set_shader_parameter("grain_scale", 0.8)
+	_mats.wall = wall
+	var trim := ShaderMaterial.new()
+	trim.shader = stone
+	trim.set_shader_parameter("grain", _grain(0.2, Color(0.88, 0.86, 0.83)))
+	trim.set_shader_parameter("grain_scale", 1.0)
+	trim.set_shader_parameter("rough", 0.72)
+	_mats.trim = trim
+	var roof := ShaderMaterial.new()
+	roof.shader = load("res://shaders/roof_tiles.gdshader")
+	_mats.roof = roof
+	var glass := ShaderMaterial.new()
+	glass.shader = load("res://shaders/window_glow.gdshader")
+	# En plein jour, les fenêtres allumées restent discrètes.
+	glass.set_shader_parameter("energy", 1.6)
+	_mats.glass = glass
 
 
-func _maillage(st: Array) -> MeshInstance3D:
-	var m := ArrayMesh.new()
-	for k in 2:
-		st[k].generate_normals()
-		st[k].commit(m)
-	if _facades == null:
-		_facades = ShaderMaterial.new()
-		_facades.shader = Shader.new()
-		_facades.shader.code = FACADES
-	m.surface_set_material(0, _facades)
-	m.surface_set_material(1, _mat(Color.WHITE, 0.9, true))
-	var mi := MeshInstance3D.new()
-	mi.mesh = m
-	add_child(mi)
-	return mi
+func _grain(freq: float, sombre: Color) -> NoiseTexture2D:
+	var n := FastNoiseLite.new()
+	n.frequency = freq
+	n.fractal_octaves = 4
+	var t := NoiseTexture2D.new()
+	t.width = 512
+	t.height = 512
+	t.seamless = true
+	t.noise = n
+	var g := Gradient.new()
+	g.set_color(0, sombre)
+	g.set_color(1, Color.WHITE)
+	t.color_ramp = g
+	return t
 
 
-## Les fenêtres et les portes, dessinées sur les murs : UV donne la place sur le mur (le long du
-## mur, et la hauteur au-dessus du sol), UV2 la longueur du mur (0 pour une remise, sans fenêtre)
-## et sa hauteur. Une travée tous les 1,45 unités (3,5 m), un étage tous les 1,17 (2,8 m).
-const FACADES := """
-shader_type spatial;
-render_mode cull_disabled;
-
-void fragment() {
-	vec3 c = COLOR.rgb;
-	float rough = 0.92;
-	vec2 q = UV;
-	float l = UV2.x;
-	if (l > 1.3 && q.x > 0.35 && q.x < l - 0.35 && q.y > 0.3 && q.y < UV2.y - 0.25) {
-		vec2 cell = vec2(fract(q.x / 1.45), fract(q.y / 1.17));
-		float travee = floor(q.x / 1.45);
-		bool rdc = q.y < 1.17;
-		bool porte = rdc && mod(travee, 3.0) == 1.0;
-		float haut = porte ? 0.82 : 0.78;
-		float bas = porte ? -0.01 : 0.34;
-		if (cell.x > 0.33 && cell.x < 0.67 && cell.y > bas && cell.y < haut) {
-			c = porte ? vec3(0.32, 0.2, 0.14) : vec3(0.16, 0.19, 0.23);
-			rough = porte ? 0.8 : 0.25;
-		} else if (!porte && cell.x > 0.22 && cell.x < 0.78 && cell.y > 0.31 && cell.y < 0.81) {
-			c = mix(c, vec3(0.42, 0.5, 0.46), 0.75);
-		}
-	}
-	ALBEDO = c;
-	ROUGHNESS = rough;
-}
-"""
-
-
-## Un bâtiment : ses murs sur son emprise, puis un toit à deux ou quatre pans pour une maison
-## rectangulaire, ou un toit plat à la hauteur de la gouttière.
-func _volume(st: Array, b: Dictionary, mur: Color, toit: Color, murs: PackedVector3Array, nu := false) -> void:
-	var poly := PackedVector2Array()
-	for q in b.p:
-		poly.append(Vector2(q[0], q[1]))
+## Les murs de l'emprise, pour marcher autour : la vraie forme, même quand la maison dessinée
+## est son rectangle.
+func _collision(b: Dictionary, murs: PackedVector3Array) -> void:
 	var bas: float = b.sol
 	var haut: float = b.sol + b.h
-	var sm: SurfaceTool = st[0]
-	sm.set_color(mur)
-	var remise: bool = nu or b.get("annexe", false) or b.h < 1.6
-	for k in poly.size():
-		var a := poly[k]
-		var c := poly[(k + 1) % poly.size()]
-		var l := a.distance_to(c)
-		# Les travées centrées sur le mur.
-		var d0 := -fmod(l, 1.45) / 2.0
-		var v := [Vector3(a.x, bas, a.y), Vector3(c.x, bas, c.y), Vector3(c.x, haut, c.y), Vector3(a.x, haut, a.y)]
-		var uv := [Vector2(d0, 0.0), Vector2(d0 + l, 0.0), Vector2(d0 + l, b.h), Vector2(d0, b.h)]
-		sm.set_uv2(Vector2(0.0 if remise else l + d0, b.h))
+	for k in b.p.size():
+		var a: Array = b.p[k]
+		var c: Array = b.p[(k + 1) % b.p.size()]
+		var v := [Vector3(a[0], bas, a[1]), Vector3(c[0], bas, c[1]), Vector3(c[0], haut, c[1]), Vector3(a[0], haut, a[1])]
 		for s in [0, 1, 2, 0, 2, 3]:
-			sm.set_uv(uv[s])
-			sm.add_vertex(v[s])
 			murs.append(v[s])
-	var stt: SurfaceTool = st[1]
-	if b.has("rect"):
-		_toit(stt, b, haut, mur, toit)
-		return
-	stt.set_color(toit)
-	var tri := Geometry2D.triangulate_polygon(poly)
-	for k in tri:
-		stt.add_vertex(Vector3(poly[k].x, haut, poly[k].y))
 
 
-func _toit(st: SurfaceTool, b: Dictionary, e: float, mur: Color, toit: Color) -> void:
+## Une maison : sur son rectangle quand l'emprise le remplit (une maison du Poitou complète, façade
+## sur la rue), sinon ses vrais murs percés de fenêtres, sous un toit à quatre pans ou plat.
+func _maison(f, b: Dictionary, rem: Dictionary) -> void:
 	var r: Array = b.rect
-	var c := Vector2(r[0], r[1])
-	var deb := 0.12  # le débord du toit
-	var lu: float = r[2] / 2.0 + deb
-	var lv: float = r[3] / 2.0 + deb
+	var etages := clampi(int(round((b.h - 0.15) / f.FLOOR_H)), 1, 4)
+	var annexe: bool = b.get("annexe", false) or (b.h < 1.5 and etages == 1 and r[2] * r[3] < 10.0)
+	var teinte: Color = {"pierre": Color(0.9, 0.82, 0.66), "brique": Color(0.86, 0.6, 0.48), "bois": Color(0.7, 0.56, 0.42)}.get(b.mur, f.pick(f.STONES))
+	var toit: Color = f.pick(f.ROOFS)
+	if b.toit == "ardoise":
+		toit = Color(0.36, 0.39, 0.45)
+	elif b.toit == "zinc":
+		toit = Color(0.6, 0.62, 0.66)
+	var nu: bool = rem.get("id", "") in SANS_FENETRES
+	if annexe:
+		etages = 1
+	# Le repère de la maison : l'origine au pied de la façade, au milieu, +Z vers la rue.
 	var u := Vector2(cos(r[4]), sin(r[4]))
-	var v := Vector2(-u.y, u.x)
-	var f: float = e + b.pente
-	var p := func(du: float, dv: float, y: float) -> Vector3:
-		var q := c + u * du + v * dv
-		return Vector3(q.x, y, q.y)
-	var e2 := e - 0.04
-	var c00: Vector3 = p.call(-lu, -lv, e2)
-	var c10: Vector3 = p.call(lu, -lv, e2)
-	var c11: Vector3 = p.call(lu, lv, e2)
-	var c01: Vector3 = p.call(-lu, lv, e2)
-	var bout := 0.0 if b.pans == 2 else minf(lv, lu)
-	var f0: Vector3 = p.call(-lu + bout, 0.0, f)
-	var f1: Vector3 = p.call(lu - bout, 0.0, f)
-	st.set_color(toit)
-	for t in [[c00, c10, f1], [c00, f1, f0], [c11, c01, f0], [c11, f0, f1]]:
-		for q in t:
-			st.add_vertex(q)
-	if b.pans == 2:
-		# Les pignons, en mur.
-		st.set_color(mur)
-		for t in [[c00, f0, c01], [c10, c11, f1]]:
-			for q in t:
-				st.add_vertex(q)
+	var v := Vector2(-u.y, u.x) * float(b.face)
+	var c := Vector2(r[0], r[1])
+	var avant: Vector2 = c + v * (r[3] / 2.0)
+	var xf := Transform3D(Basis(Vector3.UP, atan2(v.x, v.y)), Vector3(avant.x, b.sol, avant.y))
+	if b.rempli >= 0.72 or annexe:
+		var spec := {
+			"w": r[2], "d": r[3], "floors": etages, "wall": teinte, "roof": toit,
+			"roof_kind": "hip" if b.pans == 4 else "gable", "lit": 0.0 if annexe else 0.22,
+			"chimney": not annexe and f.rng.randf() < 0.6, "door": ["left", "center", "right"][f.rng.randi() % 3],
+			"back": b.rue > 2.0 or annexe, "dormer": not annexe and etages >= 2 and f.rng.randf() < 0.3,
+			"front": not nu, "closed": nu,
+		}
+		if nu:
+			spec.back = false
+		if rem.get("genre", "") == "commerce":
+			spec.shop = {"name": _enseigne_de(rem.id), "color": f.pick(f.SHUTTERS).darkened(0.2), "ink": Color(1.0, 0.92, 0.7)}
+			spec.floors = maxi(etages, 2)
+		f.house(xf, spec)
+		return
+	# Une emprise en L ou en U : chaque mur à sa place, avec ses travées de fenêtres.
+	var lumiere: Color = teinte.lightened(0.12)
+	var volets: Color = f.pick(f.SHUTTERS)
+	var bas: float = b.sol
+	var h: float = etages * f.FLOOR_H + 0.15
+	var poly: Array = b.p
+	for k in poly.size():
+		var a := Vector2(poly[k][0], poly[k][1])
+		var d := Vector2(poly[(k + 1) % poly.size()][0], poly[(k + 1) % poly.size()][1])
+		var l := a.distance_to(d)
+		var dir := (d - a) / l
+		var n := Vector2(dir.y, -dir.x)  # vers l'extérieur (le pourtour tourne dans le sens direct en x, z)
+		var m := (a + d) / 2.0
+		var mxf := Transform3D(Basis(Vector3.UP, atan2(n.x, n.y)), Vector3(m.x, bas, m.y))
+		f.batch.box("wall", mxf, Vector3(0, h / 2.0, -0.05), Vector3(l, h, 0.1), teinte)
+		f.batch.box("trim", mxf, Vector3(0, f.BASE_H / 2.0, 0.0), Vector3(l, f.BASE_H, 0.14), teinte.darkened(0.25))
+		f.batch.box("trim", mxf, Vector3(0, h + 0.05, 0.0), Vector3(l + 0.1, 0.1, 0.16), lumiere)
+		if nu or l < 0.9:
+			continue
+		var travees := maxi(1, int((l - 0.3) / 0.9))
+		var pas := (l - 0.2) / travees
+		for e in etages:
+			for i in travees:
+				if f.rng.randf() < 0.3:
+					continue
+				var x := -l / 2.0 + 0.1 + pas * (i + 0.5)
+				f._window(mxf, Vector3(x, 0.42 + e * f.FLOOR_H, 0), Vector2(0.48, 0.7), volets, lumiere, 0.22)
+	# Le toit : à quatre pans sur le rectangle quand il couvre à peu près l'emprise, sinon une
+	# terrasse de tuiles entre ses murs.
+	if b.rempli >= 0.5:
+		f._roof(xf, r[2], r[3], h, toit, teinte, "hip")
 	else:
-		for t in [[c00, f0, c01], [c10, c11, f1]]:
-			for q in t:
-				st.add_vertex(q)
+		var pts := PackedVector2Array()
+		for q in poly:
+			pts.append(Vector2(q[0], q[1]))
+		var tri := Geometry2D.triangulate_polygon(pts)
+		var y := bas + h + 0.08
+		for t in range(0, tri.size(), 3):
+			var q := [pts[tri[t]], pts[tri[t + 1]], pts[tri[t + 2]]]
+			f.batch.tri("roof", Transform3D.IDENTITY, Vector3(q[0].x, y, q[0].y), Vector3(q[1].x, y, q[1].y),
+				Vector3(q[2].x, y, q[2].y), Vector3.UP, toit, [q[0] - pts[0], q[1] - pts[0], q[2] - pts[0]])
+
+
+## Le nom peint sur la devanture d'un commerce de la place.
+func _enseigne_de(id: String) -> String:
+	match id:
+		"boulangerie": return "Boulangerie"
+		"boucherie": return "Boucherie"
+		"pharmacie": return "Pharmacie"
+		"poste": return "La Poste"
+		"cafe": return "Café"
+		"hotel": return "La Châtellenie"
+		"restaurant": return "Restaurant"
+		"garage": return "Garage"
+	return ""
 
 
 # --- Les arbres ------------------------------------------------------------------------------------
