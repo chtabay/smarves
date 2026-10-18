@@ -4,7 +4,7 @@
 	"nom": "La commune d'essai des salles",
 	"auteur": "socle",
 	"version": "0.0.1",
-	"socle_min": "1.2",
+	"socle_min": "1.4",
 	"insee": "86290",
 	"scene": "res://communes/essai_salle/commune.tscn",
 	"arrivee": {"lot": "place", "par": ["smarves"]},
@@ -16,7 +16,21 @@
 		 "jeux": ["machine", "loto", "blackjack", "roulette", "craps", "baccara", "poker", "des", "roue", "courses"],
 		 "tenancier": "Mme Rivière", "graine": 17, "decor": "cafe", "enseigne": "Au Tripot", "guichet": true,
 		 "repliques": ["« Ici on mise petit, mais on mise souvent. »"]},
-		{"type": "salle_jeu", "id": "cercle", "nom": "Le cercle", "jeux": ["baccara"], "decor": "salle"}
+		{"type": "salle_jeu", "id": "cercle", "nom": "Le cercle", "jeux": ["baccara"], "decor": "salle"},
+		{"type": "commerce", "id": "mercerie", "nom": "La mercerie de la gare", "lot": "place", "genre": "tenue",
+		 "tenancier": "Mme Aubin", "graine": 23, "enseigne": "Mercerie Aubin",
+		 "repliques": ["« Un voyageur bien mis trouve toujours une place assise. »"],
+		 "articles": [
+			{"id": "veste_chef", "nom": "La veste de chef de gare", "prix": 400, "couleur": "#1d3b6e", "phrase": "« Les boutons sont en vrai cuivre. »"},
+			{"id": "pardessus", "nom": "Le pardessus de voyage", "prix": 1500, "standing": 2, "seuil": 1000, "couleur": "#5a4632"}]},
+		{"type": "commerce", "id": "garage_gare", "nom": "Le garage de la gare", "genre": "vehicule", "tenancier": "M. Texier", "graine": 31,
+		 "articles": [
+			{"id": "taxi", "nom": "Le taxi de la gare", "prix": 3000, "standing": 3, "modele": "res://assets/kaykit/city/car_taxi.gltf"}]},
+		{"type": "commerce", "id": "brocante_gare", "nom": "La brocante de la gare", "genre": "meuble", "tenancier": "Mme Rivière", "graine": 17,
+		 "articles": [
+			{"id": "horloge_gare", "nom": "L'horloge de la salle d'attente", "prix": 700, "standing": 2, "emplacement": "mur", "max": 2,
+			 "modele": "res://assets/kaykit/furniture/pictureframe_large_B.gltf", "phrase": "« Elle a toujours cinq minutes d'avance. »"},
+			{"id": "table_buffet", "nom": "La table du buffet", "prix": 300, "emplacement": "jardin", "modele": "res://assets/kaykit/restaurant/table_round_A_small.gltf"}]}
 	],
 	"notaire": {"nom": "Maître Lucas", "etude": "L'étude de Maître Lucas", "graine": 5, "lot": "place",
 		"repliques": ["« La gare, c'est l'avenir. Achetez autour. »"],

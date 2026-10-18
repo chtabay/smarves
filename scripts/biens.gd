@@ -227,7 +227,7 @@ func _ready() -> void:
 # --- Le catalogue ----------------------------------------------------------------------------
 
 ## Tout ce qui se vend : le catalogue, les adresses du village (les maisons et les murs), et celles des
-## autres communes inscrites qui ont un notaire, sous « <commune>/<id> ».
+## autres communes inscrites qui ont un notaire, avec les articles de leurs commerces, sous « <commune>/<id> ».
 static func catalogue() -> Array:
 	if _catalogue.is_empty():
 		_catalogue = CATALOGUE + NOTAIRE.fiches(Commune.smarves())
@@ -237,6 +237,8 @@ static func catalogue() -> Array:
 				var c: Commune = communes.communes[id]
 				if c != null and c.data.has("notaire") and NOTAIRE.cle(c, "x") != "x":
 					_catalogue += NOTAIRE.fiches(c)
+				if c != null and NOTAIRE.cle(c, "x") != "x":
+					_catalogue += load("res://scripts/socle/articles.gd").fiches(c)
 		for it in _catalogue:
 			_items[it.id] = it
 	return _catalogue
@@ -588,7 +590,7 @@ func charges() -> int:
 
 
 func outfit_color(default: Color) -> Color:
-	return item(worn).color if worn != "" else default
+	return item(worn).get("color", default) if worn != "" else default
 
 
 func tournee_price() -> int:
