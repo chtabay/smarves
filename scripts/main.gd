@@ -688,25 +688,23 @@ func _enter(id: String) -> void:
 	get_tree().change_scene_to_file(scene)
 
 
-## La première fois, Josiane accueille le joueur et l'envoie vers sa machine, en trois phrases.
+## La première fois, Josiane accueille le joueur et l'envoie vers sa machine, en deux phrases.
+## Le premier arrivé est tout de suite dans l'action : la caméra et l'habitant répondent dès le
+## premier instant, la consigne s'affiche aussitôt, et Josiane parle pendant qu'on avance, sans
+## prendre la caméra.
 func _welcome() -> void:
 	_bark_timer = 30.0
-	await get_tree().create_timer(1.2).timeout
-	if not fps:
-		camera.focus(Vector3(-5.6, 0.6, -1.4), 9.0, deg_to_rad(55.0), deg_to_rad(-24.0))
+	Game.welcomed = true
+	Game.save_game()
+	_announce("La Smarvoise est dans le Café de la Place : approchez-vous de la façade et appuyez sur E pour entrer." if fps else "Cliquez sur le Café de la Place pour entrer jouer à la Smarvoise.", 7.0)
 	var lines := [
-		"Bienvenue à Smarves ! Vous avez une tête à avoir de l'avenir.",
-		"Ici, on ne dépense pas son argent : on le fait travailler. Ma Smarvoise vous attend au comptoir, entrez donc.",
+		"Bienvenue à Smarves ! Ma Smarvoise vous attend au comptoir, entrez donc.",
 		"Et si un jour vous manquez de liquidités, M. Brunet est juste en face. Un homme charmant.",
 	]
+	await get_tree().create_timer(0.8).timeout
 	for l in lines:
 		josiane.say(l)
 		await get_tree().create_timer(4.2 + l.length() * 0.035).timeout
-	if not fps:
-		camera.release()
-	Game.welcomed = true
-	Game.save_game()
-	_announce("La Smarvoise est dans le Café de la Place : approchez-vous de la façade et appuyez sur E pour entrer." if fps else "Cliquez sur le Café de la Place pour entrer jouer à la Smarvoise.")
 
 
 func _build_signposts() -> void:
@@ -977,11 +975,11 @@ func _refresh_places() -> void:
 			s.modulate = Color(1.0, 0.85, 0.5) if open else Color(0.7, 0.72, 0.8, 0.85)
 
 
-func _announce(text: String) -> void:
+func _announce(text: String, duree := 3.5) -> void:
 	_banner.text = text
 	_banner.modulate.a = 1.0
 	var tw := create_tween()
-	tw.tween_interval(3.5)
+	tw.tween_interval(duree)
 	tw.tween_property(_banner, "modulate:a", 0.0, 1.0)
 
 
