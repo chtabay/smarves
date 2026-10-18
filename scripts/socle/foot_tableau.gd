@@ -57,6 +57,10 @@ func remplir(colonne: VBoxContainer) -> void:
 	var joues: int = foot().journee_jouee()
 	colonne.add_child(_mot("Le tableau du dimanche", 30, OR, Polices.gras()))
 	colonne.add_child(_mot("Championnat de la Vienne  ·  saison %d  ·  %s" % [s, _periode(joues)], 17, DOUX))
+	if not foot().locales.is_empty():
+		colonne.add_child(_mot("Tes consignes d'avant-match restent sur cet appareil tant que tu n'es pas connecté à ton compte Pyramides : le reste du village ne les voit pas.", 15, OR, null, true))
+	elif foot().consignes_etat == "hors_ligne":
+		colonne.add_child(_mot("Hors ligne : les consignes des autres clubs se liront au retour du réseau.", 15, DOUX, null, true))
 	var rang := HBoxContainer.new()
 	rang.add_theme_constant_override("separation", 36)
 	colonne.add_child(rang)

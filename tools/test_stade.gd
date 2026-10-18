@@ -61,6 +61,29 @@ func _init() -> void:
 	for id in stade._acteurs:
 		check(stade._acteurs[id].position.length() < 60.0, "le joueur %s reste dans le stade" % id) if stade._acteurs[id].position.length() >= 60.0 else null
 
+	# Le président Chauvin et sa causerie : les consignes de l'Étoile pour la journée 6.
+	var presidents: Array = stade.find_children("*", "Area3D", true, false).filter(func(a): return a.get_meta("interact", "") == "president")
+	check(presidents.size() == 1 and str(presidents[0].get_meta("prompt")).contains("Chauvin"), "le président Chauvin est au bord de la pelouse")
+	stade.open_causerie()
+	await process_frame
+	var causerie: PanelContainer = stade._causerie
+	check(causerie != null and causerie.club == "smarves" and causerie.rencontre.j == 6, "la causerie parle du prochain match de l'Étoile : %s" % str(causerie.rencontre))
+	check(causerie.find_child("Choix_formation_4-3-3", true, false) != null and causerie.find_child("Choix_pressing_haut", true, false) != null, "formations, mentalités et pressings au choix")
+	check(foot.consigne_de(1, 6, "smarves").etat == "aucune", "pas encore de consigne")
+	causerie._choix = {"formation": "3-5-2", "mentalite": "offensive", "pressing": "haut"}
+	check(causerie.donner(), "le président prend la consigne")
+	var cd: Dictionary = foot.consigne_de(1, 6, "smarves")
+	check(cd.etat == "locale" and cd.consigne == {"formation": "3-5-2", "mentalite": "offensive", "pressing": "haut"}, "elle est posée, locale sans compte : %s" % str(cd))
+	check(causerie._ligne_etat.text.contains("cet appareil"), "la fenêtre dit qu'elle reste sur cet appareil : %s" % causerie._ligne_etat.text)
+	var direct: Dictionary = foot.rencontre_en_direct(1, 6, foot.prochain_match("smarves").dom, foot.prochain_match("smarves").ext)
+	var mienne: Dictionary = direct.etat.equipes[0] if direct.etat.equipes[0].club == "smarves" else direct.etat.equipes[1]
+	check(mienne.formation == "3-5-2" and mienne.mentalite == "offensive", "le match de dimanche se jouera avec : %s, %s" % [mienne.formation, mienne.mentalite])
+	causerie.closed.emit()
+	await process_frame
+	check(stade._causerie == null, "Échap referme la causerie")
+	foot.decisions = {}
+	foot.locales = {}
+
 	# Avant la première journée : l'entraînement.
 	var t0: int = foot.coup_envoi(1, 1) - 86400
 	foot.regler_horloge(func(): return t0)

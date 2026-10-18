@@ -86,7 +86,21 @@ func _init() -> void:
 		foot.decisions["1/%d/%s" % [j, m.dom]] = {"mentalite": "offensive"}
 		differe = differe or avant != foot.resultat(1, j, m.dom, m.ext)
 	check(differe, "une décision change le tirage")
+	# Les consignes : propres et dans le même ordre partout, locales tant que le serveur ne les a pas,
+	# et celles du serveur l'emportent.
+	check(foot.decisions["1/5/%s" % m0.dom] == {"formation": "4-4-2", "mentalite": "offensive", "pressing": "normal"}, "une consigne est complétée et rangée dans l'ordre")
+	check(foot.consigne({"formation": "7-7-7", "pressing": "haut"}) == {"formation": "4-4-2", "mentalite": "equilibree", "pressing": "haut"}, "une valeur inconnue retombe sur le défaut")
+	var cd: Dictionary = foot.consigne_de(1, 5, m0.dom)
+	check(cd.etat == "locale" and foot.locales.has("1/5/%s" % m0.dom), "sans compte, la consigne reste locale")
+	check(foot.appliquer_consignes([{"saison": 1, "journee": 5, "club": m0.dom, "formation": "4-3-3", "mentalite": "offensive", "pressing": "haut", "par": "Lucien"}]), "le serveur apporte la consigne du même match")
+	cd = foot.consigne_de(1, 5, m0.dom)
+	check(cd.etat == "commune" and cd.par == "Lucien" and cd.consigne.formation == "4-3-3" and not foot.locales.has("1/5/%s" % m0.dom), "la consigne du serveur l'emporte et n'est plus locale")
+	check(not foot.appliquer_consignes([{"saison": 1, "journee": 5, "club": m0.dom, "formation": "4-3-3", "mentalite": "offensive", "pressing": "haut", "par": "Lucien"}]), "la relire ne change rien")
+	var pm: Dictionary = foot.prochain_match(m0.dom)
+	check(pm.s == 1 and pm.j == foot.journee_jouee() + 1 and (pm.dom == m0.dom or pm.ext == m0.dom) and pm.quand == foot.coup_envoi(1, pm.j), "le prochain match du club : %s" % str(pm))
 	foot.decisions = {}
+	foot.locales = {}
+	foot.auteurs = {}
 	check(foot.journee(1, 0, 0, 7)[0].score.is_empty() and foot.journee(1, 0, 0, 3)[0].score.size() == 2, "un match à venir n'a pas de score, un match joué en a un")
 
 	# Saison 2 : le club d'essai entre à la place d'un invité ; un seul niveau, personne ne monte.

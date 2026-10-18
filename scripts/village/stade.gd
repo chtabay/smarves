@@ -31,6 +31,10 @@ var _horloge: Label3D
 var _affiche: Label3D
 var _supporters: Array = []
 var _fini_annonce := false
+## Le président Chauvin, et sa causerie (les consignes du prochain match) quand elle est ouverte.
+const CAUSERIE := preload("res://scripts/socle/foot_causerie.gd")
+var _president: Node3D
+var _causerie: PanelContainer
 
 
 func _ready() -> void:
@@ -42,6 +46,7 @@ func _ready() -> void:
 	_pelouse()
 	_tribune()
 	_tableau_affichage()
+	_le_president()
 	_build_ui()
 	player = PLAYER.new()
 	player.position = Vector3(0, 0, -P / 2.0 - 4.0)
@@ -218,6 +223,53 @@ func _tribune() -> void:
 
 
 ## Le tableau d'affichage, derrière la touche sud, face à la tribune.
+## Le président Chauvin, debout au bord de la pelouse devant sa tribune : E ouvre la causerie.
+func _le_president() -> void:
+	var c := CRITTER.new()
+	c.randomize_look(1987)
+	c.look["top"] = "veste"
+	c.look["top_color"] = "#2b2f3a"
+	c.look["legs"] = "pantalon"
+	c.look["legs_color"] = "#3a3a44"
+	c.look["hat"] = "casquette"
+	c.look["hat_color"] = "#1b3c8c"
+	c.look.erase("prop_r")
+	c.look.erase("apron")
+	c.scale = Vector3.ONE * PEOPLE_SCALE
+	c.position = Vector3(9.0, 0, -P / 2.0 - 2.4)
+	c.rotation.y = PI * 0.75
+	add_child(c)
+	_president = c
+	_label3d("Le président Chauvin", c.position + Vector3(0, 2.3, 0), 22, Color(0.95, 0.85, 0.6), 180.0)
+	_interactive(c, "president", "E : parler au président Chauvin", Vector3(1.2, 1.0, 1.2), Vector3(0, 0.4, 0))
+
+
+## La causerie : les consignes de l'Étoile pour son prochain match, dans la même ardoise que le tableau du café.
+func open_causerie() -> void:
+	if _causerie != null:
+		return
+	var p: PanelContainer = CAUSERIE.new()
+	p.club = _club_de_la_commune()
+	p.closed.connect(func():
+		p.queue_free()
+		_causerie = null
+		player.frozen = false
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
+	player.frozen = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_panel_layer.add_child(p)
+	_causerie = p
+
+
+## Le club de la commune d'origine (celui du terrain du registre), « smarves » ici.
+func _club_de_la_commune() -> String:
+	var origine: Commune = Communes.origine()
+	for id in Football.clubs:
+		if str(Football.clubs[id].get("commune", "")) == origine.id:
+			return id
+	return "smarves"
+
+
 func _tableau_affichage() -> void:
 	var z := P / 2.0 + 5.0
 	var noir := _std(Color(0.08, 0.09, 0.1), 0.5)
@@ -490,6 +542,8 @@ func _on_interact(target: Node) -> void:
 			Game.return_point = "stade"
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 			get_tree().change_scene_to_file("res://scenes/main.tscn")
+		"president":
+			open_causerie()
 		"buvette":
 			_dire(["« Un café, un. C'est la femme du président qui tient la buvette, et elle ne fait pas crédit. »",
 				"« Le chocolat chaud, c'est pour les moins de douze ans et les gardiens de but. »",
@@ -514,6 +568,8 @@ func _maybe_capture() -> void:
 			minute = int(arg.trim_prefix("--minute="))
 		elif arg.begins_with("--journee="):
 			pass
+		elif arg == "--open=causerie":
+			open_causerie()
 		else:
 			_capture_setup(arg)
 	if path == "":
