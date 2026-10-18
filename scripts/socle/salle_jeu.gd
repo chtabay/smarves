@@ -4,7 +4,9 @@ extends "res://scripts/village/salle.gd"
 ## (docs/COMMUNE.md, « Les structures »). La commune déclare son tenancier, ses jeux, son décor et ses
 ## répliques ; le socle construit la pièce, pose une table ou une machine par jeu, et fait tourner les
 ## jeux de Smarves (les mêmes panneaux qu'au casino, la même bourse, le même total gagné). La commune
-## ouvre sa salle depuis sa scène par SalleJeu.ouvrir("<commune>", "<id de la structure>").
+## ouvre sa salle depuis sa scène par SalleJeu.ouvrir("<commune>", "<id de la structure>"). Avec
+## « guichet » (socle 1.2), le banquier de la commune tient un bureau près de la porte : le prêt pour jouer,
+## au nom de la banque du manifeste (scripts/loan_panel.gd, de_commune).
 ## Capture : godot --path . res://scenes/salle_jeu.tscn -- --commune=<id> --salle=<id> --capture=sortie.png
 
 ## Les jeux du socle, par nom de manifeste : le panneau, ce que dit l'invite, l'enseigne de la table.
@@ -88,6 +90,9 @@ func _ready() -> void:
 		elif arg.begins_with("--salle="):
 			id = arg.trim_prefix("--salle=")
 	if id != "":
+		# En capture, une commune en clair sous communes/ (le SDK, un clone) se greffe d'elle-même.
+		if Communes.commune(commune) == null and FileAccess.file_exists("res://communes/%s/commune.json" % commune):
+			Communes.charger_dossier("res://communes/" + commune)
 		structure = _entree(commune, id)
 	var champs: Dictionary = structure.get("champs", {})
 	var jeux: Array = champs.get("jeux", ["machine"])
@@ -113,6 +118,8 @@ func _ready() -> void:
 			_room(_checker(Color(0.86, 0.82, 0.74), Color(0.3, 0.2, 0.14)), _wallpaper(Color(0.62, 0.48, 0.32), Color(0.68, 0.54, 0.36)), Color(0.9, 0.84, 0.7), Color(0.3, 0.17, 0.1))
 	_comptoir(tenancier, int(champs.get("graine", 0)))
 	_tables(jeux)
+	if champs.get("guichet", false):
+		_guichet()
 	var enseigne := str(champs.get("enseigne", _salle.name))
 	_label3d(enseigne, Vector3(0, H - 0.45, -D / 2.0 + 0.12), 80, Color(0.95, 0.85, 0.6)).shaded = false
 	_bulb(Vector3(-W / 4.0, H - 0.7, 0.4), Color(0.85, 0.55, 0.3))
@@ -146,6 +153,26 @@ func _comptoir(tenancier: String, graine: int) -> void:
 	_keeper.add_child(c)
 	_interactive(_keeper, "keeper", "E : parler à %s" % tenancier, Vector3(1.2, 2.2, 1.6), Vector3(0, 1.1, 0.9))
 	_lamp(Vector3(0, 1.6, -D / 2.0 + 0.6), Color(1.0, 0.7, 0.4), 0.9, 4.0)
+
+
+## Le bureau du banquier de la commune, contre le mur de gauche près de la porte.
+func _guichet() -> void:
+	var c: Commune = Communes.commune(commune)
+	var b: Dictionary = c.banque() if c else {}
+	var p := Vector3(-W / 2.0 + 1.1, 0, D / 2.0 - 2.2)
+	_box(Vector3(0.8, 0.78, 1.5), p + Vector3(0.45, 0.39, 0), _std(Color(0.36, 0.24, 0.14), 0.5), true)
+	var banquier := Node3D.new()
+	banquier.position = p + Vector3(-0.2, 0, 0)
+	banquier.rotation.y = PI / 2.0
+	add_child(banquier)
+	var f := CRITTER.new()
+	f.randomize_look(hash(str(b.get("banquier", "banquier"))))
+	f.idle_anim = "stand_table"
+	f.scale = Vector3.ONE * PEOPLE_SCALE
+	banquier.add_child(f)
+	_label3d(str(b.get("nom", "La banque")), p + Vector3(0.45, 1.9, 0), 36, Color(0.7, 0.82, 1.0)).shaded = false
+	_lamp(p + Vector3(0.4, 1.7, 0), Color(0.9, 0.95, 1.0), 0.8, 3.0)
+	_interactive(banquier, "guichet", "E : voir %s" % str(b.get("banquier", "le banquier")), Vector3(1.6, 2.0, 1.8), Vector3(0.6, 1.0, 0))
 
 
 ## Une table ou une machine par jeu, en rangs de trois depuis le comptoir, chacune sous sa lampe.
@@ -189,6 +216,8 @@ func _on_interact(target: Node) -> void:
 		"jeu":
 			_jeu_ouvert = str(target.get_meta("jeu", "machine"))
 			open_game()
+		"guichet":
+			_ouvrir_panneau(load("res://scripts/loan_panel.gd").de_commune(commune))
 		_:
 			super(target)
 
@@ -210,6 +239,12 @@ func open_game() -> void:
 	if "title" in p:
 		p.title = "%s : %s" % [_salle.name, JEUX.get(_jeu_ouvert, JEUX.machine).titre]
 	p.played.connect(_on_played)
+	_ouvrir_panneau(p)
+
+
+func _ouvrir_panneau(p: PanelContainer) -> void:
+	if _game != null:
+		return
 	p.closed.connect(func():
 		p.queue_free()
 		_game = null
@@ -242,6 +277,8 @@ func _capture_commune() -> void:
 			path = arg.trim_prefix("--capture=")
 		elif arg.begins_with("--open="):
 			jeu = arg.trim_prefix("--open=")
+		elif arg == "--guichet":
+			jeu = "guichet"
 		elif arg.begins_with("--at="):
 			var v := arg.trim_prefix("--at=").split_floats(",")
 			player.position = Vector3(v[0], 0, v[1])
@@ -251,8 +288,11 @@ func _capture_commune() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	if jeu != "":
 		await get_tree().create_timer(1.0).timeout
-		_jeu_ouvert = jeu
-		open_game()
+		if jeu == "guichet":
+			_ouvrir_panneau(load("res://scripts/loan_panel.gd").de_commune(commune))
+		else:
+			_jeu_ouvert = jeu
+			open_game()
 	await get_tree().create_timer(4.0).timeout
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(path)

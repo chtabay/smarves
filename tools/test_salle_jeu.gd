@@ -77,6 +77,21 @@ func _init() -> void:
 		if s._game:
 			s._game.closed.emit()
 			await process_frame
+	var guichets := s.find_children("*", "Area3D", true, false).filter(func(a): return a.get_meta("interact", "") == "guichet")
+	check(guichets.size() == 1, "le tripot a le guichet de la banque de la commune")
+	if guichets.size() == 1:
+		var brunet: int = game.debt_of(game.lender)
+		var dette: int = game.debt_of("essai_salle")
+		s._on_interact(guichets[0])
+		await process_frame
+		var pret: Node = s._game
+		check(pret != null and pret.banque.get("nom", "") == "La Caisse de la gare", "le guichet est celui de la banque du manifeste")
+		if pret:
+			pret._borrow(500)
+			check(game.debt_of("essai_salle") > dette and game.debt_of(game.lender) == brunet, "le prêt va au prêteur de la commune, pas à M. Brunet")
+			check(pret._speech.text.contains("Caisse de la gare"), "le banquier dit les répliques de sa banque")
+			pret.closed.emit()
+			await process_frame
 	var avant: int = game.credits
 	s._on_played(10, 50)
 	check(game.credits == avant + 50 and game.won >= 50, "un gain s'encaisse dans la bourse du socle")
