@@ -2,7 +2,7 @@ extends SceneTree
 ## Vérifie le poker à plusieurs sans réseau : godot --headless --path . -s tools/test_poker_multi.gd
 ## La table rejoue une suite de vues du serveur (tools/fixtures/poker_multi_vues.json, tirée du moteur
 ## de la fonction casino, dépôt chtabay/addict) : places autour de la sienne, donnes, tableau,
-## abattage, et les crédits rendus en se levant.
+## abattage, et les crédits qui suivent les mises et les gains sans qu'on prenne rien à l'entrée.
 
 var fails := 0
 
@@ -40,11 +40,11 @@ func _init() -> void:
 	p.board_dealt.connect(func(c: Array): compte.tableau += c.size())
 	p.showdown.connect(func(_w, _s, _a): compte.abattages += 1)
 	p.lineup_changed.connect(func(_pl): compte.places += 1)
-	check(G.spend_chips(5000), "le tapis part des crédits")
-	check(G.credits == 15000, "15 000 crédits après un tapis de 5 000")
+	var staked0: int = G.staked
 	for x in vues:
 		p.appliquer(x.v, x.action)
 		if x.action == "s-asseoir":
+			check(G.credits == 20000, "s'asseoir ne prend rien aux crédits")
 			# Bastien s'est assis le premier (place 0 du serveur) : Paulette prend la chaise du Commandant.
 			check(p.seated and p.my_seat == 1, "assise à la place 1 du serveur")
 			check(p.seats[5].name == "Bastien", "Bastien juste à sa droite")
@@ -58,8 +58,9 @@ func _init() -> void:
 	check(compte.tableau >= 3, "le tableau retourné (%d cartes)" % compte.tableau)
 	check(compte.places >= 1, "les figurants placés")
 	check(not p.seated, "levé après « partir »")
-	check(G.credits == 15000 + 2900, "le tapis restant revient dans les crédits (%d)" % G.credits)
-	check(G.won > won0 or G.staked > 0, "les donnes comptent dans la partie")
+	# Deux donnes perdues, 100 puis 2 000 engagés : les mises sont parties des crédits au fil du jeu.
+	check(G.credits == 20000 - 2100, "les mises sont parties des crédits au fil des donnes (%d)" % G.credits)
+	check(G.staked == staked0 + 2100 and G.won == won0, "misé 2 100, rien gagné (%d, %d)" % [G.staked - staked0, G.won - won0])
 	# Les places tournent autour de la sienne : assis en 3, la place 1 du serveur est à l'écran en 4.
 	p.my_seat = 3
 	check(p.rel(1) == 4 and p.rel(3) == 0 and p.rel(2) == 5, "les places tournent autour du joueur")
