@@ -18,14 +18,14 @@ Les règles qui ne bougent pas :
 2. **Le socle « commune »** : Smarves décrit par un manifeste, la sauvegarde rangée en tiroirs, sans aucun changement visible.
 3. **Le village à parcourir** : la route du Bois, le chemin de Passelourdin, le plan du village qui se dévoile en marchant, les repères et les trouvailles.
 4. **Le housing** : la chambre au-dessus du café habitable et meublable, puis les deux maisons.
-5. **La carte de la Vienne** avec Smarves seule, puis une deuxième commune livrée en pack séparé pour éprouver la greffe. *Fait le 18 octobre 2026* : la carte est un écran du jeu (dézoomer au-delà du cran « quartier », ou M), Ligugé est la commune d'essai en paquet (notice : [`COMMUNE.md`](COMMUNE.md), « L'écran de la carte »). Le 18 octobre aussi : l'arrêt du car départemental sur la place, les panneaux des communes voisines au bout des routes, les mises à jour de paquet sur la carte.
+5. **La carte de la Vienne** avec Smarves seule, puis une deuxième commune livrée en pack séparé pour éprouver la greffe. *Fait le 18 octobre 2026* : la carte est un écran du jeu (dézoomer au-delà du cran « quartier », ou M), Ligugé est la commune d'essai en paquet (notice : [`COMMUNE.md`](COMMUNE.md), « L'écran de la carte »). Reste le car départemental depuis l'arrêt de la place.
 6. **La connexion au compte** Pyramides, avec la partie gardée sur le compte. *Fait le 18 octobre 2026.*
 7. **Le multi asynchrone** (multi différé) : visites de maisons, livre d'or, classements. *Fait le 18 octobre 2026* : panneau d'affichage, noms sur les maisons, livre d'or, traces de passage (section 4).
 8. **Le multi en temps réel** : la soirée partagée sur la place, les tables à plusieurs, le poker de Passelourdin.
 
 **Ordre tranché par Guillaume le 17 octobre 2026** : une fois le mobile au point, la connexion au compte, puis le multi différé, puis le temps réel. La carte de la Vienne n'en dépend pas et se fait en parallèle.
 
-9. **Les structures partagées et le championnat de la Vienne** (section 6) : une commune déclare sa gare, son arrêt de car, son terrain de football ; le socle tient le registre ; toute commune avec un terrain a un club dans la pyramide du football de la Vienne. *Commencé le 18 octobre 2026* : le champ « structures » et le registre.
+9. **Les structures partagées et le championnat de la Vienne** (section 6) : une commune déclare sa gare, son arrêt de car, son terrain de football ; le socle tient le registre ; toute commune avec un terrain a un club dans la pyramide du football de la Vienne. *Commencé le 18 octobre 2026* : le champ « structures », le registre, et la pyramide elle-même (saisons, montées et descentes), sans rien à l'écran encore.
 
 Le détail et l'impact sur les fils en cours sont à la section 7.
 
@@ -274,7 +274,7 @@ Pour qu'une commune tierce se branche sans toucher au code de Smarves :
 1. **Décrire Smarves comme une commune, sans rien changer à l'écran.** `PLACES`, les lots et le catalogue sont lus depuis `res://communes/smarves/`. Le parcours automatique (`tools/smoke.tscn`), les simulations et les tests de `Biens` sont les garde-fous : leurs chiffres ne doivent pas bouger d'une unité.
 2. **Ranger la sauvegarde en tiroirs**, avec une migration lue une seule fois des deux fichiers actuels.
 3. **Le registre `Seuils` et les API `register`** de `Biens`, `Carnet` et `Cast`, utilisés d'abord par Smarves elle-même.
-4. **La carte de la Vienne avec Smarves seule** : un écran de plus, depuis l'arrêt de car, avec Poitiers dans la brume. *Fait* : l'écran s'ouvre en dézoomant depuis le village, et depuis l'arrêt de car de la place.
+4. **La carte de la Vienne avec Smarves seule** : un écran de plus, depuis l'arrêt de car, avec Poitiers dans la brume. *Fait* : l'écran s'ouvre en dézoomant depuis le village ; l'arrêt de car reste à poser.
 5. **Ligugé en pack `.pck` séparé**, construit par le même workflow d'export, chargé depuis `user://communes/`. C'est le test de la greffe : si Ligugé a eu besoin de toucher au socle, le socle n'expose pas assez. *Fait en commune d'essai* (`tools/paquet_essai/liguge/`, décor seulement) : elle n'a eu besoin que de `Carte.ouvrir()` et de la caméra de Smarves, sans toucher au socle.
 6. **La notice des communes** (`communes/README.md`), sur le modèle de la notice des bâtiments d'Addict, puis seulement les communes tierces.
 
@@ -320,7 +320,7 @@ Un type de plus fait monter la version du socle ; un paquet qui s'en sert le dem
 
 1. **Le champ `structures` et le registre** (fait le 18 octobre 2026 : `Structures`, `Registre`, `tools/test_structures.gd`), sans rien changer à l'écran.
 2. **Le portail** : le validateur vérifie `structures` règle pour règle, le catalogue les publie, le kit les documente.
-3. **Le squelette du championnat** : le module `Football` lit les terrains du registre, forme la pyramide, le calendrier et les classements sur le calendrier réel, avec un hasard à graine ; les invités ; promotion et descente. Testé sous Godot sans affichage, avec plusieurs saisons simulées.
+3. **Le squelette du championnat** (fait le 18 octobre 2026) : l'autoload `Football` (`scripts/socle/football.gd`) lit les terrains du registre, fonde la pyramide et la met au jour du calendrier réel (`actualiser()`, à l'ouverture et quand le registre change) : saisons closes avec montées et descentes (`historique`), clubs nouveaux à la saison suivante (`en_attente()` tant qu'elle n'est pas ouverte), invités tirés des communes réelles les plus proches, jamais une commune développée. Le hasard rejouable (`Hasard`, `scripts/socle/hasard.gd`) est le mulberry32 du Vestiaire : mêmes graines, mêmes tirages des deux côtés. `calendrier`, `journee`, `classement`, `resultat(saison, journee, dom, ext)` et `decider(saison, journee, club, decisions)` ; le résultat est pour l'instant tiré d'un coup (forces par saison, Poisson), la simulation minute par minute viendra de Zeus. La pyramide est écrite dans `user://communes/football.json`. Test : `godot --headless --path . -s tools/test_football.gd` (treize saisons simulées).
 4. **Le tableau du dimanche** au café (le premier seuil), puis les paris.
 5. **Le match minute par minute** repris de Zeus, le terrain de Smarves et le match animé.
 6. **Les parts du club, le mercato**, puis le multi (décisions au serveur).
@@ -333,7 +333,7 @@ Un type de plus fait monter la version du socle ; un paquet qui s'en sert le dem
 | 2 | Smarves décrite par un manifeste, sauvegarde en tiroirs, registre `Seuils` | un fil « Socle des communes » à ouvrir | 1 n'est pas bloquant ; à faire avant 3 pour que les nouvelles rues naissent dans le bon format |
 | 3 | Route du Bois, chemin de Passelourdin, barrières de chantier, plan du village dans le carnet, repères, lieux cachés, trouvailles | Extension du village, Cohérence du monde (noms, rumeurs) | 2 |
 | 4 | Chambre au-dessus du café habitable, brocante de Ginette Boutin, page « Mon logement », puis les deux maisons | Gestion de la ville | 2, et les lots `chambre_cafe`, `maison_eglise`, `maison_place` du fil Extension |
-| 5 | Carte de la Vienne, car départemental, Ligugé en pack | Carte de la Vienne (carte, car et Ligugé faits le 18 octobre) | 2 ; en parallèle de 6 à 8 |
+| 5 | Carte de la Vienne, car départemental, Ligugé en pack | Carte de la Vienne (carte et Ligugé faits le 18 octobre ; reste le car) | 2 ; en parallèle de 6 à 8 |
 | 6 | Connexion au compte Pyramides, partie gardée sur le compte | un fil Compte (fait le 18 octobre 2026) | le mobile au point ; migration du schéma `smarves` sur accord de Guillaume |
 | 7 | Multi différé : visites de maisons, livre d'or, classements au village | un fil Multi (fait le 18 octobre 2026 : panneau, noms sur les maisons, livre d'or, traces) | 4, 6 |
 | 8 | Soirée partagée, tables à plusieurs, poker de Passelourdin | fil Multi, Visuel des jeux | 7 |

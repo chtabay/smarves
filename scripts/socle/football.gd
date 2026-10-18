@@ -1,0 +1,495 @@
+extends Node
+## Le football de la Vienne (autoload « Football ») : une pyramide de divisions à huit clubs, à la
+## Hattrick, qui lit les terrains du registre des structures (docs/SUITE.md, section 6). Toute commune
+## qui déclare un terrain (« terrain_foot ») a un club, qui entre dans la division la plus basse à la
+## saison suivante ; les places vides sont tenues par des clubs invités, des communes réelles de la
+## Vienne sans paquet (jamais une commune développée : sans terrain, pas de club). Le premier de chaque groupe monte, les deux derniers descendent dans les deux
+## groupes fils. Le championnat vit sur le calendrier réel : un match le dimanche à 15 h, quatorze
+## journées puis une semaine de trêve et une de mercato, trois saisons par an. Un résultat ne dépend
+## que d'une graine (saison, journée, clubs) et des décisions prises avant le coup d'envoi : tout le
+## monde calcule le même, hors ligne. La simulation du match minute par minute viendra de Zeus ; ici,
+## le résultat est tiré d'un seul coup, dans l'ordre où les choses s'empilent.
+
+## La pyramide a changé (une saison s'est finie, un club est entré).
+signal change
+
+## Le premier dimanche de la première saison, à 15 h locale, et la longueur d'une saison en semaines.
+const EPOQUE := {"year": 2026, "month": 10, "day": 25}
+const HEURE_COUP_ENVOI := 15
+const JOURNEES := 14
+const SEMAINES_PAR_SAISON := 16
+const TAILLE := 8
+const MONTENT := 1
+const DESCENDENT := 2
+## Le fichier de la pyramide (dans le dossier des greffes, à côté du catalogue).
+const FICHIER := "football.json"
+
+## Les noms d'un club invité, tirés de la graine de sa commune, et des paires de couleurs.
+const NOMS_INVITES := ["Union sportive %s", "Étoile sportive %s", "Avenir %s", "Jeunesse sportive %s", "Football-club %s", "Espérance %s", "Entente sportive %s", "Olympique %s"]
+const COULEURS := [["#1b3c8c", "#f2c94c"], ["#a3192e", "#ffffff"], ["#0f6b3f", "#ffffff"], ["#2a8fd1", "#0b2340"], ["#5b2a86", "#e6d8f5"],
+	["#f07a1a", "#1a1a1a"], ["#111111", "#e8e8e8"], ["#7a1f3d", "#f4d6b0"], ["#e6c229", "#123a6b"], ["#2b2b2b", "#d23b2b"], ["#3d7a2a", "#f2e6c9"], ["#c8102e", "#0e2b5c"]]
+
+## La saison en cours (1 au départ) et la pyramide : niveaux[n] est la liste des groupes du niveau n
+## (le niveau 0 est le haut), un groupe est une liste d'ids de clubs. clubs : id -> {nom, court,
+## couleurs, commune, insee, invite}. historique : [{saison, champion, montes, descendus}].
+var saison := 1
+var niveaux: Array = []
+var clubs := {}
+var historique: Array = []
+## Les décisions prises avant un match : "saison/journee/club" -> {mentalite…}. Elles entrent dans la graine.
+var decisions := {}
+## Où lire et écrire la pyramide ; un test le déplace. « » : rien n'est écrit.
+var dossier := Communes.GREFFES
+var _horloge: Callable = Callable()
+
+
+func _ready() -> void:
+	# Les tests et les captures partent d'une pyramide vide, sans toucher au fichier du joueur.
+	if get_tree().get_script() != null or "--capture" in " ".join(OS.get_cmdline_user_args()):
+		return
+	charger()
+	Registre.change.connect(actualiser)
+	actualiser()
+
+
+# ---------------------------------------------------------------- le calendrier réel
+
+## Les secondes écoulées « maintenant », en temps local (un test remplace l'horloge).
+func maintenant() -> int:
+	if _horloge.is_valid():
+		return _horloge.call()
+	return int(Time.get_unix_time_from_system()) + Time.get_time_zone_from_system().bias * 60
+
+
+## Remplace l'horloge (essais) : une fonction qui rend des secondes locales, ou une Callable vide.
+func regler_horloge(h: Callable) -> void:
+	_horloge = h
+
+
+## Le coup d'envoi de la journée j (1 à 14) de la saison s, en secondes locales.
+static func coup_envoi(s: int, j: int) -> int:
+	var semaine := (s - 1) * SEMAINES_PAR_SAISON + (j - 1)
+	return Time.get_unix_time_from_datetime_dict({"year": EPOQUE.year, "month": EPOQUE.month, "day": EPOQUE.day,
+		"hour": HEURE_COUP_ENVOI, "minute": 0, "second": 0}) + semaine * 7 * 86400
+
+
+## Le début d'une saison : deux semaines avant son premier coup d'envoi (la trêve, puis le mercato,
+## appartiennent à la saison qui s'ouvre : c'est là que les clubs nouveaux entrent).
+static func debut(s: int) -> int:
+	return coup_envoi(s, 1) - 2 * 7 * 86400
+
+
+## La saison du calendrier à cet instant (1 avant l'époque), et la journée qui vient de se jouer
+## (0 avant la première, 14 après la dernière).
+static func saison_a(t: int) -> int:
+	return maxi(1, 1 + int(floor(float(t - debut(1)) / (SEMAINES_PAR_SAISON * 7 * 86400))))
+
+
+static func journee_jouee_a(t: int, s: int) -> int:
+	var n := 0
+	for j in range(1, JOURNEES + 1):
+		if t >= coup_envoi(s, j):
+			n = j
+	return n
+
+
+## Le prochain coup d'envoi après t : [saison, journee, secondes].
+static func prochain_coup_envoi(t: int) -> Array:
+	var s := saison_a(t)
+	for j in range(1, JOURNEES + 1):
+		if t < coup_envoi(s, j):
+			return [s, j, coup_envoi(s, j)]
+	return [s + 1, 1, coup_envoi(s + 1, 1)]
+
+
+## Combien de journées de la saison en cours sont jouées, et où l'on en est (« treve » la semaine qui
+## suit la dernière journée de la saison passée, « mercato » la semaine d'avant la première journée,
+## « saison » sinon).
+func journee_jouee() -> int:
+	return journee_jouee_a(maintenant(), saison)
+
+
+func periode() -> String:
+	var t := maintenant()
+	if saison_a(t) != saison:
+		return "saison"
+	var semaine := int(floor(float(t - debut(saison)) / (7 * 86400)))
+	return "treve" if semaine == 0 else ("mercato" if semaine == 1 else "saison")
+
+
+# ---------------------------------------------------------------- la pyramide
+
+## Met la pyramide au jour du calendrier : chaque saison finie est close (montées, descentes), et les
+## terrains nouveaux du registre reçoivent leur club à la saison suivante, tant qu'elle n'a pas
+## commencé. À appeler à l'ouverture et quand le registre change ; sans effet si rien n'a bougé.
+func actualiser() -> void:
+	var bouge := false
+	if niveaux.is_empty():
+		_fonder()
+		bouge = true
+	var cible := saison_a(maintenant())
+	while saison < cible:
+		clore_saison()
+		bouge = true
+	if journee_jouee() == 0 and _accueillir():
+		bouge = true
+	if bouge:
+		sauver()
+		change.emit()
+
+
+## Le premier groupe : les terrains du registre, complétés par des invités.
+func _fonder() -> void:
+	clubs = {}
+	for e in Registre.de_type("terrain_foot"):
+		_club_du_registre(e)
+	var groupe: Array = clubs.keys()
+	groupe.sort()
+	niveaux = [[groupe]]
+	_completer()
+
+
+## Ferme la saison en cours : classements finaux, le premier de chaque groupe monte dans le groupe
+## père, les deux derniers descendent dans les deux groupes fils. Puis la saison suivante s'ouvre.
+func clore_saison() -> void:
+	var finals := []
+	for n in niveaux.size():
+		var rangs := []
+		for g in niveaux[n].size():
+			rangs.append(classement(saison, n, g, JOURNEES).map(func(l): return l.club))
+		finals.append(rangs)
+	var champion: String = finals[0][0][0]
+	var montes := []
+	var descendus := []
+	var suivants := []
+	for n in niveaux.size():
+		var groupes := []
+		for g in niveaux[n].size():
+			groupes.append(finals[n][g].duplicate())
+		suivants.append(groupes)
+	# Du bas vers le haut : les fils (niveau n+1, groupes 2g et 2g+1) envoient leur premier au père g,
+	# le père envoie son 7e au fils 2g et son 8e au fils 2g+1.
+	for n in range(niveaux.size() - 2, -1, -1):
+		for g in niveaux[n].size():
+			var pere: Array = suivants[n][g]
+			for k in 2:
+				var f: int = 2 * g + k
+				if f >= suivants[n + 1].size():
+					continue
+				var fils: Array = suivants[n + 1][f]
+				var monte: String = fils[0]
+				var descend: String = pere[TAILLE - DESCENDENT + k]
+				fils[0] = descend
+				pere[TAILLE - DESCENDENT + k] = monte
+				montes.append(monte)
+				descendus.append(descend)
+	historique.append({"saison": saison, "champion": champion, "montes": montes, "descendus": descendus})
+	for n in suivants.size():
+		for g in suivants[n].size():
+			suivants[n][g].sort()
+	niveaux = suivants
+	saison += 1
+
+
+## Les terrains du registre qui n'ont pas encore de club : un club chacun, dans la division la plus
+## basse, à la place d'un invité ; quand il n'y a plus d'invité en bas, un niveau s'ouvre dessous.
+## Un club dont la commune a disparu du registre reste : on ne raye pas un club du jour au lendemain.
+func _accueillir() -> bool:
+	var bouge := false
+	for e in Registre.de_type("terrain_foot"):
+		if clubs.has(e.commune):
+			continue
+		_club_du_registre(e)
+		# Sa commune était invitée : le club de plein droit prend sa place, où qu'elle soit.
+		var invite: String = "invite_" + str(e.insee)
+		if clubs.has(invite):
+			var p: Array = place_de(invite)
+			var g: Array = niveaux[p[0]][p[1]]
+			g[g.find(invite)] = e.commune
+			clubs.erase(invite)
+			bouge = true
+			continue
+		var place := _place_libre()
+		if place.is_empty():
+			niveaux.append([])
+			for g in 1 << (niveaux.size() - 1):
+				niveaux[-1].append([])
+			place = _place_libre()
+		var groupe: Array = niveaux[-1][place.groupe]
+		if place.has("invite"):
+			groupe[groupe.find(place.invite)] = e.commune
+			clubs.erase(place.invite)
+		else:
+			groupe.append(e.commune)
+		bouge = true
+	if bouge:
+		_completer()
+		for n in niveaux.size():
+			for g in niveaux[n]:
+				g.sort()
+	return bouge
+
+
+## Une place pour un club nouveau au dernier niveau : un groupe incomplet, sinon un invité à remplacer.
+func _place_libre() -> Dictionary:
+	for g in niveaux[-1].size():
+		if niveaux[-1][g].size() < TAILLE:
+			return {"groupe": g}
+	for g in niveaux[-1].size():
+		for id in niveaux[-1][g]:
+			if clubs[id].invite:
+				return {"groupe": g, "invite": id}
+	return {}
+
+
+## Remplit chaque groupe à huit avec des invités : les communes réelles sans club les plus proches
+## du centre des clubs du groupe (ou de Smarves, pour un groupe vide), dans un ordre stable.
+func _completer() -> void:
+	var prises := {}
+	for id in clubs:
+		prises[clubs[id].insee] = true
+	for n in niveaux.size():
+		for g in niveaux[n].size():
+			var groupe: Array = niveaux[n][g]
+			var centre := Vienne.centre(Communes.origine().insee) if Communes.origine() else Vector2.ZERO
+			if not groupe.is_empty():
+				centre = Vector2.ZERO
+				for id in groupe:
+					centre += Vienne.centre(clubs[id].insee)
+				centre /= groupe.size()
+			var candidates := Vienne.communes().filter(func(c): return not prises.has(str(c.insee)) and str(c.insee) != "86194" and Communes.par_insee(str(c.insee)) == null)
+			candidates.sort_custom(func(a, b):
+				var da: float = Vector2(a.centre[0], a.centre[1]).distance_squared_to(centre)
+				var db: float = Vector2(b.centre[0], b.centre[1]).distance_squared_to(centre)
+				return da < db if da != db else str(a.insee) < str(b.insee))
+			var k := 0
+			while groupe.size() < TAILLE and k < candidates.size():
+				var id := _inviter(candidates[k])
+				prises[str(candidates[k].insee)] = true
+				groupe.append(id)
+				k += 1
+
+
+func _inviter(c: Dictionary) -> String:
+	var insee := str(c.insee)
+	var id := "invite_" + insee
+	var h := Hasard.depuis(Hasard.graine("invite/" + insee))
+	var nom: String = str(c.nom)
+	var patron: String = NOMS_INVITES[h.entier(0, NOMS_INVITES.size() - 1)]
+	var complement := ("d'%s" if nom.left(1).to_lower() in ["a", "e", "i", "o", "u", "y", "é", "h"] else "de %s") % nom
+	var mots := PackedStringArray()
+	for m in nom.replace("-", " ").split(" ", false):
+		mots.append(m.left(1).to_upper())
+	clubs[id] = {"nom": patron % complement, "court": "".join(mots).left(3).rpad(3, "V") if mots.size() < 3 else "".join(mots).left(3),
+		"couleurs": COULEURS[h.entier(0, COULEURS.size() - 1)], "commune": "", "insee": insee, "invite": true}
+	return id
+
+
+func _club_du_registre(e: Dictionary) -> void:
+	var champs: Dictionary = e.champs
+	var nom := str(champs.get("club", e.nom))
+	var court := str(champs.get("court", ""))
+	if court == "":
+		for m in nom.replace("-", " ").replace("'", " ").split(" ", false):
+			if m.length() > 2:
+				court += m.left(1).to_upper()
+		court = court.left(3)
+	var couleurs: Array = champs.get("couleurs", COULEURS[Hasard.graine(e.commune) % COULEURS.size()])
+	clubs[e.commune] = {"nom": nom, "court": court, "couleurs": couleurs, "commune": e.commune, "insee": e.insee, "invite": false, "stade": str(champs.get("stade", e.nom))}
+
+
+## Les terrains du registre qui attendent la prochaine saison pour avoir leur club : [commune].
+func en_attente() -> Array:
+	return Registre.de_type("terrain_foot").map(func(e): return e.commune).filter(func(c): return not clubs.has(c) or clubs[c].invite)
+
+
+## Le niveau et le groupe d'un club : [n, g], ou [] s'il n'est pas dans la pyramide.
+func place_de(club: String) -> Array:
+	for n in niveaux.size():
+		for g in niveaux[n].size():
+			if niveaux[n][g].has(club):
+				return [n, g]
+	return []
+
+
+## Le nom d'une division : « Division 1 », « Division 2, groupe B ».
+static func nom_division(n: int, g: int) -> String:
+	return "Division %d" % (n + 1) if n == 0 else "Division %d, groupe %s" % [n + 1, char(65 + g)]
+
+
+# ---------------------------------------------------------------- le calendrier d'un groupe
+
+## Les quatorze journées d'un groupe : [{dom, ext}] par journée, aller puis retour (méthode du cercle,
+## comme le Vestiaire), dans un ordre tiré de la graine de la saison et du groupe.
+static func calendrier(s: int, groupe: Array, n: int, g: int) -> Array:
+	var h := Hasard.depuis(Hasard.graine("calendrier/%d/%d/%d" % [s, n, g]))
+	var equipes := h.melanger(groupe)
+	if equipes.size() % 2 == 1:
+		equipes.append("")
+	var taille := equipes.size()
+	var aller := []
+	var tour := equipes.duplicate()
+	for j in taille - 1:
+		var journee := []
+		for k in taille / 2:
+			var a: String = tour[k]
+			var b: String = tour[taille - 1 - k]
+			if a == "" or b == "":
+				continue
+			var inverse := (j % 2 == 1) if k == 0 else (k % 2 == 1)
+			journee.append({"dom": b, "ext": a} if inverse else {"dom": a, "ext": b})
+		aller.append(journee)
+		tour.insert(1, tour.pop_back())
+	var out := aller.duplicate(true)
+	for journee in aller:
+		out.append(journee.map(func(m): return {"dom": m.ext, "ext": m.dom}))
+	return out
+
+
+## Les matchs de la journée j du groupe (n, g) de la saison s, avec leur score s'ils sont joués
+## (joues : combien de journées compter ; par défaut celles que le calendrier réel a passées).
+func journee(s: int, n: int, g: int, j: int, joues := -1) -> Array:
+	if joues < 0:
+		joues = journee_jouee() if s == saison else (JOURNEES if s < saison else 0)
+	var cal := calendrier(s, niveaux[n][g], n, g)
+	var out := []
+	for m in cal[j - 1]:
+		var r := {"dom": m.dom, "ext": m.ext, "score": []}
+		if j <= joues:
+			r.score = resultat(s, j, m.dom, m.ext)
+		out.append(r)
+	return out
+
+
+## Le classement du groupe (n, g) de la saison s après « joues » journées : [{club, j, g, n, p, bp, bc,
+## diff, pts}], le meilleur d'abord (points, différence, buts marqués, puis l'id).
+func classement(s: int, n: int, g: int, joues := -1) -> Array:
+	if joues < 0:
+		joues = journee_jouee() if s == saison else (JOURNEES if s < saison else 0)
+	var lignes := {}
+	for id in niveaux[n][g]:
+		lignes[id] = {"club": id, "j": 0, "g": 0, "n": 0, "p": 0, "bp": 0, "bc": 0, "diff": 0, "pts": 0}
+	for j in range(1, joues + 1):
+		for m in journee(s, n, g, j, joues):
+			var a: int = m.score[0]
+			var b: int = m.score[1]
+			var d: Dictionary = lignes[m.dom]
+			var e: Dictionary = lignes[m.ext]
+			d.j += 1
+			e.j += 1
+			d.bp += a
+			d.bc += b
+			e.bp += b
+			e.bc += a
+			if a > b:
+				d.g += 1
+				e.p += 1
+				d.pts += 3
+			elif a < b:
+				e.g += 1
+				d.p += 1
+				e.pts += 3
+			else:
+				d.n += 1
+				e.n += 1
+				d.pts += 1
+				e.pts += 1
+	var out: Array = lignes.values()
+	for l in out:
+		l.diff = l.bp - l.bc
+	out.sort_custom(func(x, y):
+		if x.pts != y.pts:
+			return x.pts > y.pts
+		if x.diff != y.diff:
+			return x.diff > y.diff
+		if x.bp != y.bp:
+			return x.bp > y.bp
+		return x.club < y.club)
+	return out
+
+
+# ---------------------------------------------------------------- le résultat d'un match
+
+## La force d'un club pour une saison (40 à 80) : tirée de la graine du club et de la saison, en
+## attendant les effectifs et les tactiques repris de Zeus.
+func force(club: String, s: int) -> float:
+	var h := Hasard.depuis(Hasard.graine("force/%d/%s" % [s, club]))
+	return clampf(h.normal(60.0, 8.0), 40.0, 80.0)
+
+
+## Le score d'un match, le même pour tout le monde : la graine ne dépend que de la saison, de la
+## journée, des deux clubs et des décisions prises avant le coup d'envoi (Football.decider).
+func resultat(s: int, j: int, dom: String, ext: String) -> Array:
+	var cle := "match/%d/%d/%s/%s" % [s, j, dom, ext]
+	for c in [dom, ext]:
+		var d: Dictionary = decisions.get("%d/%d/%s" % [s, j, c], {})
+		if not d.is_empty():
+			cle += "|%s:%s" % [c, JSON.stringify(d)]
+	var h := Hasard.depuis(Hasard.graine(cle))
+	var fd := force(dom, s) + 4.0 + _bonus(decisions.get("%d/%d/%s" % [s, j, dom], {}))
+	var fe := force(ext, s) + _bonus(decisions.get("%d/%d/%s" % [s, j, ext], {}))
+	var ecart := (fd - fe) / 20.0
+	return [_buts(h, 1.35 + ecart * 0.6), _buts(h, 1.1 - ecart * 0.6)]
+
+
+static func _bonus(d: Dictionary) -> float:
+	match str(d.get("mentalite", "")):
+		"offensive":
+			return 2.0
+		"prudente":
+			return -1.0
+	return 0.0
+
+
+## Des buts tirés d'une loi de Poisson d'espérance lambda (bornée à 7).
+static func _buts(h: Hasard, lambda: float) -> int:
+	lambda = maxf(0.15, lambda)
+	var l := exp(-lambda)
+	var k := 0
+	var p := 1.0
+	while k < 7:
+		p *= h.suivant()
+		if p <= l:
+			break
+		k += 1
+	return k
+
+
+## Une décision prise avant un match (la tactique du dimanche) ; sans effet sur un match déjà joué.
+func decider(s: int, j: int, club: String, d: Dictionary) -> bool:
+	if s < saison or (s == saison and j <= journee_jouee()):
+		return false
+	decisions["%d/%d/%s" % [s, j, club]] = d
+	sauver()
+	return true
+
+
+# ---------------------------------------------------------------- la sauvegarde
+
+func charger() -> void:
+	if dossier == "":
+		return
+	var lu = Portail.lire_json(dossier.path_join(FICHIER))
+	if lu is Dictionary and lu.has("niveaux") and lu.has("clubs"):
+		saison = int(lu.get("saison", 1))
+		niveaux = lu.niveaux
+		clubs = lu.clubs
+		historique = lu.get("historique", [])
+		decisions = lu.get("decisions", {})
+
+
+func sauver() -> void:
+	if dossier == "":
+		return
+	Portail.ecrire(dossier.path_join(FICHIER), JSON.stringify({"saison": saison, "niveaux": niveaux, "clubs": clubs, "historique": historique, "decisions": decisions}))
+
+
+## Repart de rien (essais, nouvelle partie) : la pyramide se refonde au prochain actualiser().
+func effacer() -> void:
+	saison = 1
+	niveaux = []
+	clubs = {}
+	historique = []
+	decisions = {}
+	if dossier != "":
+		DirAccess.remove_absolute(dossier.path_join(FICHIER))
