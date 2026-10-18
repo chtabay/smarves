@@ -255,6 +255,15 @@ func _depeche() -> String:
 		Bourse.VALEURS[meilleur].nom, COTE.pourcent(v), COTE.pourcent(v * 50.0)]
 
 
+## Le parcours automatique (tools/smoke.gd) ouvre le jeu de chaque salle par open_game et _game.
+var _game: Control
+
+
+func open_game() -> void:
+	open_vitrine()
+	_game = _panel
+
+
 func open_vitrine() -> void:
 	if _panel != null:
 		return
@@ -263,6 +272,7 @@ func open_vitrine() -> void:
 	p.closed.connect(func():
 		p.queue_free()
 		_panel = null
+		_game = null
 		player.frozen = false
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
 	player.frozen = true
