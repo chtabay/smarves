@@ -480,7 +480,11 @@ func _batiments() -> void:
 			continue
 		var b: Dictionary = data.batiments[i]
 		var rem: Dictionary = a_part.get(i, {})
-		_collision(b, murs)
+		var segments: Array = REMARQUABLES.murs(rem.id, b, hauteur) if not rem.is_empty() else []
+		if segments.is_empty():
+			_collision(b, murs)
+		else:
+			_murs_segments(segments, b, murs)
 		if not rem.is_empty():
 			# Un lieu remarquable : son propre lot, nommé, prêt à être remplacé par sa vraie silhouette.
 			var noeud := Node3D.new()
@@ -562,6 +566,17 @@ func _collision(b: Dictionary, murs: PackedVector3Array) -> void:
 		var a: Array = b.p[k]
 		var c: Array = b.p[(k + 1) % b.p.size()]
 		var v := [Vector3(a[0], bas, a[1]), Vector3(c[0], bas, c[1]), Vector3(c[0], haut, c[1]), Vector3(a[0], haut, a[1])]
+		for s in [0, 1, 2, 0, 2, 3]:
+			murs.append(v[s])
+
+
+## Les murs d'un lieu dessiné d'après photo, donnés par remarquables.gd : des segments au sol, dressés
+## de la base de l'emprise au-dessus du toit.
+func _murs_segments(segments: Array, b: Dictionary, murs: PackedVector3Array) -> void:
+	var bas: float = b.sol
+	var haut: float = b.sol + maxf(b.h, 3.0) + 1.5
+	for sg in segments:
+		var v := [Vector3(sg[0], bas, sg[1]), Vector3(sg[2], bas, sg[3]), Vector3(sg[2], haut, sg[3]), Vector3(sg[0], haut, sg[1])]
 		for s in [0, 1, 2, 0, 2, 3]:
 			murs.append(v[s])
 

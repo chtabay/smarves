@@ -11,6 +11,15 @@ const FLOOR_H := 1.3
 const BASE_H := 0.12
 
 
+## Les murs contre lesquels l'habitant bute, pour un lieu dont l'emprise cadastrale ne vaut pas :
+## une liste de segments [x1, z1, x2, z2] au sol, en unités du bourg, ou une liste vide pour
+## laisser l'emprise faire. La porte des Cavaliers laisse passer la rue sous sa voûte.
+static func murs(id: String, b: Dictionary, hauteur: Callable) -> Array:
+	if id == "porte_cavaliers":
+		return _murs_porte_cavaliers(b, hauteur)
+	return []
+
+
 static func construire(id: String, f, b: Dictionary, hauteur: Callable) -> bool:
 	match id:
 		"hotel":
@@ -300,7 +309,7 @@ static func _porte_cavaliers(f, b: Dictionary, hauteur: Callable) -> void:
 	var fa := _facade(b, Vector2(51.0, 38.0), hauteur)
 	var xf: Transform3D = fa.xf
 	var w: float = clampf(fa.w, 4.0, 5.0)
-	var d := 3.5
+	var d := 4.0
 	# L'ouest est au bout de la façade le plus à l'ouest ; la rue des Cavaliers passe derrière la
 	# maison, sous la voûte, et la tour se dresse entre la voûte et la maison.
 	var ouest: float = (1.0 if fa.a.x < fa.c.x else -1.0) * fa.sens
@@ -311,16 +320,17 @@ static func _porte_cavaliers(f, b: Dictionary, hauteur: Callable) -> void:
 	var tuile := Color(0.76, 0.5, 0.34)
 	var clair := Color(0.92, 0.88, 0.78)
 	var fer := Color(0.14, 0.14, 0.15)
-	# La maison : corps enduit, soubassement, cordon, chaînes, toit à quatre pans, cheminée.
+	# La maison : moellons apparents, soubassement, cordon, chaînes, toit à quatre pans, cheminée.
 	var h := BASE_H + 2.0 * FLOOR_H
 	_socle(f, xf, w, d, fa.socle, joint)
-	f.batch.box("wall", xf, Vector3(0, h / 2.0, -d / 2.0), Vector3(w, h, d), creme)
+	f.batch.box("wall", xf, Vector3(0, h / 2.0, -d / 2.0), Vector3(w, h, d), pierre)
 	f.batch.box("trim", xf, Vector3(0, BASE_H / 2.0, -d / 2.0), Vector3(w + 0.05, BASE_H, d + 0.05), joint)
 	f.batch.box("trim", xf, Vector3(0, BASE_H + FLOOR_H + 0.02, 0.01), Vector3(w, 0.06, 0.04), clair)
+	_moellons(f, xf, w, h, pierre)
 	_chaines(f, xf, w, h, clair)
-	f._roof(xf, w, d, h, tuile, creme, "hip")
+	f._roof(xf, w, d, h, tuile, pierre, "hip")
 	var top := h + 0.1 + d * 0.5 * tan(deg_to_rad(28.0))
-	f.batch.box("wall", xf, Vector3(-ouest * (w / 2.0 - 0.7), top - 0.25, -d * 0.4), Vector3(0.34, 0.9, 0.3), creme.darkened(0.08))
+	f.batch.box("wall", xf, Vector3(-ouest * (w / 2.0 - 0.7), top - 0.25, -d * 0.4), Vector3(0.34, 0.9, 0.3), pierre.darkened(0.08))
 	f.batch.box("trim", xf, Vector3(-ouest * (w / 2.0 - 0.7), top + 0.22, -d * 0.4), Vector3(0.42, 0.07, 0.38), clair)
 	# Sur la place : la porte côté est, les fenêtres à volets blancs et leurs géraniums.
 	var xs := [-ouest * 1.5, -ouest * 0.45, ouest * 0.7]
@@ -329,18 +339,20 @@ static func _porte_cavaliers(f, b: Dictionary, hauteur: Callable) -> void:
 		f._window(xf, Vector3(x, BASE_H + 0.3, 0), Vector2(0.5, 0.78), blanc, clair, 0.2)
 	for x in xs:
 		f._window(xf, Vector3(x, BASE_H + FLOOR_H + 0.3, 0), Vector2(0.5, 0.78), blanc, clair, 0.2)
-	# Le flanc ouest de la maison, celui qu'on voit en arrivant de la rue des Cavaliers : une travée
-	# de fenêtres entre l'angle de la place et la tour.
+	# Le flanc ouest de la maison, celui qu'on voit en arrivant de la rue des Cavaliers : la porte
+	# blanche et une fenêtre en bas, une fenêtre à volets blancs à l'étage, entre l'angle et la tour.
 	var oxf := xf * Transform3D(Basis(Vector3.UP, ouest * PI / 2.0), Vector3(ouest * w / 2.0, 0, -0.9))
-	for k in 2:
-		f._window(oxf, Vector3(0, BASE_H + 0.3 + k * FLOOR_H, 0), Vector2(0.5, 0.78), blanc, clair, 0.2)
+	_moellons(f, oxf, 1.8, h, pierre)
+	f._door(oxf, -0.45, blanc.darkened(0.1), clair, false)
+	f._window(oxf, Vector3(0.45, BASE_H + 0.3, 0), Vector2(0.44, 0.7), blanc, clair, 0.2)
+	f._window(oxf, Vector3(0.0, BASE_H + FLOOR_H + 0.3, 0), Vector2(0.5, 0.78), blanc, clair, 0.2)
 	# Le mur de la porte, en retrait, dans le prolongement du flanc ouest : la rue des Cavaliers le
 	# traverse sous sa voûte, derrière la maison, du carrefour au sud-ouest vers la ruelle au nord-est.
 	var pw := 1.5
 	var pxf := xf * Transform3D(Basis(), Vector3(ouest * (w / 2.0 + 0.1 + pw / 2.0), 0, 0))
 	var z0 := -2.7
-	var z1 := -5.8
-	var zc := -4.2
+	var z1 := -6.6
+	var zc := -5.0
 	var ph := 2.45
 	var passage_w := 1.2
 	var passage_h := 1.6
@@ -371,6 +383,12 @@ static func _porte_cavaliers(f, b: Dictionary, hauteur: Callable) -> void:
 	# La fenêtre à volets blancs au-dessus de la voûte, côté rue des Cavaliers, et le toit du mur.
 	var wxf := pxf * Transform3D(Basis(Vector3.UP, ouest * PI / 2.0), Vector3(ouest * pw / 2.0, 0, zc))
 	f._window(wxf, Vector3(0, passage_h + 0.22, 0), Vector2(0.42, 0.55), blanc, clair, 0.2)
+	# Les moellons du mur, de part et d'autre du passage et au-dessus de lui, jamais dans le vide de la voûte.
+	for part in [[z0, zs, 0.0], [zn, z1, 0.0], [zs, zn, passage_h]]:
+		var za: float = part[0]
+		var zb: float = part[1]
+		var mxf := pxf * Transform3D(Basis(Vector3.UP, ouest * PI / 2.0), Vector3(ouest * pw / 2.0, 0, (za + zb) / 2.0))
+		_moellons(f, mxf, za - zb, ph, pierre, part[2])
 	f.batch.box("trim", pxf, Vector3(0, ph - 0.05, zm), Vector3(pw + 0.12, 0.08, pd + 0.12), joint)
 	f._roof(pxf * Transform3D(Basis(), Vector3(0, 0, z0)), pw, pd, ph, tuile, pierre, "hip")
 	# La tour ronde, en moellons, entre la voûte et la maison, sous son toit conique de tuiles : ses
@@ -398,6 +416,38 @@ static func _porte_cavaliers(f, b: Dictionary, hauteur: Callable) -> void:
 			f.glows.append([pxf * (p + Vector3(0, 0.5, 0.2)), Color(1.0, 0.8, 0.5)])
 	# Le lampadaire du carrefour.
 	_lampadaire(f, pxf, Vector3(ouest * (pw / 2.0 + 2.6), 0, zc + 2.6))
+
+
+## Les murs de la porte des Cavaliers : la maison, le mur de la porte de part et d'autre du passage,
+## la tour ; les mêmes mesures que le dessin.
+static func _murs_porte_cavaliers(b: Dictionary, hauteur: Callable) -> Array:
+	var fa := _facade(b, Vector2(51.0, 38.0), hauteur)
+	var xf: Transform3D = fa.xf
+	var w: float = clampf(fa.w, 4.0, 5.0)
+	var d := 4.0
+	var ouest: float = (1.0 if fa.a.x < fa.c.x else -1.0) * fa.sens
+	var pw := 1.5
+	var px: float = ouest * (w / 2.0 + 0.1 + pw / 2.0)
+	var zc := -5.0
+	var passage_w := 1.2
+	var out: Array = []
+	var rect := func(x0: float, x1: float, za: float, zb: float) -> void:
+		var pts := [Vector3(x0, 0, za), Vector3(x1, 0, za), Vector3(x1, 0, zb), Vector3(x0, 0, zb)]
+		for k in 4:
+			var p: Vector3 = xf * pts[k]
+			var q: Vector3 = xf * pts[(k + 1) % 4]
+			out.append([p.x, p.z, q.x, q.z])
+	rect.call(-w / 2.0, w / 2.0, 0.0, -d)
+	rect.call(px - pw / 2.0, px + pw / 2.0, -2.7, zc + passage_w / 2.0)
+	rect.call(px - pw / 2.0, px + pw / 2.0, zc - passage_w / 2.0, -6.6)
+	var tc := Vector3(px + ouest * 0.5, 0, -2.7)
+	for k in 8:
+		var a0 := TAU * k / 8.0
+		var a1 := TAU * (k + 1) / 8.0
+		var p: Vector3 = xf * (tc + Vector3(cos(a0) * 0.85, 0, sin(a0) * 0.85))
+		var q: Vector3 = xf * (tc + Vector3(cos(a1) * 0.85, 0, sin(a1) * 0.85))
+		out.append([p.x, p.z, q.x, q.z])
+	return out
 
 
 # --- Le 7 place de la Mairie : l'agence Groupama ----------------------------------------------------
@@ -636,6 +686,13 @@ static func _maison_21(f, b: Dictionary, hauteur: Callable) -> void:
 		f.batch.box("trim", gxf, Vector3(cx, y + 1.25, 0), Vector3(pil - 0.06, 0.12, 0.015), fer)
 		for i in 10:
 			f.batch.box("trim", gxf, Vector3(cx - pil / 2.0 + 0.08 + i * 0.09, y + 1.0, 0), Vector3(0.025, 0.9, 0.025), fer)
+	# Le haut mur de pierre qui ferme la cour au sud-est, de la maison au pignon aveugle du voisin.
+	var ma := Vector3(17.26, 0, 48.64)
+	var mb := Vector3(20.21, 0, 46.85)
+	var ym: float = hauteur.call((ma.x + mb.x) / 2.0, (ma.z + mb.z) / 2.0) - 0.03
+	ma.y = ym
+	mb.y = ym
+	f.garden_wall(ma, mb, 2.3, moellon)
 	# Deux tilleuls taillés en boule dans la cour.
 	for q in [Vector2(15.1, 43.9), Vector2(19.0, 45.7)]:
 		var yt: float = hauteur.call(q.x, q.y) - 0.05
@@ -783,13 +840,16 @@ static func _cone(f, xf: Transform3D, base: Vector3, radius: float, height: floa
 
 ## Les moellons apparents d'un mur de pierre : des pierres de tailles diverses, un peu plus claires ou
 ## plus sombres que le mur, posées en applique sur la face avant.
-static func _moellons(f, xf: Transform3D, w: float, h: float, mur: Color) -> void:
-	var n := int(w * h * 7.0)
+static func _moellons(f, xf: Transform3D, w: float, h: float, mur: Color, y0: float = 0.0) -> void:
+	var bas: float = maxf(BASE_H, y0) + 0.05
+	if w < 0.7 or h - 0.1 <= bas:
+		return
+	var n := int(w * (h - bas) * 7.0)
 	for i in n:
 		var pw: float = f.rng.randf_range(0.1, 0.26)
 		var ph: float = f.rng.randf_range(0.06, 0.13)
 		var x: float = f.rng.randf_range(-w / 2.0 + 0.3, w / 2.0 - 0.3)
-		var y: float = f.rng.randf_range(BASE_H + 0.05, h - 0.1)
+		var y: float = f.rng.randf_range(bas, h - 0.1)
 		var t: float = f.rng.randf()
 		var c := mur.darkened(0.18).lerp(mur.lightened(0.2), t)
 		f.batch.box("trim", xf, Vector3(x, y, 0.008), Vector3(pw, ph, 0.016), c)
