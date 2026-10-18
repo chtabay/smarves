@@ -4,3 +4,9 @@
 
 [node name="Panneau" type="Label3D" parent="."]
 text = "Commune d'essai"
+
+[node name="Gare" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0, 0)
+
+[node name="Terrain" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 4)

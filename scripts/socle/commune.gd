@@ -20,6 +20,8 @@ var data := {}
 ## Le pack d'une commune greffée (« » : commune du dépôt ou en dossier), et s'il est monté.
 var pack := ""
 var montee := true
+## La date et la taille du pack quand on l'a lu : s'il change ensuite sur le disque, on le relit.
+var signature := ""
 ## Ce qui ne va pas dans le manifeste ; une commune avec des erreurs n'est pas enregistrée.
 var erreurs := PackedStringArray()
 
@@ -97,6 +99,7 @@ func _verifier() -> void:
 			ids[l.id] = true
 	if typeof(data.banque) != TYPE_DICTIONARY or str(data.banque.get("preteur", "")) == "":
 		erreurs.append("la banque doit nommer son prêteur (banque.preteur)")
+	erreurs.append_array(Structures.verifier(data.get("structures")))
 
 
 ## Les lieux, dans la forme de PLACES (main.gd) : id, name, game, seuil, host, accord.
@@ -129,6 +132,12 @@ func preteur() -> String:
 ## Où la poser sur la carte : le centre de la commune réelle (longitude, latitude).
 func centre() -> Vector2:
 	return Vienne.centre(insee)
+
+
+## Les structures que la commune déclare (gare, arrêt de car, terrain…), vide si elle n'en a pas.
+## Le comportement est au socle (Structures) et au registre (autoload Registre).
+func structures() -> Array:
+	return data.get("structures", [])
 
 
 func banque() -> Dictionary:

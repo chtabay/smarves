@@ -25,7 +25,9 @@ Les règles qui ne bougent pas :
 
 **Ordre tranché par Guillaume le 17 octobre 2026** : une fois le mobile au point, la connexion au compte, puis le multi différé, puis le temps réel. La carte de la Vienne n'en dépend pas et se fait en parallèle.
 
-Le détail et l'impact sur les fils en cours sont à la section 6.
+9. **Les structures partagées et le championnat de la Vienne** (section 6) : une commune déclare sa gare, son arrêt de car, son terrain de football ; le socle tient le registre ; toute commune avec un terrain a un club dans la pyramide du football de la Vienne. *Commencé le 18 octobre 2026* : le champ « structures », le registre, et la pyramide elle-même (saisons, montées et descentes), sans rien à l'écran encore.
+
+Le détail et l'impact sur les fils en cours sont à la section 7.
 
 ## 1. Le village à parcourir
 
@@ -278,7 +280,52 @@ Pour qu'une commune tierce se branche sans toucher au code de Smarves :
 
 **Alternatives écartées.** Des communes en scènes ajoutées directement au dépôt sans manifeste : aucune frontière, chaque commune finit par toucher au socle. Des mods en données seules (JSON et modèles, sans script) : sûr, mais trop pauvre pour un jeu par commune. Un éditeur de commune dans le jeu : bien plus tard, si des gens font des mods.
 
-## 6. Le séquencement et les fils en cours
+## 6. Les structures partagées et le championnat de la Vienne
+
+Demande de Guillaume du 18 octobre 2026 : reprendre le jeu de gestion de football commencé pour Addict Casino (Le Vestiaire, dépôt `chtabay/zeus`) dans Smarves, en le transformant ; et surtout, comme pour les gares, **si un terrain de football existe dans un village, ce village a une équipe, qui s'ajoute au championnat**. Le kit des communes doit donc fournir une bibliothèque de structures capables d'interagir avec celles des autres villages, avec un registre. Précision du même jour : la structure est **pyramidale, à la Hattrick** : des divisions à 8 clubs au plus, une équipe nouvelle entre dans la division la plus basse, promotion et descente simples, des rendez-vous réguliers qui permettent d'autres événements (paris, animation de match…).
+
+### Les structures : un vocabulaire du socle, pas du code des villages
+
+**Tranché.** Une structure est quelque chose qu'une commune possède et qui compte pour les autres communes. Le socle définit les **types** (`scripts/socle/structures.gd`) : pour chacun, ses champs, ce qui est obligatoire, et son **comportement**, qui n'appartient qu'au socle. Une commune ne fait que **déclarer** les siennes dans le champ facultatif `structures` de son manifeste, et les **poser** dans sa scène par un nœud nommé. Trois types au départ :
+
+| Type | Ce qu'il relie | Champs propres |
+|---|---|---|
+| `gare` | toutes les gares de la Vienne : le train va de l'une à l'autre | `quai` |
+| `arret_car` | tous les arrêts du car départemental : on va d'un arrêt à l'autre (c'est l'arrêt que construit le fil « Carte de la Vienne » ; il s'y déclarera sans rien changer d'autre) | `abri` |
+| `terrain_foot` | le championnat : la commune a un club, qui entre dans la pyramide à la saison suivante | `club` (obligatoire), `court`, `couleurs` (deux couleurs), `stade` |
+
+Un type de plus fait monter la version du socle ; un paquet qui s'en sert le demande par `socle_min`, et un socle plus ancien le refuse proprement. Le format 1 du manifeste ne change pas : `structures` est vide par défaut, tous les paquets existants restent valides.
+
+**Le registre** (`scripts/socle/registre.gd`, autoload `Registre`) est tenu par le socle, jamais par les paquets. Il se reconstruit à chaque inscription de commune et à chaque lecture du catalogue, à partir des communes **installées** chez le joueur et des communes **publiées** sur le portail : la carte montre donc la gare ou le terrain d'une commune publiée même si le joueur ne l'a pas installée. Aucun paquet ne lit un autre paquet ; une structure demande au registre ce qu'elle relie (`Registre.relies`), et le registre répond les plus proches d'abord. Le catalogue du portail porte les structures de chaque paquet publié, lues dans le manifeste au moment du dépôt (une colonne de plus dans la table `commune_packages` de Pyramides : migration à soumettre à Guillaume).
+
+**Alternatives écartées.** Des structures en code dans les paquets (un script par gare) : chaque paquet finirait par parler aux autres, et un paquet qui manque casserait ceux qui l'attendent. Un registre tenu par la commune d'origine (Smarves) : Smarves n'est qu'une commune parmi les autres. Des dépendances déclarées entre paquets : à proscrire, tout passe par le registre.
+
+### Le football de la Vienne : une pyramide à la Hattrick
+
+**Ce qu'on reprend de Zeus.** Le hasard rejouable à graine (une saison se rejoue à l'identique), le calendrier aller-retour par la méthode du cercle, le classement, la simulation minute par minute avec commentaire, les notes, la forme et l'âge des joueurs, les tactiques (formations, mentalité, pressing), le marché des transferts. Le tout **réécrit en GDScript** dans le socle, pas une page web embarquée : le match se regarde dans le jeu, sur le terrain de la commune, comme on regarde une table.
+
+**Ce qu'on change.** L'Orvanie disparaît : les clubs sont **les communes de la Vienne**, les joueurs sont des figurants des villages, l'argent est en crédits. Et le joueur de Smarves n'est pas un entraîneur : c'est un villageois qui a de l'argent. **Son rapport au club passe par l'argent**, comme tout dans ce jeu : il parie au café, il paie la buvette, il achète des parts du club. En multi, le club d'une commune appartient à ses actionnaires, et celui qui en détient le plus choisit la tactique du dimanche (c'est le modèle « ville gérée comme une entreprise » noté plus bas, appliqué d'abord au club : une bonne répétition). En solo, le joueur a toutes les parts de l'Étoile de Smarves dès qu'il en achète une.
+
+**La pyramide.** Une division est un **groupe de 8 clubs**, 14 journées aller-retour. Le niveau 1 a un groupe, le niveau 2 en a deux, le niveau 3 quatre : chaque groupe a **deux groupes fils** au niveau du dessous. À la fin de la saison, **le premier de chaque groupe monte**, **les deux derniers descendent** dans les deux groupes fils ; les comptes tombent juste. Une commune qui déclare un terrain a un club **dès la saison suivante**, dans la division la plus basse ; quand le dernier niveau est plein, un niveau s'ouvre dessous. Les places vides sont tenues par des **clubs invités**, des communes réelles de la Vienne sans paquet, choisies parmi les plus proches des clubs qu'elles accompagnent ; on ne les visite pas, et chaque terrain nouveau prend la place d'un invité. Au départ, l'Étoile de Smarves et sept invités dans l'unique groupe. Le nom et les couleurs d'un club sont au manifeste de sa commune ; ceux des invités sont tirés par le socle (« Union sportive de Ligugé », couleurs tirées de la graine).
+
+**Les rendez-vous.** Le championnat vit **sur le calendrier réel**, comme Hattrick : **un match par semaine, le dimanche à 15 h**, et une saison dure 16 semaines (14 journées, une semaine de trêve, une semaine de mercato), soit trois saisons par an. Le résultat d'un match se tire d'une graine qui ne dépend que de la saison, de la journée et des deux clubs, plus **les décisions prises avant le coup d'envoi** (tactique, composition) : tout client calcule donc le même résultat hors ligne, sans serveur, et quand le multi arrivera, les décisions partiront simplement au serveur avant 15 h. Le temps réel n'est pas nécessaire au championnat : seul le match animé regardé à plusieurs en relève (chantier 8).
+
+**Ce que les rendez-vous ouvrent** (dans l'ordre, chacun derrière un seuil) : le **tableau du dimanche au café** (le résultat et le classement, dès la première saison) ; **les paris** au comptoir de Josiane, à cote fixe, sur le match de l'Étoile ou sur toute la journée, qui se règlent le dimanche à 17 h et comptent dans le total gagné au jeu ; **le match animé** sur le terrain, minute par minute, qu'on regarde du bord de touche avec les figurants, avec buvette ; **les parts du club** chez le notaire, qui donnent la tactique et une part des recettes ; le **mercato** une semaine par saison. La morale reste celle du jeu : les paris perdent à la longue, les chiffres le disent, et personne ne fait la leçon.
+
+**Le stade de Smarves** est un lieu nouveau, derrière un seuil : il n'existe pas sur la place aujourd'hui et n'y change rien. Il se déclare comme toute structure dans le manifeste de Smarves (`terrain_foot`, club « L'Étoile de Smarves »), ce qui fait de Smarves le premier club du registre.
+
+**Alternatives écartées.** Une ligue unique qui grossit sans fin : à vingt clubs, trente-huit journées, personne ne suit. Des saisons au rythme du joueur (une journée par clic) : on perd les rendez-vous et tout ce qu'ils permettent à plusieurs ; en revanche, hors ligne, le joueur peut **regarder** un match passé à tout moment, le résultat étant déjà écrit. Un championnat par joueur : on ne pourrait rien partager. Reprendre l'interface web de Zeus dans une vue embarquée : deux mondes, deux typographies, et rien sur le terrain.
+
+### L'ordre pour y arriver
+
+1. **Le champ `structures` et le registre** (fait le 18 octobre 2026 : `Structures`, `Registre`, `tools/test_structures.gd`), sans rien changer à l'écran.
+2. **Le portail** : le validateur vérifie `structures` règle pour règle, le catalogue les publie, le kit les documente.
+3. **Le squelette du championnat** (fait le 18 octobre 2026) : l'autoload `Football` (`scripts/socle/football.gd`) lit les terrains du registre, fonde la pyramide et la met au jour du calendrier réel (`actualiser()`, à l'ouverture et quand le registre change) : saisons closes avec montées et descentes (`historique`), clubs nouveaux à la saison suivante (`en_attente()` tant qu'elle n'est pas ouverte), invités tirés des communes réelles les plus proches, jamais une commune développée. Le hasard rejouable (`Hasard`, `scripts/socle/hasard.gd`) est le mulberry32 du Vestiaire : mêmes graines, mêmes tirages des deux côtés. `calendrier`, `journee`, `classement`, `resultat(saison, journee, dom, ext)` et `decider(saison, journee, club, decisions)` ; le résultat est pour l'instant tiré d'un coup (forces par saison, Poisson), la simulation minute par minute viendra de Zeus. La pyramide est écrite dans `user://communes/football.json`. Test : `godot --headless --path . -s tools/test_football.gd` (treize saisons simulées).
+4. **Le tableau du dimanche** au café (le premier seuil), puis les paris.
+5. **Le match minute par minute** repris de Zeus, le terrain de Smarves et le match animé.
+6. **Les parts du club, le mercato**, puis le multi (décisions au serveur).
+
+## 7. Le séquencement et les fils en cours
 
 | # | Chantier | Fil | Dépend de |
 |---|---|---|---|
@@ -290,6 +337,7 @@ Pour qu'une commune tierce se branche sans toucher au code de Smarves :
 | 6 | Connexion au compte Pyramides, partie gardée sur le compte | un fil Compte (fait le 18 octobre 2026) | le mobile au point ; migration du schéma `smarves` sur accord de Guillaume |
 | 7 | Multi différé : visites de maisons, livre d'or, classements au village | un fil Multi (fait le 18 octobre 2026 : panneau, noms sur les maisons, livre d'or, traces) | 4, 6 |
 | 8 | Soirée partagée, tables à plusieurs, poker de Passelourdin | fil Multi, Visuel des jeux | 7 |
+| 9 | Structures partagées (gare, arrêt de car, terrain), registre, pyramide du football de la Vienne | Structures partagées et football | 5 ; les paris et les parts après 7 |
 
 **Notes de Guillaume du 18 octobre 2026, à garder sans les traiter maintenant :**
 

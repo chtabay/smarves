@@ -18,6 +18,9 @@ L'autoload `Carte` (`scripts/carte.gd`) montre la carte en plein écran, dessin�
 - **On en repart** en zoomant encore sur sa commune quand la carte est au plus près, avec Échap ou M, ou par « Revenir ». La carte replonge sur la commune et s'efface.
 - **Ce qu'on voit** : Smarves en or, les villes installées en vert d'eau vif, les villes publiées en vert d'eau pâle, les autres en filigrane, avec leur nom en filigrane quand on zoome ; le Clain et la Vienne (tracé approché, de commune riveraine en commune riveraine) ; Poitiers dans une brume qui dérive ; une épingle sur la commune où l'on est. Une commune qui arrive (publiée ou installée depuis la dernière ouverture) s'allume sous les yeux du joueur ; celles déjà vues sont retenues dans `user://communes/allumees.json`.
 - **Toucher une commune** la montre dans la fiche (nom, population, état, description du catalogue) avec ce qu'on peut y faire : « Y aller » pour une ville installée, « Rentrer à Smarves », « Installer » pour une ville publiée. Poitiers et les communes pas encore développées ne mènent nulle part.
+- **Le car et la route.** Sur la place, l'arrêt du car départemental (à droite, entre deux platanes) ouvre la carte « Arrêt de la Place » : des tirets d'or partent de Smarves vers chaque commune où l'on peut aller (installée ou publiée), et l'on monte avec « Monter dans le car ». Au bout de chaque route, sur les socles des environs, un panneau blanc bordé de rouge porte le nom de la commune voisine dans cette direction (`Vienne.voisine`, la plus proche à moins de 40° du cap) : Ligugé à l'ouest (moulin), Nouaillé-Maupertuis à l'est (bois), Saint-Benoît au nord (Passelourdin). Il ouvre la carte tournée vers elle, avec « Prendre la route », « Installer », ou, si personne ne l'a encore construite, la promesse qu'elle s'allumera. Pas de gare : Smarves n'en a pas ; une commune qui en a une pourra poser la sienne.
+- **Les mises à jour.** Une ville installée dont le catalogue publie une version plus récente porte sous son nom une pastille d'or « mise à jour 0.2.0 » ; sa fiche dit « MISE À JOUR » et offre « Mettre à jour » à côté de « Y aller ». Une ville pas encore visitée dans la partie prend sa nouvelle version tout de suite ; une ville déjà visitée a son pack monté, que Godot ne sait pas remplacer : la nouvelle version attend le prochain lancement, et la fiche propose « Relancer maintenant » (la partie est enregistrée d'abord ; sur téléphone, on dit de fermer et rouvrir le jeu).
+- **Un pack remplacé à la main pendant la partie** (une nouvelle version déposée dans `communes/` sans quitter le jeu) : s'il n'a pas encore été ouvert, on relit son manifeste et on ouvre la nouvelle version ; s'il l'a été, on refuse d'y entrer jusqu'au prochain lancement, plutôt que de lire le nouveau fichier aux places de l'ancien.
 
 **Rien à changer dans un paquet pour la carte** : elle lit le code INSEE, la scène, le nom, la version, l'auteur et la description, déjà au format. Une commune qui veut ouvrir la carte depuis sa propre caméra appelle `Carte.ouvrir()` (Ligugé le fait au-delà de son dernier cran, comme le village).
 
@@ -86,8 +89,47 @@ Un dossier `communes/<id>/` avec au moins un manifeste `commune.json` et la scè
 | `banque` | oui | la banque de la commune et son banquier ; `preteur` est la clé de la dette envers cette banque dans le socle |
 | `biens` | non | les biens et leurs vendeurs |
 | `jeux.regles_serveur` | non | les règles versées au serveur pour le multi (vide tant que le multi n'existe pas) |
+| `structures` | non | les structures de la commune qui comptent pour les autres communes : gare, arrêt de car, terrain de football (section « Les structures ») ; vide par défaut |
 
 Le socle traduit `lieux` et `salles` dans la forme que le code connaissait déjà : `main.gd` lit `PLACES` et le casino `LOCKS` depuis le manifeste de Smarves, aux mêmes valeurs qu'avant (`tools/test_communes.gd` le vérifie lieu par lieu).
+
+## Les structures
+
+Une **structure** est quelque chose qu'une commune possède et qui compte pour les autres communes : une gare, d'où le train va aux autres gares ; un arrêt de car, d'où le car départemental va aux autres arrêts ; un terrain de football, qui donne à la commune un club dans le championnat de la Vienne (le cadrage est dans [`SUITE.md`](SUITE.md), section 6). **Le socle définit les types et leur comportement ; la commune ne fait que déclarer les siennes et les poser dans sa scène.** Aucune commune ne lit une autre commune : tout passe par le registre du socle.
+
+```json
+"structures": [
+	{"type": "arret_car", "id": "arret", "nom": "L'arrêt de la place", "noeud": "ArretDeCar", "lot": "place"},
+	{"type": "terrain_foot", "id": "stade", "nom": "Le stade des Prés", "noeud": "Terrain",
+	 "club": "L'Étoile de Smarves", "court": "ETS", "couleurs": ["#1b3c8c", "#f2c94c"], "stade": "Le stade des Prés"}
+]
+```
+
+| Champ | Obligatoire | Ce que c'est |
+|---|---|---|
+| `type` | oui | un type connu du socle : `gare`, `arret_car`, `terrain_foot` (la liste est `Structures.TYPES`, `scripts/socle/structures.gd`) |
+| `id` | oui | minuscules, chiffres et `_`, unique dans la commune ; la clé au registre est `<commune>/<id>` |
+| `nom` | oui | le nom affiché (« La gare de Ligugé ») |
+| `noeud` | non | le nom du nœud de la scène de la commune qui place la structure (un `Node3D`, cherché par son nom) ; sans lui, la structure compte pour les autres communes mais ne se voit pas chez soi |
+| `lot` | non | la porte du village qui y mène, quand la commune a des lots |
+
+Et par type : `gare` prend `quai` ; `arret_car` prend `abri` ; `terrain_foot` demande `club` (le nom du club) et prend `court` (le sigle), `couleurs` (deux couleurs, `#rrggbb`) et `stade`. Une seule structure de chaque type par commune. Un champ inconnu, un type inconnu, un champ du mauvais type ou un terrain sans club rendent le manifeste invalide : la commune n'est pas inscrite, et le portail refuse le paquet pour la même raison. Un type ajouté plus tard fera monter la version du socle ; un paquet qui s'en sert le demande par `socle_min`.
+
+**Le registre** (autoload `Registre`, `scripts/socle/registre.gd`) est reconstruit à chaque inscription de commune et à chaque lecture du catalogue : il tient les structures des communes **installées** chez le joueur et celles des communes **publiées** sur le portail, installées ou non (le catalogue porte les structures de chaque paquet publié). Chaque entrée dit sa commune, son code INSEE, son centre sur la carte et si l'on peut y aller (`installee`). Ce qu'il expose :
+
+| | |
+|---|---|
+| `entrees` | toutes les structures : `cle`, `commune`, `insee`, `commune_nom`, `centre`, `installee`, `type`, `id`, `nom`, `noeud`, `lot`, `champs` (les champs propres au type) |
+| `de_type(type, installees)`, `de_commune(id)`, `structure(cle)` | les filtres |
+| `relies(cle, installees)` | ce qu'une structure relie d'après son type (les autres gares, les autres arrêts), les plus proches d'abord ; un terrain ne relie rien, c'est le championnat qui lit les terrains |
+| `noeud(scene, entree)` | le nœud qui place la structure dans la scène de sa commune |
+| `change` | signal : le registre vient d'être reconstruit |
+
+La commune d'essai (`tools/commune_essai/`) déclare une halte et un stade ; `tools/test_structures.gd` vérifie le vocabulaire, le registre et la lecture du catalogue :
+
+```sh
+godot --headless --path . -s tools/test_structures.gd
+```
 
 ## Comment une commune arrive
 
@@ -188,13 +230,13 @@ godot --headless --path . -s tools/test_portail.gd
 | `carte()` | les 265 communes de la Vienne : `insee`, `nom`, `centre` (Vector2 longitude, latitude), `contour` (polygones de points [longitude, latitude]), `id` et `cliquable` (vrai si développée) |
 | `lister_pack(chemin)`, `repertoire_pack(chemin)` | les fichiers d'un pack (formats 2 à 4 de Godot 4), ou `null` |
 | `catalogue`, `catalogue_etat`, `lire_catalogue()`, `catalogue_lu` | les communes publiées sur le portail, lues au lancement (voir « Publier sa commune ») |
-| `publiees()`, `installees()`, `au_catalogue(id)` | les deux listes pour la carte, et une entrée du catalogue |
+| `publiees()`, `installees()`, `au_catalogue(id)` | les deux listes pour la carte, et une entrée du catalogue (avec ses `structures`) |
 | `installer(id)`, `installee`, `en_cours`, `installations` | installer une commune publiée ; versions installées |
 | `visiter(id)`, `revenir()` | entrer dans une commune greffée, et revenir à Smarves |
 
 ### `Commune` (classe, `scripts/socle/commune.gd`)
 
-`Commune.lire(chemin)` lit et vérifie un manifeste ; `valide()` et `erreurs` disent s'il est bon. `lieux()` et `salles(interieur)` rendent les lieux et les salles dans la forme de `PLACES` et `LOCKS` ; `preteur()`, `banque()`, `interieur(id)` et `centre()` (la position réelle, d'après le code INSEE) lisent le reste.
+`Commune.lire(chemin)` lit et vérifie un manifeste ; `valide()` et `erreurs` disent s'il est bon. `lieux()`, `salles(interieur)` et `structures()` rendent les lieux et les salles dans la forme de `PLACES` et `LOCKS` ; `preteur()`, `banque()`, `interieur(id)` et `centre()` (la position réelle, d'après le code INSEE) lisent le reste.
 
 ### `Vienne` (classe, `scripts/socle/vienne.gd`)
 

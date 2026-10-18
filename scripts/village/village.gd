@@ -212,6 +212,7 @@ func build(m: Node3D) -> void:
 	_logements()
 	_biens()
 	_voisinage()
+	_arret_de_car()
 	_capture_view()
 
 
@@ -977,6 +978,82 @@ func _offer_tournee() -> void:
 	for v in main.villagers:
 		if v.global_position.distance_to(_tournee_area.global_position) < 6.0:
 			v.react("win")
+
+
+# --- L'arrêt du car départemental : la carte des communes où il s'arrête (autoload Carte) -------
+
+## L'abri, au bord de la place, tourné vers la rue du Clain : [position, orientation (degrés)].
+const ARRET := [Vector3(4.25, 0, 4.15), 0.0]
+
+
+func _arret_de_car() -> void:
+	var root := Node3D.new()
+	root.position = ARRET[0]
+	root.rotation_degrees.y = ARRET[1]
+	add_child(root)
+	var acier := StandardMaterial3D.new()
+	acier.albedo_color = Color(0.16, 0.3, 0.32)
+	acier.metallic = 0.5
+	acier.roughness = 0.45
+	var vitre := StandardMaterial3D.new()
+	vitre.albedo_color = Color(0.7, 0.85, 0.9, 0.28)
+	vitre.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	vitre.roughness = 0.1
+	var banc := StandardMaterial3D.new()
+	banc.albedo_color = Color(0.45, 0.28, 0.14)
+	# Quatre montants, un toit, le fond et les côtés vitrés, un banc.
+	for x in [-1.05, 1.05]:
+		for z in [-0.45, 0.45]:
+			main._box(Vector3(0.07, 2.2, 0.07), Vector3(x, 1.1, z), acier, root)
+	main._box(Vector3(2.4, 0.08, 1.15), Vector3(0, 2.24, 0), acier, root)
+	main._box(Vector3(2.1, 1.7, 0.03), Vector3(0, 1.15, -0.45), vitre, root)
+	for x in [-1.05, 1.05]:
+		main._box(Vector3(0.03, 1.7, 0.85), Vector3(x, 1.15, 0), vitre, root)
+	main._box(Vector3(1.6, 0.06, 0.36), Vector3(0, 0.48, -0.25), banc, root)
+	main._box(Vector3(2.4, 0.24, 0.04), Vector3(0, 2.08, 0.56), acier, root)
+	# Le poteau de l'arrêt, son disque et le nom de la ligne.
+	main._box(Vector3(0.07, 2.6, 0.07), Vector3(1.5, 1.3, 0.5), acier, root)
+	var disque := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = 0.32
+	cyl.bottom_radius = 0.32
+	cyl.height = 0.04
+	disque.mesh = cyl
+	var jaune := StandardMaterial3D.new()
+	jaune.albedo_color = Color(0.96, 0.8, 0.3)
+	disque.material_override = jaune
+	disque.rotation_degrees.x = 90
+	disque.position = Vector3(1.5, 2.45, 0.53)
+	root.add_child(disque)
+	var car := Label3D.new()
+	car.text = "CAR"
+	car.font = main.serif
+	car.font_size = 44
+	car.pixel_size = 0.004
+	car.modulate = Color(0.1, 0.12, 0.14)
+	car.outline_size = 0
+	car.position = Vector3(1.5, 2.45, 0.56)
+	root.add_child(car)
+	var nom := Label3D.new()
+	nom.text = "CAR DÉPARTEMENTAL  ·  ARRÊT PLACE"
+	nom.font = main.serif
+	nom.font_size = 36
+	nom.pixel_size = 0.004
+	nom.modulate = Color(0.95, 0.92, 0.82)
+	nom.outline_size = 0
+	nom.position = Vector3(0, 2.08, 0.585)
+	root.add_child(nom)
+	var a := Area3D.new()
+	var cs := CollisionShape3D.new()
+	var b := BoxShape3D.new()
+	b.size = Vector3(3.2, 2.4, 1.8)
+	cs.shape = b
+	cs.position = Vector3(0.2, 1.2, 0.3)
+	a.add_child(cs)
+	a.set_meta("interact", "car")
+	a.set_meta("action", Carte.ouvrir_car)
+	a.set_meta("prompt", "E : prendre le car départemental")
+	root.add_child(a)
 
 
 # --- Le voisinage : le panneau de la mairie et les noms des autres joueurs (autoload Voisinage) -----

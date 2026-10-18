@@ -40,6 +40,10 @@ const RIVIERES := {
 ## Codes INSEE à marquer : publiées (installables) et installées.
 var publiees: Array = []
 var installees: Array = []
+## Les villes installées dont une version plus récente est publiée : code INSEE -> version.
+var a_jour := {}
+## Les lignes du car : des tirets d'or de la commune « ici » vers chacune de ces communes (codes INSEE).
+var lignes: Array = []
 ## La carte navigable (l'écran Carte) ; sinon un dessin fixe (la bienvenue).
 var interactive := false
 var brume := false
@@ -287,6 +291,11 @@ func _draw() -> void:
 	if rivieres:
 		for nom in _cours:
 			draw_polyline(_cours[nom], RIVIERE, 2.2 * fin, true)
+	if ici != "" and _par_insee.has(ici):
+		var depart: Vector2 = _formes[_par_insee[ici]][2]
+		for i in lignes:
+			if _par_insee.has(i) and i != ici:
+				draw_dashed_line(depart, _formes[_par_insee[i]][2], Color(OR, 0.75), 2.0 * fin, 7.0 * fin, true, true)
 	for i in _allumage:
 		var k := clampf((_temps - _allumage[i]) / 1.2, 0.0, 1.0)
 		if k <= 0.0:
@@ -356,19 +365,24 @@ func _noms() -> void:
 		var at := vers_ecran(f[2])
 		var t: String = f[3]
 		var w := police.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, t15).x
+		# Une ville à mettre à jour porte sa pastille sous son nom : l'étiquette est plus haute.
+		var maj := "mise à jour %s" % a_jour[f[0]] if a_jour.has(f[0]) else ""
+		var taille := Vector2(maxf(w, Polices.gras().get_string_size(maj, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 12), 16 + (21 if maj != "" else 0))
 		var choix := [Vector2(9, 5), Vector2(-11 - w, 5), Vector2(9, -9), Vector2(-11 - w, -9), Vector2(9, 19), Vector2(-11 - w, 19), Vector2(9, -23), Vector2(-11 - w, -23)]
 		var o: Vector2 = choix[0]
 		for c in choix:
-			var r := Rect2(at + c - Vector2(0, 13), Vector2(w, 16))
+			var r := Rect2(at + c - Vector2(0, 13), taille)
 			if poses.all(func(p): return not p.intersects(r)):
 				o = c
 				break
-		poses.append(Rect2(at + o - Vector2(0, 13), Vector2(w, 16)))
+		poses.append(Rect2(at + o - Vector2(0, 13), taille))
 		if f[0] != POITIERS_INSEE:
 			draw_circle(at, 4.0, Color.WHITE)
 		var encre := OR if f[0] == ORIGINE_INSEE else Color(0.86, 0.88, 0.92) if f[0] == POITIERS_INSEE else Color.WHITE
 		draw_string_outline(police if f[0] != POITIERS_INSEE else fine, at + o, t, HORIZONTAL_ALIGNMENT_LEFT, -1, t15, 5, Color(0, 0, 0, 0.8))
 		draw_string(police if f[0] != POITIERS_INSEE else fine, at + o, t, HORIZONTAL_ALIGNMENT_LEFT, -1, t15, encre)
+		if maj != "":
+			_pastille(at + o + Vector2(0, 20), maj)
 	if not interactive:
 		return
 	if rivieres:
@@ -394,6 +408,16 @@ func _noms() -> void:
 			continue
 		poses.append(r)
 		draw_string(fine, at + Vector2(-w / 2.0, 0), t, HORIZONTAL_ALIGNMENT_LEFT, -1, t12, Color(1, 1, 1, 0.42 if f[0] != _survolee else 0.9))
+
+
+## Une pastille d'or après le nom : une version plus récente attend au portail.
+func _pastille(at: Vector2, t: String) -> void:
+	var police := Polices.gras()
+	var w := police.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+	var r := Rect2(at + Vector2(0, -13), Vector2(w + 12, 17))
+	var k := 0.75 + 0.25 * sin(_temps * 3.0)
+	draw_rect(r, Color(OR, k), true)
+	draw_string(police, at + Vector2(6, 0), t, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.12, 0.08, 0.02))
 
 
 func _marquee(insee: String) -> bool:

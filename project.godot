@@ -18,6 +18,8 @@ config/icon="res://icon.svg"
 [autoload]
 
 Communes="*res://scripts/socle/communes.gd"
+Registre="*res://scripts/socle/registre.gd"
+Football="*res://scripts/socle/football.gd"
 Version="*res://scripts/socle/version.gd"
 Game="*res://scripts/game_state.gd"
 Sfx="*res://scripts/sfx.gd"
