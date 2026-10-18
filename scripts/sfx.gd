@@ -105,8 +105,11 @@ var _loops := {}
 func _render_loop(kind: String) -> AudioStreamWAV:
 	var seconds := 16.0
 	var n := int(RATE * seconds)
+	# Quelques images de plus après la fin de la boucle : le mélangeur lit un peu au-delà de loop_end
+	# pour interpoler, et sur Android ce dépassement tombait sur une page interdite (plantage à 20 s).
+	var marge := 256
 	var data := PackedByteArray()
-	data.resize(n * 4)
+	data.resize((n + marge) * 4)
 	var lp1 := 0.0
 	var lp2 := 0.0
 	var lp3 := 0.0
@@ -137,6 +140,10 @@ func _render_loop(kind: String) -> AudioStreamWAV:
 		var sample := int(clampf(v * edge, -1.0, 1.0) * 32000.0)
 		data.encode_s16(i * 4, sample)
 		data.encode_s16(i * 4 + 2, sample)
+	# La marge reprend le début de la boucle, pour rester sans couture.
+	for j in marge:
+		data.encode_s16((n + j) * 4, data.decode_s16(j * 4))
+		data.encode_s16((n + j) * 4 + 2, data.decode_s16(j * 4 + 2))
 	var w := AudioStreamWAV.new()
 	w.format = AudioStreamWAV.FORMAT_16_BITS
 	w.mix_rate = int(RATE)
