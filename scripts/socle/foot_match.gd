@@ -48,14 +48,15 @@ const PRESSINGS := {
 
 const POSTES := {"G": "Gardien", "D": "Défenseur", "M": "Milieu", "A": "Attaquant"}
 
-## Les sept compétences d'un joueur, et leur nom sur une feuille.
-const COMPETENCES := {"gardien": "Gardien", "defense": "Défense", "jeu": "Jeu", "aile": "Aile", "passe": "Passe", "but": "But", "cpa": "Coups de pied arrêtés"}
+## Les huit compétences d'un joueur, et leur nom sur une feuille. L'endurance ne joue pas une action :
+## elle dit à quelle vitesse les sept autres s'usent au fil du match.
+const COMPETENCES := {"gardien": "Gardien", "defense": "Défense", "jeu": "Jeu", "aile": "Aile", "passe": "Passe", "but": "But", "cpa": "Coups de pied arrêtés", "endurance": "Endurance"}
 ## Ce qu'un poste vaut dans chaque compétence, en part de sa note (le reste vient du tirage du joueur).
 const PROFILS := {
-	"G": {"gardien": 1.08, "defense": 0.6, "jeu": 0.45, "aile": 0.3, "passe": 0.5, "but": 0.25, "cpa": 0.6},
-	"D": {"gardien": 0.25, "defense": 1.06, "jeu": 0.7, "aile": 0.65, "passe": 0.65, "but": 0.45, "cpa": 0.7},
-	"M": {"gardien": 0.2, "defense": 0.7, "jeu": 1.06, "aile": 0.8, "passe": 0.9, "but": 0.65, "cpa": 0.8},
-	"A": {"gardien": 0.2, "defense": 0.4, "jeu": 0.6, "aile": 0.75, "passe": 0.7, "but": 1.06, "cpa": 0.7},
+	"G": {"gardien": 1.08, "defense": 0.6, "jeu": 0.45, "aile": 0.3, "passe": 0.5, "but": 0.25, "cpa": 0.6, "endurance": 0.8},
+	"D": {"gardien": 0.25, "defense": 1.06, "jeu": 0.7, "aile": 0.65, "passe": 0.65, "but": 0.45, "cpa": 0.7, "endurance": 0.95},
+	"M": {"gardien": 0.2, "defense": 0.7, "jeu": 1.06, "aile": 0.8, "passe": 0.9, "but": 0.65, "cpa": 0.8, "endurance": 1.0},
+	"A": {"gardien": 0.2, "defense": 0.4, "jeu": 0.6, "aile": 0.75, "passe": 0.7, "but": 1.06, "cpa": 0.7, "endurance": 0.9},
 }
 const COULOIRS := ["gauche", "centre", "droite"]
 
@@ -139,7 +140,7 @@ static func competence(j: Dictionary, cle: String) -> float:
 	return float(j.note) * minf(float(profil.get(cle, 0.6)), 1.0)
 
 
-## Les sept compétences d'un joueur, tirées une fois pour toutes autour de sa note et du profil de son
+## Les huit compétences d'un joueur, tirées une fois pour toutes autour de sa note et du profil de son
 ## poste : un défenseur défend, un milieu construit, un attaquant marque, et chacun a ses surprises.
 static func tirer_competences(j: Dictionary, h: Hasard) -> Dictionary:
 	var profil: Dictionary = PROFILS.get(str(j.poste), PROFILS.M)
@@ -585,15 +586,21 @@ static func _changements_auto(etat: Dictionary, i: int, joueurs: Dictionary, h: 
 		eq.mentalite = "prudente"
 
 
+## Ce qu'un joueur perd de condition par minute : la course de son poste, le pressing de son équipe,
+## son âge, et surtout son endurance (à la Hattrick : à 90 d'endurance on tient tout le match, à 30 on
+## est cuit à l'heure de jeu).
+static func perte_condition(j: Dictionary, k_pressing := 1.0) -> float:
+	var age: int = int(j.get("age", 26))
+	var vieillesse := 1.15 if age > 31 else (0.9 if age < 22 else 1.0)
+	var souffle := clampf(1.5 - 0.9 * competence(j, "endurance") / 100.0, 0.5, 1.3)
+	return (0.08 if j.poste == "G" else 0.3) * k_pressing * vieillesse * souffle
+
+
 static func _fatiguer(etat: Dictionary, joueurs: Dictionary) -> void:
 	for eq in etat.equipes:
 		var k: float = PRESSINGS.get(eq.pressing, PRESSINGS.normal).fatigue
 		for e in eq.onze:
-			var j: Dictionary = joueurs[e.id]
-			var age: int = int(j.get("age", 26))
-			var endurance := 1.15 if age > 31 else (0.9 if age < 22 else 1.0)
-			var perte := (0.08 if j.poste == "G" else 0.3) * k * endurance
-			eq.condition[e.id] = maxf(20.0, eq.condition[e.id] - perte)
+			eq.condition[e.id] = maxf(20.0, eq.condition[e.id] - perte_condition(joueurs[e.id], k))
 
 
 ## Avance d'une minute. Rend les événements de cette minute.
