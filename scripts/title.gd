@@ -1,5 +1,6 @@
 extends Node3D
-## L'écran titre : la place de Smarves qui tourne lentement en fond, le nom du jeu, et trois boutons.
+## L'écran titre : la place de Smarves qui tourne lentement en fond, le nom du jeu, et quatre boutons :
+## Jouer, La carte (la Vienne, d'où l'on peut aussi entrer dans une commune), Réglages, Quitter.
 
 const MAIN := preload("res://scenes/main.tscn")
 
@@ -79,7 +80,7 @@ func _build_ui() -> void:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 16)
 	v.add_child(row)
-	for b in [["Jouer", _play], ["Réglages", func(): Settings.toggle()], ["Quitter", func(): get_tree().quit()]]:
+	for b in [["Jouer", _play], ["La carte", func(): Carte.ouvrir(true)], ["Réglages", func(): Settings.toggle()], ["Quitter", func(): get_tree().quit()]]:
 		var btn := Button.new()
 		btn.text = b[0]
 		btn.custom_minimum_size = Vector2(170, 52)
@@ -103,6 +104,9 @@ func _play() -> void:
 
 
 func _maybe_capture() -> void:
+	for arg in OS.get_cmdline_user_args():
+		if arg == "--carte":
+			Carte.ouvrir.call_deferred(true)
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--capture="):
 			await get_tree().create_timer(6.0).timeout

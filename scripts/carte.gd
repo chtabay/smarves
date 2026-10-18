@@ -1,6 +1,6 @@
 extends CanvasLayer
 ## L'écran de la carte de la Vienne (autoload « Carte »). On y arrive en dézoomant au-delà du cran
-## « quartier » au village (molette ou pincer), avec M, ou depuis la bienvenue ; on en repart en
+## « quartier » au village (molette ou pincer), avec M, depuis la bienvenue, ou dès le menu de départ ; on en repart en
 ## zoomant sur sa commune, avec Échap ou « Revenir ». Smarves en or, les villes installées en vert
 ## d'eau vif, les villes publiées sur le portail en vert d'eau pâle, les autres en filigrane, et
 ## Poitiers dans la brume. Une commune qui arrive (publiée, installée) s'allume à l'ouverture
@@ -28,6 +28,8 @@ var _aide: Label
 var _mouse_before := Input.MOUSE_MODE_VISIBLE
 var _paused_before := false
 var _en_route := false
+## Ouverte depuis l'écran titre : pas encore de partie, on n'est nulle part, « Revenir » rend le menu.
+var _titre := false
 var _capture := "--capture" in " ".join(OS.get_cmdline_user_args())
 
 
@@ -80,9 +82,11 @@ func peut_ouvrir() -> bool:
 	return not (panneaux is Node and panneaux.get_child_count() > 0)
 
 
-func ouvrir() -> void:
+## depuis_titre : depuis le menu de départ, avant d'entrer dans le jeu ; choisir Smarves lance la partie.
+func ouvrir(depuis_titre := false) -> void:
 	if is_open():
 		return
+	_titre = depuis_titre
 	_mouse_before = Input.mouse_mode
 	_paused_before = get_tree().paused
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -90,7 +94,7 @@ func ouvrir() -> void:
 	_root.visible = true
 	_rafraichir(false)
 	var ici := _ici()
-	_carte.ici = ici
+	_carte.ici = "" if _titre else ici
 	_carte.choisie = ""
 	_montrer(ici)
 	# On s'élève au-dessus de sa commune, puis le département entier se découvre.
@@ -130,7 +134,7 @@ func _cacher() -> void:
 func aller(insee: String) -> void:
 	if _en_route:
 		return
-	if insee == _ici():
+	if insee == _ici() and not _titre:
 		fermer()
 		return
 	var c := Communes.par_insee(insee)
@@ -198,7 +202,7 @@ func _construire() -> void:
 		_carte.choisie = i
 		_montrer(i if i != "" else _ici()))
 	_carte.plongee.connect(func(i):
-		if i == _ici() or i == "":
+		if i == "" or (i == _ici() and not _titre):
 			fermer()
 		elif Communes.par_insee(i) != null:
 			aller(i))
@@ -301,7 +305,7 @@ func _rafraichir(garder := true) -> void:
 		s += ", %d à installer" % p
 	_compte.text = s
 	var ici := Communes.commune(Communes.actuelle())
-	_retour.text = "←  Revenir à %s" % (ici.nom if ici else "Smarves")
+	_retour.text = "←  Revenir au menu" if _titre else "←  Revenir à %s" % (ici.nom if ici else "Smarves")
 	_aide.text = ("Pincer pour zoomer  ·  glisser pour déplacer  ·  toucher une commune" if Tactile.active
 		else "Molette pour zoomer  ·  glisser pour déplacer  ·  cliquer une commune  ·  Échap ou M pour revenir")
 	if garder:
@@ -322,7 +326,7 @@ func _montrer(insee: String, alerte := "") -> void:
 	for x in Communes.publiees():
 		if x.insee == insee:
 			e = x
-	var ici := insee == _ici()
+	var ici := insee == _ici() and not _titre
 	var tete := HBoxContainer.new()
 	tete.add_theme_constant_override("separation", 10)
 	tete.add_child(_mot(str(v.nom), 26, OR if insee == CarteVienne.ORIGINE_INSEE else Color.WHITE, Polices.titre()))
@@ -360,7 +364,7 @@ func _montrer(insee: String, alerte := "") -> void:
 	if ici:
 		actions.add_child(_bouton("Revenir au village" if insee == CarteVienne.ORIGINE_INSEE else "Revenir à %s" % v.nom, OR if insee == CarteVienne.ORIGINE_INSEE else EAU, Color(0.08, 0.06, 0.03), Color(0, 0, 0, 0), fermer, 16))
 	elif c != null:
-		actions.add_child(_bouton(("Rentrer à Smarves  →" if c.id == Communes.ORIGINE else "Y aller  →"), OR if c.id == Communes.ORIGINE else EAU, Color(0.04, 0.1, 0.1), Color(0, 0, 0, 0), aller.bind(insee), 16))
+		actions.add_child(_bouton((("Jouer à Smarves  →" if _titre else "Rentrer à Smarves  →") if c.id == Communes.ORIGINE else "Y aller  →"), OR if c.id == Communes.ORIGINE else EAU, Color(0.04, 0.1, 0.1), Color(0, 0, 0, 0), aller.bind(insee), 16))
 	elif not e.is_empty():
 		if Communes.en_cours == e.id:
 			actions.add_child(_mot("Téléchargement en cours…", 16, DOUX))
