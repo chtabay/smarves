@@ -83,7 +83,7 @@ jobs:
     needs: export
     if: github.event_name != 'schedule'
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     defaults:
       run:
         shell: pwsh
@@ -125,7 +125,9 @@ jobs:
           $dossier = Join-Path $env:LOCALAPPDATA "Programs\Smarves"
           $menu = Join-Path ([Environment]::GetFolderPath("Programs")) "Smarves.lnk"
           $bureau = Join-Path ([Environment]::GetFolderPath("Desktop")) "Smarves.lnk"
-          $p = Start-Process build\Smarves-installateur.exe -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=installation.log" -Wait -PassThru
+          "Installation…"
+          $p = Start-Process build\Smarves-installateur.exe -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=installation.log" -PassThru
+          if (-not $p.WaitForExit(180000)) { $p.Kill(); Get-Content installation.log; throw "L'installation ne s'est pas terminée en trois minutes" }
           if ($p.ExitCode -ne 0) { Get-Content installation.log; throw "Installation : code $($p.ExitCode)" }
           foreach ($f in @("$dossier\Smarves.exe", "$dossier\unins000.exe", $menu, $bureau)) {
             if (-not (Test-Path $f)) { Get-Content installation.log; throw "Absent après installation : $f" }
@@ -137,8 +139,11 @@ jobs:
           # Lancer le jeu comme le ferait un double-clic sur le raccourci du bureau.
           $cible = (New-Object -ComObject WScript.Shell).CreateShortcut($bureau).TargetPath
           if ($cible -ne "$dossier\Smarves.exe") { throw "Le raccourci vise $cible" }
-          $jeu = Start-Process $cible -ArgumentList "--headless", "--quit-after", "600" -Wait -PassThru -RedirectStandardOutput jeu.log -RedirectStandardError jeu-erreurs.log
+          # Deux minutes au plus : un jeu qui ne rend pas la main (boîte de dialogue, pck introuvable) échoue au lieu de bloquer.
+          $jeu = Start-Process $cible -ArgumentList "--headless", "--quit-after", "600" -PassThru -RedirectStandardOutput jeu.log -RedirectStandardError jeu-erreurs.log
+          $fini = $jeu.WaitForExit(120000)
           Get-Content jeu.log, jeu-erreurs.log | Select-Object -Last 20
+          if (-not $fini) { $jeu.Kill(); throw "Le jeu installé ne s'est pas arrêté en deux minutes" }
           if ($jeu.ExitCode -ne 0) { throw "Le jeu installé s'est arrêté avec le code $($jeu.ExitCode)" }
 
           # Réinstaller par-dessus (mise à jour), puis désinstaller.
