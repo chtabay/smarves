@@ -10,6 +10,9 @@ const TABLEAU := preload("res://scripts/socle/foot_tableau.gd")
 ## Le total gagné au jeu à partir duquel Josiane accroche l'ardoise du championnat de la Vienne au mur
 ## du café : le premier rendez-vous du football (docs/SUITE.md, section 6), qu'on lit sans miser.
 const SEUIL_TABLEAU := 1000
+## Le total gagné à partir duquel Josiane sort le carnet du PMU : les paris sur la journée, au comptoir.
+const SEUIL_PARIS := 2000
+const PARIS := preload("res://scripts/socle/foot_paris.gd")
 const LOTO := preload("res://scripts/loto_panel.gd")
 const BLACKJACK := preload("res://scripts/blackjack_panel.gd")
 const KA := "res://assets/kenney/arcade/"
@@ -37,6 +40,8 @@ var _salle: Dictionary
 var _game: Control
 ## L'ardoise du championnat, une fois accrochée.
 var _ardoise: Node3D
+## Le carnet du PMU sur le zinc, derrière son seuil.
+var _carnet_pmu: Node3D
 
 
 func _ready() -> void:
@@ -130,6 +135,8 @@ func _on_interact(target: Node) -> void:
 			open_game()
 		"tableau":
 			open_tableau()
+		"paris":
+			open_paris()
 
 
 # --- Le jeu ---------------------------------------------------------------------------------------
@@ -180,6 +187,33 @@ func open_tableau() -> void:
 	_game = p
 
 
+## Le carnet du PMU, en grand : les paris sur la journée à venir (FootParis).
+func open_paris() -> void:
+	if _game != null:
+		return
+	var p: PanelContainer = PARIS.new()
+	p.closed.connect(func():
+		p.queue_free()
+		_game = null
+		player.frozen = false
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
+	player.frozen = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_panel_layer.add_child(p)
+	_game = p
+
+
+## Les tickets dont le dimanche est passé se règlent en entrant au café, et Josiane le dit.
+func _regler_paris() -> void:
+	if shop != "cafe":
+		return
+	for t in Paris.regler():
+		if t.etat == "gagne":
+			_note("Josiane : « Votre ticket de la journée %d est bon : %s crédits. »" % [int(t.j), Game.fmt(int(t.gain))])
+		else:
+			_note("Josiane : « La journée %d, c'est pour la maison. Un autre ? »" % int(t.j))
+
+
 func _on_played(bet: int, payout: int) -> void:
 	Sfx.result(bet, payout)
 	var before := Game.won
@@ -193,6 +227,9 @@ func _on_played(bet: int, payout: int) -> void:
 	if shop == "cafe" and before < SEUIL_TABLEAU and Game.won >= SEUIL_TABLEAU and _ardoise == null:
 		_tableau_du_dimanche()
 		_note("Josiane accroche une ardoise au mur de l'est : le tableau du dimanche, le championnat de la Vienne.")
+	if shop == "cafe" and before < SEUIL_PARIS and Game.won >= SEUIL_PARIS and _carnet_pmu == null:
+		_carnet_du_pmu()
+		_note("Josiane pose le carnet du PMU sur le zinc : les paris sur la journée du championnat, au comptoir.")
 	if shop == "cafe" and Game.advance_if_broke(SLOT.BETS[0]):
 		say("Je vous avance %d crédits. « Un placement, ça se soutient. »" % Game.ADVANCE)
 
@@ -334,6 +371,27 @@ func _cafe() -> void:
 	_bulb(Vector3(2.4, H - 0.7, 0.6), Color(0.85, 0.55, 0.3))
 	if Game.won >= SEUIL_TABLEAU:
 		_tableau_du_dimanche()
+	if Game.won >= SEUIL_PARIS:
+		_carnet_du_pmu()
+	_regler_paris.call_deferred()
+
+
+## Le carnet du PMU, posé sur le zinc à côté du 421 : E ouvre le comptoir des paris (FootParis).
+func _carnet_du_pmu() -> void:
+	if _carnet_pmu != null:
+		return
+	var bz := -D / 2.0 + 1.9
+	_carnet_pmu = Node3D.new()
+	_carnet_pmu.position = Vector3(0.2, 1.1, bz + 0.12)
+	add_child(_carnet_pmu)
+	_box(Vector3(0.36, 0.025, 0.26), Vector3.ZERO, _std(Color(0.16, 0.42, 0.2), 0.7), false, _carnet_pmu)
+	_box(Vector3(0.3, 0.012, 0.2), Vector3(0, 0.018, 0), _std(Color(0.95, 0.93, 0.85), 0.9), false, _carnet_pmu)
+	_cyl(0.008, 0.16, Vector3(0.12, 0.03, 0.02), _std(Color(0.12, 0.12, 0.3), 0.3), _carnet_pmu).rotation_degrees = Vector3(90, 0, 25)
+	var l := _label3d("PMU", Vector3(0, 0.03, 0), 18, Color(0.95, 0.95, 0.9))
+	l.rotation_degrees.x = -90.0
+	l.reparent(_carnet_pmu)
+	l.position = Vector3(0, 0.03, -0.05)
+	_interactive(_carnet_pmu, "paris", "E : parier au comptoir", Vector3(1.0, 1.2, 1.2), Vector3(0, -0.3, 0.5))
 
 
 ## L'ardoise du championnat de la Vienne, sur le mur de l'est, entre la fenêtre et la porte : le titre à la craie,
@@ -539,6 +597,8 @@ func _maybe_capture() -> void:
 	var open := false
 	var tableau := false
 	var feuille := false
+	var pari := false
+	var ticket := 0
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--capture="):
 			path = arg.trim_prefix("--capture=")
@@ -557,6 +617,11 @@ func _maybe_capture() -> void:
 		elif arg == "--open=feuille":
 			tableau = true
 			feuille = true
+		elif arg == "--open=paris":
+			pari = true
+		elif arg.begins_with("--ticket="):
+			# Un ticket déjà pris sur le match de l'Étoile de la journée à venir, pour la capture.
+			ticket = int(arg.trim_prefix("--ticket="))
 		elif arg.begins_with("--journee="):
 			# L'horloge du football posée une heure après le coup d'envoi de cette journée de la saison 1.
 			var t: int = Football.coup_envoi(1, int(arg.trim_prefix("--journee="))) + 3600
@@ -567,10 +632,20 @@ func _maybe_capture() -> void:
 		return
 	if shop == "cafe" and Game.won >= SEUIL_TABLEAU:
 		_tableau_du_dimanche()
+	if shop == "cafe" and Game.won >= SEUIL_PARIS:
+		_carnet_du_pmu()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	if open or tableau:
+	if ticket > 0:
+		var pce: Array = Football.prochain_coup_envoi(Football.maintenant())
+		var div: Array = TABLEAU.new().division_suivie()
+		for m in Football.journee(Football.saison, div[0], div[1], pce[1], 0):
+			if m.dom == "smarves" or m.ext == "smarves":
+				Paris.parier(Football.saison, pce[1], div[0], div[1], {Paris.cle(m.dom, m.ext): "1" if m.dom == "smarves" else "2"}, ticket)
+	if open or tableau or pari:
 		await get_tree().create_timer(1.0).timeout
-		if tableau:
+		if pari:
+			open_paris()
+		elif tableau:
 			open_tableau()
 			if feuille:
 				# La feuille du premier match de la dernière journée jouée.
