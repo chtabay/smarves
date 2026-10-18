@@ -195,11 +195,26 @@ func _calendrier() -> void:
 func _tirage() -> void:
 	var a: Array = m.lots_semaine(3)
 	var b: Array = m.lots_semaine(3)
-	check(a.size() == 16 and a[7].joueur.nom == b[7].joueur.nom and a[7].plafond == b[7].plafond, "seize lots, les mêmes à chaque tirage")
+	check(a.size() == 40 and a[7].joueur.nom == b[7].joueur.nom and a[7].plafond == b[7].plafond, "quarante lots, les mêmes à chaque tirage")
 	var postes := {}
 	for e in a:
 		postes[e.joueur.poste] = int(postes.get(e.joueur.poste, 0)) + 1
-	check(postes == {"G": 2, "D": 5, "M": 5, "A": 4} or (postes.G == 2 and postes.D == 5 and postes.M == 5 and postes.A == 4), "deux gardiens, cinq défenseurs, cinq milieux, quatre attaquants")
+	check(postes.G == 4 and postes.D == 12 and postes.M == 13 and postes.A == 11, "quatre gardiens, douze défenseurs, treize milieux, onze attaquants")
+	# La recherche : par poste, par âge, par compétence, et triée.
+	var tous: Array = m.rechercher({})
+	var defs: Array = m.rechercher({"poste": "D", "comp1": "defense", "niv1": 10, "tri": "prix"})
+	check(defs.all(func(e): return e.joueur.poste == "D" and m.niveau(e.joueur.competences.defense) >= 10), "la recherche filtre les bons défenseurs (%d sur %d)" % [defs.size(), tous.size()])
+	var trie := true
+	for i in range(1, defs.size()):
+		trie = trie and int(defs[i - 1].prix) <= int(defs[i].prix)
+	check(trie, "et les trie par prix")
+	var jeunes: Array = m.rechercher({"age_min": 17, "age_max": 20, "tri": "age"})
+	check(jeunes.all(func(e): return e.joueur.age <= 20) and jeunes.size() < tous.size(), "les moins de 21 ans")
+	m.suivre(tous[0].lot)
+	check(m.encheres_suivies().size() == 1 and m.encheres_suivies()[0].lot == tous[0].lot, "un joueur suivi")
+	m.suivre(tous[0].lot, false)
+	check(m.encheres_suivies().is_empty(), "et plus suivi")
+	check(m.age_jours(foot.debut(1) + 10 * 86400 + 3600) == 10, "l'âge en jours : dix jours après le début de la saison")
 	check(a.all(func(e): return e.prix_depart >= 100 and e.joueur.competences.size() == 8 and e.joueur.forme >= 1 and e.joueur.forme <= 8), "un prix de départ, huit compétences, une forme de 1 à 8")
 	check(m.lots_semaine(4)[0].joueur.nom != a[0].joueur.nom or m.lots_semaine(4)[1].joueur.nom != a[1].joueur.nom, "une autre semaine, d'autres joueurs")
 	# Le vieillissement : un an par saison, les jeunes progressent, les vieux déclinent.
@@ -243,6 +258,14 @@ func _fenetre(game: Node) -> void:
 	fen.aller("effectif")
 	await process_frame
 	check(fen.find_child("Onglet_effectif", true, false).disabled, "l'onglet de l'effectif s'ouvre")
+	fen.aller("marche")
+	await process_frame
+	check(fen.find_child("Filtres", true, false) != null and fen.find_child("Poste", true, false) is OptionButton, "la recherche a ses filtres")
+	fen._filtrer({"poste": "G"})
+	await process_frame
+	var lignes_g := fen.find_children("Lot_*", "", true, false)
+	check(lignes_g.size() >= 1 and lignes_g.size() <= 4, "filtrer les gardiens : %d lignes" % lignes_g.size())
+	m.filtres = {}
 	fen.queue_free()
 	await process_frame
 
