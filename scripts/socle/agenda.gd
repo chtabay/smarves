@@ -161,8 +161,7 @@ func _football(debut: int, fin: int) -> Array:
 				var dom: Dictionary = foot.clubs.get(m.dom, {})
 				var ext: Dictionary = foot.clubs.get(m.ext, {})
 				rv.titre = "%s – %s" % [dom.get("nom", m.dom), ext.get("nom", m.ext)]
-				rv.lieu = str(dom.get("stade", "")) if not dom.get("invite", true) and str(dom.get("stade", "")) != "" \
-					else "chez %s" % dom.get("nom", m.dom)
+				rv.lieu = str(dom.get("stade", "")) if str(dom.get("stade", "")) != "" else "chez %s" % dom.get("nom", m.dom)
 				rv.detail = "Championnat de la Vienne, %s, journée %d. Les consignes se donnent avant 15 h, au bureau du club." \
 					% [foot.nom_division(m.n, m.g), j]
 			out.append(rv)

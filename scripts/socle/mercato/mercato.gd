@@ -269,15 +269,10 @@ func ventes() -> Array:
 	return out
 
 
-## Les clubs invités de la pyramide, triés : les vendeurs et les acheteurs du marché.
+## Les clubs de village de la Vienne hors championnat, triés (Football.clubs_de_la_vienne) : les vendeurs et
+## les acheteurs du marché.
 func _invites() -> Array:
-	var f := foot()
-	var out: Array = []
-	for id in f.clubs:
-		if bool(f.clubs[id].get("invite", false)):
-			out.append(str(f.clubs[id].nom))
-	out.sort()
-	return out
+	return foot().clubs_de_la_vienne()
 
 
 ## Une enchère, ouverte ou close : {lot, joueur (la fiche du moment), ouverture, echeance, prix_depart,
@@ -823,7 +818,7 @@ func rendez_vous(de: int, a: int) -> Array:
 			continue
 		var nom := "%s %s" % [e.joueur.prenom, e.joueur.nom]
 		out.append({"id": "mercato/" + lot, "quoi": ("Fin de la vente : " if e.get("moi", false) else "Fin de l'enchère : ") + nom,
-			"ou": "le mercato, à la causerie du stade", "lieu": "stade", "quand": int(e.echeance), "duree": 0, "reglement": int(e.echeance)})
+			"ou": "le mercato, au bureau du club", "lieu": "stade", "quand": int(e.echeance), "duree": 0, "reglement": int(e.echeance)})
 	out.sort_custom(func(x, y): return x.quand < y.quand)
 	return out
 

@@ -32,6 +32,8 @@ func _init() -> void:
 	game.credits = 6000
 	foot.regler_horloge(func(): return t)
 	t = foot.coup_envoi(1, 1) - 86400
+	# Un deuxième club au championnat : la commune d'essai et son terrain.
+	load("res://tools/essai.gd").greffer(root)
 	foot.actualiser()
 	var club: String = foot.clubs.keys()[0]
 	foot.appliquer_obligations([{"club": club, "rang": 9, "par": "Lucien", "moi": false}])

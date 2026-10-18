@@ -11,8 +11,8 @@ extends FootTableau
 ## enchères comptent pour tous les villages. Hors ligne, on lit le dernier état connu.
 ##
 ## Elle emprunte au tableau du dimanche son ardoise et ses petites pièces ; s'ouvre et se ferme comme
-## lui (signal closed, Échap). Le stade l'ouvre par open_mercato(), depuis la causerie. Le bureau du club
-## (FootBureau) l'emboîte aussi, sans ardoise ni onglets (integre) : ses pages Recherche et Offres en cours.
+## lui (signal closed, Échap). Le stade l'ouvre par open_mercato(), depuis le siège du club. Le bureau du club
+## (Bureau) l'emboîte aussi, sans ardoise ni onglets (integre) : ses pages Recherche et Offres en cours.
 
 var club := ""
 ## « marche », « suivis », « offres », « fiche » (lot_ouvert) ou « effectif » ; une fiche de l'effectif garde joueur_ouvert.

@@ -32,6 +32,8 @@ func _init() -> void:
 	foot.dossier = ""
 	var t5: int = foot.coup_envoi(1, 5) + 3600
 	foot.regler_horloge(func(): return t5)
+	# Un deuxième club au championnat : la commune d'essai et son terrain.
+	load("res://tools/essai.gd").greffer(root)
 	foot.actualiser()
 
 	var smarves: Commune = Commune.smarves()
@@ -39,7 +41,7 @@ func _init() -> void:
 	var e: Dictionary = registre.structure("smarves/stade")
 	check(not e.is_empty() and e.installee and e.champs.club == "L'Étoile de Smarves", "le stade municipal est au registre, installé")
 	check(foot.clubs.has("smarves") and foot.clubs.smarves.nom == "L'Étoile de Smarves" and foot.clubs.smarves.court == "ESM", "l'Étoile de Smarves est dans la pyramide : %s" % str(foot.place_de("smarves")))
-	check(foot.en_attente().is_empty() and foot.clubs.size() == 8, "huit clubs, dont l'Étoile et sept invités")
+	check(foot.en_attente().is_empty() and foot.clubs.size() == 2 and foot.clubs.has("essai"), "deux clubs, l'Étoile et l'Union sportive d'essai : rien de fictif")
 	var lieu: Dictionary = {}
 	for p in smarves.lieux():
 		if p.id == "stade":
@@ -90,47 +92,42 @@ func _init() -> void:
 	for id in stade._acteurs:
 		check(stade._acteurs[id].position.length() < 60.0, "le joueur %s reste dans le stade" % id) if stade._acteurs[id].position.length() >= 60.0 else null
 
-	# Le président Chauvin et sa causerie : les consignes de l'Étoile pour la journée 6.
+	# Le président Chauvin et sa causerie : un personnage qui parle du club et renvoie au bureau ; la consigne de la journée 6 se donne au moteur.
 	var presidents: Array = stade.find_children("*", "Area3D", true, false).filter(func(a): return a.get_meta("interact", "") == "president")
 	check(presidents.size() == 1 and str(presidents[0].get_meta("prompt")).contains("Chauvin"), "le président Chauvin est au bord de la pelouse")
 	stade.open_causerie()
 	await process_frame
 	var causerie: PanelContainer = stade._causerie
 	check(causerie != null and causerie.club == "smarves" and causerie.rencontre.j == 6, "la causerie parle du prochain match de l'Étoile : %s" % str(causerie.rencontre))
-	check(causerie.find_child("Choix_formation_4-3-3", true, false) != null and causerie.find_child("Choix_pressing_haut", true, false) != null, "formations, mentalités et pressings au choix")
+	var paroles: Array = causerie.paroles()
+	check(paroles.size() == 3 and paroles[0].begins_with("« Après 5 journées") and paroles[1].begins_with("« Dimanche dernier") and paroles[2].contains("journée 6"), "le président dit le classement, le dernier match et le prochain : %s" % str(paroles))
+	check(causerie.find_child("Bureau", true, false) != null and causerie.find_child("Choix_formation_4-3-3", true, false) == null, "il renvoie au bureau et ne pilote plus rien")
 	check(foot.consigne_de(1, 6, "smarves").etat == "aucune", "pas encore de consigne")
-	causerie._choix = {"formation": "3-5-2", "mentalite": "offensive", "pressing": "haut"}
-	check(causerie.donner(), "le président prend la consigne")
+	check(foot.decider(1, 6, "smarves", {"formation": "3-5-2", "mentalite": "offensive", "pressing": "haut"}), "la consigne de la journée 6 se donne au moteur (le bureau)")
 	var cd: Dictionary = foot.consigne_de(1, 6, "smarves")
 	check(cd.etat == "locale" and cd.consigne == {"formation": "3-5-2", "mentalite": "offensive", "pressing": "haut"}, "elle est posée, locale sans compte : %s" % str(cd))
-	check(causerie._ligne_etat.text.contains("cet appareil"), "la fenêtre dit qu'elle reste sur cet appareil : %s" % causerie._ligne_etat.text)
 	var direct: Dictionary = foot.rencontre_en_direct(1, 6, foot.prochain_match("smarves").dom, foot.prochain_match("smarves").ext)
 	var mienne: Dictionary = direct.etat.equipes[0] if direct.etat.equipes[0].club == "smarves" else direct.etat.equipes[1]
 	check(mienne.formation == "3-5-2" and mienne.mentalite == "offensive", "le match de dimanche se jouera avec : %s, %s" % [mienne.formation, mienne.mentalite])
-	# Les locaux du club : le siège, d'où l'on ouvre la causerie, le mercato et le registre des obligations.
+	# Le siège du club : la porte ouvre le bureau, pleine page, d'où l'on gagne le registre des obligations.
 	causerie.closed.emit()
 	await process_frame
 	var sieges: Array = stade.find_children("*", "Area3D", true, false).filter(func(a): return a.get_meta("interact", "") == "locaux")
 	check(sieges.size() == 1 and str(sieges[0].get_meta("prompt")).contains("siège"), "le siège du club est au stade")
 	stade.open_locaux()
 	await process_frame
-	var locaux: PanelContainer = stade._causerie
-	check(locaux != null and locaux.club == "smarves" and locaux.find_child("Causerie", true, false) != null and locaux.find_child("Mercato", true, false) != null and locaux.find_child("Obligations", true, false) != null, "le siège ouvre sur la causerie, le mercato et les obligations")
-	check(_textes(locaux).any(func(x): return str(x).begins_with("Prochain match : journée 6")), "le siège dit le prochain match")
-	(locaux.find_child("Obligations", true, false) as Button).pressed.emit()
+	var bureau: Control = stade._causerie
+	check(bureau != null and bureau.get_script().get_global_name() == "Bureau" and bureau.club == "smarves", "le siège ouvre le bureau du club")
+	check(bureau.find_child("Nav_tactique", true, false) != null and bureau.find_child("Nav_championnat", true, false) != null, "le bureau a sa barre de gauche : tactique, championnat")
+	check(_textes(bureau).any(func(x): return str(x).contains("journée 6") or str(x).contains("Journée 6")), "le bureau dit le prochain match")
+	bureau.obligations.emit()
 	await process_frame
-	check(stade._causerie != null and stade._causerie != locaux and stade._causerie.find_child("Prendre_1", true, false) != null, "le registre des obligations s'ouvre depuis le siège")
+	await process_frame
+	check(stade._causerie != null and stade._causerie != bureau and stade._causerie.find_child("Prendre_1", true, false) != null, "le registre des obligations s'ouvre depuis le bureau")
 	stade._causerie.closed.emit()
 	await process_frame
-	stade.open_locaux()
-	await process_frame
-	(stade._causerie.find_child("Causerie", true, false) as Button).pressed.emit()
-	await process_frame
-	check(stade._causerie != null and stade._causerie.find_child("Valider", true, false) != null, "la causerie s'ouvre depuis le siège : même direction")
 	check(stade._bandeau != null and stade._bandeau_score != null, "le bandeau du direct est en place")
-	stade._causerie.closed.emit()
-	await process_frame
-	check(stade._causerie == null, "Échap referme la causerie")
+	check(stade._causerie == null, "Échap referme le registre")
 	foot.decisions = {}
 	foot.locales = {}
 
@@ -169,13 +166,7 @@ func _init() -> void:
 	# club, son sigle, ses couleurs et son nom, et la sortie ramène chez elle ; la pyramide, rebâtie sans
 	# sauvegarde, lui donne son club tout de suite : on y suit son match et sa causerie.
 	var communes: Node = root.get_node("Communes")
-	DirAccess.make_dir_recursive_absolute("user://test_stade/")
-	var pk := PCKPacker.new()
-	pk.pck_start("user://test_stade/essai.pck")
-	pk.add_file("res://communes/essai/commune.json", "res://tools/commune_essai/commune.json")
-	pk.add_file("res://communes/essai/commune.tscn", "res://tools/commune_essai/commune.tscn")
-	pk.flush()
-	check(communes.charger_pack("user://test_stade/essai.pck") == "essai", "la commune d'essai se greffe avec son terrain %s" % str(communes.refus))
+	check(communes.commune("essai") != null and load("res://tools/essai.gd").greffer(root) == "essai", "la commune d'essai est greffée avec son terrain")
 	foot.actualiser()
 	check(foot.clubs.has("essai") and foot.clubs.essai.court == "USE", "l'Union sportive d'essai a son club : %s" % str(foot.place_de("essai")))
 	foot.regler_horloge(func(): return t5)
@@ -201,6 +192,24 @@ func _init() -> void:
 	await process_frame
 	check(stade._causerie == null, "sans club dans la pyramide, pas de causerie : le président renvoie à la saison prochaine")
 	check(stade._enseigne("L'Étoile de Smarves") == "ÉTOILE DE SMARVES" and stade._a("Le président Chauvin") == "au président Chauvin" and stade._a("Mme Rivière") == "à Mme Rivière", "les enseignes et les adresses se forment")
+
+	# Un club seul dans sa division : pas de match, l'Étoile s'entraîne et le tableau dit qu'on attend un deuxième club.
+	foot.niveaux = [[["smarves"]]]
+	foot.clubs.erase("essai")
+	foot.oublier_effectifs()
+	load("res://scripts/village/stade.gd").prochaine_commune = "smarves"
+	change_scene_to_file("res://scenes/stade.tscn")
+	await create_timer(1.5).timeout
+	stade = current_scene
+	check(stade._rencontre.is_empty() and stade._etat.is_empty() and stade._horloge.text == "Entraînement", "seul au championnat, pas de match : l'entraînement")
+	check(stade._affiche.text == "Le championnat attend un deuxième club." and stade._acteurs.size() == 11, "le tableau attend un deuxième club, onze joueurs trottinent : %s" % stade._affiche.text)
+	stade.open_causerie()
+	await process_frame
+	check(stade._causerie != null and stade._causerie.paroles()[0].contains("seuls en Division 1"), "le président le dit aussi : %s" % str(stade._causerie.paroles()))
+	stade._causerie.closed.emit()
+	await process_frame
+	stade.open_feuille()
+	check(stade._causerie == null, "pas de feuille à lire")
 
 	print("\n%d échec(s)" % fails)
 	quit(1 if fails > 0 else 0)

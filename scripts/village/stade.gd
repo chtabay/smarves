@@ -56,6 +56,7 @@ const CAUSERIE := preload("res://scripts/socle/foot_causerie.gd")
 const MERCATO := preload("res://scripts/socle/foot_mercato.gd")
 const OBLIGATIONS := preload("res://scripts/socle/foot_obligations.gd")
 const LOCAUX := preload("res://scripts/socle/foot_locaux.gd")
+const BUREAU := "res://scripts/socle/bureau.gd"
 var _president: Node3D
 var _causerie: PanelContainer
 ## La commune dont c'est le stade, posée par ouvrir() avant le changement de scène (Smarves sinon), son
@@ -317,10 +318,10 @@ func open_causerie() -> void:
 		_causerie = null
 		player.frozen = false
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
-	p.mercato.connect(func():
+	p.bureau.connect(func():
 		p.queue_free()
 		_causerie = null
-		open_mercato())
+		open_locaux())
 	player.frozen = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_panel_layer.add_child(p)
@@ -346,11 +347,32 @@ func open_mercato() -> void:
 	_causerie = p
 
 
-## Les locaux du club : le siège, d'où l'on ouvre la causerie, le mercato et le registre des obligations.
+## Les locaux du club : le siège. C'est le bureau du club (scripts/socle/bureau.gd, le fil « Bureau du club et
+## mercato » : la page pleine écran façon Football Manager, var club et signal closed) dès qu'il existe ; en
+## attendant, le petit panneau des locaux, d'où l'on ouvre la causerie, le mercato et le registre des obligations.
 func open_locaux() -> void:
 	if _causerie != null:
 		return
 	if _sans_club():
+		return
+	if ResourceLoader.exists(BUREAU):
+		var b: Control = load(BUREAU).new()
+		b.club = _club
+		# Le bouton « Le registre des obligations » du bureau : on ferme la page, le registre s'ouvre à sa place.
+		if b.has_signal("obligations"):
+			b.obligations.connect(func():
+				b.closed.emit()
+				open_obligations.call_deferred())
+		b.closed.connect(func():
+			b.queue_free()
+			_causerie = null
+			player.frozen = false
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
+		player.frozen = true
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		_panel_layer.add_child(b)
+		b.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		_causerie = b
 		return
 	var p: PanelContainer = LOCAUX.new()
 	p.club = _club
@@ -518,6 +540,9 @@ func _choisir() -> Dictionary:
 	var joues: int = Football.journee_jouee()
 	var j: int = joues if joues > 0 else 1
 	var matchs: Array = Football.journee(s, d[0], d[1], j, joues)
+	if matchs.is_empty():
+		# Un club seul dans sa division : pas de match, le championnat attend un deuxième club.
+		return {}
 	var choisi: Dictionary = matchs[0]
 	for m in matchs:
 		if _club != "" and (m.dom == _club or m.ext == _club):
@@ -529,6 +554,9 @@ func _choisir() -> Dictionary:
 ## à la minute où l'on en est ; fini, le tableau garde le score et l'Étoile s'entraîne ; pas commencé,
 ## l'Étoile s'entraîne et le tableau annonce le coup d'envoi.
 func _composer() -> void:
+	if _rencontre.is_empty():
+		_attendre()
+		return
 	var r := _rencontre
 	var cd: Dictionary = Football.clubs[r.dom]
 	var ce: Dictionary = Football.clubs[r.ext]
@@ -555,6 +583,33 @@ func _composer() -> void:
 	else:
 		_entrainer()
 		_note("%s s'entraîne sous les projecteurs. %s" % [_nom_club(), _affiche.text])
+	_placer(true)
+
+
+## Sans match (le club est seul dans sa division, ou la commune n'a pas de club) : le club de la commune
+## s'entraîne, le tableau dit que le championnat attend un deuxième club.
+func _attendre() -> void:
+	_etat = {}
+	_joueurs = {}
+	var pj: Array = Football.prochaine_journee()
+	var club: String = _club if _club != "" else (Football.niveaux[0][0][0] if not Football.niveaux[0][0].is_empty() else "")
+	if club != "":
+		_joueurs = Football.effectif(club, pj[0], pj[1])
+		var c: Dictionary = Football.clubs[club]
+		for id in FootMatch.compo_auto(_joueurs.keys(), _joueurs, "4-4-2"):
+			if id != null:
+				_acteur(id, 0, c.couleurs)
+		_score.text = c.court
+	else:
+		_score.text = "—"
+	_score.font_size = 110
+	_horloge.text = "Entraînement"
+	var nb := 0
+	for n in Football.niveaux:
+		for g in n:
+			nb += g.size()
+	_affiche.text = "Le championnat attend un deuxième club." if nb < 2 else "Pas de match pour %s cette saison." % _nom_club()
+	_note("%s s'entraîne sous les projecteurs. %s" % [_nom_club(), _affiche.text])
 	_placer(true)
 
 
@@ -653,7 +708,7 @@ func _acteur(id: String, equipe: int, couleurs: Array) -> Node3D:
 ## défend le but ouest (x < 0) et attaque vers l'est.
 func _placer(dun_coup := false) -> void:
 	var etat: Dictionary = _etat if not _etat.is_empty() else _entrainement()
-	for i in 2:
+	for i in etat.equipes.size():
 		var eq: Dictionary = etat.equipes[i]
 		var cases: Array = FootMatch.FORMATIONS.get(eq.formation, FootMatch.FORMATIONS["4-4-2"])
 		var sens := 1.0 if i == 0 else -1.0
@@ -694,9 +749,17 @@ func _placer(dun_coup := false) -> void:
 		_ballon.position = Vector3(_cible_ballon.x, 0.22, _cible_ballon.z)
 
 
-## Deux lignes qui trottinent autour du rond central, avant la saison.
+## Deux lignes qui trottinent autour du rond central, avant la saison ; une seule quand le club n'a pas de match.
 func _entrainement() -> Dictionary:
 	var faux := {"equipes": []}
+	if _rencontre.is_empty():
+		if not _joueurs.is_empty():
+			var onze: Array = []
+			for id in FootMatch.compo_auto(_joueurs.keys(), _joueurs, "4-4-2"):
+				if id != null:
+					onze.append({"id": id, "poste": _joueurs[id].poste})
+			faux.equipes.append({"onze": onze, "formation": "4-4-2"})
+		return faux
 	var direct: Dictionary = Football.rencontre_en_direct(_rencontre.s, _rencontre.j, _rencontre.dom, _rencontre.ext)
 	for i in 2:
 		faux.equipes.append({"onze": direct.etat.equipes[i].onze, "formation": direct.etat.equipes[i].formation})
@@ -764,6 +827,8 @@ func _minute() -> void:
 	if _etat.pause == "mi-temps":
 		_afficher_bandeau("%s  ·  Mi-temps" % _score_bandeau().split("  ·  ")[0])
 	elif _etat.fini:
+		# Au coup de sifflet final, le tableau affiche le score sans attendre la dernière scène.
+		_score.text = "%s  %d - %d  %s" % [Football.clubs[_rencontre.dom].court, _etat.score[0], _etat.score[1], Football.clubs[_rencontre.ext].court]
 		_afficher_bandeau(_score_bandeau(), "Terminé, la feuille au tableau.")
 		_effacer_bandeau(8.0)
 	elif fait != "" or _bandeau == null or not _bandeau.visible:

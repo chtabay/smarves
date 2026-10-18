@@ -29,6 +29,8 @@ func _lancer() -> void:
 	m.effacer()
 	var t: int = foot.coup_envoi(1, 3) + 3 * 86400 + 6 * 3600
 	foot.regler_horloge(func(): return t)
+	# Le championnat veut deux clubs inscrits : la commune d'essai apporte le second.
+	load("res://tools/essai.gd").greffer(root)
 	foot.actualiser()
 	var club := "smarves"
 	foot.forcer_porteurs("vous:2", club)

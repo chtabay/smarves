@@ -41,6 +41,8 @@ func _init() -> void:
 	foot.regler_horloge(func(): return t)
 	# Le dimanche 18 octobre 2026 à 18 h, une heure après l'ouverture de la semaine 0.
 	t = foot.coup_envoi(1, 1) - 7 * 86400 + 3 * 3600
+	# Un deuxième club au championnat : la commune d'essai et son terrain.
+	load("res://tools/essai.gd").greffer(root)
 	foot.actualiser()
 	check(foot.clubs.has("smarves"), "la pyramide se fonde, avec l'Étoile")
 	var autre := ""
