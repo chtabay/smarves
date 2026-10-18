@@ -35,6 +35,7 @@ OutputBaseFilename=Smarves-installateur
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
+SetupIconFile=assets\icone\smarves.ico
 
 [Languages]
 Name: "fr"; MessagesFile: "compiler:Languages\French.isl"

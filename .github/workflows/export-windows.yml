@@ -83,7 +83,7 @@ jobs:
     needs: export
     if: github.event_name != 'schedule'
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     defaults:
       run:
         shell: pwsh
@@ -106,6 +106,18 @@ jobs:
           & $iscc /Q "/DVersion=$version" installer\smarves.iss
           if ($LASTEXITCODE -ne 0) { throw "ISCC a échoué ($LASTEXITCODE)" }
           if (-not (Test-Path build\Smarves-installateur.exe)) { throw "Pas d'installateur" }
+          # L'exécutable porte l'icône de Smarves (assets/icone/smarves.ico), pas celle de Godot.
+          Add-Type -AssemblyName System.Drawing
+          $exe = [System.Drawing.Icon]::ExtractAssociatedIcon((Resolve-Path build\Smarves.exe).Path).ToBitmap()
+          $ref = (New-Object System.Drawing.Icon((Resolve-Path assets\icone\smarves.ico).Path, 32, 32)).ToBitmap()
+          $ecart = 0
+          for ($x = 0; $x -lt 32; $x += 2) { for ($y = 0; $y -lt 32; $y += 2) {
+            $a = $exe.GetPixel($x, $y); $b = $ref.GetPixel($x, $y)
+            $ecart += [Math]::Abs($a.R - $b.R) + [Math]::Abs($a.G - $b.G) + [Math]::Abs($a.B - $b.B)
+          } }
+          $ecart = $ecart / 256
+          "Écart moyen entre l'icône de l'exécutable et celle de Smarves : $ecart"
+          if ($ecart -gt 40) { throw "L'exécutable n'a pas l'icône de Smarves (écart $ecart)" }
           "Taille de l'installateur : {0:N1} Mo" -f ((Get-Item build\Smarves-installateur.exe).Length / 1MB) >> $env:GITHUB_STEP_SUMMARY
 
       - name: Essayer l'installateur
@@ -113,7 +125,9 @@ jobs:
           $dossier = Join-Path $env:LOCALAPPDATA "Programs\Smarves"
           $menu = Join-Path ([Environment]::GetFolderPath("Programs")) "Smarves.lnk"
           $bureau = Join-Path ([Environment]::GetFolderPath("Desktop")) "Smarves.lnk"
-          $p = Start-Process build\Smarves-installateur.exe -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=installation.log" -Wait -PassThru
+          "Installation…"
+          $p = Start-Process build\Smarves-installateur.exe -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=installation.log" -PassThru
+          if (-not $p.WaitForExit(180000)) { $p.Kill(); Get-Content installation.log; throw "L'installation ne s'est pas terminée en trois minutes" }
           if ($p.ExitCode -ne 0) { Get-Content installation.log; throw "Installation : code $($p.ExitCode)" }
           foreach ($f in @("$dossier\Smarves.exe", "$dossier\unins000.exe", $menu, $bureau)) {
             if (-not (Test-Path $f)) { Get-Content installation.log; throw "Absent après installation : $f" }
@@ -125,8 +139,11 @@ jobs:
           # Lancer le jeu comme le ferait un double-clic sur le raccourci du bureau.
           $cible = (New-Object -ComObject WScript.Shell).CreateShortcut($bureau).TargetPath
           if ($cible -ne "$dossier\Smarves.exe") { throw "Le raccourci vise $cible" }
-          $jeu = Start-Process $cible -ArgumentList "--headless", "--quit-after", "600" -Wait -PassThru -RedirectStandardOutput jeu.log -RedirectStandardError jeu-erreurs.log
+          # Deux minutes au plus : un jeu qui ne rend pas la main (boîte de dialogue, pck introuvable) échoue au lieu de bloquer.
+          $jeu = Start-Process $cible -ArgumentList "--headless", "--quit-after", "600" -PassThru -RedirectStandardOutput jeu.log -RedirectStandardError jeu-erreurs.log
+          $fini = $jeu.WaitForExit(120000)
           Get-Content jeu.log, jeu-erreurs.log | Select-Object -Last 20
+          if (-not $fini) { $jeu.Kill(); throw "Le jeu installé ne s'est pas arrêté en deux minutes" }
           if ($jeu.ExitCode -ne 0) { throw "Le jeu installé s'est arrêté avec le code $($jeu.ExitCode)" }
 
           # Réinstaller par-dessus (mise à jour), puis désinstaller.
@@ -232,6 +249,22 @@ jobs:
           ./godot --headless --path . --export-release "Android" build/Smarves.apk
           test -f build/Smarves.apk
           rm -f build/Smarves.apk.idsig
+          # L'APK porte l'icône de Smarves : le premier plan adaptatif est notre jeton, pas le logo de Godot.
+          python3 -m pip install -q pillow
+          python3 - <<'PY'
+          import io, zipfile
+          from PIL import Image, ImageChops, ImageStat
+          apk = zipfile.ZipFile("build/Smarves.apk")
+          noms = [n for n in apk.namelist() if n.startswith("res/mipmap")]
+          print("Icônes :", ", ".join(sorted(noms)))
+          avant = [n for n in noms if "xxxhdpi" in n and "icon_foreground" in n]
+          assert avant, "Pas de premier plan adaptatif xxxhdpi dans l'APK"
+          ref = Image.open("assets/icone/android-avant-432.png").convert("RGBA")
+          lu = Image.open(io.BytesIO(apk.read(avant[0]))).convert("RGBA").resize(ref.size)
+          ecart = sum(ImageStat.Stat(ImageChops.difference(lu, ref)).mean) / 4
+          print("Écart moyen avec l'icône de Smarves :", round(ecart, 1))
+          assert ecart < 12, "L'APK n'a pas l'icône de Smarves"
+          PY
           echo "Taille de l'APK : $(du -h build/Smarves.apk | cut -f1)" >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
