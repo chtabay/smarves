@@ -46,6 +46,9 @@ func _ready() -> void:
 	Communes.catalogue_lu.connect(func():
 		if is_open():
 			_rafraichir(true))
+	Communes.etat_change.connect(func(_id):
+		if is_open():
+			_rafraichir(true))
 	Communes.installee.connect(func(id, ok, message):
 		if is_open():
 			_rafraichir(true)
@@ -193,6 +196,18 @@ func aller(insee: String) -> void:
 func _installer(id: String) -> void:
 	Communes.installer(id)
 	_rafraichir(true)
+
+
+## Le geste de la commune (Installer, Mettre à jour, Réessayer, Relancer), ou la barre du téléchargement.
+func _geste(id: String, actions: HBoxContainer) -> void:
+	if Communes.etat(id) in ["telechargement", "attente"]:
+		actions.add_child(BarreProgres.pour(id, EAU, 140.0))
+		return
+	var g := Communes.geste(id)
+	if not g.is_empty():
+		var teinte := EAU if Communes.etat(id) == "publiee" else OR
+		var appel: Callable = _installer.bind(id) if g[0] != "Relancer maintenant" else g[1]
+		actions.add_child(_bouton(g[0], Color(0, 0, 0, 0), teinte, teinte, appel, 16))
 
 
 func _ici() -> String:
@@ -382,10 +397,12 @@ func _montrer(insee: String, alerte := "") -> void:
 	tete.add_child(_mot(str(v.nom), 26, OR if insee == CarteVienne.ORIGINE_INSEE else Color.WHITE, Polices.titre()))
 	if ici:
 		tete.add_child(_mot("VOUS ÊTES ICI", 12, EAU, Polices.gras()))
-	elif c == null and not e.is_empty() and Communes.nouvelles.has(e.id):
-		tete.add_child(_mot("NOUVELLE", 12, EAU, Polices.gras()))
-	elif c != null and Communes.mise_a_jour(c.id) != "":
-		tete.add_child(_mot("MISE À JOUR", 12, OR, Polices.gras()))
+	else:
+		var id: String = c.id if c != null else str(e.get("id", ""))
+		var marque: Array = {"publiee": ["NOUVELLE", EAU] if Communes.nouvelles.has(id) else [], "mise_a_jour": ["MISE À JOUR", OR],
+			"a_relancer": ["À RELANCER", OR], "echec": ["ÉCHEC", ROUGE]}.get(Communes.etat(id), []) if id != "" else []
+		if not marque.is_empty():
+			tete.add_child(_mot(marque[0], 12, marque[1], Polices.gras()))
 	_fiche_box.add_child(tete)
 	var pop := int(v.get("population", 0))
 	var etat := ""
@@ -396,18 +413,18 @@ func _montrer(insee: String, alerte := "") -> void:
 	elif insee == CarteVienne.POITIERS_INSEE:
 		etat = "Dans la brume"
 		texte = "On n'y va pas. C'est là que partent ceux qui ne croient pas au jeu."
-	elif c != null:
-		etat = "Installée" + ("  ·  version %s" % str(c.data.get("version", "")) if str(c.data.get("version", "")) != "" else "") \
-			+ ("  ·  par %s" % str(c.data.auteur) if str(c.data.get("auteur", "")) != "" else "")
-		texte = str(e.get("description", c.data.get("description", "")))
-		if Communes.mise_a_jour(c.id) != "":
-			texte += ("\n\n" if texte != "" else "") + "La version %s est publiée." % Communes.mise_a_jour(c.id)
-		elif Communes.en_attente(c.id) != "":
-			texte += ("\n\n" if texte != "" else "") + "La version %s est téléchargée : elle s'ouvrira au prochain lancement du jeu." % Communes.en_attente(c.id) \
-				+ ("" if Communes.peut_relancer() else " Fermez le jeu et rouvrez-le pour la voir.")
-	elif not e.is_empty():
-		etat = "Publiée par %s  ·  %s" % [e.auteur, Portail.taille(e.taille)]
-		texte = str(e.description)
+	elif c != null or not e.is_empty():
+		# L'état et ses mots sont ceux de la bienvenue et du carnet (Communes.etat, resume).
+		var id: String = c.id if c != null else e.id
+		etat = Communes.resume(id) if Communes.etat(id) in ["a_jour", "publiee"] else ("Installée" if c != null else "Publiée")
+		if c != null and Communes.etat(id) != "a_jour" and str(c.data.get("version", "")) != "":
+			etat += "  ·  version %s" % str(c.data.version)
+		# L'auteur du manifeste, à côté de la version (« Publiée par » le dit déjà pour une ville à installer).
+		if c != null and c.auteur() != "":
+			etat += "  ·  par %s" % c.auteur()
+		texte = str(e.get("description", c.data.get("description", "") if c != null else ""))
+		if not Communes.etat(id) in ["a_jour", "publiee"]:
+			texte += ("\n\n" if texte != "" else "") + Communes.resume(id)
 	else:
 		etat = "Pas encore développée"
 		texte = ("La route continue jusqu'à %s, mais la ville n'est pas encore construite. " % v.nom if _mode == "route" else "Les développeurs construisent les villes de la Vienne sur le portail. ") \
@@ -425,17 +442,9 @@ func _montrer(insee: String, alerte := "") -> void:
 		actions.add_child(_bouton("Revenir au village" if insee == CarteVienne.ORIGINE_INSEE else "Revenir à %s" % v.nom, OR if insee == CarteVienne.ORIGINE_INSEE else EAU, Color(0.08, 0.06, 0.03), Color(0, 0, 0, 0), fermer, 16))
 	elif c != null:
 		actions.add_child(_bouton("Monter dans le car  →" if _mode == "car" else "Prendre la route  →" if _mode == "route" else (("Jouer à Smarves  →" if _titre else "Rentrer à Smarves  →") if c.id == Communes.ORIGINE else "Y aller  →"), OR if c.id == Communes.ORIGINE else EAU, Color(0.04, 0.1, 0.1), Color(0, 0, 0, 0), aller.bind(insee), 16))
-		if Communes.en_cours == c.id:
-			actions.add_child(_mot("Téléchargement…", 16, DOUX))
-		elif Communes.en_attente(c.id) != "" and Communes.peut_relancer():
-			actions.add_child(_bouton("Relancer maintenant", Color(0, 0, 0, 0), OR, OR, Communes.relancer, 16))
-		elif Communes.mise_a_jour(c.id) != "":
-			actions.add_child(_bouton("Mettre à jour (%s)" % Communes.mise_a_jour(c.id), Color(0, 0, 0, 0), OR, OR, _installer.bind(c.id), 16, Communes.en_cours == ""))
+		_geste(c.id, actions)
 	elif not e.is_empty():
-		if Communes.en_cours == e.id:
-			actions.add_child(_mot("Téléchargement en cours…", 16, DOUX))
-		else:
-			actions.add_child(_bouton("Installer", Color(0, 0, 0, 0), EAU, EAU, _installer.bind(e.id), 16, Communes.en_cours == ""))
+		_geste(e.id, actions)
 	if actions.get_child_count() > 0:
 		_fiche_box.add_child(_vide(2))
 		_fiche_box.add_child(actions)

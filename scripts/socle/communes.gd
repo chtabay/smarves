@@ -12,6 +12,8 @@ signal inscrite(id: String)
 signal catalogue_lu
 ## Une installation depuis le catalogue est finie : ok, et la phrase à montrer au joueur.
 signal installee(id: String, ok: bool, message: String)
+## L'état d'une commune a changé (mise en file, début ou fin d'un téléchargement) : voir etat().
+signal etat_change(id: String)
 
 const GREFFES := "user://communes/"
 
@@ -30,6 +32,14 @@ var catalogue_etat := ""
 ## Les versions installées depuis le catalogue (id -> version), et l'id en cours de téléchargement.
 var installations := {}
 var en_cours := ""
+## Les installations qui attendent leur tour (ids), une seule se télécharge à la fois ; le dernier
+## échec de chaque commune (id -> phrase), gardé jusqu'au prochain essai ; et les communes mises à
+## jour toutes seules au lancement depuis l'ouverture du jeu (ids).
+var file: Array[String] = []
+var echecs := {}
+var mises_a_jour_seules: Array[String] = []
+var _http: HTTPRequest
+var _seules := {}
 ## Où vont les paquets installés, la dernière copie du catalogue (catalogue.json, pour la liste hors
 ## ligne) et les versions installées (installees.json). Un test le déplace.
 var dossier_greffes := GREFFES
@@ -164,6 +174,7 @@ func lire_catalogue(adresse := Portail.adresse()) -> void:
 			catalogue_etat = "en_ligne"
 			Portail.ecrire(dossier_greffes.path_join("catalogue.json"), texte)
 			nouvelles = catalogue.map(func(e): return e.id).filter(func(id): return not _vues.has(id) and not communes.has(id))
+			_mettre_a_jour_seules()
 		else:
 			catalogue_etat = "hors_ligne"
 		catalogue_lu.emit())
@@ -173,14 +184,121 @@ func lire_catalogue(adresse := Portail.adresse()) -> void:
 		catalogue_lu.emit()
 
 
-## Télécharge le paquet publié de cette commune dans user://communes/<id>.pck, vérifie son empreinte,
-## puis le soumet aux mêmes refus qu'une greffe déposée à la main. Un paquet refusé est effacé.
-func installer(id: String) -> void:
+## L'état d'une commune pour le joueur, le même partout (bienvenue, carte, carnet) :
+## « telechargement », « attente », « echec », « a_relancer » (la nouvelle version s'ouvrira au
+## prochain lancement), « mise_a_jour » (une version plus récente est publiée), « a_jour »
+## (installée), « publiee » (à installer), ou « » (ni installée ni publiée).
+func etat(id: String) -> String:
+	if en_cours == id:
+		return "telechargement"
+	if file.has(id):
+		return "attente"
+	if echecs.has(id):
+		return "echec"
+	if en_attente(id) != "":
+		return "a_relancer"
+	if mise_a_jour(id) != "":
+		return "mise_a_jour"
+	if communes.has(id):
+		return "a_jour"
+	return "publiee" if not au_catalogue(id).is_empty() else ""
+
+
+## La ligne qui dit l'état d'une commune, en français, la même partout.
+func resume(id: String) -> String:
 	var e := au_catalogue(id)
-	if e.is_empty() or en_cours != "":
-		installee.emit(id, false, "Une installation est déjà en cours." if en_cours != "" else "Commune absente du catalogue.")
+	var c: Commune = communes.get(id)
+	match etat(id):
+		"telechargement":
+			return "Téléchargement en cours"
+		"attente":
+			return "En attente de téléchargement"
+		"echec":
+			return str(echecs[id])
+		"a_relancer":
+			return ("Version %s téléchargée : relancez le jeu pour l'ouvrir." if peut_relancer()
+				else "Version %s téléchargée : fermez Smarves et rouvrez-le pour l'ouvrir.") % en_attente(id)
+		"mise_a_jour":
+			return "La version %s est publiée." % mise_a_jour(id)
+		"a_jour":
+			var v := str(installations.get(id, c.data.get("version", "")))
+			return ("Installée  ·  version %s" % v if v != "" else "Installée") + ("  ·  mise à jour toute seule" if mises_a_jour_seules.has(id) else "")
+		"publiee":
+			return "Publiée par %s  ·  %s" % [e.auteur, Portail.taille(e.taille)]
+	return ""
+
+
+## Le geste à proposer pour une commune, le même partout : [libellé, appel], ou [] s'il n'y en a pas.
+## « Y aller » n'en fait pas partie : chaque écran a sa façon d'y emmener.
+func geste(id: String) -> Array:
+	match etat(id):
+		"publiee":
+			return ["Installer", installer.bind(id)]
+		"mise_a_jour":
+			return ["Mettre à jour (%s)" % mise_a_jour(id), installer.bind(id)]
+		"echec":
+			return ["Réessayer", installer.bind(id)]
+		"a_relancer":
+			return ["Relancer maintenant", relancer] if peut_relancer() else []
+	return []
+
+
+## Où en est le téléchargement de cette commune, de 0 à 1.
+func progression(id: String) -> float:
+	if en_cours != id or _http == null:
+		return 0.0
+	var total := maxi(_http.get_body_size(), int(au_catalogue(id).get("taille", 0)))
+	return clampf(float(_http.get_downloaded_bytes()) / maxf(1.0, float(total)), 0.0, 1.0)
+
+
+## Les communes qui demandent un geste (à mettre à jour, à réessayer, à relancer) et les nouvelles
+## publiées pas encore installées.
+func a_faire() -> Array:
+	var ids: Array = ordre.filter(func(id): return id != ORIGINE)
+	for e in catalogue:
+		if not ids.has(e.id):
+			ids.append(e.id)
+	return ids.filter(func(id): return etat(id) in ["mise_a_jour", "echec", "a_relancer", "telechargement", "attente"])
+
+
+func a_installer() -> Array:
+	return catalogue.filter(func(e): return not communes.has(e.id)).map(func(e): return e.id)
+
+
+## Met en file toutes les mises à jour publiées (et les échecs à réessayer).
+func tout_mettre_a_jour() -> void:
+	for id in ordre:
+		if etat(id) in ["mise_a_jour", "echec"] and not au_catalogue(id).is_empty():
+			installer(id)
+
+
+## Au lancement : une commune installée mais pas encore ouverte dans la partie prend sa nouvelle
+## version toute seule, rien ne s'y oppose. Une commune déjà ouverte attend le geste du joueur.
+func _mettre_a_jour_seules() -> void:
+	for id in ordre:
+		if id != ORIGINE and mise_a_jour(id) != "" and not communes[id].montee and not echecs.has(id):
+			installer(id, true)
+
+
+## Télécharge le paquet publié de cette commune dans user://communes/<id>.pck, vérifie son empreinte,
+## puis le soumet aux mêmes refus qu'une greffe déposée à la main. Un paquet refusé est effacé. Si
+## un autre se télécharge déjà, celui-ci attend son tour dans la file.
+func installer(id: String, seule := false) -> void:
+	var e := au_catalogue(id)
+	if e.is_empty():
+		installee.emit(id, false, "Commune absente du catalogue.")
+		return
+	if en_cours == id or file.has(id):
+		return
+	echecs.erase(id)
+	if seule:
+		_seules[id] = true
+	if en_cours != "":
+		file.append(id)
+		etat_change.emit(id)
 		return
 	en_cours = id
+	etat_change.emit(id)
 	DirAccess.make_dir_recursive_absolute(dossier_greffes)
 	var part := dossier_greffes.path_join(id + ".pck.part")
 	var http := HTTPRequest.new()
@@ -190,16 +308,34 @@ func installer(id: String) -> void:
 	# Un téléchargement lancé depuis la bienvenue ou la carte, jeu en pause, doit aboutir.
 	http.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(http)
+	_http = http
 	http.request_completed.connect(func(resultat: int, code: int, _h, _c):
 		http.queue_free()
+		_http = null
 		_installe(e, part, resultat == HTTPRequest.RESULT_SUCCESS and code == 200))
 	if http.request(e.paquet) != OK:
 		http.queue_free()
+		_http = null
 		_installe(e, part, false)
 
 
-func _installe(e: Dictionary, part: String, recu: bool) -> void:
+## La fin d'une installation : le dernier échec retenu, la phrase pour le joueur, puis la suivante.
+func _fini(id: String, ok: bool, message: String) -> void:
 	en_cours = ""
+	if ok:
+		echecs.erase(id)
+		if _seules.has(id) and not mises_a_jour_seules.has(id):
+			mises_a_jour_seules.append(id)
+	else:
+		echecs[id] = message
+	_seules.erase(id)
+	installee.emit(id, ok, message)
+	etat_change.emit(id)
+	if not file.is_empty():
+		installer(file.pop_front())
+
+
+func _installe(e: Dictionary, part: String, recu: bool) -> void:
 	var id: String = e.id
 	var fin := dossier_greffes.path_join(id + ".pck")
 	var raison := ""
@@ -210,7 +346,7 @@ func _installe(e: Dictionary, part: String, recu: bool) -> void:
 	if raison != "":
 		DirAccess.remove_absolute(part)
 		_refuser(part, "téléchargement inabouti" if not recu else "le paquet reçu ne correspond pas au catalogue")
-		installee.emit(id, false, raison)
+		_fini(id, false, raison)
 		return
 	# Une commune déjà visitée a son pack monté : Godot ne peut pas le remplacer, la nouvelle version
 	# attend le prochain lancement (relancer()). Pas encore visitée, elle prend sa place tout de suite.
@@ -231,12 +367,13 @@ func _installe(e: Dictionary, part: String, recu: bool) -> void:
 			if ancienne:
 				DirAccess.rename_absolute(fin + ".ancien", fin)
 				inscrire(ancienne)
-			installee.emit(id, false, "%s n'a pas pu s'installer : %s." % [e.nom, raison])
+			_fini(id, false, "%s n'a pas pu s'installer : %s." % [e.nom, raison])
 			return
 		DirAccess.remove_absolute(fin + ".ancien")
 	installations[id] = e.version
 	Portail.ecrire(dossier_greffes.path_join("installees.json"), JSON.stringify(installations))
-	installee.emit(id, true, ("%s est installée." % e.nom) if not deja else ("La version %s de %s s'ouvrira au prochain lancement." % [e.version, e.nom]))
+	_fini(id, true, ("%s s'est mise à jour toute seule en %s." % [e.nom, e.version]) if _seules.has(id)
+		else ("%s est installée." % e.nom) if not deja else ("La version %s de %s s'ouvrira au prochain lancement." % [e.version, e.nom]))
 
 
 ## Relancer le jeu ouvre les versions téléchargées pendant la partie ; seulement sur ordinateur.

@@ -54,6 +54,9 @@ func _ready() -> void:
 		show_slip(message)
 		if _root.visible:
 			_refresh())
+	Communes.etat_change.connect(func(_id):
+		if _root.visible:
+			_refresh.call_deferred())
 	# Le village n'est pas un autoload : on se branche sur lui quand la place se monte.
 	get_tree().node_added.connect(_on_node_added)
 
@@ -397,30 +400,35 @@ func _fill_communes(page: VBoxContainer = null, titre := true) -> void:
 	if titre:
 		_gap(page)
 		_title(page, "Les communes de la Vienne")
-	var vues := {}
-	for e in Communes.publiees():
-		vues[e.id] = true
-		var installee: bool = Communes.commune(e.id) != null
-		_text(page, "%s  ·  %s%s" % [e.nom, ("version %s" % e.version) if e.version != "" else e.insee, "  ·  nouvelle" if Communes.nouvelles.has(e.id) else ""], 18, INK, true)
-		if e.description != "":
+	# Les mêmes états et les mêmes mots que la bienvenue et la carte (Communes.etat, resume, geste) :
+	# d'abord ce qui demande un geste, puis les nouvelles, puis les autres.
+	var faire := Communes.a_faire()
+	var ids: Array = faire + Communes.a_installer().filter(func(id): return not faire.has(id)) \
+		+ Communes.installees().filter(func(id): return not faire.has(id))
+	if faire.any(func(id): return Communes.etat(id) in ["mise_a_jour", "echec"]):
+		_link(page, "→ tout mettre à jour", Communes.tout_mettre_a_jour)
+	for id in ids:
+		var e := Communes.au_catalogue(id)
+		var c := Communes.commune(id)
+		var etat := Communes.etat(id)
+		var marque: String = {"mise_a_jour": "  ·  mise à jour", "a_relancer": "  ·  à relancer", "echec": "  ·  échec"}.get(etat,
+			"  ·  nouvelle" if Communes.nouvelles.has(id) else "")
+		_text(page, str(e.get("nom", c.nom if c else id)) + marque, 18, INK, true)
+		_text(page, Communes.resume(id), 18, Color(0.7, 0.12, 0.12) if etat == "echec" else PENCIL)
+		if etat in ["publiee", "mise_a_jour"] and str(e.get("description", "")) != "":
 			_text(page, e.description, 18, INK_LIGHT)
-		if Communes.en_cours == e.id:
-			_text(page, "Téléchargement en cours…", 18, PENCIL)
-		elif not installee:
-			_link(page, "→ l'installer  (%s, par %s)" % [Portail.taille(e.taille), e.auteur], Communes.installer.bind(e.id), Communes.en_cours == "")
-		else:
-			if Communes.mise_a_jour(e.id) != "":
-				_link(page, "→ installer la version %s" % e.version, Communes.installer.bind(e.id), Communes.en_cours == "")
-			_link(page, "→ y aller", _visiter.bind(e.id))
-	for id in Communes.installees():
-		if not vues.has(id):
-			_text(page, Communes.commune(id).nom, 18, INK, true)
+		if etat in ["telechargement", "attente"]:
+			page.add_child(BarreProgres.pour(id, PENCIL, 240.0))
+		var g := Communes.geste(id)
+		if not g.is_empty():
+			_link(page, "→ " + str(g[0]).to_lower(), g[1])
+		if c != null:
 			_link(page, "→ y aller", _visiter.bind(id))
 	if Communes.publiees().is_empty() and Communes.installees().is_empty():
 		_text(page, "Aucune autre commune publiée pour l'instant." if Communes.catalogue_etat == "en_ligne" else "Le catalogue se lit quand le jeu est en ligne.", 18, INK_LIGHT)
 	for r in Communes.refusees():
 		_text(page, "%s : paquet refusé, %s" % [r.nom, r.raison], 18, Color(0.7, 0.12, 0.12))
-	_link(page, "→ relire la liste" if Communes.catalogue_etat != "lecture" else "Lecture de la liste…", Communes.lire_catalogue, Communes.catalogue_etat != "lecture" and Communes.en_cours == "")
+	_link(page, "→ relire la liste" if Communes.catalogue_etat != "lecture" else "Lecture de la liste…", Communes.lire_catalogue, Communes.catalogue_etat != "lecture")
 	Communes.marquer_vues.call_deferred()
 
 
