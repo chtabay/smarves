@@ -75,6 +75,23 @@ func _init() -> void:
 	var a_pied: bool = s.player.camera.current and s.player.follow_camera == null and not s.player.avatar.visible and cam.notches.is_empty()
 	vue.basculer(s)
 	check(a_pied and cam.current and s.player.follow_camera == cam and cam.notches.size() == 4, "Tab passe à pied et revient en vue de dessus, comme à Smarves")
+	# La touche elle-même, par le chemin des entrées : rien ne doit l'avaler avant le socle.
+	var touche := InputEventKey.new()
+	touche.keycode = KEY_TAB
+	touche.physical_keycode = KEY_TAB
+	touche.pressed = true
+	Input.parse_input_event(touche)
+	await process_frame
+	await process_frame
+	var par_touche: bool = s.player.camera.current and s.player.follow_camera == null
+	touche = InputEventKey.new()
+	touche.keycode = KEY_TAB
+	touche.physical_keycode = KEY_TAB
+	touche.pressed = true
+	Input.parse_input_event(touche)
+	await process_frame
+	await process_frame
+	check(par_touche and cam.current and s.player.follow_camera == cam, "la touche Tab elle-même arrive au socle et bascule (à pied : %s, retour : %s)" % [par_touche, cam.current])
 
 	# L'habitant se pose sur le sol, à l'altitude de la place.
 	var p: CharacterBody3D = s.player

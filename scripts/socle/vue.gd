@@ -14,10 +14,18 @@ var _crans: Array = []
 var _cran := 0
 
 
-func _unhandled_input(event: InputEvent) -> void:
+func _input(event: InputEvent) -> void:
+	# Avant l'interface : Tab est aussi la touche qui fait passer le focus d'un bouton à l'autre, et un
+	# bouton resté en focus (la carte, la bienvenue, la liste des communes) l'avalerait avant le socle.
+	# On laisse seulement les champs de texte, où Tab appartient à la saisie.
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_TAB:
+		var focus := get_viewport().gui_get_focus_owner()
+		if focus is LineEdit or focus is TextEdit:
+			return
 		var s := get_tree().current_scene
 		if gere(s) and not s.player.frozen and not get_tree().paused:
+			if focus != null:
+				focus.release_focus()
 			basculer(s)
 			get_viewport().set_input_as_handled()
 
