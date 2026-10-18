@@ -889,8 +889,8 @@ func set_fps(on: bool) -> void:
 		camera.make_current()
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	if _hint:
-		_hint.text = ("ZQSD : marcher   ·   Maj : courir   ·   E : entrer, jouer, parler   ·   Clic droit : tourner la vue   ·   Molette : zoom   ·   Tab : vue à pied   ·   Échap : réglages" if (fps and topdown)
-			else "ZQSD : marcher   ·   Maj : courir   ·   E : entrer, jouer, parler   ·   Tab : vue de dessus   ·   Échap : réglages")
+		_hint.text = ("ZQSD : marcher   ·   Maj : courir   ·   E : entrer, jouer, parler   ·   Clic droit : tourner la vue   ·   Molette : zoom   ·   Tab : vue à pied   ·   C : carnet   ·   Échap : menu" if (fps and topdown)
+			else "ZQSD : marcher   ·   Maj : courir   ·   E : entrer, jouer, parler   ·   Tab : vue de dessus   ·   C : carnet   ·   Échap : menu")
 	if _cross:
 		_cross.visible = fps and not topdown
 		_prompt.visible = false
@@ -1146,7 +1146,7 @@ func _build_ui() -> void:
 	root.add_child(_banner)
 
 	_hint = Label.new()
-	_hint.text = "Cliquer sur un lieu ou un habitant   ·   Clic droit : tourner   ·   Molette : zoomer   ·   Échap : réglages"
+	_hint.text = "Cliquer sur un lieu ou un habitant   ·   Clic droit : tourner   ·   Molette : zoomer   ·   C : carnet   ·   Échap : menu"
 	_hint.add_theme_font_size_override("font_size", 15)
 	_hint.add_theme_color_override("font_color", Color(0.65, 0.65, 0.7, 0.85))
 	_hint.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)

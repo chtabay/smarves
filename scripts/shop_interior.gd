@@ -694,7 +694,7 @@ func _build_ui() -> void:
 	_credits.add_theme_color_override("font_color", Color(0.96, 0.8, 0.45))
 	v.add_child(_credits)
 	var hint := Label.new()
-	hint.text = "ZQSD : marcher   ·   E : parler, sortir   ·   C : le carnet   ·   Échap : réglages"
+	hint.text = "ZQSD : marcher   ·   E : parler, sortir   ·   C : le carnet   ·   Échap : menu"
 	hint.add_theme_font_size_override("font_size", 15)
 	hint.add_theme_color_override("font_color", Color(0.75, 0.75, 0.8, 0.85))
 	hint.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
