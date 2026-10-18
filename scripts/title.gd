@@ -1,6 +1,7 @@
 extends Node3D
 ## L'écran titre : la place de Smarves qui tourne lentement en fond, le nom du jeu, et quatre boutons :
-## Jouer, La carte (la Vienne, d'où l'on peut aussi entrer dans une commune), Réglages, Quitter.
+## Jouer, La carte (la Vienne, d'où l'on peut aussi entrer dans une commune), Réglages, Quitter. À
+## droite, le panneau de la bienvenue : le compte Pyramides et les mises à jour, dès le premier écran.
 
 const MAIN := preload("res://scenes/main.tscn")
 
@@ -45,6 +46,12 @@ func _build_ui() -> void:
 	veil.stretch_mode = TextureRect.STRETCH_SCALE
 	veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(veil)
+	# Le nom et les boutons à gauche : la droite est au panneau du compte et des mises à jour (Bienvenue).
+	var gauche := Control.new()
+	gauche.set_anchors_preset(Control.PRESET_FULL_RECT)
+	gauche.anchor_right = 0.56
+	gauche.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(gauche)
 	var v := VBoxContainer.new()
 	v.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	v.grow_horizontal = Control.GROW_DIRECTION_BOTH
@@ -52,7 +59,7 @@ func _build_ui() -> void:
 	v.position.y -= 70
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.add_theme_constant_override("separation", 10)
-	root.add_child(v)
+	gauche.add_child(v)
 	var title := Label.new()
 	title.text = "SMARVES"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -83,7 +90,7 @@ func _build_ui() -> void:
 	for b in [["Jouer", _play], ["La carte", func(): Carte.ouvrir(true)], ["Réglages", func(): Settings.toggle()], ["Quitter", func(): get_tree().quit()]]:
 		var btn := Button.new()
 		btn.text = b[0]
-		btn.custom_minimum_size = Vector2(170, 52)
+		btn.custom_minimum_size = Vector2(150, 52)
 		btn.add_theme_font_override("font", serif)
 		btn.add_theme_font_size_override("font_size", 24)
 		for st in ["normal", "hover", "pressed", "focus"]:
