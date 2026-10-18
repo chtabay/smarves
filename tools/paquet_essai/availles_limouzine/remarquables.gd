@@ -295,8 +295,8 @@ static func _porte_cavaliers(f, b: Dictionary, hauteur: Callable) -> void:
 	# L'angle de la tour et de la porte est au bout de la façade le plus à l'ouest.
 	var ouest: float = (1.0 if fa.a.x < fa.c.x else -1.0) * fa.sens
 	var creme := Color(0.9, 0.84, 0.7)
-	var pierre := Color(0.78, 0.68, 0.5)
-	var joint := Color(0.62, 0.54, 0.4)
+	var pierre := Color(0.72, 0.62, 0.46)
+	var joint := Color(0.55, 0.47, 0.36)
 	var blanc := Color(0.95, 0.95, 0.93)
 	var tuile := Color(0.76, 0.5, 0.34)
 	var clair := Color(0.92, 0.88, 0.78)
