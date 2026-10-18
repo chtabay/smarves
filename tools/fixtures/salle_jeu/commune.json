@@ -1,0 +1,22 @@
+{
+	"format": 1,
+	"id": "essai_salle",
+	"nom": "La commune d'essai des salles",
+	"auteur": "socle",
+	"version": "0.0.1",
+	"socle_min": "1.1",
+	"insee": "86290",
+	"scene": "res://communes/essai_salle/commune.tscn",
+	"arrivee": {"lot": "place", "par": ["smarves"]},
+	"lieux": [
+		{"id": "cercle", "nom": "Le cercle", "jeu": "le baccara", "seuil": 40000, "hote": "Le président du cercle"}
+	],
+	"structures": [
+		{"type": "salle_jeu", "id": "tripot", "nom": "Le tripot de la gare", "noeud": "PorteTripot", "lot": "place",
+		 "jeux": ["machine", "loto", "blackjack", "roulette", "craps", "baccara", "poker", "des", "roue", "courses"],
+		 "tenancier": "Mme Rivière", "graine": 17, "decor": "cafe", "enseigne": "Au Tripot",
+		 "repliques": ["« Ici on mise petit, mais on mise souvent. »"]},
+		{"type": "salle_jeu", "id": "cercle", "nom": "Le cercle", "jeux": ["baccara"], "decor": "salle"}
+	],
+	"banque": {"id": "caisse_essai_salle", "nom": "La caisse", "banquier": "Le caissier", "preteur": "essai_salle", "lieu": "cercle"}
+}
