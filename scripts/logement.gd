@@ -8,6 +8,11 @@ const MEUBLES_3D := preload("res://scripts/meubles.gd")
 ## La taille de chaque logement : largeur, profondeur, hauteur sous plafond.
 const SIZES := {"chambre": Vector3(8, 6.5, 2.9), "maison": Vector3(14, 12, 3.1), "maison_place": Vector3(18, 16, 3.8)}
 const FLOORS := {"chambre": Color(0.55, 0.38, 0.24), "maison": Color(0.5, 0.33, 0.2), "maison_place": Color(0.36, 0.2, 0.12)}
+## Les maisons de la rue (Adresses) prennent la taille et les papiers de leur gabarit.
+const SIZES_RUE := {"maisonnette_v1": Vector3(11, 9, 2.8), "maison_haute_v1": Vector3(16, 13, 3.0), "pavillon_v1": Vector3(14, 11, 2.7)}
+const FLOORS_RUE := {"maisonnette_v1": Color(0.6, 0.42, 0.26), "maison_haute_v1": Color(0.42, 0.28, 0.17), "pavillon_v1": Color(0.66, 0.52, 0.36)}
+const PAPERS_RUE := {"maisonnette_v1": [Color(0.8, 0.72, 0.6), Color(0.86, 0.8, 0.66)], "maison_haute_v1": [Color(0.55, 0.62, 0.72), Color(0.62, 0.68, 0.78)],
+	"pavillon_v1": [Color(0.86, 0.78, 0.56), Color(0.9, 0.84, 0.64)]}
 const PAPERS := {"chambre": [Color(0.78, 0.7, 0.55), Color(0.84, 0.77, 0.62)], "maison": [Color(0.62, 0.7, 0.62), Color(0.7, 0.77, 0.68)],
 	"maison_place": [Color(0.52, 0.16, 0.18), Color(0.6, 0.2, 0.22)]}
 
@@ -33,13 +38,14 @@ func _ready() -> void:
 		for id in Biens.logements:
 			home = id
 			break
-	var size: Vector3 = SIZES.get(home, SIZES.chambre)
+	var gabarit := str(Biens.logements.get(home, {}).get("interieur", ""))
+	var size: Vector3 = SIZES.get(home, SIZES_RUE.get(gabarit, SIZES.chambre))
 	W = size.x
 	D = size.y
 	H = size.z
 	_environment()
-	var paper: Array = PAPERS.get(home, PAPERS.chambre)
-	_room(_wood_floor(FLOORS.get(home, FLOORS.chambre)), _wallpaper(paper[0], paper[1]), Color(0.95, 0.93, 0.88), paper[0].darkened(0.45))
+	var paper: Array = PAPERS.get(home, PAPERS_RUE.get(gabarit, PAPERS.chambre))
+	_room(_wood_floor(FLOORS.get(home, FLOORS_RUE.get(gabarit, FLOORS.chambre))), _wallpaper(paper[0], paper[1]), Color(0.95, 0.93, 0.88), paper[0].darkened(0.45))
 	_layout()
 	_door()
 	_build_ui()
@@ -62,7 +68,7 @@ func _place_name() -> String:
 
 ## Les pièces du gabarit, rangées en grille ; la dernière rangée laisse l'entrée libre au milieu.
 func _layout() -> void:
-	var rooms: Array = Biens.INTERIEURS.get(str(Biens.logements.get(home, {}).get("interieur", "")), [])
+	var rooms: Array = Biens.interieur(str(Biens.logements.get(home, {}).get("interieur", "")))
 	if rooms.is_empty():
 		return
 	var cols := int(ceil(sqrt(rooms.size())))
@@ -109,7 +115,7 @@ func _zone(rect: Rect2, piece: String, c: int, r: int, cols: int) -> void:
 	var l := _label3d(piece, Vector3(rect.position.x + 0.3, 0.03, rect.end.y - 0.35), 40, Color(0.95, 0.9, 0.78, 0.8))
 	l.rotation_degrees.x = -90.0
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	var paper: Array = PAPERS.get(home, PAPERS.chambre)
+	var paper: Array = PAPERS.get(home, PAPERS_RUE.get(str(Biens.logements.get(home, {}).get("interieur", "")), PAPERS.chambre))
 	var wall := _wallpaper(paper[0], paper[1])
 	var gap := 1.4
 	if r > 0:

@@ -100,6 +100,7 @@ func _verifier() -> void:
 	if typeof(data.banque) != TYPE_DICTIONARY or str(data.banque.get("preteur", "")) == "":
 		erreurs.append("la banque doit nommer son prêteur (banque.preteur)")
 	erreurs.append_array(Structures.verifier(data.get("structures")))
+	erreurs.append_array(load("res://scripts/socle/notaire.gd").verifier(data.get("notaire")))
 	erreurs.append_array(verifier_facultatifs(data))
 
 

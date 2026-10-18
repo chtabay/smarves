@@ -51,5 +51,6 @@
 	},
 	"banque": {"id": "credit_smarvois", "nom": "Le Crédit Smarvois", "banquier": "M. Brunet", "preteur": "smarves", "lieu": "banque"},
 	"biens": {"source": "Biens.CATALOGUE", "vendeurs": ["notaire", "couture", "garage", "brocante"]},
+	"notaire": {"nom": "Maître Garnier", "etude": "L'étude de Maître Garnier", "titre": "Étude de Maître Garnier, notaire à Smarves", "registre": {"source": "res://scripts/adresses.gd"}},
 	"jeux": {"regles_serveur": []}
 }
