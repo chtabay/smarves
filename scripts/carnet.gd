@@ -32,6 +32,8 @@ var _amenage := ""
 var _cover: Control
 var _sheet: PanelContainer
 var _sheet_box: VBoxContainer
+## Ce que montre la feuille dépliée : « plan » (le plan du village) ou « agenda » (la semaine).
+var _sheet_mode := "plan"
 
 
 func _ready() -> void:
@@ -73,7 +75,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif _root.visible and event.is_action_pressed("ui_cancel"):
 		if _sheet.visible:
-			_show_sheet(false)
+			_show_sheet(false, _sheet_mode)
 		else:
 			toggle()
 		get_viewport().set_input_as_handled()
@@ -252,6 +254,8 @@ func _refresh() -> void:
 
 
 func _fill_left() -> void:
+	_fill_agenda()
+	_gap(_left)
 	_title(_left, "Mes biens")
 	_gap(_left, 6)
 	if Biens.owned.is_empty():
@@ -515,7 +519,7 @@ func _fill_plan() -> void:
 	_gap(_right)
 	_title(_right, "Le plan du village")
 	_text(_right, _plan_progress(), 16, INK_LIGHT)
-	_link(_right, "→ déplier le plan", _show_sheet.bind(true)).custom_minimum_size.y = 48
+	_link(_right, "→ déplier le plan", _show_sheet.bind(true, "plan")).custom_minimum_size.y = 48
 
 
 func _plan_progress() -> String:
@@ -527,13 +531,18 @@ func _plan_progress() -> String:
 	return "Tout le village est au plan."
 
 
-func _show_sheet(open: bool) -> void:
+func _show_sheet(open: bool, mode := "plan") -> void:
+	_sheet_mode = mode
 	_sheet.visible = open
 	_refresh()
 
 
-## La feuille dépliée : le plan sur toute la largeur, et de quoi revenir au carnet.
+## La feuille dépliée : le plan sur toute la largeur, ou l'agenda de la semaine, et de quoi revenir au carnet.
 func _fill_sheet() -> void:
+	if _sheet_mode == "agenda":
+		_fill_sheet_agenda()
+		return
+	_sheet.custom_minimum_size = Vector2(1148, 728)
 	_title(_sheet_box, "Le plan du village")
 	var plan := Plan.new()
 	plan.font = _hand
@@ -551,7 +560,88 @@ func _fill_sheet() -> void:
 	var t := _text(foot, _plan_progress(), 17, INK_LIGHT)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	t.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_link(foot, "← revenir au carnet", _show_sheet.bind(false)).custom_minimum_size = Vector2(220, 48)
+	_link(foot, "← revenir au carnet", _show_sheet.bind(false, "plan")).custom_minimum_size = Vector2(220, 48)
+
+
+# --- L'agenda de la semaine (autoload Agenda) ------------------------------------------------
+
+## « Cette semaine », en tête du carnet (sur un téléphone, la page ne tient pas dans l'écran) : les trois
+## prochains rendez-vous, et de quoi déplier toute la semaine.
+func _fill_agenda() -> void:
+	_title(_left, "Cette semaine")
+	var t := Agenda.maintenant()
+	var liste := Agenda.prochains(3, t)
+	if liste.is_empty():
+		_text(_left, "Rien d'annoncé d'ici la semaine prochaine.", 16, INK_LIGHT)
+	for rv in liste:
+		var quand := "en ce moment" if Agenda.en_cours(rv, t) else "%s, %s" % [Agenda.jour_relatif(rv.quand, t), Agenda.heure(rv.quand)]
+		_text(_left, "%s  ·  %s%s" % [quand, rv.titre, "  (annoncé)" if rv.annonce else ""], 17, INK_LIGHT if rv.annonce else INK)
+	_link(_left, "→ toute la semaine", _show_sheet.bind(true, "agenda")).custom_minimum_size.y = 48
+
+
+## L'écran, dans les unités de l'interface (1600 × 900 sur un ordinateur, moins sur un téléphone).
+func _ecran() -> Vector2:
+	var v := get_viewport()
+	return v.get_visible_rect().size if v != null else Vector2(1600, 900)
+
+
+## La feuille de la semaine : un jour par paragraphe, l'heure dans la marge, ce qui n'est qu'annoncé au
+## crayon. Elle tient dans l'écran (un téléphone : Tactile ramène la base vers 1067 × 600) et défile.
+func _fill_sheet_agenda() -> void:
+	var ecran := _ecran()
+	var etroit := ecran.x < 1300.0 or ecran.y < 760.0
+	# Sur un téléphone, la feuille laisse libre le coin du bouton « Fermer » de Tactile.
+	_sheet.custom_minimum_size = Vector2(minf(1148.0, ecran.x - (440.0 if etroit else 24.0)), minf(728.0, ecran.y - 24.0))
+	var t := Agenda.maintenant()
+	var tete := HBoxContainer.new()
+	_sheet_box.add_child(tete)
+	var titre := _text(tete, "L'agenda de la semaine", 24 if etroit else 26, INK, true)
+	titre.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_link(tete, "← revenir au carnet", _show_sheet.bind(false, "agenda")).custom_minimum_size = Vector2(200, 48)
+	_text(_sheet_box, "Du %s au %s. Au crayon, ce qui n'est qu'annoncé : les tables ouvriront plus tard." \
+		% [Agenda.date(t), Agenda.date(Agenda.fin_de_semaine(t) - 1)], 15 if etroit else 16, PENCIL)
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_sheet_box.add_child(scroll)
+	var col := VBoxContainer.new()
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.add_theme_constant_override("separation", 2)
+	scroll.add_child(col)
+	var liste := Agenda.semaine(t)
+	if liste.is_empty():
+		_text(col, "Rien d'annoncé d'ici la semaine prochaine.", 18, INK_LIGHT)
+	var jour := ""
+	for rv in liste:
+		var j := Agenda.jour_relatif(rv.quand, t)
+		if j != jour:
+			jour = j
+			_gap(col, 6)
+			var nom := j if j == Agenda.date(rv.quand) else "%s, %s" % [j, Agenda.date(rv.quand)]
+			_text(col, nom.left(1).to_upper() + nom.substr(1), 20 if etroit else 21, INK, true)
+		var ligne := HBoxContainer.new()
+		ligne.add_theme_constant_override("separation", 14)
+		col.add_child(ligne)
+		var h := _text(ligne, "en cours" if Agenda.en_cours(rv, t) else Agenda.heure(rv.quand), 18, Color(0.65, 0.15, 0.15))
+		h.custom_minimum_size.x = 88 if etroit else 100
+		h.autowrap_mode = TextServer.AUTOWRAP_OFF
+		var texte := VBoxContainer.new()
+		texte.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		texte.add_theme_constant_override("separation", 0)
+		ligne.add_child(texte)
+		var encre := INK_LIGHT if rv.annonce else INK
+		_text(texte, "%s  —  %s" % [rv.titre, rv.lieu] if not etroit else rv.titre, 18, encre, not rv.annonce)
+		if etroit:
+			_text(texte, rv.lieu, 16, encre)
+		var mot: String = rv.detail
+		if rv.annonce:
+			mot = "Annoncé. " + mot
+		if mot != "":
+			_text(texte, mot, 15, PENCIL)
+	_gap(col, 10)
+	_text(col, "Tous les jours, à toute heure", 20 if etroit else 21, INK, true)
+	for p in Agenda.TOUS_LES_JOURS:
+		_text(col, "%s  —  %s" % [p[0], p[1]], 17, INK_LIGHT)
 
 
 ## Le plan au crayon : les quartiers parcourus en lavis, leurs noms, les lieux cachés d'une croix rouge.
