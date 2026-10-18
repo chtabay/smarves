@@ -24,6 +24,7 @@ const BACCARA_3D := preload("res://scripts/jeux/baccara_3d.gd")
 const ROUE_3D := preload("res://scripts/jeux/roue_3d.gd")
 const BOULE_3D := preload("res://scripts/jeux/boule_3d.gd")
 const POKER_3D := preload("res://scripts/jeux/poker_3d.gd")
+const POKER_MULTI := preload("res://scripts/jeux/poker_multi.gd")
 const KIT := preload("res://scripts/jeux/kit.gd")
 const BARRE := preload("res://scripts/jeux/barre.gd")
 ## Niveau du plancher de l'étage.
@@ -477,7 +478,13 @@ func _on_interact(target: Node) -> void:
 			var b: PanelContainer = BLACKJACK.new()
 			_open_panel(b)
 		"poker":
-			var pk: PanelContainer = POKER.new()
+			# Connecté au compte : la table partagée entre les joueurs du soir ; sinon, seul contre les habitués.
+			var pk: PanelContainer = POKER_MULTI.new() if Compte.connecte() or _poker_essai else POKER.new()
+			if _poker_essai:
+				pk.hors_ligne = true
+			if pk.has_signal("lineup_changed"):
+				pk.lineup_changed.connect(_poker_lineup)
+				pk.closed.connect(func(): _poker_lineup({}))
 			_open_panel(pk)
 		"roue":
 			var w: PanelContainer = WHEEL.new()
@@ -952,6 +959,10 @@ func _maybe_capture() -> void:
 	if path == "":
 		return
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	# La table à plusieurs, rejouée sur des vues du serveur enregistrées (tools/fixtures), sans réseau.
+	if open == "poker-multi":
+		_poker_essai = true
+		open = "poker"
 	if open != "":
 		await get_tree().create_timer(1.0).timeout
 		var target: Node = null
@@ -996,7 +1007,10 @@ func _maybe_capture() -> void:
 					pnl._place("1")
 					pnl._spin()
 				"poker":
-					pnl._new_hand()
+					if _poker_essai:
+						_rejouer_poker(pnl)
+					else:
+						pnl._new_hand()
 	var elapsed := 0.0
 	for i in shots.size():
 		await get_tree().create_timer(maxf(float(shots[i]) - elapsed, 0.0)).timeout
@@ -2103,6 +2117,60 @@ func _build_bar() -> void:
 
 # --- Les salles à seuils -------------------------------------------------------------
 
+## Les captures de la table à plusieurs : sans réseau, sur des vues enregistrées.
+var _poker_essai := false
+
+
+## Rejoue les vues enregistrées, une toutes les 0,8 s, comme les relirait le jeu.
+func _rejouer_poker(pnl: Control) -> void:
+	var vues: Array = JSON.parse_string(FileAccess.get_file_as_string("res://tools/fixtures/poker_multi_vues.json"))
+	for x in vues.slice(0, vues.size() - 1):
+		if not is_instance_valid(pnl):
+			return
+		pnl.appliquer(x.v, x.action)
+		await get_tree().create_timer(0.8).timeout
+
+## Les habitués du poker par figurant, et les joueurs venus s'asseoir (par chaise de la salle).
+var _poker_people := {}
+var _poker_guests := {}
+
+
+## La place d'un figurant à la chaise k (0 : le Commandant ; 5 : la chaise libre du joueur).
+func _poker_chair(k: int) -> Vector3:
+	var a := TAU * k / 6.0
+	return Vector3(20.0 + sin(a) * 1.85, 0.0, -4.0 + cos(a) * 1.85)
+
+
+## La table à plusieurs dit qui est assis où (places de l'écran, la sienne en 0) : les habitués
+## vont à leur chaise ou se lèvent, et un joueur prend forme à la sienne. {} : tout le monde reprend
+## sa place de toujours.
+func _poker_lineup(places: Dictionary) -> void:
+	var regulars := ["le-commandant", "mme-duval", "teddy", "comtesse-orlov", "maitre-garnier"]
+	var at := {}
+	for i in places:
+		var f: String = places[i].get("figurant", "")
+		if f != "" and int(i) != 0:
+			at[posmod(int(i) - 1, 6)] = f
+	if places.is_empty():
+		for k in 5:
+			at[k] = regulars[k]
+	for id in regulars:
+		var node: Node3D = _poker_people.get(id)
+		if node == null:
+			continue
+		var k = at.find_key(id)
+		node.visible = k != null
+		if k != null:
+			node.position = _poker_chair(k)
+			node.rotation_degrees.y = rad_to_deg(TAU * k / 6.0) + 180.0
+	for k in 6:
+		var want: bool = at.get(k, "") == "joueur"
+		if want and not _poker_guests.has(k):
+			_poker_guests[k] = _person("character-male-b.glb" if k % 2 == 0 else "character-female-a.glb", _poker_chair(k), rad_to_deg(TAU * k / 6.0) + 180.0)
+		elif not want and _poker_guests.has(k):
+			_poker_guests[k].queue_free()
+			_poker_guests.erase(k)
+
 func _build_ambassadeurs() -> void:
 	_chandelier(Vector3(20.0, WALL_H - 0.3, -4.0), 1.2)
 	var poker := Node3D.new()
@@ -2120,7 +2188,7 @@ func _build_ambassadeurs() -> void:
 		var a := TAU * k / 6.0
 		_chair(poker, Vector3(sin(a) * 2.0, 0, cos(a) * 2.0), rad_to_deg(a), Color(0.08, 0.15, 0.4))
 		if k < 5:
-			_person(regulars[k], Vector3(20.0 + sin(a) * 1.85, 0.0, -4.0 + cos(a) * 1.85), rad_to_deg(a) + 180.0)
+			_poker_people[regulars[k]] = _person(regulars[k], _poker_chair(k), rad_to_deg(a) + 180.0)
 	_table_lamp(Vector3(20.0, 2.6, -4.0), 1.6)
 	_bill(_label("Poker des Ambassadeurs", Vector3(20.0, 2.9, -4.0), -90.0, 64))
 	_interactive(poker, "poker", "E : prendre la chaise libre au poker", Vector3(4.0, 2.0, 4.0), Vector3(0, 1.0, 0))

@@ -162,7 +162,9 @@ func refusees() -> Array:
 func lire_catalogue(adresse := Portail.adresse()) -> void:
 	catalogue_etat = "lecture"
 	var http := HTTPRequest.new()
-	http.timeout = 10.0
+	# Dans un navigateur, la réponse arrive déjà décompressée : Godot ne doit pas la décompresser encore.
+	http.accept_gzip = not OS.has_feature("web")
+	http.timeout = 0.0 if OS.has_feature("web") else 10.0
 	# La bienvenue, le carnet et la carte mettent le jeu en pause : la requête doit avancer quand même.
 	http.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(http)
@@ -302,7 +304,9 @@ func installer(id: String, seule := false) -> void:
 	DirAccess.make_dir_recursive_absolute(dossier_greffes)
 	var part := dossier_greffes.path_join(id + ".pck.part")
 	var http := HTTPRequest.new()
-	http.timeout = 120.0
+	# Dans un navigateur, la réponse arrive déjà décompressée : Godot ne doit pas la décompresser encore.
+	http.accept_gzip = not OS.has_feature("web")
+	http.timeout = 0.0 if OS.has_feature("web") else 120.0
 	http.download_file = part
 	http.body_size_limit = Portail.TAILLE_MAX + 1
 	# Un téléchargement lancé depuis la bienvenue ou la carte, jeu en pause, doit aboutir.

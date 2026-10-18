@@ -151,7 +151,7 @@ func _remplir_panneau() -> void:
 	gauche.add_child(_titre_affiche("RENDEZ-VOUS"))
 	for rv in Voisinage.prochains_rendez_vous():
 		gauche.add_child(_mot("%s, %s à %s" % [rv.quoi, _jour(rv.quand), _heure(rv.quand)], 17, CRAIE, null, true))
-	gauche.add_child(_mot("Dans %s. Les tables à plusieurs ouvrent bientôt : venez déjà vous montrer." % Voisinage.RENDEZ_VOUS[0][4], 14, DOUX, null, true))
+	gauche.add_child(_mot("Dans %s. La table est partagée tous les soirs entre les joueurs connectés : à ces heures-là, on y trouve du monde." % Voisinage.RENDEZ_VOUS[0][4], 14, DOUX, null, true))
 	# Les petites annonces.
 	droite.add_child(_titre_affiche("PETITES ANNONCES"))
 	var annonces := Voisinage.annonces()
