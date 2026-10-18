@@ -22,6 +22,8 @@ const YIELD_MAX := 1.0
 const ANIMATION := 500
 ## Ce que Maître Garnier, Roger Fradin ou Raymonde reprennent d'un bien : 60 % du prix payé.
 const RESALE := 0.6
+## Ce que l'étude reprend des anciennes parts du club trouvées dans une sauvegarde (versé en fin de _load).
+var rachat_anciennes_parts := 0
 ## M. Brunet « allège le dossier » quand la dette dépasse ce seuil et trois fois la valeur des biens.
 const REPRISE_DEBT := 10000
 const REPRISE_RATIO := 4.0
@@ -52,11 +54,12 @@ const CATALOGUE := [
 	{"id": "casino", "kind": "part", "seller": "notaire", "name": "Une action du Casino de Smarves",
 		"price": 6000, "growth": 1.4, "max": 10, "rente": 600, "charge": 0, "standing": 1, "gate": 5000,
 		"from": "Monsieur Armand", "blurb": "« La maison gagne toujours, Monsieur. Soyez la maison. »"},
-	# Le club de la commune (docs/SUITE.md, section 6) : la rente suit le classement de l'Étoile (Football.recette_facteur),
-	# et qui tient le plus de parts parle au président (la causerie du stade). gate : le seuil du stade.
-	{"id": "etoile", "kind": "part", "seller": "notaire", "name": "Une part de l'Étoile de Smarves", "club": "smarves",
-		"price": 1500, "growth": 1.4, "max": 5, "rente": 150, "charge": 0, "standing": 1, "gate": 3000,
-		"from": "Le président Chauvin", "blurb": "« Le club cède des parts pour refaire la tribune. Une part, c'est une voix à la causerie, et la buvette les dimanches de victoire. »"},
+	# Le club de la commune (docs/SUITE.md, section 6) : ses obligations ne sont pas des biens comme les autres,
+	# le championnat les tient (Football.OBLIGATIONS, neuf tailles, une seule de chaque, la plus grosse somme
+	# dirige, un dividende par journée). Le lot n'est là que pour le plan du notaire et sa fiche. gate : le seuil du stade.
+	{"id": "etoile", "kind": "club", "seller": "notaire", "name": "Les obligations de l'Étoile de Smarves", "club": "smarves",
+		"price": 0, "growth": 1.0, "max": 0, "rente": 0, "charge": 0, "standing": 0, "gate": 3000,
+		"from": "Le président Chauvin", "blurb": "« Le club émet neuf obligations pour refaire la tribune. La plus grosse somme investie parle au président, et chaque journée verse son dividende. »"},
 	# Chez Maître Garnier aussi : les murs.
 	{"id": "chambre", "kind": "maison", "seller": "notaire", "name": "La chambre au-dessus du café",
 		"price": 800, "growth": 1.0, "max": 1, "rente": 80, "charge": 5, "standing": 1, "gate": 0, "lot": "chambre_cafe",
@@ -568,7 +571,6 @@ func buy(id: String, financed := false) -> bool:
 	elif it.kind == "maison" and not logements.has(id):
 		logements[id] = _new_logement(id)
 		_souvenirs()
-	_declarer_parts(id)
 	Game.changed.emit()
 	changed.emit()
 	return true
@@ -596,19 +598,9 @@ func sell(id: String) -> int:
 	_busy = true
 	Game.credits += paid
 	_busy = false
-	_declarer_parts(id)
 	Game.changed.emit()
 	changed.emit()
 	return paid
-
-
-## Les parts d'un club se déclarent au championnat (Football.detenir) : c'est lui qui sait qui parle pour le club.
-func _declarer_parts(id: String) -> void:
-	var it := item(id)
-	if it.has("club"):
-		var f := get_node_or_null("/root/Football")
-		if f != null:
-			f.detenir(str(it.club), count(id))
 
 
 ## Ce que le classement du club fait à la rente de ses parts (×0,7 à ×1,4 ; ×1 sans championnat).
@@ -684,9 +676,6 @@ func _recette() -> void:
 		if it.rente <= 0 or is_habite(id):
 			continue
 		var announced: int = it.rente * count(id)
-		if it.has("club"):
-			# Une part du club rapporte selon le classement du moment : la buvette suit les résultats.
-			announced = int(round(announced * facteur_club(str(it.club))))
 		var paid := int(round(announced * _rng.randf_range(YIELD_MIN, YIELD_MAX) * animation))
 		paid_total += paid
 		last_recette.append([it.name, paid, announced, it.charge * count(id)])
@@ -789,6 +778,10 @@ func _load() -> void:
 	if typeof(o) == TYPE_DICTIONARY:
 		for id in o:
 			if not item(id).is_empty() and int(o[id]) > 0:
+				if item(id).kind == "club":
+					# Les anciennes parts du club (avant les obligations, octobre 2026) : l'étude les reprend à 1 500.
+					rachat_anciennes_parts += 1500 * int(o[id])
+					continue
 				owned[id] = int(o[id])
 	var l = data.get("logements", {})
 	if typeof(l) == TYPE_DICTIONARY:
@@ -824,6 +817,12 @@ func _load() -> void:
 	total_rentes = int(data.get("total_rentes", 0))
 	total_charges = int(data.get("total_charges", 0))
 	total_spent = int(data.get("total_spent", 0))
+	if rachat_anciennes_parts > 0:
+		_busy = true
+		Game.credits += rachat_anciennes_parts
+		_busy = false
+		rachat_anciennes_parts = 0
+		Game.changed.emit()
 
 
 ## Relit les biens écrits sur l'appareil, en partant de zéro (la partie du compte vient d'y être reprise).

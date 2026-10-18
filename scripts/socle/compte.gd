@@ -15,6 +15,9 @@ extends Node
 ## ou reprise en dernier et l'empreinte de ses fichiers à ce moment ; c'est ce qui dit, au lancement,
 ## qui a bougé : le compte seul (on reprend), l'appareil seul (on envoie), ou les deux (le joueur
 ## choisit). Sans compte, rien de ce fichier ne s'exécute et le jeu se joue comme avant.
+##
+## Dans un navigateur (export web), pas de serveur local : Pyramides revient sur la page du jeu elle-même
+## avec le code dans l'adresse ; la demande en cours attend dans le stockage de la page.
 
 ## L'état a changé : la bienvenue se redessine.
 signal change
@@ -23,6 +26,10 @@ const PYRAMIDES := "https://pyramides2.vercel.app"
 const SUPABASE := "https://alvxrjftenialifyktyz.supabase.co/rest/v1/rpc/"
 ## Clé publique du projet : elle n'ouvre rien, c'est le jeton du joueur qui fait foi.
 const CLE_PUBLIQUE := "sb_publishable_JTwbhl8YTGJ9dPUmIwxctQ_vlu96NgE"
+## La fonction casino, qui tient les tables à plusieurs de Smarves (poker des Ambassadeurs).
+const CASINO := "https://alvxrjftenialifyktyz.supabase.co/functions/v1/casino?jeu=smarves"
+## Dans un navigateur : la demande de connexion en cours, gardée pendant l'aller-retour chez Pyramides.
+const ATTENTE_WEB := "smarves_connexion"
 ## Les ports essayés pour le retour, tous déclarés à l'enregistrement (l'adresse doit être exacte).
 const PORTS := [47811, 47812, 47813, 47814, 47815]
 const FICHIER := "user://compte.cfg"
@@ -76,6 +83,8 @@ func _ready() -> void:
 	if get_tree().get_script() != null or "--capture" in " ".join(OS.get_cmdline_user_args()):
 		return
 	_lire()
+	if OS.has_feature("web"):
+		_retour_web()
 	_minuteur = Timer.new()
 	_minuteur.wait_time = PERIODE
 	_minuteur.autostart = true
@@ -119,6 +128,9 @@ func connecte() -> bool:
 
 func se_connecter() -> void:
 	if etat == "connexion":
+		return
+	if OS.has_feature("web"):
+		_se_connecter_web()
 		return
 	_arreter_fil()
 	var serveur := TCPServer.new()
@@ -170,9 +182,46 @@ func se_deconnecter() -> void:
 	_etat("deconnecte")
 
 
+## Dans un navigateur : la page s'en va chez Pyramides et revient sur elle-même avec le code.
+func _se_connecter_web() -> void:
+	var adresse := str(JavaScriptBridge.eval("location.origin + location.pathname", true))
+	_etat("connexion", "Enregistrement…")
+	var client := await _client([adresse])
+	if client == "":
+		_echec("Pyramides ne répond pas. Vérifiez la connexion à Internet.")
+		return
+	var attente := {"verifieur": _hasard(), "etat": _hasard(), "client": client, "adresse": adresse}
+	JavaScriptBridge.eval("localStorage.setItem(%s, %s)" % [JSON.stringify(ATTENTE_WEB), JSON.stringify(JSON.stringify(attente))], true)
+	var q := {"response_type": "code", "client_id": client, "redirect_uri": adresse, "scope": "smarves",
+		"state": attente.etat, "code_challenge": _b64url(str(attente.verifieur).sha256_buffer()), "code_challenge_method": "S256"}
+	_etat("connexion", "Pyramides s'ouvre dans cette page…")
+	JavaScriptBridge.eval("location.assign(%s)" % JSON.stringify("%s/oauth/authorize?%s" % [PYRAMIDES, _requete(q)]), true)
+
+
+## Au lancement dans un navigateur : la page revient de Pyramides avec ?code=…&state=… (ou ?error=…).
+func _retour_web() -> void:
+	var recherche := str(JavaScriptBridge.eval("location.search", true))
+	var params := _params(recherche.trim_prefix("?"))
+	if not params.has("code") and not params.has("error"):
+		return
+	# L'adresse redevient propre : un rechargement ne rejoue pas le code.
+	JavaScriptBridge.eval("history.replaceState(null, '', location.origin + location.pathname)", true)
+	var brut = JavaScriptBridge.eval("localStorage.getItem(%s)" % JSON.stringify(ATTENTE_WEB), true)
+	JavaScriptBridge.eval("localStorage.removeItem(%s)" % JSON.stringify(ATTENTE_WEB), true)
+	var attente = JSON.parse_string(str(brut)) if brut != null else null
+	if not attente is Dictionary:
+		_echec("La connexion n'a pas abouti.")
+		return
+	_attente = attente
+	etat = "connexion"
+	var retour := {"code": params.code, "etat": params.get("state", "")} if params.has("code") else {"erreur": params.error}
+	_retour.call_deferred(retour)
+
+
 ## Un client par jeu d'adresses de retour, enregistré une fois et gardé.
-func _client() -> String:
-	var adresses: Array = PORTS.map(func(p): return "http://127.0.0.1:%d/retour" % p)
+func _client(adresses: Array = []) -> String:
+	if adresses.is_empty():
+		adresses = PORTS.map(func(p): return "http://127.0.0.1:%d/retour" % p)
 	var cle := " ".join(adresses)
 	if _clients.has(cle):
 		return str(_clients[cle])
@@ -456,6 +505,14 @@ static func empreinte_de(fichiers: Dictionary) -> String:
 
 # --- Le réseau -------------------------------------------------------------------------------
 
+## Une demande à la table à plusieurs (fonction casino) : {code, corps}. Code 401 sans compte valable.
+func casino(action: String, args := {}) -> Dictionary:
+	if not connecte():
+		return {"code": 401, "corps": {"error": "Connexion expirée."}}
+	return await _http(CASINO, ["Content-Type: application/json", "Authorization: Bearer " + _jeton],
+		JSON.stringify({"action": action, "args": args}))
+
+
 ## Appelle une fonction public.smarves_* de la base avec le jeton du joueur (vide sans compte) : {code, corps}.
 func appeler(fonction: String, corps: Dictionary) -> Dictionary:
 	corps["p_jeton"] = _jeton if connecte() else ""
@@ -466,9 +523,15 @@ func appeler(fonction: String, corps: Dictionary) -> Dictionary:
 ## {code, corps} ; code 0 si rien n'est revenu.
 func _http(adresse: String, entetes: Array, corps: String) -> Dictionary:
 	var http := HTTPRequest.new()
-	http.timeout = 15.0
+	# Dans un navigateur, la réponse arrive déjà décompressée : Godot ne doit pas la décompresser encore.
+	http.accept_gzip = not OS.has_feature("web")
+	# Dans un navigateur, le délai se compte en images : une image lente suffirait à tout faire échouer. Le
+	# navigateur garde le sien.
+	http.timeout = 0.0 if OS.has_feature("web") else 15.0
 	add_child(http)
-	if http.request(adresse, PackedStringArray(entetes + ["User-Agent: Smarves"]), HTTPClient.METHOD_POST, corps) != OK:
+	# Un navigateur pose lui-même son User-Agent.
+	var tous: Array = entetes if OS.has_feature("web") else entetes + ["User-Agent: Smarves"]
+	if http.request(adresse, PackedStringArray(tous), HTTPClient.METHOD_POST, corps) != OK:
 		http.queue_free()
 		return {"code": 0, "corps": null}
 	var r: Array = await http.request_completed

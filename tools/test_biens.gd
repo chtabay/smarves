@@ -65,13 +65,10 @@ func _ready() -> void:
 	_check(Biens.habite() == "" and Biens.rente_annoncee() == r0, "remise en location")
 	# L'ameublement : un meuble de la brocante sur un emplacement du bon genre.
 	Game.won = 25000
-	# Les parts de l'Étoile : le championnat sait ce qu'on tient, la rente suit le classement.
+	# Les obligations de l'Étoile ne sont pas des biens : le lot du plan ne s'achète pas, le championnat les tient.
 	Game.credits = 5000
-	_check(Biens.buy("etoile") and Football.parts_locales.get("smarves", 0) == 1, "une part de l'Étoile achetée, déclarée au championnat")
+	_check(not Biens.available("etoile") and not Biens.buy("etoile") and Biens.item("etoile").kind == "club", "le lot de l'Étoile ne s'achète pas à l'étude")
 	_check(Biens.facteur_club("smarves") >= 0.7 and Biens.facteur_club("smarves") <= 1.4, "le facteur du club est entre ×0,7 et ×1,4")
-	Biens.sell("etoile")
-	_check(not Football.parts_locales.has("smarves"), "revendue, le championnat n'en sait plus rien")
-	Football.parts_a_declarer = {}
 	_check(Biens.slots("chambre").size() == 6, "la chambre a 6 emplacements")
 	Biens.logements.chambre.interieur = "maison_v1"
 	_check(Biens.slots("chambre").size() == 24, "le gabarit de la maison en a 24")

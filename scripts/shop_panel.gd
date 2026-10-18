@@ -34,6 +34,7 @@ const SOLD := "« Repris à %s. Le marché est ce qu'il est, mais vous gardez l'
 const TOO_POOR := "« Il vous manque quelques crédits. M. Brunet finance, vous savez : c'est son métier, et il l'aime. »"
 
 const CARTE := preload("res://scripts/carte_biens.gd")
+const OBLIGATIONS := preload("res://scripts/socle/foot_obligations.gd")
 
 var _list: VBoxContainer
 ## Chez le notaire, le registre est un plan : les biens sur leurs bâtiments, la fiche du lot choisi à côté.
@@ -45,6 +46,13 @@ var _serif: Font
 
 func _ready() -> void:
 	_serif = Polices.texte()
+	if seller == "notaire":
+		# Capture : --actionnaires=vous:3,Lucien:5 force les porteurs ; --registre ouvre le registre des obligations.
+		for arg in OS.get_cmdline_user_args():
+			if arg.begins_with("--actionnaires="):
+				get_node("/root/Football").forcer_porteurs(arg.trim_prefix("--actionnaires="), "smarves")
+		if "--registre" in OS.get_cmdline_user_args():
+			_ouvrir_obligations.call_deferred("smarves")
 	custom_minimum_size = Vector2(1120, 760) if seller == "notaire" else Vector2(940, 620)
 	var st := StyleBoxFlat.new()
 	st.bg_color = PAPER
@@ -225,12 +233,20 @@ func _detail(id: String) -> void:
 		_label(_list, "Pas encore cédé. %s attend que vous ayez gagné %s au jeu." % [it.from, Game.fmt(it.gate)], 16, INK_LIGHT)
 		return
 	_label(_list, "%s  —  %s" % [it.from, it.blurb], 15, INK_LIGHT)
-	if it.has("club"):
-		_label(_list, "Rente annoncée : %s par recette, selon le classement du club (×1,4 en tête, ×0,7 en queue)." % Game.fmt(it.rente), 16, INK)
+	if it.kind == "club":
+		# Les obligations du club : le registre est au championnat (FootObligations), l'étude ne fait que l'ouvrir.
 		var f := get_node_or_null("/root/Football")
 		if f != null:
+			_label(_list, "Neuf obligations, de %s à %s crédits, une seule de chaque ; un dividende à chaque journée, selon le classement." % [Game.fmt(int(f.OBLIGATIONS[0])), Game.fmt(int(f.OBLIGATIONS[f.OBLIGATIONS.size() - 1]))], 16, INK)
 			_label(_list, str(f.phrase_actionnaires(str(it.club))), 15, INK_LIGHT)
-	elif it.rente > 0:
+			if f.investi(str(it.club)) > 0:
+				_label(_list, "Vous avez %s crédits dans le club ; dividendes touchés : %s." % [Game.fmt(int(f.investi(str(it.club)))), Game.fmt(int(f.dividendes_total))], 15, INK)
+			var reg := _button("Ouvrir le registre des obligations", _ouvrir_obligations.bind(str(it.club)))
+			reg.name = "Obligations"
+			reg.custom_minimum_size.y = 48
+			_list.add_child(reg)
+		return
+	if it.rente > 0:
 		_label(_list, "Rente annoncée : %s par recette" % Game.fmt(it.rente), 16, INK)
 	if it.charge > 0:
 		_label(_list, "Charges : %s" % Game.fmt(it.charge), 16, INK)
@@ -270,6 +286,18 @@ func _buy(id: String, financed: bool) -> void:
 		Sfx.play("chips", -6.0)
 		spoke.emit(FINANCED if financed else (THANKS.get(seller, THANKS.notaire) as Array).pick_random())
 	_refresh()
+
+
+## Le registre des obligations du club, par-dessus l'étude ; il revient à la fiche en se fermant.
+func _ouvrir_obligations(club: String) -> void:
+	var p: PanelContainer = OBLIGATIONS.new()
+	p.club = club
+	p.closed.connect(func():
+		p.queue_free()
+		visible = true
+		_refresh())
+	visible = false
+	get_parent().add_child(p)
 
 
 func _sell(id: String) -> void:

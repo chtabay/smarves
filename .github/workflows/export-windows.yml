@@ -49,6 +49,21 @@ jobs:
           path: build/
           retention-days: 30
 
+      # La version web (jouée dans un navigateur, publiée par Vercel depuis la Release : web/build.mjs).
+      - name: Exporter la version web
+        run: |
+          mkdir -p build-web
+          ./godot --headless --path . --export-release "Web" build-web/index.html
+          test -f build-web/index.wasm
+          echo "$GITHUB_SHA" > build-web/commit.txt
+          tar -czf Smarves-web.tar.gz -C build-web .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Smarves-web
+          path: Smarves-web.tar.gz
+          retention-days: 30
+
   # L'installateur Windows (Inno Setup, installer/smarves.iss), construit sur un runner Windows à
   # partir de l'exécutable exporté, puis essayé de bout en bout : installation silencieuse, raccourcis,
   # lancement du jeu par le raccourci, désinstallation. Sur main, il rejoint la Release.
@@ -275,6 +290,11 @@ jobs:
           path: build
 
       - uses: actions/download-artifact@v4
+        with:
+          name: Smarves-web
+          path: build
+
+      - uses: actions/download-artifact@v4
         if: needs.android.result == 'success'
         with:
           name: Smarves-android
@@ -312,10 +332,12 @@ jobs:
             sans droits administrateur et pose un raccourci dans le menu Démarrer et sur le bureau.
             Sans installation : Smarves-windows.zip, à décompresser, puis lancer Smarves.exe.
             Sur téléphone Android : télécharger Smarves.apk depuis le téléphone et l'installer.
+            Smarves-web.tar.gz : la version qui se joue dans un navigateur (publiée en ligne).
           files: |
             Smarves-windows.zip
             build/Smarves-installateur.exe
             build/Smarves.apk
+            build/Smarves-web.tar.gz
           fail_on_unmatched_files: false
           make_latest: true
 

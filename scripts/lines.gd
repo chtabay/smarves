@@ -74,6 +74,20 @@ const SPEAKERS := {
 		"La caisse avance. La caisse croit en vous.",
 		"Un jeton, c'est de l'argent qui a pris confiance en lui.",
 	]},
+	## Capucine Varenne, au Bar du Fumoir : un clin d'œil à Authentic Spirits, de vrais dénicheurs
+	## d'eaux-de-vie rares qui sillonnent les régions en van (https://www.authentic-spirits.com/).
+	## Loi Évin : elle ne parle que d'origine, de terroir, de producteurs et de façon de faire ; elle
+	## ne boit pas, ne tend aucun verre, et rien de ce qu'elle raconte ne se vend ni ne se gagne.
+	"capucine": {"name": "Capucine Varenne", "lines": [
+		"Capucine Varenne. Je chasse les pépites : des eaux-de-vie que personne ne connaît, dans des chais où personne ne va. En service, je ne prends que du café.",
+		"Jouer ? Jamais. Je chasse. À la roulette, la roue choisit ; sur la route, c'est moi.",
+		"La Charente commence à une heure d'ici. Grande Champagne, Fins Bois, Bons Bois : je connais chaque chai par le nom de son chien.",
+		"Une pépite, c'est un fût d'une seule année, mis en bouteille brut de fût, sans rien ajouter ni filtrer. Rien n'est truqué, tout prend du temps.",
+		"Ma carte ? Chaque croix est une ferme : un alambic du Bas-Armagnac, un verger du Domfrontais, une poire Williams d'Alsace.",
+		"On m'a dit que Smarves était le village où l'on gagne le plus. Moi, je cherche celui où l'on distille le mieux. C'est rarement le même.",
+		"Quand je suis en ville, le van dort sur la placette de la rue du Clain. Noir, lettres dorées. Le toit sert de grenier.",
+		"Je connais une fable : le Van et la Roulette. La morale tient en une ligne : la chance tourne en rond, la patience fait du chemin.",
+	]},
 	"habitant": {"name": "un habitant", "lines": [
 		"J'ai tout placé sur la Smarvoise. Mes enfants comprendront plus tard.",
 		"À Smarves, on ne dit pas « perdre », on dit « avoir de l'expérience ».",

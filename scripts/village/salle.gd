@@ -203,11 +203,13 @@ func open_paris() -> void:
 	_game = p
 
 
-## Les tickets dont le dimanche est passé se règlent en entrant au café, et Josiane le dit.
+## Les tickets réglés depuis la dernière visite (le règlement tombe à l'heure, où que soit le joueur,
+## Paris.tic) : en entrant au café, Josiane en dit un mot.
 func _regler_paris() -> void:
 	if shop != "cafe":
 		return
-	for t in Paris.regler():
+	Paris.regler()
+	for t in Paris.non_vus():
 		if t.etat == "gagne":
 			_note("Josiane : « Votre ticket de la journée %d est bon : %s crédits. »" % [int(t.j), Game.fmt(int(t.gain))])
 		else:

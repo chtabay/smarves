@@ -1,12 +1,17 @@
+class_name Stade
 extends "res://scripts/shop_interior.gd"
-## Le stade municipal de Smarves, à la première personne, derrière son seuil (docs/SUITE.md, section 6) :
-## la pelouse sous les projecteurs, la tribune couverte de l'Étoile, le tableau d'affichage, et le match
+## Le stade d'une commune, à la première personne, derrière son seuil (docs/SUITE.md, section 6) : la scène
+## est au socle, la même pour toute commune qui déclare un terrain (« terrain_foot ») ; le nom du club, son
+## sigle, ses couleurs, le nom du stade et la porte du retour viennent de cette structure, le président du
+## lieu qui la porte (champ « hote »). Smarves y joue l'Étoile ; une autre commune l'ouvre par
+## Football.ouvrir_stade(id), et sa sortie ramène dans sa scène, à la porte « lot » du terrain.
+## La pelouse sous les projecteurs, la tribune couverte du club, le tableau d'affichage, et le match
 ## du dimanche qui se joue minute par minute sur la pelouse (FootMatch, le même état que la feuille du
 ## café) : les vingt-deux joueurs suivent le ballon, chaque action se joue en scènes (la construction dans
 ## son couloir, le centre de l'ailier, le corner tiré du poteau, le coup franc, le tir qui finit au fond,
 ## dans les gants ou sur le poteau), le commentateur parle en bas de l'écran, le tableau tient le score. Avant la première journée, l'Étoile s'entraîne et le tableau donne le coup d'envoi.
 ## L'interface, la capture et les petits outils viennent de l'intérieur des vendeurs (shop_interior.gd).
-## Capture : godot --path . res://scenes/stade.tscn -- --capture=sortie.png [--at=x,z,lacet,tangage] [--won=…] [--journee=n] [--minute=m]
+## Capture : godot --path . res://scenes/stade.tscn -- --capture=sortie.png [--at=x,z,lacet,tangage] [--won=…] [--journee=n] [--minute=m] [--commune=id]
 
 ## La pelouse : sa longueur (x) et sa largeur (z), et l'échelle des joueurs.
 const L := 36.0
@@ -33,6 +38,11 @@ var _depart_ballon := Vector3.ZERO
 var _chrono := 0.0
 var _possession := [0, 0]
 var _score: Label3D
+## Le bandeau du direct, en haut de l'écran : le score, la minute, le dernier fait (point UX des activités).
+var _bandeau: PanelContainer
+var _bandeau_score: Label
+var _bandeau_fait: Label
+var _bandeau_tween: Tween
 var _horloge: Label3D
 var _affiche: Label3D
 var _supporters: Array = []
@@ -44,11 +54,37 @@ const TABLEAU := preload("res://scripts/socle/foot_tableau.gd")
 ## Le président Chauvin, et sa causerie (les consignes du prochain match) quand elle est ouverte.
 const CAUSERIE := preload("res://scripts/socle/foot_causerie.gd")
 const MERCATO := preload("res://scripts/socle/foot_mercato.gd")
+const OBLIGATIONS := preload("res://scripts/socle/foot_obligations.gd")
+const LOCAUX := preload("res://scripts/socle/foot_locaux.gd")
 var _president: Node3D
 var _causerie: PanelContainer
+## La commune dont c'est le stade, posée par ouvrir() avant le changement de scène (Smarves sinon), son
+## terrain au registre, et son club dans la pyramide ("" tant qu'il attend la saison prochaine).
+static var prochaine_commune := ""
+var commune := ""
+var _terrain := {}
+var _club := ""
+
+
+## Ouvre le stade d'une commune : la scène du socle, habillée de son terrain. La sortie ramène à sa scène.
+static func ouvrir(id: String) -> void:
+	prochaine_commune = id
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	(Engine.get_main_loop() as SceneTree).change_scene_to_file("res://scenes/stade.tscn")
 
 
 func _ready() -> void:
+	commune = prochaine_commune if prochaine_commune != "" else Communes.origine().id
+	prochaine_commune = ""
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--commune="):
+			commune = arg.trim_prefix("--commune=")
+	if Football.niveaux.is_empty():
+		Football.actualiser()
+	for e in Registre.de_commune(commune):
+		if e.type == "terrain_foot":
+			_terrain = e
+	_club = _club_de_la_commune()
 	_serif = Polices.texte()
 	W = L + 20.0
 	D = P + 24.0
@@ -59,6 +95,7 @@ func _ready() -> void:
 	_tableau_affichage()
 	_le_president()
 	_build_ui()
+	_bandeau_du_direct()
 	player = PLAYER.new()
 	player.position = Vector3(0, 0, -P / 2.0 - 4.0)
 	player.rotation.y = PI
@@ -177,7 +214,7 @@ func _pelouse() -> void:
 func _tribune() -> void:
 	var beton := _std(Color(0.75, 0.73, 0.7), 0.9)
 	var bois := _std(Color(0.55, 0.36, 0.22), 0.7)
-	var bleu := _std(Color(0.2, 0.3, 0.45), 0.6)
+	var bleu := _std(_couleur(), 0.6)
 	var tz := -P / 2.0 - 4.0
 	var tw := 22.0
 	for i in 4:
@@ -189,7 +226,7 @@ func _tribune() -> void:
 	var toit := _box(Vector3(tw + 1.0, 0.12, 5.6), Vector3(0, 4.6, tz - 2.2), bleu)
 	toit.rotation_degrees.x = -6.0
 	_box(Vector3(tw + 1.0, 0.5, 0.08), Vector3(0, 4.3, tz + 0.25), _std(Color(0.97, 0.95, 0.9), 0.6))
-	_label3d("L'ÉTOILE DE SMARVES  ·  STADE MUNICIPAL", Vector3(0, 4.3, tz + 0.3), 64, Color(0.15, 0.25, 0.5))
+	_label3d("%s  ·  %s" % [_enseigne(_nom_club()), _enseigne(_nom_stade())], Vector3(0, 4.3, tz + 0.3), 64, _couleur().darkened(0.1))
 	# Les supporters, assis en tribune : ils se lèvent au but.
 	var graine := 70
 	for i in 4:
@@ -200,7 +237,7 @@ func _tribune() -> void:
 			var c := CRITTER.new()
 			c.randomize_look(graine)
 			if graine % 2 == 0:
-				c.look["top_color"] = "#1b3c8c"
+				c.look["top_color"] = _couleurs()[0]
 			c.scale = Vector3.ONE * PEOPLE_SCALE
 			c.position = Vector3(-tw / 2.0 + 1.5 + k * (tw - 3.0) / 6.0 + (i % 2) * 0.8, 0.4 + i * 0.4, tz - 0.3 - i * 1.0)
 			add_child(c)
@@ -211,11 +248,11 @@ func _tribune() -> void:
 	for s in [-1.0, 1.0]:
 		_box(Vector3(0.24, 1.8, 0.24), Vector3(-tw / 2.0 - 1.0 + s * 0.75, 0.9, tz + 1.0), pierre)
 	_box(Vector3(1.8, 0.3, 0.1), Vector3(-tw / 2.0 - 1.0, 1.85, tz + 1.0), bleu)
-	_label3d("STADE MUNICIPAL", Vector3(-tw / 2.0 - 1.0, 1.85, tz + 1.07), 40, Color(1.0, 0.9, 0.55))
+	_label3d(_enseigne(_nom_stade()), Vector3(-tw / 2.0 - 1.0, 1.85, tz + 1.07), 40, Color(1.0, 0.9, 0.55))
 	var sortie := Node3D.new()
 	sortie.position = Vector3(-tw / 2.0 - 1.0, 0, tz + 1.0)
 	add_child(sortie)
-	_interactive(sortie, "exit", "E : sortir sur la route du Bois", Vector3(2.2, 2.2, 2.0), Vector3(0, 1.1, 0))
+	_interactive(sortie, "exit", "E : sortir sur la route du Bois" if commune == Communes.ORIGINE else "E : sortir du stade", Vector3(2.2, 2.2, 2.0), Vector3(0, 1.1, 0))
 	_lamp(Vector3(-tw / 2.0 - 1.0, 2.4, tz + 1.6), Color(1.0, 0.75, 0.45), 1.5, 7.0)
 	# Un muret ferme le reste, et la buvette dans l'angle.
 	_box(Vector3(W, 1.2, 0.3), Vector3(0, 0.6, -D / 2.0 + 0.2), pierre, true)
@@ -231,10 +268,22 @@ func _tribune() -> void:
 	_label3d("BUVETTE", Vector3(0, 2.0, 1.02), 44, Color(0.95, 0.85, 0.6)).position += buvette.position
 	_lamp(buvette.position + Vector3(0, 2.2, 1.6), Color(1.0, 0.8, 0.5), 1.2, 6.0)
 	_interactive(buvette, "buvette", "E : un café à la buvette", Vector3(3.4, 2.4, 2.0), Vector3(0, 1.2, 1.8))
+	# Les locaux du club, de l'autre côté de la tribune : le siège, où l'on gère le club comme avec le président.
+	var locaux := Node3D.new()
+	locaux.position = Vector3(-tw / 2.0 - 3.0, 0, tz - 1.0)
+	add_child(locaux)
+	_box(Vector3(3.2, 2.6, 2.2), Vector3(0, 1.3, 0), _std(Color(0.86, 0.82, 0.7), 0.8), true, locaux)
+	_box(Vector3(3.4, 0.12, 2.5), Vector3(0, 2.62, 0.1), bleu, false, locaux)
+	_box(Vector3(0.9, 2.0, 0.08), Vector3(0.4, 1.0, 1.12), bois, false, locaux)
+	_box(Vector3(0.7, 0.6, 0.06), Vector3(-0.8, 1.6, 1.12), _std(Color(0.55, 0.7, 0.85), 0.3), false, locaux)
+	_label3d("LE SIÈGE DU CLUB", Vector3(0, 2.25, 1.14), 36, Color(0.95, 0.85, 0.6)).position += locaux.position
+	_lamp(locaux.position + Vector3(0, 2.3, 1.6), Color(1.0, 0.85, 0.6), 1.1, 6.0)
+	_interactive(locaux, "locaux", "E : entrer au siège du club", Vector3(3.6, 2.6, 2.2), Vector3(0, 1.3, 1.6))
 
 
 ## Le tableau d'affichage, derrière la touche sud, face à la tribune.
-## Le président Chauvin, debout au bord de la pelouse devant sa tribune : E ouvre la causerie.
+## Le président du club (l'hôte du lieu qui porte le terrain), debout au bord de la pelouse devant sa
+## tribune : E ouvre la causerie.
 func _le_president() -> void:
 	var c := CRITTER.new()
 	c.randomize_look(1987)
@@ -243,7 +292,7 @@ func _le_president() -> void:
 	c.look["legs"] = "pantalon"
 	c.look["legs_color"] = "#3a3a44"
 	c.look["hat"] = "casquette"
-	c.look["hat_color"] = "#1b3c8c"
+	c.look["hat_color"] = _couleurs()[0]
 	c.look.erase("prop_r")
 	c.look.erase("apron")
 	c.scale = Vector3.ONE * PEOPLE_SCALE
@@ -251,16 +300,18 @@ func _le_president() -> void:
 	c.rotation.y = PI * 0.75
 	add_child(c)
 	_president = c
-	_label3d("Le président Chauvin", c.position + Vector3(0, 2.3, 0), 22, Color(0.95, 0.85, 0.6), 180.0)
-	_interactive(c, "president", "E : parler au président Chauvin", Vector3(1.2, 1.0, 1.2), Vector3(0, 0.4, 0))
+	_label3d(_nom_president(), c.position + Vector3(0, 2.3, 0), 22, Color(0.95, 0.85, 0.6), 180.0)
+	_interactive(c, "president", "E : parler %s" % _a(_nom_president()), Vector3(1.2, 1.0, 1.2), Vector3(0, 0.4, 0))
 
 
 ## La causerie : les consignes de l'Étoile pour son prochain match, dans la même ardoise que le tableau du café.
 func open_causerie() -> void:
 	if _causerie != null:
 		return
+	if _sans_club():
+		return
 	var p: PanelContainer = CAUSERIE.new()
-	p.club = _club_de_la_commune()
+	p.club = _club
 	p.closed.connect(func():
 		p.queue_free()
 		_causerie = null
@@ -280,8 +331,10 @@ func open_causerie() -> void:
 func open_mercato() -> void:
 	if _causerie != null:
 		return
+	if _sans_club():
+		return
 	var p: PanelContainer = MERCATO.new()
-	p.club = _club_de_la_commune()
+	p.club = _club
 	p.closed.connect(func():
 		p.queue_free()
 		_causerie = null
@@ -293,13 +346,127 @@ func open_mercato() -> void:
 	_causerie = p
 
 
-## Le club de la commune d'origine (celui du terrain du registre), « smarves » ici.
+## Les locaux du club : le siège, d'où l'on ouvre la causerie, le mercato et le registre des obligations.
+func open_locaux() -> void:
+	if _causerie != null:
+		return
+	if _sans_club():
+		return
+	var p: PanelContainer = LOCAUX.new()
+	p.club = _club
+	var fermer := func():
+		p.queue_free()
+		_causerie = null
+	p.closed.connect(func():
+		fermer.call()
+		player.frozen = false
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
+	p.causerie.connect(func():
+		fermer.call()
+		open_causerie())
+	p.mercato.connect(func():
+		fermer.call()
+		open_mercato())
+	p.obligations.connect(func():
+		fermer.call()
+		open_obligations())
+	player.frozen = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_panel_layer.add_child(p)
+	_causerie = p
+
+
+## Le registre des obligations du club, le même qu'à l'étude de Maître Garnier.
+func open_obligations() -> void:
+	if _causerie != null:
+		return
+	if _sans_club():
+		return
+	var p: PanelContainer = OBLIGATIONS.new()
+	p.club = _club
+	p.closed.connect(func():
+		p.queue_free()
+		_causerie = null
+		player.frozen = false
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
+	player.frozen = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_panel_layer.add_child(p)
+	_causerie = p
+
+
+## Le club de la commune dans la pyramide (celui de son terrain), ou "" s'il attend la saison prochaine.
 func _club_de_la_commune() -> String:
-	var origine: Commune = Communes.origine()
 	for id in Football.clubs:
-		if str(Football.clubs[id].get("commune", "")) == origine.id:
+		if str(Football.clubs[id].get("commune", "")) == commune and not Football.clubs[id].get("invite", false):
 			return id
-	return "smarves"
+	return ""
+
+
+## Ce que la structure « terrain_foot » dit du club et du stade, avec le club de la pyramide en secours.
+func _nom_club() -> String:
+	var c: Dictionary = Football.clubs.get(_club, {})
+	return str(_terrain.get("champs", {}).get("club", c.get("nom", "le club")))
+
+
+func _nom_stade() -> String:
+	var c: Dictionary = Football.clubs.get(_club, {})
+	return str(_terrain.get("nom", c.get("stade", "le stade")))
+
+
+func _couleurs() -> Array:
+	var c: Array = _terrain.get("champs", {}).get("couleurs", Football.clubs.get(_club, {}).get("couleurs", []))
+	return c if c.size() >= 2 else ["#1b3c8c", "#f2c94c"]
+
+
+## La couleur du club pour les bancs, la tribune, les toits : la première, un peu éteinte.
+func _couleur() -> Color:
+	return Color.from_string(str(_couleurs()[0]), Color(0.2, 0.3, 0.45)).lerp(Color(0.2, 0.3, 0.45), 0.35)
+
+
+## Le président : l'hôte du lieu du manifeste qui porte le terrain (même id, ou la porte « lot »).
+func _nom_president() -> String:
+	var c: Commune = Communes.commune(commune)
+	if c:
+		for l in c.lieux():
+			if l.id == _terrain.get("id", "") or (l.id == _terrain.get("lot", "") and l.id != ""):
+				return str(l.host) if str(l.host) != "" else "Le président"
+	return "Le président"
+
+
+## « Le stade municipal » → « STADE MUNICIPAL ».
+static func _enseigne(nom: String) -> String:
+	var n := nom.strip_edges()
+	for a in ["Le ", "La ", "Les ", "L'", "L’"]:
+		if n.begins_with(a):
+			n = n.substr(a.length())
+			break
+	return n.to_upper()
+
+
+## « Le président Chauvin » → « au président Chauvin » ; « Mme Rivière » → « à Mme Rivière ».
+static func _a(nom: String) -> String:
+	if nom.begins_with("Le "):
+		return "au " + nom.substr(3)
+	if nom.begins_with("La "):
+		return "à la " + nom.substr(3)
+	if nom.begins_with("L'") or nom.begins_with("L’"):
+		return "à l'" + nom.substr(2)
+	return "à " + nom
+
+
+## La porte du village où l'on ressort : le « lot » du terrain, sinon son id (« stade » à Smarves).
+func _lot() -> String:
+	var lot := str(_terrain.get("lot", ""))
+	return lot if lot != "" else str(_terrain.get("id", "stade"))
+
+
+## Le club n'est pas encore dans la pyramide : rien à décider, le président le dit.
+func _sans_club() -> bool:
+	if _club != "":
+		return false
+	_dire("« %s entre dans le championnat à la saison prochaine. D'ici là, on s'entraîne. »" % _nom_club())
+	return true
 
 
 func _tableau_affichage() -> void:
@@ -331,17 +498,18 @@ func _tableau_affichage() -> void:
 func _choisir() -> Dictionary:
 	if Football.niveaux.is_empty():
 		Football.actualiser()
-	var tableau: PanelContainer = FootTableau.new()
-	var d: Array = tableau.division_suivie()
-	tableau.free()
+	var d: Array = Football.place_de(_club) if _club != "" else []
+	if d.is_empty():
+		var tableau: PanelContainer = FootTableau.new()
+		d = tableau.division_suivie()
+		tableau.free()
 	var s: int = Football.saison
 	var joues: int = Football.journee_jouee()
 	var j: int = joues if joues > 0 else 1
 	var matchs: Array = Football.journee(s, d[0], d[1], j, joues)
-	var origine: Commune = Communes.origine()
 	var choisi: Dictionary = matchs[0]
 	for m in matchs:
-		if origine and (m.dom == origine.id or m.ext == origine.id):
+		if _club != "" and (m.dom == _club or m.ext == _club):
 			choisi = m
 	return {"s": s, "j": j, "dom": choisi.dom, "ext": choisi.ext, "joue": joues > 0, "coup_envoi": Football.coup_envoi(s, j)}
 
@@ -375,7 +543,7 @@ func _composer() -> void:
 			_dire(_etat.evenements[-1].texte)
 	else:
 		_entrainer()
-		_note("L'Étoile s'entraîne sous les projecteurs. %s" % _affiche.text)
+		_note("%s s'entraîne sous les projecteurs. %s" % [_nom_club(), _affiche.text])
 	_placer(true)
 
 
@@ -402,6 +570,9 @@ func _synchroniser(dun_coup := false) -> void:
 ## tableau d'affichage, et l'Étoile revient s'entraîner.
 func _terminer() -> void:
 	_resultat = _etat
+	if _bandeau != null and _bandeau.visible:
+		_afficher_bandeau(_score_bandeau(), "Terminé, la feuille au tableau.")
+		_effacer_bandeau(8.0)
 	_score.text = "%s  %d - %d  %s" % [Football.clubs[_rencontre.dom].court, _etat.score[0], _etat.score[1], Football.clubs[_rencontre.ext].court]
 	_horloge.text = "Journée %d  ·  terminé" % _rencontre.j
 	_affiche.text = "%s – %s  ·  la feuille de match au tableau (E)" % [Football.clubs[_rencontre.dom].nom, Football.clubs[_rencontre.ext].nom]
@@ -575,6 +746,19 @@ func _minute() -> void:
 	var evenements: Array = FootMatch.avancer(_etat, _joueurs, _hasard)
 	var qui: int = 0 if _etat.stats[0].possession > avant[0] else 1
 	_horloge.text = "Journée %d  ·  %s" % [_rencontre.j, FootMatch.libelle_minute(_etat)]
+	var fait := ""
+	for ev in evenements:
+		if ev.type in ["but", "carton", "remplacement", "penalty"]:
+			fait = str(ev.texte)
+	if _etat.pause == "mi-temps":
+		_afficher_bandeau("%s  ·  Mi-temps" % _score_bandeau().split("  ·  ")[0])
+	elif _etat.fini:
+		_afficher_bandeau(_score_bandeau(), "Terminé, la feuille au tableau.")
+		_effacer_bandeau(8.0)
+	elif fait != "" or _bandeau == null or not _bandeau.visible:
+		_afficher_bandeau(_score_bandeau(), fait)
+	else:
+		_bandeau_score.text = _score_bandeau()
 	var sens := 1.0 if qui == 0 else -1.0
 	# La minute précédente est finie, même si sa dernière scène ne l'était pas.
 	_scenes.clear()
@@ -711,14 +895,81 @@ func _marquer(i: int, ev: Dictionary) -> void:
 	_score.text = "%s  %d - %d  %s" % [cd.court, _etat.score[0], _etat.score[1], ce.court]
 	if _acteurs.has(ev.get("joueur", "")):
 		_acteurs[ev.joueur].cheer(2.0)
-	var origine: Commune = Communes.origine()
-	var chez_nous: bool = origine != null and (_rencontre.dom if i == 0 else _rencontre.ext) == origine.id
+	var chez_nous: bool = _club != "" and (_rencontre.dom if i == 0 else _rencontre.ext) == _club
 	for s in _supporters:
 		if chez_nous:
 			s.cheer(2.4)
 		elif randf() < 0.2:
 			s.gesture("facepalm")
 	Sfx.result(1, 50 if chez_nous else 0)
+
+
+## Le bandeau du direct : l'ardoise en haut au centre, le score et la minute en grand, le dernier fait dessous.
+func _bandeau_du_direct() -> void:
+	_bandeau = PanelContainer.new()
+	var st := StyleBoxFlat.new()
+	st.bg_color = Color(0.11, 0.17, 0.15, 0.9)
+	st.border_color = Color(0.55, 0.42, 0.25)
+	st.set_border_width_all(2)
+	st.set_corner_radius_all(6)
+	st.content_margin_left = 22
+	st.content_margin_right = 22
+	st.content_margin_top = 8
+	st.content_margin_bottom = 8
+	_bandeau.add_theme_stylebox_override("panel", st)
+	_bandeau.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_bandeau.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_bandeau.position.y = 18
+	_bandeau.visible = false
+	_bandeau.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 2)
+	_bandeau.add_child(v)
+	_bandeau_score = Label.new()
+	_bandeau_score.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_bandeau_score.add_theme_font_override("font", Polices.gras())
+	_bandeau_score.add_theme_font_size_override("font_size", 26)
+	_bandeau_score.add_theme_color_override("font_color", Color(0.95, 0.93, 0.85))
+	v.add_child(_bandeau_score)
+	_bandeau_fait = Label.new()
+	_bandeau_fait.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_bandeau_fait.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_bandeau_fait.custom_minimum_size.x = 420
+	_bandeau_fait.add_theme_font_override("font", _serif)
+	_bandeau_fait.add_theme_font_size_override("font_size", 15)
+	_bandeau_fait.add_theme_color_override("font_color", Color(0.96, 0.8, 0.45))
+	v.add_child(_bandeau_fait)
+	_speech.get_parent().add_child(_bandeau)
+
+
+## Ce que dit le bandeau : le score et la minute, et le dernier fait s'il y en a un (deux lignes au plus).
+func _afficher_bandeau(score: String, fait := "") -> void:
+	if _bandeau == null:
+		return
+	if _bandeau_tween:
+		_bandeau_tween.kill()
+	_bandeau.modulate.a = 1.0
+	_bandeau.visible = true
+	_bandeau_score.text = score
+	_bandeau_fait.text = fait
+	_bandeau_fait.visible = fait != ""
+
+
+## Le bandeau s'efface au bout d'un moment (le coup de sifflet final).
+func _effacer_bandeau(apres: float) -> void:
+	if _bandeau == null or not _bandeau.visible:
+		return
+	if _bandeau_tween:
+		_bandeau_tween.kill()
+	_bandeau_tween = create_tween()
+	_bandeau_tween.tween_interval(apres)
+	_bandeau_tween.tween_property(_bandeau, "modulate:a", 0.0, 1.0)
+	_bandeau_tween.tween_callback(func(): _bandeau.visible = false)
+
+
+## Le score du bandeau : « ESM 1 – 0 LVV · 63e ».
+func _score_bandeau() -> String:
+	return "%s  %d – %d  %s  ·  %s" % [Football.clubs[_rencontre.dom].court, _etat.score[0], _etat.score[1], Football.clubs[_rencontre.ext].court, FootMatch.libelle_minute(_etat)]
 
 
 func _dire(texte: String) -> void:
@@ -742,17 +993,20 @@ func _show_speech() -> void:
 func _on_interact(target: Node) -> void:
 	match str(target.get_meta("interact", "")):
 		"exit":
-			Game.return_point = "stade"
+			Game.return_point = _lot()
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-			get_tree().change_scene_to_file("res://scenes/main.tscn")
+			var c: Commune = Communes.commune(commune)
+			get_tree().change_scene_to_file(str(c.data.scene) if c else "res://scenes/main.tscn")
 		"president":
 			open_causerie()
+		"locaux":
+			open_locaux()
 		"feuille":
 			open_feuille()
 		"buvette":
 			_dire(["« Un café, un. C'est la femme du président qui tient la buvette, et elle ne fait pas crédit. »",
 				"« Le chocolat chaud, c'est pour les moins de douze ans et les gardiens de but. »",
-				"« Le président Chauvin dit que l'Étoile montera. Il le dit depuis 1987. »"].pick_random())
+				"« %s dit que %s montera. Il le dit depuis 1987. »" % [_nom_president(), _nom_club()]].pick_random())
 
 
 # --- Capture --------------------------------------------------------------------------------------
@@ -771,23 +1025,20 @@ func _maybe_capture() -> void:
 			player.rotation.y = deg_to_rad(v[2])
 			if v.size() > 3:
 				player.camera.rotation.x = deg_to_rad(v[3])
-		elif arg.begins_with("--minute=") or arg.begins_with("--journee=") or arg == "--mercato":
+		elif arg.begins_with("--minute=") or arg.begins_with("--journee=") or arg == "--mercato" or arg.begins_with("--commune="):
 			pass
 		elif arg.begins_with("--actionnaires="):
-			# Des parts du club pour la capture : --actionnaires=vous:2,Lucien:1 (avant --open=causerie).
-			var club := _club_de_la_commune()
-			var autres: Array = []
-			for morceau in arg.trim_prefix("--actionnaires=").split(","):
-				var kv := morceau.split(":")
-				if kv[0] == "vous":
-					Football.parts_locales[club] = int(kv[1])
-				else:
-					autres.append({"par": kv[0], "nombre": int(kv[1]), "moi": false})
-			Football.parts[club] = autres
+			# Des obligations du club pour la capture : --actionnaires=vous:3+1,Lucien:5 (les rangs, avant --open=causerie).
+			if _club != "":
+				Football.forcer_porteurs(arg.trim_prefix("--actionnaires="), _club)
 		elif arg == "--open=causerie":
 			open_causerie()
 		elif arg == "--open=mercato":
 			open_mercato()
+		elif arg == "--open=locaux":
+			open_locaux()
+		elif arg == "--open=obligations":
+			open_obligations()
 		elif arg.begins_with("--rejouer="):
 			_rejouer(arg.trim_prefix("--rejouer="))
 		elif arg.begins_with("--attendre="):

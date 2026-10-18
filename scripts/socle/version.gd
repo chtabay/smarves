@@ -43,7 +43,9 @@ func disponible() -> bool:
 func lire(adresse := _adresse()) -> void:
 	etat = "lecture"
 	var http := HTTPRequest.new()
-	http.timeout = 10.0
+	# Dans un navigateur, la réponse arrive déjà décompressée : Godot ne doit pas la décompresser encore.
+	http.accept_gzip = not OS.has_feature("web")
+	http.timeout = 0.0 if OS.has_feature("web") else 10.0
 	http.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(http)
 	http.request_completed.connect(func(resultat: int, code: int, _h, corps: PackedByteArray):

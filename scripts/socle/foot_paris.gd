@@ -39,7 +39,7 @@ func remplir(colonne: VBoxContainer) -> void:
 	else:
 		_journee = {"s": f.saison, "j": prochain[1], "n": division[0], "g": division[1], "quand": prochain[2]}
 		colonne.add_child(_mot("Journée %d, %s à %d h  ·  %s" % [_journee.j, date(_journee.quand), f.HEURE_COUP_ENVOI, f.nom_division(division[0], division[1])], 17, CRAIE, null, true))
-		colonne.add_child(_mot("Coche 1, N ou 2 sur un match pour un pari simple, sur plusieurs pour un combiné : les cotes se multiplient.", 14, DOUX, null, true))
+		colonne.add_child(_mot("Cochez 1, N ou 2 sur un match pour un pari simple, sur plusieurs pour un combiné : les cotes se multiplient.", 14, DOUX, null, true))
 		for m in f.journee(_journee.s, _journee.n, _journee.g, _journee.j, 0):
 			colonne.add_child(_rangee_match(m))
 		colonne.add_child(_filet())
@@ -48,10 +48,7 @@ func remplir(colonne: VBoxContainer) -> void:
 		colonne.add_child(_ligne_etat)
 	colonne.add_child(_filet())
 	_tickets(colonne)
-	var bas := HBoxContainer.new()
-	bas.alignment = BoxContainer.ALIGNMENT_END
-	bas.add_theme_constant_override("separation", 10)
-	colonne.add_child(bas)
+	var bas := _pied(colonne)
 	if not _journee.is_empty():
 		var b := _bouton("Jouer le ticket", func(): jouer())
 		b.name = "Jouer"
@@ -65,9 +62,16 @@ func _rangee_match(m: Dictionary) -> Control:
 	var h := HFlowContainer.new()
 	h.add_theme_constant_override("h_separation", 8)
 	h.add_theme_constant_override("v_separation", 4)
-	var noms := _mot("%s – %s" % [f.clubs[m.dom].nom, f.clubs[m.ext].nom], 15, CRAIE, Polices.gras())
-	noms.custom_minimum_size.x = 150 if _etroit() else 330
-	noms.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	# Les codes des clubs en gras, comme au tableau du dimanche ; les noms en petit dessous, pas sur un téléphone.
+	var noms := VBoxContainer.new()
+	noms.add_theme_constant_override("separation", 0)
+	noms.custom_minimum_size.x = 110 if _etroit() else 330
+	noms.add_child(_mot("%s – %s" % [f.clubs[m.dom].court, f.clubs[m.ext].court], 16, CRAIE, Polices.gras()))
+	if not _etroit():
+		var longs := _mot("%s – %s" % [f.clubs[m.dom].nom, f.clubs[m.ext].nom], 12, DOUX)
+		longs.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		longs.custom_minimum_size.x = 330
+		noms.add_child(longs)
 	h.add_child(noms)
 	var k := Paris.cle(m.dom, m.ext)
 	var c: Dictionary = p.cotes(_journee.s, m.dom, m.ext)
@@ -100,11 +104,47 @@ func _rangee_mises(colonne: VBoxContainer) -> void:
 			remplir(_colonne), 15)
 		b.name = "Mise_%d" % v
 		if mise == int(v):
-			for etat in ["normal", "hover", "pressed", "focus"]:
-				b.add_theme_stylebox_override(etat, _boite(Color(OR, 0.45), CRAIE, 4, 8))
-			for ct in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
-				b.add_theme_color_override(ct, CRAIE)
+			_allumer(b)
 		rang.add_child(b)
+	# La mise est libre : on tape ce qu'on veut, les boutons ne sont que des raccourcis.
+	var champ := LineEdit.new()
+	champ.name = "MiseLibre"
+	champ.text = str(mise)
+	champ.placeholder_text = "autre montant"
+	champ.custom_minimum_size = Vector2(130, 0)
+	champ.max_length = 9
+	champ.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_NUMBER
+	champ.add_theme_font_size_override("font_size", 15)
+	champ.add_theme_color_override("font_color", CRAIE)
+	champ.add_theme_color_override("font_placeholder_color", DOUX)
+	champ.add_theme_stylebox_override("normal", _boite(Color(0, 0, 0, 0.25), DOUX, 4, 8))
+	champ.add_theme_stylebox_override("focus", _boite(Color(0, 0, 0, 0.25), OR, 4, 8))
+	champ.text_changed.connect(func(t: String): poser_mise(t))
+	champ.text_submitted.connect(func(_t: String): jouer())
+	rang.add_child(champ)
+	var tout := _bouton("Tout  (%s)" % Game.fmt(Game.credits), func():
+		mise = maxi(Paris.MISE_MIN, int(Game.credits))
+		remplir(_colonne), 15)
+	tout.name = "Mise_tout"
+	rang.add_child(tout)
+
+
+## Une mise tapée au clavier : les chiffres seulement, au moins MISE_MIN ; la ligne d'état suit.
+func poser_mise(texte: String) -> void:
+	var chiffres := ""
+	for c in texte:
+		if c >= "0" and c <= "9":
+			chiffres += c
+	mise = maxi(Paris.MISE_MIN, int(chiffres)) if chiffres != "" else Paris.MISE_MIN
+	if _ligne_etat != null:
+		_ligne_etat.text = _etat_texte()
+
+
+func _allumer(b: Button) -> void:
+	for etat in ["normal", "hover", "pressed", "focus"]:
+		b.add_theme_stylebox_override(etat, _boite(Color(OR, 0.45), CRAIE, 4, 8))
+	for ct in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		b.add_theme_color_override(ct, CRAIE)
 
 
 ## La cote du ticket coché, et ce qu'il rapporterait.
@@ -118,7 +158,7 @@ func cote_ticket() -> float:
 
 func _etat_texte() -> String:
 	if choix.is_empty():
-		return "Rien de coché. Tu as %s crédits." % Game.fmt(Game.credits)
+		return "Rien de coché. Vous avez %s crédits." % Game.fmt(Game.credits)
 	var c := cote_ticket()
 	return "%s sur %d match%s, cote %.2f : %s crédits si tout passe." % [Game.fmt(mise), choix.size(), "s" if choix.size() > 1 else "", c, Game.fmt(int(round(mise * c)))]
 
@@ -135,8 +175,8 @@ func jouer() -> bool:
 			_ligne_etat.text = "Josiane déchire le ticket : « Rendez-vous dimanche à 17 h. »"
 		return true
 	if _ligne_etat != null:
-		_ligne_etat.text = {"vide": "Coche au moins un match.", "credits": "Il te manque des crédits pour cette mise.",
-			"joue": "Trop tard : le coup d'envoi est donné, les paris attendent la journée suivante.", "mise": "Cette mise ne se prend pas."}.get(str(r.raison), "Josiane fait non de la tête.")
+		_ligne_etat.text = {"vide": "Cochez au moins un match.", "credits": "Il vous manque des crédits pour cette mise.",
+			"joue": "Trop tard : le coup d'envoi est donné, les paris attendent la journée suivante.", "mise": "Une mise, c'est au moins un crédit."}.get(str(r.raison), "Josiane fait non de la tête.")
 	return false
 
 

@@ -13,8 +13,10 @@ extends Node
 
 signal change
 
-## Les mises qu'on peut poser, en crédits.
+## Les mises qu'on pose d'un doigt, en crédits : des raccourcis, la mise est libre (MISE_MIN au moins,
+## et pas plus que la bourse du joueur).
 const MISES := [10, 20, 50, 100, 200]
+const MISE_MIN := 1
 ## Ce que la maison garde sur chaque cote.
 const MARGE := 0.12
 ## L'avantage du terrain, en points de force.
@@ -38,6 +40,14 @@ func _ready() -> void:
 	if get_tree().get_script() != null or "--capture" in " ".join(OS.get_cmdline_user_args()):
 		return
 	charger()
+	# Le règlement tombe à l'heure, où que soit le joueur : une passe au lancement, puis toutes les minutes ;
+	# la fiche du carnet l'annonce, et Josiane en reparle au café (les tickets pas encore « vus »).
+	var minuteur := Timer.new()
+	minuteur.wait_time = 60.0
+	minuteur.autostart = true
+	minuteur.timeout.connect(tic)
+	add_child(minuteur)
+	tic.call_deferred()
 	# Une nouvelle partie (le total misé retombe) emporte les tickets avec le reste.
 	var dernier := [Game.staked]
 	Game.changed.connect(func():
@@ -92,13 +102,13 @@ static func cle(dom: String, ext: String) -> String:
 # ---------------------------------------------------------------- les tickets
 
 ## Pose un ticket sur la journée j de la saison s, dans la division [n, g] : choix {"dom|ext": issue}, une
-## entrée par match coché ; la mise part tout de suite. {ok: true, ticket} ou {ok: false, raison} :
-## « vide », « mise », « joue » (le coup d'envoi est donné), « credits ».
+## entrée par match coché ; la mise, libre, part tout de suite. {ok: true, ticket} ou {ok: false, raison} :
+## « vide », « mise » (moins de MISE_MIN), « joue » (le coup d'envoi est donné), « credits ».
 func parier(s: int, j: int, n: int, g: int, choix: Dictionary, mise: int) -> Dictionary:
 	var f := foot()
 	if choix.is_empty():
 		return {"ok": false, "raison": "vide"}
-	if not MISES.has(mise):
+	if mise < MISE_MIN:
 		return {"ok": false, "raison": "mise"}
 	if f.maintenant() >= f.coup_envoi(s, j):
 		return {"ok": false, "raison": "joue"}
@@ -152,6 +162,26 @@ func regler() -> Array:
 		sauver()
 		change.emit()
 	return regles
+
+
+## Règle ce qui est à régler et l'annonce par la fiche du carnet.
+func tic() -> void:
+	var carnet: Node = get_tree().root.get_node_or_null("Carnet")
+	for t in regler():
+		if carnet != null:
+			carnet.show_slip("Ticket de la journée %d : %s." % [int(t.j), "gagné, %s crédits" % Game.fmt(int(t.gain)) if t.etat == "gagne" else "perdu"])
+
+
+## Les tickets réglés dont Josiane n'a pas encore parlé au comptoir ; les marque vus.
+func non_vus() -> Array:
+	var out: Array = []
+	for t in tickets:
+		if t.etat != "ouvert" and not bool(t.get("vu", false)):
+			t.vu = true
+			out.append(t)
+	if not out.is_empty():
+		sauver()
+	return out
 
 
 ## Le bilan du comptoir, pour la fenêtre : {mise, gagne, tickets, gagnes}.

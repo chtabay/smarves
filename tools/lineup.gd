@@ -44,7 +44,7 @@ const MOVES := [
 	["barman-nocturne", "barman", "bar", "essuie un verre"], ["hotesse-1", "hotesse", "bow", "révérence"],
 	["pianiste", "habitant", "piano", "au piano"], ["chanteuse", "habitant", "sing", "chante"],
 	["caissier", "caissier", "look_watch", "regarde l'heure"], ["gardien-du-bois", "gardien", "scratch", "se gratte la tête"],
-	["capucine-varenne", "habitant", "drink", "boit"],
+	["character-female-c.glb", "habitant", "drink", "boit"],
 ]
 const MOOD := {"jump": "joie", "sulk": "depit", "stomp": "depit", "talk": "joie", "wave": "joie", "bet": "attention", "drink": "joie"}
 

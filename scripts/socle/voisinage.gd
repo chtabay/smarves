@@ -12,11 +12,12 @@ extends Node
 signal lu
 
 ## Les rendez-vous des activités à plusieurs, à heure fixe (choix de Guillaume, 18 octobre 2026) :
-## jour de la semaine (0 : dimanche), heure, minute, quoi, où. Le temps réel n'existe pas encore :
-## le panneau les annonce, les tables ouvriront plus tard (chantier 8).
+## jour de la semaine (0 : dimanche), heure, minute, quoi, où. La table des Ambassadeurs est partagée
+## tous les soirs entre les joueurs connectés (scripts/jeux/poker_multi.gd) : ces heures-là, on est sûr
+## d'y trouver du monde. Passelourdin reste la partie clandestine du dernier seuil.
 const RENDEZ_VOUS := [
-	[5, 13, 30, "La partie de poker du vendredi", "l'arrière-salle de Passelourdin"],
-	[0, 11, 0, "La partie de poker du dimanche", "l'arrière-salle de Passelourdin"],
+	[5, 13, 30, "La partie de poker du vendredi", "la salle des Ambassadeurs du casino"],
+	[0, 11, 0, "La partie de poker du dimanche", "la salle des Ambassadeurs du casino"],
 ]
 const FRAICHEUR := 60.0
 

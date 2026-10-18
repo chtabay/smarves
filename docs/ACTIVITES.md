@@ -102,7 +102,7 @@ Chaque lieu offre au moins trois points d'interaction, toujours dans cet ordre d
 
 Les paris ne se prennent pas sur le lieu mais **au comptoir du café** (Josiane) : c'est le seul guichet de paris du village, quelle que soit l'activité.
 
-**Ce qui existe.** `Structures` (`gare`, `arret_car`, `terrain_foot`), `Registre.relies`, `Football` qui lit les terrains du registre ; le stade (`stade.gd`) comme lieu type.
+**Ce qui existe.** `Structures` (`gare`, `arret_car`, `terrain_foot`), `Registre.relies`, `Football` qui lit les terrains du registre ; le stade (`stade.gd`) comme lieu type, **scène du socle habillée par la structure** (club, sigle, couleurs, nom du stade, porte du retour, président = hôte du lieu) : toute commune avec un terrain l'ouvre par `Football.ouvrir_stade(id)`.
 
 **Ce que l'activité fournit.** Un type de structure (un champ dans `Structures`, la version du socle qui monte), la scène de son lieu, son tenancier, ses noms.
 

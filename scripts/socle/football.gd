@@ -76,13 +76,24 @@ var locales := {}
 var auteurs := {}
 ## « » tant que rien n'est lu, puis « lecture », « ok » ou « hors_ligne ».
 var consignes_etat := ""
-## Les parts des clubs, cédées chez le notaire (docs/SUITE.md, section 6) : celles lues au serveur,
-## club -> [{par, nombre, moi}], et celles de cet appareil, club -> nombre (Biens les déclare à l'achat
-## et à la revente). Qui tient le plus de parts d'un club parle pour lui à la causerie.
-var parts := {}
-var parts_locales := {}
-## Les clubs dont les parts d'ici restent à déclarer au serveur : club -> true.
-var parts_a_declarer := {}
+## Les obligations des clubs, cédées chez le notaire (docs/SUITE.md, section 6), sur le modèle d'Impérial
+## 2030 : neuf par club, de tailles différentes (OBLIGATIONS, rang 1 à 9) et chacune en un seul exemplaire ;
+## la plus grosse somme investie dirige le club (peut_decider) ; chaque journée jouée verse un dividende
+## (DIVIDENDE par cran, selon le classement). Celles lues au serveur, club -> {rang: {par, moi}} ; les
+## siennes d'ici, club -> [rangs] (la sauvegarde fait foi) ; ce qui reste à dire au serveur, club ->
+## {rang: true (prise) | false (rendue)} ; et la dernière journée dont le dividende est versé, club -> {s, j}.
+const OBLIGATIONS := [500, 1000, 1500, 2250, 3000, 4000, 5000, 6250, 7500]
+const DIVIDENDE := 50
+## Ce que l'étude reprend d'une obligation rendue.
+const RACHAT := 0.8
+var obligations := {}
+var obligations_locales := {}
+var obligations_a_declarer := {}
+var dividendes := {}
+var dividendes_total := 0
+## Le crochet du module mercato : salaires(club) -> int, ce que les joueurs achetés au marché coûtent par
+## semaine ; retenu sur les dividendes, au prorata de ce que chacun a investi. Invalide sans module.
+var salaires := Callable()
 ## Le mercato (docs/SUITE.md, section 6) : la recrue de chaque club pour une saison, "saison/club" ->
 ## {joueur (le rang du joueur libre), par}, et celles de cet appareil que le serveur n'a pas : clé -> true.
 var transferts := {}
@@ -93,6 +104,11 @@ var _horloge: Callable = Callable()
 ## Les matchs déjà joués et les effectifs déjà tirés, en mémoire : tout se recalcule à l'identique.
 var _matchs := {}
 var _effectifs := {}
+## Le crochet du module mercato (fil dédié) : renforts(s, j, club) -> Array de joueurs {id, prenom, nom, poste,
+## age, note, condition, moral, competences, ...} achetés au marché, que le club a au coup d'envoi de la journée
+## j ; ils s'ajoutent à l'effectif du cru (la composition prend les meilleurs). Leur id commence par « club/ ».
+## Invalide sans module, et l'effectif est celui du tirage.
+var renforts := Callable()
 
 
 func _ready() -> void:
@@ -102,10 +118,18 @@ func _ready() -> void:
 	charger()
 	Registre.change.connect(actualiser)
 	actualiser()
+	# Les dividendes tombent après chaque journée jouée, où que soit le joueur : une passe au lancement, puis
+	# toutes les minutes ; la fiche du carnet l'annonce.
+	var minuteur := Timer.new()
+	minuteur.wait_time = 60.0
+	minuteur.autostart = true
+	minuteur.timeout.connect(tic)
+	add_child(minuteur)
+	tic.call_deferred()
 	# Le compte (autoload Compte) arrive après Football dans l'arbre : on l'attend une image.
 	(func():
 		lire_consignes()
-		lire_parts()
+		lire_obligations()
 		lire_transferts()
 		var compte := _compte()
 		if compte != null:
@@ -113,8 +137,8 @@ func _ready() -> void:
 				if compte.etat == "a_jour":
 					if not locales.is_empty():
 						envoyer_locales()
-					if not parts_a_declarer.is_empty():
-						envoyer_parts()
+					if not obligations_a_declarer.is_empty():
+						envoyer_obligations()
 					if not transferts_locaux.is_empty():
 						envoyer_transferts())).call_deferred()
 
@@ -370,6 +394,13 @@ func en_attente() -> Array:
 	return Registre.de_type("terrain_foot").map(func(e): return e.commune).filter(func(c): return not clubs.has(c) or clubs[c].invite)
 
 
+## Ouvre le stade d'une commune qui a un terrain : la scène du socle (scenes/stade.tscn, scripts/village/
+## stade.gd), habillée du club, des couleurs et du nom de stade de sa structure « terrain_foot ». La
+## commune l'appelle depuis sa scène (la porte de son terrain) ; la sortie du stade la ramène chez elle.
+func ouvrir_stade(commune: String) -> void:
+	load("res://scripts/village/stade.gd").ouvrir(commune)
+
+
 ## Le niveau et le groupe d'un club : [n, g], ou [] s'il n'est pas dans la pyramide.
 func place_de(club: String) -> Array:
 	for n in niveaux.size():
@@ -486,8 +517,26 @@ func force(club: String, s: int) -> float:
 
 ## L'effectif d'un club pour une saison : {id: {prenom, nom, poste, age, note, condition, moral, competences}}, les
 ## notes autour de la force du club (les premiers de chaque poste un peu au-dessus, les autres un peu en
-## dessous), et les sept compétences de chacun (FootMatch.COMPETENCES) autour de sa note.
-func effectif(club: String, s: int) -> Dictionary:
+## dessous), et les sept compétences de chacun (FootMatch.COMPETENCES) autour de sa note. Avec une journée j,
+## s'y ajoutent les joueurs achetés au marché que le club a ce dimanche-là (le crochet renforts).
+func effectif(club: String, s: int, j := 0) -> Dictionary:
+	var cru := _effectif_cru(club, s)
+	if j <= 0 or not renforts.is_valid():
+		return cru
+	var cle := "%d/%d/%s" % [s, j, club]
+	if _effectifs.has(cle):
+		return _effectifs[cle]
+	var out: Dictionary = cru.duplicate(true)
+	for r in renforts.call(s, j, club):
+		if r is Dictionary and r.has("id"):
+			var copie: Dictionary = (r as Dictionary).duplicate(true)
+			copie.erase("id")
+			out[str(r.id)] = copie
+	_effectifs[cle] = out
+	return out
+
+
+func _effectif_cru(club: String, s: int) -> Dictionary:
 	var cle := "%d/%s" % [s, club]
 	if _effectifs.has(cle):
 		return _effectifs[cle]
@@ -524,6 +573,13 @@ func effectif(club: String, s: int) -> Dictionary:
 		out[nid] = copie
 	_effectifs[cle] = out
 	return out
+
+
+## Oublie les effectifs et les matchs calculés : à appeler quand ce qui les fait (recrues, renforts) a changé.
+func oublier_effectifs() -> void:
+	_effectifs.clear()
+	_matchs.clear()
+	change.emit()
 
 
 # ---------------------------------------------------------------- le mercato
@@ -694,8 +750,8 @@ func rencontre_en_direct(s: int, j: int, dom: String, ext: String) -> Dictionary
 		if not d.is_empty():
 			cle += "|%s:%s" % [c, JSON.stringify(d)]
 	var joueurs := {}
-	joueurs.merge(effectif(dom, s))
-	joueurs.merge(effectif(ext, s))
+	joueurs.merge(effectif(dom, s, j))
+	joueurs.merge(effectif(ext, s, j))
 	var h := Hasard.depuis(Hasard.graine(cle))
 	return {"etat": FootMatch.creer(_equipe(s, j, dom, joueurs), _equipe(s, j, ext, joueurs), joueurs, h), "joueurs": joueurs, "hasard": h}
 
@@ -827,64 +883,91 @@ func envoyer_locales() -> void:
 			change.emit()
 
 
-# ---------------------------------------------------------------- les parts du club
+# ---------------------------------------------------------------- les obligations du club
 
-## Les parts d'un club qu'on tient sur cet appareil (Biens le dit à chaque acte chez le notaire) ;
-## connecté, elles se déclarent au serveur pour que les autres sachent qui parle pour le club.
-func detenir(club: String, nombre: int) -> void:
-	if int(parts_locales.get(club, 0)) == nombre:
-		return
-	if nombre > 0:
-		parts_locales[club] = nombre
-	else:
-		parts_locales.erase(club)
-	parts_a_declarer[club] = true
-	sauver()
-	change.emit()
-	envoyer_parts()
+## La valeur d'une obligation, par son rang (1 à 9).
+static func valeur(rang: int) -> int:
+	return int(OBLIGATIONS[clampi(rang, 1, OBLIGATIONS.size()) - 1])
 
 
-## Les actionnaires d'un club, les plus gros d'abord : [{nom, nombre, moi}]. Les siennes viennent d'ici
-## (la sauvegarde fait foi), sous le nom « vous » ; celles des autres, du serveur.
-func actionnaires(club: String) -> Array:
+## Ce qu'une obligation verse à chaque journée jouée, avant le classement : 50 crédits par cran.
+static func dividende_de(rang: int) -> int:
+	return rang * DIVIDENDE
+
+
+## Les obligations d'un club qu'on tient sur cet appareil, les plus grosses d'abord.
+func mes_obligations(club: String) -> Array:
 	var out: Array = []
-	for a in parts.get(club, []):
-		if a is Dictionary and not bool(a.get("moi", false)) and int(a.get("nombre", 0)) > 0:
-			out.append({"nom": str(a.get("par", "")), "nombre": int(a.get("nombre", 0)), "moi": false})
-	var miennes := int(parts_locales.get(club, 0))
-	if miennes > 0:
-		out.append({"nom": "vous", "nombre": miennes, "moi": true})
+	for r in obligations_locales.get(club, []):
+		out.append(int(r))
+	out.sort()
+	out.reverse()
+	return out
+
+
+## Qui tient une obligation : {nom, moi}, ou {} si elle est libre. Les siennes viennent d'ici, celles des
+## autres du serveur.
+func porteur(club: String, rang: int) -> Dictionary:
+	if mes_obligations(club).has(rang):
+		return {"nom": "vous", "moi": true}
+	var p: Dictionary = (obligations.get(club, {}) as Dictionary).get(str(rang), {})
+	if p is Dictionary and not p.is_empty() and not bool(p.get("moi", false)):
+		return {"nom": str(p.get("par", "")), "moi": false}
+	return {}
+
+
+## Les porteurs d'un club, la plus grosse somme d'abord : [{nom, investi, rangs, moi}]. À égalité, soi d'abord.
+func actionnaires(club: String) -> Array:
+	var par_nom := {}
+	for r in OBLIGATIONS.size():
+		var p := porteur(club, r + 1)
+		if p.is_empty():
+			continue
+		if not par_nom.has(p.nom):
+			par_nom[p.nom] = {"nom": p.nom, "investi": 0, "rangs": [], "moi": bool(p.moi)}
+		par_nom[p.nom].investi += valeur(r + 1)
+		par_nom[p.nom].rangs.append(r + 1)
+	var out: Array = par_nom.values()
 	out.sort_custom(func(x, y):
-		if x.nombre != y.nombre:
-			return x.nombre > y.nombre
+		if x.investi != y.investi:
+			return x.investi > y.investi
 		return x.moi and not y.moi)
 	return out
 
 
-## Qui parle pour un club à la causerie : sans actionnaire, tout le monde (comme avant les parts) ;
-## sinon celui qui en tient le plus, et chacun d'eux à égalité.
+## Ce qu'on a investi dans un club, d'ici.
+func investi(club: String) -> int:
+	var t := 0
+	for r in mes_obligations(club):
+		t += valeur(r)
+	return t
+
+
+## Qui parle pour un club à la causerie : sans porteur, tout le monde ; sinon la plus grosse somme investie,
+## et chacun à égalité.
 func peut_decider(club: String) -> bool:
 	var a := actionnaires(club)
 	if a.is_empty():
 		return true
-	return int(parts_locales.get(club, 0)) >= int(a[0].nombre)
+	return investi(club) >= int(a[0].investi)
 
 
-## Une phrase pour la fiche du notaire et la causerie : qui tient quoi, et qui parle.
+## Une phrase pour le notaire, la causerie et les locaux : qui a mis combien, et qui parle.
 func phrase_actionnaires(club: String) -> String:
 	var a := actionnaires(club)
 	if a.is_empty():
-		return "Personne ne tient de parts du club : le président écoute tout le monde."
+		return "Personne ne tient d'obligation du club : le président écoute tout le monde."
 	var morceaux: Array = []
 	for x in a:
-		morceaux.append("%s %s %d part%s" % ["Vous" if x.moi and morceaux.is_empty() else x.nom, "tenez" if x.moi else "tient", x.nombre, "s" if x.nombre > 1 else ""])
-	var tete: Dictionary = a[0]
-	var qui := "c'est vous qui parlez au président" if peut_decider(club) else "c'est %s qui parle au président" % tete.nom
+		if morceaux.is_empty():
+			morceaux.append("%s %s %s crédits dans le club" % ["Vous" if x.moi else x.nom, "avez" if x.moi else "a", Game.fmt(int(x.investi))])
+		else:
+			morceaux.append("%s %s" % ["vous" if x.moi else x.nom, Game.fmt(int(x.investi))])
+	var qui := "c'est vous qui parlez au président" if peut_decider(club) else "c'est %s qui parle au président" % a[0].nom
 	return "%s : %s." % [", ".join(morceaux), qui]
 
 
-## Ce que rapporte une part du club à chaque recette, en proportion de la rente annoncée : le classement
-## du moment fait la buvette, ×1,4 en tête, ×0,7 en queue, ×1 tant que rien n'est joué.
+## Ce que le classement fait au dividende : ×1,4 en tête, ×0,7 en queue, ×1 tant que rien n'est joué.
 func recette_facteur(club: String) -> float:
 	var place := place_de(club)
 	if place.is_empty() or journee_jouee() <= 0:
@@ -896,40 +979,220 @@ func recette_facteur(club: String) -> float:
 	return 1.0
 
 
-## Les parts lues au serveur : [{club, nombre, par, moi}] ; remplacent ce qu'on en savait.
-func appliquer_parts(liste: Array) -> void:
-	parts = {}
+## Prend une obligation libre, de ses crédits : {ok: true} ou {ok: false, raison} « rang », « prise »,
+## « credits ». Elle vaut tout de suite ici et part au serveur, qui a le dernier mot (envoyer_obligations).
+func prendre(club: String, rang: int) -> Dictionary:
+	if rang < 1 or rang > OBLIGATIONS.size() or not clubs.has(club):
+		return {"ok": false, "raison": "rang"}
+	if not porteur(club, rang).is_empty():
+		return {"ok": false, "raison": "prise"}
+	if Game.credits < valeur(rang):
+		return {"ok": false, "raison": "credits"}
+	Game.credits -= valeur(rang)
+	_poser(club, rang, true)
+	Game.changed.emit()
+	return {"ok": true}
+
+
+## Rend une obligation à l'étude, qui la reprend à RACHAT : {ok: true, montant} ou {ok: false, raison: « absente »}.
+func rendre(club: String, rang: int) -> Dictionary:
+	if not mes_obligations(club).has(rang):
+		return {"ok": false, "raison": "absente"}
+	var montant := int(round(valeur(rang) * RACHAT))
+	Game.credits += montant
+	_poser(club, rang, false)
+	Game.changed.emit()
+	return {"ok": true, "montant": montant}
+
+
+## Échange une de ses obligations contre une plus grosse, libre, en payant la différence (comme à Impérial) :
+## {ok: true, montant} ou {ok: false, raison} « absente », « rang », « prise », « credits ».
+func echanger(club: String, bas: int, haut: int) -> Dictionary:
+	if not mes_obligations(club).has(bas):
+		return {"ok": false, "raison": "absente"}
+	if haut <= bas or haut > OBLIGATIONS.size():
+		return {"ok": false, "raison": "rang"}
+	if not porteur(club, haut).is_empty():
+		return {"ok": false, "raison": "prise"}
+	var montant := valeur(haut) - valeur(bas)
+	if Game.credits < montant:
+		return {"ok": false, "raison": "credits"}
+	Game.credits -= montant
+	_poser(club, bas, false)
+	_poser(club, haut, true)
+	Game.changed.emit()
+	return {"ok": true, "montant": montant}
+
+
+func _poser(club: String, rang: int, prise: bool) -> void:
+	var miennes: Array = obligations_locales.get(club, [])
+	if prise:
+		if not miennes.has(rang):
+			miennes.append(rang)
+		if not dividendes.has(club):
+			# Les dividendes courent à partir de maintenant, pas sur les journées déjà jouées.
+			dividendes[club] = {"s": saison, "j": journee_jouee()}
+	else:
+		miennes.erase(rang)
+	if miennes.is_empty():
+		obligations_locales.erase(club)
+	else:
+		obligations_locales[club] = miennes
+	if not obligations_a_declarer.has(club):
+		obligations_a_declarer[club] = {}
+	obligations_a_declarer[club][str(rang)] = prise
+	sauver()
+	change.emit()
+	envoyer_obligations()
+
+
+## Les dividendes que les journées jouées depuis le dernier versement doivent à ce qu'on tient :
+## [{club, s, j, brut, salaires, net}], par journée. Le brut suit le classement (recette_facteur) ; les
+## salaires du module mercato se retiennent au prorata de ce qu'on a investi.
+func dividendes_dus() -> Array:
+	var out: Array = []
+	for club in obligations_locales.keys():
+		var rangs := mes_obligations(club)
+		if rangs.is_empty():
+			continue
+		var marque: Dictionary = dividendes.get(club, {"s": saison, "j": journee_jouee()})
+		var depuis: int = int(marque.j) if int(marque.s) == saison else 0
+		if int(marque.s) > saison:
+			continue
+		var brut_journee := 0
+		for r in rangs:
+			brut_journee += dividende_de(r)
+		var total := 0
+		for a in actionnaires(club):
+			total += int(a.investi)
+		var part_salaires := 0
+		if salaires.is_valid() and total > 0:
+			part_salaires = int(round(float(salaires.call(club)) * float(investi(club)) / float(total)))
+		for j in range(depuis + 1, journee_jouee() + 1):
+			var brut := int(round(brut_journee * recette_facteur(club)))
+			out.append({"club": club, "s": saison, "j": j, "brut": brut, "salaires": part_salaires, "net": brut - part_salaires})
+	return out
+
+
+## Verse les dividendes dus dans la bourse, et s'en souvient ; renvoie ce qui a été versé.
+func verser_dividendes() -> Array:
+	var dus := dividendes_dus()
+	if dus.is_empty():
+		return dus
+	var net := 0
+	for d in dus:
+		net += int(d.net)
+		dividendes[d.club] = {"s": int(d.s), "j": int(d.j)}
+	Game.credits += net
+	dividendes_total += net
+	sauver()
+	Game.changed.emit()
+	change.emit()
+	return dus
+
+
+## Verse les dividendes dus et l'annonce par la fiche du carnet, un mot par club.
+func tic() -> void:
+	var verses := verser_dividendes()
+	if verses.is_empty():
+		return
+	var carnet: Node = get_tree().root.get_node_or_null("Carnet")
+	if carnet == null:
+		return
+	var par_club := {}
+	for d in verses:
+		par_club[d.club] = int(par_club.get(d.club, 0)) + int(d.net)
+	for club in par_club:
+		var nom := str(clubs.get(club, {}).get("nom", club))
+		carnet.show_slip("%s : dividende de la journée %d, %s crédits." % [nom, int(verses[-1].j), Game.fmt(int(par_club[club]))] if par_club.size() == 1 and verses.size() == 1 \
+			else "%s : %s crédits de dividendes." % [nom, Game.fmt(int(par_club[club]))])
+
+
+## Des porteurs forcés pour une capture : « vous:3+1,Lucien:5 » (les rangs des obligations).
+func forcer_porteurs(spec: String, club: String) -> void:
+	var autres := {}
+	obligations_locales.erase(club)
+	for morceau in spec.split(","):
+		var kv := morceau.split(":")
+		if kv.size() != 2:
+			continue
+		for r in kv[1].split("+"):
+			if kv[0] == "vous":
+				obligations_locales[club] = obligations_locales.get(club, []) + [int(r)]
+			else:
+				autres[str(int(r))] = {"par": kv[0], "moi": false}
+	obligations[club] = autres
+
+
+## Les obligations lues au serveur : [{club, rang, par, moi}] ; remplacent ce qu'on en savait. Le serveur a
+## le dernier mot : une obligation qu'il dit à un autre, ou à personne, alors qu'elle était prise ici et déjà
+## déclarée, est rendue à sa valeur ; une qu'il nous donne et qu'on n'a pas ici (un autre appareil) arrive.
+func appliquer_obligations(liste: Array) -> void:
+	obligations = {}
 	for p in liste:
-		if p is Dictionary and p.has("club"):
-			if not parts.has(p.club):
-				parts[p.club] = []
-			parts[p.club].append({"par": str(p.get("par", "")), "nombre": int(p.get("nombre", 0)), "moi": bool(p.get("moi", false))})
+		if p is Dictionary and p.has("club") and p.has("rang"):
+			if not obligations.has(p.club):
+				obligations[p.club] = {}
+			obligations[p.club][str(int(p.rang))] = {"par": str(p.get("par", "")), "moi": bool(p.get("moi", false))}
+	for club in obligations.keys():
+		for r in obligations[club]:
+			if bool(obligations[club][r].moi) and not mes_obligations(club).has(int(r)) and not (obligations_a_declarer.get(club, {}) as Dictionary).has(str(r)):
+				var miennes: Array = obligations_locales.get(club, [])
+				miennes.append(int(r))
+				obligations_locales[club] = miennes
+				if not dividendes.has(club):
+					dividendes[club] = {"s": saison, "j": journee_jouee()}
+	for club in obligations_locales.keys():
+		for r in mes_obligations(club):
+			var p: Dictionary = (obligations.get(club, {}) as Dictionary).get(str(r), {})
+			if not (obligations_a_declarer.get(club, {}) as Dictionary).has(str(r)) and not bool(p.get("moi", false)):
+				obligations_locales[club].erase(r)
+				if obligations_locales[club].is_empty():
+					obligations_locales.erase(club)
+				Game.credits += valeur(r)
 	sauver()
 	change.emit()
 
 
-## Relit les parts de tous les clubs au serveur (sans compte aussi : elles sont publiques, comme les
-## consignes), puis déclare celles d'ici qui manquent.
-func lire_parts() -> void:
+## Relit les obligations de tous les clubs au serveur (sans compte aussi : elles sont publiques), puis
+## déclare celles d'ici qui manquent.
+func lire_obligations() -> void:
 	var compte := _compte()
 	if compte == null or get_tree().get_script() != null or "--capture" in " ".join(OS.get_cmdline_user_args()):
 		return
-	var r: Dictionary = await compte.appeler("smarves_parts", {})
+	var r: Dictionary = await compte.appeler("smarves_obligations", {})
 	if r.code == 200 and r.corps is Array:
-		appliquer_parts(r.corps)
-		envoyer_parts()
+		appliquer_obligations(r.corps)
+		envoyer_obligations()
 
 
-## Déclare au serveur les parts d'ici qui ne le sont pas encore (zéro compris : une revente).
-func envoyer_parts() -> void:
+## Dit au serveur les obligations prises et rendues ici qu'il ne sait pas encore. Une prise qu'il refuse
+## (« prise » : un autre l'a eue avant) est rendue à sa valeur.
+func envoyer_obligations() -> void:
 	var compte := _compte()
 	if compte == null or not compte.connecte() or get_tree().get_script() != null or "--capture" in " ".join(OS.get_cmdline_user_args()):
 		return
-	for club in parts_a_declarer.keys():
-		var r: Dictionary = await compte.appeler("smarves_part_declarer", {"p_club": club, "p_nombre": int(parts_locales.get(club, 0))})
-		if r.code == 200 and r.corps is Dictionary and r.corps.get("ok", false):
-			parts_a_declarer.erase(club)
-			sauver()
+	for club in obligations_a_declarer.keys():
+		for rang in (obligations_a_declarer[club] as Dictionary).keys():
+			var prise: bool = obligations_a_declarer[club][rang]
+			var r: Dictionary = await compte.appeler("smarves_obligation_prendre" if prise else "smarves_obligation_rendre", {"p_club": club, "p_rang": int(rang)})
+			if r.code != 200 or not (r.corps is Dictionary):
+				continue
+			var fini: bool = bool(r.corps.get("ok", false)) or str(r.corps.get("raison", "")) in ["prise", "absente"]
+			if prise and not bool(r.corps.get("ok", false)) and str(r.corps.get("raison", "")) == "prise":
+				var miennes: Array = obligations_locales.get(club, [])
+				miennes.erase(int(rang))
+				if miennes.is_empty():
+					obligations_locales.erase(club)
+				Game.credits += valeur(int(rang))
+				Game.changed.emit()
+			if fini:
+				obligations_a_declarer[club].erase(rang)
+				if obligations_a_declarer[club].is_empty():
+					obligations_a_declarer.erase(club)
+				sauver()
+				change.emit()
+	lire_obligations()
 
 
 func _compte() -> Node:
@@ -950,9 +1213,11 @@ func charger() -> void:
 		decisions = lu.get("decisions", {})
 		locales = lu.get("locales", {})
 		auteurs = lu.get("auteurs", {})
-		parts = lu.get("parts", {})
-		parts_locales = lu.get("parts_locales", {})
-		parts_a_declarer = lu.get("parts_a_declarer", {})
+		obligations = lu.get("obligations", {})
+		obligations_locales = lu.get("obligations_locales", {})
+		obligations_a_declarer = lu.get("obligations_a_declarer", {})
+		dividendes = lu.get("dividendes", {})
+		dividendes_total = int(lu.get("dividendes_total", 0))
 		transferts = lu.get("transferts", {})
 		transferts_locaux = lu.get("transferts_locaux", {})
 
@@ -961,7 +1226,8 @@ func sauver() -> void:
 	if dossier == "":
 		return
 	Portail.ecrire(dossier.path_join(FICHIER), JSON.stringify({"saison": saison, "niveaux": niveaux, "clubs": clubs, "historique": historique, "decisions": decisions, "locales": locales, "auteurs": auteurs,
-		"parts": parts, "parts_locales": parts_locales, "parts_a_declarer": parts_a_declarer,
+		"obligations": obligations, "obligations_locales": obligations_locales, "obligations_a_declarer": obligations_a_declarer,
+		"dividendes": dividendes, "dividendes_total": dividendes_total,
 		"transferts": transferts, "transferts_locaux": transferts_locaux}))
 
 
@@ -974,9 +1240,11 @@ func effacer() -> void:
 	decisions = {}
 	locales = {}
 	auteurs = {}
-	parts = {}
-	parts_locales = {}
-	parts_a_declarer = {}
+	obligations = {}
+	obligations_locales = {}
+	obligations_a_declarer = {}
+	dividendes = {}
+	dividendes_total = 0
 	transferts = {}
 	transferts_locaux = {}
 	_matchs = {}

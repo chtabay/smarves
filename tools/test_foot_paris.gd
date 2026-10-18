@@ -47,7 +47,14 @@ func _init() -> void:
 	var cotes: Dictionary = paris.cotes(1, m.dom, m.ext)
 	check(cotes.has("1") and cotes.has("N") and cotes.has("2") and cotes["1"] == paris.cotes(1, m.dom, m.ext)["1"], "les cotes d'un match sont fixes : %s" % str(cotes))
 	check(not paris.parier(1, 1, 0, 0, {}, 20).ok, "un ticket vide ne se prend pas")
-	check(paris.parier(1, 1, 0, 0, {k: "1"}, 15).raison == "mise", "une mise hors carte ne se prend pas")
+	check(paris.parier(1, 1, 0, 0, {k: "1"}, 0).raison == "mise", "une mise à zéro ne se prend pas")
+	check(paris.parier(1, 1, 0, 0, {k: "1"}, 5000).raison == "credits", "la mise est libre, mais pas plus que la bourse")
+	var r15: Dictionary = paris.parier(1, 1, 0, 0, {k: "1"}, 15)
+	check(r15.ok and game.credits == 985, "une mise libre de 15 se prend")
+	paris.tickets.clear()
+	paris.total_mise = 0
+	game.credits = 1000
+	game.staked = 0
 	var r: Dictionary = paris.parier(1, 1, 0, 0, {k: "1"}, 50)
 	check(r.ok and game.credits == 950 and game.staked == 50 and paris.ouverts().size() == 1, "un ticket à 50 part : crédits débités, mise comptée")
 	check(absf(float(r.ticket.cote) - float(cotes["1"])) < 0.001, "la cote du ticket simple est celle du match")
@@ -92,7 +99,14 @@ func _init() -> void:
 	check(textes.any(func(x): return x.begins_with("Journée 2, ")), "la fenêtre parle de la journée à venir")
 	var choix: Array = fenetre.find_children("Choix_*", "Button", true, false)
 	check(choix.size() == 12, "quatre matchs, trois cotes chacun (%d boutons)" % choix.size())
-	check(fenetre.find_children("Mise_*", "Button", true, false).size() == paris.MISES.size() and fenetre.find_child("Jouer", true, false) != null, "les mises et le bouton Jouer")
+	check(fenetre.find_children("Mise_*", "Button", true, false).size() == paris.MISES.size() + 1 and fenetre.find_child("Jouer", true, false) != null, "les raccourcis de mise, « Tout » et le bouton Jouer")
+	var champ: LineEdit = fenetre.find_child("MiseLibre", true, false)
+	check(champ != null and champ.text == "20", "le champ de mise libre, à 20 au départ")
+	fenetre.poser_mise("3a7")
+	check(fenetre.mise == 37, "une mise tapée ne garde que les chiffres : %d" % fenetre.mise)
+	fenetre.poser_mise("")
+	check(fenetre.mise == paris.MISE_MIN, "un champ vide vaut la mise minimale")
+	fenetre.mise = 20
 	check(not fenetre.jouer(), "rien de coché : le ticket ne part pas")
 	(choix[0] as Button).pressed.emit()
 	await process_frame

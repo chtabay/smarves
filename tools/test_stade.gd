@@ -13,6 +13,15 @@ func check(ok: bool, what: String) -> void:
 		fails += 1
 
 
+func _textes(n: Node) -> Array:
+	var out: Array = []
+	if n is Label:
+		out.append((n as Label).text)
+	for c in n.get_children():
+		out += _textes(c)
+	return out
+
+
 func _init() -> void:
 	await process_frame
 	var game: Node = root.get_node("Game")
@@ -98,7 +107,28 @@ func _init() -> void:
 	var direct: Dictionary = foot.rencontre_en_direct(1, 6, foot.prochain_match("smarves").dom, foot.prochain_match("smarves").ext)
 	var mienne: Dictionary = direct.etat.equipes[0] if direct.etat.equipes[0].club == "smarves" else direct.etat.equipes[1]
 	check(mienne.formation == "3-5-2" and mienne.mentalite == "offensive", "le match de dimanche se jouera avec : %s, %s" % [mienne.formation, mienne.mentalite])
+	# Les locaux du club : le siège, d'où l'on ouvre la causerie, le mercato et le registre des obligations.
 	causerie.closed.emit()
+	await process_frame
+	var sieges: Array = stade.find_children("*", "Area3D", true, false).filter(func(a): return a.get_meta("interact", "") == "locaux")
+	check(sieges.size() == 1 and str(sieges[0].get_meta("prompt")).contains("siège"), "le siège du club est au stade")
+	stade.open_locaux()
+	await process_frame
+	var locaux: PanelContainer = stade._causerie
+	check(locaux != null and locaux.club == "smarves" and locaux.find_child("Causerie", true, false) != null and locaux.find_child("Mercato", true, false) != null and locaux.find_child("Obligations", true, false) != null, "le siège ouvre sur la causerie, le mercato et les obligations")
+	check(_textes(locaux).any(func(x): return str(x).begins_with("Prochain match : journée 6")), "le siège dit le prochain match")
+	(locaux.find_child("Obligations", true, false) as Button).pressed.emit()
+	await process_frame
+	check(stade._causerie != null and stade._causerie != locaux and stade._causerie.find_child("Prendre_1", true, false) != null, "le registre des obligations s'ouvre depuis le siège")
+	stade._causerie.closed.emit()
+	await process_frame
+	stade.open_locaux()
+	await process_frame
+	(stade._causerie.find_child("Causerie", true, false) as Button).pressed.emit()
+	await process_frame
+	check(stade._causerie != null and stade._causerie.find_child("Valider", true, false) != null, "la causerie s'ouvre depuis le siège : même direction")
+	check(stade._bandeau != null and stade._bandeau_score != null, "le bandeau du direct est en place")
+	stade._causerie.closed.emit()
 	await process_frame
 	check(stade._causerie == null, "Échap referme la causerie")
 	foot.decisions = {}
@@ -134,6 +164,43 @@ func _init() -> void:
 	stade = current_scene
 	check(not stade._rencontre.joue and stade._etat.is_empty() and stade._horloge.text == "Entraînement", "avant la saison, l'Étoile s'entraîne")
 	check(stade._affiche.text.contains("dimanche 25 octobre"), "le tableau donne le premier coup d'envoi : %s" % stade._affiche.text)
+
+	# Le stade est une scène du socle : la commune d'essai, greffée, a son terrain ; son stade porte son
+	# club, son sigle, ses couleurs et son nom, et la sortie ramène chez elle ; la pyramide, rebâtie sans
+	# sauvegarde, lui donne son club tout de suite : on y suit son match et sa causerie.
+	var communes: Node = root.get_node("Communes")
+	DirAccess.make_dir_recursive_absolute("user://test_stade/")
+	var pk := PCKPacker.new()
+	pk.pck_start("user://test_stade/essai.pck")
+	pk.add_file("res://communes/essai/commune.json", "res://tools/commune_essai/commune.json")
+	pk.add_file("res://communes/essai/commune.tscn", "res://tools/commune_essai/commune.tscn")
+	pk.flush()
+	check(communes.charger_pack("user://test_stade/essai.pck") == "essai", "la commune d'essai se greffe avec son terrain %s" % str(communes.refus))
+	foot.actualiser()
+	check(foot.clubs.has("essai") and foot.clubs.essai.court == "USE", "l'Union sportive d'essai a son club : %s" % str(foot.place_de("essai")))
+	foot.regler_horloge(func(): return t5)
+	load("res://scripts/village/stade.gd").prochaine_commune = "essai"
+	change_scene_to_file("res://scenes/stade.tscn")
+	await create_timer(1.5).timeout
+	stade = current_scene
+	check(stade.commune == "essai" and stade._club == "essai", "le stade est celui de la commune d'essai, et de son club")
+	var enseignes: Array = stade.find_children("*", "Label3D", true, false).map(func(l): return l.text)
+	check("UNION SPORTIVE D'ESSAI  ·  STADE D'ESSAI" in enseignes and "STADE D'ESSAI" in enseignes and "Le président" in enseignes, "la tribune, l'arche et le président portent les noms du terrain d'essai : %s" % str(enseignes.slice(0, 6)))
+	sorties = stade.find_children("*", "Area3D", true, false).filter(func(a): return a.get_meta("interact", "") == "exit")
+	check(sorties.size() == 1 and str(sorties[0].get_meta("prompt")) == "E : sortir du stade" and stade._lot() == "stade", "la sortie ramène à la porte du terrain d'essai")
+	presidents = stade.find_children("*", "Area3D", true, false).filter(func(a): return a.get_meta("interact", "") == "president")
+	check(presidents.size() == 1 and str(presidents[0].get_meta("prompt")) == "E : parler au président", "on parle au président, sans nom : %s" % str(presidents[0].get_meta("prompt") if presidents.size() == 1 else ""))
+	check(stade._rencontre.j == 5 and stade._acteurs.size() == 22 and "essai" in [stade._rencontre.dom, stade._rencontre.ext], "on y regarde le match de l'Union sportive à la journée 5 : %s" % str(stade._rencontre))
+	stade.open_causerie()
+	await process_frame
+	check(stade._causerie != null and stade._causerie.club == "essai", "la causerie du président est celle de l'Union sportive")
+	stade._causerie.closed.emit()
+	await process_frame
+	stade._club = ""
+	stade.open_causerie()
+	await process_frame
+	check(stade._causerie == null, "sans club dans la pyramide, pas de causerie : le président renvoie à la saison prochaine")
+	check(stade._enseigne("L'Étoile de Smarves") == "ÉTOILE DE SMARVES" and stade._a("Le président Chauvin") == "au président Chauvin" and stade._a("Mme Rivière") == "à Mme Rivière", "les enseignes et les adresses se forment")
 
 	print("\n%d échec(s)" % fails)
 	quit(1 if fails > 0 else 0)
