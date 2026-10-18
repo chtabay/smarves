@@ -663,6 +663,8 @@ func _enter(id: String) -> void:
 	if not is_open(id):
 		_announce("%s : encore " % p.name + _agree(p, "fermé") + ". Il faut avoir gagné %s crédits au jeu." % _fmt(p.seuil))
 		return
+	# Le nom du joueur reste à la porte pour la journée (panneau de la mairie, autoload Voisinage).
+	Voisinage.passer(id)
 	if id == "banque":
 		_cam_focus(Vector3(7.6, 1.6, 3.8), 5.5, deg_to_rad(-90.0), deg_to_rad(-28.0))
 		var loan: PanelContainer = LOAN.new()
@@ -746,6 +748,7 @@ func _build_signposts() -> void:
 ## Part en promenade vers un des environs (ou revient sur la place avec « place »).
 func travel(where: String) -> void:
 	area = where
+	Voisinage.passer(where)
 	if where == "place":
 		camera.go_to(Vector3(0, 0.3, 0))
 		if player:
@@ -1226,6 +1229,10 @@ func _maybe_capture() -> void:
 			Settings.toggle()
 		elif arg == "--bienvenue":
 			Bienvenue.ouvrir()
+		elif arg == "--panneau":
+			Tableau.ouvrir_panneau()
+		elif arg.begins_with("--porte="):
+			Tableau.ouvrir_maison(arg.trim_prefix("--porte="))
 		elif arg.begins_with("--travel="):
 			await get_tree().process_frame
 			travel(arg.trim_prefix("--travel="))
