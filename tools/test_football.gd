@@ -130,6 +130,30 @@ func _init() -> void:
 	check(foot.clubs.essai.nom == "Union sportive d'essai" and foot.clubs.essai.court == "USE" and foot.clubs.essai.couleurs == ["#1b3c8c", "#f2c94c"], "son nom, son sigle et ses couleurs viennent du manifeste")
 	check(foot.clubs.size() == 8 and foot.en_attente().is_empty(), "huit clubs, rien n'attend")
 
+	# Le mercato : la semaine d'avant la première journée, douze libres, une recrue par club, un libre ne part qu'une fois.
+	check(foot.periode() == "mercato" and foot.mercato_ouvert(2) and not foot.mercato_ouvert(1), "une heure avant la saison 2, son mercato est ouvert")
+	var libres: Array = foot.libres(2)
+	check(libres.size() == 12 and libres[0].poste == "G" and libres[11].poste == "A" and libres[3].nom == foot.libres(2)[3].nom, "douze joueurs libres, les mêmes à chaque tirage")
+	check(foot.prix_de(60) == 1200 and foot.prix_de(85) == 6080 and libres.all(func(j): return j.prix == foot.prix_de(j.note)), "le prix suit la note")
+	check(foot.recruter(1, "essai", 0).raison == "ferme", "pas de recrue pour une saison passée")
+	var avant: Dictionary = foot.effectif("essai", 2)
+	var r0: Dictionary = foot.recruter(2, "essai", 0)
+	check(r0.ok and foot.transferts_locaux.has("2/essai") and foot.transfert_de(2, "essai").etat == "locale", "l'Union d'essai recrute le premier libre, en local")
+	var apres: Dictionary = foot.effectif("essai", 2)
+	check(apres.size() == avant.size() and apres.has("essai/libre0") and apres["essai/libre0"].nom == libres[0].nom, "la recrue entre, l'effectif garde sa taille")
+	var gardiens_avant: Array = avant.keys().filter(func(id): return avant[id].poste == "G")
+	var gardiens_apres: Array = apres.keys().filter(func(id): return apres[id].poste == "G")
+	check(gardiens_apres.size() == gardiens_avant.size() and not apres.has(gardiens_avant.reduce(func(a, b): return a if avant[a].note <= avant[b].note else b)), "le plus faible gardien cède sa place")
+	check(foot.recruter(2, "essai", 1).raison == "deja", "une recrue par club et par saison")
+	check(foot.recruter(2, "smarves", 0).raison == "pris" and foot.preneur(2, 0) == "essai", "un libre ne part qu'une fois")
+	check(foot.appliquer_transferts([{"saison": 2, "club": "essai", "joueur": 5, "par": "Lucien"}]), "le serveur apporte une autre recrue pour le même club")
+	check(foot.transfert_de(2, "essai").etat == "commune" and foot.effectif("essai", 2).has("essai/libre5") and not foot.effectif("essai", 2).has("essai/libre0"), "elle l'emporte sur la recrue locale")
+	check(foot.prochain_mercato() == foot.coup_envoi(3, 1) - 7 * 86400, "le prochain mercato est celui de la saison 3")
+	foot.transferts = {}
+	foot.transferts_locaux = {}
+	foot._effectifs = {}
+	foot._matchs = {}
+
 	# Huit terrains de plus au catalogue : le bas est plein, un niveau 2 à deux groupes s'ouvre.
 	var entrees := []
 	var inseeS := ["86133", "86290", "86015", "86009", "86062", "86100", "86150", "86200"]

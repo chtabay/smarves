@@ -9,6 +9,9 @@ extends FootTableau
 ## Elle emprunte au tableau du dimanche son ardoise et ses petites pièces ; s'ouvre et se ferme comme
 ## lui (signal closed, Échap).
 
+## Le joueur veut passer au mercato (le stade ouvre FootMercato).
+signal mercato
+
 ## Le club dont on parle (l'id du registre), et son prochain match.
 var club := ""
 var rencontre := {}
@@ -103,6 +106,9 @@ func _bas(colonne: VBoxContainer, valider: bool) -> void:
 		var b := _bouton("Donner la consigne", func(): donner())
 		b.name = "Valider"
 		bas.add_child(b)
+	var m := _bouton("Le mercato" + ("  ·  ouvert" if foot().mercato_ouvert(foot().saison) else ""), func(): mercato.emit())
+	m.name = "Mercato"
+	bas.add_child(m)
 	bas.add_child(_bouton("Laisser le président  (Échap)", func(): closed.emit()))
 
 

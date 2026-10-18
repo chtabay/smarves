@@ -355,7 +355,9 @@ Un type de plus fait monter la version du socle ; un paquet qui s'en sert le dem
    ![Le carnet du PMU sur le zinc, à côté du 421](captures/salle-cafe-pmu.png)
 
    ![Le carnet du PMU de Josiane, un ticket pris sur l'Étoile](captures/salle-cafe-paris.png)
-12. **Le mercato** une semaine par saison.
+12. **Le mercato** (fait le 18 octobre 2026) : la semaine qui précède la première journée d'une saison (`Football.periode` = « mercato », `mercato_ouvert`), le président Chauvin ouvre le mercato depuis sa causerie (`FootMercato`, `scripts/socle/foot_mercato.gd`, bouton « Le mercato » de la causerie) : **douze joueurs libres par saison**, les mêmes chez tout le monde (`Football.libres` : deux gardiens, quatre défenseurs, quatre milieux, deux attaquants, tirés de la graine de la saison avec leurs huit compétences), avec leur âge, leur note et **leur prix** (`prix_de` : 1 200 crédits à 60, 3 680 à 75, 6 080 à 85). **Une recrue par club et par saison**, un libre ne part qu'une fois ; la recrue prend la place du plus faible de son poste dans l'effectif (`effectif` applique `recrue`), et le match s'en ressent chez tout le monde. C'est **celui qui parle pour le club** (le premier actionnaire, `peut_decider`) qui recrute, **de sa poche** : le club n'a pas de caisse, il a des actionnaires. Connecté, la recrue part au serveur (table `smarves.transferts`, fonctions `smarves_transfert_recruter` et `smarves_transferts`, migration `supabase/migrations/20261018190000_smarves_transferts.sql`, qui refuse hors semaine, sans la parole, une deuxième recrue ou un libre déjà pris) ; sans compte, elle reste locale sur l'appareil comme une consigne, et une recrue refusée au serveur est retirée. Hors mercato, la fenêtre se lit et dit quand le prochain s'ouvre (`prochain_mercato`). Le premier mercato est ouvert du 18 au 25 octobre 2026. Test : `tools/test_football.gd` ; capture : `godot --path . res://scenes/stade.tscn -- --capture=mercato.png --won=3000 --mercato --actionnaires=vous:2 --open=mercato` (`--mercato` pose l'horloge au milieu de la semaine du mercato de la saison 1).
+
+   ![Le mercato du président : les douze joueurs libres de la saison](captures/stade-mercato.png)
 
 ## 7. Le séquencement et les fils en cours
 
@@ -369,7 +371,7 @@ Un type de plus fait monter la version du socle ; un paquet qui s'en sert le dem
 | 6 | Connexion au compte Pyramides, partie gardée sur le compte | un fil Compte (fait le 18 octobre 2026) | le mobile au point ; migration du schéma `smarves` sur accord de Guillaume |
 | 7 | Multi différé : visites de maisons, livre d'or, classements au village | un fil Multi (fait le 18 octobre 2026 : panneau, noms sur les maisons, livre d'or, traces) | 4, 6 |
 | 8 | Soirée partagée, tables à plusieurs, poker de Passelourdin | fil Multi, Visuel des jeux | 7 |
-| 9 | Structures partagées (gare, arrêt de car, terrain), registre, pyramide du football de la Vienne | Structures partagées et football | 5 ; le mercato après 11 |
+| 9 | Structures partagées (gare, arrêt de car, terrain), registre, pyramide du football de la Vienne | Structures partagées et football | 5 |
 
 **Notes de Guillaume du 18 octobre 2026, à garder sans les traiter maintenant :**
 

@@ -43,6 +43,7 @@ const MI_TEMPS := 15 * 60
 const TABLEAU := preload("res://scripts/socle/foot_tableau.gd")
 ## Le président Chauvin, et sa causerie (les consignes du prochain match) quand elle est ouverte.
 const CAUSERIE := preload("res://scripts/socle/foot_causerie.gd")
+const MERCATO := preload("res://scripts/socle/foot_mercato.gd")
 var _president: Node3D
 var _causerie: PanelContainer
 
@@ -259,6 +260,27 @@ func open_causerie() -> void:
 	if _causerie != null:
 		return
 	var p: PanelContainer = CAUSERIE.new()
+	p.club = _club_de_la_commune()
+	p.closed.connect(func():
+		p.queue_free()
+		_causerie = null
+		player.frozen = false
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
+	p.mercato.connect(func():
+		p.queue_free()
+		_causerie = null
+		open_mercato())
+	player.frozen = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_panel_layer.add_child(p)
+	_causerie = p
+
+
+## Le mercato : les joueurs libres de la saison, et la recrue du club, dans la même ardoise.
+func open_mercato() -> void:
+	if _causerie != null:
+		return
+	var p: PanelContainer = MERCATO.new()
 	p.club = _club_de_la_commune()
 	p.closed.connect(func():
 		p.queue_free()
@@ -749,7 +771,7 @@ func _maybe_capture() -> void:
 			player.rotation.y = deg_to_rad(v[2])
 			if v.size() > 3:
 				player.camera.rotation.x = deg_to_rad(v[3])
-		elif arg.begins_with("--minute=") or arg.begins_with("--journee="):
+		elif arg.begins_with("--minute=") or arg.begins_with("--journee=") or arg == "--mercato":
 			pass
 		elif arg.begins_with("--actionnaires="):
 			# Des parts du club pour la capture : --actionnaires=vous:2,Lucien:1 (avant --open=causerie).
@@ -764,6 +786,8 @@ func _maybe_capture() -> void:
 			Football.parts[club] = autres
 		elif arg == "--open=causerie":
 			open_causerie()
+		elif arg == "--open=mercato":
+			open_mercato()
 		elif arg.begins_with("--rejouer="):
 			_rejouer(arg.trim_prefix("--rejouer="))
 		elif arg.begins_with("--attendre="):
@@ -819,6 +843,12 @@ func _init() -> void:
 			journee = int(arg.trim_prefix("--journee="))
 		elif arg.begins_with("--minute="):
 			minute = int(arg.trim_prefix("--minute="))
+		elif arg == "--mercato":
+			# Le milieu de la semaine du mercato de la saison 1.
+			journee = -1
 	if journee > 0:
 		var t: int = Football.coup_envoi(1, journee) + minute * 60 + (MI_TEMPS if minute > 45 else 0)
 		Football.regler_horloge(func(): return t)
+	elif journee < 0:
+		var tm: int = Football.coup_envoi(1, 1) - 3 * 86400
+		Football.regler_horloge(func(): return tm)
