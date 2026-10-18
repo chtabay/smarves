@@ -27,6 +27,8 @@ const TEINTES := {
 
 ## Le registre dessiné : celui de la commune en cours, sauf si on en donne un autre avant _ready.
 var registre := {}
+## La commune du registre (« » : la commune d'origine) : ses adresses sont au catalogue sous NOTAIRE.cle().
+var commune := ""
 var selected := ""
 var quartier := ""
 var _font: Font
@@ -36,11 +38,16 @@ func _ready() -> void:
 	_font = Polices.texte()
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	if registre.is_empty():
-		registre = NOTAIRE.registre(Commune.smarves())
+		registre = NOTAIRE.registre(_c())
 	if quartier == "" and not quartiers().is_empty():
 		quartier = str(quartiers()[0].id)
 	Biens.changed.connect(queue_redraw)
 	Game.changed.connect(queue_redraw)
+
+
+func _c() -> Commune:
+	var c: Commune = Communes.commune(commune) if commune != "" else null
+	return c if c != null else Commune.smarves()
 
 
 func quartiers() -> Array:
@@ -149,14 +156,14 @@ func _draw() -> void:
 
 
 func _lot(a: Dictionary, street: bool) -> void:
-	var id := str(a.id)
+	var id := NOTAIRE.cle_adresse(_c(), a)
 	var r := _box(a.rect)
 	var state := state_of(id)
 	var fill: Color = {"vente": FOR_SALE, "a_vous": MINE, "ferme": CLOSED}[state]
 	if state == "vente" and Biens.count(id) > 0:
 		fill = FOR_SALE.lerp(MINE, 0.45)
 	draw_rect(r, fill)
-	var sel := id == selected
+	var sel := str(a.id) == selected
 	draw_rect(r, Color(0.65, 0.12, 0.08) if sel else Color(0.45, 0.32, 0.18), false, 3.0 if sel else 1.5)
 	var line := ""
 	var it: Dictionary = Biens.item(id)

@@ -18,6 +18,17 @@
 		 "repliques": ["« Ici on mise petit, mais on mise souvent. »"]},
 		{"type": "salle_jeu", "id": "cercle", "nom": "Le cercle", "jeux": ["baccara"], "decor": "salle"}
 	],
+	"notaire": {"nom": "Maître Lucas", "etude": "L'étude de Maître Lucas", "graine": 5, "lot": "place",
+		"repliques": ["« La gare, c'est l'avenir. Achetez autour. »"],
+		"registre": {
+			"quartiers": [{"id": "gare", "nom": "La gare", "style": "plan",
+				"decor": [{"forme": "rect", "rect": [0, 300, 1000, 70], "teinte": "route"}, {"forme": "rect", "rect": [60, 400, 880, 160], "teinte": "place"}],
+				"textes": [{"texte": "Avenue de la Gare", "rect": [300, 312, 400, 44], "taille": 22}]}],
+			"adresses": [
+				{"id": "maison_gare", "quartier": "gare", "rect": [120, 110, 220, 150], "numero": 2, "ligne": "2, avenue de la Gare",
+				 "genre": "maison", "nom": "La maison du chef de gare", "prix": 6000, "de": "La compagnie", "phrase": "« Elle a vu passer tous les trains. »"},
+				{"id": "buffet", "quartier": "gare", "rect": [420, 100, 260, 170], "numero": 4, "ligne": "4, avenue de la Gare",
+				 "genre": "murs", "nom": "Les murs du buffet de la gare", "prix": 9000, "de": "M. Peyrot", "phrase": "« Le buffet tourne, les murs restent. »"}]}},
 	"banque": {"id": "caisse_essai_salle", "nom": "La Caisse de la gare", "banquier": "M. Peyrot", "preteur": "essai_salle", "lieu": "cercle",
 		"repliques": ["« La Caisse de la gare ne refuse rien à un voyageur. »"]}
 }

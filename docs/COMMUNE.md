@@ -207,6 +207,10 @@ Le plan se dessine sur un papier de 1000 × 620 ; les rectangles s'écrivent `[x
 
 Le socle tire la fiche du prix : rente annoncée 10 % du prix par recette (8 % pour un bâtiment public), charges un cent-vingtième, standing selon le genre et le prix. Un manifeste sans `notaire` reste valide : l'étude prend « Le notaire » et un registre vide. `Commune` vérifie le champ (`notaire.verifier`), un quartier inconnu, un genre inconnu ou une adresse sans prix rendent le manifeste invalide.
 
+**L'étude est une scène du socle.** Une autre commune que Smarves n'a pas d'étude à construire : `scenes/etude.tscn` (`scripts/socle/etude.gd`) bâtit la pièce, met le notaire derrière son bureau et ouvre le registre de la commune (le même plan et les mêmes fiches qu'à Smarves). La commune l'ouvre depuis sa scène par `Etude.ouvrir("<id de la commune>")`, et la porte ramène devant l'étude (`notaire.lot`, sinon `notaire`). Trois champs facultatifs habillent l'étude : `graine` (un nombre : le visage du notaire, le même d'une partie à l'autre), `repliques` (ce qu'il dit quand on s'approche ; des phrases du socle à défaut) et `lot`.
+
+**Les adresses d'une autre commune sont rangées sous son id.** Au catalogue de `Biens`, l'adresse `buffet` d'Availles est le bien `availles_limouzine/buffet` (`notaire.cle`), pour que deux communes puissent avoir chacune leur `maison_place` ; une adresse `part` garde l'id du bien qu'elle désigne. On l'achète comptant, ou à crédit auprès de la **banque de la commune** (`banque.preteur`), pas du Crédit Smarvois. Un bien d'une commune qui n'est plus inscrite reste dans la partie, mais il ne vaut ni ne rapporte rien tant qu'elle n'est pas revenue. La commune d'essai `tools/fixtures/salle_jeu/` a un notaire, et `tools/test_salle_jeu.gd` vérifie l'achat et l'étude.
+
 ## Comment une commune arrive
 
 - **Les communes du dépôt** vivent sous `res://communes/<id>/`. Smarves y a son manifeste ; ses scènes restent pour l'instant sous `scenes/` et `scripts/`.

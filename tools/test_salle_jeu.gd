@@ -3,7 +3,8 @@ extends SceneTree
 ## Le vocabulaire accepte une « salle_jeu » et refuse un jeu ou un décor inconnus ; une commune en pack
 ## (tools/fixtures/salle_jeu/) inscrit ses deux salles au registre ; le tripot s'ouvre, pose une table
 ## par jeu, chaque jeu ouvre son panneau et un gain s'encaisse ; le cercle reste fermé tant que le lieu
-## du même id n'a pas atteint son seuil ; la porte ramène dans la commune.
+## du même id n'a pas atteint son seuil ; la porte ramène dans la commune. Son notaire met ses adresses au
+## catalogue sous « essai_salle/<id> », financées par sa banque, et son étude ouvre son registre.
 
 const ESSAI := "res://tools/fixtures/salle_jeu/"
 const TMP := "user://test_salle_jeu/"
@@ -100,7 +101,43 @@ func _init() -> void:
 	await process_frame
 	check(current_scene != null and current_scene.scene_file_path == "res://communes/essai_salle/commune.tscn" and game.return_point == "place",
 		"la porte ramène dans la commune, devant la porte de la salle")
+	await _etude(game)
 	_fin()
+
+
+## L'étude du notaire de la commune d'essai : ses adresses au catalogue, l'achat financé par sa banque.
+func _etude(game: Node) -> void:
+	var biens: Node = root.get_node("Biens")
+	var etude: GDScript = load("res://scripts/socle/etude.gd")
+	var buffet: Dictionary = biens.item("essai_salle/buffet")
+	check(buffet.get("price", 0) == 9000 and buffet.get("commune", "") == "essai_salle", "les adresses du notaire entrent au catalogue sous « essai_salle/<id> »")
+	check(not biens.item("maison_place").is_empty() and not biens.item("maison_place").has("commune"), "  celles de la commune d'origine gardent leur id")
+	check(biens.item("partie/inconnu").get("price", -1) == 0, "  un bien d'une commune absente est gardé sans rien valoir")
+	var brunet: int = game.debt_of(game.lender)
+	var avant: int = game.debt_of("essai_salle")
+	check(biens.buy("essai_salle/buffet", true, "essai_salle"), "on achète les murs du buffet à crédit")
+	check(biens.count("essai_salle/buffet") == 1 and game.debt_of("essai_salle") > avant and game.debt_of(game.lender) == brunet, "  la dette va à la banque de la commune")
+	check(etude.ouvrir("essai_salle"), "l'étude de la commune s'ouvre")
+	await process_frame
+	await process_frame
+	var s: Node = current_scene
+	check(s != null and s.get("commune") == "essai_salle" and s._salle.host == "Maître Lucas", "on est chez Maître Lucas")
+	if s != null:
+		s.open_registre()
+		await process_frame
+		var p: Node = s._game
+		check(p != null and p.commune == "essai_salle" and p._c().data.id == "essai_salle", "le registre ouvert est celui de la commune")
+		if p:
+			check(p._map != null and p._map.registre.adresses.size() == 2, "  son plan porte ses deux adresses")
+			p._on_picked("buffet")
+			await process_frame
+			p.closed.emit()
+			await process_frame
+		s._sortir()
+		await process_frame
+		await process_frame
+		check(current_scene != null and current_scene.scene_file_path == "res://communes/essai_salle/commune.tscn" and game.return_point == "place", "la porte de l'étude ramène dans la commune")
+	biens.sell("essai_salle/buffet")
 
 
 func _fin() -> void:

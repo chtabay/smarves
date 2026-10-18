@@ -8,6 +8,8 @@ signal closed
 signal spoke(text: String)
 
 var seller := "notaire"
+## La commune de l'étude (« » : la commune d'origine). Ses adresses sont au catalogue sous NOTAIRE.cle().
+var commune := ""
 
 const INK := Color(0.12, 0.14, 0.3)
 const INK_LIGHT := Color(0.32, 0.32, 0.42)
@@ -70,7 +72,9 @@ func _ready() -> void:
 	add_child(v)
 	var head: Array = HEADINGS.get(seller, HEADINGS.notaire).duplicate()
 	if seller == "notaire":
-		head[0] = NOTAIRE.etude(Commune.smarves()).titre
+		head[0] = NOTAIRE.etude(_c()).titre
+		if not _banque().is_empty():
+			head[1] = "Registre des cessions  ·  les immeubles de %s" % str(_c().data.get("nom", ""))
 	_label(v, head[0], 28, INK, true).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_label(v, head[1], 16, INK_LIGHT).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var rule := ColorRect.new()
@@ -93,7 +97,7 @@ func _ready() -> void:
 		var tabs := HBoxContainer.new()
 		tabs.add_theme_constant_override("separation", 6)
 		left.add_child(tabs)
-		var reg := NOTAIRE.registre(Commune.smarves())
+		var reg := NOTAIRE.registre(_c())
 		for quart in reg.quartiers:
 			var q := str(quart.id)
 			var t := _button(str(quart.nom), _on_quartier.bind(q))
@@ -106,6 +110,7 @@ func _ready() -> void:
 			_tabs[q] = t
 		_map = CARTE.new()
 		_map.registre = reg
+		_map.commune = commune
 		_map.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_map.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		_map.picked.connect(_on_picked)
@@ -126,6 +131,17 @@ func _ready() -> void:
 	leave.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(leave)
 	_refresh()
+
+
+func _c() -> Commune:
+	var c: Commune = Communes.commune(commune) if commune != "" else null
+	return c if c != null else Commune.smarves()
+
+
+## La banque qui finance ici : celle de la commune, sauf à l'origine (le Crédit Smarvois).
+func _banque() -> Dictionary:
+	var b: Dictionary = _c().banque()
+	return b if NOTAIRE.cle(_c(), "x") != "x" else {}
 
 
 func _label(parent: Control, t: String, size: int, color: Color, bold := false) -> Label:
@@ -179,8 +195,10 @@ func _refresh() -> void:
 		if it.seller != seller:
 			continue
 		_card(it)
-	_status.text = "Vos crédits : %s   ·   Dette au Crédit Smarvois : %s   ·   Standing : %d" % [
-		Game.fmt(Game.credits), Game.fmt(Game.debt), Biens.standing()]
+	var b := _banque()
+	_status.text = "Vos crédits : %s   ·   Dette %s : %s   ·   Standing : %d" % [Game.fmt(Game.credits),
+		"au Crédit Smarvois" if b.is_empty() else "à %s" % str(b.get("nom", "la banque")),
+		Game.fmt(Game.debt if b.is_empty() else Game.debt_of(str(b.get("preteur", "")))), Biens.standing()]
 
 
 func _card(it: Dictionary) -> void:
@@ -247,7 +265,7 @@ func _on_quartier_changed(q: String) -> void:
 
 ## Une adresse est-elle sur le plan de ce quartier (le Moulin est sur la place et au bout de la rue du Clain).
 func _dans(id: String, q: String) -> bool:
-	for a in NOTAIRE.registre(Commune.smarves()).adresses:
+	for a in NOTAIRE.registre(_c()).adresses:
 		if str(a.id) == id and str(a.quartier) == q:
 			return true
 	return false
@@ -255,7 +273,7 @@ func _dans(id: String, q: String) -> bool:
 
 func _on_picked(id: String) -> void:
 	if not _dans(id, _map.quartier):
-		_map.set_quartier(NOTAIRE.quartier_of(Commune.smarves(), id))
+		_map.set_quartier(NOTAIRE.quartier_of(_c(), id))
 	_picked = id
 	_map.select(id)
 	_refresh()
@@ -271,14 +289,15 @@ func _detail(id: String) -> void:
 		_legend("pas encore cédé", CARTE.CLOSED)
 		var mine: Array[String] = []
 		for it in Biens.catalogue():
-			if it.seller == seller and Biens.count(it.id) > 0:
+			if it.seller == seller and str(it.get("commune", "")) == ("" if _banque().is_empty() else str(_c().data.id)) and Biens.count(it.id) > 0:
 				mine.append(it.name if Biens.count(it.id) == 1 else "%s ×%d" % [it.name, Biens.count(it.id)])
-		_label(_list, "Vos biens chez %s : " % NOTAIRE.etude(Commune.smarves()).nom + (", ".join(mine) if not mine.is_empty() else "aucun pour l'instant."), 15, INK_LIGHT)
+		_label(_list, "Vos biens chez %s : " % NOTAIRE.etude(_c()).nom + (", ".join(mine) if not mine.is_empty() else "aucun pour l'instant."), 15, INK_LIGHT)
 		return
+	var adr := NOTAIRE.adresse(_c(), id)
+	id = NOTAIRE.cle_adresse(_c(), adr) if not adr.is_empty() else id
 	var it: Dictionary = Biens.item(id)
 	var n := Biens.count(id)
 	_label(_list, it.name, 21, INK, true)
-	var adr := NOTAIRE.adresse(Commune.smarves(), id)
 	var lieu := str(adr.get("ligne", ""))
 	if int(adr.get("numero", 0)) == 0 and str(adr.get("etiquette", "")) not in ["", lieu]:
 		lieu = "%s  ·  %s" % [adr.etiquette, lieu] if lieu != "" and not lieu.begins_with("Le ") else str(adr.etiquette)
@@ -313,7 +332,8 @@ func _detail(id: String) -> void:
 		_label(_list, "À vous.", 16, INK, true)
 	if Biens.available(id):
 		_label(_list, "%s crédits" % Game.fmt(Biens.next_price(id)), 24, INK, true)
-		for b in [_button("Payer comptant", _buy.bind(id, false)), _button("Financer au Crédit Smarvois", _buy.bind(id, true))]:
+		var banque := str(_banque().get("nom", "au Crédit Smarvois"))
+		for b in [_button("Payer comptant", _buy.bind(id, false)), _button("Financer " + (banque if banque.begins_with("au ") else "par %s" % banque), _buy.bind(id, true))]:
 			b.custom_minimum_size.y = 48
 			_list.add_child(b)
 	if Biens.logements.has(id):
@@ -337,7 +357,7 @@ func _legend(t: String, c: Color) -> void:
 	sw.custom_minimum_size = Vector2(22, 16)
 	sw.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(sw)
-	_label(h, t, 15, INK)
+	_label(h, t, 15, INK).size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_list.add_child(h)
 
 
@@ -345,9 +365,9 @@ func _buy(id: String, financed: bool) -> void:
 	if not financed and Game.credits < Biens.next_price(id):
 		spoke.emit(TOO_POOR)
 		return
-	if Biens.buy(id, financed):
+	if Biens.buy(id, financed, str(_banque().get("preteur", ""))):
 		Sfx.play("chips", -6.0)
-		spoke.emit(FINANCED if financed else (THANKS.get(seller, THANKS.notaire) as Array).pick_random())
+		spoke.emit((FINANCED if _banque().is_empty() else "« %s finance, c'est signé. »" % str(_banque().get("nom", "La banque"))) if financed else (THANKS.get(seller, THANKS.notaire) as Array).pick_random())
 	_refresh()
 
 

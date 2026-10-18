@@ -62,6 +62,7 @@
 	"polices": {"texte": "Polices.texte()", "gras": "Polices.gras()", "titre": "Polices.titre()"},
 	"scenes": {
 		"stade": "le stade du socle, ouvert par une structure « terrain_foot » du manifeste (docs/COMMUNE.md, « Les structures ») ; Football.ouvrir_stade(id)",
+		"etude": "l'étude du notaire de la commune, tenue par le socle, ouverte par le champ « notaire » du manifeste (docs/COMMUNE.md, « Le notaire ») ; Etude.ouvrir(commune)",
 		"salle_jeu": "une salle de jeu meublée et tenue par le socle, ouverte par une structure « salle_jeu » du manifeste (docs/COMMUNE.md, « Les structures ») ; SalleJeu.ouvrir(commune, id)",
 		"habitant": "l'habitant du joueur et la caméra du village : la scène de départ du kit (tools/kit/commune.gd)"
 	}
