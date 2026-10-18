@@ -674,7 +674,7 @@ func _noms() -> void:
 			at.y = b.sol + b.h + b.pente + 0.9
 		else:
 			at.y += 2.2
-		var l := _enseigne(at, r.nom, OR if majeur else Color(0.92, 0.9, 0.85), 0.0016 if majeur else 0.0012)
+		var l := _enseigne(at, r.nom, OR if majeur else Color(0.92, 0.9, 0.85), 0.011 if majeur else 0.0075)
 		# Les commerces se lisent de près ; les monuments jusqu'à la vue de tout le bourg.
 		l.visibility_range_end = 260.0 if majeur else 34.0
 	# Les noms des rues, couchés sur la chaussée, une fois par rue, sur son plus long tronçon.
@@ -719,7 +719,6 @@ func _enseigne(at: Vector3, texte: String, c: Color, px: float) -> Label3D:
 	l.outline_size = 12
 	l.outline_modulate = Color(0, 0, 0, 0.7)
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	l.fixed_size = true
 	l.position = at
 	add_child(l)
 	return l
