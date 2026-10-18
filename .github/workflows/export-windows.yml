@@ -250,9 +250,9 @@ jobs:
           import io, zipfile
           from PIL import Image, ImageChops, ImageStat
           apk = zipfile.ZipFile("build/Smarves.apk")
-          noms = [n for n in apk.namelist() if n.startswith("res/mipmap") and n.endswith(".png")]
+          noms = [n for n in apk.namelist() if n.startswith("res/mipmap")]
           print("Icônes :", ", ".join(sorted(noms)))
-          avant = [n for n in noms if "xxxhdpi" in n and "foreground" in n]
+          avant = [n for n in noms if "xxxhdpi" in n and "icon_foreground" in n]
           assert avant, "Pas de premier plan adaptatif xxxhdpi dans l'APK"
           ref = Image.open("assets/icone/android-avant-432.png").convert("RGBA")
           lu = Image.open(io.BytesIO(apk.read(avant[0]))).convert("RGBA").resize(ref.size)
