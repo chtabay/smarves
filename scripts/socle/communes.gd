@@ -107,6 +107,23 @@ func publiees() -> Array:
 	return catalogue
 
 
+## La version publiée à installer pour cette commune installée, ou « » si elle est à jour (ou pas au
+## catalogue). La version installée est celle téléchargée en dernier, sinon celle du manifeste.
+func mise_a_jour(id: String) -> String:
+	var e := au_catalogue(id)
+	var c: Commune = communes.get(id)
+	if e.is_empty() or c == null or e.version == "":
+		return ""
+	return e.version if str(installations.get(id, c.data.get("version", ""))) != e.version else ""
+
+
+## Une version plus récente est déjà téléchargée et s'ouvrira au prochain lancement : sa version, ou « ».
+func en_attente(id: String) -> String:
+	var c: Commune = communes.get(id)
+	var v := str(installations.get(id, ""))
+	return v if c != null and v != "" and v != str(c.data.get("version", v)) else ""
+
+
 ## L'entrée du catalogue pour cet id, ou {}.
 func au_catalogue(id: String) -> Dictionary:
 	for e in catalogue:
@@ -136,6 +153,8 @@ func lire_catalogue(adresse := Portail.adresse()) -> void:
 	catalogue_etat = "lecture"
 	var http := HTTPRequest.new()
 	http.timeout = 10.0
+	# La bienvenue, le carnet et la carte mettent le jeu en pause : la requête doit avancer quand même.
+	http.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(http)
 	http.request_completed.connect(func(resultat: int, code: int, _h, corps: PackedByteArray):
 		http.queue_free()
@@ -168,6 +187,8 @@ func installer(id: String) -> void:
 	http.timeout = 120.0
 	http.download_file = part
 	http.body_size_limit = Portail.TAILLE_MAX + 1
+	# Un téléchargement lancé depuis la bienvenue ou la carte, jeu en pause, doit aboutir.
+	http.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(http)
 	http.request_completed.connect(func(resultat: int, code: int, _h, _c):
 		http.queue_free()
@@ -191,21 +212,44 @@ func _installe(e: Dictionary, part: String, recu: bool) -> void:
 		_refuser(part, "téléchargement inabouti" if not recu else "le paquet reçu ne correspond pas au catalogue")
 		installee.emit(id, false, raison)
 		return
-	# Une commune déjà inscrite a son pack ouvert : la nouvelle version attend le prochain lancement.
-	var deja := communes.has(id)
+	# Une commune déjà visitée a son pack monté : Godot ne peut pas le remplacer, la nouvelle version
+	# attend le prochain lancement (relancer()). Pas encore visitée, elle prend sa place tout de suite.
+	var deja: bool = communes.has(id) and communes[id].montee
 	if deja:
 		DirAccess.rename_absolute(part, fin + ".nouveau")
 	else:
+		var ancienne: Commune = communes.get(id)
+		if ancienne:
+			DirAccess.rename_absolute(fin, fin + ".ancien")
+			communes.erase(id)
+			ordre.erase(id)
 		DirAccess.remove_absolute(fin)
 		DirAccess.rename_absolute(part, fin)
-	if not deja and charger_pack(fin) == "":
-		raison = refus[-1][1] if not refus.is_empty() else "paquet refusé"
-		DirAccess.remove_absolute(fin)
-		installee.emit(id, false, "%s n'a pas pu s'installer : %s." % [e.nom, raison])
-		return
+		if charger_pack(fin) == "":
+			raison = refus[-1][1] if not refus.is_empty() else "paquet refusé"
+			DirAccess.remove_absolute(fin)
+			if ancienne:
+				DirAccess.rename_absolute(fin + ".ancien", fin)
+				inscrire(ancienne)
+			installee.emit(id, false, "%s n'a pas pu s'installer : %s." % [e.nom, raison])
+			return
+		DirAccess.remove_absolute(fin + ".ancien")
 	installations[id] = e.version
 	Portail.ecrire(dossier_greffes.path_join("installees.json"), JSON.stringify(installations))
 	installee.emit(id, true, ("%s est installée." % e.nom) if not deja else ("La version %s de %s s'ouvrira au prochain lancement." % [e.version, e.nom]))
+
+
+## Relancer le jeu ouvre les versions téléchargées pendant la partie ; seulement sur ordinateur.
+func peut_relancer() -> bool:
+	return not (OS.has_feature("android") or OS.has_feature("ios") or OS.has_feature("web"))
+
+
+## Enregistre la partie, puis ferme le jeu et le rouvre.
+func relancer() -> void:
+	Game.save_game()
+	get_tree().root.propagate_notification(NOTIFICATION_WM_CLOSE_REQUEST)
+	OS.set_restart_on_exit(true, OS.get_cmdline_args())
+	get_tree().quit()
 
 
 ## Entre dans une commune greffée : monte son pack, change de scène, et pose le bouton du retour.
@@ -329,6 +373,7 @@ func charger_pack(path: String) -> String:
 		_refuser(path, "le pack n'a pas de manifeste res://%s" % manifeste)
 		return ""
 	var c := Commune.depuis_texte(texte, "res://" + manifeste, path)
+	c.signature = signature(path)
 	if c.valide() and c.id != id:
 		c.erreurs.append("le pack s'appelle « %s » mais son manifeste dit « %s »" % [id, c.id])
 	return id if inscrire(c) else ""
@@ -340,6 +385,18 @@ func ouvrir(id: String) -> bool:
 	var c: Commune = communes.get(id)
 	if c == null:
 		return false
+	# Un pack remplacé sur le disque pendant la partie (une nouvelle version déposée à la main) : pas
+	# encore monté, on relit son manifeste ; déjà monté, Godot lirait le nouveau fichier aux places de
+	# l'ancien et planterait, alors on attend le prochain lancement.
+	if c.pack != "" and signature(c.pack) != c.signature:
+		if c.montee:
+			_refuser(c.pack, "le paquet a changé depuis qu'il a été ouvert ; la nouvelle version s'ouvrira au prochain lancement du jeu")
+			return false
+		communes.erase(id)
+		ordre.erase(id)
+		if charger_pack(c.pack) == "":
+			return false
+		c = communes[id]
 	if not c.montee:
 		if not ProjectSettings.load_resource_pack(c.pack, false):
 			_refuser(c.pack, "Godot n'a pas pu monter le pack")
@@ -349,6 +406,12 @@ func ouvrir(id: String) -> bool:
 		_refuser(c.chemin, "scène introuvable : %s" % c.data.scene)
 		return false
 	return true
+
+
+## La date et la taille d'un fichier, pour savoir s'il a été remplacé depuis qu'on l'a lu.
+static func signature(path: String) -> String:
+	var f := FileAccess.open(path, FileAccess.READ)
+	return "%d:%d" % [FileAccess.get_modified_time(path), f.get_length()] if f else ""
 
 
 ## Une commune en dossier (données et scènes sous user://communes/<id>/), sans pack.

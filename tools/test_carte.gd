@@ -76,9 +76,100 @@ func _init() -> void:
 	carte.fermer()
 	await _attendre(0.8)
 	check(not carte.is_open() and not paused, "Échap ou Revenir rend le village")
+	await _car_et_routes(carte)
+	await _mises_a_jour(carte, communes)
+	await _telechargement(communes)
 	await _titre(carte)
 	print("\n%d échec(s)" % fails)
 	quit(1 if fails > 0 else 0)
+
+
+## L'arrêt du car sur la place et les panneaux au bout des routes ouvrent la carte.
+func _car_et_routes(carte: CanvasLayer) -> void:
+	check(Vienne.voisine("86263", Vector2(-1, 0)) == "86133" and Vienne.voisine("86263", Vector2(0, 1)) == "86214"
+		and Vienne.voisine("86263", Vector2(1, 0)) == "86180", "au bout des routes : Ligugé à l'ouest, Saint-Benoît au nord, Nouaillé-Maupertuis à l'est")
+	var actions := {}
+	for a in current_scene.find_children("*", "Area3D", true, false):
+		if a.has_meta("action") and a.get_meta("interact", "") in ["car", "sortie"]:
+			actions[a.get_meta("prompt")] = a.get_meta("action")
+	check(actions.has("E : prendre le car départemental"), "un arrêt de car sur la place")
+	check(actions.has("E : prendre la route de Ligugé") and actions.has("E : prendre la route de Saint-Benoît")
+		and actions.has("E : prendre la route de Nouaillé-Maupertuis"), "trois panneaux de sortie : %s" % str(actions.keys()))
+	(actions["E : prendre le car départemental"] as Callable).call()
+	await _attendre(0.3)
+	var c: CarteVienne = carte.get("_carte")
+	check(carte.is_open() and (carte.get("_grand_titre") as Label).text.begins_with("Arrêt de la Place"), "le car ouvre la carte de ses arrêts")
+	check(c.lignes == ["86133"], "ses lignes vont aux communes où l'on peut aller : %s" % str(c.lignes))
+	carte.fermer()
+	await _attendre(0.8)
+	(actions["E : prendre la route de Saint-Benoît"] as Callable).call()
+	await _attendre(0.3)
+	check(carte.is_open() and c.choisie == "86214" and c.lignes.is_empty(), "la route du nord montre Saint-Benoît")
+	carte.fermer()
+	await _attendre(0.8)
+	check(not carte.is_open() and not paused, "on revient au bout de la route")
+
+
+## Une version publiée plus récente se voit sur la carte et dans la fiche ; un pack remplacé pendant la
+## partie n'est pas relu par-dessus l'ancien.
+func _mises_a_jour(carte: CanvasLayer, communes: Node) -> void:
+	communes.catalogue = [{"insee": "86133", "id": "liguge", "nom": "Ligugé", "auteur": "Claude", "version": "0.2.0",
+		"description": "", "paquet": "https://exemple.fr/liguge.pck", "taille": 1, "sha256": "0".repeat(64), "publie_le": ""}]
+	check(communes.mise_a_jour("liguge") == "0.2.0", "la version 0.2.0 publiée est une mise à jour de la 0.1.0")
+	carte.ouvrir()
+	await _attendre(0.3)
+	var c: CarteVienne = carte.get("_carte")
+	check(c.a_jour == {"86133": "0.2.0"}, "la carte marque Ligugé d'une pastille")
+	carte.call("_montrer", "86133")
+	await _attendre(0.1)
+	var textes := []
+	for n in (carte.get("_fiche_box") as Node).find_children("*", "", true, false):
+		if n is Label or n is Button:
+			textes.append(n.text)
+	check("MISE À JOUR" in textes and "Mettre à jour (0.2.0)" in textes, "la fiche propose la mise à jour : %s" % str(textes))
+	carte.fermer()
+	await _attendre(0.8)
+	communes.installations["liguge"] = "0.2.0"
+	check(communes.mise_a_jour("liguge") == "" and communes.en_attente("liguge") == "0.2.0", "téléchargée, elle attend le prochain lancement")
+	communes.installations.erase("liguge")
+	communes.catalogue = []
+	# Ligugé est montée ; on dépose par-dessus un autre pack du même nom.
+	await _attendre(1.1)
+	var pk := PCKPacker.new()
+	pk.pck_start(TMP + "liguge.pck")
+	for f in ["commune.json", "commune.tscn", "liguge.gd", "liguge.gd"]:
+		pk.add_file("res://communes/liguge/" + f, LIGUGE + f)
+	pk.flush()
+	check(not communes.ouvrir("liguge") and str(communes.refus[-1][1]).contains("prochain lancement"), "un pack remplacé pendant la partie attend le prochain lancement")
+
+
+## Un paquet installé depuis la bienvenue ou la carte, jeu en pause, arrive quand même.
+func _telechargement(communes: Node) -> void:
+	var srv := TMP + "serveur/"
+	DirAccess.make_dir_recursive_absolute(srv)
+	DirAccess.copy_absolute(TMP + "liguge.pck", srv + "liguge.pck")
+	DirAccess.remove_absolute(TMP + "liguge.pck.nouveau")
+	var pid := OS.create_process("python3", ["-m", "http.server", "8765", "--bind", "127.0.0.1", "--directory", ProjectSettings.globalize_path(srv)])
+	await _attendre(1.5)
+	communes.catalogue = [{"insee": "86133", "id": "liguge", "nom": "Ligugé", "auteur": "Claude", "version": "0.3.0", "description": "",
+		"paquet": "http://127.0.0.1:8765/liguge.pck", "taille": FileAccess.get_file_as_bytes(srv + "liguge.pck").size(),
+		"sha256": FileAccess.get_sha256(srv + "liguge.pck"), "publie_le": ""}]
+	var fin := [null]
+	var rappel := func(id, ok, message): fin[0] = [id, ok, message]
+	communes.installee.connect(rappel)
+	paused = true
+	communes.installer("liguge")
+	for i in 40:
+		if fin[0] != null:
+			break
+		await _attendre(0.25)
+	paused = false
+	communes.installee.disconnect(rappel)
+	OS.kill(pid)
+	check(fin[0] != null and fin[0][1], "jeu en pause, le paquet se télécharge : %s" % str(fin[0]))
+	check(FileAccess.file_exists(TMP + "liguge.pck.nouveau") and communes.en_attente("liguge") == "0.3.0", "Ligugé déjà ouverte : la 0.3.0 attend le prochain lancement")
+	communes.installations.erase("liguge")
+	communes.catalogue = []
 
 
 func _attendre(s: float) -> void:

@@ -39,3 +39,21 @@ static func commune(insee: String) -> Dictionary:
 static func centre(insee: String) -> Vector2:
 	var c := commune(insee)
 	return Vector2(c.centre[0], c.centre[1]) if not c.is_empty() else Vector2.ZERO
+
+
+## La commune voisine dans une direction (est = (1, 0), nord = (0, 1)) : la plus proche dont le centre
+## tombe à moins de 40° de ce cap, les longitudes resserrées comme sur la carte. « » s'il n'y en a pas.
+static func voisine(insee: String, cap: Vector2) -> String:
+	var o := centre(insee)
+	var meilleure := ""
+	var d_min := INF
+	for c in communes():
+		var i := str(c.insee)
+		if i == insee:
+			continue
+		var d := centre(i) - o
+		d.x *= 0.69
+		if d.length() < d_min and absf(d.angle_to(cap)) < deg_to_rad(40.0):
+			d_min = d.length()
+			meilleure = i
+	return meilleure
