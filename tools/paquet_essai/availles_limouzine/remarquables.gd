@@ -383,8 +383,12 @@ static func _porte_cavaliers(f, b: Dictionary, hauteur: Callable) -> void:
 	# La fenêtre à volets blancs au-dessus de la voûte, côté rue des Cavaliers, et le toit du mur.
 	var wxf := pxf * Transform3D(Basis(Vector3.UP, ouest * PI / 2.0), Vector3(ouest * pw / 2.0, 0, zc))
 	f._window(wxf, Vector3(0, passage_h + 0.22, 0), Vector2(0.42, 0.55), blanc, clair, 0.2)
-	var mxf := pxf * Transform3D(Basis(Vector3.UP, ouest * PI / 2.0), Vector3(ouest * pw / 2.0, 0, zm))
-	_moellons(f, mxf, pd - 0.3, ph, pierre)
+	# Les moellons du mur, de part et d'autre du passage et au-dessus de lui, jamais dans le vide de la voûte.
+	for part in [[z0, zs, 0.0], [zn, z1, 0.0], [zs, zn, passage_h]]:
+		var za: float = part[0]
+		var zb: float = part[1]
+		var mxf := pxf * Transform3D(Basis(Vector3.UP, ouest * PI / 2.0), Vector3(ouest * pw / 2.0, 0, (za + zb) / 2.0))
+		_moellons(f, mxf, za - zb, ph, pierre, part[2])
 	f.batch.box("trim", pxf, Vector3(0, ph - 0.05, zm), Vector3(pw + 0.12, 0.08, pd + 0.12), joint)
 	f._roof(pxf * Transform3D(Basis(), Vector3(0, 0, z0)), pw, pd, ph, tuile, pierre, "hip")
 	# La tour ronde, en moellons, entre la voûte et la maison, sous son toit conique de tuiles : ses
@@ -836,13 +840,16 @@ static func _cone(f, xf: Transform3D, base: Vector3, radius: float, height: floa
 
 ## Les moellons apparents d'un mur de pierre : des pierres de tailles diverses, un peu plus claires ou
 ## plus sombres que le mur, posées en applique sur la face avant.
-static func _moellons(f, xf: Transform3D, w: float, h: float, mur: Color) -> void:
-	var n := int(w * h * 7.0)
+static func _moellons(f, xf: Transform3D, w: float, h: float, mur: Color, y0: float = 0.0) -> void:
+	var bas: float = maxf(BASE_H, y0) + 0.05
+	if w < 0.7 or h - 0.1 <= bas:
+		return
+	var n := int(w * (h - bas) * 7.0)
 	for i in n:
 		var pw: float = f.rng.randf_range(0.1, 0.26)
 		var ph: float = f.rng.randf_range(0.06, 0.13)
 		var x: float = f.rng.randf_range(-w / 2.0 + 0.3, w / 2.0 - 0.3)
-		var y: float = f.rng.randf_range(BASE_H + 0.05, h - 0.1)
+		var y: float = f.rng.randf_range(bas, h - 0.1)
 		var t: float = f.rng.randf()
 		var c := mur.darkened(0.18).lerp(mur.lightened(0.2), t)
 		f.batch.box("trim", xf, Vector3(x, y, 0.008), Vector3(pw, ph, 0.016), c)
