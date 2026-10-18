@@ -89,12 +89,14 @@ func _ready() -> void:
 	charger()
 	Registre.change.connect(actualiser)
 	actualiser()
-	lire_consignes()
-	var compte := _compte()
-	if compte != null:
-		compte.change.connect(func():
-			if compte.etat == "a_jour" and not locales.is_empty():
-				envoyer_locales())
+	# Le compte (autoload Compte) arrive après Football dans l'arbre : on l'attend une image.
+	(func():
+		lire_consignes()
+		var compte := _compte()
+		if compte != null:
+			compte.change.connect(func():
+				if compte.etat == "a_jour" and not locales.is_empty():
+					envoyer_locales())).call_deferred()
 
 
 # ---------------------------------------------------------------- le calendrier réel

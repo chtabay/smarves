@@ -19,8 +19,7 @@ const MOIS := ["janvier", "février", "mars", "avril", "mai", "juin", "juillet",
 var division: Array = []
 ## La colonne de la fenêtre : le tableau, ou la feuille d'un match.
 var _colonne: VBoxContainer
-## Le numéro de la relecture en cours ; en changer l'arrête.
-var _relecture := 0
+
 
 
 ## Les autoloads, cherchés à la racine : la fenêtre se construit aussi hors du jeu (essais), où le nom
@@ -48,7 +47,6 @@ func _ready() -> void:
 
 ## Remplit la fenêtre d'après la pyramide du moment.
 func remplir(colonne: VBoxContainer) -> void:
-	_relecture += 1
 	_vider(colonne)
 	division = division_suivie()
 	var n: int = division[0]
@@ -217,9 +215,8 @@ func _match(m: Dictionary, s := 0, j := 0) -> Control:
 # ---------------------------------------------------------------- la feuille d'un match
 
 ## La feuille d'un match joué : le score, les buteurs, les chiffres, et le match minute par minute tel
-## que le commentateur l'a raconté ; « Revoir le match » le fait défiler.
+## que le commentateur l'a raconté. Le match lui-même ne se suit qu'en direct, au stade.
 func ouvrir_feuille(s: int, j: int, dom: String, ext: String) -> void:
-	_relecture += 1
 	_vider(_colonne)
 	var etat: Dictionary = foot().rencontre(s, j, dom, ext)
 	var cd: Dictionary = foot().clubs[dom]
@@ -293,7 +290,6 @@ func ouvrir_feuille(s: int, j: int, dom: String, ext: String) -> void:
 	bas.add_theme_constant_override("separation", 12)
 	bas.alignment = BoxContainer.ALIGNMENT_END
 	_colonne.add_child(bas)
-	bas.add_child(_bouton("Revoir le match", func(): revoir(etat, recit, defile)))
 	bas.add_child(_bouton("Retour au tableau", func(): remplir(_colonne)))
 	bas.add_child(_bouton("Reposer la craie  (Échap)", func(): closed.emit()))
 
@@ -322,20 +318,6 @@ func _evenement(ev: Dictionary) -> Control:
 	texte.custom_minimum_size.x = 860
 	h.add_child(texte)
 	return h
-
-
-## Fait défiler le récit depuis le coup d'envoi, une ligne après l'autre.
-func revoir(etat: Dictionary, recit: VBoxContainer, defile: ScrollContainer) -> void:
-	_relecture += 1
-	var id := _relecture
-	_vider(recit)
-	for ev in etat.evenements:
-		if id != _relecture or not is_inside_tree():
-			return
-		recit.add_child(_evenement(ev))
-		await get_tree().process_frame
-		defile.scroll_vertical = int(defile.get_v_scroll_bar().max_value)
-		await get_tree().create_timer(0.12 if ev.type in ["but", "rouge", "occasion"] else 0.05).timeout
 
 
 func _unhandled_input(event: InputEvent) -> void:

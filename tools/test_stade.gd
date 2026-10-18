@@ -49,7 +49,9 @@ func _init() -> void:
 	check(stade._supporters.size() > 10, "la tribune a ses supporters")
 	var sorties: Array = stade.find_children("*", "Area3D", true, false).filter(func(a): return a.get_meta("interact", "") == "exit")
 	check(sorties.size() == 1 and str(sorties[0].get_meta("prompt")).contains("route du Bois"), "on ressort sur la route du Bois")
-	check(stade._score.text.ends_with("0 - 0  " + foot.clubs[stade._rencontre.ext].court) or stade._score.text.begins_with(foot.clubs[stade._rencontre.dom].court), "le tableau est à zéro au coup d'envoi : %s" % stade._score.text)
+	# À 16 h, une heure après le coup d'envoi, le match est à la mi-temps (45 minutes jouées, le quart d'heure court).
+	check(stade._etat.pause == "mi-temps" and stade._etat.minute >= 45 and stade._etat.periode == 1, "une heure après le coup d'envoi, c'est la mi-temps : %d'" % stade._etat.minute)
+	check(stade._horloge.text.begins_with("Journée 5"), "le tableau d'affichage suit le match : %s" % stade._horloge.text)
 	# Le match avancé d'un coup : le score du stade est celui de la feuille.
 	var n := 0
 	while not stade._etat.fini and n < 200:
@@ -83,6 +85,28 @@ func _init() -> void:
 	check(stade._causerie == null, "Échap referme la causerie")
 	foot.decisions = {}
 	foot.locales = {}
+
+	# Quatre heures après le coup d'envoi : le match est fini, le tableau garde le score, la feuille se lit.
+	var t4: int = foot.coup_envoi(1, 5) + 4 * 3600
+	foot.regler_horloge(func(): return t4)
+	change_scene_to_file("res://scenes/stade.tscn")
+	await create_timer(1.5).timeout
+	stade = current_scene
+	check(stade._etat.is_empty() and not stade._resultat.is_empty() and stade._resultat.fini, "après le match, l'Étoile s'entraîne et le résultat est gardé")
+	check(stade._score.text.contains("%d - %d" % [officiel[0], officiel[1]]) and stade._horloge.text.contains("terminé"), "le tableau d'affichage garde le score : %s" % stade._score.text)
+	check(stade._affiche.text.contains("Prochain coup d'envoi"), "et annonce le prochain coup d'envoi : %s" % stade._affiche.text)
+	stade.open_feuille()
+	await process_frame
+	check(stade._causerie != null and stade._causerie.find_child("Recit", true, false) != null, "E devant le tableau ouvre la feuille du match")
+	stade._causerie.closed.emit()
+	await process_frame
+	# Dix minutes après le coup d'envoi : on arrive en cours de match, à la dixième minute.
+	var t10: int = foot.coup_envoi(1, 5) + 600
+	foot.regler_horloge(func(): return t10)
+	change_scene_to_file("res://scenes/stade.tscn")
+	await create_timer(1.5).timeout
+	stade = current_scene
+	check(not stade._etat.is_empty() and stade._etat.minute == 11 and not stade._etat.fini, "dix minutes après le coup d'envoi, le match en est à la %d' en direct" % stade._etat.minute)
 
 	# Avant la première journée : l'entraînement.
 	var t0: int = foot.coup_envoi(1, 1) - 86400
