@@ -121,12 +121,11 @@ Rente annoncée médiane, financé :  5 min : 20  10 min : 60  15 min : 110  20 
 
 ## Le carnet
 
-Touche **C**, partout (village, casino, boutiques) : le carnet du joueur, un cahier d'écolier à petits carreaux, à l'encre bleue. Pas de tableau de bord. On y lit, à la main :
+Touche **C**, partout (village, casino, boutiques) : le carnet du joueur, un cahier d'écolier à petits carreaux, à l'encre bleue, partagé par des intercalaires de couleur (les flèches ← → tournent les pages). Pas de tableau de bord. On y lit, à la main :
 
-- **Mes biens** : chaque bien, combien d'exemplaires, la rente annoncée, la dernière recette versée, les charges ; la tenue portée et le véhicule conduit (on en change d'un clic).
-- **La dernière recette** : ce qu'a versé chaque bien, et l'animation du village (« recette pleine », « recette à moitié »).
-- **Mes comptes** : crédits, valeur des biens (« estimation de Maître Garnier »), dette au Crédit Smarvois, et la ligne du bas, fortune nette. Depuis le début : dépensé en biens, reçu en rentes, payé en charges.
-- **Adresses** : l'étude, la couture, le garage, et la tournée au café.
+- **Mon compte** (ce qui suit le joueur dans toutes les communes) : crédits, valeur des biens (estimation à la revente), obligations des clubs, positions en bourse, la dette de chaque banque (« Dette au Crédit Smarvois »), et la ligne du bas, fortune nette. Depuis le début : gagné, misé, dépensé en biens, reçu en rentes, payé en charges, dividendes, paris. En face : la semaine et les engagements en cours.
+- **Smarves** (`scripts/carnet_smarves.gd`) : **Mes biens** (chaque bien, combien d'exemplaires, la rente annoncée, la dernière recette versée, les charges ; la tenue portée et le véhicule conduit, qu'on change d'un clic), **Mon logement**, **La dernière recette** (ce qu'a versé chaque bien, et l'animation du village) ; en face, ce que font les biens à chaque recette, le standing, le plan du village et les **Adresses** (l'étude, la couture, le garage, la brocante, et la tournée au café).
+- **Une page par autre commune**, avec ses compteurs, et **La Vienne** (docs/COMMUNE.md, « Le carnet du joueur »).
 
 Une petite fiche de papier glisse en bas de l'écran à chaque recette (« La recette : 86 versés, 8 de charges. ») et à chaque reprise de M. Brunet.
 

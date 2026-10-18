@@ -8,6 +8,11 @@ extends RefCounted
 const FORMAT := 1
 ## La version du socle, comparée au champ « socle_min » des manifestes.
 const SOCLE := "1.4"
+## Les compteurs du carnet (champ « carnet ») : leurs genres et leurs bornes.
+const CARNET_GENRES := ["nombre", "credits", "texte", "case"]
+const CARNET_COMPTEURS_MAX := 24
+const CARNET_LIBELLE_MAX := 60
+const CARNET_TEXTE_MAX := 80
 const SMARVES := "res://communes/smarves/commune.json"
 const REQUIS := ["format", "id", "nom", "insee", "scene", "lieux", "banque"]
 
@@ -135,6 +140,38 @@ static func verifier_facultatifs(m: Dictionary) -> PackedStringArray:
 				ok = ok and typeof(x) == TYPE_STRING
 		if not ok:
 			out.append("sources doit être un texte ou une liste de textes")
+	out.append_array(verifier_carnet(m.get("carnet")))
+	return out
+
+
+## Le champ « carnet » : les compteurs que la commune tient au carnet du joueur (docs/COMMUNE.md, « Le carnet
+## du joueur »). Les phrases d'erreur sont reprises telles quelles par le portail des développeurs.
+static func verifier_carnet(carnet) -> PackedStringArray:
+	var out := PackedStringArray()
+	if carnet == null:
+		return out
+	if typeof(carnet) != TYPE_ARRAY:
+		out.append("carnet doit être une liste de compteurs")
+		return out
+	if carnet.size() > CARNET_COMPTEURS_MAX:
+		out.append("carnet : %d compteurs au plus" % CARNET_COMPTEURS_MAX)
+	var vus := {}
+	for d in carnet:
+		if typeof(d) != TYPE_DICTIONARY or not d.has("id") or not d.has("libelle") or not d.has("genre"):
+			out.append("carnet : compteur incomplet (id, libelle, genre) : %s" % str(d))
+			continue
+		var id := str(d.id)
+		if typeof(d.id) != TYPE_STRING or not id.is_valid_identifier() or id != id.to_lower():
+			out.append("carnet : id invalide : « %s » (minuscules, chiffres, _)" % id)
+		elif vus.has(id):
+			out.append("carnet : compteur en double : %s" % id)
+		vus[id] = true
+		if not CARNET_GENRES.has(str(d.genre)):
+			out.append("carnet : genre inconnu pour %s : « %s » (nombre, credits, texte, case)" % [id, str(d.genre)])
+		if typeof(d.libelle) != TYPE_STRING or str(d.libelle).length() > CARNET_LIBELLE_MAX:
+			out.append("carnet : libelle de %s trop long (%d caractères au plus)" % [id, CARNET_LIBELLE_MAX])
+		if d.has("rubrique") and typeof(d.rubrique) != TYPE_STRING:
+			out.append("carnet : rubrique de %s doit être un texte" % id)
 	return out
 
 
