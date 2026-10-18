@@ -74,6 +74,13 @@ var locales := {}
 var auteurs := {}
 ## « » tant que rien n'est lu, puis « lecture », « ok » ou « hors_ligne ».
 var consignes_etat := ""
+## Les parts des clubs, cédées chez le notaire (docs/SUITE.md, section 6) : celles lues au serveur,
+## club -> [{par, nombre, moi}], et celles de cet appareil, club -> nombre (Biens les déclare à l'achat
+## et à la revente). Qui tient le plus de parts d'un club parle pour lui à la causerie.
+var parts := {}
+var parts_locales := {}
+## Les clubs dont les parts d'ici restent à déclarer au serveur : club -> true.
+var parts_a_declarer := {}
 ## Où lire et écrire la pyramide ; un test le déplace. « » : rien n'est écrit.
 var dossier := Communes.GREFFES
 var _horloge: Callable = Callable()
@@ -92,11 +99,15 @@ func _ready() -> void:
 	# Le compte (autoload Compte) arrive après Football dans l'arbre : on l'attend une image.
 	(func():
 		lire_consignes()
+		lire_parts()
 		var compte := _compte()
 		if compte != null:
 			compte.change.connect(func():
-				if compte.etat == "a_jour" and not locales.is_empty():
-					envoyer_locales())).call_deferred()
+				if compte.etat == "a_jour":
+					if not locales.is_empty():
+						envoyer_locales()
+					if not parts_a_declarer.is_empty():
+						envoyer_parts())).call_deferred()
 
 
 # ---------------------------------------------------------------- le calendrier réel
@@ -549,7 +560,7 @@ func resultat(s: int, j: int, dom: String, ext: String) -> Array:
 ## Une consigne prise avant un match (la tactique du dimanche) ; sans effet sur un match déjà joué.
 ## Elle vaut tout de suite ici, et part au serveur si le joueur est connecté ; sinon elle reste locale.
 func decider(s: int, j: int, club: String, d: Dictionary) -> bool:
-	if s < saison or (s == saison and j <= journee_jouee()):
+	if s < saison or (s == saison and j <= journee_jouee()) or not peut_decider(club):
 		return false
 	var cle := "%d/%d/%s" % [s, j, club]
 	decisions[cle] = consigne(d)
@@ -643,11 +654,117 @@ func envoyer_locales() -> void:
 			if r.corps.get("ok", false):
 				locales.erase(cle)
 				auteurs[cle] = compte.nom
-			elif r.corps.get("raison", "") == "joue":
+			elif r.corps.get("raison", "") in ["joue", "parts"]:
+				# Match passé, ou un autre actionnaire parle pour le club : la consigne d'ici n'a compté pour personne.
 				locales.erase(cle)
 				decisions.erase(cle)
 			sauver()
 			change.emit()
+
+
+# ---------------------------------------------------------------- les parts du club
+
+## Les parts d'un club qu'on tient sur cet appareil (Biens le dit à chaque acte chez le notaire) ;
+## connecté, elles se déclarent au serveur pour que les autres sachent qui parle pour le club.
+func detenir(club: String, nombre: int) -> void:
+	if int(parts_locales.get(club, 0)) == nombre:
+		return
+	if nombre > 0:
+		parts_locales[club] = nombre
+	else:
+		parts_locales.erase(club)
+	parts_a_declarer[club] = true
+	sauver()
+	change.emit()
+	envoyer_parts()
+
+
+## Les actionnaires d'un club, les plus gros d'abord : [{nom, nombre, moi}]. Les siennes viennent d'ici
+## (la sauvegarde fait foi), sous le nom « vous » ; celles des autres, du serveur.
+func actionnaires(club: String) -> Array:
+	var out: Array = []
+	for a in parts.get(club, []):
+		if a is Dictionary and not bool(a.get("moi", false)) and int(a.get("nombre", 0)) > 0:
+			out.append({"nom": str(a.get("par", "")), "nombre": int(a.get("nombre", 0)), "moi": false})
+	var miennes := int(parts_locales.get(club, 0))
+	if miennes > 0:
+		out.append({"nom": "vous", "nombre": miennes, "moi": true})
+	out.sort_custom(func(x, y):
+		if x.nombre != y.nombre:
+			return x.nombre > y.nombre
+		return x.moi and not y.moi)
+	return out
+
+
+## Qui parle pour un club à la causerie : sans actionnaire, tout le monde (comme avant les parts) ;
+## sinon celui qui en tient le plus, et chacun d'eux à égalité.
+func peut_decider(club: String) -> bool:
+	var a := actionnaires(club)
+	if a.is_empty():
+		return true
+	return int(parts_locales.get(club, 0)) >= int(a[0].nombre)
+
+
+## Une phrase pour la fiche du notaire et la causerie : qui tient quoi, et qui parle.
+func phrase_actionnaires(club: String) -> String:
+	var a := actionnaires(club)
+	if a.is_empty():
+		return "Personne ne tient de parts du club : le président écoute tout le monde."
+	var morceaux: Array = []
+	for x in a:
+		morceaux.append("%s %s %d part%s" % ["Vous" if x.moi and morceaux.is_empty() else x.nom, "tenez" if x.moi else "tient", x.nombre, "s" if x.nombre > 1 else ""])
+	var tete: Dictionary = a[0]
+	var qui := "c'est vous qui parlez au président" if peut_decider(club) else "c'est %s qui parle au président" % tete.nom
+	return "%s : %s." % [", ".join(morceaux), qui]
+
+
+## Ce que rapporte une part du club à chaque recette, en proportion de la rente annoncée : le classement
+## du moment fait la buvette, ×1,4 en tête, ×0,7 en queue, ×1 tant que rien n'est joué.
+func recette_facteur(club: String) -> float:
+	var place := place_de(club)
+	if place.is_empty() or journee_jouee() <= 0:
+		return 1.0
+	var cl := classement(saison, place[0], place[1])
+	for i in cl.size():
+		if cl[i].club == club:
+			return 0.7 + 0.1 * (TAILLE - (i + 1))
+	return 1.0
+
+
+## Les parts lues au serveur : [{club, nombre, par, moi}] ; remplacent ce qu'on en savait.
+func appliquer_parts(liste: Array) -> void:
+	parts = {}
+	for p in liste:
+		if p is Dictionary and p.has("club"):
+			if not parts.has(p.club):
+				parts[p.club] = []
+			parts[p.club].append({"par": str(p.get("par", "")), "nombre": int(p.get("nombre", 0)), "moi": bool(p.get("moi", false))})
+	sauver()
+	change.emit()
+
+
+## Relit les parts de tous les clubs au serveur (sans compte aussi : elles sont publiques, comme les
+## consignes), puis déclare celles d'ici qui manquent.
+func lire_parts() -> void:
+	var compte := _compte()
+	if compte == null or get_tree().get_script() != null or "--capture" in " ".join(OS.get_cmdline_user_args()):
+		return
+	var r: Dictionary = await compte.appeler("smarves_parts", {})
+	if r.code == 200 and r.corps is Array:
+		appliquer_parts(r.corps)
+		envoyer_parts()
+
+
+## Déclare au serveur les parts d'ici qui ne le sont pas encore (zéro compris : une revente).
+func envoyer_parts() -> void:
+	var compte := _compte()
+	if compte == null or not compte.connecte() or get_tree().get_script() != null or "--capture" in " ".join(OS.get_cmdline_user_args()):
+		return
+	for club in parts_a_declarer.keys():
+		var r: Dictionary = await compte.appeler("smarves_part_declarer", {"p_club": club, "p_nombre": int(parts_locales.get(club, 0))})
+		if r.code == 200 and r.corps is Dictionary and r.corps.get("ok", false):
+			parts_a_declarer.erase(club)
+			sauver()
 
 
 func _compte() -> Node:
@@ -668,12 +785,16 @@ func charger() -> void:
 		decisions = lu.get("decisions", {})
 		locales = lu.get("locales", {})
 		auteurs = lu.get("auteurs", {})
+		parts = lu.get("parts", {})
+		parts_locales = lu.get("parts_locales", {})
+		parts_a_declarer = lu.get("parts_a_declarer", {})
 
 
 func sauver() -> void:
 	if dossier == "":
 		return
-	Portail.ecrire(dossier.path_join(FICHIER), JSON.stringify({"saison": saison, "niveaux": niveaux, "clubs": clubs, "historique": historique, "decisions": decisions, "locales": locales, "auteurs": auteurs}))
+	Portail.ecrire(dossier.path_join(FICHIER), JSON.stringify({"saison": saison, "niveaux": niveaux, "clubs": clubs, "historique": historique, "decisions": decisions, "locales": locales, "auteurs": auteurs,
+		"parts": parts, "parts_locales": parts_locales, "parts_a_declarer": parts_a_declarer}))
 
 
 ## Repart de rien (essais, nouvelle partie) : la pyramide se refonde au prochain actualiser().
@@ -685,6 +806,9 @@ func effacer() -> void:
 	decisions = {}
 	locales = {}
 	auteurs = {}
+	parts = {}
+	parts_locales = {}
+	parts_a_declarer = {}
 	_matchs = {}
 	_effectifs = {}
 	if dossier != "":

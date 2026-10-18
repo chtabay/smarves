@@ -345,7 +345,12 @@ Un type de plus fait monter la version du socle ; un paquet qui s'en sert le dem
    ![Un but au stade, le ballon file vers le but de droite](captures/stade-but.png)
 
    ![Un coup franc posé à vingt mètres, le mur en place](captures/stade-coup-franc.png)
-10. **Les parts du club** chez le notaire (qui parle pour le club), **le mercato**, les paris au comptoir.
+10. **Les parts du club** chez le notaire (fait le 18 octobre 2026) : à partir du seuil du stade (3 000 gagnés), Maître Garnier cède **des parts de l'Étoile de Smarves** (`Biens.CATALOGUE`, id `etoile`, cinq au plus, 1 500 crédits la première puis ×1,4 ; sur le plan de l'étude, le stade municipal au bout de la route). Une part rapporte à chaque recette comme les autres, mais sa rente annoncée suit **le classement du club** (`Football.recette_facteur` : ×1,4 en tête, ×0,7 en queue, ×1 tant que rien n'est joué) : la buvette marche mieux les dimanches de victoire. Et une part donne la parole : **qui tient le plus de parts d'un club parle pour lui** à la causerie du président (`Football.peut_decider`, chacun à égalité ; sans actionnaire, tout le monde, comme avant). En solo, le joueur est seul actionnaire dès la première part. À plusieurs, chaque jeu déclare au serveur les parts qu'il tient (`Football.detenir`, Biens le dit à l'achat et à la revente ; table `smarves.parts`, fonctions `smarves_part_declarer` et `smarves_parts`, migration `supabase/migrations/20261018180000_smarves_parts.sql`), et `smarves_consigne_poser` refuse (`raison: 'parts'`) la consigne d'un joueur qui n'est pas le premier actionnaire ; la causerie et la fiche du notaire disent qui tient quoi (`phrase_actionnaires`). Les crédits restent dans la sauvegarde : le serveur ne compte que pour départager. Tests : `tools/test_football.gd`, `tools/test_biens.gd` ; captures : `godot --path . res://scenes/notaire.tscn -- --capture=parts.png --won=3000 --lot=etoile` et `godot --path . res://scenes/stade.tscn -- --capture=causerie.png --won=3000 --journee=5 --actionnaires=vous:1,Lucien:2 --open=causerie`.
+
+   ![Les parts de l'Étoile à l'étude de Maître Garnier](captures/notaire-etoile.png)
+
+   ![La causerie quand un autre actionnaire tient plus de parts](captures/stade-causerie-actionnaires.png)
+11. **Le mercato** une semaine par saison, les paris au comptoir.
 
 ## 7. Le séquencement et les fils en cours
 
@@ -359,7 +364,7 @@ Un type de plus fait monter la version du socle ; un paquet qui s'en sert le dem
 | 6 | Connexion au compte Pyramides, partie gardée sur le compte | un fil Compte (fait le 18 octobre 2026) | le mobile au point ; migration du schéma `smarves` sur accord de Guillaume |
 | 7 | Multi différé : visites de maisons, livre d'or, classements au village | un fil Multi (fait le 18 octobre 2026 : panneau, noms sur les maisons, livre d'or, traces) | 4, 6 |
 | 8 | Soirée partagée, tables à plusieurs, poker de Passelourdin | fil Multi, Visuel des jeux | 7 |
-| 9 | Structures partagées (gare, arrêt de car, terrain), registre, pyramide du football de la Vienne | Structures partagées et football | 5 ; les paris et les parts après 9 |
+| 9 | Structures partagées (gare, arrêt de car, terrain), registre, pyramide du football de la Vienne | Structures partagées et football | 5 ; les paris et le mercato après 10 |
 
 **Notes de Guillaume du 18 octobre 2026, à garder sans les traiter maintenant :**
 

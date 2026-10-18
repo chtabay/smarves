@@ -751,6 +751,17 @@ func _maybe_capture() -> void:
 				player.camera.rotation.x = deg_to_rad(v[3])
 		elif arg.begins_with("--minute=") or arg.begins_with("--journee="):
 			pass
+		elif arg.begins_with("--actionnaires="):
+			# Des parts du club pour la capture : --actionnaires=vous:2,Lucien:1 (avant --open=causerie).
+			var club := _club_de_la_commune()
+			var autres: Array = []
+			for morceau in arg.trim_prefix("--actionnaires=").split(","):
+				var kv := morceau.split(":")
+				if kv[0] == "vous":
+					Football.parts_locales[club] = int(kv[1])
+				else:
+					autres.append({"par": kv[0], "nombre": int(kv[1]), "moi": false})
+			Football.parts[club] = autres
 		elif arg == "--open=causerie":
 			open_causerie()
 		elif arg.begins_with("--rejouer="):
