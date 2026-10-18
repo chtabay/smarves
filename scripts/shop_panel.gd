@@ -10,6 +10,8 @@ signal spoke(text: String)
 var seller := "notaire"
 ## La commune de l'étude (« » : la commune d'origine). Ses adresses sont au catalogue sous NOTAIRE.cle().
 var commune := ""
+## Chez un commerce d'une commune (seller « commerce ») : l'id de sa structure (scripts/socle/commerce.gd).
+var boutique := ""
 
 const INK := Color(0.12, 0.14, 0.3)
 const INK_LIGHT := Color(0.32, 0.32, 0.42)
@@ -38,6 +40,7 @@ const TOO_POOR := "« Il vous manque quelques crédits. M. Brunet finance, vous 
 const CARTE := preload("res://scripts/carte_biens.gd")
 const NOTAIRE := preload("res://scripts/socle/notaire.gd")
 const OBLIGATIONS := preload("res://scripts/socle/foot_obligations.gd")
+const ARTICLES := preload("res://scripts/socle/articles.gd")
 
 var _list: VBoxContainer
 ## Chez le notaire, le registre est un plan : les biens sur leurs bâtiments, la fiche du lot choisi à côté.
@@ -75,6 +78,9 @@ func _ready() -> void:
 		head[0] = NOTAIRE.etude(_c()).titre
 		if not _banque().is_empty():
 			head[1] = "Registre des cessions  ·  les immeubles de %s" % str(_c().data.get("nom", ""))
+	elif seller == "commerce":
+		var s := _commerce()
+		head = [str(s.get("enseigne", s.get("nom", "La boutique"))), ARTICLES.BONS.get(str(s.get("genre", "")), ARTICLES.BONS.tenue)[0]]
 	_label(v, head[0], 28, INK, true).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_label(v, head[1], 16, INK_LIGHT).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var rule := ColorRect.new()
@@ -144,6 +150,20 @@ func _banque() -> Dictionary:
 	return b if NOTAIRE.cle(_c(), "x") != "x" else {}
 
 
+## La structure du commerce ouvert ({} hors d'un commerce).
+func _commerce() -> Dictionary:
+	for s in Structures.nettoyer(_c().data.get("structures")):
+		if s.type == "commerce" and s.id == boutique:
+			return s
+	return {}
+
+
+func _mercis() -> Array:
+	if seller == "commerce":
+		return ARTICLES.BONS.get(str(_commerce().get("genre", "")), ARTICLES.BONS.tenue)[1]
+	return THANKS.get(seller, THANKS.notaire)
+
+
 func _label(parent: Control, t: String, size: int, color: Color, bold := false) -> Label:
 	var l := Label.new()
 	l.text = t
@@ -192,7 +212,7 @@ func _refresh() -> void:
 	for it in Biens.catalogue():
 		if _map:
 			break
-		if it.seller != seller:
+		if it.seller != seller or (seller == "commerce" and str(it.get("commerce", "")) != "%s/%s" % [commune, boutique]):
 			continue
 		_card(it)
 	var b := _banque()
@@ -367,7 +387,7 @@ func _buy(id: String, financed: bool) -> void:
 		return
 	if Biens.buy(id, financed, str(_banque().get("preteur", ""))):
 		Sfx.play("chips", -6.0)
-		spoke.emit((FINANCED if _banque().is_empty() else "« %s finance, c'est signé. »" % str(_banque().get("nom", "La banque"))) if financed else (THANKS.get(seller, THANKS.notaire) as Array).pick_random())
+		spoke.emit((FINANCED if _banque().is_empty() else "« %s finance, c'est signé. »" % str(_banque().get("nom", "La banque"))) if financed else (_mercis() as Array).pick_random())
 	_refresh()
 
 

@@ -44,6 +44,16 @@ const TYPES := {
 		"unique": false,
 		"relie": "rien : c'est un lieu de la commune, le lieu du manifeste de même id lui donne son seuil",
 	},
+	# Socle 1.4. Un commerce tenu par le socle (scripts/socle/commerce.gd) : la commune nomme son commerçant,
+	# son genre (tenue, vehicule, meuble) et ses articles (scripts/socle/articles.gd), vendus comme au village.
+	"commerce": {
+		"nom": "le commerce",
+		"champs": {"genre": TYPE_STRING, "articles": TYPE_ARRAY, "tenancier": TYPE_STRING, "graine": TYPE_FLOAT,
+			"repliques": TYPE_ARRAY, "enseigne": TYPE_STRING},
+		"requis": ["genre", "articles"],
+		"unique": false,
+		"relie": "rien : ses articles entrent au catalogue de Biens sous « <commune>/<id> »",
+	},
 }
 
 ## Les jeux d'une salle de jeu, et ses décors (scripts/socle/salle_jeu.gd, JEUX et DECORS).
@@ -66,6 +76,7 @@ static func verifier(liste: Variant) -> PackedStringArray:
 		return erreurs
 	var ids := {}
 	var types := {}
+	var articles := {}
 	for s in liste:
 		if typeof(s) != TYPE_DICTIONARY:
 			erreurs.append("structure illisible : %s" % str(s))
@@ -105,8 +116,10 @@ static func verifier(liste: Variant) -> PackedStringArray:
 						erreurs.append("structure %s : jeu inconnu « %s »" % [id, str(j)])
 			if s.has("decor") and typeof(s.decor) == TYPE_STRING and not s.decor in DECORS:
 				erreurs.append("structure %s : décor inconnu « %s »" % [id, s.decor])
-			if typeof(s.get("repliques")) == TYPE_ARRAY and s.repliques.any(func(r): return typeof(r) != TYPE_STRING):
-				erreurs.append("structure %s : « repliques » est une liste de phrases" % id)
+		if t in ["salle_jeu", "commerce"] and typeof(s.get("repliques")) == TYPE_ARRAY and s.repliques.any(func(r): return typeof(r) != TYPE_STRING):
+			erreurs.append("structure %s : « repliques » est une liste de phrases" % id)
+		if t == "commerce":
+			erreurs.append_array(load("res://scripts/socle/articles.gd").verifier(s, articles))
 	return erreurs
 
 

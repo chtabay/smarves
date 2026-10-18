@@ -7,7 +7,7 @@ extends RefCounted
 ## Le format de manifeste que ce socle sait lire.
 const FORMAT := 1
 ## La version du socle, comparée au champ « socle_min » des manifestes.
-const SOCLE := "1.2"
+const SOCLE := "1.4"
 const SMARVES := "res://communes/smarves/commune.json"
 const REQUIS := ["format", "id", "nom", "insee", "scene", "lieux", "banque"]
 

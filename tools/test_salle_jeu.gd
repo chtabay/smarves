@@ -44,7 +44,7 @@ func _init() -> void:
 	pk.flush()
 	communes.dossier_greffes = TMP
 	check(communes.charger_pack(pck) == "essai_salle", "la commune d'essai se greffe avec ses salles %s" % str(communes.refus))
-	check(registre.de_commune("essai_salle").size() == 2, "ses deux salles sont au registre")
+	check(registre.de_commune("essai_salle").filter(func(e): return e.type == "salle_jeu").size() == 2, "ses deux salles sont au registre")
 	check(communes.ouvrir("essai_salle"), "le pack s'ouvre")
 
 	game.won = 0
@@ -102,6 +102,7 @@ func _init() -> void:
 	check(current_scene != null and current_scene.scene_file_path == "res://communes/essai_salle/commune.tscn" and game.return_point == "place",
 		"la porte ramène dans la commune, devant la porte de la salle")
 	await _etude(game)
+	await _commerces(game)
 	_fin()
 
 
@@ -138,6 +139,51 @@ func _etude(game: Node) -> void:
 		await process_frame
 		check(current_scene != null and current_scene.scene_file_path == "res://communes/essai_salle/commune.tscn" and game.return_point == "place", "la porte de l'étude ramène dans la commune")
 	biens.sell("essai_salle/buffet")
+
+
+## Les commerces de la commune d'essai : leurs articles au catalogue, la vitrine, l'achat, et ce que le
+## socle refuse dans un article.
+func _commerces(game: Node) -> void:
+	var biens: Node = root.get_node("Biens")
+	var structures: GDScript = load("res://scripts/socle/structures.gd")
+	var commerce: GDScript = load("res://scripts/socle/commerce.gd")
+	var veste: Dictionary = biens.item("essai_salle/veste_chef")
+	check(veste.get("kind", "") == "tenue" and veste.get("seller", "") == "commerce" and veste.get("commerce", "") == "essai_salle/mercerie",
+		"les articles des commerces entrent au catalogue sous « essai_salle/<id> »")
+	check(veste.get("color", Color.WHITE).is_equal_approx(Color.html("#1d3b6e")) and veste.get("charge", 0) == 3, "  une tenue a sa couleur et ses charges")
+	check(biens.item("essai_salle/taxi").get("model", "").ends_with("car_taxi.gltf"), "  un véhicule a son modèle")
+	check(biens.item("essai_salle/horloge_gare").get("slot", "") == "mur" and biens.item("essai_salle/horloge_gare").get("max", 0) == 2, "  un meuble a son emplacement")
+	var brunet: int = game.debt_of(game.lender)
+	check(biens.buy("essai_salle/veste_chef", true, "essai_salle"), "on achète la veste à crédit")
+	check(biens.worn == "essai_salle/veste_chef" and game.debt_of(game.lender) == brunet, "  on la porte, et la dette va à la banque de la commune")
+	check(commerce.ouvrir("essai_salle", "mercerie"), "la mercerie s'ouvre")
+	check(not commerce.ouvrir("essai_salle", "boulangerie"), "  un commerce qui n'existe pas ne s'ouvre pas")
+	await process_frame
+	await process_frame
+	var s: Node = current_scene
+	check(s != null and s.get("commune") == "essai_salle" and s._salle.host == "Mme Aubin", "on est chez Mme Aubin")
+	if s != null:
+		s.open_vitrine()
+		await process_frame
+		var p: Node = s._game
+		check(p != null and p.boutique == "mercerie" and p._list.get_child_count() == 2, "la vitrine montre les deux articles de la mercerie, pas ceux du garage")
+		if p:
+			p.closed.emit()
+			await process_frame
+		s._sortir()
+		await process_frame
+		await process_frame
+		check(game.return_point == "place", "la porte de la boutique ramène devant elle")
+	biens.sell("essai_salle/veste_chef")
+	var fautes: PackedStringArray = structures.verifier([
+		{"type": "commerce", "id": "a", "nom": "A", "genre": "epicerie", "articles": [{"id": "x", "nom": "X", "prix": 10}]},
+		{"type": "commerce", "id": "b", "nom": "B", "genre": "meuble", "articles": [{"id": "x", "nom": "X", "prix": 0, "taille": 2},
+			{"nom": "sans id"}, {"id": "y", "nom": "Y", "prix": 5, "emplacement": "plafond", "couleur": "bleu"}]}])
+	check(Array(fautes) == ["structure a : genre inconnu « epicerie » (tenue, vehicule, meuble)",
+		"structure b : article x en double", "structure b : article x : champ inconnu « taille »", "structure b : article x n'a pas de prix",
+		"structure b : article x : un meuble a besoin d'un modele", "structure b : un article sans id", "structure b : article y : couleur « #rrggbb »",
+		"structure b : article y : un meuble a besoin d'un modele", "structure b : article y : emplacement inconnu « plafond » (lit, sol, grand, mur, petit, jardin)"],
+		"un article mal écrit est refusé, phrase par phrase : %s" % [fautes])
 
 
 func _fin() -> void:

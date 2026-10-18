@@ -121,13 +121,13 @@ Une **structure** est quelque chose qu'une commune possède et qui compte pour l
 
 | Champ | Obligatoire | Ce que c'est |
 |---|---|---|
-| `type` | oui | un type connu du socle : `gare`, `arret_car`, `terrain_foot`, `salle_jeu` (socle 1.1, `guichet` : 1.2) ; la liste est `Structures.TYPES`, `scripts/socle/structures.gd` |
+| `type` | oui | un type connu du socle : `gare`, `arret_car`, `terrain_foot`, `salle_jeu` (socle 1.1, `guichet` : 1.2), `commerce` (socle 1.4) ; la liste est `Structures.TYPES`, `scripts/socle/structures.gd` |
 | `id` | oui | minuscules, chiffres et `_`, unique dans la commune ; la clé au registre est `<commune>/<id>` |
 | `nom` | oui | le nom affiché (« La gare de Ligugé ») |
 | `noeud` | non | le nom du nœud de la scène de la commune qui place la structure (un `Node3D`, cherché par son nom) ; sans lui, la structure compte pour les autres communes mais ne se voit pas chez soi |
 | `lot` | non | la porte du village qui y mène, quand la commune a des lots |
 
-Et par type : `gare` prend `quai` ; `arret_car` prend `abri` ; `terrain_foot` demande `club` (le nom du club) et prend `court` (le sigle), `couleurs` (deux couleurs, `#rrggbb`) et `stade` ; `salle_jeu` demande `jeux` et prend `tenancier`, `graine`, `decor`, `repliques`, `enseigne` et `guichet` (plus bas). Une seule structure de chaque type par commune, sauf les salles de jeu : une commune peut en avoir plusieurs.
+Et par type : `gare` prend `quai` ; `arret_car` prend `abri` ; `terrain_foot` demande `club` (le nom du club) et prend `court` (le sigle), `couleurs` (deux couleurs, `#rrggbb`) et `stade` ; `salle_jeu` demande `jeux` et prend `tenancier`, `graine`, `decor`, `repliques`, `enseigne` et `guichet` (plus bas) ; `commerce` demande `genre` et `articles` et prend `tenancier`, `graine`, `repliques` et `enseigne` (plus bas). Une seule structure de chaque type par commune, sauf les salles de jeu et les commerces : une commune peut en avoir plusieurs.
 
 **Le stade est une scène du socle.** Une commune qui déclare un terrain n'a pas de stade à construire : `scenes/stade.tscn` (`scripts/village/stade.gd`) est le même pour toutes, habillé de la structure. Il y lit **le nom du club** (`club`, sur la tribune et dans la bouche du commentateur), **le sigle** (`court`, au tableau d'affichage), **les couleurs** (`couleurs` : la première teint la tribune, les bancs, les toits, les casquettes et les maillots des supporters, la seconde les bas des joueurs), **le nom du stade** (`nom` de la structure, sur l'arche et la tribune : « Le stade des Prés » s'écrit « STADE DES PRÉS »), et **la porte du retour** (`lot`, sinon l'`id` de la structure : `Game.return_point` à la sortie). **Le président** est l'hôte (`hote`) du lieu du manifeste qui porte le terrain, celui dont l'`id` est le même que celui de la structure ou que son `lot` ; sans lieu, c'est « Le président ». La commune ouvre son stade depuis sa scène par `Football.ouvrir_stade("<id de la commune>")` (la porte de son terrain, le nœud `noeud`) ; la sortie du stade ramène à sa scène. Tant que le club attend la saison prochaine, on y regarde le match de la division suivie et le président n'a rien à décider. Un champ inconnu, un type inconnu, un champ du mauvais type ou un terrain sans club rendent le manifeste invalide : la commune n'est pas inscrite, et le portail refuse le paquet pour la même raison. Un type ajouté plus tard fera monter la version du socle ; un paquet qui s'en sert le demande par `socle_min`. Le championnat ne compte que les clubs inscrits : avec un seul terrain au registre, il n'y a pas de match, le club s'entraîne et le tableau dit qu'on attend un deuxième club ; deux terrains suffisent.
 
@@ -155,6 +155,26 @@ Et par type : `gare` prend `quai` ; `arret_car` prend `abri` ; `terrain_foot` de
 ```sh
 godot --headless --path . -s tools/test_salle_jeu.gd
 ```
+
+**Le commerce est une scène du socle** (socle 1.4 : `"socle_min": "1.4"`). Les trois commerces de Smarves ont leur pareil pour toute commune, selon le `genre` : `tenue` (on n'en porte qu'une, comme chez Raymonde), `vehicule` (on n'en conduit qu'un, comme au garage Fradin) ou `meuble` (il se pose chez soi, comme chez Ginette Boutin). La commune nomme son commerçant et ses articles ; `scenes/commerce.tscn` (`scripts/socle/commerce.gd`) bâtit la boutique, pose le commerçant derrière son comptoir, met six articles au plus en vitrine (une silhouette à la couleur de la tenue, le véhicule, le meuble) et ouvre le bon de commande du village (`scripts/shop_panel.gd`).
+
+```json
+{"type": "commerce", "id": "mercerie", "nom": "La mercerie de la gare", "lot": "place", "genre": "tenue",
+ "tenancier": "Mme Aubin", "graine": 23, "enseigne": "Mercerie Aubin",
+ "articles": [{"id": "veste_chef", "nom": "La veste de chef de gare", "prix": 400, "couleur": "#1d3b6e",
+               "phrase": "« Les boutons sont en vrai cuivre. »"}]}
+```
+
+| Champ d'un article | Ce que c'est |
+|---|---|
+| `id`, `nom`, `prix` | obligatoires ; l'`id` (minuscules, chiffres, `_`) est unique parmi tous les commerces de la commune |
+| `standing`, `seuil`, `max` | facultatifs, des entiers : le standing qu'il donne (tiré du prix à défaut), le total gagné au jeu qui le met en vente (0), combien on peut en avoir (1) |
+| `phrase` | ce que dit le commerçant sur la fiche |
+| `couleur` | une tenue : sa couleur, `#rrggbb` |
+| `modele` | un véhicule ou un meuble : un chemin `res://` (un modèle de l'atelier, ou de la commune) ; obligatoire pour un meuble, la Mobylette du socle pour un véhicule qui n'en donne pas |
+| `emplacement` | un meuble : où il se pose chez soi, `lit`, `sol` (par défaut), `grand`, `mur`, `petit` ou `jardin` |
+
+Vingt-quatre articles au plus par commerce. Au catalogue de `Biens`, un article est rangé sous `<commune>/<id>` comme les adresses du notaire ; une tenue ou un véhicule coûte des charges (un peu moins d'un centième du prix par recette), un meuble rien. On paie comptant ou à crédit auprès de la banque de la commune, et l'achat suit le joueur partout : la tenue se porte, le véhicule se conduit, le meuble se pose dans le logement qu'on habite. La commune ouvre son commerce depuis sa scène par `Commerce.ouvrir("<id de la commune>", "<id du commerce>")` ; la sortie ramène devant la porte (`lot`, sinon l'`id`). La commune d'essai `tools/fixtures/salle_jeu/` a une mercerie, un garage et une brocante, que `tools/test_salle_jeu.gd` vérifie.
 
 **Le registre** (autoload `Registre`, `scripts/socle/registre.gd`) est reconstruit à chaque inscription de commune et à chaque lecture du catalogue : il tient les structures des communes **installées** chez le joueur et celles des communes **publiées** sur le portail, installées ou non (le catalogue porte les structures de chaque paquet publié). Chaque entrée dit sa commune, son code INSEE, son centre sur la carte et si l'on peut y aller (`installee`). Ce qu'il expose :
 
@@ -300,7 +320,7 @@ Le catalogue est [`scripts/socle/atelier.json`](../scripts/socle/atelier.json), 
 | Sons | les bruitages (jetons, cartes, dés, gain…) et deux ambiances | `Atelier.son("dice")`, `Atelier.ambiance("village")` |
 | Matières | les shaders : calcaire, tuiles, vitre éclairée, pavés, eau, tapis, damas, marbre, feutre, ciel de nuit | `Atelier.matiere("cobbles")` |
 | Polices | les trois polices du jeu | `Polices.texte()`, `Polices.gras()`, `Polices.titre()` |
-| Scènes | le stade du socle (structure `terrain_foot`) et la salle de jeu (structure `salle_jeu`), section « Les structures » ; l'habitant et la caméra, dans la scène du kit | `Football.ouvrir_stade(commune)`, `SalleJeu.ouvrir(commune, id)` |
+| Scènes | le stade du socle (structure `terrain_foot`), la salle de jeu (structure `salle_jeu`) et le commerce (structure `commerce`), section « Les structures » ; l'habitant et la caméra, dans la scène du kit | `Football.ouvrir_stade(commune)`, `SalleJeu.ouvrir(commune, id)`, `Commerce.ouvrir(commune, id)` |
 
 Les personnages nommés de Smarves (Josiane, M. Brunet…) restent à Smarves : une commune a ses propres habitants, l'atelier ne lui prête que des figurants.
 
