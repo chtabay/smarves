@@ -40,6 +40,14 @@ func _ready() -> void:
 	if get_tree().get_script() != null or "--capture" in " ".join(OS.get_cmdline_user_args()):
 		return
 	charger()
+	# Le règlement tombe à l'heure, où que soit le joueur : une passe au lancement, puis toutes les minutes ;
+	# la fiche du carnet l'annonce, et Josiane en reparle au café (les tickets pas encore « vus »).
+	var minuteur := Timer.new()
+	minuteur.wait_time = 60.0
+	minuteur.autostart = true
+	minuteur.timeout.connect(tic)
+	add_child(minuteur)
+	tic.call_deferred()
 	# Une nouvelle partie (le total misé retombe) emporte les tickets avec le reste.
 	var dernier := [Game.staked]
 	Game.changed.connect(func():
@@ -154,6 +162,26 @@ func regler() -> Array:
 		sauver()
 		change.emit()
 	return regles
+
+
+## Règle ce qui est à régler et l'annonce par la fiche du carnet.
+func tic() -> void:
+	var carnet: Node = get_tree().root.get_node_or_null("Carnet")
+	for t in regler():
+		if carnet != null:
+			carnet.show_slip("Ticket de la journée %d : %s." % [int(t.j), "gagné, %s crédits" % Game.fmt(int(t.gain)) if t.etat == "gagne" else "perdu"])
+
+
+## Les tickets réglés dont Josiane n'a pas encore parlé au comptoir ; les marque vus.
+func non_vus() -> Array:
+	var out: Array = []
+	for t in tickets:
+		if t.etat != "ouvert" and not bool(t.get("vu", false)):
+			t.vu = true
+			out.append(t)
+	if not out.is_empty():
+		sauver()
+	return out
 
 
 ## Le bilan du comptoir, pour la fenêtre : {mise, gagne, tickets, gagnes}.

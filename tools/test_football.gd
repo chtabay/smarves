@@ -96,24 +96,57 @@ func _init() -> void:
 	cd = foot.consigne_de(1, 5, m0.dom)
 	check(cd.etat == "commune" and cd.par == "Lucien" and cd.consigne.formation == "4-3-3" and not foot.locales.has("1/5/%s" % m0.dom), "la consigne du serveur l'emporte et n'est plus locale")
 	check(not foot.appliquer_consignes([{"saison": 1, "journee": 5, "club": m0.dom, "formation": "4-3-3", "mentalite": "offensive", "pressing": "haut", "par": "Lucien"}]), "la relire ne change rien")
-	# Les parts du club, chez le notaire : sans actionnaire tout le monde parle ; sinon le plus gros, ou chacun à égalité.
-	check(foot.peut_decider(m0.dom) and foot.actionnaires(m0.dom).is_empty(), "sans actionnaire, le président écoute tout le monde")
-	foot.appliquer_parts([{"club": m0.dom, "nombre": 2, "par": "Lucien", "moi": false}, {"club": m0.dom, "nombre": 1, "par": "Moi", "moi": true}])
-	check(not foot.peut_decider(m0.dom) and foot.actionnaires(m0.dom).size() == 1, "Lucien tient deux parts : lui seul parle, et mes parts viennent d'ici, pas du serveur")
-	check(not foot.decider(1, 6, m0.dom, {"mentalite": "tout"}), "sans parts, la consigne est refusée")
-	foot.detenir(m0.dom, 2)
-	check(foot.peut_decider(m0.dom) and foot.actionnaires(m0.dom)[0].moi, "deux parts d'ici : à égalité, je parle aussi, et je passe devant")
-	check(foot.phrase_actionnaires(m0.dom) == "Vous tenez 2 parts, Lucien tient 2 parts : c'est vous qui parlez au président.", "la phrase des actionnaires : %s" % foot.phrase_actionnaires(m0.dom))
-	foot.detenir(m0.dom, 1)
-	check(not foot.peut_decider(m0.dom) and foot.phrase_actionnaires(m0.dom).ends_with("c'est Lucien qui parle au président."), "une part contre deux : c'est Lucien qui parle")
-	check(foot.parts_a_declarer.has(m0.dom) and foot.parts_locales[m0.dom] == 1, "les parts d'ici attendent d'être déclarées au serveur")
+	# Les obligations du club, chez le notaire (modèle Impérial 2030) : sans porteur tout le monde parle ;
+	# sinon la plus grosse somme investie, ou chacun à égalité.
+	var game: Node = root.get_node("Game")
+	game.saving_enabled = false
+	game.credits = 10000
+	check(foot.peut_decider(m0.dom) and foot.actionnaires(m0.dom).is_empty(), "sans porteur, le président écoute tout le monde")
+	check(foot.valeur(1) == 500 and foot.valeur(9) == 7500 and foot.dividende_de(3) == 150, "neuf tailles, de 500 à 7 500 ; 50 crédits par cran et par journée")
+	foot.appliquer_obligations([{"club": m0.dom, "rang": 5, "par": "Lucien", "moi": false}, {"club": m0.dom, "rang": 1, "par": "Lucien", "moi": false}])
+	check(not foot.peut_decider(m0.dom) and foot.actionnaires(m0.dom).size() == 1 and foot.actionnaires(m0.dom)[0].investi == 3500, "Lucien a 3 500 dans le club (n° 5 et n° 1) : lui seul parle")
+	check(not foot.decider(1, 6, m0.dom, {"mentalite": "tout"}), "sans obligation, la consigne est refusée")
+	check(foot.prendre(m0.dom, 5).raison == "prise" and foot.prendre(m0.dom, 12).raison == "rang", "une obligation tenue ne se prend pas, ni un rang qui n'existe pas")
+	check(foot.prendre(m0.dom, 3).ok and game.credits == 8500 and foot.mes_obligations(m0.dom) == [3], "la n° 3 prise : 1 500 débités")
+	check(not foot.peut_decider(m0.dom), "1 500 contre 3 500 : c'est toujours Lucien qui parle")
+	check(foot.prendre(m0.dom, 4).ok and foot.investi(m0.dom) == 3750 and foot.peut_decider(m0.dom), "la n° 4 en plus : 3 750, je passe devant")
+	check(foot.phrase_actionnaires(m0.dom) == "Vous avez 3 750 crédits dans le club, Lucien 3 500 : c'est vous qui parlez au président.", "la phrase des porteurs : %s" % foot.phrase_actionnaires(m0.dom))
+	check(foot.obligations_a_declarer[m0.dom] == {"3": true, "4": true}, "les prises d'ici attendent le serveur")
+	game.credits = 100
+	check(foot.prendre(m0.dom, 2).raison == "credits", "sans crédits, pas d'obligation")
+	game.credits = 10000
+	check(foot.echanger(m0.dom, 3, 7).ok and game.credits == 10000 - 3500 and foot.mes_obligations(m0.dom) == [7, 4] and foot.obligations_a_declarer[m0.dom]["3"] == false, "la n° 3 échangée contre la n° 7 pour la différence (3 500)")
+	check(foot.echanger(m0.dom, 4, 5).raison == "prise" and foot.echanger(m0.dom, 9, 8).raison == "absente", "pas d'échange contre une tenue, ni depuis une qu'on n'a pas")
+	var r4: Dictionary = foot.rendre(m0.dom, 4)
+	check(r4.ok and r4.montant == 1800 and game.credits == 6500 + 1800 and foot.mes_obligations(m0.dom) == [7], "la n° 4 rendue à l'étude, 80 % de 2 250")
+	# Les dividendes : rien sur les journées déjà jouées, puis 50 par cran et par journée, au classement.
+	check(foot.dividendes_dus().is_empty(), "rien n'est dû pour les journées d'avant l'achat")
+	t = foot.coup_envoi(1, 7) + 3 * 3600
+	var dus: Array = foot.dividendes_dus()
+	check(dus.size() == 4 and dus[0].j == 4 and dus[3].j == 7 and dus[0].brut == int(round(350 * foot.recette_facteur(m0.dom))), "quatre journées jouées depuis la n° 7 : quatre dividendes de 350 au classement (%s)" % str(dus))
+	foot.salaires = func(_c: String) -> int: return 700
+	check(foot.dividendes_dus()[0].salaires == int(round(700.0 * 5000.0 / 8500.0)), "les salaires du mercato se retiennent au prorata de l'investi")
+	foot.salaires = Callable()
+	var credits_avant: int = game.credits
+	var verses: Array = foot.verser_dividendes()
+	var somme := 0
+	for v in verses:
+		somme += int(v.net)
+	check(verses.size() == 4 and game.credits == credits_avant + somme and foot.dividendes_dus().is_empty() and foot.dividendes[m0.dom].j == 7, "versés une fois, dans la bourse")
+	# Le serveur a le dernier mot : une prise qu'il donne à un autre est rendue à sa valeur.
+	foot.obligations_a_declarer = {}
+	credits_avant = game.credits
+	foot.appliquer_obligations([{"club": m0.dom, "rang": 7, "par": "Marcel", "moi": false}, {"club": m0.dom, "rang": 2, "par": "Moi", "moi": true}])
+	check(foot.mes_obligations(m0.dom) == [2] and game.credits == credits_avant + 5000, "la n° 7 à Marcel au serveur : rendue 5 000 ; la n° 2 qu'il me donne arrive")
+	t = foot.coup_envoi(1, 3) + 60
 	var fr: float = foot.recette_facteur(m0.dom)
 	check(fr >= 0.7 - 0.001 and fr <= 1.4 + 0.001 and foot.recette_facteur("nulle_part") == 1.0, "la rente d'une part suit le classement (×%.1f), ×1 pour un club inconnu" % fr)
 	check(absf(foot.recette_facteur(cl[0].club) - 1.4) < 0.001 and absf(foot.recette_facteur(cl[7].club) - 0.7) < 0.001, "×1,4 en tête, ×0,7 en queue")
-	foot.detenir(m0.dom, 0)
-	foot.appliquer_parts([])
-	foot.parts_a_declarer = {}
-	check(foot.peut_decider(m0.dom), "les parts revendues, tout le monde parle de nouveau")
+	foot.rendre(m0.dom, 2)
+	foot.appliquer_obligations([])
+	foot.obligations_a_declarer = {}
+	foot.dividendes = {}
+	check(foot.peut_decider(m0.dom) and foot.actionnaires(m0.dom).is_empty(), "les obligations rendues, tout le monde parle de nouveau")
 	var pm: Dictionary = foot.prochain_match(m0.dom)
 	check(pm.s == 1 and pm.j == foot.journee_jouee() + 1 and (pm.dom == m0.dom or pm.ext == m0.dom) and pm.quand == foot.coup_envoi(1, pm.j), "le prochain match du club : %s" % str(pm))
 	foot.decisions = {}
