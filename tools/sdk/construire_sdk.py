@@ -29,6 +29,7 @@ ICI = Path(__file__).resolve().parent
 ## Ce dont une commune a besoin, en plus des autoloads du projet.
 ENTREES = [
     "scripts/socle/atelier.gd", "scripts/socle/atelier.json", "scripts/socle/salle_jeu.gd", "scenes/salle_jeu.tscn",
+    "scripts/socle/etude.gd", "scenes/etude.tscn",
     "scenes/stade.tscn", "communes/vienne.json",
     "tools/kit/commune.gd", "tools/kit/commune.tscn", "tools/kit/commune.json",
     "tools/test_commune.gd", "tools/emballer_commune.gd", "tools/test_atelier.gd", "tools/test_salle_jeu.gd",

@@ -65,14 +65,35 @@ static func registre(c: Commune) -> Dictionary:
 	return reg
 
 
-## Les fiches du catalogue que le registre ajoute : une par adresse qui n'est pas déjà une part.
+## Les fiches du catalogue que le registre ajoute : une par adresse qui n'est pas déjà une part. Hors de
+## la commune d'origine, chaque fiche est rangée sous « <commune>/<id> » (cle) et dit sa commune.
 static func fiches(c: Commune) -> Array:
 	var out := []
 	var nom: String = etude(c).nom
 	for a in registre(c).adresses:
 		if str(a.genre) != "part":
-			out.append(fiche(a, nom))
+			var f := fiche(a, nom)
+			if cle(c, f.id) != f.id:
+				f.id = cle(c, f.id)
+				f.commune = str(c.data.id)
+				if f.has("lot"):
+					f.lot = cle(c, f.lot)
+			out.append(f)
 	return out
+
+
+## La clé au catalogue de l'adresse a : une part garde l'id du bien qu'elle désigne, le reste passe par cle().
+static func cle_adresse(c: Commune, a: Dictionary) -> String:
+	return str(a.get("id", "")) if str(a.get("genre", "")) == "part" else cle(c, str(a.get("id", "")))
+
+
+## La clé d'une adresse au catalogue de Biens : son id dans la commune d'origine, « <commune>/<id> »
+## ailleurs, pour que deux communes puissent avoir chacune leur « maison_place ».
+static func cle(c: Commune, id: String) -> String:
+	var origine := Commune.smarves()
+	if c == null or origine == null or str(c.data.get("id", "")) == str(origine.data.get("id", "")):
+		return id
+	return "%s/%s" % [c.data.id, id]
 
 
 ## Une fiche au format du catalogue de Biens. La rente annoncée vaut 10 % du prix par recette (8 % quand

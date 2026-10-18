@@ -219,19 +219,33 @@ func _ready() -> void:
 	_rng.randomize()
 	_load()
 	_last_staked = Game.staked
+	Communes.inscrite.connect(func(_id: String): oublier_catalogue())
 	Game.changed.connect(_on_game_changed)
 	changed.connect(_save)
 
 
 # --- Le catalogue ----------------------------------------------------------------------------
 
-## Tout ce qui se vend : le catalogue, et les adresses du village (les maisons et les murs).
+## Tout ce qui se vend : le catalogue, les adresses du village (les maisons et les murs), et celles des
+## autres communes inscrites qui ont un notaire, sous « <commune>/<id> ».
 static func catalogue() -> Array:
 	if _catalogue.is_empty():
 		_catalogue = CATALOGUE + NOTAIRE.fiches(Commune.smarves())
+		var communes: Node = (Engine.get_main_loop() as SceneTree).root.get_node_or_null("Communes")
+		if communes != null:
+			for id in communes.communes:
+				var c: Commune = communes.communes[id]
+				if c != null and c.data.has("notaire") and NOTAIRE.cle(c, "x") != "x":
+					_catalogue += NOTAIRE.fiches(c)
 		for it in _catalogue:
 			_items[it.id] = it
 	return _catalogue
+
+
+## Le catalogue est refait quand une commune s'inscrit : ses adresses entrent chez son notaire.
+static func oublier_catalogue() -> void:
+	_catalogue = []
+	_items = {}
 
 
 static var _catalogue: Array = []
@@ -240,6 +254,10 @@ static var _items := {}
 
 static func item(id: String) -> Dictionary:
 	catalogue()
+	if not _items.has(id) and "/" in id:
+		# Un bien d'une commune qui n'est pas (ou plus) inscrite : gardé, mais il ne vaut ni ne rapporte rien.
+		return {"id": id, "kind": "murs", "seller": "notaire", "commune": id.get_slice("/", 0), "name": "Un bien à %s" % id.get_slice("/", 0),
+			"price": 0, "growth": 1.0, "max": 1, "rente": 0, "charge": 0, "standing": 0, "gate": 0, "from": "", "blurb": ""}
 	return _items.get(id, {})
 
 
@@ -581,12 +599,13 @@ static func build_vehicle(id: String) -> Node3D:
 # --- Acheter, revendre -------------------------------------------------------------------------
 
 ## Achète un exemplaire. financed : M. Brunet avance le prix, frais de dossier compris dans la dette.
-func buy(id: String, financed := false) -> bool:
+## preteur : la banque qui finance (« » : celle de la commune d'origine, M. Brunet).
+func buy(id: String, financed := false, preteur := "") -> bool:
 	if not available(id):
 		return false
 	var price := next_price(id)
 	if financed:
-		Game.borrow(price)
+		Game.borrow(price, preteur)
 	elif Game.credits < price:
 		return false
 	_busy = true
