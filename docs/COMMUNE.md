@@ -30,6 +30,15 @@ godot --headless --path . -s tools/emballer_commune.gd -- liguge --depuis=res://
 
 Le second emballe Ligugé dans `build/liguge.pck` ; déposé dans le dossier `communes/` des données du jeu (sous Windows `%APPDATA%\Godot\app_userdata\Smarves\communes\`), il s'allume sur la carte au lancement suivant.
 
+**Availles-Limouzine** (`tools/paquet_essai/availles_limouzine/`, code INSEE 86015) est la première commune construite **dans sa disposition réelle** (demande de Guillaume, 18 octobre 2026). `tools/bourg_reel.py` tire des données ouvertes le plan du bourg : les rues, les places, les ponts, l'eau et les bois d'OpenStreetMap ; l'emprise, la hauteur et le toit de chaque bâtiment de la BD TOPO de l'IGN ; le relief du RGE ALTI (grille de 5 m). Il écrit `bourg.json` (en unités du jeu, 1 unité = 2,4 m, comme Smarves) et `sol.png` (la couverture du sol), que `availles.gd` construit à l'ouverture : terrain avec collision, rues en rubans posés sur le relief, 919 bâtiments en volumes simples avec fenêtres et toits à pans, la Vienne et son pont (on marche dessus, les rives arrêtent), les arbres en MultiMesh, les noms de rues couchés sur la chaussée. Les lieux remarquables (église Saint-Martin, mairie, portes des Cavaliers et de la Rivière, logis de la Châtellenie, halles, commerces de la place…) sont des nœuds à part, `Remarquable_<id>`, avec leur objet OpenStreetMap en métadonnée : c'est là que se fera la personnalisation, étape suivante. Rien ne s'y joue. Test et capture :
+
+```sh
+python3 tools/bourg_reel.py availles_limouzine        # régénère bourg.json et sol.png (cache dans build/bourg_reel/)
+godot --headless --path . -s tools/test_availles.gd
+godot --path . -s tools/test_availles.gd -- --capture=bourg.png --a=51,38,2,-20   # x, z, cran, lacet
+godot --headless --path . -s tools/emballer_commune.gd -- availles_limouzine --depuis=res://tools/paquet_essai/availles_limouzine/
+```
+
 ## Ce qu'une commune fournit
 
 Un dossier `communes/<id>/` avec au moins un manifeste `commune.json` et la scène de la commune. Smarves a le sien : [`communes/smarves/commune.json`](../communes/smarves/commune.json).
