@@ -405,6 +405,8 @@ func _row(f: FACADES, row: Array, north: bool, x_start: float, dir: float) -> vo
 					_door_area(spec.id, door, rot)
 				if spec.get("id", "") == "lot_reserve":
 					lots.lot_reserve["xf"] = xf
+					# La charge de Mme Vasseur (lieu « bourse ») a la porte du local : door_spawn("bourse") la trouve.
+					lots["bourse"] = lots.lot_reserve
 					_charge()
 			"porche":
 				# Un portail sur une cour pavée, et l'arbre de la cour qui dépasse du mur.
