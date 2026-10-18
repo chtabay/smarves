@@ -4,7 +4,9 @@ extends CanvasLayer
 ## crédits, la nouvelle version du jeu quand il y en a une (autoload Version), les villes de la
 ## Vienne (« Voir les villes » déplie la liste, à installer et à visiter sur place), le compte
 ## Pyramides (autoload Compte : connexion, partie gardée au compte, choix entre deux parties) et
-## « Jouer ». Direction « La Vienne », choisie par Guillaume le 17 octobre
+## « Jouer ». Tout en bas, en tout petit, « Effacer ma partie… » : le seul endroit où l'on efface sa
+## partie (il n'y a plus de « Nouvelle partie » dans le menu Échap), derrière une page qui demande
+## d'écrire EFFACER. Direction « La Vienne », choisie par Guillaume le 17 octobre
 ## 2026.
 
 const OR := Color(0.96, 0.8, 0.45)
@@ -20,6 +22,8 @@ var _scroll: ScrollContainer
 ## Sous la colonne, hors du défilement : « Jouer » reste en vue quelle que soit la longueur.
 var _pied: VBoxContainer
 var _liste := false
+## La page qui efface la partie, ouverte par le petit lien du bas.
+var _effacer := false
 ## Une fois par lancement ; jamais dans les captures.
 var _attendue := not "--capture" in " ".join(OS.get_cmdline_user_args())
 var _mouse_before := Input.MOUSE_MODE_VISIBLE
@@ -84,6 +88,7 @@ func ouvrir(liste := false) -> void:
 	get_tree().paused = true
 	_root.visible = true
 	_liste = liste
+	_effacer = false
 	_remplir()
 
 
@@ -145,7 +150,9 @@ func _remplir() -> void:
 	_carte.publiees = Communes.publiees().map(func(e): return e.insee)
 	_carte.installees = Communes.installees().map(func(id): return Communes.commune(id).insee)
 	_carte.queue_redraw()
-	if _liste:
+	if _effacer:
+		_remplir_effacer()
+	elif _liste:
 		_remplir_liste()
 	else:
 		_remplir_accueil()
@@ -175,10 +182,50 @@ func _remplir_accueil() -> void:
 	_box.add_child(rang)
 	_box.add_child(_filet())
 	_remplir_compte()
+	# Tout au fond, à peine lisible : on n'efface pas sa partie par mégarde.
+	var effacer := _bouton("Effacer ma partie…", Color(0, 0, 0, 0), Color(DOUX, 0.45), Color(0, 0, 0, 0), func():
+		_effacer = true
+		_remplir(), 12)
+	effacer.focus_mode = Control.FOCUS_NONE
+	_box.add_child(effacer)
 	var jouer := _bouton("Jouer", OR, Color(0.1, 0.07, 0.03), Color(0, 0, 0, 0), fermer, 22)
 	jouer.custom_minimum_size.x = 220
 	_pied.add_child(jouer)
 	jouer.grab_focus.call_deferred()
+
+
+## Effacer sa partie : ce n'est pas recommencer, c'est tout perdre, ici et au compte. Il faut écrire
+## EFFACER pour que le bouton réponde ; « Garder ma partie » a le focus.
+func _remplir_effacer() -> void:
+	_box.add_child(_mot("EFFACER MA PARTIE", 14, ROUGE, Polices.gras()))
+	var compte := " et sur votre compte Pyramides, donc sur tous vos appareils" if Compte.connecte() else ""
+	_box.add_child(_mot("Vos %s crédits, vos biens, vos paris et tout ce que vous avez gagné seront effacés sur cet appareil%s. Rien ne pourra être récupéré." \
+			% [Game.fmt(Game.credits), compte], 17, TEXTE, null, true))
+	_box.add_child(_mot("Pour confirmer, écrivez EFFACER :", 15, DOUX))
+	var champ := LineEdit.new()
+	champ.custom_minimum_size.x = 220
+	champ.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	champ.add_theme_font_override("font", Polices.gras())
+	champ.add_theme_font_size_override("font_size", 17)
+	champ.add_theme_color_override("font_color", TEXTE)
+	champ.add_theme_stylebox_override("normal", _boite(Color(1, 1, 1, 0.05), Color(1, 1, 1, 0.3), 4, 8))
+	champ.add_theme_stylebox_override("focus", _boite(Color(1, 1, 1, 0.05), ROUGE, 4, 8))
+	_box.add_child(champ)
+	var bouton := _bouton("Effacer définitivement", Color(0, 0, 0, 0), ROUGE, ROUGE, _tout_effacer, 15, false)
+	_box.add_child(bouton)
+	champ.text_changed.connect(func(t: String): bouton.disabled = t.strip_edges().to_upper() != "EFFACER")
+	var garder := _bouton("Garder ma partie", OR, Color(0.1, 0.07, 0.03), Color(0, 0, 0, 0), func():
+		_effacer = false
+		_remplir(), 22)
+	garder.custom_minimum_size.x = 220
+	_pied.add_child(garder)
+	garder.grab_focus.call_deferred()
+
+
+func _tout_effacer() -> void:
+	fermer()
+	Game.reset()
+	get_tree().change_scene_to_file("res://scenes/main.tscn")
 
 
 ## Le compte Pyramides : se connecter, où en est la partie gardée au compte, et le choix quand deux

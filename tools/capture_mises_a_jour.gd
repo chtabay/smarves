@@ -1,6 +1,6 @@
 extends SceneTree
 ## Captures des écrans de mises à jour, chaque état posé à la main :
-## godot --path . -s tools/capture_mises_a_jour.gd -- --greffes=<dossier> --sortie=<dossier> --ecran=accueil|liste|carte
+## godot --path . -s tools/capture_mises_a_jour.gd -- --greffes=<dossier> --sortie=<dossier> --ecran=accueil|liste|carte|effacer
 
 func _initialize() -> void:
 	_lancer.call_deferred()
@@ -33,7 +33,11 @@ func _lancer() -> void:
 		var c = root.get_node("Carte").get("_carte")
 		c.choix.emit("86133")
 	else:
-		root.get_node("Bienvenue").ouvrir(ecran == "liste")
+		var bienvenue: Node = root.get_node("Bienvenue")
+		bienvenue.ouvrir(ecran == "liste")
+		if ecran == "effacer":
+			bienvenue.set("_effacer", true)
+			bienvenue.call("_remplir")
 	await create_timer(2.5).timeout
 	await RenderingServer.frame_post_draw
 	root.get_viewport().get_texture().get_image().save_png(sortie.path_join(ecran + ".png"))

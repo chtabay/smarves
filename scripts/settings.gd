@@ -1,12 +1,12 @@
 extends CanvasLayer
 ## Le menu de réglages (autoload « Settings »), ouvert par Échap quand aucun jeu n'est ouvert :
-## volume général, ambiance, bruitages, plein écran, et nouvelle partie. Les réglages sont gardés.
+## volume général, ambiance, bruitages, plein écran. Pas de « Nouvelle partie » ici : le joueur tient à sa
+## partie, qui le suit sur son compte ; l'effacer se fait tout au fond de la bienvenue (scripts/bienvenue.gd).
 
 const PATH := "user://reglages.cfg"
 
 var _root: Control
 var _panel: PanelContainer
-var _confirm: Button
 var _sliders := {}
 var _fullscreen: CheckButton
 var _device: OptionButton
@@ -39,8 +39,6 @@ func toggle() -> void:
 	else:
 		_mouse_before = Input.mouse_mode
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-		_confirm.text = "Nouvelle partie"
-		_confirm.set_meta("armed", false)
 		_root.visible = true
 		get_tree().paused = true
 
@@ -140,10 +138,6 @@ func _build() -> void:
 	row2.alignment = BoxContainer.ALIGNMENT_CENTER
 	row2.add_theme_constant_override("separation", 12)
 	v.add_child(row2)
-	_confirm = Button.new()
-	_confirm.text = "Nouvelle partie"
-	_confirm.pressed.connect(_new_game)
-	row2.add_child(_confirm)
 	var resume := Button.new()
 	resume.text = "Reprendre (Échap)"
 	resume.pressed.connect(toggle)
@@ -166,17 +160,6 @@ func _set_volume(value: float, bus: String) -> void:
 func _set_fullscreen(on: bool) -> void:
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN if on else DisplayServer.WINDOW_MODE_WINDOWED)
 	_save()
-
-
-## Deux clics pour recommencer : on ne perd pas sa partie par mégarde.
-func _new_game() -> void:
-	if not _confirm.get_meta("armed", false):
-		_confirm.set_meta("armed", true)
-		_confirm.text = "Confirmer : tout effacer ?"
-		return
-	toggle()
-	Game.reset()
-	get_tree().change_scene_to_file("res://scenes/main.tscn")
 
 
 func _save() -> void:
