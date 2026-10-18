@@ -1,6 +1,6 @@
 extends CanvasLayer
 ## Le menu de réglages (autoload « Settings »), ouvert par Échap quand aucun jeu n'est ouvert :
-## volume général, ambiance, bruitages, plein écran. Pas de « Nouvelle partie » ici : le joueur tient à sa
+## volume général, ambiance, bruitages, plein écran, et le chemin vers le compte Pyramides. Pas de « Nouvelle partie » ici : le joueur tient à sa
 ## partie, qui le suit sur son compte ; l'effacer se fait tout au fond de la bienvenue (scripts/bienvenue.gd).
 
 const PATH := "user://reglages.cfg"
@@ -130,6 +130,13 @@ func _build() -> void:
 	test.text = "Tester le son"
 	test.pressed.connect(func(): Sfx.play("big_win", 0.0))
 	v.add_child(test)
+	# Le compte Pyramides vit dans la fenêtre de bienvenue, qui ne s'ouvre seule qu'à l'arrivée sur la place.
+	var compte := Button.new()
+	compte.text = "Votre compte Pyramides"
+	compte.pressed.connect(func():
+		toggle()
+		Bienvenue.ouvrir())
+	v.add_child(compte)
 	_fullscreen = CheckButton.new()
 	_fullscreen.text = "Plein écran"
 	_fullscreen.toggled.connect(_set_fullscreen)

@@ -8,7 +8,8 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 
 const REPO = 'https://github.com/chtabay/smarves';
 const ARCHIVE = `${REPO}/releases/download/derniere-version/Smarves-web.tar.gz`;
-const want = process.env.VERCEL_GIT_COMMIT_SHA || '';
+// Un aperçu de branche (PR) n'a pas de Release à lui : il sert la dernière publiée, sans attendre.
+const want = process.env.VERCEL_ENV === 'production' ? process.env.VERCEL_GIT_COMMIT_SHA || '' : '';
 const deadline = Date.now() + 35 * 60 * 1000;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const tagSha = () => execSync(`git ls-remote ${REPO} refs/tags/derniere-version`).toString().split(/\s/)[0];

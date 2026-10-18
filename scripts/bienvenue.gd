@@ -168,6 +168,9 @@ func _remplir_accueil() -> void:
 		_pied.add_child(_bouton("Décider plus tard", Color(0, 0, 0, 0), DOUX, Color(1, 1, 1, 0.3), fermer, 16))
 		return
 	_box.add_child(_mot("%s crédits en poche  ·  fortune nette %s" % [Game.fmt(Game.credits), Game.fmt(Game.credits + Biens.value() - Game.debt)], 17, DOUX))
+	# Le compte en premier : c'est lui qui ouvre la table à plusieurs, et on le voit sans faire défiler.
+	_box.add_child(_filet())
+	_remplir_compte()
 	_box.add_child(_filet())
 	_remplir_mises_a_jour()
 	_box.add_child(_filet())
@@ -180,8 +183,6 @@ func _remplir_accueil() -> void:
 		rang.add_child(_bouton("Villes et mises à jour  →", Color(0, 0, 0, 0), EAU, EAU, ouvrir.bind(true)))
 	rang.add_child(_bouton("Ouvrir la carte  (M)", Color(0, 0, 0, 0), TEXTE, Color(1, 1, 1, 0.3), _vers_la_carte))
 	_box.add_child(rang)
-	_box.add_child(_filet())
-	_remplir_compte()
 	# Tout au fond, à peine lisible : on n'efface pas sa partie par mégarde.
 	var effacer := _bouton("Effacer ma partie…", Color(0, 0, 0, 0), Color(DOUX, 0.45), Color(0, 0, 0, 0), func():
 		_effacer = true
