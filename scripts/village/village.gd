@@ -211,6 +211,7 @@ func build(m: Node3D) -> void:
 	_tournee()
 	_logements()
 	_biens()
+	_voisinage()
 	_capture_view()
 
 
@@ -846,6 +847,8 @@ func _logement_prompt(id: String) -> String:
 	var d: Dictionary = biens.door_of(id)
 	if d.get("owned", false):
 		return "E : rentrer chez vous — %s" % what.to_lower() if d.get("scene", "") != "" else "%s — chez vous ; l'intérieur se prépare" % what
+	if not Voisinage.voisins(id).is_empty():
+		return "E : frapper chez %s — %s" % [_noms(Voisinage.voisins(id)), what.to_lower()]
 	if d.get("en_vente", false):
 		return "%s — en vente chez Maître Garnier" % what
 	return "%s — propriété privée" % what
@@ -862,6 +865,9 @@ func enter_logement(id: String) -> void:
 		# et la sortie remet Game.return_point à l'id du lot, devant cette porte.
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		biens.enter(d.logement)
+		return
+	if not d.get("owned", false) and not Voisinage.voisins(id).is_empty():
+		Tableau.ouvrir_maison(id)
 		return
 	main._announce(_logement_prompt(id))
 
@@ -971,6 +977,93 @@ func _offer_tournee() -> void:
 	for v in main.villagers:
 		if v.global_position.distance_to(_tournee_area.global_position) < 6.0:
 			v.react("win")
+
+
+# --- Le voisinage : le panneau de la mairie et les noms des autres joueurs (autoload Voisinage) -----
+
+## Le panneau d'affichage, sur la place, à droite de la mairie : [position, orientation (degrés)].
+const PANNEAU := [Vector3(-1.9, 0, -3.3), 0.0]
+
+## Au-dessus de la porte de chaque logement, les noms des autres joueurs qui en ont la clef.
+var _plaques := {}
+
+
+func _voisinage() -> void:
+	var root := Node3D.new()
+	root.position = PANNEAU[0]
+	root.rotation_degrees.y = PANNEAU[1]
+	add_child(root)
+	var bois := StandardMaterial3D.new()
+	bois.albedo_color = Color(0.36, 0.22, 0.12)
+	var ardoise := StandardMaterial3D.new()
+	ardoise.albedo_color = Color(0.13, 0.19, 0.17)
+	for x in [-0.62, 0.62]:
+		main._box(Vector3(0.08, 1.9, 0.08), Vector3(x, 0.95, 0), bois, root)
+	main._box(Vector3(1.4, 0.95, 0.06), Vector3(0, 1.3, 0), bois, root)
+	main._box(Vector3(1.28, 0.83, 0.02), Vector3(0, 1.3, 0.035), ardoise, root)
+	main._box(Vector3(1.5, 0.08, 0.2), Vector3(0, 1.84, 0), bois, root)
+	var titre := Label3D.new()
+	titre.text = "AFFICHAGE"
+	titre.font = main.serif
+	titre.font_size = 44
+	titre.pixel_size = 0.004
+	titre.modulate = Color(0.93, 0.93, 0.88)
+	titre.outline_size = 0
+	titre.position = Vector3(0, 1.6, 0.05)
+	root.add_child(titre)
+	# Des feuilles punaisées, pour qu'on voie de loin qu'il y a des nouvelles.
+	var papier := StandardMaterial3D.new()
+	papier.albedo_color = Color(0.95, 0.92, 0.82)
+	for f in [[-0.35, 1.2, 0.0], [0.05, 1.28, 0.06], [0.4, 1.15, -0.04]]:
+		main._box(Vector3(0.28, 0.36, 0.005), Vector3(f[0], f[1], 0.05), papier, root).rotation.z = f[2]
+	var a := Area3D.new()
+	var cs := CollisionShape3D.new()
+	var b := BoxShape3D.new()
+	b.size = Vector3(1.6, 2.0, 1.0)
+	cs.shape = b
+	cs.position = Vector3(0, 1.0, 0.4)
+	a.add_child(cs)
+	a.set_meta("interact", "panneau")
+	a.set_meta("action", Tableau.ouvrir_panneau)
+	a.set_meta("prompt", "E : lire le panneau d'affichage")
+	root.add_child(a)
+	for id in LOGEMENTS:
+		var p := Label3D.new()
+		p.font = main.serif
+		p.font_size = 36
+		p.pixel_size = 0.004
+		p.modulate = Color(0.98, 0.9, 0.7)
+		p.outline_size = 8
+		p.outline_modulate = Color(0, 0, 0, 0.7)
+		p.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
+		p.position = LOGEMENTS[id][0] + Vector3(0, 2.5, 0)
+		p.visible = false
+		add_child(p)
+		_plaques[id] = p
+	Voisinage.lu.connect(_refresh_voisinage)
+	_refresh_voisinage()
+	Voisinage.lire(true)
+
+
+func _refresh_voisinage() -> void:
+	for id in _plaques:
+		var gens := Voisinage.voisins(id)
+		_plaques[id].visible = not gens.is_empty()
+		_plaques[id].text = "Aussi chez %s" % _noms(gens)
+	if get_node_or_null("/root/Biens"):
+		_refresh_biens()
+
+
+## « Paulette », « Paulette et Bastien », « Paulette, Bastien et 3 autres ».
+static func _noms(gens: Array) -> String:
+	var noms: Array = gens.map(func(g): return str(g.get("nom", "")))
+	if noms.size() <= 1:
+		return "".join(noms)
+	if noms.size() == 2:
+		return "%s et %s" % noms
+	if noms.size() == 3:
+		return "%s, %s et %s" % noms
+	return "%s, %s et %d autres" % [noms[0], noms[1], noms.size() - 2]
 
 
 ## Pour les captures de vérification : -- --vue=distance,x,y,z,lacet,tangage (vue maquette, sans suivre l'habitant).

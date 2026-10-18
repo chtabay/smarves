@@ -284,7 +284,7 @@ func verifier() -> void:
 		_etat("expire" if _jeton != "" else "deconnecte")
 		return
 	_etat("verification")
-	var r := await _rpc("smarves_partie_lire", {})
+	var r := await appeler("smarves_partie_lire", {})
 	if not _reponse_valable(r):
 		return
 	var v := int(r.corps.get("version", 0))
@@ -328,7 +328,7 @@ func prendre_compte() -> void:
 	if etat != "choix":
 		return
 	_etat("verification")
-	var r := await _rpc("smarves_partie_lire", {})
+	var r := await appeler("smarves_partie_lire", {})
 	if _reponse_valable(r):
 		_reprendre(r.corps)
 
@@ -341,7 +341,7 @@ func _envoyer(base: int) -> void:
 		_etat("a_jour")
 		return
 	_etat("envoi")
-	var r := await _rpc("smarves_partie_ecrire", {"p_version": base, "p_fichiers": fichiers,
+	var r := await appeler("smarves_partie_ecrire", {"p_version": base, "p_fichiers": fichiers,
 		"p_resume": resume(), "p_appareil": appareil()})
 	if not _reponse_valable(r):
 		return
@@ -456,8 +456,9 @@ static func empreinte_de(fichiers: Dictionary) -> String:
 
 # --- Le réseau -------------------------------------------------------------------------------
 
-func _rpc(fonction: String, corps: Dictionary) -> Dictionary:
-	corps["p_jeton"] = _jeton
+## Appelle une fonction public.smarves_* de la base avec le jeton du joueur (vide sans compte) : {code, corps}.
+func appeler(fonction: String, corps: Dictionary) -> Dictionary:
+	corps["p_jeton"] = _jeton if connecte() else ""
 	return await _http(SUPABASE + fonction, ["Content-Type: application/json", "apikey: " + CLE_PUBLIQUE],
 		JSON.stringify(corps))
 
@@ -575,6 +576,10 @@ func _mise_en_scene(e: String) -> void:
 	joueur_id = "essai"
 	synchro_a = int(Time.get_unix_time_from_system()) - 120
 	etat = e
+	if e in ["a_jour", "envoi", "hors_ligne", "choix"]:
+		# Un faux jeton, pour que les écrans montrent ce qu'un joueur connecté voit ; rien ne part.
+		_jeton = "essai"
+		_expire = int(Time.get_unix_time_from_system()) + 30 * 86400
 	match e:
 		"connexion":
 			message = "Terminez la connexion dans le navigateur, puis revenez ici."
