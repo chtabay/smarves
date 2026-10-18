@@ -52,6 +52,24 @@ func _init() -> void:
 	# À 16 h, une heure après le coup d'envoi, le match est à la mi-temps (45 minutes jouées, le quart d'heure court).
 	check(stade._etat.pause == "mi-temps" and stade._etat.minute >= 45 and stade._etat.periode == 1, "une heure après le coup d'envoi, c'est la mi-temps : %d'" % stade._etat.minute)
 	check(stade._horloge.text.begins_with("Journée 5"), "le tableau d'affichage suit le match : %s" % stade._horloge.text)
+	# Les scènes d'une minute : une occasion se joue en plusieurs temps, le ballon et son porteur bougent.
+	var n_scenes := 0
+	for k in 30:
+		if stade._etat.fini:
+			break
+		stade._minute()
+		if stade._etat.evenements[-1].type in ["but", "arret", "rate", "poteau"]:
+			n_scenes = stade._scenes.size()
+			break
+	check(n_scenes >= 2, "une occasion donne plusieurs scènes : %d" % n_scenes)
+	if n_scenes >= 2:
+		var premiere: Dictionary = stade._scenes[0]
+		stade._jouer_scenes(0.1)
+		check(stade._cible_ballon == premiere.ballon and (premiere.porteur == null or stade._cibles[premiere.porteur].distance_to(premiere.ballon) < 1.0), "la première scène lance le ballon et son porteur")
+		stade._jouer_scenes(premiere.duree + 0.1)
+		check(stade._scenes.size() == n_scenes - 1 and stade._scenes[0].lancee, "au bout de sa durée, la scène suivante prend le relais")
+		stade._scenes.clear()
+
 	# Le match avancé d'un coup : le score du stade est celui de la feuille.
 	var n := 0
 	while not stade._etat.fini and n < 200:

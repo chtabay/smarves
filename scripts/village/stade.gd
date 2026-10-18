@@ -2,8 +2,9 @@ extends "res://scripts/shop_interior.gd"
 ## Le stade municipal de Smarves, à la première personne, derrière son seuil (docs/SUITE.md, section 6) :
 ## la pelouse sous les projecteurs, la tribune couverte de l'Étoile, le tableau d'affichage, et le match
 ## du dimanche qui se joue minute par minute sur la pelouse (FootMatch, le même état que la feuille du
-## café) : les vingt-deux joueurs suivent le ballon, le commentateur parle en bas de l'écran, le tableau
-## tient le score. Avant la première journée, l'Étoile s'entraîne et le tableau donne le coup d'envoi.
+## café) : les vingt-deux joueurs suivent le ballon, chaque action se joue en scènes (la construction dans
+## son couloir, le centre de l'ailier, le corner tiré du poteau, le coup franc, le tir qui finit au fond,
+## dans les gants ou sur le poteau), le commentateur parle en bas de l'écran, le tableau tient le score. Avant la première journée, l'Étoile s'entraîne et le tableau donne le coup d'envoi.
 ## L'interface, la capture et les petits outils viennent de l'intérieur des vendeurs (shop_interior.gd).
 ## Capture : godot --path . res://scenes/stade.tscn -- --capture=sortie.png [--at=x,z,lacet,tangage] [--won=…] [--journee=n] [--minute=m]
 
@@ -22,6 +23,13 @@ var _acteurs := {}
 var _cibles := {}
 var _ballon: MeshInstance3D
 var _cible_ballon := Vector3.ZERO
+## Les scènes d'une minute de match, jouées l'une après l'autre : {ballon, duree, porteur, vitesse, vol, action}.
+## Le moteur dit ce qui arrive (le couloir, le centre, le corner, le tir) ; la pelouse le montre.
+var _scenes: Array = []
+var _scene_t := 0.0
+var _vitesse_ballon := 14.0
+var _vol := 0.0
+var _depart_ballon := Vector3.ZERO
 var _chrono := 0.0
 var _possession := [0, 0]
 var _score: Label3D
@@ -362,6 +370,9 @@ func _synchroniser(dun_coup := false) -> void:
 		_minute()
 		_pas += 1
 		if dun_coup:
+			_scenes.clear()
+			_vol = 0.0
+			_vitesse_ballon = 14.0
 			_placer(true)
 
 
@@ -443,6 +454,7 @@ func _placer(dun_coup := false) -> void:
 		var cases: Array = FootMatch.FORMATIONS.get(eq.formation, FootMatch.FORMATIONS["4-4-2"])
 		var sens := 1.0 if i == 0 else -1.0
 		var glisse := clampf(_cible_ballon.x * 0.35, -6.0, 6.0)
+		var glisse_z := clampf(_cible_ballon.z * 0.25, -3.0, 3.0)
 		var prises: Array = []
 		for e in eq.onze:
 			# Sa case : celle de son poste encore libre, sinon la première libre.
@@ -465,7 +477,12 @@ func _placer(dun_coup := false) -> void:
 			var cible := Vector3(sens * along, 0, sens * across)
 			if e.poste != "G":
 				cible.x += glisse
+				cible.z += glisse_z
 				cible.x = clampf(cible.x, -L / 2.0 + 0.5, L / 2.0 - 0.5)
+				cible.z = clampf(cible.z, -P / 2.0 + 0.5, P / 2.0 - 0.5)
+			else:
+				# Le gardien se décale vers le ballon sur sa ligne.
+				cible.z = clampf(_cible_ballon.z * 0.3, -2.5, 2.5)
 			_cibles[e.id] = cible
 			if dun_coup and _acteurs.has(e.id):
 				_acteurs[e.id].position = cible
@@ -500,11 +517,23 @@ func _process(delta: float) -> void:
 			_chrono = 0.0
 			_cible_ballon = Vector3(randf_range(-L / 3.0, L / 3.0), 0, randf_range(-P / 3.0, P / 3.0))
 			_placer()
-	# Le ballon et les joueurs courent vers leur cible.
+	_animer(minf(delta, 0.1))
+
+
+## Une image d'animation : la scène en cours, puis le ballon et les joueurs qui courent vers leur cible.
+## Le pas est plafonné (un dixième de seconde) : une image lente ne téléporte personne.
+func _animer(delta: float) -> void:
+	_jouer_scenes(delta)
 	var b := _ballon.position
 	var vers := Vector3(_cible_ballon.x, 0.22, _cible_ballon.z)
-	_ballon.position = b.move_toward(vers, delta * 14.0)
-	_ballon.position.y = 0.22 + maxf(0.0, sin(Time.get_ticks_msec() / 90.0) * 0.08) * (1.0 if b.distance_to(vers) > 0.5 else 0.0)
+	_ballon.position = b.move_toward(vers, delta * _vitesse_ballon)
+	var reste := Vector2(_ballon.position.x - vers.x, _ballon.position.z - vers.z).length()
+	if _vol > 0.0 and reste > 0.2:
+		# Un ballon levé : une cloche entre son départ et sa cible.
+		var total := maxf(Vector2(_depart_ballon.x - vers.x, _depart_ballon.z - vers.z).length(), 0.01)
+		_ballon.position.y = 0.22 + _vol * sin(PI * clampf(1.0 - reste / total, 0.0, 1.0))
+	else:
+		_ballon.position.y = 0.22 + maxf(0.0, sin(Time.get_ticks_msec() / 90.0) * 0.08) * (1.0 if reste > 0.5 else 0.0)
 	for id in _acteurs:
 		var c: Node3D = _acteurs[id]
 		var cible: Vector3 = _cibles.get(id, c.position)
@@ -525,14 +554,52 @@ func _minute() -> void:
 	var qui: int = 0 if _etat.stats[0].possession > avant[0] else 1
 	_horloge.text = "Journée %d  ·  %s" % [_rencontre.j, FootMatch.libelle_minute(_etat)]
 	var sens := 1.0 if qui == 0 else -1.0
-	# Sans événement, le ballon circule dans le camp de celui qui l'a.
+	# La minute précédente est finie, même si sa dernière scène ne l'était pas.
+	_scenes.clear()
+	# Sans événement, le ballon circule dans le camp de celui qui l'a : deux passes, puis on temporise.
 	if evenements.is_empty() or evenements.all(func(e): return e.type in ["ambiance", "info"]):
-		_cible_ballon = Vector3(sens * randf_range(-4.0, 10.0), 0, randf_range(-P / 2.0 + 3.0, P / 2.0 - 3.0))
+		var eq: Dictionary = _etat.equipes[qui]
+		for k in 2:
+			var e = eq.onze[randi() % eq.onze.size()] if not eq.onze.is_empty() else null
+			_scene(Vector3(sens * randf_range(-4.0, 10.0), 0, randf_range(-P / 2.0 + 3.0, P / 2.0 - 3.0)), 3.0, e.id if e != null else null, 12.0)
 	for ev in evenements:
 		_evenement(ev)
 	_placer()
 	if _etat.pause == "mi-temps":
+		_scenes.clear()
 		_placer(true)
+
+
+## Une scène de plus : le ballon va là, à cette vitesse, levé ou non, et ce joueur le rejoint.
+func _scene(ballon: Vector3, duree: float, porteur = null, vitesse := 14.0, vol := 0.0, action := Callable()) -> void:
+	_scenes.append({"ballon": ballon, "duree": duree, "porteur": porteur, "vitesse": vitesse, "vol": vol, "action": action, "lancee": false})
+
+
+## Joue la scène en cours : au départ, le ballon reçoit sa cible et le porteur court la rejoindre ; au bout
+## de sa durée, la suivante.
+func _jouer_scenes(delta: float) -> void:
+	if _scenes.is_empty():
+		return
+	var sc: Dictionary = _scenes[0]
+	if not sc.lancee:
+		sc.lancee = true
+		_scene_t = 0.0
+		_depart_ballon = _ballon.position
+		_cible_ballon = sc.ballon
+		_vitesse_ballon = sc.vitesse
+		_vol = sc.vol
+		_placer()
+		if sc.porteur != null and _acteurs.has(sc.porteur):
+			# Le porteur se poste un pas derrière le ballon, du côté de son but.
+			var recul := -1.0 if _cibles.get(sc.porteur, Vector3.ZERO).x < sc.ballon.x else 1.0
+			_cibles[sc.porteur] = sc.ballon + Vector3(recul * 0.6, 0, 0)
+		if sc.action.is_valid():
+			sc.action.call()
+	_scene_t += delta
+	if _scene_t >= sc.duree:
+		_scenes.pop_front()
+		# La suivante part tout de suite, sans image perdue.
+		_jouer_scenes(0.0)
 
 
 func _evenement(ev: Dictionary) -> void:
@@ -540,33 +607,74 @@ func _evenement(ev: Dictionary) -> void:
 	var sens := 1.0 if i == 0 else -1.0
 	# Le couloir de l'action : pour qui attaque vers l'est, la gauche est au nord (z < 0) ; l'inverse à l'ouest.
 	var cote: float = _cote(str(ev.get("couloir", "centre"))) * sens
+	var tireur = ev.get("joueur", null)
+	var but := Vector3(sens * (L / 2.0), 0, 0)
 	match str(ev.type):
 		"occasion":
 			match str(ev.get("phase", "jeu")):
 				"corner":
-					_cible_ballon = Vector3(sens * (L / 2.0 - 0.3), 0, (P / 2.0 - 0.3) * (cote if cote != 0.0 else 1.0))
+					# Le tireur va au poteau de corner, lève le ballon, la tête le reprend aux six mètres.
+					var coin := Vector3(sens * (L / 2.0 - 0.3), 0, (P / 2.0 - 0.3) * (cote if cote != 0.0 else 1.0))
+					_scene(coin, 2.2, ev.get("tireur", null), 16.0)
+					_scene(Vector3(sens * (L / 2.0 - 2.2), 0, randf_range(-2.5, 2.5)), 1.0, tireur, 18.0, 2.2)
 				"coupFranc":
-					_cible_ballon = Vector3(sens * (L / 2.0 - 9.0), 0, cote * 5.0 + randf_range(-1.0, 1.0))
+					# Le ballon posé à vingt mètres, le tireur prend son élan.
+					_scene(Vector3(sens * (L / 2.0 - 8.0), 0, cote * 4.0 + randf_range(-1.0, 1.0)), 2.6, tireur, 16.0)
 				"penalty":
-					_cible_ballon = Vector3(sens * (L / 2.0 - 11.0), 0, 0)
+					_scene(Vector3(sens * (L / 2.0 - 3.8), 0, 0), 2.6, tireur, 16.0)
 				_:
-					_cible_ballon = Vector3(sens * (L / 2.0 - 4.0), 0, cote * 7.0 + randf_range(-2.0, 2.0))
+					var passeur = ev.get("passeur", null)
+					if ev.get("centre", false) and cote != 0.0:
+						# L'ailier déborde jusqu'à la ligne et centre ; le buteur attend au point de penalty.
+						_scene(Vector3(sens * (L / 2.0 - 10.0), 0, cote * 7.0), 1.6, passeur, 16.0)
+						_scene(Vector3(sens * (L / 2.0 - 2.5), 0, cote * 8.5), 1.6, passeur, 16.0)
+						_scene(Vector3(sens * (L / 2.0 - 4.0), 0, randf_range(-1.5, 1.5)), 0.9, tireur, 22.0, 1.4)
+					else:
+						# La construction dans le couloir, puis la passe au tireur à l'entrée de la surface.
+						_scene(Vector3(sens * (L / 2.0 - 13.0), 0, cote * 6.0 + randf_range(-1.5, 1.5)), 1.8, passeur if passeur != null else tireur, 16.0)
+						_scene(Vector3(sens * (L / 2.0 - 5.5), 0, cote * 5.0 + randf_range(-2.0, 2.0)), 1.2, tireur, 20.0)
 		"but":
-			_cible_ballon = Vector3(sens * (L / 2.0 + 0.8), 0, randf_range(-1.2, 1.2))
-			_marquer(i, ev)
-		"arret", "rate", "poteau":
-			_cible_ballon = Vector3(sens * (L / 2.0 - 1.5), 0, cote * 2.0 + randf_range(-2.0, 2.0))
-		"rouge":
-			if _acteurs.has(ev.get("joueur", "")):
-				_cibles[ev.joueur] = Vector3(sens * 7.0, 0, -P / 2.0 - 1.6)
+			_scene(but + Vector3(sens * 0.7, 0, randf_range(-1.2, 1.2)), 1.2, null, 32.0, 0.5)
+			_scene(Vector3.ZERO, 4.0, null, 10.0, 0.0, _marquer.bind(i, ev))
+		"arret":
+			var g = _gardien(1 - i)
+			_scene(but + Vector3(-sens * 0.5, 0, randf_range(-1.0, 1.0)), 0.9, g, 32.0, 0.4, _geste.bind(g, "jump"))
+			_scene(Vector3(sens * (L / 2.0 - 9.0), 0, randf_range(-6.0, 6.0)), 2.0, null, 18.0, 1.8)
+		"rate":
+			_scene(but + Vector3(sens * 2.5, 0, (3.0 + randf() * 2.0) * (1.0 if randf() < 0.5 else -1.0)), 1.2, null, 30.0, 1.6, _geste.bind(tireur, "shrug"))
+			_scene(but + Vector3(-sens * 2.0, 0, randf_range(-2.0, 2.0)), 2.2, _gardien(1 - i), 10.0)
+		"poteau":
+			var z := 1.7 * (1.0 if randf() < 0.5 else -1.0)
+			_scene(but + Vector3(0, 0, z), 0.7, null, 32.0, 0.3, _geste.bind(tireur, "stomp"))
+			_scene(but + Vector3(-sens * 4.0, 0, z * 1.5), 1.2, null, 18.0)
+		"jaune", "rouge":
+			if ev.type == "rouge" and _acteurs.has(tireur):
+				_cibles[tireur] = Vector3(sens * 7.0, 0, -P / 2.0 - 1.6)
+			_geste(tireur, "shrug" if ev.type == "jaune" else "sulk")
+		"blessure":
+			_geste(tireur, "sulk")
 		"remplacement":
 			var club: Dictionary = Football.clubs[_rencontre.dom if i == 0 else _rencontre.ext]
 			_acteur(ev.entrant, i, club.couleurs)
 			_cibles[ev.sortant] = Vector3((-7.0 if i == 0 else 7.0) + randf_range(-1.5, 1.5), 0, -P / 2.0 - 1.6)
-		"reprise":
-			_cible_ballon = Vector3.ZERO
+		"reprise", "coupEnvoi":
+			_scene(Vector3.ZERO, 1.5, null, 14.0)
 	if ev.type != "info" or _etat.minute in [45, 90]:
 		_dire(str(ev.texte))
+
+
+## Le gardien d'une équipe sur la pelouse (son id), s'il y en a un.
+func _gardien(i: int) -> Variant:
+	for e in _etat.equipes[i].onze:
+		if e.poste == "G":
+			return e.id
+	return null
+
+
+## Un geste d'un joueur, s'il est sur la pelouse.
+func _geste(id, nom: String) -> void:
+	if id != null and _acteurs.has(id):
+		_acteurs[id].gesture(nom)
 
 
 ## Le côté d'un couloir pour une équipe qui attaque vers l'est : -1 à gauche (nord), +1 à droite, 0 au centre.
@@ -627,8 +735,11 @@ func _on_interact(target: Node) -> void:
 
 # --- Capture --------------------------------------------------------------------------------------
 
+## --rejouer=but (ou arret, rate, poteau, corner, coupFranc, penalty) rejoue en scènes, pour la capture, la
+## dernière minute déjà jouée où c'est arrivé ; --attendre=s prend la capture au bout de s secondes (6 sans).
 func _maybe_capture() -> void:
 	var path := ""
+	var attente := 6.0
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--capture="):
 			path = arg.trim_prefix("--capture=")
@@ -642,16 +753,47 @@ func _maybe_capture() -> void:
 			pass
 		elif arg == "--open=causerie":
 			open_causerie()
+		elif arg.begins_with("--rejouer="):
+			_rejouer(arg.trim_prefix("--rejouer="))
+		elif arg.begins_with("--attendre="):
+			attente = float(arg.trim_prefix("--attendre="))
 		else:
 			_capture_setup(arg)
 	if path == "":
 		return
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_chrono = -100.0
-	await get_tree().create_timer(6.0).timeout
+	await get_tree().create_timer(attente).timeout
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(path)
 	get_tree().quit()
+
+
+## Rejoue en scènes la dernière minute où un événement de ce type (ou une occasion de cette phase) est
+## arrivé : rien ne change au match, seule la pelouse le remontre. « but@3.4 » avance aussitôt les scènes
+## de 3,4 secondes, pour qu'une capture les prenne en plein vol quel que soit le rythme des images.
+func _rejouer(quoi: String) -> void:
+	if _etat.is_empty() and _resultat.is_empty():
+		return
+	var avance := 0.0
+	if "@" in quoi:
+		avance = float(quoi.get_slice("@", 1))
+		quoi = quoi.get_slice("@", 0)
+	var etat: Dictionary = _etat if not _etat.is_empty() else _resultat
+	var minute := ""
+	for k in range(etat.evenements.size() - 1, -1, -1):
+		var ev: Dictionary = etat.evenements[k]
+		if ev.type == quoi or (ev.type == "occasion" and ev.get("phase", "") == quoi):
+			minute = ev.minute
+			break
+	if minute == "":
+		return
+	_scenes.clear()
+	for ev in etat.evenements:
+		if ev.minute == minute:
+			_evenement(ev)
+	for k in int(avance * 30.0):
+		_animer(1.0 / 30.0)
 
 
 ## L'horloge du football, posée avant que la scène ne choisisse son match : --journee=n met l'horloge à

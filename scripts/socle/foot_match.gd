@@ -771,7 +771,8 @@ static func _occasion(etat: Dictionary, i: int, couloir: String, joueurs: Dictio
 			passeur = _choisir_passeur(att, joueurs, h, "centre", tireur.id)
 		cle = "occasionAile"
 	var vars := _vars(etat, i, joueurs, tireur, passeur, couloir)
-	_ajouter(etat, "occasion", i, phrase(h, cle, vars), {"couloir": couloir, "phase": "jeu", "joueur": tireur.id})
+	_ajouter(etat, "occasion", i, phrase(h, cle, vars), {"couloir": couloir, "phase": "jeu", "joueur": tireur.id,
+		"passeur": passeur.id if passeur != null else null, "centre": tete})
 	var eff_tir := _comp(att, joueurs, tireur.id, "but")
 	if tete:
 		# Une reprise de volée ou de la tête : le but du buteur, et la qualité du centre.
