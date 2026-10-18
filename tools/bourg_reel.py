@@ -30,7 +30,9 @@ devant le fichier :
   --remarquables=lieux.json  les lieux remarquables : une liste de {"id", "nom", "genre", "osm"},
                              genre parmi monument, ouvrage, commerce, maison, lieu ; osm est
                              l'objet d'OpenStreetMap (way/64158647 ou node/4280211690), ou un
-                             point lonlat/0.65725,46.1205 pour un lieu sans objet à lui
+                             point lonlat/0.65725,46.1205 pour un lieu sans objet à lui ; "absorbe",
+                             facultatif : des points [x, z] en unités du jeu, les bâtiments que la
+                             silhouette du lieu couvre et que la scène ne dessine pas à part
   --dossier=chemin           un autre dossier de commune, relatif à la racine du dépôt
   --cache=dossier            le cache des téléchargements (build/bourg_reel/<id>/ par défaut)
 Demande Pillow (python3 -m pip install pillow). Les téléchargements sont gardés dans le cache :
@@ -133,9 +135,9 @@ def reglages(ident, args):
     remarquables = []
     for x in rem:
         if isinstance(x, dict):
-            remarquables.append((x["id"], x["nom"], x.get("genre", "lieu"), x["osm"]))
+            remarquables.append((x["id"], x["nom"], x.get("genre", "lieu"), x["osm"], x.get("absorbe", [])))
         else:
-            remarquables.append(tuple(x))
+            remarquables.append(tuple(x)[:4] + (list(x[4]) if len(x) > 4 else [],))
     return {"dossier": dossier, "cache": cache, "insee": c["insee"], "nom": c["nom"], "origine": centre,
             "cadre": cadre, "riviere": opts.get("riviere", cfg.get("riviere", "")), "remarquables": remarquables}
 
@@ -395,7 +397,7 @@ def main():
 
     # --- Les lieux remarquables --------------------------------------------------------------
     rem = []
-    for rid, nom, genre, objet in cfg["remarquables"]:
+    for rid, nom, genre, objet, absorbe in cfg["remarquables"]:
         typ, ref = objet.split("/")
         if typ == "lonlat":
             # Un lieu sans objet OSM à lui : désigné par son point, d'après l'adresse.
@@ -418,7 +420,8 @@ def main():
         if not (cadre[0] < p[0] < cadre[2] and cadre[1] < p[1] < cadre[3]):
             print("hors du cadre :", nom)
             continue
-        rem.append({"id": rid, "nom": nom, "genre": genre, "osm": objet, "p": p, "forme": forme, "batiment": None})
+        rem.append({"id": rid, "nom": nom, "genre": genre, "osm": objet, "p": p, "forme": forme, "batiment": None,
+                    "absorbe": absorbe})
 
     # --- Les bâtiments (BD TOPO) -------------------------------------------------------------
     batiments = []
@@ -697,6 +700,9 @@ def main():
              "y": y(rel.a(*r["p"]))}
         if r["batiment"] is not None:
             o["batiment"] = r["batiment"]
+        if r.get("absorbe"):
+            # Les bâtiments que la silhouette du lieu couvre déjà : la scène ne les dessine pas à part.
+            o["absorbe"] = [[round(float(q[0]), 2), round(float(q[1]), 2)] for q in r["absorbe"]]
         remarquables.append(o)
     places = [{"nom": z["nom"], "x": u(centre(z["p"])[0]), "z": u(centre(z["p"])[1])} for z in zones if z["k"] == "place" and z.get("nom", "").startswith("Place")]
     data = {
