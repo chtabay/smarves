@@ -4,7 +4,7 @@ extends Node
 ## Nikkei, l'or), à la hausse ou à la baisse, avec un levier de 10 à 100.
 ##
 ## Les cours sont ceux des vraies places, en clôture quotidienne, relevés et gardés par la base
-## (public.smarves_bourse, migration 20261018220000_smarves_bourse.sql) : tout le monde voit les mêmes.
+## (public.smarves_bourse, migration 20261019000000_smarves_bourse.sql) : tout le monde voit les mêmes.
 ## Les positions sont tenues par la base au nom du compte Pyramides : elles se lisent sur tous les
 ## appareils, et c'est la base qui dit quand un ordre est exécuté (à la clôture suivante), quand une
 ## position est liquidée et ce qu'elle rend. Le jeu ne fait que débiter la marge et créditer ce qui
@@ -60,6 +60,9 @@ var _encaissements := {}
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_essai = "--bourse-essai" in OS.get_cmdline_user_args()
+	var agenda := get_node_or_null("/root/Agenda")
+	if agenda != null:
+		agenda.inscrire("bourse", rendez_vous)
 	if _essai:
 		_mise_en_scene()
 		return
@@ -405,9 +408,11 @@ static func seances(id: String, de: int, a: int) -> Array:
 
 
 ## Les rendez-vous de la bourse pour l'agenda (docs/ACTIVITES.md, brique 1), entre deux instants en
-## secondes locales : l'ouverture et la clôture de Paris chaque jour ouvré, et la clôture des autres
-## places où l'on a une position ou un ordre en cours. [{id, quoi, ou, lieu, quand, duree, reglement}].
+## secondes locales, une fois la charge ouverte : la séance de Paris chaque jour ouvré, et la clôture
+## des autres places où l'on a une position ou un ordre en cours. Au format de l'Agenda.
 func rendez_vous(de: int, a: int) -> Array:
+	if not ouverte():
+		return []
 	var bias := int(Time.get_time_zone_from_system().get("bias", 0)) * 60
 	var suivies := {"cac40": true}
 	for p in ouvertes():
@@ -417,13 +422,24 @@ func rendez_vous(de: int, a: int) -> Array:
 		if not suivies.has(id):
 			continue
 		var v: Dictionary = VALEURS[id]
-		for s in seances(id, de - bias, a - bias):
-			if s.quoi == "ouverture" and id != "cac40":
+		var ouvre := -1
+		for s in seances(id, de - bias - 86400, a - bias):
+			if s.quoi == "ouverture":
+				ouvre = s.quand
 				continue
-			var quand: int = s.quand + bias
-			out.append({"id": "bourse_%s_%s_%d" % [id, s.quoi, s.quand], "lieu": "bourse", "ou": "la charge de Mme Vasseur",
-				"quoi": ("Ouverture de la Bourse de Paris" if s.quoi == "ouverture" else "Clôture %s (%s) : les ordres sont exécutés" % [v.ville, v.nom]),
-				"quand": quand, "duree": 0, "reglement": quand})
+			var cloture: int = s.quand + bias
+			var rv := {"id": "bourse@%s/%d" % [id, s.quand], "activite": "bourse", "annonce": false,
+				"lieu": "la charge de Mme Vasseur, rue du Clain"}
+			if id == "cac40":
+				var debut: int = (ouvre if ouvre >= 0 else s.quand) + bias
+				rv.merge({"titre": "La séance de la Bourse de Paris", "quand": debut, "duree": cloture - debut,
+					"detail": "Les ordres sur le CAC 40 s'exécutent à la clôture, à 17 h 35, comme les liquidations."})
+			else:
+				rv.merge({"titre": "Clôture %s (%s)" % [v.ville, v.nom], "quand": cloture, "duree": 900,
+					"detail": "Vous y tenez une position : elle se règle sur ce cours, ou se liquide."})
+			ouvre = -1
+			if rv.quand + rv.duree > de and rv.quand < a:
+				out.append(rv)
 	out.sort_custom(func(x, y): return x.quand < y.quand)
 	return out
 

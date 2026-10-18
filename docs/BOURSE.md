@@ -34,7 +34,7 @@ Demande de Guillaume du 18 octobre 2026 : « la spéculation boursière dans une
 
 Les positions sont tenues **au serveur**, sur le compte Pyramides (`smarves.positions`, `smarves.renforts`) : on les retrouve sur tous ses appareils. Sans compte, la cote se lit mais Mme Vasseur ne prend pas d'ordre (la fenêtre le dit). Le jeu relit la cote au plus toutes les deux minutes quand on est chez elle, et toutes les dix minutes en fond, pour encaisser ce qui a été soldé ailleurs.
 
-Fonctions publiques (migration `supabase/migrations/20261018220000_smarves_bourse.sql`) : `smarves_bourse(p_jeton)`, `smarves_bourse_ouvrir`, `smarves_bourse_renflouer`, `smarves_bourse_solder`, `smarves_bourse_encaisser`. Le suivi d'une position (entrée, liquidation clôture par clôture, solde) est fait par la base à chaque lecture, sur les clôtures relevées.
+Fonctions publiques (migration `supabase/migrations/20261019000000_smarves_bourse.sql`) : `smarves_bourse(p_jeton)`, `smarves_bourse_ouvrir`, `smarves_bourse_renflouer`, `smarves_bourse_solder`, `smarves_bourse_encaisser`. Le suivi d'une position (entrée, liquidation clôture par clôture, solde) est fait par la base à chaque lecture, sur les clôtures relevées.
 
 ## Le lieu
 

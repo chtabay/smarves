@@ -57,16 +57,25 @@ func _seances() -> void:
 	check(s[s.size() - 1].quoi == "cloture" and s[s.size() - 1].quand == 1792769700, "la dernière : vendredi 17 h 35")
 	var o: Array = BOURSE.seances("or", de, a)
 	check(o[0].quoi == "ouverture" and o[0].quand == 1792360800, "l'or rouvre le dimanche à 18 h à New York")
-	# L'agenda : sans position, seulement Paris (ouverture et clôture).
+	# L'agenda : rien avant le seuil ; puis, sans position, les cinq séances de Paris.
 	var b: Node = root.get_node("Bourse")
+	var game: Node = root.get_node("Game")
 	b.donnees = {"positions": []}
+	game.won = 0
+	check(b.rendez_vous(de, a).is_empty(), "avant le seuil, la bourse n'inscrit rien à l'agenda")
+	game.won = 7000
 	var rv: Array = b.rendez_vous(de, a)
-	check(rv.size() == 10 and rv.all(func(r): return r.lieu == "bourse"), "l'agenda : dix rendez-vous de Paris")
+	check(rv.size() == 5 and rv.all(func(r): return r.activite == "bourse" and r.titre.begins_with("La séance")), "l'agenda : cinq séances de Paris (%d)" % rv.size())
+	var bias := int(Time.get_time_zone_from_system().get("bias", 0)) * 60
+	check(rv[0].quand == 1792393200 + bias and rv[0].duree == 8 * 3600 + 35 * 60, "la séance du lundi : de 9 h à 17 h 35")
 	b.donnees = {"positions": [{"id": 1, "indice": "nikkei", "issue": null}]}
 	rv = b.rendez_vous(de, a)
-	check(rv.size() == 15, "avec une position à Tokyo, ses cinq clôtures s'y ajoutent (%d)" % rv.size())
-	check(rv.any(func(r): return r.quoi.begins_with("Clôture de Tokyo")), "« Clôture de Tokyo » dans l'agenda")
+	check(rv.size() == 10, "avec une position à Tokyo, ses cinq clôtures s'y ajoutent (%d)" % rv.size())
+	check(rv.any(func(r): return r.titre.begins_with("Clôture de Tokyo")), "« Clôture de Tokyo » dans l'agenda")
+	var agenda: Node = root.get_node("Agenda")
+	check(agenda.entre(de + bias, a + bias).any(func(r): return r.activite == "bourse"), "l'Agenda lit la bourse")
 	b.donnees = {}
+	game.won = 0
 
 
 func _argent() -> void:
