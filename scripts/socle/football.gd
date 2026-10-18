@@ -54,6 +54,8 @@ const DESCENDENT := 2
 const FICHIER := "football.json"
 
 ## Les noms d'un club invité, tirés de la graine de sa commune, et des paires de couleurs.
+## Les joueurs libres d'une saison : combien par poste, et le prix d'une recrue d'après sa note.
+const LIBRES := [["G", 2], ["D", 4], ["M", 4], ["A", 2]]
 const NOMS_INVITES := ["Union sportive %s", "Étoile sportive %s", "Avenir %s", "Jeunesse sportive %s", "Football-club %s", "Espérance %s", "Entente sportive %s", "Olympique %s"]
 const COULEURS := [["#1b3c8c", "#f2c94c"], ["#a3192e", "#ffffff"], ["#0f6b3f", "#ffffff"], ["#2a8fd1", "#0b2340"], ["#5b2a86", "#e6d8f5"],
 	["#f07a1a", "#1a1a1a"], ["#111111", "#e8e8e8"], ["#7a1f3d", "#f4d6b0"], ["#e6c229", "#123a6b"], ["#2b2b2b", "#d23b2b"], ["#3d7a2a", "#f2e6c9"], ["#c8102e", "#0e2b5c"]]
@@ -81,6 +83,10 @@ var parts := {}
 var parts_locales := {}
 ## Les clubs dont les parts d'ici restent à déclarer au serveur : club -> true.
 var parts_a_declarer := {}
+## Le mercato (docs/SUITE.md, section 6) : la recrue de chaque club pour une saison, "saison/club" ->
+## {joueur (le rang du joueur libre), par}, et celles de cet appareil que le serveur n'a pas : clé -> true.
+var transferts := {}
+var transferts_locaux := {}
 ## Où lire et écrire la pyramide ; un test le déplace. « » : rien n'est écrit.
 var dossier := Communes.GREFFES
 var _horloge: Callable = Callable()
@@ -100,6 +106,7 @@ func _ready() -> void:
 	(func():
 		lire_consignes()
 		lire_parts()
+		lire_transferts()
 		var compte := _compte()
 		if compte != null:
 			compte.change.connect(func():
@@ -107,7 +114,9 @@ func _ready() -> void:
 					if not locales.is_empty():
 						envoyer_locales()
 					if not parts_a_declarer.is_empty():
-						envoyer_parts())).call_deferred()
+						envoyer_parts()
+					if not transferts_locaux.is_empty():
+						envoyer_transferts())).call_deferred()
 
 
 # ---------------------------------------------------------------- le calendrier réel
@@ -499,8 +508,164 @@ func effectif(club: String, s: int) -> Dictionary:
 			# Ses sept compétences, d'un tirage à part pour laisser les noms et les notes où ils sont.
 			j.competences = FootMatch.tirer_competences(j, Hasard.depuis(Hasard.graine("competences/%s/%s" % [cle, id])))
 			out[id] = j
+	# La recrue du mercato prend la place du plus faible de son poste.
+	var r := recrue(s, club)
+	if not r.is_empty():
+		var sortant := ""
+		for id in out:
+			if out[id].poste == r.poste and (sortant == "" or int(out[id].note) < int(out[sortant].note)):
+				sortant = id
+		if sortant != "":
+			out.erase(sortant)
+		var nid := "%s/libre%d" % [club, int(r.rang)]
+		var copie: Dictionary = r.duplicate(true)
+		copie.erase("rang")
+		copie.erase("prix")
+		out[nid] = copie
 	_effectifs[cle] = out
 	return out
+
+
+# ---------------------------------------------------------------- le mercato
+
+## Les joueurs libres d'une saison, les mêmes chez tout le monde : [{rang, prenom, nom, poste, age, note,
+## condition, moral, competences, prix}], douze, deux gardiens, quatre défenseurs, quatre milieux, deux attaquants.
+func libres(s: int) -> Array:
+	var h := Hasard.depuis(Hasard.graine("libres/%d" % s))
+	var out: Array = []
+	for ligne in LIBRES:
+		for k in ligne[1]:
+			var j := {"rang": out.size(), "prenom": h.choix(PRENOMS), "nom": h.choix(NOMS), "poste": ligne[0],
+				"age": clampi(int(roundf(h.normal(27.0, 4.0))), 18, 34), "note": clampi(int(roundf(h.normal(62.0, 9.0))), 45, 88),
+				"condition": 100, "moral": 70}
+			j.competences = FootMatch.tirer_competences(j, Hasard.depuis(Hasard.graine("competences/libres/%d/%d" % [s, out.size()])))
+			j.prix = prix_de(int(j.note))
+			out.append(j)
+	return out
+
+
+## Ce que coûte une recrue d'après sa note : 1 200 à 60, 3 680 à 75, 6 080 à 85.
+static func prix_de(note: int) -> int:
+	return int(round(pow(maxi(note - 40, 5), 2) * 3.0 / 10.0)) * 10
+
+
+## Le mercato d'une saison est ouvert la semaine qui précède sa première journée.
+func mercato_ouvert(s: int) -> bool:
+	return s == saison and periode() == "mercato"
+
+
+## Le prochain mercato : le début de celui de la saison s si on est avant, sinon celui de la suivante.
+func prochain_mercato() -> int:
+	var t := maintenant()
+	var s := saison
+	while coup_envoi(s, 1) - 7 * 86400 <= t:
+		s += 1
+	return coup_envoi(s, 1) - 7 * 86400
+
+
+## La recrue d'un club pour une saison, ou {} : le joueur libre, avec son rang.
+func recrue(s: int, club: String) -> Dictionary:
+	var t: Dictionary = transferts.get("%d/%s" % [s, club], {})
+	if t.is_empty():
+		return {}
+	var l := libres(s)
+	var rang := int(t.get("joueur", -1))
+	return l[rang] if rang >= 0 and rang < l.size() else {}
+
+
+## Quel club a pris ce joueur libre cette saison, ou « ».
+func preneur(s: int, rang: int) -> String:
+	for cle in transferts:
+		var p: PackedStringArray = str(cle).split("/")
+		if int(p[0]) == s and int(transferts[cle].get("joueur", -1)) == rang:
+			return p[1]
+	return ""
+
+
+## La recrue d'un club et d'où elle vient : {etat: aucune|locale|commune, par, joueur}.
+func transfert_de(s: int, club: String) -> Dictionary:
+	var cle := "%d/%s" % [s, club]
+	if not transferts.has(cle):
+		return {"etat": "aucune", "par": "", "joueur": {}}
+	return {"etat": "locale" if transferts_locaux.has(cle) else "commune", "par": str(transferts[cle].get("par", "")), "joueur": recrue(s, club)}
+
+
+## Recrute un joueur libre pour un club : une recrue par club et par saison, pendant le mercato, par celui
+## qui parle pour le club ; un libre ne part qu'une fois. {ok} ou {ok: false, raison: ferme|parts|deja|pris|inconnu}.
+func recruter(s: int, club: String, rang: int) -> Dictionary:
+	if not mercato_ouvert(s):
+		return {"ok": false, "raison": "ferme"}
+	if not peut_decider(club):
+		return {"ok": false, "raison": "parts"}
+	var cle := "%d/%s" % [s, club]
+	if transferts.has(cle):
+		return {"ok": false, "raison": "deja"}
+	if rang < 0 or rang >= libres(s).size():
+		return {"ok": false, "raison": "inconnu"}
+	if preneur(s, rang) != "":
+		return {"ok": false, "raison": "pris"}
+	transferts[cle] = {"joueur": rang, "par": ""}
+	transferts_locaux[cle] = true
+	_effectifs = {}
+	_matchs = {}
+	sauver()
+	change.emit()
+	envoyer_transferts()
+	return {"ok": true}
+
+
+## Les recrues lues au serveur : [{saison, club, joueur, par}] ; elles l'emportent sur celles d'ici.
+func appliquer_transferts(liste: Array) -> bool:
+	var bouge := false
+	var vus := {}
+	for t in liste:
+		if not t is Dictionary or not t.has("club"):
+			continue
+		var cle := "%d/%s" % [int(t.get("saison", 0)), str(t.club)]
+		vus[cle] = true
+		var d := {"joueur": int(t.get("joueur", -1)), "par": str(t.get("par", ""))}
+		if transferts.get(cle) != d or transferts_locaux.has(cle):
+			bouge = true
+		transferts[cle] = d
+		transferts_locaux.erase(cle)
+	if bouge:
+		_effectifs = {}
+		_matchs = {}
+		sauver()
+		change.emit()
+	return bouge
+
+
+func lire_transferts() -> void:
+	var compte := _compte()
+	if compte == null or get_tree().get_script() != null or "--capture" in " ".join(OS.get_cmdline_user_args()):
+		return
+	var r: Dictionary = await compte.appeler("smarves_transferts", {})
+	if r.code == 200 and r.corps is Array:
+		appliquer_transferts(r.corps)
+		envoyer_transferts()
+
+
+## Envoie au serveur les recrues d'ici ; refusée (mercato fermé, un autre a parlé, le joueur est pris), une
+## recrue locale est retirée : elle n'a compté pour personne.
+func envoyer_transferts() -> void:
+	var compte := _compte()
+	if compte == null or not compte.connecte() or get_tree().get_script() != null or "--capture" in " ".join(OS.get_cmdline_user_args()):
+		return
+	for cle in transferts_locaux.keys():
+		var p: PackedStringArray = str(cle).split("/")
+		var r: Dictionary = await compte.appeler("smarves_transfert_recruter", {"p_saison": int(p[0]), "p_club": p[1], "p_joueur": int(transferts.get(cle, {}).get("joueur", -1))})
+		if r.code == 200 and r.corps is Dictionary:
+			if r.corps.get("ok", false):
+				transferts_locaux.erase(cle)
+				transferts[cle].par = compte.nom
+			elif r.corps.has("raison"):
+				transferts_locaux.erase(cle)
+				transferts.erase(cle)
+				_effectifs = {}
+				_matchs = {}
+			sauver()
+			change.emit()
 
 
 ## La rencontre de la journée j de la saison s, jouée d'une traite minute par minute (FootMatch) et gardé en
@@ -788,13 +953,16 @@ func charger() -> void:
 		parts = lu.get("parts", {})
 		parts_locales = lu.get("parts_locales", {})
 		parts_a_declarer = lu.get("parts_a_declarer", {})
+		transferts = lu.get("transferts", {})
+		transferts_locaux = lu.get("transferts_locaux", {})
 
 
 func sauver() -> void:
 	if dossier == "":
 		return
 	Portail.ecrire(dossier.path_join(FICHIER), JSON.stringify({"saison": saison, "niveaux": niveaux, "clubs": clubs, "historique": historique, "decisions": decisions, "locales": locales, "auteurs": auteurs,
-		"parts": parts, "parts_locales": parts_locales, "parts_a_declarer": parts_a_declarer}))
+		"parts": parts, "parts_locales": parts_locales, "parts_a_declarer": parts_a_declarer,
+		"transferts": transferts, "transferts_locaux": transferts_locaux}))
 
 
 ## Repart de rien (essais, nouvelle partie) : la pyramide se refonde au prochain actualiser().
@@ -809,6 +977,8 @@ func effacer() -> void:
 	parts = {}
 	parts_locales = {}
 	parts_a_declarer = {}
+	transferts = {}
+	transferts_locaux = {}
 	_matchs = {}
 	_effectifs = {}
 	if dossier != "":
