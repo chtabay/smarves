@@ -1,0 +1,67 @@
+{
+	"format": 1,
+	"note": "Ce que le jeu prête aux communes. Lu par scripts/socle/atelier.gd (dans le jeu) et par tools/mcp/kit_communes.py (pour le Claude du développeur). Un id d'élément ne change jamais de sens ; un élément retiré reste résolu ou est remplacé.",
+	"modeles": {
+		"nature": {"dossier": "res://assets/kenney/nature/", "nom": "La nature", "licence": "CC0, Kenney (Nature Kit)", "hauteur": 2.4,
+			"usage": "arbres (tree_oak, tree_default, tree_fat, tree_detailed, tree_cone, et leur variante _fall en automne), haies et buissons, fleurs, herbes, potagers, clôtures, souches, bûches, pots"},
+		"ville": {"dossier": "res://assets/kaykit/city/", "nom": "La ville", "licence": "CC0, KayKit (City Builder Bits)", "hauteur": 0.0,
+			"usage": "lampadaires, bancs, poubelles, bouches d'incendie, feux, château d'eau, voitures (car_sedan, car_hatchback, car_taxi, car_police, car_stationwagon), routes en tuiles"},
+		"voitures": {"dossier": "res://assets/kenney/cars/", "nom": "Les véhicules", "licence": "CC0, Kenney (Car Kit)", "hauteur": 0.0,
+			"usage": "camionnette, berline, fourgon de livraison, tracteur, plateau"},
+		"mobilier": {"dossier": "res://assets/kaykit/furniture/", "nom": "Le mobilier", "licence": "CC0, KayKit (Furniture Bits)", "hauteur": 0.0,
+			"usage": "fauteuils, canapés, lits, chaises, tables, étagères, lampes, cadres, tapis, plantes"},
+		"restaurant": {"dossier": "res://assets/kaykit/restaurant/", "nom": "Le café et le restaurant", "licence": "CC0, KayKit (Restaurant Bits)", "hauteur": 0.0,
+			"usage": "tables rondes, chaises, comptoirs, cuisine (fourneaux, frigos, hottes), caisses de légumes, assiettes et plats, murs, portes et fenêtres de salle"},
+		"arcade": {"dossier": "res://assets/kenney/arcade/", "nom": "Les machines", "licence": "CC0, Kenney (Mini Arcade)", "hauteur": 0.0,
+			"usage": "machine à sous (gambling-machine), roue de loterie (prize-wheel), pince (claw-machine), en décor"},
+		"marche": {"dossier": "res://assets/kenney/market/", "nom": "Le marché", "licence": "CC0, Kenney (Mini Market)", "hauteur": 0.0,
+			"usage": "présentoir à pain"},
+		"salon": {"dossier": "res://assets/kenney/furniture/", "nom": "Le salon", "licence": "CC0, Kenney (Furniture Kit)", "hauteur": 0.0,
+			"usage": "plante en pot"}
+	},
+	"maisons": {
+		"script": "res://scripts/village/facades.gd",
+		"usage": "les maisons de bourg du Poitou de Smarves : calcaire, chaînes d'angle, volets, tuiles canal, vitrines et enseignes. Repère : origine au pied de la façade, au milieu, +Z regarde la rue.",
+		"spec": {
+			"w": "largeur de façade (3)", "d": "profondeur (3)", "floors": "étages, 1 à 4 (2)",
+			"wall": "teinte de la pierre (tirée au hasard)", "shutter": "teinte des volets", "roof": "teinte des tuiles",
+			"roof_kind": "« gable » (deux pans) ou « hip » (quatre)", "lit": "part des fenêtres allumées, 0 à 1 (0,55)",
+			"door": "« left », « center » ou « right »", "chimney": "une cheminée (vrai, faux)", "dormer": "une lucarne",
+			"back": "dessiner aussi l'arrière", "front": "dessiner la façade (faux : mur nu)", "closed": "volets clos",
+			"shop": "une vitrine : {\"name\": enseigne, \"color\": teinte, \"ink\": couleur des lettres}"
+		}
+	},
+	"figurants": {
+		"script": "res://scripts/villager.gd",
+		"usage": "des habitants anonymes, dessinés comme ceux de Smarves (ligne claire) ; ils respirent, clignent, regardent le joueur, bavardent entre eux et se promènent. Les personnages nommés de Smarves (Josiane, M. Brunet…) restent à Smarves : une commune a les siens.",
+		"poses": {"idle": "debout", "sit": "assis (terrasse, banc)", "walk": "en promenade sur route (deux points ou plus)"},
+		"tenues": {"village": "les couleurs du Poitou (bleu de travail, brique, moutarde)", "soiree": "tenue de soirée, comme les clients du casino"}
+	},
+	"meubles": {
+		"script": "res://scripts/meubles.gd",
+		"usage": "les meubles de la brocante de Ginette Boutin, à l'échelle d'un intérieur, pied au sol, face vers +Z",
+		"ids": ["tableau_marine", "lampe_salon", "lit_cuivre", "fauteuil_club", "buffet_henri2", "tele_pieds", "canape_velours", "salon_jardin", "table_jeu", "juke_box", "machine_salon", "billard"]
+	},
+	"sons": {
+		"autoload": "Sfx",
+		"groupes": {"chips": "jetons posés", "chips_win": "jetons ramassés", "card": "carte posée", "shuffle": "cartes battues", "dice": "dés lancés", "shake": "dés secoués", "click": "clic", "tick": "bascule", "lose": "perte", "win": "petit gain (jingle)", "big_win": "gros gain (saxophone)"},
+		"ambiances": {"village": "la place : grillons, cloches, voix lointaines", "casino": "la salle : foule et musique de salon"}
+	},
+	"matieres": {
+		"village_stone": "res://shaders/village_stone.gdshader",
+		"roof_tiles": "res://shaders/roof_tiles.gdshader",
+		"window_glow": "res://shaders/window_glow.gdshader",
+		"cobbles": "res://shaders/cobbles.gdshader",
+		"water": "res://shaders/water.gdshader",
+		"carpet": "res://shaders/carpet.gdshader",
+		"damask": "res://shaders/damask.gdshader",
+		"marble_checker": "res://shaders/marble_checker.gdshader",
+		"felt": "res://shaders/felt.gdshader",
+		"night_sky": "res://shaders/night_sky.gdshader"
+	},
+	"polices": {"texte": "Polices.texte()", "gras": "Polices.gras()", "titre": "Polices.titre()"},
+	"scenes": {
+		"stade": "le stade du socle, ouvert par une structure « terrain_foot » du manifeste (docs/COMMUNE.md, « Les structures ») ; Football.ouvrir_stade(id)",
+		"habitant": "l'habitant du joueur et la caméra du village : la scène de départ du kit (tools/kit/commune.gd)"
+	}
+}

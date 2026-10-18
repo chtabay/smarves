@@ -25,6 +25,8 @@ var watch := Vector3.INF
 var critter: Node3D
 ## « public », « staff » ou « croupier » (voir Cast).
 var role := "public"
+## La tenue d'un figurant hors du casino : « soiree » l'habille comme les clients du casino (Atelier).
+var tenue := ""
 var _fidgets: Array = []
 var _leg := 0
 var _pause := 0.0
@@ -43,7 +45,7 @@ func _ready() -> void:
 	add_to_group("villagers")
 	var id := model_path.get_file()
 	var seed_value := hash(id + str(position.snapped(Vector3.ONE * 0.1)))
-	var info := Cast.resolve(id, speaker, accessory, seed_value, pose, _in_casino())
+	var info := Cast.resolve(id, speaker, accessory, seed_value, pose, _in_casino() or tenue == "soiree")
 	critter = CRITTER.new()
 	critter.look = info.look
 	critter.idle_anim = info.idle

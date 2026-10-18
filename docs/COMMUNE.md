@@ -187,7 +187,7 @@ Une commune est **tenue** par l'auteur de son premier paquet valide : lui seul y
 Le kit est un `.zip` à poser à la racine d'un clone de Smarves. Il contient :
 
 - `communes/<id>/commune.json` : le manifeste prérempli (`id`, `nom`, `insee`, `auteur`, `population`, `arrivee` avec son nom, `licence` et `sources` vides, un lieu et une banque « à écrire ») ;
-- `communes/<id>/commune.tscn` et `commune.gd` : **la scène de départ**, qui marche telle quelle. Une lumière et un ciel, un sol avec sa collision, le panneau de la commune, deux maisons d'exemple faites des façades du Poitou de Smarves (`res://scripts/village/facades.gd`, que le jeu prête à toutes les communes) et un repère `Arrivee`. Le script crée l'habitant de Smarves (`fp_player.gd`) et la caméra à crans du village (`orbit_camera.gd`) et les expose sous les noms que le jeu attend, **`player` et `camera`** : c'est ce qui donne sans une ligne de code la bascule de vue (Tab, autoload `Vue`), les commandes tactiles (`Tactile`) et la carte de la Vienne en dézoomant ;
+- `communes/<id>/commune.tscn` et `commune.gd` : **la scène de départ**, qui marche telle quelle. Une lumière et un ciel, un sol avec sa collision, le panneau de la commune, une petite place bâtie avec l'atelier du socle (deux maisons à façades du Poitou dont un café, deux arbres d'automne, un banc, trois habitants qui bavardent ou s'assoient : section suivante) et un repère `Arrivee`. Le script crée l'habitant de Smarves (`fp_player.gd`) et la caméra à crans du village (`orbit_camera.gd`) et les expose sous les noms que le jeu attend, **`player` et `camera`** : c'est ce qui donne sans une ligne de code la bascule de vue (Tab, autoload `Vue`), les commandes tactiles (`Tactile`) et la carte de la Vienne en dézoomant ;
 - `LISEZMOI.md` : le mode d'emploi, de l'installation de Godot au dépôt.
 
 Le modèle du kit vit dans Smarves, [`tools/kit/`](../tools/kit/) (les mêmes fichiers, avec `__ID__`, `__NOM__` et `__INSEE__` à la place des valeurs) ; le portail le recopie (`src/lib/communes/kit.ts` dans Pyramides2). Trois outils du dépôt accompagnent le kit :
@@ -204,6 +204,57 @@ Le modèle du kit vit dans Smarves, [`tools/kit/`](../tools/kit/) (les mêmes fi
   python3 -I tools/bourg_reel.py <id> --centre=0.656,46.1215 --cadre=-600,-330,460,420 --remarquables=lieux.json
   ```
 - **`tools/emballer_commune.gd`**, qui écrit `build/<id>.pck` (section « Le geste »).
+
+### L'atelier du socle
+
+Ce que Smarves a construit, le jeu le prête aux communes : une commune s'en sert sans rien mettre dans son paquet, parce que ces ressources sont déjà chez le joueur (le pack d'une commune se monte par-dessus le jeu, `res://scripts/…` et `res://assets/…` y sont visibles). Elle ne pèse que son propre code, et ses maisons ressemblent à celles du reste de la Vienne.
+
+Le catalogue est [`scripts/socle/atelier.json`](../scripts/socle/atelier.json), l'API la classe **`Atelier`** ([`scripts/socle/atelier.gd`](../scripts/socle/atelier.gd)). Les noms du catalogue sont un engagement : ils ne bougent pas quand le code de Smarves change, et `tools/test_atelier.gd` vérifie que chacun mène à quelque chose.
+
+| Rubrique | Ce qu'il y a | L'appel |
+|---|---|---|
+| Modèles | huit familles de modèles 3D sous licence CC0 (Kenney, KayKit) : `nature` (arbres, rochers, fleurs, cultures), `ville` (bancs, lampadaires, panneaux), `voitures`, `mobilier`, `restaurant`, `arcade`, `marche`, `salon` | `Atelier.modele("nature/tree_oak")`, `Atelier.modele("ville/bench", 0.35)` : pied au sol, à la hauteur conseillée de la famille ou à celle donnée (l'habitant mesure 0,7). `Atelier.modeles("nature")` les liste |
+| Maisons | les façades du Poitou de Smarves : calcaire, volets, tuiles canal, lucarnes, cheminées, vitrine avec enseigne | `Atelier.rue($Maisons, [[Transform3D, spec], …], graine)` ; les champs de `spec` sont dans le catalogue |
+| Figurants | des habitants anonymes, dessinés comme ceux de Smarves, debout, assis ou qui marchent sur une route, en tenue de village ou de soirée | `Atelier.figurant(graine, "sit")` ; la graine fixe son allure d'une partie à l'autre |
+| Meubles | la brocante : fauteuil club, buffet Henri II, juke-box, billard, table de jeu… | `Atelier.meuble("juke_box")`, à l'échelle d'un intérieur |
+| Sons | les bruitages (jetons, cartes, dés, gain…) et deux ambiances | `Atelier.son("dice")`, `Atelier.ambiance("village")` |
+| Matières | les shaders : calcaire, tuiles, vitre éclairée, pavés, eau, tapis, damas, marbre, feutre, ciel de nuit | `Atelier.matiere("cobbles")` |
+| Polices | les trois polices du jeu | `Polices.texte()`, `Polices.gras()`, `Polices.titre()` |
+| Scènes | le stade du socle, ouvert par une structure `terrain_foot` du manifeste (section « Les structures ») ; l'habitant et la caméra, dans la scène du kit | — |
+
+Les personnages nommés de Smarves (Josiane, M. Brunet…) restent à Smarves : une commune a ses propres habitants, l'atelier ne lui prête que des figurants.
+
+```sh
+godot --headless --path . -s tools/test_atelier.gd
+```
+
+### Le Claude du développeur
+
+Le kit est aussi un **serveur MCP**, [`tools/mcp/kit_communes.py`](../tools/mcp/kit_communes.py) : le Claude du développeur y trouve les règles, l'atelier et les outils du dépôt sans avoir à les chercher. Il lit les mêmes fichiers que le jeu et lance les mêmes outils, donc ses réponses sont celles du jeu. Python 3.9 ou plus, aucune dépendance ; Godot 4.7 pour tester et emballer.
+
+| Outil | Ce qu'il fait |
+|---|---|
+| `contrat` | les sections de ce document (le manifeste, les structures, le paquet, la publication) |
+| `atelier` | le catalogue de l'atelier, une famille de modèles, ou une recherche par nom (« bench ») |
+| `nouvelle_commune` | une commune depuis le kit, par son seul code INSEE (nom et population viennent de `communes/vienne.json`) |
+| `verifier_manifeste` | les refus rapides d'un `commune.json` et ce que le portail affichera vide |
+| `tester_commune` | `tools/test_commune.gd` sur la commune, le kit ou un `.pck` |
+| `emballer_commune` | `tools/emballer_commune.gd`, avec la taille du paquet face aux 32 Mo |
+| `bourg_reel` | `tools/bourg_reel.py`, le plan réel du bourg |
+
+Le dépôt n'est pas publié par le serveur : le paquet se dépose sur le portail des développeurs, qui montre ce qu'il contient avant l'envoi.
+
+- **Claude Code** : le fichier [`.mcp.json`](../.mcp.json) à la racine du dépôt le déclare. En ouvrant `claude` dans le clone de Smarves, Claude Code propose de l'activer ; `/mcp` montre son état. Sous Windows, si `python3` n'existe pas, remplacez-le par `py` dans `.mcp.json`.
+- **L'application Claude** (bureau) : Réglages, Développeur, Modifier la configuration, puis ajoutez dans `claude_desktop_config.json`, avec le chemin du clone :
+  ```json
+  {"mcpServers": {"kit-communes": {"command": "python3", "args": ["/chemin/vers/smarves/tools/mcp/kit_communes.py"]}}}
+  ```
+  Si Godot n'est pas dans le PATH, ajoutez `"env": {"GODOT": "/chemin/vers/godot"}`.
+
+```sh
+python3 tools/mcp/test_kit_communes.py           # le protocole et les outils sans Godot
+python3 tools/mcp/test_kit_communes.py --godot   # avec tester_commune sur le kit et une commune créée
+```
 
 ### Le paquet
 
