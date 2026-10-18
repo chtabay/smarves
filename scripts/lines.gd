@@ -92,6 +92,7 @@ const RUMORS := {
 	"moulin": "Le meunier tient un blackjack dans l'arrière-salle du Moulin des Dames.",
 	"stade": "Le dimanche à trois heures, l'Étoile de Smarves joue au stade municipal. Le président Chauvin cherche encore des supporters.",
 	"casino": "Le casino a ouvert de nouveaux salons à l'étage. Il faut avoir fait ses preuves.",
+	"bourse": "Le local de la rue du Clain a trouvé preneur : une agente de change, Mme Vasseur. Il paraît qu'elle prête dix fois ce qu'on lui confie.",
 }
 
 

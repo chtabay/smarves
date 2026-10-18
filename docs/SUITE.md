@@ -372,6 +372,7 @@ Un type de plus fait monter la version du socle ; un paquet qui s'en sert le dem
 | 7 | Multi différé : visites de maisons, livre d'or, classements au village | un fil Multi (fait le 18 octobre 2026 : panneau, noms sur les maisons, livre d'or, traces) | 4, 6 |
 | 8 | Soirée partagée, tables à plusieurs, poker de Passelourdin | fil Multi, Visuel des jeux | 7 |
 | 9 | Structures partagées (gare, arrêt de car, terrain), registre, pyramide du football de la Vienne | Structures partagées et football | 5 |
+| 10 | La bourse à levier : la charge de Mme Vasseur rue du Clain (seuil 7 000), quatre indices réels relevés au serveur, leviers ×10 à ×100, positions au compte (fiche : [`BOURSE.md`](BOURSE.md)) | Bourse à levier (fait le 18 octobre 2026) | 6 ; l'agenda de la semaine pour ses rendez-vous |
 
 **Notes de Guillaume du 18 octobre 2026, à garder sans les traiter maintenant :**
 

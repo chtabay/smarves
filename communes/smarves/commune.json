@@ -19,7 +19,8 @@
 		"cafe": "res://scenes/cafe.tscn",
 		"rabelais": "res://scenes/rabelais.tscn",
 		"moulin": "res://scenes/moulin.tscn",
-		"stade": "res://scenes/stade.tscn"
+		"stade": "res://scenes/stade.tscn",
+		"bourse": "res://scenes/bourse.tscn"
 	},
 	"lots": {"source": "Village.lots", "script": "res://scripts/village/village.gd"},
 	"lieux": [
@@ -28,7 +29,8 @@
 		{"id": "banque", "nom": "Le Crédit Smarvois", "jeu": "prêts pour investir", "seuil": 0, "hote": "M. Brunet"},
 		{"id": "rabelais", "nom": "La salle François-Rabelais", "jeu": "le grand loto", "seuil": 8000, "hote": "M. Gaudin", "accord": "e"},
 		{"id": "stade", "nom": "Le stade municipal", "jeu": "le match de l'Étoile", "seuil": 3000, "hote": "Le président Chauvin"},
-		{"id": "moulin", "nom": "Le Moulin des Dames", "jeu": "le blackjack de l'arrière-salle", "seuil": 120000, "hote": "Le meunier"}
+		{"id": "moulin", "nom": "Le Moulin des Dames", "jeu": "le blackjack de l'arrière-salle", "seuil": 120000, "hote": "Le meunier"},
+		{"id": "bourse", "nom": "La charge de Mme Vasseur", "jeu": "la bourse à levier", "seuil": 7000, "hote": "Mme Vasseur", "accord": "e"}
 	],
 	"structures": [
 		{"type": "terrain_foot", "id": "stade", "nom": "Le stade municipal", "club": "L'Étoile de Smarves", "court": "ESM", "couleurs": ["#1b3c8c", "#f2c94c"], "stade": "le stade municipal de Smarves"}
@@ -45,7 +47,7 @@
 	},
 	"personnages": {
 		"source": "res://scripts/cast.gd",
-		"nommes": ["josiane", "dede", "lucien", "brunet", "ferrand", "gaudin", "gardien", "meunier", "castel", "armand", "garnier", "raymonde", "fradin", "capucine", "chanteuse", "baron", "teddy", "meuniere", "gege", "docteur", "inconnu"]
+		"nommes": ["josiane", "dede", "lucien", "brunet", "ferrand", "gaudin", "gardien", "meunier", "castel", "armand", "garnier", "raymonde", "fradin", "capucine", "chanteuse", "baron", "teddy", "meuniere", "gege", "docteur", "inconnu", "vasseur"]
 	},
 	"banque": {"id": "credit_smarvois", "nom": "Le Crédit Smarvois", "banquier": "M. Brunet", "preteur": "smarves", "lieu": "banque"},
 	"biens": {"source": "Biens.CATALOGUE", "vendeurs": ["notaire", "couture", "garage", "brocante"]},
