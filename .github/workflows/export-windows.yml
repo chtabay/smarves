@@ -106,6 +106,18 @@ jobs:
           & $iscc /Q "/DVersion=$version" installer\smarves.iss
           if ($LASTEXITCODE -ne 0) { throw "ISCC a échoué ($LASTEXITCODE)" }
           if (-not (Test-Path build\Smarves-installateur.exe)) { throw "Pas d'installateur" }
+          # L'exécutable porte l'icône de Smarves (assets/icone/smarves.ico), pas celle de Godot.
+          Add-Type -AssemblyName System.Drawing
+          $exe = [System.Drawing.Icon]::ExtractAssociatedIcon((Resolve-Path build\Smarves.exe)).ToBitmap()
+          $ref = (New-Object System.Drawing.Icon((Resolve-Path assets\icone\smarves.ico), 32, 32)).ToBitmap()
+          $ecart = 0
+          for ($x = 0; $x -lt 32; $x += 2) { for ($y = 0; $y -lt 32; $y += 2) {
+            $a = $exe.GetPixel($x, $y); $b = $ref.GetPixel($x, $y)
+            $ecart += [Math]::Abs($a.R - $b.R) + [Math]::Abs($a.G - $b.G) + [Math]::Abs($a.B - $b.B)
+          } }
+          $ecart = $ecart / 256
+          "Écart moyen entre l'icône de l'exécutable et celle de Smarves : $ecart"
+          if ($ecart -gt 40) { throw "L'exécutable n'a pas l'icône de Smarves (écart $ecart)" }
           "Taille de l'installateur : {0:N1} Mo" -f ((Get-Item build\Smarves-installateur.exe).Length / 1MB) >> $env:GITHUB_STEP_SUMMARY
 
       - name: Essayer l'installateur
@@ -232,6 +244,22 @@ jobs:
           ./godot --headless --path . --export-release "Android" build/Smarves.apk
           test -f build/Smarves.apk
           rm -f build/Smarves.apk.idsig
+          # L'APK porte l'icône de Smarves : le premier plan adaptatif est notre jeton, pas le logo de Godot.
+          python3 -m pip install -q pillow
+          python3 - <<'PY'
+          import io, zipfile
+          from PIL import Image, ImageChops, ImageStat
+          apk = zipfile.ZipFile("build/Smarves.apk")
+          noms = [n for n in apk.namelist() if n.startswith("res/mipmap") and n.endswith(".png")]
+          print("Icônes :", ", ".join(sorted(noms)))
+          avant = [n for n in noms if "xxxhdpi" in n and "foreground" in n]
+          assert avant, "Pas de premier plan adaptatif xxxhdpi dans l'APK"
+          ref = Image.open("assets/icone/android-avant-432.png").convert("RGBA")
+          lu = Image.open(io.BytesIO(apk.read(avant[0]))).convert("RGBA").resize(ref.size)
+          ecart = sum(ImageStat.Stat(ImageChops.difference(lu, ref)).mean) / 4
+          print("Écart moyen avec l'icône de Smarves :", round(ecart, 1))
+          assert ecart < 12, "L'APK n'a pas l'icône de Smarves"
+          PY
           echo "Taille de l'APK : $(du -h build/Smarves.apk | cut -f1)" >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
