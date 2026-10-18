@@ -149,11 +149,11 @@ func _init() -> void:
 	check(str(m.nouvelles[0]).begins_with("Enchère perdue"), "l'enchère perdue s'annonce : %s" % m.nouvelles[0])
 
 	# Les refus : sans la direction, sans compte.
-	foot.parts["smarves"] = [{"par": "Gaston", "nombre": 3, "moi": false}]
+	foot.forcer_porteurs("Gaston:3", "smarves")
 	var ouvert: Array = m.lots_semaine(m.semaine_a(t)).filter(func(x): return not x.ferme)
 	if not ouvert.is_empty():
 		check(m.refus(ouvert[0].lot, "smarves", 100000) == "parts", "sans la direction du club, pas d'enchère")
-	foot.parts.erase("smarves")
+	foot.obligations.erase("smarves")
 	m.appel = Callable()
 	if not ouvert.is_empty():
 		check(m.refus(ouvert[0].lot, "smarves", 100000) == "compte", "sans compte, pas d'enchère")
