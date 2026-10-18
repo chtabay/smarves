@@ -11,7 +11,6 @@ extends "res://scripts/shop_interior.gd"
 const L := 36.0
 const P := 22.0
 ## Une minute de match par seconde ; Espace passe à quatre.
-const CADENCE := 1.0
 const COURSE := 4.2
 
 var _etat := {}
@@ -23,14 +22,21 @@ var _acteurs := {}
 var _cibles := {}
 var _ballon: MeshInstance3D
 var _cible_ballon := Vector3.ZERO
-var _vitesse := 1.0
 var _chrono := 0.0
 var _possession := [0, 0]
 var _score: Label3D
 var _horloge: Label3D
 var _affiche: Label3D
 var _supporters: Array = []
-var _fini_annonce := false
+## Les minutes déjà jouées depuis le coup d'envoi réel, et le dernier match fini (son état complet).
+var _pas := 0
+var _resultat := {}
+const MI_TEMPS := 15 * 60
+const TABLEAU := preload("res://scripts/socle/foot_tableau.gd")
+## Le président Chauvin, et sa causerie (les consignes du prochain match) quand elle est ouverte.
+const CAUSERIE := preload("res://scripts/socle/foot_causerie.gd")
+var _president: Node3D
+var _causerie: PanelContainer
 
 
 func _ready() -> void:
@@ -42,6 +48,7 @@ func _ready() -> void:
 	_pelouse()
 	_tribune()
 	_tableau_affichage()
+	_le_president()
 	_build_ui()
 	player = PLAYER.new()
 	player.position = Vector3(0, 0, -P / 2.0 - 4.0)
@@ -218,6 +225,53 @@ func _tribune() -> void:
 
 
 ## Le tableau d'affichage, derrière la touche sud, face à la tribune.
+## Le président Chauvin, debout au bord de la pelouse devant sa tribune : E ouvre la causerie.
+func _le_president() -> void:
+	var c := CRITTER.new()
+	c.randomize_look(1987)
+	c.look["top"] = "veste"
+	c.look["top_color"] = "#2b2f3a"
+	c.look["legs"] = "pantalon"
+	c.look["legs_color"] = "#3a3a44"
+	c.look["hat"] = "casquette"
+	c.look["hat_color"] = "#1b3c8c"
+	c.look.erase("prop_r")
+	c.look.erase("apron")
+	c.scale = Vector3.ONE * PEOPLE_SCALE
+	c.position = Vector3(9.0, 0, -P / 2.0 - 2.4)
+	c.rotation.y = PI * 0.75
+	add_child(c)
+	_president = c
+	_label3d("Le président Chauvin", c.position + Vector3(0, 2.3, 0), 22, Color(0.95, 0.85, 0.6), 180.0)
+	_interactive(c, "president", "E : parler au président Chauvin", Vector3(1.2, 1.0, 1.2), Vector3(0, 0.4, 0))
+
+
+## La causerie : les consignes de l'Étoile pour son prochain match, dans la même ardoise que le tableau du café.
+func open_causerie() -> void:
+	if _causerie != null:
+		return
+	var p: PanelContainer = CAUSERIE.new()
+	p.club = _club_de_la_commune()
+	p.closed.connect(func():
+		p.queue_free()
+		_causerie = null
+		player.frozen = false
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
+	player.frozen = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_panel_layer.add_child(p)
+	_causerie = p
+
+
+## Le club de la commune d'origine (celui du terrain du registre), « smarves » ici.
+func _club_de_la_commune() -> String:
+	var origine: Commune = Communes.origine()
+	for id in Football.clubs:
+		if str(Football.clubs[id].get("commune", "")) == origine.id:
+			return id
+	return "smarves"
+
+
 func _tableau_affichage() -> void:
 	var z := P / 2.0 + 5.0
 	var noir := _std(Color(0.08, 0.09, 0.1), 0.5)
@@ -232,12 +286,18 @@ func _tableau_affichage() -> void:
 	_affiche = _label3d("", Vector3(0, 3.45, z - 0.17), 34, Color(0.8, 0.85, 0.95), 180.0)
 	_affiche.shaded = false
 	_lamp(Vector3(0, 5.0, z - 1.5), Color(1.0, 0.9, 0.7), 1.0, 6.0)
+	var feuille := Node3D.new()
+	feuille.position = Vector3(0, 0, z - 1.0)
+	add_child(feuille)
+	_interactive(feuille, "feuille", "E : lire la feuille du dernier match", Vector3(7.0, 2.5, 2.0), Vector3(0, 1.2, 0))
 
 
 # --- Le match -------------------------------------------------------------------------------------
 
-## Le match qu'on joue ce soir : celui de l'Étoile à la dernière journée jouée, sinon le premier match de la
-## division suivie ; avant la première journée, rien : {} (l'Étoile s'entraîne).
+## Le match du stade : celui de l'Étoile à la dernière journée dont le coup d'envoi est donné, sinon le
+## premier match de la division suivie à la journée 1. Il ne se suit qu'en direct, à l'heure réelle du
+## coup d'envoi (une minute de jeu par minute, un quart d'heure de mi-temps) ; avant, l'Étoile
+## s'entraîne ; après, le tableau d'affichage garde le score et la feuille se lit au tableau.
 func _choisir() -> Dictionary:
 	if Football.niveaux.is_empty():
 		Football.actualiser()
@@ -253,10 +313,12 @@ func _choisir() -> Dictionary:
 	for m in matchs:
 		if origine and (m.dom == origine.id or m.ext == origine.id):
 			choisi = m
-	return {"s": s, "j": j, "dom": choisi.dom, "ext": choisi.ext, "joue": joues > 0}
+	return {"s": s, "j": j, "dom": choisi.dom, "ext": choisi.ext, "joue": joues > 0, "coup_envoi": Football.coup_envoi(s, j)}
 
 
-## Les vingt-deux sur la pelouse, le tableau à zéro, et le coup d'envoi (ou l'entraînement).
+## Les vingt-deux sur la pelouse, le tableau, et le match remis à l'heure réelle : en cours, il reprend
+## à la minute où l'on en est ; fini, le tableau garde le score et l'Étoile s'entraîne ; pas commencé,
+## l'Étoile s'entraîne et le tableau annonce le coup d'envoi.
 func _composer() -> void:
 	var r := _rencontre
 	var cd: Dictionary = Football.clubs[r.dom]
@@ -265,24 +327,84 @@ func _composer() -> void:
 	_etat = direct.etat
 	_joueurs = direct.joueurs
 	_hasard = direct.hasard
+	_pas = 0
 	for i in 2:
 		var eq: Dictionary = _etat.equipes[i]
 		var club: Dictionary = cd if i == 0 else ce
 		for e in eq.onze:
 			_acteur(e.id, i, club.couleurs)
-	_placer(true)
 	_score.text = "%s  0 - 0  %s" % [cd.court, ce.court]
 	_score.font_size = 110
 	if r.joue:
 		_horloge.text = "Journée %d  ·  0'" % r.j
-		_affiche.text = "%s – %s  ·  %s" % [cd.nom, ce.nom, FootTableau.date(Football.coup_envoi(r.s, r.j))]
-		_dire(_etat.evenements[0].texte)
+		_affiche.text = "%s – %s  ·  %s" % [cd.nom, ce.nom, FootTableau.date(r.coup_envoi)]
+		_synchroniser(true)
+		if _etat.fini:
+			_terminer()
+		elif not _etat.evenements.is_empty():
+			_dire(_etat.evenements[-1].texte)
 	else:
-		_etat = {}
+		_entrainer()
+		_note("L'Étoile s'entraîne sous les projecteurs. %s" % _affiche.text)
+	_placer(true)
+
+
+## Remet le match à l'heure : une minute de jeu par minute réelle depuis le coup d'envoi, et un quart
+## d'heure de mi-temps. Appelé à l'arrivée (d'un coup) puis à chaque image.
+func _synchroniser(dun_coup := false) -> void:
+	if _etat.is_empty():
+		return
+	var du: int = Football.maintenant() - int(_rencontre.coup_envoi)
+	while not _etat.fini:
+		var seuil: int = _pas * 60 + (MI_TEMPS if _etat.pause == "mi-temps" or _etat.periode == 2 else 0)
+		if du < seuil:
+			break
+		_minute()
+		_pas += 1
+		if dun_coup:
+			_placer(true)
+
+
+## Le match est fini (à l'arrivée ou sous nos yeux) : le tableau garde le score, la feuille se lit au
+## tableau d'affichage, et l'Étoile revient s'entraîner.
+func _terminer() -> void:
+	_resultat = _etat
+	_score.text = "%s  %d - %d  %s" % [Football.clubs[_rencontre.dom].court, _etat.score[0], _etat.score[1], Football.clubs[_rencontre.ext].court]
+	_horloge.text = "Journée %d  ·  terminé" % _rencontre.j
+	_affiche.text = "%s – %s  ·  la feuille de match au tableau (E)" % [Football.clubs[_rencontre.dom].nom, Football.clubs[_rencontre.ext].nom]
+	_entrainer()
+
+
+## L'Étoile s'entraîne : plus de match sur la pelouse, le tableau annonce le prochain coup d'envoi.
+func _entrainer() -> void:
+	_etat = {}
+	var pce: Array = Football.prochain_coup_envoi(Football.maintenant())
+	var quand := "%s à %d h" % [FootTableau.date(pce[2]), Football.HEURE_COUP_ENVOI]
+	if _resultat.is_empty():
 		_horloge.text = "Entraînement"
-		var prochain: Array = Football.prochain_coup_envoi(Football.maintenant())
-		_affiche.text = "Journée 1 : %s – %s, %s à %d h" % [cd.nom, ce.nom, FootTableau.date(prochain[2]), Football.HEURE_COUP_ENVOI]
-		_note("L'Étoile s'entraîne sous les projecteurs. Premier coup d'envoi %s à %d h." % [FootTableau.date(prochain[2]), Football.HEURE_COUP_ENVOI])
+		_affiche.text = "Journée %d : coup d'envoi %s" % [pce[1], quand]
+	else:
+		_affiche.text += "\nProchain coup d'envoi : %s" % quand
+
+
+## La feuille du dernier match, sur l'ardoise du tableau du dimanche.
+func open_feuille() -> void:
+	if _causerie != null:
+		return
+	if _resultat.is_empty():
+		_dire("« Pas de feuille à lire : le match n'est pas joué. Reviens dimanche à %d h. »" % Football.HEURE_COUP_ENVOI)
+		return
+	var p: PanelContainer = TABLEAU.new()
+	p.closed.connect(func():
+		p.queue_free()
+		_causerie = null
+		player.frozen = false
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
+	player.frozen = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_panel_layer.add_child(p)
+	p.ouvrir_feuille(_rencontre.s, _rencontre.j, _rencontre.dom, _rencontre.ext)
+	_causerie = p
 
 
 ## Un joueur sur la pelouse, aux couleurs de son club, au banc d'abord.
@@ -366,13 +488,12 @@ func _process(delta: float) -> void:
 	_prompt.visible = t != null
 	if t != null:
 		_prompt.text = str(t.get_meta("prompt", ""))
-	# Le match avance d'une minute par seconde (quatre avec Espace), la mi-temps dure quelques secondes.
+	# Le match suit l'heure réelle ; quand il finit, le tableau garde le score.
 	if not _etat.is_empty() and not _etat.fini:
-		_chrono += delta * _vitesse
-		while _chrono >= CADENCE and not _etat.fini:
-			_chrono -= CADENCE
-			_minute()
-	elif _etat.is_empty():
+		_synchroniser()
+		if _etat.fini:
+			_terminer()
+	if _etat.is_empty():
 		# L'entraînement : le ballon se promène, les joueurs le suivent.
 		_chrono += delta
 		if _chrono > 2.5:
@@ -411,11 +532,7 @@ func _minute() -> void:
 		_evenement(ev)
 	_placer()
 	if _etat.pause == "mi-temps":
-		_chrono = -6.0 * _vitesse
 		_placer(true)
-	if _etat.fini and not _fini_annonce:
-		_fini_annonce = true
-		_vitesse = 1.0
 
 
 func _evenement(ev: Dictionary) -> void:
@@ -477,19 +594,16 @@ func _show_speech() -> void:
 	_speech_tween.tween_property(_speech, "modulate:a", 0.0, 0.8)
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_SPACE and not _etat.is_empty():
-		_vitesse = 4.0 if _vitesse == 1.0 else 1.0
-		_dire("Le match passe %s." % ("en accéléré (Espace pour revenir)" if _vitesse > 1.0 else "au rythme normal"))
-		get_viewport().set_input_as_handled()
-
-
 func _on_interact(target: Node) -> void:
 	match str(target.get_meta("interact", "")):
 		"exit":
 			Game.return_point = "stade"
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 			get_tree().change_scene_to_file("res://scenes/main.tscn")
+		"president":
+			open_causerie()
+		"feuille":
+			open_feuille()
 		"buvette":
 			_dire(["« Un café, un. C'est la femme du président qui tient la buvette, et elle ne fait pas crédit. »",
 				"« Le chocolat chaud, c'est pour les moins de douze ans et les gardiens de but. »",
@@ -500,7 +614,6 @@ func _on_interact(target: Node) -> void:
 
 func _maybe_capture() -> void:
 	var path := ""
-	var minute := 0
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--capture="):
 			path = arg.trim_prefix("--capture=")
@@ -510,19 +623,15 @@ func _maybe_capture() -> void:
 			player.rotation.y = deg_to_rad(v[2])
 			if v.size() > 3:
 				player.camera.rotation.x = deg_to_rad(v[3])
-		elif arg.begins_with("--minute="):
-			minute = int(arg.trim_prefix("--minute="))
-		elif arg.begins_with("--journee="):
+		elif arg.begins_with("--minute=") or arg.begins_with("--journee="):
 			pass
+		elif arg == "--open=causerie":
+			open_causerie()
 		else:
 			_capture_setup(arg)
 	if path == "":
 		return
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	# Le match est avancé d'un coup jusqu'à la minute demandée, les joueurs posés où ils doivent être.
-	while not _etat.is_empty() and not _etat.fini and _etat.minute < minute:
-		_minute()
-		_placer(true)
 	_chrono = -100.0
 	await get_tree().create_timer(6.0).timeout
 	await RenderingServer.frame_post_draw
@@ -530,11 +639,18 @@ func _maybe_capture() -> void:
 	get_tree().quit()
 
 
-## L'horloge du football, posée avant que la scène ne choisisse son match (--journee=n), et le total gagné.
+## L'horloge du football, posée avant que la scène ne choisisse son match : --journee=n met l'horloge à
+## la minute --minute=m (0 sans elle) de la journée n, mi-temps comprise.
 func _init() -> void:
+	var journee := 0
+	var minute := 0
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--capture="):
 			Football.dossier = ""
 		elif arg.begins_with("--journee="):
-			var t: int = Football.coup_envoi(1, int(arg.trim_prefix("--journee="))) + 3600
-			Football.regler_horloge(func(): return t)
+			journee = int(arg.trim_prefix("--journee="))
+		elif arg.begins_with("--minute="):
+			minute = int(arg.trim_prefix("--minute="))
+	if journee > 0:
+		var t: int = Football.coup_envoi(1, journee) + minute * 60 + (MI_TEMPS if minute > 45 else 0)
+		Football.regler_horloge(func(): return t)

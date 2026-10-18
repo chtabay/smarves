@@ -6,9 +6,15 @@ extends Node
 ## Vienne sans paquet (jamais une commune développée : sans terrain, pas de club). Le premier de chaque groupe monte, les deux derniers descendent dans les deux
 ## groupes fils. Le championnat vit sur le calendrier réel : un match le dimanche à 15 h, quatorze
 ## journées puis une semaine de trêve et une de mercato, trois saisons par an. Un résultat ne dépend
-## que d'une graine (saison, journée, clubs) et des décisions prises avant le coup d'envoi : tout le
+## que d'une graine (saison, journée, clubs) et des consignes prises avant le coup d'envoi : tout le
 ## monde calcule le même, hors ligne : le match est joué minute par minute (FootMatch, repris du
 ## Vestiaire) avec les effectifs de la saison, et son score est le résultat officiel.
+##
+## Les consignes (formation, mentalité, pressing) sont la seule chose qu'un joueur change au
+## championnat, et elles entrent dans la graine : pour que le résultat reste commun, elles sont tenues
+## au serveur (fonctions public.smarves_consignes et smarves_consigne_poser, supabase/migrations) et
+## lues au lancement. Une consigne posée sans compte reste « locale » : le jeu la garde, la montre
+## comme telle, et l'envoie dès que le joueur se connecte, si le coup d'envoi n'est pas passé.
 
 ## La pyramide a changé (une saison s'est finie, un club est entré).
 signal change
@@ -59,8 +65,15 @@ var saison := 1
 var niveaux: Array = []
 var clubs := {}
 var historique: Array = []
-## Les décisions prises avant un match : "saison/journee/club" -> {mentalite…}. Elles entrent dans la graine.
+## Les consignes prises avant un match : "saison/journee/club" -> {formation, mentalite, pressing}, toujours
+## ces trois clés dans cet ordre (consigne()) : elles entrent telles quelles dans la graine.
 var decisions := {}
+## Les consignes de cet appareil que le serveur n'a pas encore : clé -> true. Le tableau le dit.
+var locales := {}
+## Qui a posé chaque consigne lue au serveur : clé -> nom du joueur.
+var auteurs := {}
+## « » tant que rien n'est lu, puis « lecture », « ok » ou « hors_ligne ».
+var consignes_etat := ""
 ## Où lire et écrire la pyramide ; un test le déplace. « » : rien n'est écrit.
 var dossier := Communes.GREFFES
 var _horloge: Callable = Callable()
@@ -76,6 +89,14 @@ func _ready() -> void:
 	charger()
 	Registre.change.connect(actualiser)
 	actualiser()
+	# Le compte (autoload Compte) arrive après Football dans l'arbre : on l'attend une image.
+	(func():
+		lire_consignes()
+		var compte := _compte()
+		if compte != null:
+			compte.change.connect(func():
+				if compte.etat == "a_jour" and not locales.is_empty():
+					envoyer_locales())).call_deferred()
 
 
 # ---------------------------------------------------------------- le calendrier réel
@@ -520,13 +541,112 @@ func resultat(s: int, j: int, dom: String, ext: String) -> Array:
 	return (rencontre(s, j, dom, ext).score as Array).duplicate()
 
 
-## Une décision prise avant un match (la tactique du dimanche) ; sans effet sur un match déjà joué.
+## Une consigne prise avant un match (la tactique du dimanche) ; sans effet sur un match déjà joué.
+## Elle vaut tout de suite ici, et part au serveur si le joueur est connecté ; sinon elle reste locale.
 func decider(s: int, j: int, club: String, d: Dictionary) -> bool:
 	if s < saison or (s == saison and j <= journee_jouee()):
 		return false
-	decisions["%d/%d/%s" % [s, j, club]] = d
+	var cle := "%d/%d/%s" % [s, j, club]
+	decisions[cle] = consigne(d)
+	locales[cle] = true
+	auteurs.erase(cle)
 	sauver()
+	change.emit()
+	envoyer_locales()
 	return true
+
+
+## Une consigne propre : les trois clés, dans le même ordre partout, les valeurs inconnues ramenées au défaut.
+static func consigne(d: Dictionary) -> Dictionary:
+	return {"formation": str(d.get("formation", "")) if FootMatch.FORMATIONS.has(str(d.get("formation", ""))) else "4-4-2",
+		"mentalite": str(d.get("mentalite", "")) if FootMatch.MENTALITES.has(str(d.get("mentalite", ""))) else "equilibree",
+		"pressing": str(d.get("pressing", "")) if FootMatch.PRESSINGS.has(str(d.get("pressing", ""))) else "normal"}
+
+
+## La consigne d'un club pour une journée, et d'où elle vient : {consigne, etat, par}, etat « aucune »,
+## « locale » (sur cet appareil seulement) ou « commune » (au serveur, par le joueur nommé).
+func consigne_de(s: int, j: int, club: String) -> Dictionary:
+	var cle := "%d/%d/%s" % [s, j, club]
+	if not decisions.has(cle):
+		return {"consigne": consigne({}), "etat": "aucune", "par": ""}
+	return {"consigne": decisions[cle], "etat": "locale" if locales.has(cle) else "commune", "par": str(auteurs.get(cle, ""))}
+
+
+## Le prochain match d'un club : {s, j, dom, ext, quand}, ou {} si la saison qui vient n'est pas tirée.
+func prochain_match(club: String) -> Dictionary:
+	var pce := prochain_coup_envoi(maintenant())
+	var s: int = pce[0]
+	var j: int = pce[1]
+	if s != saison:
+		return {}
+	var place := place_de(club)
+	if place.is_empty():
+		return {}
+	for m in journee(s, place[0], place[1], j, 0):
+		if m.dom == club or m.ext == club:
+			return {"s": s, "j": j, "dom": m.dom, "ext": m.ext, "quand": pce[2]}
+	return {}
+
+
+## Les consignes lues au serveur : elles l'emportent sur celles d'ici, et une consigne locale que le
+## serveur porte aussi cesse d'être locale. Vrai si quelque chose a changé.
+func appliquer_consignes(liste: Array) -> bool:
+	var bouge := false
+	for c in liste:
+		if not c is Dictionary or not c.has("club"):
+			continue
+		var cle := "%d/%d/%s" % [int(c.get("saison", 0)), int(c.get("journee", 0)), str(c.club)]
+		var d := consigne(c)
+		if decisions.get(cle) != d or locales.has(cle):
+			bouge = true
+		decisions[cle] = d
+		locales.erase(cle)
+		auteurs[cle] = str(c.get("par", ""))
+	if bouge:
+		sauver()
+		change.emit()
+	return bouge
+
+
+## Relit toutes les consignes au serveur (sans compte aussi), puis envoie celles d'ici qui manquent.
+func lire_consignes() -> void:
+	var compte := _compte()
+	if compte == null or consignes_etat == "lecture" or get_tree().get_script() != null or "--capture" in " ".join(OS.get_cmdline_user_args()):
+		return
+	consignes_etat = "lecture"
+	var r: Dictionary = await compte.appeler("smarves_consignes", {})
+	if r.code == 200 and r.corps is Array:
+		consignes_etat = "ok"
+		appliquer_consignes(r.corps)
+		envoyer_locales()
+	else:
+		consignes_etat = "hors_ligne"
+
+
+## Envoie au serveur les consignes locales encore à venir ; celles dont le match est passé sont retirées
+## (le serveur ne les a pas : elles n'ont compté pour personne).
+func envoyer_locales() -> void:
+	var compte := _compte()
+	if compte == null or not compte.connecte() or get_tree().get_script() != null or "--capture" in " ".join(OS.get_cmdline_user_args()):
+		return
+	for cle in locales.keys():
+		var p: PackedStringArray = str(cle).split("/")
+		var d: Dictionary = decisions.get(cle, {})
+		var r: Dictionary = await compte.appeler("smarves_consigne_poser", {"p_saison": int(p[0]), "p_journee": int(p[1]), "p_club": p[2],
+			"p_formation": d.get("formation", "4-4-2"), "p_mentalite": d.get("mentalite", "equilibree"), "p_pressing": d.get("pressing", "normal")})
+		if r.code == 200 and r.corps is Dictionary:
+			if r.corps.get("ok", false):
+				locales.erase(cle)
+				auteurs[cle] = compte.nom
+			elif r.corps.get("raison", "") == "joue":
+				locales.erase(cle)
+				decisions.erase(cle)
+			sauver()
+			change.emit()
+
+
+func _compte() -> Node:
+	return get_node_or_null("/root/Compte")
 
 
 # ---------------------------------------------------------------- la sauvegarde
@@ -541,12 +661,14 @@ func charger() -> void:
 		clubs = lu.clubs
 		historique = lu.get("historique", [])
 		decisions = lu.get("decisions", {})
+		locales = lu.get("locales", {})
+		auteurs = lu.get("auteurs", {})
 
 
 func sauver() -> void:
 	if dossier == "":
 		return
-	Portail.ecrire(dossier.path_join(FICHIER), JSON.stringify({"saison": saison, "niveaux": niveaux, "clubs": clubs, "historique": historique, "decisions": decisions}))
+	Portail.ecrire(dossier.path_join(FICHIER), JSON.stringify({"saison": saison, "niveaux": niveaux, "clubs": clubs, "historique": historique, "decisions": decisions, "locales": locales, "auteurs": auteurs}))
 
 
 ## Repart de rien (essais, nouvelle partie) : la pyramide se refonde au prochain actualiser().
@@ -556,6 +678,8 @@ func effacer() -> void:
 	clubs = {}
 	historique = []
 	decisions = {}
+	locales = {}
+	auteurs = {}
 	_matchs = {}
 	_effectifs = {}
 	if dossier != "":
