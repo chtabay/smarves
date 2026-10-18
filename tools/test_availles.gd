@@ -53,7 +53,7 @@ func _init() -> void:
 
 	var data: Dictionary = s.data
 	check(data.batiments.size() > 800, "les bâtiments du bourg sont là (%d)" % data.batiments.size())
-	for id in ["eglise", "mairie", "porte_cavaliers", "chateau", "porte_riviere", "hotel", "adrien_bernard"]:
+	for id in ["eglise", "mairie", "porte_cavaliers", "chateau", "porte_riviere", "hotel", "adrien_bernard", "groupama", "restaurant", "maison_21"]:
 		var n := s.find_child("Remarquable_" + id, false, false)
 		check(n != null and n.get_meta("remarquable") == id, "%s est un nœud à part, prêt à personnaliser" % id)
 	check(s.find_child("Pont", false, false) != null, "le pont sur la Vienne est construit")

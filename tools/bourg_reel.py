@@ -66,7 +66,9 @@ BOURGS = {
             ("boucherie", "La boucherie", "commerce", "node/4280165091"),
             ("pharmacie", "La pharmacie", "commerce", "node/4294659839"),
             ("cafe", "Le café de la place", "commerce", "node/10765833210"),
-            ("restaurant", "Le restaurant de la rue Adrien-Veillon", "commerce", "node/4281120590"),
+            ("restaurant", "Le restaurant Chez Cécile, rue Adrien-Veillon", "commerce", "node/4281120590"),
+            ("groupama", "L'agence Groupama, 7 place de la Mairie", "commerce", "lonlat/0.65725,46.12050"),
+            ("maison_21", "Le 21 place de la Mairie", "maison", "lonlat/0.656473,46.120515"),
             ("garage", "Le garage", "commerce", "node/4280165092"),
             ("fontaine", "La fontaine", "monument", "node/3397137001"),
             ("camping", "Le camping du Parc", "lieu", "node/472692717"),
@@ -335,7 +337,12 @@ def main():
     rem = []
     for rid, nom, genre, objet in cfg["remarquables"]:
         typ, ref = objet.split("/")
-        if typ == "node":
+        if typ == "lonlat":
+            # Un lieu sans objet OSM à lui : désigné par son point, d'après l'adresse.
+            lon, lat = (float(v) for v in ref.split(","))
+            p = proj.metres(lon, lat)
+            forme = None
+        elif typ == "node":
             if ref not in noeuds:
                 print("absent d'OSM :", objet)
                 continue
