@@ -24,7 +24,7 @@ func _init() -> void:
 	communes.dossier_greffes = TMP
 	var pk := PCKPacker.new()
 	pk.pck_start(TMP + "availles_limouzine.pck")
-	for f in ["commune.json", "commune.tscn", "availles.gd", "bourg.json", "sol.png.import"]:
+	for f in ["commune.json", "commune.tscn", "availles.gd", "remarquables.gd", "bourg.json", "sol.png.import"]:
 		pk.add_file("res://communes/availles_limouzine/" + f, SOURCE + f)
 	var imp := ConfigFile.new()
 	imp.load(SOURCE + "sol.png.import")
@@ -53,10 +53,15 @@ func _init() -> void:
 
 	var data: Dictionary = s.data
 	check(data.batiments.size() > 800, "les bâtiments du bourg sont là (%d)" % data.batiments.size())
-	for id in ["eglise", "mairie", "porte_cavaliers", "chateau", "porte_riviere"]:
+	for id in ["eglise", "mairie", "porte_cavaliers", "chateau", "porte_riviere", "hotel", "adrien_bernard"]:
 		var n := s.find_child("Remarquable_" + id, false, false)
 		check(n != null and n.get_meta("remarquable") == id, "%s est un nœud à part, prêt à personnaliser" % id)
 	check(s.find_child("Pont", false, false) != null, "le pont sur la Vienne est construit")
+	var enseigne := false
+	for n in s.find_child("Remarquable_hotel", false, false).get_children():
+		if n is Label3D and n.text == "La Châtellenie":
+			enseigne = true
+	check(enseigne, "la Châtellenie porte son enseigne, dessinée d'après photo")
 	var cam: Camera3D = s.camera
 	check(cam.has_signal("au_dela") and cam.notches.size() == 4, "la caméra à crans du village, avec un cran de plus pour le bourg")
 
