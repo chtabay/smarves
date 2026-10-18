@@ -350,7 +350,12 @@ Un type de plus fait monter la version du socle ; un paquet qui s'en sert le dem
    ![Les parts de l'Étoile à l'étude de Maître Garnier](captures/notaire-etoile.png)
 
    ![La causerie quand un autre actionnaire tient plus de parts](captures/stade-causerie-actionnaires.png)
-11. **Le mercato** une semaine par saison, les paris au comptoir.
+11. **Les paris au comptoir** de Josiane (fait le 18 octobre 2026) : à 2 000 gagnés, Josiane pose **le carnet du PMU** sur le zinc du Café de la Place (`salle.gd`, `SEUIL_PARIS`, `_carnet_du_pmu`) ; E l'ouvre en grand (`FootParis`, `scripts/socle/foot_paris.gd`) : les quatre matchs de la journée à venir de la division suivie, **trois cotes par match** (1, N, 2), une mise (10 à 200 crédits) ; un match coché fait un pari simple, plusieurs font un combiné dont les cotes se multiplient. Les cotes sont **fixes et les mêmes chez tout le monde** (`Paris.probabilites`, `cotes_de` : les forces des deux clubs pour la saison, l'avantage du terrain, 12 % de marge pour la maison, au vingtième près) ; la mise part tout de suite (`Game.spend`, elle compte dans le total misé comme à la machine) et le ticket se règle **le dimanche à 17 h** (`Paris.regler`, en entrant au café, Josiane le dit) : le gain rentre dans les crédits et **dans le total gagné au jeu** (`Game.cash_in`), comme un jackpot. Le coup d'envoi donné, plus de ticket sur la journée. Les tickets restent sur l'appareil (autoload `Paris`, `scripts/socle/paris.gd`, `paris.json` dans les greffes, comme les consignes) ; une nouvelle partie les emporte. La fenêtre montre les derniers tickets et le bilan depuis le début, misé et repris : les chiffres le disent, Josiane ne dit rien. Test : `godot --headless --path . -s tools/test_foot_paris.gd` ; capture : `godot --path . res://scenes/cafe.tscn -- --capture=paris.png --won=2000 --journee=5 --ticket=50 --open=paris` (`--ticket=` pose d'abord un ticket sur le match de l'Étoile).
+
+   ![Le carnet du PMU sur le zinc, à côté du 421](captures/salle-cafe-pmu.png)
+
+   ![Le carnet du PMU de Josiane, un ticket pris sur l'Étoile](captures/salle-cafe-paris.png)
+12. **Le mercato** une semaine par saison.
 
 ## 7. Le séquencement et les fils en cours
 
@@ -364,7 +369,7 @@ Un type de plus fait monter la version du socle ; un paquet qui s'en sert le dem
 | 6 | Connexion au compte Pyramides, partie gardée sur le compte | un fil Compte (fait le 18 octobre 2026) | le mobile au point ; migration du schéma `smarves` sur accord de Guillaume |
 | 7 | Multi différé : visites de maisons, livre d'or, classements au village | un fil Multi (fait le 18 octobre 2026 : panneau, noms sur les maisons, livre d'or, traces) | 4, 6 |
 | 8 | Soirée partagée, tables à plusieurs, poker de Passelourdin | fil Multi, Visuel des jeux | 7 |
-| 9 | Structures partagées (gare, arrêt de car, terrain), registre, pyramide du football de la Vienne | Structures partagées et football | 5 ; les paris et le mercato après 10 |
+| 9 | Structures partagées (gare, arrêt de car, terrain), registre, pyramide du football de la Vienne | Structures partagées et football | 5 ; le mercato après 11 |
 
 **Notes de Guillaume du 18 octobre 2026, à garder sans les traiter maintenant :**
 
