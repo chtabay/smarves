@@ -29,7 +29,8 @@ devant le fichier :
   --riviere="La Vienne"      le nom donné à l'eau qu'OpenStreetMap ne nomme pas
   --remarquables=lieux.json  les lieux remarquables : une liste de {"id", "nom", "genre", "osm"},
                              genre parmi monument, ouvrage, commerce, maison, lieu ; osm est
-                             l'objet d'OpenStreetMap (way/64158647 ou node/4280211690)
+                             l'objet d'OpenStreetMap (way/64158647 ou node/4280211690), ou un
+                             point lonlat/0.65725,46.1205 pour un lieu sans objet à lui
   --dossier=chemin           un autre dossier de commune, relatif à la racine du dépôt
   --cache=dossier            le cache des téléchargements (build/bourg_reel/<id>/ par défaut)
 Demande Pillow (python3 -m pip install pillow). Les téléchargements sont gardés dans le cache :
@@ -396,7 +397,12 @@ def main():
     rem = []
     for rid, nom, genre, objet in cfg["remarquables"]:
         typ, ref = objet.split("/")
-        if typ == "node":
+        if typ == "lonlat":
+            # Un lieu sans objet OSM à lui : désigné par son point, d'après l'adresse.
+            lon, lat = (float(v) for v in ref.split(","))
+            p = proj.metres(lon, lat)
+            forme = None
+        elif typ == "node":
             if ref not in noeuds:
                 print("absent d'OSM :", objet)
                 continue

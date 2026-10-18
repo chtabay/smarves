@@ -53,7 +53,7 @@ func _init() -> void:
 
 	var data: Dictionary = s.data
 	check(data.batiments.size() > 800, "les bâtiments du bourg sont là (%d)" % data.batiments.size())
-	for id in ["eglise", "mairie", "porte_cavaliers", "chateau", "porte_riviere", "hotel", "adrien_bernard"]:
+	for id in ["eglise", "mairie", "porte_cavaliers", "chateau", "porte_riviere", "hotel", "adrien_bernard", "groupama", "restaurant", "maison_21"]:
 		var n := s.find_child("Remarquable_" + id, false, false)
 		check(n != null and n.get_meta("remarquable") == id, "%s est un nœud à part, prêt à personnaliser" % id)
 	check(s.find_child("Pont", false, false) != null, "le pont sur la Vienne est construit")
@@ -69,6 +69,12 @@ func _init() -> void:
 	check(plaque, "la mairie porte sa plaque, dessinée d'après photo")
 	var cam: Camera3D = s.camera
 	check(cam.has_signal("au_dela") and cam.notches.size() == 4, "la caméra à crans du village, avec un cran de plus pour le bourg")
+	var vue: Node = root.get_node("/root/Vue")
+	check(vue.gere(s) and not s.has_method("set_fps"), "la bascule de vue est au socle : la commune n'a rien à coder")
+	vue.basculer(s)
+	var a_pied: bool = s.player.camera.current and s.player.follow_camera == null and not s.player.avatar.visible and cam.notches.is_empty()
+	vue.basculer(s)
+	check(a_pied and cam.current and s.player.follow_camera == cam and cam.notches.size() == 4, "Tab passe à pied et revient en vue de dessus, comme à Smarves")
 
 	# L'habitant se pose sur le sol, à l'altitude de la place.
 	var p: CharacterBody3D = s.player

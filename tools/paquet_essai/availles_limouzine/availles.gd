@@ -20,6 +20,8 @@ const REMARQUABLES := preload(DOSSIER + "remarquables.gd")
 const SANS_FENETRES := ["eglise", "porte_cavaliers", "porte_riviere"]
 ## Où l'on arrive : la place de la Mairie, entre la porte des Cavaliers et la rue qui descend au pont.
 const ARRIVEE_NOM := "Place de la Mairie"
+const AIDE_DESSUS := "ZQSD : marcher  ·  Maj : courir  ·  clic droit : tourner  ·  molette : zoomer  ·  Tab : vue à pied  ·  M ou dézoomer encore : la carte"
+const AIDE_A_PIED := "ZQSD : marcher  ·  Maj : courir  ·  souris : regarder  ·  Tab : vue de dessus"
 
 ## Pour le socle (Tactile) : l'habitant qu'on dirige, la caméra à crans, et l'on marche.
 var player: CharacterBody3D
@@ -36,6 +38,7 @@ var _z0 := 0.0
 var _pas := 1.0
 var _mats := {}
 var _ici: Label
+var _aide: Label
 var _capture := ""
 var _suivre := true
 var _arrivee := Vector2.ZERO
@@ -807,9 +810,14 @@ func _interface() -> void:
 	titre.add_theme_constant_override("outline_size", 6)
 	titre.position = Vector2(24, 70)
 	ui.add_child(titre)
-	var aide := _ligne("ZQSD : marcher  ·  Maj : courir  ·  clic droit : tourner  ·  molette : zoomer  ·  M ou dézoomer encore : la carte", 16)
-	aide.position = Vector2(24, 112)
-	ui.add_child(aide)
+	_aide = _ligne(AIDE_DESSUS, 16)
+	_aide.position = Vector2(24, 112)
+	ui.add_child(_aide)
+	# Tab (ou le bouton « Vue ») : la bascule est au socle, la ligne d'aide la suit. Par son chemin,
+	# pour que le paquet s'ouvre aussi dans un jeu plus ancien, qui n'a pas encore cette bascule.
+	var vue := get_node_or_null("/root/Vue")
+	if vue:
+		vue.basculee.connect(func(dessus: bool): _aide.text = AIDE_DESSUS if dessus else AIDE_A_PIED)
 	var sources := _ligne("Plan : © les contributeurs d'OpenStreetMap ; IGN, BD TOPO et RGE ALTI", 13)
 	sources.modulate = Color(1, 1, 1, 0.7)
 	sources.anchor_top = 1.0
