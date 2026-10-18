@@ -34,12 +34,12 @@ const TYPES := {
 		"unique": true,
 		"relie": "le championnat de la Vienne : la commune a un club, qui y entre à la saison suivante",
 	},
-	# Socle 1.1. Une salle de jeu meublée et tenue par le socle (scripts/socle/salle_jeu.gd) : la commune
+	# Socle 1.1 (« guichet » : 1.2). Une salle de jeu meublée et tenue par le socle (scripts/socle/salle_jeu.gd) : la commune
 	# nomme son tenancier et ses jeux, le socle pose les tables et fait tourner les jeux de Smarves.
 	"salle_jeu": {
 		"nom": "la salle de jeu",
 		"champs": {"jeux": TYPE_ARRAY, "tenancier": TYPE_STRING, "graine": TYPE_FLOAT, "decor": TYPE_STRING,
-			"repliques": TYPE_ARRAY, "enseigne": TYPE_STRING},
+			"repliques": TYPE_ARRAY, "enseigne": TYPE_STRING, "guichet": TYPE_BOOL},
 		"requis": ["jeux"],
 		"unique": false,
 		"relie": "rien : c'est un lieu de la commune, le lieu du manifeste de même id lui donne son seuil",
