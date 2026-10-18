@@ -183,7 +183,9 @@ Par ordre d'arrivée :
 
 Concrètement, côté Godot :
 
-- **Connexion** : le même serveur d'autorisation de Pyramides qu'Addict (PKCE), ouvert dans le navigateur du système ; le jeton revient par une adresse locale. Sans compte, Smarves se joue exactement comme aujourd'hui, sur la machine.
+- **Connexion** (fait, étape 1 du multi) : le même serveur d'autorisation de Pyramides qu'Addict (PKCE), ouvert dans le navigateur du système, portée `smarves`, jeton de trente jours. Le retour se fait sur la boucle locale (`http://127.0.0.1:47811/retour`, ports 47811 à 47815) **sur PC comme sur Android** : un fil du jeu écoute pendant que le navigateur est devant, et sur téléphone la page dit de revenir au jeu. C'est plus simple qu'un lien profond (ni modèle Gradle ni `assetlinks.json` à héberger) et Pyramides l'accepte déjà. Sans compte, Smarves se joue exactement comme aujourd'hui, sur la machine.
+- **La partie au compte** (fait) : les fichiers de la partie (socle, tiroirs, biens) partent tels quels, au plus toutes les trente secondes s'ils ont changé, et quand le jeu passe en arrière-plan. Le serveur les numérote ; le jeu retient la dernière version qu'il a envoyée ou reprise et l'empreinte de ses fichiers à ce moment. Au lancement : le compte seul a bougé, on le reprend ; l'appareil seul, on l'envoie ; les deux, la bienvenue montre les deux parties (crédits, fortune, appareil, date) et le joueur choisit. Une partie neuve sur l'appareil cède toujours la place à celle du compte. Code : `scripts/socle/compte.gd`, tests : `tools/test_compte.gd`.
+- **La base sans fonction serveur** (fait) : comme Belley, le jeu appelle des fonctions SQL par l'API REST du projet (`public.smarves_*`, clé publique), et c'est la base qui vérifie le jeton (clé dérivée du secret du casino, « pyramides:smarves:v1 »). Rien à déployer à côté de la fonction `casino`. La migration est dans `supabase/migrations/`. Une fonction serveur `smarves` ne viendra que pour ce qui touche à l'argent partagé (chantier 7).
 - **Appels à la fonction** : `HTTPRequest` vers la fonction `smarves`, en JSON.
 - **Temps réel** : un petit client Realtime en GDScript sur `WebSocketPeer` (le protocole de Supabase Realtime est simple : rejoindre un canal, diffuser, recevoir). Les positions passent de joueur à joueur en diffusion (5 envois par seconde quand on bouge) ; tout le reste (arrivées, phrases, gestes, gros gains) est décidé et signé par la fonction, comme dans Addict.
 - **L'argent** : en solo, rien ne change, les jeux tournent dans Godot. Avec un compte, **seuls les jeux joués à plusieurs** (tables partagées, poker) et les achats passent par le serveur, qui tire et paie. Les règles de ces jeux existent alors en double, en GDScript et en TypeScript ; un test commun (mêmes graines, mêmes résultats attendus) garde les deux d'accord. Les autres jeux restent dans Godot et le serveur ne les croit que dans des plafonds par heure, comme la manche d'Addict.
@@ -278,6 +280,12 @@ Pour qu'une commune tierce se branche sans toucher au code de Smarves :
 | 6 | Compte Pyramides, visites de maisons, livre d'or, classements au village | un fil Multi | 4 ; migration du schéma `smarves` sur accord de Guillaume |
 | 7 | Soirée partagée, tables à plusieurs, poker de Passelourdin | fil Multi, Visuel des jeux | 6 |
 
+**Notes de Guillaume du 18 octobre 2026, à garder sans les traiter maintenant :**
+
+- **Des rendez-vous pour le temps réel (chantier 7)** : des horaires fixes pour les activités à plusieurs, par exemple la partie de poker du vendredi 13 h 30 et du dimanche 11 h, pour que les joueurs se retrouvent au même moment. Le tableau d'affichage du multi différé (chantier 6) les annonce. Il faudra **pousser des notifications** : sur Android, une notification locale programmée au moment où l'on s'inscrit ne demande aucun serveur, une notification envoyée par le serveur passerait par Firebase Cloud Messaging ; sur Windows, une notification n'est possible que si le jeu tourne (ou par un petit programme résident), sinon un courriel de rappel envoyé par Pyramides est la voie simple.
+- **Le gain ultime** : acheter le droit de créer une nouvelle ville, construite avec les assets des villes existantes.
+- **Plus tard, la construction** : des matériaux de base, puis un city builder à plusieurs où la ville est gérée comme une entreprise : ceux qui ont le plus de parts la dirigent, les minoritaires touchent des dividendes.
+
 **Ce que cela change pour les fils en cours :**
 
 - **Cohérence du monde** : la séparation entre ce qui vaut pour toutes les communes et ce qui est propre à Smarves est déjà dans la bible, et ce cadrage s'y appuie ; la bible gagne ensuite la carte de la Vienne, Poitiers dans la brume, la banque propre à chaque commune, Ligugé, la brocante de Ginette Boutin, les trouvailles et le livre d'or ; la ligne « pas d'export web » de la fiche de cadrage attend la réponse du fil web et mobile.
@@ -292,6 +300,6 @@ Pour qu'une commune tierce se branche sans toucher au code de Smarves :
 
 - **Le rendu** : Forward+ sur ordinateur, rendu Mobile sur téléphone (réglage par plateforme, sans toucher au rendu Windows). Chaque nouveau lieu se vérifie aussi en rendu Mobile, qui n'a ni SDFGI, ni SSIL, ni SSR, ni brouillard volumétrique, ni SSAO.
 - **Les contrôles** : chaque lieu prévoit ses gestes tactiles en même temps que le clavier et la souris (toucher pour marcher, glisser pour tourner, pincer pour changer de cran).
-- **Le multi** : WebSocket (Supabase Realtime sur `WebSocketPeer`) et `HTTPRequest`, jamais ENet ni UDP, pour que le web reste possible sans rien récrire. Sur téléphone, la connexion PKCE revient par un lien profond de l'application plutôt que par une adresse locale.
+- **Le multi** : WebSocket (Supabase Realtime sur `WebSocketPeer`) et `HTTPRequest`, jamais ENet ni UDP, pour que le web reste possible sans rien récrire. Sur téléphone aussi, la connexion PKCE revient par la boucle locale (section 4).
 - **Les communes greffées** : en paquets de ressources avec du GDScript, jamais de GDExtension, qui demanderait un build par plateforme.
 - **Les mods sur le web**, si le web vient un jour : un pack `.pck` doit être téléchargé dans le stockage du navigateur avant d'être chargé.

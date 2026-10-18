@@ -2,8 +2,9 @@ extends CanvasLayer
 ## La bienvenue (autoload « Bienvenue ») : à chaque lancement, une fenêtre au milieu de la place. À
 ## gauche la carte de la Vienne, Smarves en or et les villes publiées en vert d'eau ; à droite les
 ## crédits, la nouvelle version du jeu quand il y en a une (autoload Version), les villes de la
-## Vienne (« Voir les villes » déplie la liste, à installer et à visiter sur place), le compte, où
-## viendra la connexion, et « Jouer ». Direction « La Vienne », choisie par Guillaume le 17 octobre
+## Vienne (« Voir les villes » déplie la liste, à installer et à visiter sur place), le compte
+## Pyramides (autoload Compte : connexion, partie gardée au compte, choix entre deux parties) et
+## « Jouer ». Direction « La Vienne », choisie par Guillaume le 17 octobre
 ## 2026.
 
 const OR := Color(0.96, 0.8, 0.45)
@@ -39,6 +40,12 @@ func _ready() -> void:
 	Version.lue.connect(func():
 		if is_open():
 			_remplir())
+	Compte.change.connect(func():
+		if is_open():
+			_remplir.call_deferred()
+		# Deux parties ont avancé chacune de leur côté : la fenêtre s'ouvre pour que le joueur choisisse.
+		elif Compte.etat == "choix":
+			_attendue = true)
 	var guet := Timer.new()
 	guet.wait_time = 1.0
 	guet.autostart = true
@@ -147,6 +154,12 @@ func _remplir() -> void:
 func _remplir_accueil() -> void:
 	_box.add_child(_mot("S M A R V E S  ·  V I E N N E", 13, Color(0.55, 0.75, 0.75)))
 	_box.add_child(_mot("Bienvenue à Smarves", 38, Color.WHITE, Polices.titre()))
+	# Deux parties à départager : la fenêtre ne parle que de cela.
+	if Compte.etat == "choix":
+		_box.add_child(_filet())
+		_remplir_compte()
+		_pied.add_child(_bouton("Décider plus tard", Color(0, 0, 0, 0), DOUX, Color(1, 1, 1, 0.3), fermer, 16))
+		return
 	_box.add_child(_mot("%s crédits en poche  ·  fortune nette %s" % [Game.fmt(Game.credits), Game.fmt(Game.credits + Biens.value() - Game.debt)], 17, DOUX))
 	if Version.disponible():
 		_remplir_version()
@@ -157,12 +170,81 @@ func _remplir_accueil() -> void:
 	if not Communes.publiees().is_empty() or not Communes.installees().is_empty():
 		_box.add_child(_bouton("Voir les villes  →", Color(0, 0, 0, 0), EAU, EAU, ouvrir.bind(true)))
 	_box.add_child(_filet())
-	_box.add_child(_mot("VOTRE COMPTE", 14, Color(0.55, 0.6, 0.66), Polices.gras()))
-	_box.add_child(_mot("La connexion viendra ici. Votre partie est gardée sur cet appareil.", 17, DOUX, null, true))
+	_remplir_compte()
 	var jouer := _bouton("Jouer", OR, Color(0.1, 0.07, 0.03), Color(0, 0, 0, 0), fermer, 22)
 	jouer.custom_minimum_size.x = 220
 	_pied.add_child(jouer)
 	jouer.grab_focus.call_deferred()
+
+
+## Le compte Pyramides : se connecter, où en est la partie gardée au compte, et le choix quand deux
+## appareils ont joué chacun de leur côté.
+func _remplir_compte() -> void:
+	var titre := "VOTRE COMPTE" if Compte.nom == "" or Compte.etat in ["deconnecte", "connexion", "erreur"] \
+			else "VOTRE COMPTE  ·  %s" % Compte.nom.to_upper()
+	_box.add_child(_mot(titre, 14, Color(0.55, 0.6, 0.66), Polices.gras()))
+	match Compte.etat:
+		"deconnecte":
+			_box.add_child(_mot("Votre partie est gardée sur cet appareil. Avec votre compte Pyramides, elle vous suit sur vos autres appareils.", 17, DOUX, null, true))
+			_box.add_child(_bouton("Se connecter avec Pyramides", Color(0, 0, 0, 0), EAU, EAU, Compte.se_connecter))
+		"connexion":
+			_box.add_child(_mot(Compte.message, 17, TEXTE, null, true))
+			_box.add_child(_bouton("Annuler", Color(0, 0, 0, 0), DOUX, Color(1, 1, 1, 0.3), Compte.annuler, 15))
+		"erreur":
+			_box.add_child(_mot(Compte.message, 17, ROUGE, null, true))
+			_box.add_child(_bouton("Réessayer", Color(0, 0, 0, 0), EAU, EAU, Compte.se_connecter))
+		"expire":
+			_box.add_child(_mot("La connexion a expiré. Votre partie continue sur cet appareil et partira au compte dès que vous vous reconnectez.", 17, DOUX, null, true))
+			_box.add_child(_bouton("Se reconnecter", Color(0, 0, 0, 0), EAU, EAU, Compte.se_connecter))
+		"choix":
+			_remplir_choix()
+		_:
+			var ligne: String = {"verification": "Lecture de la partie du compte…", "envoi": "Envoi de la partie au compte…",
+				"hors_ligne": "Hors ligne : votre partie partira au compte au retour du réseau."}.get(Compte.etat,
+				Compte.message if Compte.message != "" else "Partie gardée au compte %s." % _il_y_a(Compte.synchro_a))
+			_box.add_child(_mot(ligne, 17, DOUX, null, true))
+			_box.add_child(_bouton("Se déconnecter", Color(0, 0, 0, 0), DOUX, Color(0, 0, 0, 0), Compte.se_deconnecter, 15))
+
+
+func _remplir_choix() -> void:
+	_box.add_child(_mot("Cet appareil et votre compte ont chacun avancé de leur côté. Laquelle des deux parties garder ? L'autre sera remplacée.", 17, TEXTE, null, true))
+	var r: Dictionary = Compte.autre.get("resume", {})
+	var ici := Compte.resume()
+	var rang := HBoxContainer.new()
+	rang.add_theme_constant_override("separation", 12)
+	rang.add_child(_fiche_partie("CET APPAREIL", Compte.appareil() + ", maintenant", ici, "Garder celle-ci", Compte.garder_appareil))
+	rang.add_child(_fiche_partie("LE COMPTE", "%s, %s" % [Compte.autre.get("appareil", "autre appareil"), _il_y_a(int(Compte.autre.get("maj", 0)))],
+		r, "Reprendre celle-ci", Compte.prendre_compte))
+	_box.add_child(rang)
+
+
+func _fiche_partie(titre: String, ou: String, resume: Dictionary, action: String, quoi: Callable) -> PanelContainer:
+	var cadre := PanelContainer.new()
+	cadre.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cadre.add_theme_stylebox_override("panel", _boite(Color(1, 1, 1, 0.04), Color(1, 1, 1, 0.12), 6, 12))
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 6)
+	cadre.add_child(v)
+	v.add_child(_mot(titre, 13, EAU, Polices.gras()))
+	var lieu := _mot(ou, 14, DOUX, null, true)
+	lieu.custom_minimum_size.x = 0
+	v.add_child(lieu)
+	v.add_child(_mot("%s crédits" % Game.fmt(int(resume.get("credits", 0))), 19, Color.WHITE, Polices.gras()))
+	v.add_child(_mot("fortune nette %s" % Game.fmt(int(resume.get("fortune", 0))), 15, TEXTE))
+	v.add_child(_mot("gagné au jeu %s" % Game.fmt(int(resume.get("gagne", 0))), 15, TEXTE))
+	v.add_child(_bouton(action, Color(0, 0, 0, 0), OR, OR, quoi, 15))
+	return cadre
+
+
+static func _il_y_a(quand: int) -> String:
+	var s := int(Time.get_unix_time_from_system()) - quand
+	if quand <= 0 or s < 60:
+		return "à l'instant"
+	if s < 3600:
+		return "il y a %d min" % (s / 60)
+	if s < 48 * 3600:
+		return "il y a %d h" % (s / 3600)
+	return "il y a %d jours" % (s / 86400)
 
 
 ## Une nouvelle version attend sur la Release : ce qui a changé (deux lignes, puis le compte des autres) et le

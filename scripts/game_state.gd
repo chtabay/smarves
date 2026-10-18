@@ -85,8 +85,22 @@ func load_game() -> void:
 	SAUVEGARDE.charger(self, "user://", get_tree().get_script() == null)
 
 
+## Relit la partie écrite sur l'appareil, en partant de zéro (la partie du compte vient d'y être
+## reprise, scripts/socle/compte.gd). Sans signal : les biens se relisent d'abord, sinon ils
+## prendraient une baisse du total misé pour une nouvelle partie et s'effaceraient.
+func recharger() -> void:
+	_remettre_a_zero()
+	SAUVEGARDE.charger(self)
+
+
 ## Nouvelle partie : on efface tout et on repart du pécule.
 func reset() -> void:
+	_remettre_a_zero()
+	SAUVEGARDE.effacer()
+	changed.emit()
+
+
+func _remettre_a_zero() -> void:
 	credits = START_CREDITS
 	won = 0
 	staked = 0
@@ -97,8 +111,6 @@ func reset() -> void:
 	peak_credits = START_CREDITS
 	_last_call_staked = -100000
 	welcomed = false
-	SAUVEGARDE.effacer()
-	changed.emit()
 
 
 func spend(amount: int) -> bool:

@@ -801,7 +801,21 @@ func _load() -> void:
 	total_spent = int(data.get("total_spent", 0))
 
 
+## Relit les biens écrits sur l'appareil, en partant de zéro (la partie du compte vient d'y être reprise).
+func recharger() -> void:
+	_vider()
+	_load()
+	changed.emit()
+
+
 func _wipe() -> void:
+	_vider()
+	if _can_save() and FileAccess.file_exists(SAVE_PATH):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
+	changed.emit()
+
+
+func _vider() -> void:
 	owned = {}
 	logements = {}
 	trouvailles = []
@@ -819,6 +833,3 @@ func _wipe() -> void:
 	_period_staked = 0
 	_since_reprise = 0
 	_last_staked = Game.staked
-	if _can_save() and FileAccess.file_exists(SAVE_PATH):
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
-	changed.emit()

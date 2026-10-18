@@ -1201,6 +1201,8 @@ func _maybe_capture() -> void:
 			_welcome()
 		elif arg == "--menu":
 			Settings.toggle()
+		elif arg == "--bienvenue":
+			Bienvenue.ouvrir()
 		elif arg.begins_with("--travel="):
 			await get_tree().process_frame
 			travel(arg.trim_prefix("--travel="))
