@@ -409,7 +409,7 @@ func _fill_communes(page: VBoxContainer = null, titre := true) -> void:
 		elif not installee:
 			_link(page, "→ l'installer  (%s, par %s)" % [Portail.taille(e.taille), e.auteur], Communes.installer.bind(e.id), Communes.en_cours == "")
 		else:
-			if str(Communes.installations.get(e.id, e.version)) != e.version:
+			if Communes.mise_a_jour(e.id) != "":
 				_link(page, "→ installer la version %s" % e.version, Communes.installer.bind(e.id), Communes.en_cours == "")
 			_link(page, "→ y aller", _visiter.bind(e.id))
 	for id in Communes.installees():

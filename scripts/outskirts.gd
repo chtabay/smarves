@@ -38,6 +38,10 @@ func build(m: Node3D) -> void:
 	_passelourdin(AREAS.passelourdin.center)
 	for k in AREAS:
 		_home_sign(AREAS[k].center)
+	# Au bout de chaque route, la commune voisine dans cette direction (Vienne.voisine).
+	_sortie(AREAS.bois.center + Vector3(9.6, 0, 7.95), Vector2(1, 0), "%s  →")
+	_sortie(AREAS.moulin.center + Vector3(-9.8, 0, 7.95), Vector2(-1, 0), "←  %s")
+	_sortie(AREAS.passelourdin.center + Vector3(-2.8, 0, 7.3), Vector2(0, 1), "↑  %s")
 
 
 func _plinth(c: Vector3, title: String, ground: Material) -> void:
@@ -92,6 +96,49 @@ func _home_sign(c: Vector3) -> void:
 	a.set_meta("travel", "place")
 	a.set_meta("interact", "travel")
 	a.set_meta("prompt", "E : rentrer sur la place de la Mairie")
+	root.add_child(a)
+
+
+## Le panneau de sortie : la route continue vers la commune voisine, et la carte s'ouvre sur elle.
+func _sortie(at: Vector3, cap: Vector2, gabarit: String) -> void:
+	var insee := Vienne.voisine(CarteVienne.ORIGINE_INSEE, cap)
+	if insee == "":
+		return
+	var nom := str(Vienne.commune(insee).nom)
+	var root := Node3D.new()
+	root.position = at
+	main.add_child(root)
+	var poteau := StandardMaterial3D.new()
+	poteau.albedo_color = Color(0.85, 0.85, 0.82)
+	var plaque := StandardMaterial3D.new()
+	plaque.albedo_color = Color(0.95, 0.95, 0.92)
+	var bord := StandardMaterial3D.new()
+	bord.albedo_color = Color(0.75, 0.12, 0.1)
+	# Un panneau de direction blanc bordé de rouge, comme ceux des routes départementales.
+	main._box(Vector3(0.08, 1.6, 0.08), Vector3(0, 0.8, -0.08), poteau, root)
+	var w := 0.5 + (gabarit % nom).length() * 0.1
+	main._box(Vector3(w, 0.44, 0.05), Vector3(0, 1.45, 0), bord, root)
+	main._box(Vector3(w - 0.12, 0.34, 0.06), Vector3(0, 1.45, 0), plaque, root)
+	var l := Label3D.new()
+	l.text = gabarit % nom
+	l.font = main.serif
+	l.font_size = 40
+	l.pixel_size = 0.0034
+	l.modulate = Color(0.1, 0.1, 0.12)
+	l.outline_size = 0
+	l.position = Vector3(0, 1.45, 0.035)
+	l.double_sided = true
+	root.add_child(l)
+	var a := Area3D.new()
+	var cs := CollisionShape3D.new()
+	var b := BoxShape3D.new()
+	b.size = Vector3(w, 1.8, 0.8)
+	cs.shape = b
+	cs.position.y = 0.9
+	a.add_child(cs)
+	a.set_meta("interact", "sortie")
+	a.set_meta("action", Carte.ouvrir_vers.bind(insee))
+	a.set_meta("prompt", "E : prendre la route de %s" % nom)
 	root.add_child(a)
 
 
