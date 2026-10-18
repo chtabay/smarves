@@ -61,7 +61,7 @@ func _init() -> void:
 	var mercato: Array = s.filter(func(r): return r.activite == "mercato")
 	check(mercato.size() == 2 and mercato[0].titre == "Dernières enchères de la semaine" and mercato[0].quand == local(2026, 10, 24, 22),
 		"les dernières enchères de la semaine, samedi 22 h")
-	check(mercato.size() == 2 and mercato[1].titre == "Seize joueurs mis aux enchères" and mercato[1].quand == local(2026, 10, 25, 17),
+	check(mercato.size() == 2 and mercato[1].titre == "Quarante joueurs mis aux enchères" and mercato[1].quand == local(2026, 10, 25, 17),
 		"seize joueurs mis aux enchères dimanche à 17 h")
 	check(agenda.prochains(3).size() == 3 and agenda.prochains(3)[0].titre == "Le tournoi fermé de poker", "les trois prochains, pour la page du carnet")
 
