@@ -538,14 +538,24 @@ func _minute() -> void:
 func _evenement(ev: Dictionary) -> void:
 	var i: int = int(ev.equipe)
 	var sens := 1.0 if i == 0 else -1.0
+	# Le couloir de l'action : pour qui attaque vers l'est, la gauche est au nord (z < 0) ; l'inverse à l'ouest.
+	var cote: float = _cote(str(ev.get("couloir", "centre"))) * sens
 	match str(ev.type):
 		"occasion":
-			_cible_ballon = Vector3(sens * (L / 2.0 - 4.0), 0, randf_range(-4.0, 4.0))
+			match str(ev.get("phase", "jeu")):
+				"corner":
+					_cible_ballon = Vector3(sens * (L / 2.0 - 0.3), 0, (P / 2.0 - 0.3) * (cote if cote != 0.0 else 1.0))
+				"coupFranc":
+					_cible_ballon = Vector3(sens * (L / 2.0 - 9.0), 0, cote * 5.0 + randf_range(-1.0, 1.0))
+				"penalty":
+					_cible_ballon = Vector3(sens * (L / 2.0 - 11.0), 0, 0)
+				_:
+					_cible_ballon = Vector3(sens * (L / 2.0 - 4.0), 0, cote * 7.0 + randf_range(-2.0, 2.0))
 		"but":
 			_cible_ballon = Vector3(sens * (L / 2.0 + 0.8), 0, randf_range(-1.2, 1.2))
 			_marquer(i, ev)
 		"arret", "rate", "poteau":
-			_cible_ballon = Vector3(sens * (L / 2.0 - 1.5), 0, randf_range(-3.0, 3.0))
+			_cible_ballon = Vector3(sens * (L / 2.0 - 1.5), 0, cote * 2.0 + randf_range(-2.0, 2.0))
 		"rouge":
 			if _acteurs.has(ev.get("joueur", "")):
 				_cibles[ev.joueur] = Vector3(sens * 7.0, 0, -P / 2.0 - 1.6)
@@ -557,6 +567,11 @@ func _evenement(ev: Dictionary) -> void:
 			_cible_ballon = Vector3.ZERO
 	if ev.type != "info" or _etat.minute in [45, 90]:
 		_dire(str(ev.texte))
+
+
+## Le côté d'un couloir pour une équipe qui attaque vers l'est : -1 à gauche (nord), +1 à droite, 0 au centre.
+static func _cote(couloir: String) -> float:
+	return -1.0 if couloir == "gauche" else (1.0 if couloir == "droite" else 0.0)
 
 
 ## Le but : le tableau change, le buteur lève les bras, la tribune se lève.

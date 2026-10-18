@@ -1,8 +1,10 @@
 extends SceneTree
 ## Vérifie le match minute par minute sans affichage : godot --headless --path . -s tools/test_foot_match.gd
 ## Le moteur repris du Vestiaire (FootMatch) joue un match complet et rejouable ; ses buts font le score ;
-## les effectifs d'une saison sont stables ; une décision d'avant-match change la rencontre ; sur cent
-## matchs, le nombre de buts reste celui d'un championnat ; la feuille du match s'ouvre depuis le tableau.
+## les effectifs d'une saison sont stables, chaque joueur a ses sept compétences ; une décision d'avant-match
+## change la rencontre ; le onze occupe trois couloirs et chaque action a le sien ; sur cent matchs, le
+## nombre de buts reste celui d'un championnat, avec des corners, des coups francs et des penaltys ; la
+## feuille du match s'ouvre depuis le tableau.
 
 var fails := 0
 
@@ -34,6 +36,21 @@ func _init() -> void:
 	check(postes == {"G": 2, "D": 6, "M": 6, "A": 4}, "deux gardiens, six défenseurs, six milieux, quatre attaquants : %s" % str(postes))
 	check(foot.effectif(dom, 1) == eff and foot.effectif(dom, 2) != eff, "le même effectif toute la saison, un autre la saison suivante")
 
+	# Les sept compétences de chacun, au profil de son poste, les mêmes à chaque lecture.
+	var g_ok := true
+	var a_ok := true
+	for j in eff.values():
+		var c: Dictionary = j.get("competences", {})
+		if c.size() != 7 or c.values().any(func(v): return v < 20 or v > 95):
+			g_ok = false
+		if j.poste == "G" and c.get("gardien", 0) <= c.get("but", 0):
+			g_ok = false
+		if j.poste == "A" and c.get("but", 0) <= c.get("gardien", 0):
+			a_ok = false
+	check(g_ok and a_ok, "sept compétences par joueur : le gardien garde, le buteur marque")
+	check(FootMatch.competence(eff.values()[0], "cpa") == float(eff.values()[0].competences.cpa) and FootMatch.competence({"poste": "M", "note": 60}, "jeu") > 55.0, "la compétence lue, ou déduite de la note quand elle manque")
+	check(FootMatch.couloir_de(FootMatch.FORMATIONS["4-4-2"][1]) == "gauche" and FootMatch.couloir_de(FootMatch.FORMATIONS["4-4-2"][2]) == "centre" and FootMatch.couloir_de(FootMatch.FORMATIONS["4-4-2"][4]) == "droite", "les cases ont leur couloir")
+
 	# Un match joué d'une traite.
 	var etat: Dictionary = foot.rencontre(1, 5, dom, ext)
 	check(etat.fini and etat.periode == 2 and etat.minute >= 92, "le match va au bout : %s à la %d" % [FootMatch.libelle_minute(etat), etat.minute])
@@ -49,6 +66,16 @@ func _init() -> void:
 		check(etat.equipes[i].remplacements <= FootMatch.MAX_REMPLACEMENTS and etat.equipes[i].onze.size() <= 11, "équipe %d : %d changements, %d sur le terrain" % [i, etat.equipes[i].remplacements, etat.equipes[i].onze.size()])
 	var poss: Array = FootMatch.possession(etat)
 	check(poss[0] + poss[1] == 100 and etat.stats[0].tirs >= etat.stats[0].cadres, "possession et tirs se tiennent : %s" % str(poss))
+	var onze0: Array = etat.equipes[0].onze
+	check(onze0.all(func(e): return e.couloir in FootMatch.COULOIRS) and onze0.any(func(e): return e.couloir == "gauche") and onze0.any(func(e): return e.couloir == "droite"), "le onze occupe les trois couloirs")
+	var occasions: Array = etat.evenements.filter(func(e): return e.type == "occasion")
+	check(occasions.all(func(e): return e.couloir in FootMatch.COULOIRS and e.phase in ["jeu", "corner", "coupFranc", "penalty"]), "chaque occasion a son couloir et sa phase : %d occasions" % occasions.size())
+	var tirs: Array = etat.evenements.filter(func(e): return e.type in ["but", "arret", "rate", "poteau"])
+	check(tirs.all(func(e): return e.has("couloir") and e.has("joueur")), "chaque tir dit son couloir et son tireur")
+	var s0: Dictionary = etat.stats[0]
+	check(s0.couloirs.gauche + s0.couloirs.centre + s0.couloirs.droite == occasions.filter(func(e): return e.equipe == 0 and e.phase in ["jeu", "penalty"]).size(), "les occasions se comptent par couloir : %s" % str(s0.couloirs))
+	var secteurs: Dictionary = FootMatch.secteurs(etat.equipes[0], etat.joueurs if etat.has("joueurs") else _joueurs_de(foot, dom, ext))
+	check(secteurs.has("attaque_gauche") and secteurs.has("defense_droite") and secteurs.milieu > 20.0 and secteurs.milieu < 110.0, "les secteurs à l'échelle d'une note : milieu %.0f, attaque gauche %.0f, défense centre %.0f" % [secteurs.milieu, secteurs.attaque_gauche, secteurs.defense_centre])
 
 	# Rejouable, et sensible aux décisions.
 	var h := Hasard.depuis(Hasard.graine("essai"))
@@ -81,6 +108,37 @@ func _init() -> void:
 	check(n == 112 and moyenne >= 1.8 and moyenne <= 3.6, "%d matchs, %.2f buts par match" % [n, moyenne])
 	check(dom_gagne >= n * 0.3, "le terrain compte : %d victoires à domicile sur %d" % [dom_gagne, n])
 
+	# Sur ces matchs, les coups de pied arrêtés et les ailes existent, le centre domine.
+	var cpa := {"corner": 0, "coupFranc": 0, "penalty": 0}
+	var couloirs := {"gauche": 0, "centre": 0, "droite": 0}
+	var buts_tete := 0
+	var buts_cpa := 0
+	for j in range(1, 15):
+		for m in foot.journee(1, 0, 0, j, 14):
+			var e: Dictionary = foot.rencontre(1, j, m.dom, m.ext)
+			for ev in e.evenements:
+				if ev.type == "occasion":
+					if ev.phase != "jeu":
+						cpa[ev.phase] += 1
+					couloirs[ev.couloir] += 1
+			for bt in e.buts:
+				buts_tete += 1 if bt.tete else 0
+				buts_cpa += 1 if bt.coup_franc or bt.penalty else 0
+	check(cpa.corner >= 10 and cpa.coupFranc >= 10 and cpa.penalty >= 1, "corners, coups francs et penaltys sur une saison : %s" % str(cpa))
+	check(couloirs.centre > couloirs.gauche and couloirs.centre > couloirs.droite and couloirs.gauche > 0 and couloirs.droite > 0, "les trois couloirs servent, le centre d'abord : %s" % str(couloirs))
+	check(buts_tete >= 3 and buts_cpa >= 1, "des buts de la tête (%d) et sur coup de pied arrêté (%d)" % [buts_tete, buts_cpa])
+	# Au coup d'envoi, le corner est tiré par le meilleur tireur de coups de pied arrêtés du onze.
+	var frais := FootMatch.creer(foot._equipe(1, 5, dom, joueurs), foot._equipe(1, 5, ext, joueurs), joueurs, Hasard.depuis(3))
+	var hc := Hasard.depuis(3)
+	var corner := {}
+	for k in 40:
+		FootMatch._corner(frais, 0, "gauche", joueurs, hc)
+		var occ: Array = frais.evenements.filter(func(e): return e.type == "occasion" and e.get("phase", "") == "corner")
+		if not occ.is_empty():
+			corner = occ[0]
+			break
+	check(not corner.is_empty() and corner.tireur == FootMatch._meilleur(frais.equipes[0], joueurs, "cpa").id and corner.joueur != corner.tireur and corner.couloir == "gauche", "le meilleur tireur de coups de pied arrêtés tire le corner, un autre le reprend")
+
 	# La feuille du match dans le tableau.
 	var fenetre := FootTableau.new()
 	root.add_child(fenetre)
@@ -97,6 +155,13 @@ func _init() -> void:
 
 	print("\n%d échec(s)" % fails)
 	quit(1 if fails > 0 else 0)
+
+
+func _joueurs_de(foot: Node, dom: String, ext: String) -> Dictionary:
+	var j := {}
+	j.merge(foot.effectif(dom, 1))
+	j.merge(foot.effectif(ext, 1))
+	return j
 
 
 func _textes(n: Node) -> Array:

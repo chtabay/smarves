@@ -464,8 +464,9 @@ func force(club: String, s: int) -> float:
 	return clampf(h.normal(60.0, 8.0), 40.0, 80.0)
 
 
-## L'effectif d'un club pour une saison : {id: {prenom, nom, poste, age, note, condition, moral}}, les notes
-## autour de la force du club (les premiers de chaque poste un peu au-dessus, les autres un peu en dessous).
+## L'effectif d'un club pour une saison : {id: {prenom, nom, poste, age, note, condition, moral, competences}}, les
+## notes autour de la force du club (les premiers de chaque poste un peu au-dessus, les autres un peu en
+## dessous), et les sept compétences de chacun (FootMatch.COMPETENCES) autour de sa note.
 func effectif(club: String, s: int) -> Dictionary:
 	var cle := "%d/%s" % [s, club]
 	if _effectifs.has(cle):
@@ -481,8 +482,12 @@ func effectif(club: String, s: int) -> Dictionary:
 			n += 1
 			var age: int = clampi(int(roundf(h.normal(26.0, 4.0))), 17, 36)
 			var bonus := 3.0 if k < titulaires else -3.0
-			out["%s/%d" % [club, n]] = {"prenom": h.choix(PRENOMS), "nom": h.choix(NOMS), "poste": poste, "age": age,
+			var id := "%s/%d" % [club, n]
+			var j := {"prenom": h.choix(PRENOMS), "nom": h.choix(NOMS), "poste": poste, "age": age,
 				"note": clampi(int(roundf(h.normal(niveau + bonus, 5.0))), 35, 92), "condition": 100, "moral": 70}
+			# Ses sept compétences, d'un tirage à part pour laisser les noms et les notes où ils sont.
+			j.competences = FootMatch.tirer_competences(j, Hasard.depuis(Hasard.graine("competences/%s/%s" % [cle, id])))
+			out[id] = j
 	_effectifs[cle] = out
 	return out
 

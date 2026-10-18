@@ -214,6 +214,12 @@ func _match(m: Dictionary, s := 0, j := 0) -> Control:
 
 # ---------------------------------------------------------------- la feuille d'un match
 
+## Les occasions d'une équipe par couloir, « 3 · 6 · 2 » de gauche à droite.
+static func _couloirs(st: Dictionary) -> String:
+	var c: Dictionary = st.get("couloirs", {})
+	return "%d · %d · %d" % [int(c.get("gauche", 0)), int(c.get("centre", 0)), int(c.get("droite", 0))]
+
+
 ## La feuille d'un match joué : le score, les buteurs, les chiffres, et le match minute par minute tel
 ## que le commentateur l'a raconté. Le match lui-même ne se suit qu'en direct, au stade.
 func ouvrir_feuille(s: int, j: int, dom: String, ext: String) -> void:
@@ -264,6 +270,8 @@ func ouvrir_feuille(s: int, j: int, dom: String, ext: String) -> void:
 	var st: Array = etat.stats
 	for ligne in [["%d %%" % poss[0], "possession", "%d %%" % poss[1]], [str(st[0].tirs), "tirs", str(st[1].tirs)],
 			[str(st[0].cadres), "cadrés", str(st[1].cadres)], [str(st[0].corners), "corners", str(st[1].corners)],
+			[str(st[0].get("coups_francs", 0)), "coups francs", str(st[1].get("coups_francs", 0))],
+			[_couloirs(st[0]), "par couloir", _couloirs(st[1])],
 			[str(st[0].fautes), "fautes", str(st[1].fautes)], ["%d / %d" % [st[0].jaunes, st[0].rouges], "cartons", "%d / %d" % [st[1].jaunes, st[1].rouges]]]:
 		var a := _mot(ligne[0], 14, CRAIE, Polices.gras())
 		a.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
