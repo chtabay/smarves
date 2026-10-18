@@ -34,7 +34,21 @@ const TYPES := {
 		"unique": true,
 		"relie": "le championnat de la Vienne : la commune a un club, qui y entre à la saison suivante",
 	},
+	# Socle 1.1. Une salle de jeu meublée et tenue par le socle (scripts/socle/salle_jeu.gd) : la commune
+	# nomme son tenancier et ses jeux, le socle pose les tables et fait tourner les jeux de Smarves.
+	"salle_jeu": {
+		"nom": "la salle de jeu",
+		"champs": {"jeux": TYPE_ARRAY, "tenancier": TYPE_STRING, "graine": TYPE_FLOAT, "decor": TYPE_STRING,
+			"repliques": TYPE_ARRAY, "enseigne": TYPE_STRING},
+		"requis": ["jeux"],
+		"unique": false,
+		"relie": "rien : c'est un lieu de la commune, le lieu du manifeste de même id lui donne son seuil",
+	},
 }
+
+## Les jeux d'une salle de jeu, et ses décors (scripts/socle/salle_jeu.gd, JEUX et DECORS).
+const JEUX := ["machine", "loto", "blackjack", "roulette", "craps", "baccara", "poker", "des", "roue", "courses"]
+const DECORS := ["cafe", "salle", "cave"]
 
 ## Les champs de toutes les structures. « noeud » est le nom du nœud de la scène qui la place (un
 ## Node3D de commune.tscn, cherché par son nom) ; « lot » est la porte du village qui y mène.
@@ -73,7 +87,10 @@ static func verifier(liste: Variant) -> PackedStringArray:
 		types[t] = true
 		var champs: Dictionary = TYPES[t].champs
 		for k in TYPES[t].requis:
-			if str(s.get(k, "")).strip_edges() == "":
+			if typeof(s.get(k)) == TYPE_ARRAY:
+				if (s[k] as Array).is_empty():
+					erreurs.append("structure %s : « %s » est vide" % [id, k])
+			elif str(s.get(k, "")).strip_edges() == "":
 				erreurs.append("structure %s : champ manquant « %s »" % [id, k])
 		for k in s:
 			var attendu = COMMUNS.get(k, champs.get(k))
@@ -84,6 +101,15 @@ static func verifier(liste: Variant) -> PackedStringArray:
 		if t == "terrain_foot" and s.has("couleurs") and typeof(s.couleurs) == TYPE_ARRAY:
 			if s.couleurs.size() != 2 or s.couleurs.any(func(c): return typeof(c) != TYPE_STRING or not Color.html_is_valid(c)):
 				erreurs.append("structure %s : « couleurs » donne deux couleurs (« #1b3c8c »)" % id)
+		if t == "salle_jeu":
+			if typeof(s.get("jeux")) == TYPE_ARRAY:
+				for j in s.jeux:
+					if not str(j) in JEUX:
+						erreurs.append("structure %s : jeu inconnu « %s » (connus : %s)" % [id, str(j), ", ".join(JEUX)])
+			if s.has("decor") and typeof(s.decor) == TYPE_STRING and not s.decor in DECORS:
+				erreurs.append("structure %s : décor inconnu « %s » (%s)" % [id, s.decor, ", ".join(DECORS)])
+			if typeof(s.get("repliques")) == TYPE_ARRAY and s.repliques.any(func(r): return typeof(r) != TYPE_STRING):
+				erreurs.append("structure %s : « repliques » est une liste de phrases" % id)
 	return erreurs
 
 

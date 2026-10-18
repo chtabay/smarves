@@ -120,15 +120,37 @@ Une **structure** est quelque chose qu'une commune possède et qui compte pour l
 
 | Champ | Obligatoire | Ce que c'est |
 |---|---|---|
-| `type` | oui | un type connu du socle : `gare`, `arret_car`, `terrain_foot` (la liste est `Structures.TYPES`, `scripts/socle/structures.gd`) |
+| `type` | oui | un type connu du socle : `gare`, `arret_car`, `terrain_foot`, `salle_jeu` (socle 1.1) ; la liste est `Structures.TYPES`, `scripts/socle/structures.gd` |
 | `id` | oui | minuscules, chiffres et `_`, unique dans la commune ; la clé au registre est `<commune>/<id>` |
 | `nom` | oui | le nom affiché (« La gare de Ligugé ») |
 | `noeud` | non | le nom du nœud de la scène de la commune qui place la structure (un `Node3D`, cherché par son nom) ; sans lui, la structure compte pour les autres communes mais ne se voit pas chez soi |
 | `lot` | non | la porte du village qui y mène, quand la commune a des lots |
 
-Et par type : `gare` prend `quai` ; `arret_car` prend `abri` ; `terrain_foot` demande `club` (le nom du club) et prend `court` (le sigle), `couleurs` (deux couleurs, `#rrggbb`) et `stade`. Une seule structure de chaque type par commune.
+Et par type : `gare` prend `quai` ; `arret_car` prend `abri` ; `terrain_foot` demande `club` (le nom du club) et prend `court` (le sigle), `couleurs` (deux couleurs, `#rrggbb`) et `stade` ; `salle_jeu` demande `jeux` et prend `tenancier`, `graine`, `decor`, `repliques` et `enseigne` (plus bas). Une seule structure de chaque type par commune, sauf les salles de jeu : une commune peut en avoir plusieurs.
 
 **Le stade est une scène du socle.** Une commune qui déclare un terrain n'a pas de stade à construire : `scenes/stade.tscn` (`scripts/village/stade.gd`) est le même pour toutes, habillé de la structure. Il y lit **le nom du club** (`club`, sur la tribune et dans la bouche du commentateur), **le sigle** (`court`, au tableau d'affichage), **les couleurs** (`couleurs` : la première teint la tribune, les bancs, les toits, les casquettes et les maillots des supporters, la seconde les bas des joueurs), **le nom du stade** (`nom` de la structure, sur l'arche et la tribune : « Le stade des Prés » s'écrit « STADE DES PRÉS »), et **la porte du retour** (`lot`, sinon l'`id` de la structure : `Game.return_point` à la sortie). **Le président** est l'hôte (`hote`) du lieu du manifeste qui porte le terrain, celui dont l'`id` est le même que celui de la structure ou que son `lot` ; sans lieu, c'est « Le président ». La commune ouvre son stade depuis sa scène par `Football.ouvrir_stade("<id de la commune>")` (la porte de son terrain, le nœud `noeud`) ; la sortie du stade ramène à sa scène. Tant que le club attend la saison prochaine, on y regarde le match de la division suivie et le président n'a rien à décider. Un champ inconnu, un type inconnu, un champ du mauvais type ou un terrain sans club rendent le manifeste invalide : la commune n'est pas inscrite, et le portail refuse le paquet pour la même raison. Un type ajouté plus tard fera monter la version du socle ; un paquet qui s'en sert le demande par `socle_min`.
+
+**La salle de jeu est une scène du socle** (socle 1.1 : un paquet qui en déclare une met `"socle_min": "1.1"`). La commune ne construit ni la pièce ni les jeux : `scenes/salle_jeu.tscn` (`scripts/socle/salle_jeu.gd`) bâtit la salle, pose une table ou une machine par jeu en rangs de trois depuis le comptoir, et fait tourner les jeux de Smarves, les mêmes panneaux qu'au casino, avec la même bourse et le même total gagné.
+
+```json
+{"type": "salle_jeu", "id": "tripot", "nom": "Le tripot de la gare", "noeud": "PorteTripot", "lot": "place",
+ "jeux": ["machine", "blackjack", "roulette"], "tenancier": "Mme Rivière", "graine": 17, "decor": "cafe",
+ "enseigne": "Au Tripot", "repliques": ["« Ici on mise petit, mais on mise souvent. »"]}
+```
+
+| Champ | Ce que c'est |
+|---|---|
+| `jeux` | les jeux de la salle, une table chacun, parmi `machine`, `loto`, `blackjack`, `roulette`, `craps`, `baccara`, `poker`, `des`, `roue`, `courses` (`Structures.JEUX`) |
+| `tenancier` | qui tient le comptoir ; un habitant dessiné comme ceux de Smarves, tiré de `graine` (un nombre : le même tenancier d'une partie à l'autre) |
+| `decor` | `cafe` (carrelage et papier peint, par défaut), `salle` (parquet, une salle des fêtes) ou `cave` (dalles et pierre, une arrière-salle) |
+| `repliques` | ce que dit le tenancier quand on lui parle ; des phrases du socle à défaut |
+| `enseigne` | le nom écrit au fond de la salle ; `nom` à défaut |
+
+**Le seuil** vient des `lieux` du manifeste : la salle de même `id` qu'un lieu reste fermée tant que le joueur n'a pas gagné son `seuil`, et son `hote` fait signe quand elle ouvre. Une salle sans lieu du même id est ouverte d'emblée. La commune ouvre sa salle depuis sa scène, à la porte du nœud `noeud` : `SalleJeu.ouvrir("<id de la commune>", "<id de la salle>")` rend `false` si elle est encore fermée (`SalleJeu.ouverte()` et `SalleJeu.seuil()` permettent de l'écrire sur la porte). La sortie ramène dans la scène de la commune, devant la porte (`lot`, sinon l'`id` de la salle). `tools/test_salle_jeu.gd` vérifie tout le chemin avec la commune d'essai `tools/fixtures/salle_jeu/`.
+
+```sh
+godot --headless --path . -s tools/test_salle_jeu.gd
+```
 
 **Le registre** (autoload `Registre`, `scripts/socle/registre.gd`) est reconstruit à chaque inscription de commune et à chaque lecture du catalogue : il tient les structures des communes **installées** chez le joueur et celles des communes **publiées** sur le portail, installées ou non (le catalogue porte les structures de chaque paquet publié). Chaque entrée dit sa commune, son code INSEE, son centre sur la carte et si l'on peut y aller (`installee`). Ce qu'il expose :
 
@@ -220,7 +242,7 @@ Le catalogue est [`scripts/socle/atelier.json`](../scripts/socle/atelier.json), 
 | Sons | les bruitages (jetons, cartes, dés, gain…) et deux ambiances | `Atelier.son("dice")`, `Atelier.ambiance("village")` |
 | Matières | les shaders : calcaire, tuiles, vitre éclairée, pavés, eau, tapis, damas, marbre, feutre, ciel de nuit | `Atelier.matiere("cobbles")` |
 | Polices | les trois polices du jeu | `Polices.texte()`, `Polices.gras()`, `Polices.titre()` |
-| Scènes | le stade du socle, ouvert par une structure `terrain_foot` du manifeste (section « Les structures ») ; l'habitant et la caméra, dans la scène du kit | — |
+| Scènes | le stade du socle (structure `terrain_foot`) et la salle de jeu (structure `salle_jeu`), section « Les structures » ; l'habitant et la caméra, dans la scène du kit | `Football.ouvrir_stade(commune)`, `SalleJeu.ouvrir(commune, id)` |
 
 Les personnages nommés de Smarves (Josiane, M. Brunet…) restent à Smarves : une commune a ses propres habitants, l'atelier ne lui prête que des figurants.
 
