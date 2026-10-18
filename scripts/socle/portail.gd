@@ -40,7 +40,8 @@ static func entrees(texte: String) -> Array:
 			continue
 		out.append({"insee": str(e.insee), "id": id, "nom": str(e.get("nom", id)), "auteur": str(e.get("auteur", "")),
 			"version": str(e.get("version", "")), "description": str(e.get("description", "")), "paquet": paquet,
-			"taille": int(e.taille), "sha256": str(e.sha256).to_lower(), "publie_le": str(e.get("publie_le", ""))})
+			"taille": int(e.taille), "sha256": str(e.sha256).to_lower(), "publie_le": str(e.get("publie_le", "")),
+			"structures": Structures.nettoyer(e.get("structures"))})
 	return out
 
 
