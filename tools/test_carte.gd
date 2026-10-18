@@ -76,6 +76,7 @@ func _init() -> void:
 	carte.fermer()
 	await _attendre(0.8)
 	check(not carte.is_open() and not paused, "Échap ou Revenir rend le village")
+	await _titre(carte)
 	print("\n%d échec(s)" % fails)
 	quit(1 if fails > 0 else 0)
 
@@ -124,3 +125,22 @@ func _dessin() -> void:
 	c.cadrer_tout()
 	check(c.zoom == 1.0 and c.foyer == c.size / 2.0, "la vue d'ensemble montre tout le département")
 	c.free()
+
+
+## Dès le menu de départ : la carte s'ouvre sans partie, Revenir rend le menu, choisir Smarves lance le jeu.
+func _titre(carte: CanvasLayer) -> void:
+	change_scene_to_file("res://scenes/title.tscn")
+	await _attendre(1.0)
+	carte.ouvrir(true)
+	await _attendre(0.3)
+	var c: CarteVienne = carte.get("_carte")
+	check(carte.is_open() and c.ici == "", "depuis le menu, la carte s'ouvre sans épingle : on n'est encore nulle part")
+	check((carte.get("_retour") as Button).text.ends_with("Revenir au menu"), "son retour rend le menu")
+	carte.fermer()
+	await _attendre(0.8)
+	check(not carte.is_open() and not paused and current_scene.scene_file_path == "res://scenes/title.tscn", "on retrouve le menu")
+	carte.ouvrir(true)
+	await _attendre(0.3)
+	carte.aller("86263")
+	await _attendre(1.5)
+	check(current_scene.scene_file_path == "res://scenes/main.tscn" and not paused, "choisir Smarves sur la carte lance la partie")
