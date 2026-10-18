@@ -17,6 +17,10 @@ const MOIS := ["janvier", "février", "mars", "avril", "mai", "juin", "juillet",
 
 ## La division montrée : [niveau, groupe].
 var division: Array = []
+## La colonne de la fenêtre : le tableau, ou la feuille d'un match.
+var _colonne: VBoxContainer
+## Le numéro de la relecture en cours ; en changer l'arrête.
+var _relecture := 0
 
 
 ## Les autoloads, cherchés à la racine : la fenêtre se construit aussi hors du jeu (essais), où le nom
@@ -36,16 +40,16 @@ func _ready() -> void:
 	st.shadow_color = Color(0, 0, 0, 0.5)
 	st.shadow_size = 24
 	add_theme_stylebox_override("panel", st)
-	var colonne := VBoxContainer.new()
-	colonne.add_theme_constant_override("separation", 10)
-	add_child(colonne)
-	remplir(colonne)
+	_colonne = VBoxContainer.new()
+	_colonne.add_theme_constant_override("separation", 10)
+	add_child(_colonne)
+	remplir(_colonne)
 
 
 ## Remplit la fenêtre d'après la pyramide du moment.
 func remplir(colonne: VBoxContainer) -> void:
-	for c in colonne.get_children():
-		c.free()
+	_relecture += 1
+	_vider(colonne)
 	division = division_suivie()
 	var n: int = division[0]
 	var g: int = division[1]
@@ -72,7 +76,7 @@ func remplir(colonne: VBoxContainer) -> void:
 	if joues > 0:
 		droite.add_child(_mot("Journée %d, dimanche dernier" % joues, 22, CRAIE, Polices.gras()))
 		for m in foot().journee(s, n, g, joues):
-			droite.add_child(_match(m))
+			droite.add_child(_match(m, s, joues))
 	else:
 		droite.add_child(_mot("Pas encore de match cette saison", 22, CRAIE, Polices.gras()))
 		droite.add_child(_mot("La craie attend le premier dimanche.", 16, DOUX))
@@ -180,8 +184,8 @@ func _couleurs(couleurs: Array) -> Control:
 	return f
 
 
-## Une ligne de match : « Union sportive d'Iteuil  2 - 1  Étoile de Smarves », ou l'heure si pas joué.
-func _match(m: Dictionary) -> Control:
+## Une ligne de match : « USI  2 - 1  ESM », les noms en petit, et la feuille du match s'il est joué.
+func _match(m: Dictionary, s := 0, j := 0) -> Control:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 10)
 	var dom := _mot(foot().clubs[m.dom].court, 16, CRAIE, Polices.gras())
@@ -199,7 +203,135 @@ func _match(m: Dictionary) -> Control:
 	noms.custom_minimum_size.x = 180
 	noms.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(noms)
+	if not score.is_empty() and j > 0:
+		var b := _bouton("la feuille", func(): ouvrir_feuille(s, j, m.dom, m.ext), 13)
+		b.name = "Feuille_%s_%s" % [m.dom, m.ext]
+		h.add_child(b)
 	return h
+
+
+# ---------------------------------------------------------------- la feuille d'un match
+
+## La feuille d'un match joué : le score, les buteurs, les chiffres, et le match minute par minute tel
+## que le commentateur l'a raconté ; « Revoir le match » le fait défiler.
+func ouvrir_feuille(s: int, j: int, dom: String, ext: String) -> void:
+	_relecture += 1
+	_vider(_colonne)
+	var etat: Dictionary = foot().rencontre(s, j, dom, ext)
+	var cd: Dictionary = foot().clubs[dom]
+	var ce: Dictionary = foot().clubs[ext]
+	var haut := HBoxContainer.new()
+	haut.add_theme_constant_override("separation", 14)
+	_colonne.add_child(haut)
+	haut.add_child(_couleurs(cd.couleurs))
+	haut.add_child(_mot("%s  %d - %d  %s" % [cd.nom, etat.score[0], etat.score[1], ce.nom], 28, OR, Polices.gras()))
+	haut.add_child(_couleurs(ce.couleurs))
+	_colonne.add_child(_mot("Journée %d de la saison %d  ·  %s  ·  %s" % [j, s, etat.stade, foot().nom_division(division[0], division[1])], 16, DOUX))
+
+	var rang := HBoxContainer.new()
+	rang.add_theme_constant_override("separation", 36)
+	_colonne.add_child(rang)
+	# Les buteurs, de part et d'autre.
+	var joueurs := {}
+	joueurs.merge(foot().effectif(dom, s))
+	joueurs.merge(foot().effectif(ext, s))
+	for i in 2:
+		var col := VBoxContainer.new()
+		col.custom_minimum_size.x = 300
+		rang.add_child(col)
+		col.add_child(_mot("Buts %s" % [cd.court if i == 0 else ce.court], 16, CRAIE, Polices.gras()))
+		var aucun := true
+		for b in etat.buts:
+			if b.equipe != i:
+				continue
+			aucun = false
+			var ligne := "%s  %s" % [b.minute, FootMatch.nom_court(joueurs[b.buteur])]
+			if b.penalty:
+				ligne += " (pén.)"
+			elif b.passeur != null:
+				ligne += "  (passe de %s)" % FootMatch.nom_court(joueurs[b.passeur])
+			col.add_child(_mot(ligne, 14, CRAIE))
+		if aucun:
+			col.add_child(_mot("–", 14, DOUX))
+	# Les chiffres du match.
+	var chiffres := GridContainer.new()
+	chiffres.columns = 3
+	chiffres.add_theme_constant_override("h_separation", 18)
+	chiffres.add_theme_constant_override("v_separation", 2)
+	rang.add_child(chiffres)
+	var poss: Array = FootMatch.possession(etat)
+	var st: Array = etat.stats
+	for ligne in [["%d %%" % poss[0], "possession", "%d %%" % poss[1]], [str(st[0].tirs), "tirs", str(st[1].tirs)],
+			[str(st[0].cadres), "cadrés", str(st[1].cadres)], [str(st[0].corners), "corners", str(st[1].corners)],
+			[str(st[0].fautes), "fautes", str(st[1].fautes)], ["%d / %d" % [st[0].jaunes, st[0].rouges], "cartons", "%d / %d" % [st[1].jaunes, st[1].rouges]]]:
+		var a := _mot(ligne[0], 14, CRAIE, Polices.gras())
+		a.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		a.custom_minimum_size.x = 60
+		chiffres.add_child(a)
+		chiffres.add_child(_mot(ligne[1], 13, DOUX))
+		chiffres.add_child(_mot(ligne[2], 14, CRAIE, Polices.gras()))
+
+	_colonne.add_child(_filet())
+	_colonne.add_child(_mot("Le match minute par minute", 18, CRAIE, Polices.gras()))
+	var defile := ScrollContainer.new()
+	defile.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	defile.custom_minimum_size = Vector2(980, 260)
+	defile.name = "Recit"
+	_colonne.add_child(defile)
+	var recit := VBoxContainer.new()
+	recit.add_theme_constant_override("separation", 2)
+	recit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	defile.add_child(recit)
+	for ev in etat.evenements:
+		recit.add_child(_evenement(ev))
+
+	var bas := HBoxContainer.new()
+	bas.add_theme_constant_override("separation", 12)
+	bas.alignment = BoxContainer.ALIGNMENT_END
+	_colonne.add_child(bas)
+	bas.add_child(_bouton("Revoir le match", func(): revoir(etat, recit, defile)))
+	bas.add_child(_bouton("Retour au tableau", func(): remplir(_colonne)))
+	bas.add_child(_bouton("Reposer la craie  (Échap)", func(): closed.emit()))
+
+
+## Une ligne du récit : la minute, puis la phrase ; les buts à l'or, les cartons rouges en rouge.
+func _evenement(ev: Dictionary) -> Control:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 10)
+	var minute := _mot(str(ev.minute), 13, DOUX)
+	minute.custom_minimum_size.x = 48
+	minute.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	h.add_child(minute)
+	var encre := CRAIE
+	var police: Font = null
+	match str(ev.type):
+		"but":
+			encre = OR
+			police = Polices.gras()
+		"rouge":
+			encre = Color(0.95, 0.4, 0.35)
+		"jaune":
+			encre = Color(0.95, 0.85, 0.4)
+		"ambiance", "info":
+			encre = DOUX
+	var texte := _mot(str(ev.texte), 14, encre, police, true)
+	texte.custom_minimum_size.x = 860
+	h.add_child(texte)
+	return h
+
+
+## Fait défiler le récit depuis le coup d'envoi, une ligne après l'autre.
+func revoir(etat: Dictionary, recit: VBoxContainer, defile: ScrollContainer) -> void:
+	_relecture += 1
+	var id := _relecture
+	_vider(recit)
+	for ev in etat.evenements:
+		if id != _relecture or not is_inside_tree():
+			return
+		recit.add_child(_evenement(ev))
+		await get_tree().process_frame
+		defile.scroll_vertical = int(defile.get_v_scroll_bar().max_value)
+		await get_tree().create_timer(0.12 if ev.type in ["but", "rouge", "occasion"] else 0.05).timeout
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -209,6 +341,13 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 # ---------------------------------------------------------------- les petits outils du dessin
+
+## Vide un conteneur sans libérer un bouton pendant son propre signal.
+func _vider(n: Node) -> void:
+	for c in n.get_children():
+		n.remove_child(c)
+		c.queue_free()
+
 
 func _boite(fond: Color, bord: Color, rayon := 6, marge := 12, epaisseur := 1) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
@@ -239,12 +378,12 @@ func _filet() -> ColorRect:
 	return f
 
 
-func _bouton(t: String, action: Callable) -> Button:
+func _bouton(t: String, action: Callable, taille := 16) -> Button:
 	var b := Button.new()
 	b.text = t
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	b.add_theme_font_override("font", Polices.gras())
-	b.add_theme_font_size_override("font_size", 16)
+	b.add_theme_font_size_override("font_size", taille)
 	for etat in ["normal", "hover", "pressed", "focus"]:
 		var s := _boite(Color(OR, 0.25 if etat == "hover" or etat == "pressed" else 0.12), OR, 4, 8)
 		s.content_margin_left = 18

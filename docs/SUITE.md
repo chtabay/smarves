@@ -326,7 +326,7 @@ Un type de plus fait monter la version du socle ; un paquet qui s'en sert le dem
    ![L'ardoise du café](captures/salle-cafe-ardoise.png)
 
    ![Le tableau du dimanche ouvert](captures/salle-cafe-tableau.png)
-5. **Le match minute par minute** repris de Zeus, le terrain de Smarves et le match animé.
+5. **Le match minute par minute** (fait le 18 octobre 2026) : `FootMatch` (`scripts/socle/foot_match.gd`) est le moteur du Vestiaire porté en GDScript, tactique, occasions, penaltys, cartons, blessures, changements de l'adjoint et commentateur compris ; `Football.effectif(club, saison)` tire dix-huit joueurs par club et par saison autour de la force du club, `Football.rencontre(saison, journee, dom, ext)` joue le match d'une traite et le garde en mémoire, et `resultat()` est son score : le même chez tout le monde, puisque la graine et les décisions (`decider` : formation, mentalité, pressing) sont les mêmes. Au café, chaque match joué de la dernière journée a sa **feuille** dans le tableau du dimanche : les buteurs, les chiffres, le récit minute par minute, et « Revoir le match » qui le fait défiler. Test : `godot --headless --path . -s tools/test_foot_match.gd` ; capture : `--won=1000 --journee=5 --open=feuille`. Restent le terrain de Smarves et le match animé sur la pelouse, qui feront avancer ce même état minute par minute.
 6. **Les parts du club, le mercato**, puis le multi (décisions au serveur).
 
 ## 7. Le séquencement et les fils en cours
