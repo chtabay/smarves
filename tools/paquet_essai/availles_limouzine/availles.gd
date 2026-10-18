@@ -813,8 +813,11 @@ func _interface() -> void:
 	_aide = _ligne(AIDE_DESSUS, 16)
 	_aide.position = Vector2(24, 112)
 	ui.add_child(_aide)
-	# Tab (ou le bouton « Vue ») : la bascule est au socle, la ligne d'aide la suit.
-	Vue.basculee.connect(func(dessus: bool): _aide.text = AIDE_DESSUS if dessus else AIDE_A_PIED)
+	# Tab (ou le bouton « Vue ») : la bascule est au socle, la ligne d'aide la suit. Par son chemin,
+	# pour que le paquet s'ouvre aussi dans un jeu plus ancien, qui n'a pas encore cette bascule.
+	var vue := get_node_or_null("/root/Vue")
+	if vue:
+		vue.basculee.connect(func(dessus: bool): _aide.text = AIDE_DESSUS if dessus else AIDE_A_PIED)
 	var sources := _ligne("Plan : © les contributeurs d'OpenStreetMap ; IGN, BD TOPO et RGE ALTI", 13)
 	sources.modulate = Color(1, 1, 1, 0.7)
 	sources.anchor_top = 1.0
