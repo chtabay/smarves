@@ -153,6 +153,8 @@ func lire_catalogue(adresse := Portail.adresse()) -> void:
 	catalogue_etat = "lecture"
 	var http := HTTPRequest.new()
 	http.timeout = 10.0
+	# La bienvenue, le carnet et la carte mettent le jeu en pause : la requête doit avancer quand même.
+	http.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(http)
 	http.request_completed.connect(func(resultat: int, code: int, _h, corps: PackedByteArray):
 		http.queue_free()
@@ -185,6 +187,8 @@ func installer(id: String) -> void:
 	http.timeout = 120.0
 	http.download_file = part
 	http.body_size_limit = Portail.TAILLE_MAX + 1
+	# Un téléchargement lancé depuis la bienvenue ou la carte, jeu en pause, doit aboutir.
+	http.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(http)
 	http.request_completed.connect(func(resultat: int, code: int, _h, _c):
 		http.queue_free()

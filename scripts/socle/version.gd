@@ -1,7 +1,7 @@
 extends Node
 ## La version du jeu (autoload « Version »). Chaque export range son commit dans res://version.json
 ## (addons/smarves_version) ; au lancement, le jeu lit sur GitHub les derniers commits de l'étiquette
-## « derniere-version », celle de la Release que l'export de main déplace. Si l'étiquette est
+## « derniere-version », celle de la Release que la construction de main déplace une fois l'exécutable, l'installateur et l'APK publiés ensemble. Si l'étiquette est
 ## ailleurs, une nouvelle version attend : la bienvenue l'annonce, avec ce qui a changé, et propose
 ## de la télécharger. Sans estampille (lancé depuis l'éditeur, outils de test) ou sur le web, qui se
 ## met à jour seul, rien n'est lu. En cas d'échec, le jeu se tait : on joue à la version qu'on a.
@@ -42,6 +42,7 @@ func lire(adresse := _adresse()) -> void:
 	etat = "lecture"
 	var http := HTTPRequest.new()
 	http.timeout = 10.0
+	http.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(http)
 	http.request_completed.connect(func(resultat: int, code: int, _h, corps: PackedByteArray):
 		http.queue_free()

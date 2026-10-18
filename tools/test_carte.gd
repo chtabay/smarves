@@ -78,6 +78,7 @@ func _init() -> void:
 	check(not carte.is_open() and not paused, "Échap ou Revenir rend le village")
 	await _car_et_routes(carte)
 	await _mises_a_jour(carte, communes)
+	await _telechargement(communes)
 	await _titre(carte)
 	print("\n%d échec(s)" % fails)
 	quit(1 if fails > 0 else 0)
@@ -140,6 +141,35 @@ func _mises_a_jour(carte: CanvasLayer, communes: Node) -> void:
 		pk.add_file("res://communes/liguge/" + f, LIGUGE + f)
 	pk.flush()
 	check(not communes.ouvrir("liguge") and str(communes.refus[-1][1]).contains("prochain lancement"), "un pack remplacé pendant la partie attend le prochain lancement")
+
+
+## Un paquet installé depuis la bienvenue ou la carte, jeu en pause, arrive quand même.
+func _telechargement(communes: Node) -> void:
+	var srv := TMP + "serveur/"
+	DirAccess.make_dir_recursive_absolute(srv)
+	DirAccess.copy_absolute(TMP + "liguge.pck", srv + "liguge.pck")
+	DirAccess.remove_absolute(TMP + "liguge.pck.nouveau")
+	var pid := OS.create_process("python3", ["-m", "http.server", "8765", "--bind", "127.0.0.1", "--directory", ProjectSettings.globalize_path(srv)])
+	await _attendre(1.5)
+	communes.catalogue = [{"insee": "86133", "id": "liguge", "nom": "Ligugé", "auteur": "Claude", "version": "0.3.0", "description": "",
+		"paquet": "http://127.0.0.1:8765/liguge.pck", "taille": FileAccess.get_file_as_bytes(srv + "liguge.pck").size(),
+		"sha256": FileAccess.get_sha256(srv + "liguge.pck"), "publie_le": ""}]
+	var fin := [null]
+	var rappel := func(id, ok, message): fin[0] = [id, ok, message]
+	communes.installee.connect(rappel)
+	paused = true
+	communes.installer("liguge")
+	for i in 40:
+		if fin[0] != null:
+			break
+		await _attendre(0.25)
+	paused = false
+	communes.installee.disconnect(rappel)
+	OS.kill(pid)
+	check(fin[0] != null and fin[0][1], "jeu en pause, le paquet se télécharge : %s" % str(fin[0]))
+	check(FileAccess.file_exists(TMP + "liguge.pck.nouveau") and communes.en_attente("liguge") == "0.3.0", "Ligugé déjà ouverte : la 0.3.0 attend le prochain lancement")
+	communes.installations.erase("liguge")
+	communes.catalogue = []
 
 
 func _attendre(s: float) -> void:

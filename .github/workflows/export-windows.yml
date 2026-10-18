@@ -49,33 +49,6 @@ jobs:
           path: build/
           retention-days: 30
 
-      - name: Préparer l'archive de téléchargement
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          cd build
-          zip -q ../Smarves-windows.zip Smarves.exe
-
-      - name: Déplacer l'étiquette de la dernière version
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          git tag -f derniere-version
-          git push -f origin derniere-version
-
-      - name: Publier la Release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: derniere-version
-          name: Smarves — dernière version
-          body: |
-            Version construite automatiquement depuis main (${{ github.sha }}).
-            Sur Windows (64 bits) : télécharger Smarves-installateur.exe et le lancer ; il installe le jeu
-            sans droits administrateur et pose un raccourci dans le menu Démarrer et sur le bureau.
-            Sans installation : Smarves-windows.zip, à décompresser, puis lancer Smarves.exe.
-            Sur téléphone Android : télécharger Smarves.apk depuis le téléphone et l'installer.
-          files: Smarves-windows.zip
-          make_latest: true
-
   # L'installateur Windows (Inno Setup, installer/smarves.iss), construit sur un runner Windows à
   # partir de l'exécutable exporté, puis essayé de bout en bout : installation silencieuse, raccourcis,
   # lancement du jeu par le raccourci, désinstallation. Sur main, il rejoint la Release.
@@ -162,13 +135,6 @@ jobs:
           name: Smarves-installateur
           path: build/Smarves-installateur.exe
           retention-days: 30
-
-      - name: Ajouter l'installateur à la Release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: derniere-version
-          files: build/Smarves-installateur.exe
 
   android:
     if: github.event_name != 'schedule'
@@ -273,20 +239,75 @@ jobs:
           path: build/Smarves.apk
           retention-days: 30
 
-  publier-android:
-    needs: [export, android]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  # La Release ne bouge qu'une fois tout construit et essayé : l'étiquette « derniere-version », que le
+  # jeu compare à son commit pour annoncer une nouvelle version, et les fichiers arrivent ensemble.
+  # Avant, l'étiquette bougeait avec l'exécutable et l'installateur suivait une à deux minutes plus
+  # tard : un joueur qui téléchargeait entre les deux réinstallait l'ancienne version, et le jeu lui
+  # proposait encore la nouvelle. Sans APK (job Android en échec), Windows est publié quand même.
+  publier:
+    needs: [export, installateur-windows, android]
+    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.export.result == 'success' && needs.installateur-windows.result == 'success'
     runs-on: ubuntu-latest
+    concurrency:
+      group: publier-derniere-version
+      cancel-in-progress: false
     steps:
+      - uses: actions/checkout@v5
+
       - uses: actions/download-artifact@v4
         with:
-          name: Smarves-android
+          name: Smarves-windows
+          path: build
 
-      - name: Ajouter l'APK à la Release
+      - uses: actions/download-artifact@v4
+        with:
+          name: Smarves-installateur
+          path: build
+
+      - uses: actions/download-artifact@v4
+        if: needs.android.result == 'success'
+        with:
+          name: Smarves-android
+          path: build
+
+      - name: Préparer l'archive de téléchargement
+        run: |
+          cd build
+          zip -q ../Smarves-windows.zip Smarves.exe
+          ls -la
+
+      # Un commit plus récent a pu être publié pendant que celui-ci se construisait : on ne recule pas.
+      - name: Vérifier que ce commit est le plus récent de main
+        id: recent
+        run: |
+          git fetch -q origin main
+          if [ "$(git rev-parse origin/main)" = "$GITHUB_SHA" ]; then echo "publier=oui" >> "$GITHUB_OUTPUT"
+          else echo "main a avancé : la construction suivante publiera." >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: Déplacer l'étiquette de la dernière version
+        if: steps.recent.outputs.publier == 'oui'
+        run: |
+          git tag -f derniere-version
+          git push -f origin derniere-version
+
+      - name: Publier la Release
+        if: steps.recent.outputs.publier == 'oui'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: derniere-version
-          files: Smarves.apk
+          name: Smarves — dernière version
+          body: |
+            Version construite automatiquement depuis main (${{ github.sha }}).
+            Sur Windows (64 bits) : télécharger Smarves-installateur.exe et le lancer ; il installe le jeu
+            sans droits administrateur et pose un raccourci dans le menu Démarrer et sur le bureau.
+            Sans installation : Smarves-windows.zip, à décompresser, puis lancer Smarves.exe.
+            Sur téléphone Android : télécharger Smarves.apk depuis le téléphone et l'installer.
+          files: |
+            Smarves-windows.zip
+            build/Smarves-installateur.exe
+            build/Smarves.apk
+          fail_on_unmatched_files: false
+          make_latest: true
 
   garder-la-cle:
     if: github.event_name == 'schedule'
