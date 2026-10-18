@@ -28,9 +28,10 @@ func _ready() -> void:
 	var size := get_viewport().get_visible_rect().size
 	_check("vue de dessus au départ", m.fps and m.topdown)
 
-	# Toucher le sol un peu au-dessus de l'habitant : il y marche.
+	# Toucher le sol deux pas au sud de l'habitant : il y marche. Pas au nord : le panneau d'affichage
+	# y est, et le toucher l'ouvrirait (ce qui est voulu en jeu).
 	var start := p.global_position
-	var at: Vector2 = m.camera.unproject_position(start) + Vector2(0, -100)
+	var at: Vector2 = m.camera.unproject_position(start + Vector3(0, 0, 2.0))
 	var origin: Vector3 = m.camera.project_ray_origin(at)
 	var ray: Vector3 = m.camera.project_ray_normal(at)
 	var aim := origin + ray * ((start.y - origin.y) / ray.y)
