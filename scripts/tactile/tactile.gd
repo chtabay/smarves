@@ -228,7 +228,7 @@ func _process(delta: float) -> void:
 		_touches.clear()
 		_release_stick()
 	var s := _scene()
-	_view_btn.visible = walking and s != null and s.has_method("set_fps")
+	_view_btn.visible = walking and s != null and (s.has_method("set_fps") or Vue.gere(s))
 	_carnet_btn.visible = (walking or Carnet.is_open()) and not Settings.is_open()
 	_carnet_btn.text = "Fermer" if Carnet.is_open() else "Carnet"
 	# Dans un lieu (café, banque, table…), l'habitant est figé et Échap en sort : le bouton le dit.

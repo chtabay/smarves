@@ -69,11 +69,11 @@ func _init() -> void:
 	check(plaque, "la mairie porte sa plaque, dessinée d'après photo")
 	var cam: Camera3D = s.camera
 	check(cam.has_signal("au_dela") and cam.notches.size() == 4, "la caméra à crans du village, avec un cran de plus pour le bourg")
-	s.topdown = false
-	s.set_fps(true)
-	var a_pied: bool = s.player.camera.current and s.player.follow_camera == null and not s.player.avatar.visible
-	s.topdown = true
-	s.set_fps(true)
+	var vue: Node = root.get_node("/root/Vue")
+	check(vue.gere(s) and not s.has_method("set_fps"), "la bascule de vue est au socle : la commune n'a rien à coder")
+	vue.basculer(s)
+	var a_pied: bool = s.player.camera.current and s.player.follow_camera == null and not s.player.avatar.visible and cam.notches.is_empty()
+	vue.basculer(s)
 	check(a_pied and cam.current and s.player.follow_camera == cam and cam.notches.size() == 4, "Tab passe à pied et revient en vue de dessus, comme à Smarves")
 
 	# L'habitant se pose sur le sol, à l'altitude de la place.

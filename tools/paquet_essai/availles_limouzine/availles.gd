@@ -27,8 +27,6 @@ const AIDE_A_PIED := "ZQSD : marcher  ·  Maj : courir  ·  souris : regarder  �
 var player: CharacterBody3D
 var camera: Camera3D
 var fps := true
-## Vue de dessus (la caméra à crans suit l'habitant) ou vue à pied (Tab, comme à Smarves).
-var topdown := true
 
 var data: Dictionary
 var remarquables: Array = []
@@ -815,6 +813,8 @@ func _interface() -> void:
 	_aide = _ligne(AIDE_DESSUS, 16)
 	_aide.position = Vector2(24, 112)
 	ui.add_child(_aide)
+	# Tab (ou le bouton « Vue ») : la bascule est au socle, la ligne d'aide la suit.
+	Vue.basculee.connect(func(dessus: bool): _aide.text = AIDE_DESSUS if dessus else AIDE_A_PIED)
 	var sources := _ligne("Plan : © les contributeurs d'OpenStreetMap ; IGN, BD TOPO et RGE ALTI", 13)
 	sources.modulate = Color(1, 1, 1, 0.7)
 	sources.anchor_top = 1.0
@@ -861,37 +861,6 @@ func _process(_delta: float) -> void:
 	if player.global_position.y < -10.0:
 		player.global_position = Vector3(_arrivee.x, hauteur(_arrivee.x, _arrivee.y) + 0.5, _arrivee.y)
 		player.velocity = Vector3.ZERO
-
-
-func _unhandled_input(event: InputEvent) -> void:
-	# Tab alterne vue de dessus et vue à pied, comme à Smarves.
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_TAB and player and not player.frozen and _suivre:
-		topdown = not topdown
-		set_fps(true)
-		get_viewport().set_input_as_handled()
-
-
-## Pour le socle (Tactile, bouton de vue) et pour Tab : on marche, vu de dessus ou à pied.
-func set_fps(on: bool) -> void:
-	fps = on and player != null
-	if not fps:
-		return
-	if topdown:
-		camera.make_current()
-		player.follow_camera = camera
-		player.avatar.visible = true
-		camera.target = player.global_position + Vector3(0, 0.3, 0)
-		camera.set("_target_goal", camera.target)
-		camera.use_notches(CRANS, 1)
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	else:
-		camera.use_notches([], 0)
-		player.follow_camera = null
-		player.avatar.visible = false
-		player.camera.make_current()
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	if _aide:
-		_aide.text = AIDE_DESSUS if topdown else AIDE_A_PIED
 
 
 ## Pour les captures de vérification : -- --capture=sortie.png [--a=x,z,cran,lacet] [--oeil=x,y,z,cx,cy,cz]
