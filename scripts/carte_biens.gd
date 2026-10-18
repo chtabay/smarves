@@ -80,6 +80,10 @@ static func state_of(id: String) -> String:
 	var it: Dictionary = Biens.item(id)
 	if Game.won < int(it.gate):
 		return "ferme"
+	if it.kind == "club":
+		# Les obligations du club : à vous dès qu'on y a mis quelque chose, à prendre sinon.
+		var f: Node = (Engine.get_main_loop() as SceneTree).root.get_node_or_null("Football")
+		return "a_vous" if f != null and int(f.investi(str(it.club))) > 0 else "vente"
 	if Biens.available(id):
 		return "vente"
 	return "a_vous"
@@ -122,15 +126,20 @@ func _lot(id: String) -> void:
 	var sel := id == selected
 	draw_rect(r, Color(0.65, 0.12, 0.08) if sel else Color(0.45, 0.32, 0.18), false, 3.0 if sel else 1.5)
 	var line := ""
-	match state:
-		"vente":
-			line = "%s cr." % Game.fmt(Biens.next_price(id))
-			if Biens.count(id) > 0:
-				line = "×%d · %s" % [Biens.count(id), line]
-		"a_vous":
-			line = "à vous" if Biens.count(id) <= 1 else "à vous ×%d" % Biens.count(id)
-		"ferme":
-			line = "pas encore"
+	if Biens.item(id).kind == "club" and state != "ferme":
+		var f: Node = (Engine.get_main_loop() as SceneTree).root.get_node_or_null("Football")
+		var inv: int = int(f.investi(str(Biens.item(id).club))) if f != null else 0
+		line = "%s cr. placés" % Game.fmt(inv) if inv > 0 else "obligations"
+	else:
+		match state:
+			"vente":
+				line = "%s cr." % Game.fmt(Biens.next_price(id))
+				if Biens.count(id) > 0:
+					line = "×%d · %s" % [Biens.count(id), line]
+			"a_vous":
+				line = "à vous" if Biens.count(id) <= 1 else "à vous ×%d" % Biens.count(id)
+			"ferme":
+				line = "pas encore"
 	# Le nom en haut, le prix ou l'état en bas, chacun dans sa moitié de case.
 	var half := Vector2(r.size.x, r.size.y / 2.0)
 	_fit(LOTS[id][0], Rect2(r.position + Vector2(0, r.size.y * 0.06), half), 25, INK)

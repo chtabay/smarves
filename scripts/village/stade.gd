@@ -774,16 +774,8 @@ func _maybe_capture() -> void:
 		elif arg.begins_with("--minute=") or arg.begins_with("--journee=") or arg == "--mercato":
 			pass
 		elif arg.begins_with("--actionnaires="):
-			# Des parts du club pour la capture : --actionnaires=vous:2,Lucien:1 (avant --open=causerie).
-			var club := _club_de_la_commune()
-			var autres: Array = []
-			for morceau in arg.trim_prefix("--actionnaires=").split(","):
-				var kv := morceau.split(":")
-				if kv[0] == "vous":
-					Football.parts_locales[club] = int(kv[1])
-				else:
-					autres.append({"par": kv[0], "nombre": int(kv[1]), "moi": false})
-			Football.parts[club] = autres
+			# Des obligations du club pour la capture : --actionnaires=vous:3+1,Lucien:5 (les rangs, avant --open=causerie).
+			Football.forcer_porteurs(arg.trim_prefix("--actionnaires="), _club_de_la_commune())
 		elif arg == "--open=causerie":
 			open_causerie()
 		elif arg == "--open=mercato":

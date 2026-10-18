@@ -46,7 +46,7 @@ func remplir(colonne: VBoxContainer) -> void:
 		# Les parts du club, cédées chez le notaire : qui en tient le plus parle au président.
 		colonne.add_child(_mot(str(f.phrase_actionnaires(club)), 15, OR, null, true))
 	if not f.peut_decider(club):
-		colonne.add_child(_mot("Le président n'écoute que son premier actionnaire. Maître Garnier cède des parts du club à l'étude.", 16, CRAIE, null, true))
+		colonne.add_child(_mot("Le président n'écoute que son premier porteur d'obligations. Maître Garnier cède celles du club à l'étude.", 16, CRAIE, null, true))
 		colonne.add_child(_mot(etat_texte(actuelle), 15, DOUX, null, true))
 		_bas(colonne, false)
 		return
@@ -71,7 +71,7 @@ func etat_texte(actuelle: Dictionary) -> String:
 		"locale":
 			if connecte:
 				return "Consigne gardée sur cet appareil, en route vers le championnat."
-			return "Consigne gardée sur cet appareil seulement : connecte-toi à ton compte Pyramides (dans la bienvenue) pour qu'elle compte pour tout le monde."
+			return "Consigne gardée sur cet appareil seulement : connectez-vous à votre compte Pyramides (dans la bienvenue) pour qu'elle compte pour tout le monde."
 		_:
 			if connecte:
 				return "Aucune consigne encore : le club jouera en 4-4-2, équilibré, pressing normal."
