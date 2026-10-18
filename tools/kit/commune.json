@@ -1,0 +1,17 @@
+{
+	"format": 1,
+	"id": "__ID__",
+	"nom": "__NOM__",
+	"auteur": "",
+	"version": "0.1.0",
+	"socle_min": "1.0",
+	"insee": "__INSEE__",
+	"population": 0,
+	"description": "",
+	"scene": "res://communes/__ID__/commune.tscn",
+	"arrivee": {"lot": "place", "nom": "La place", "par": ["smarves"]},
+	"lieux": [{"id": "comptoir", "nom": "Le comptoir", "jeu": "à écrire", "seuil": 40000, "hote": "Le tenancier"}],
+	"banque": {"id": "caisse___ID__", "nom": "La caisse de __NOM__", "banquier": "à écrire", "preteur": "__ID__", "lieu": "comptoir"},
+	"licence": "",
+	"sources": []
+}

@@ -13,11 +13,27 @@ Sortie, dans le dossier de la commune :
 - bourg.json : tout ce que la scène construit, en unités du jeu (1 unité = 2,4 m, l'échelle de
   Smarves), x vers l'est, z vers le sud, y vers le haut, l'altitude la plus basse du cadre à y = 0 ;
 - sol.png : la couverture du sol (herbe, prés, bois, places, eau), un pixel par mètre ;
-- plan.png : le plan vu de dessus, pour comparer avec la carte.
+- build/plan_<id>.png : le plan vu de dessus, pour comparer avec la carte.
 
-Usage : python3 tools/bourg_reel.py availles_limouzine [--cache=dossier]
-Demande Pillow (python3 -m pip install pillow). Les téléchargements sont gardés dans le cache
-(build/bourg_reel/ par défaut) : relancer l'outil ne réinterroge pas les services.
+Usage : python3 -I tools/bourg_reel.py <id> [options]
+Le dossier de la commune est communes/<id>/ (celui du kit), sinon tools/paquet_essai/<id>/. Le code
+INSEE suffit : il est lu dans le manifeste commune.json, et l'outil en tire le centre du bourg (le lieu
+« village » d'OpenStreetMap qui porte le nom de la commune) et un cadre de 1 km de côté autour.
+Les réglages se gardent dans bourg_reel.json, à côté du manifeste (voir celui d'Availles-Limouzine,
+tools/paquet_essai/availles_limouzine/bourg_reel.json) ; une option de la ligne de commande passe
+devant le fichier :
+  --insee=86015              le code INSEE, s'il n'est pas dans le manifeste
+  --centre=0.656,46.1215     le centre du bourg (longitude, latitude), origine du plan
+  --cadre=-600,-330,460,420  le cadre en mètres autour du centre : ouest, nord, est, sud
+  --rayon=500                ou un cadre carré de ce demi-côté
+  --riviere="La Vienne"      le nom donné à l'eau qu'OpenStreetMap ne nomme pas
+  --remarquables=lieux.json  les lieux remarquables : une liste de {"id", "nom", "genre", "osm"},
+                             genre parmi monument, ouvrage, commerce, maison, lieu ; osm est
+                             l'objet d'OpenStreetMap (way/64158647 ou node/4280211690)
+  --dossier=chemin           un autre dossier de commune, relatif à la racine du dépôt
+  --cache=dossier            le cache des téléchargements (build/bourg_reel/<id>/ par défaut)
+Demande Pillow (python3 -m pip install pillow). Les téléchargements sont gardés dans le cache :
+relancer l'outil ne réinterroge pas les services.
 """
 import json
 import math
@@ -36,44 +52,92 @@ UNITE = 2.4  # mètres par unité du jeu, comme à Smarves (docs/SUITE.md)
 PAS_RELIEF = 5.0  # mètres entre deux points de la grille du relief
 AGENT = "Smarves/1.0 (jeu ; https://github.com/chtabay/smarves)"
 
-# Chaque bourg : son dossier, l'origine (longitude, latitude), le cadre en mètres autour de
-# l'origine [ouest, nord, est, sud] et les lieux remarquables tirés d'OpenStreetMap.
-BOURGS = {
-    "availles_limouzine": {
-        "dossier": "tools/paquet_essai/availles_limouzine",
-        "origine": (0.6560, 46.1215),
-        "cadre": (-600.0, -330.0, 460.0, 420.0),
-        "riviere": "La Vienne",
-        # id, nom affiché, genre, objet OSM (way/… ou node/…), le bâtiment qu'il désigne (si c'en est un)
-        "remarquables": [
-            ("eglise", "Église Saint-Martin", "monument", "way/64158647"),
-            ("mairie", "La mairie", "monument", "way/64158835"),
-            ("pont", "Le pont sur la Vienne", "ouvrage", "way/39472163"),
-            ("porte_cavaliers", "La porte des Cavaliers", "monument", "way/64160435"),
-            ("porte_riviere", "La porte de la Rivière", "monument", "way/1193944966"),
-            ("chateau", "Le logis de la Châtellenie", "monument", "way/64160486"),
-            ("halles", "La maison Malmache et les anciennes halles", "monument", "node/13926583502"),
-            ("salle_fetes", "La salle des fêtes", "lieu", "way/64160783"),
-            ("monument_morts", "Le monument aux morts", "monument", "node/13329356359"),
-            ("croix", "La croix", "monument", "node/13329356353"),
-            ("hotel", "L'hôtel-restaurant de la Châtellenie", "commerce", "node/4280211690"),
-            ("adrien_bernard", "Le 10 place Adrien-Bernard", "maison", "way/64160464"),
-            ("office_tourisme", "L'office de tourisme", "lieu", "way/64158780"),
-            ("ecole", "L'école", "lieu", "node/4294659881"),
-            ("pompiers", "La caserne des pompiers", "lieu", "way/64158776"),
-            ("poste", "La Poste", "commerce", "node/4294659834"),
-            ("boulangerie", "La boulangerie", "commerce", "node/4280119991"),
-            ("boucherie", "La boucherie", "commerce", "node/4280165091"),
-            ("pharmacie", "La pharmacie", "commerce", "node/4294659839"),
-            ("cafe", "Le café de la place", "commerce", "node/10765833210"),
-            ("restaurant", "Le restaurant de la rue Adrien-Veillon", "commerce", "node/4281120590"),
-            ("garage", "Le garage", "commerce", "node/4280165092"),
-            ("fontaine", "La fontaine", "monument", "node/3397137001"),
-            ("camping", "Le camping du Parc", "lieu", "node/472692717"),
-            ("passerelle", "La passerelle", "ouvrage", "way/364676674"),
-        ],
-    },
-}
+# Les réglages d'un bourg, du plus fort au plus faible : les options de la ligne de commande, le
+# fichier bourg_reel.json du dossier de la commune, puis les valeurs par défaut tirées du code INSEE.
+RAYON = 500.0  # mètres autour du centre quand le cadre n'est pas donné
+REGLAGES = ("insee", "centre", "cadre", "rayon", "riviere", "remarquables", "dossier", "cache")
+
+
+def lire_json(chemin):
+    with open(chemin, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def commune_vienne(insee):
+    for c in lire_json(os.path.join(RACINE, "communes", "vienne.json"))["communes"]:
+        if c["insee"] == insee:
+            return c
+    return None
+
+
+def centre_du_bourg(nom, insee, cache):
+    """Le centre du bourg : le lieu « ville » ou « village » d'OpenStreetMap qui porte le nom de la
+    commune (le clocher, d'ordinaire), par Nominatim ; à défaut, le centre de la commune dans
+    communes/vienne.json, qui tombe souvent en pleine campagne."""
+    q = urllib.parse.urlencode({"q": "%s, Vienne, France" % nom, "format": "json", "limit": 5,
+                                "featuretype": "settlement"})
+    try:
+        for r in json.loads(telecharger("https://nominatim.openstreetmap.org/search?" + q, cache, "centre_%s.json" % insee)):
+            if r.get("addresstype") in ("town", "village", "city", "hamlet") or r.get("type") in ("town", "village", "city"):
+                return (round(float(r["lon"]), 5), round(float(r["lat"]), 5))
+    except (urllib.error.URLError, ConnectionError, ValueError, KeyError):
+        pass
+    c = commune_vienne(insee)
+    print("centre du bourg introuvable sur OpenStreetMap : centre de la commune, à préciser par --centre=lon,lat")
+    return tuple(c["centre"])
+
+
+def reglages(ident, args):
+    """Réunit les réglages du bourg `ident` (voir l'usage en tête du fichier)."""
+    opts = {}
+    for a in args:
+        if not a.startswith("--") or "=" not in a or a[2:].split("=", 1)[0] not in REGLAGES:
+            raise SystemExit("option inconnue : %s\n%s" % (a, __doc__))
+        k, v = a[2:].split("=", 1)
+        opts[k] = v
+    dossier = opts.get("dossier")
+    if dossier is None:
+        dossier = os.path.join("communes", ident)
+        if not os.path.isdir(os.path.join(RACINE, dossier)):
+            dossier = os.path.join("tools", "paquet_essai", ident)
+    plein = os.path.join(RACINE, dossier)
+    if not os.path.isdir(plein):
+        raise SystemExit("pas de dossier %s : posez d'abord la commune (le kit) ou donnez --dossier=" % dossier)
+    fichier = os.path.join(plein, "bourg_reel.json")
+    cfg = lire_json(fichier) if os.path.exists(fichier) else {}
+    manifeste = os.path.join(plein, "commune.json")
+    insee = opts.get("insee") or cfg.get("insee") or (lire_json(manifeste).get("insee") if os.path.exists(manifeste) else None)
+    c = commune_vienne(str(insee)) if insee else None
+    if c is None:
+        raise SystemExit("code INSEE inconnu dans la Vienne : %s (--insee=86xxx)" % insee)
+    cache = opts.get("cache") or os.path.join(RACINE, "build", "bourg_reel", ident)
+    os.makedirs(cache, exist_ok=True)
+    if "centre" in opts:
+        centre = tuple(float(x) for x in opts["centre"].split(","))
+    elif "centre" in cfg:
+        centre = tuple(cfg["centre"])
+    else:
+        centre = centre_du_bourg(c["nom"], c["insee"], cache)
+    if "cadre" in opts:
+        cadre = tuple(float(x) for x in opts["cadre"].split(","))
+    elif "cadre" in cfg and "rayon" not in opts:
+        cadre = tuple(cfg["cadre"])
+    else:
+        r = float(opts.get("rayon", cfg.get("rayon", RAYON)))
+        cadre = (-r, -r, r, r)
+    rem = cfg.get("remarquables", [])
+    if "remarquables" in opts:
+        rem = lire_json(opts["remarquables"])
+        rem = rem.get("remarquables", []) if isinstance(rem, dict) else rem
+    remarquables = []
+    for x in rem:
+        if isinstance(x, dict):
+            remarquables.append((x["id"], x["nom"], x.get("genre", "lieu"), x["osm"]))
+        else:
+            remarquables.append(tuple(x))
+    return {"dossier": dossier, "cache": cache, "insee": c["insee"], "nom": c["nom"], "origine": centre,
+            "cadre": cadre, "riviere": opts.get("riviere", cfg.get("riviere", "")), "remarquables": remarquables}
+
 
 LARGEURS = {  # largeur des voies, en mètres
     "primary": 8.0, "secondary": 7.0, "tertiary": 6.0, "residential": 5.0, "unclassified": 4.5,
@@ -285,17 +349,14 @@ def lire_osm(xml):
 
 
 def main():
-    if len(sys.argv) < 2 or sys.argv[1] not in BOURGS:
+    if len(sys.argv) < 2 or sys.argv[1].startswith("-"):
         print(__doc__)
-        print("Bourgs connus :", ", ".join(BOURGS))
         sys.exit(2)
     ident = sys.argv[1]
-    cfg = BOURGS[ident]
-    cache = os.path.join(RACINE, "build", "bourg_reel", ident)
-    for a in sys.argv[2:]:
-        if a.startswith("--cache="):
-            cache = a.split("=", 1)[1]
-    os.makedirs(cache, exist_ok=True)
+    cfg = reglages(ident, sys.argv[2:])
+    cache = cfg["cache"]
+    print("%s (%s) : centre %.5f, %.5f ; cadre %s m ; %d lieux remarquables" % (
+        cfg["nom"], cfg["insee"], cfg["origine"][0], cfg["origine"][1], "/".join("%g" % x for x in cfg["cadre"]), len(cfg["remarquables"])))
     sortie = os.path.join(RACINE, cfg["dossier"])
     proj = Projection(cfg["origine"])
     cadre = cfg["cadre"]
@@ -653,7 +714,7 @@ def main():
     }
     with open(os.path.join(sortie, "bourg.json"), "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
-    plan(data, os.path.join(sortie, "..", "..", "..", "build", "plan_%s.png" % ident))
+    plan(data, os.path.join(RACINE, "build", "plan_%s.png" % ident))
     print("%d bâtiments, %d voies, %d plans d'eau, %d arbres, %d lieux remarquables ; relief %d × %d, de %.0f à %.0f m"
           % (len(batiments), len(routes), len(eau), len(arbres), len(remarquables), rel.nx, rel.nz, min(rel.alt), max(rel.alt)))
 
