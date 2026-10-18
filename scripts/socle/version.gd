@@ -23,6 +23,8 @@ var distante := ""
 var nouveautes: Array[String] = []
 ## « » tant que rien n'est lu, puis « lecture », « a_jour », « nouvelle » ou « hors_ligne ».
 var etat := ""
+## Le joueur a ouvert le téléchargement de la nouvelle version : reste à l'installer.
+var telechargement_ouvert := false
 
 
 func _ready() -> void:
@@ -89,7 +91,25 @@ func adresse_telechargement() -> String:
 
 
 func telecharger() -> void:
+	telechargement_ouvert = true
 	OS.shell_open(adresse_telechargement())
+
+
+## Où en est le jeu lui-même, en une ligne, la même partout (bienvenue, réglages).
+func resume() -> String:
+	match etat:
+		"nouvelle":
+			if telechargement_ouvert:
+				return {"Android": "Installez l'APK téléchargé par-dessus le jeu, puis rouvrez Smarves : votre partie vous suit."}.get(OS.get_name(),
+					"Lancez l'installateur téléchargé : il ferme Smarves, le remplace, et votre partie vous suit.")
+			return "Une nouvelle version de Smarves est prête."
+		"a_jour":
+			return "Smarves est à jour."
+		"lecture":
+			return "Vérification de la version…"
+		"hors_ligne":
+			return "Hors ligne : la version n'a pas pu être vérifiée."
+	return "Version de développement : pas de mise à jour à chercher."
 
 
 static func _adresse() -> String:

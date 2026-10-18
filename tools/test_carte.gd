@@ -165,11 +165,56 @@ func _telechargement(communes: Node) -> void:
 		await _attendre(0.25)
 	paused = false
 	communes.installee.disconnect(rappel)
-	OS.kill(pid)
 	check(fin[0] != null and fin[0][1], "jeu en pause, le paquet se télécharge : %s" % str(fin[0]))
 	check(FileAccess.file_exists(TMP + "liguge.pck.nouveau") and communes.en_attente("liguge") == "0.3.0", "Ligugé déjà ouverte : la 0.3.0 attend le prochain lancement")
+	check(communes.etat("liguge") == "a_relancer" and (communes.geste("liguge").is_empty() or communes.geste("liguge")[0] == "Relancer maintenant"),
+		"son état est « à relancer » : %s" % communes.resume("liguge"))
+
+	# Iteuil, installée en 0.1.0 et jamais ouverte : sa 0.2.0 arrive toute seule au lancement.
+	_paquet_iteuil(TMP + "iteuil.pck", "0.1.0")
+	check(communes.charger_pack(TMP + "iteuil.pck") == "iteuil", "Iteuil se greffe en 0.1.0 %s" % str(communes.refus.slice(-1)))
+	_paquet_iteuil(srv + "iteuil.pck", "0.2.0")
+	var publie := func(id: String, version: String, fichier: String, sha := "") -> Dictionary:
+		return {"insee": ("86113" if id == "iteuil" else (communes.commune(id).insee if communes.commune(id) else "86088")), "id": id, "nom": id.capitalize(), "auteur": "Claude",
+			"version": version, "description": "", "paquet": "http://127.0.0.1:8765/" + fichier,
+			"taille": FileAccess.get_file_as_bytes(srv + fichier).size() if FileAccess.file_exists(srv + fichier) else 10,
+			"sha256": sha if sha != "" else FileAccess.get_sha256(srv + fichier), "publie_le": ""}
+	communes.catalogue = [publie.call("iteuil", "0.2.0", "iteuil.pck"), publie.call("croutelle", "0.1.0", "absent.pck", "0".repeat(64))]
+	check(communes.etat("iteuil") == "mise_a_jour" and communes.etat("croutelle") == "publiee", "Iteuil a une mise à jour, Croutelle est à installer")
+	communes.call("_mettre_a_jour_seules")
+	communes.installer("croutelle")
+	check(communes.etat("iteuil") == "telechargement" and communes.etat("croutelle") == "attente", "une à la fois : Croutelle attend son tour")
+	for i in 40:
+		if communes.en_cours == "" and communes.file.is_empty():
+			break
+		await _attendre(0.25)
+	check(communes.etat("iteuil") == "a_jour" and communes.commune("iteuil").data.version == "0.2.0" and communes.mises_a_jour_seules.has("iteuil"),
+		"Iteuil s'est mise à jour toute seule : %s" % communes.resume("iteuil"))
+	check(communes.etat("croutelle") == "echec" and communes.geste("croutelle")[0] == "Réessayer", "Croutelle a échoué, on peut réessayer : %s" % communes.resume("croutelle"))
+	check(communes.a_faire() == ["liguge", "croutelle"], "à faire : Ligugé à relancer, Croutelle à réessayer : %s" % str(communes.a_faire()))
+	OS.kill(pid)
 	communes.installations.erase("liguge")
+	communes.echecs.clear()
 	communes.catalogue = []
+
+
+## Un paquet d'Iteuil fait de la scène de Ligugé, à la version voulue.
+func _paquet_iteuil(chemin: String, version: String) -> void:
+	var m: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(LIGUGE + "commune.json"))
+	m.id = "iteuil"
+	m.nom = "Iteuil"
+	m.insee = "86113"
+	m.version = version
+	m.scene = "res://communes/iteuil/commune.tscn"
+	m.banque.preteur = "iteuil"
+	var f := FileAccess.open(TMP + "iteuil.json", FileAccess.WRITE)
+	f.store_string(JSON.stringify(m))
+	f.close()
+	var pk := PCKPacker.new()
+	pk.pck_start(chemin)
+	pk.add_file("res://communes/iteuil/commune.json", TMP + "iteuil.json")
+	pk.add_file("res://communes/iteuil/commune.tscn", LIGUGE + "commune.tscn")
+	pk.flush()
 
 
 func _attendre(s: float) -> void:

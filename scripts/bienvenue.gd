@@ -34,9 +34,9 @@ func _ready() -> void:
 	Communes.catalogue_lu.connect(func():
 		if is_open():
 			_remplir())
-	Communes.installee.connect(func(_id, _ok, _message):
+	Communes.etat_change.connect(func(_id):
 		if is_open():
-			_remplir())
+			_remplir.call_deferred())
 	Version.lue.connect(func():
 		if is_open():
 			_remplir())
@@ -161,8 +161,8 @@ func _remplir_accueil() -> void:
 		_pied.add_child(_bouton("Décider plus tard", Color(0, 0, 0, 0), DOUX, Color(1, 1, 1, 0.3), fermer, 16))
 		return
 	_box.add_child(_mot("%s crédits en poche  ·  fortune nette %s" % [Game.fmt(Game.credits), Game.fmt(Game.credits + Biens.value() - Game.debt)], 17, DOUX))
-	if Version.disponible():
-		_remplir_version()
+	_box.add_child(_filet())
+	_remplir_mises_a_jour()
 	_box.add_child(_filet())
 	var n := Communes.nouvelles.size()
 	_box.add_child(_mot(("%d VILLE%s NOUVELLE%s" % [n, "S" if n > 1 else "", "S" if n > 1 else ""]) if n > 0 else "LES VILLES DE LA VIENNE", 14, EAU, Polices.gras()))
@@ -170,7 +170,7 @@ func _remplir_accueil() -> void:
 	var rang := HBoxContainer.new()
 	rang.add_theme_constant_override("separation", 10)
 	if not Communes.publiees().is_empty() or not Communes.installees().is_empty():
-		rang.add_child(_bouton("Voir les villes  →", Color(0, 0, 0, 0), EAU, EAU, ouvrir.bind(true)))
+		rang.add_child(_bouton("Villes et mises à jour  →", Color(0, 0, 0, 0), EAU, EAU, ouvrir.bind(true)))
 	rang.add_child(_bouton("Ouvrir la carte  (M)", Color(0, 0, 0, 0), TEXTE, Color(1, 1, 1, 0.3), _vers_la_carte))
 	_box.add_child(rang)
 	_box.add_child(_filet())
@@ -251,60 +251,100 @@ static func _il_y_a(quand: int) -> String:
 	return "il y a %d jours" % (s / 86400)
 
 
-## Une nouvelle version attend sur la Release : ce qui a changé (deux lignes, puis le compte des autres) et le
-## téléchargement pour cette plateforme, ouvert dans le navigateur.
-func _remplir_version() -> void:
-	_box.add_child(_filet())
-	_box.add_child(_mot("NOUVELLE VERSION DE SMARVES", 14, OR, Polices.gras()))
+## Les mises à jour en un seul bloc : une ligne qui dit tout (le jeu, les villes à mettre à jour, ce qui
+## se télécharge, ce qui attend le prochain lancement, ce qui s'est fait tout seul), et les gestes.
+func _remplir_mises_a_jour() -> void:
+	var faire := Communes.a_faire()
+	var compte := func(etats: Array) -> int: return faire.filter(func(id): return Communes.etat(id) in etats).size()
+	var parts: Array[String] = []
+	if Version.disponible():
+		parts.append("une nouvelle version du jeu")
+	var n: int = compte.call(["mise_a_jour"])
+	if n > 0:
+		parts.append("%d ville%s à mettre à jour" % [n, "s" if n > 1 else ""])
+	n = compte.call(["echec"])
+	if n > 0:
+		parts.append("%d téléchargement%s à réessayer" % [n, "s" if n > 1 else ""])
+	n = compte.call(["telechargement", "attente"])
+	if n > 0:
+		parts.append("%d en téléchargement" % n)
+	n = compte.call(["a_relancer"])
+	if n > 0:
+		parts.append("%d prête%s au prochain lancement" % [n, "s" if n > 1 else ""])
+	_box.add_child(_mot("MISES À JOUR", 14, OR if not parts.is_empty() else DOUX, Polices.gras()))
+	var ligne := "Tout est à jour." if Version.etat != "hors_ligne" else "Hors ligne : rien n'a pu être vérifié."
+	if not parts.is_empty():
+		var phrase := (", ".join(parts.slice(0, -1)) + " et " + parts[-1]) if parts.size() > 1 else parts[0]
+		ligne = phrase.left(1).to_upper() + phrase.substr(1) + "."
+	if not Communes.mises_a_jour_seules.is_empty():
+		var noms: Array = Communes.mises_a_jour_seules.map(func(id): return Communes.commune(id).nom if Communes.commune(id) else id)
+		ligne += " %s %s mise%s à jour toute%s seule%s." % [" et ".join(noms), "s'est" if noms.size() == 1 else "se sont",
+			"" if noms.size() == 1 else "s", "" if noms.size() == 1 else "s", "" if noms.size() == 1 else "s"]
+	_box.add_child(_mot(ligne, 17, TEXTE, null, true))
+	for id in faire:
+		if Communes.etat(id) == "telechargement":
+			_box.add_child(_progres(id))
+	if Version.disponible():
+		_box.add_child(_ligne_jeu())
+	var rang := HBoxContainer.new()
+	rang.add_theme_constant_override("separation", 10)
+	if compte.call(["mise_a_jour", "echec"]) > 0:
+		rang.add_child(_bouton("Tout mettre à jour", Color(0, 0, 0, 0), OR, OR, Communes.tout_mettre_a_jour, 16))
+	if compte.call(["a_relancer"]) > 0 and Communes.peut_relancer():
+		rang.add_child(_bouton("Relancer maintenant", Color(0, 0, 0, 0), OR, OR, Communes.relancer, 16))
+	if rang.get_child_count() > 0:
+		_box.add_child(rang)
+
+
+## Le jeu lui-même : ce qui a changé, le téléchargement pour cet appareil, et quoi faire ensuite.
+func _ligne_jeu() -> VBoxContainer:
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 6)
+	v.add_child(_mot("SMARVES", 13, OR, Polices.gras()))
 	var lignes: Array = Version.nouveautes.slice(0, 2).map(func(t): return "·  " + t)
 	if Version.nouveautes.size() > 2:
 		var reste: int = Version.nouveautes.size() - 2
 		lignes.append("et %d autre%s changement%s" % [reste, "s" if reste > 1 else "", "s" if reste > 1 else ""])
-	if lignes.is_empty():
-		lignes.append("Une version plus récente du jeu est prête.")
-	_box.add_child(_mot("\n".join(lignes), 16, TEXTE, null, true))
-	_box.add_child(_bouton("Télécharger la nouvelle version", Color(0, 0, 0, 0), OR, OR, Version.telecharger))
-	var mode := {"Windows": "Lancez l'installateur : il remplace le jeu, et votre partie vous suit.",
-			"Android": "Installez l'APK par-dessus le jeu : votre partie vous suit."}
-	if mode.has(OS.get_name()):
-		_box.add_child(_mot(mode[OS.get_name()], 15, DOUX, null, true))
+	if not lignes.is_empty():
+		v.add_child(_mot("\n".join(lignes), 16, TEXTE, null, true))
+	v.add_child(_bouton("Télécharger la nouvelle version", Color(0, 0, 0, 0), OR, OR, func():
+		Version.telecharger()
+		_remplir(), 16))
+	v.add_child(_mot(Version.resume() if Version.telechargement_ouvert else
+		{"Android": "Installez l'APK par-dessus le jeu : votre partie vous suit."}.get(OS.get_name(),
+			"Lancez l'installateur : il remplace le jeu, et votre partie vous suit."), 15, DOUX, null, true))
+	return v
 
 
+func _progres(id: String) -> HBoxContainer:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 10)
+	var c := Communes.commune(id)
+	h.add_child(_mot(str(Communes.au_catalogue(id).get("nom", c.nom if c else id)), 15, DOUX))
+	h.add_child(BarreProgres.pour(id, OR))
+	return h
+
+
+## « Villes et mises à jour » : le jeu, puis les villes qui demandent un geste, les nouvelles, et
+## les autres. Chaque ligne dit son état et son geste, avec les mêmes mots que la carte et le carnet.
 func _remplir_liste() -> void:
 	_box.add_child(_mot("L E S   V I L L E S   D E   L A   V I E N N E", 13, Color(0.55, 0.75, 0.75)))
-	_box.add_child(_mot("Villes disponibles", 32, Color.WHITE, Polices.titre()))
-	for e in Communes.publiees():
-		var installee: bool = Communes.commune(e.id) != null
-		var tete := HBoxContainer.new()
-		tete.add_theme_constant_override("separation", 10)
-		tete.add_child(_mot(e.nom, 20, Color.WHITE, Polices.gras()))
-		if Communes.nouvelles.has(e.id):
-			tete.add_child(_mot("NOUVELLE", 12, EAU, Polices.gras()))
-		var fiche := VBoxContainer.new()
-		fiche.add_theme_constant_override("separation", 4)
-		fiche.add_child(tete)
-		fiche.add_child(_mot("version %s  ·  par %s  ·  %s" % [e.version, e.auteur, Portail.taille(e.taille)], 15, DOUX))
-		if e.description != "":
-			fiche.add_child(_mot(e.description, 17, TEXTE, null, true))
-		var actions := HBoxContainer.new()
-		actions.add_theme_constant_override("separation", 10)
-		if Communes.en_cours == e.id:
-			actions.add_child(_mot("Téléchargement en cours…", 16, DOUX))
-		elif not installee:
-			actions.add_child(_bouton("Installer", Color(0, 0, 0, 0), EAU, EAU, Communes.installer.bind(e.id), 16, Communes.en_cours == ""))
-		else:
-			actions.add_child(_bouton("Y aller  →", EAU, Color(0.04, 0.1, 0.1), Color(0, 0, 0, 0), _visiter.bind(e.id), 16))
-			if str(Communes.installations.get(e.id, e.version)) != e.version:
-				actions.add_child(_bouton("Installer la version %s" % e.version, Color(0, 0, 0, 0), EAU, EAU, Communes.installer.bind(e.id), 16, Communes.en_cours == ""))
-		fiche.add_child(actions)
+	_box.add_child(_mot("Villes et mises à jour", 32, Color.WHITE, Polices.titre()))
+	_box.add_child(_filet())
+	if Version.disponible():
+		_box.add_child(_ligne_jeu())
+	else:
+		_box.add_child(_mot("SMARVES", 13, OR, Polices.gras()))
+		_box.add_child(_mot(Version.resume(), 16, DOUX, null, true))
+	var faire := Communes.a_faire()
+	if faire.any(func(id): return Communes.etat(id) in ["mise_a_jour", "echec"]):
+		_box.add_child(_bouton("Tout mettre à jour", Color(0, 0, 0, 0), OR, OR, Communes.tout_mettre_a_jour, 16))
+	var autres: Array = Communes.installees().filter(func(id): return not faire.has(id))
+	for id in faire + Communes.a_installer().filter(func(id): return not faire.has(id)) + autres:
 		_box.add_child(_filet())
-		_box.add_child(fiche)
-	for id in Communes.installees():
-		if Communes.au_catalogue(id).is_empty():
-			_box.add_child(_filet())
-			_box.add_child(_mot(Communes.commune(id).nom, 20, Color.WHITE, Polices.gras()))
-			_box.add_child(_bouton("Y aller  →", EAU, Color(0.04, 0.1, 0.1), Color(0, 0, 0, 0), _visiter.bind(id), 16))
+		_box.add_child(_ligne_ville(id))
 	if Communes.publiees().is_empty() and Communes.installees().is_empty():
+		_box.add_child(_filet())
 		_box.add_child(_mot(_villes_en_une_ligne(), 18, TEXTE, null, true))
 	for r in Communes.refusees():
 		_box.add_child(_mot("%s : paquet refusé, %s" % [r.nom, r.raison], 16, ROUGE, null, true))
@@ -312,9 +352,41 @@ func _remplir_liste() -> void:
 	var bas := HBoxContainer.new()
 	bas.add_theme_constant_override("separation", 10)
 	bas.add_child(_bouton("←  Retour", Color(0, 0, 0, 0), TEXTE, Color(1, 1, 1, 0.3), ouvrir.bind(false), 16))
-	bas.add_child(_bouton("Relire la liste" if Communes.catalogue_etat != "lecture" else "Lecture…", Color(0, 0, 0, 0), DOUX, Color(0, 0, 0, 0), Communes.lire_catalogue, 15, Communes.catalogue_etat != "lecture" and Communes.en_cours == ""))
+	bas.add_child(_bouton("Relire la liste" if Communes.catalogue_etat != "lecture" else "Lecture…", Color(0, 0, 0, 0), DOUX, Color(0, 0, 0, 0), Communes.lire_catalogue, 15, Communes.catalogue_etat != "lecture"))
 	_box.add_child(bas)
 	Communes.marquer_vues.call_deferred()
+
+
+func _ligne_ville(id: String) -> VBoxContainer:
+	var e := Communes.au_catalogue(id)
+	var c := Communes.commune(id)
+	var etat := Communes.etat(id)
+	var fiche := VBoxContainer.new()
+	fiche.add_theme_constant_override("separation", 4)
+	var tete := HBoxContainer.new()
+	tete.add_theme_constant_override("separation", 10)
+	tete.add_child(_mot(str(e.get("nom", c.nom if c else id)), 20, Color.WHITE, Polices.gras()))
+	var marque: Array = {"publiee": ["NOUVELLE", EAU] if Communes.nouvelles.has(id) else [], "mise_a_jour": ["MISE À JOUR", OR],
+		"a_relancer": ["À RELANCER", OR], "echec": ["ÉCHEC", ROUGE]}.get(etat, [])
+	if not marque.is_empty():
+		tete.add_child(_mot(marque[0], 12, marque[1], Polices.gras()))
+	fiche.add_child(tete)
+	fiche.add_child(_mot(Communes.resume(id), 15, ROUGE if etat == "echec" else DOUX, null, true))
+	if etat in ["publiee", "mise_a_jour"] and str(e.get("description", "")) != "":
+		fiche.add_child(_mot(e.description, 17, TEXTE, null, true))
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 10)
+	if etat == "telechargement":
+		actions.add_child(BarreProgres.pour(id))
+	if c != null:
+		actions.add_child(_bouton("Y aller  →", EAU, Color(0.04, 0.1, 0.1), Color(0, 0, 0, 0), _visiter.bind(id), 16))
+	var g := Communes.geste(id)
+	if not g.is_empty():
+		var teinte := OR if etat in ["mise_a_jour", "a_relancer"] else EAU
+		actions.add_child(_bouton(g[0], Color(0, 0, 0, 0), teinte, teinte, g[1], 16))
+	if actions.get_child_count() > 0:
+		fiche.add_child(actions)
+	return fiche
 
 
 func _vers_la_carte() -> void:
