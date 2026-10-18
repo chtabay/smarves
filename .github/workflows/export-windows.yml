@@ -93,7 +93,10 @@ jobs:
           if ($ecart -gt 40) { throw "L'exécutable n'a pas l'icône de Smarves (écart $ecart)" }
           "Taille de l'installateur : {0:N1} Mo" -f ((Get-Item build\Smarves-installateur.exe).Length / 1MB) >> $env:GITHUB_STEP_SUMMARY
 
+      # Chaque attente est bornée : un essai qui se fige échoue avec son journal au lieu d'annuler le
+      # job sans trace (plusieurs constructions annulées au bout du délai le 18 octobre 2026).
       - name: Essayer l'installateur
+        timeout-minutes: 8
         run: |
           $dossier = Join-Path $env:LOCALAPPDATA "Programs\Smarves"
           $menu = Join-Path ([Environment]::GetFolderPath("Programs")) "Smarves.lnk"
@@ -119,10 +122,17 @@ jobs:
           if (-not $fini) { $jeu.Kill(); throw "Le jeu installé ne s'est pas arrêté en deux minutes" }
           if ($jeu.ExitCode -ne 0) { throw "Le jeu installé s'est arrêté avec le code $($jeu.ExitCode)" }
 
+          # Le jeu est bien fermé avant de le remplacer : l'installateur n'a rien à attendre.
+          Get-Process Smarves -ErrorAction SilentlyContinue | Stop-Process -Force
+
           # Réinstaller par-dessus (mise à jour), puis désinstaller.
-          $p = Start-Process build\Smarves-installateur.exe -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait -PassThru
-          if ($p.ExitCode -ne 0) { throw "Réinstallation : code $($p.ExitCode)" }
-          Start-Process "$dossier\unins000.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait
+          "Réinstallation…"
+          $p = Start-Process build\Smarves-installateur.exe -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=reinstallation.log" -PassThru
+          if (-not $p.WaitForExit(180000)) { $p.Kill(); Get-Content reinstallation.log -Tail 30; throw "La réinstallation ne s'est pas terminée en trois minutes" }
+          if ($p.ExitCode -ne 0) { Get-Content reinstallation.log -Tail 30; throw "Réinstallation : code $($p.ExitCode)" }
+          "Désinstallation…"
+          $p = Start-Process "$dossier\unins000.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -PassThru
+          if (-not $p.WaitForExit(180000)) { $p.Kill(); throw "La désinstallation ne s'est pas terminée en trois minutes" }
           # Le désinstallateur se relance depuis un dossier temporaire : attendre qu'il ait fini.
           for ($i = 0; $i -lt 60 -and (Test-Path "$dossier\Smarves.exe"); $i++) { Start-Sleep 1 }
           foreach ($f in @("$dossier\Smarves.exe", $menu, $bureau, $cle)) {
