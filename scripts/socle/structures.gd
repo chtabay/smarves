@@ -87,10 +87,7 @@ static func verifier(liste: Variant) -> PackedStringArray:
 		types[t] = true
 		var champs: Dictionary = TYPES[t].champs
 		for k in TYPES[t].requis:
-			if typeof(s.get(k)) == TYPE_ARRAY:
-				if (s[k] as Array).is_empty():
-					erreurs.append("structure %s : « %s » est vide" % [id, k])
-			elif str(s.get(k, "")).strip_edges() == "":
+			if (s[k] as Array).is_empty() if typeof(s.get(k)) == TYPE_ARRAY else str(s.get(k, "")).strip_edges() == "":
 				erreurs.append("structure %s : champ manquant « %s »" % [id, k])
 		for k in s:
 			var attendu = COMMUNS.get(k, champs.get(k))
@@ -105,9 +102,9 @@ static func verifier(liste: Variant) -> PackedStringArray:
 			if typeof(s.get("jeux")) == TYPE_ARRAY:
 				for j in s.jeux:
 					if not str(j) in JEUX:
-						erreurs.append("structure %s : jeu inconnu « %s » (connus : %s)" % [id, str(j), ", ".join(JEUX)])
+						erreurs.append("structure %s : jeu inconnu « %s »" % [id, str(j)])
 			if s.has("decor") and typeof(s.decor) == TYPE_STRING and not s.decor in DECORS:
-				erreurs.append("structure %s : décor inconnu « %s » (%s)" % [id, s.decor, ", ".join(DECORS)])
+				erreurs.append("structure %s : décor inconnu « %s »" % [id, s.decor])
 			if typeof(s.get("repliques")) == TYPE_ARRAY and s.repliques.any(func(r): return typeof(r) != TYPE_STRING):
 				erreurs.append("structure %s : « repliques » est une liste de phrases" % id)
 	return erreurs
