@@ -25,6 +25,12 @@ func _init() -> void:
 	check(village != null, "le nœud Village est dans la scène principale")
 	for id in ["notaire", "couture", "poste", "boucherie", "coiffure", "pizzeria", "epicerie", "fleurs", "bibliotheque", "lot_reserve", "brocante", "chambre_cafe", "maison_place", "maison_eglise", "garage", "pharmacie", "lot_bois", "ecole", "stade"]:
 		check(village.lots.has(id) and village.lots[id].has("area"), "emplacement %s posé avec son entrée" % id)
+	# Chaque maison des rues a sa porte, au nom de son adresse chez le notaire.
+	var maisons: Array = load("res://scripts/adresses.gd").rues().filter(func(a): return a.genre == "maison")
+	var portes := maisons.filter(func(a): return village.lots.has(a.item) and village.lots[a.item].has("area"))
+	check(portes.size() == maisons.size(), "chaque maison des rues a sa porte (%d sur %d)" % [portes.size(), maisons.size()])
+	var porte: Variant = village.lots.get("adr_clain_13", {}).get("area")
+	check(porte != null and str(porte.get_meta("prompt", "")).contains("13, rue du Clain"), "la porte du 13, rue du Clain dit son adresse")
 	# La route est libre de bout en bout : du moulin au bois, en passant par la place.
 	await physics_frame
 	var space: PhysicsDirectSpaceState3D = main.get_world_3d().direct_space_state

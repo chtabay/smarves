@@ -413,10 +413,69 @@ func placed_count(thing: String) -> int:
 	return n
 
 
-## Ce qu'on a et qu'on n'a pas encore posé.
+## Ce qu'on a et qu'on n'a pas encore posé (ni rangé au grenier).
 func free_count(thing: String) -> int:
 	var have := 1 if trouvailles.has(thing) else count(thing)
-	return have - placed_count(thing)
+	return have - placed_count(thing) - stored_count(thing)
+
+
+# --- Le grenier : ce qu'on range chez soi, en cartons ------------------------------------------
+
+## Combien de cartons tient le grenier d'un logement : quatre, plus deux par pièce, plus six pour un
+## grenier ou un sous-sol. La chambre au-dessus du café en tient six, une maison à grenier une vingtaine.
+func capacite_grenier(id: String) -> int:
+	if not logements.has(id):
+		return 0
+	var n := 4
+	for room in interieur(str(logements[id].interieur)):
+		n += 8 if str(room[0]) in ["Grenier", "Sous-sol"] else 2
+	return n
+
+
+func grenier(id: String) -> Array:
+	return logements[id].get("grenier", []) if logements.has(id) else []
+
+
+## Combien d'exemplaires d'une chose sont rangés, tous greniers confondus.
+func stored_count(thing: String) -> int:
+	var n := 0
+	for id in logements:
+		n += logements[id].get("grenier", []).count(thing)
+	return n
+
+
+## Ce qu'on peut monter au grenier : les meubles et les trouvailles qui ne sont pas posés, les tenues
+## qu'on ne porte pas, les véhicules qu'on ne conduit pas.
+func rangeables() -> Array:
+	var out := []
+	for it in catalogue():
+		if not it.kind in ["meuble", "tenue", "vehicule"]:
+			continue
+		var libres := free_count(it.id) - (1 if it.id in [worn, driven] else 0)
+		for n in libres:
+			out.append(it.id)
+	for t in trouvailles:
+		if free_count(t) > 0:
+			out.append(t)
+	return out
+
+
+func ranger(id: String, thing: String) -> bool:
+	if not logements.has(id) or grenier(id).size() >= capacite_grenier(id) or not rangeables().has(thing):
+		return false
+	if not logements[id].has("grenier"):
+		logements[id].grenier = []
+	logements[id].grenier.append(thing)
+	changed.emit()
+	return true
+
+
+func sortir(id: String, thing: String) -> bool:
+	if not grenier(id).has(thing):
+		return false
+	logements[id].grenier.erase(thing)
+	changed.emit()
+	return true
 
 
 ## Ce qu'on peut poser sur un emplacement de ce genre : meubles et trouvailles libres.
@@ -509,7 +568,7 @@ func _souvenirs() -> void:
 
 
 func _new_logement(id: String) -> Dictionary:
-	return {"lot": str(item(id).get("lot", "")), "habite": false, "interieur": str(item(id).get("interieur", id + "_v1")), "meubles": {}, "facade": {}}
+	return {"lot": str(item(id).get("lot", "")), "habite": false, "interieur": str(item(id).get("interieur", id + "_v1")), "meubles": {}, "facade": {}, "grenier": []}
 
 
 ## Le logement quitte le joueur : les meubles posés et les trouvailles se décrochent.
@@ -634,7 +693,10 @@ func sell(id: String) -> int:
 		return 0
 	var paid := resale_of(id)
 	owned[id] = count(id) - 1
-	# Un meuble revendu se décroche de là où il était posé, s'il n'en reste plus de libre.
+	# Un meuble revendu descend du grenier, puis se décroche de là où il était posé, s'il n'en reste plus de libre.
+	for home in logements:
+		while free_count(id) < 0 and logements[home].get("grenier", []).has(id):
+			logements[home].grenier.erase(id)
 	if free_count(id) < 0:
 		for home in logements:
 			for slot in logements[home].meubles.keys():
@@ -664,6 +726,11 @@ func facteur_club(club: String) -> float:
 
 func wear(id: String) -> void:
 	if count(id) > 0:
+		# Ce qu'on met ou qu'on conduit redescend du grenier, s'il n'en reste pas d'autre.
+		if count(id) - stored_count(id) <= 0:
+			for home in logements:
+				if sortir(home, id):
+					break
 		if item(id).kind == "tenue":
 			worn = id
 		elif item(id).kind == "vehicule":
@@ -847,6 +914,9 @@ func _load() -> void:
 				for key in ["meubles", "facade"]:
 					if typeof(l[id].get(key)) == TYPE_DICTIONARY:
 						home[key] = l[id][key]
+				if typeof(l[id].get("grenier")) == TYPE_ARRAY:
+					for thing in l[id].grenier:
+						home.grenier.append(str(thing))
 				logements[id] = home
 	# Les maisons achetées avant les logements : louées, vides.
 	for id in owned:

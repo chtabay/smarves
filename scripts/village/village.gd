@@ -403,6 +403,8 @@ func _row(f: FACADES, row: Array, north: bool, x_start: float, dir: float) -> vo
 				if spec.has("id"):
 					lots[spec.id] = {"pos": Vector3(cx, 0, front), "rot": rot, "w": w, "d": d, "door": door}
 					_door_area(spec.id, door, rot)
+				else:
+					_maisons.append({"cx": cx, "nord": north, "pos": Vector3(cx, 0, front), "rot": rot, "w": w, "d": d, "door": door})
 				if spec.get("id", "") == "lot_reserve":
 					lots.lot_reserve["xf"] = xf
 					# La charge de Mme Vasseur (lieu « bourse ») a la porte du local : door_spawn("bourse") la trouve.
@@ -424,6 +426,10 @@ func _row(f: FACADES, row: Array, north: bool, x_start: float, dir: float) -> vo
 				_ruelle(f, cx, w, front, out)
 			_:
 				d = _special(f, kind, spec, cx, w, front, back, out, rot)
+				if kind == "pavillon":
+					# La porte du pavillon est le portillon de l'allée, à côté du garage.
+					var gate := Transform3D(Basis(Vector3.UP, rot), Vector3(cx, 0, front)) * Vector3(w / 2.0 - 0.7, 0, -0.3)
+					_maisons.append({"cx": cx, "nord": north, "pos": Vector3(cx, 0, front), "rot": rot, "w": w, "d": d, "door": gate})
 		# Le fond de la parcelle : jardin derrière la maison, mur mitoyen, potager, arbre fruitier.
 		if kind != "ruelle" and kind != "vide":
 			var z_b := front - out * (d + 0.05)
@@ -743,7 +749,7 @@ func _door_area(id: String, at: Vector3, rot: float) -> void:
 	a.set_meta("prompt", PROMPTS.get(id, ""))
 	if id in SELLER_DOORS:
 		a.set_meta("action", enter_seller.bind(id))
-	elif LOGEMENTS.has(id):
+	elif LOGEMENTS.has(id) or portes_adresses.has(id):
 		a.set_meta("action", enter_logement.bind(id))
 	elif id == "stade":
 		# Le stade est un lieu du manifeste, derrière son seuil : la scène principale en tient la porte.
@@ -914,7 +920,33 @@ const SALLES := {
 }
 
 
+## Les maisons des rues sans enseigne, telles que _row les a bâties : {cx, nord, pos, rot, w, d, door}.
+## _portes_adresses leur donne leur adresse (scripts/adresses.gd) et une porte.
+var _maisons: Array = []
+## Les portes des maisons à adresse : id du bien au registre du notaire (adr_clain_13…) → true.
+var portes_adresses := {}
+
+
+## Chaque maison de la rue du Clain et de la route du Bois a sa porte : à vendre chez le notaire, à vous,
+## on rentre chez soi. Le lot porte l'id du bien, comme celui des logements de la place.
+func _portes_adresses() -> void:
+	var adresses: Variant = load("res://scripts/adresses.gd")
+	if adresses == null:
+		return
+	for a in adresses.rues():
+		if a.genre != "maison":
+			continue
+		for m in _maisons:
+			if m.nord == a.nord and m.cx > a.x0 and m.cx < a.x1:
+				var id := str(a.item)
+				lots[id] = {"pos": m.pos, "rot": m.rot, "w": m.w, "d": m.d, "door": m.door}
+				portes_adresses[id] = true
+				_door_area(id, m.door, m.rot)
+				break
+
+
 func _logements() -> void:
+	_portes_adresses()
 	for id in SALLES:
 		lots[id] = {"pos": SALLES[id][0], "rot": SALLES[id][1], "w": 1.0, "d": 1.0, "door": SALLES[id][0]}
 	for id in LOGEMENTS:
@@ -936,6 +968,8 @@ func _logements() -> void:
 func _logement_prompt(id: String) -> String:
 	var biens := get_node_or_null("/root/Biens")
 	var what: String = {"chambre_cafe": "La chambre au-dessus du café", "maison_place": "La maison de maître", "maison_eglise": "La maison de la rue de l'Église"}.get(id, "Une maison")
+	if portes_adresses.has(id) and biens != null:
+		what = str(biens.item(id).get("name", what))
 	if biens == null or not biens.has_method("door_of"):
 		return "%s — propriété privée" % what
 	var d: Dictionary = biens.door_of(id)
@@ -1014,7 +1048,7 @@ func _biens() -> void:
 
 func _refresh_biens() -> void:
 	var biens := get_node("/root/Biens")
-	for id in LOGEMENTS:
+	for id in LOGEMENTS.keys() + portes_adresses.keys():
 		if lots.has(id) and lots[id].has("area"):
 			lots[id].area.set_meta("prompt", _logement_prompt(id))
 	for id in _property_signs:

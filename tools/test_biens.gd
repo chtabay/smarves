@@ -118,6 +118,18 @@ func _ready() -> void:
 	_check(Biens.buy("adr_boucherie") and Biens.standing() == s2 + Biens.item("adr_boucherie").standing, "les murs de la boucherie comptent au standing")
 	_check(Biens.charges() >= Biens.item("adr_boucherie").charge, "et coûtent leurs charges")
 	_check(not Biens.logements.has("adr_boucherie"), "des murs ne sont pas un logement")
+	# Le grenier : on y monte ce qu'on n'a pas posé, on l'en redescend, et il a ses limites.
+	Game.credits += 5000
+	Biens.buy("tableau_marine")
+	_check(Biens.rangeables().has("tableau_marine"), "un meuble pas posé peut monter au grenier")
+	_check(Biens.ranger(m, "tableau_marine") and Biens.grenier(m) == ["tableau_marine"], "il y monte")
+	_check(Biens.free_count("tableau_marine") == 0 and not Biens.posables("mur").has("tableau_marine"), "rangé, il ne se pose plus")
+	_check(not Biens.ranger(m, "tableau_marine"), "on ne range pas deux fois la même chose")
+	_check(Biens.capacite_grenier(m) >= 6, "le grenier tient des cartons (%d)" % Biens.capacite_grenier(m))
+	_check(Biens.sortir(m, "tableau_marine") and Biens.free_count("tableau_marine") == 1, "et il en redescend")
+	Biens.ranger(m, "tableau_marine")
+	Biens.sell("tableau_marine")
+	_check(Biens.grenier(m).is_empty(), "revendu, il quitte le grenier")
 	Game.staked = 0
 	Game.changed.emit()
 	_check(Biens.owned.is_empty() and Biens.recettes == 0 and Biens.logements.is_empty(), "nouvelle partie : plus de biens")
