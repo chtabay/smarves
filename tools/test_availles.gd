@@ -62,6 +62,11 @@ func _init() -> void:
 		if n is Label3D and n.text == "La Châtellenie":
 			enseigne = true
 	check(enseigne, "la Châtellenie porte son enseigne, dessinée d'après photo")
+	var plaque := false
+	for n in s.find_child("Remarquable_mairie", false, false).get_children():
+		if n is Label3D and n.text == "MAIRIE":
+			plaque = true
+	check(plaque, "la mairie porte sa plaque, dessinée d'après photo")
 	var cam: Camera3D = s.camera
 	check(cam.has_signal("au_dela") and cam.notches.size() == 4, "la caméra à crans du village, avec un cran de plus pour le bourg")
 

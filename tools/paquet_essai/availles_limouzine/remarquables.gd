@@ -19,6 +19,12 @@ static func construire(id: String, f, b: Dictionary, hauteur: Callable) -> bool:
 		"adrien_bernard":
 			_adrien_bernard(f, b, hauteur)
 			return true
+		"mairie":
+			_mairie(f, b, hauteur)
+			return true
+		"porte_cavaliers":
+			_porte_cavaliers(f, b, hauteur)
+			return true
 	return false
 
 
@@ -163,11 +169,205 @@ static func _adrien_bernard(f, b: Dictionary, hauteur: Callable) -> void:
 	f.batch.box("trim", xf, Vector3(x0 + cote * 2.3, 0.87, 0.1), Vector3(0.36, 0.06, 0.36), pilier.lightened(0.1))
 	f.garden_wall(xf * Vector3(x0 + cote * 2.45, 0, 0.1), xf * Vector3(x0 + cote * 5.5, 0, 0.1), 0.55, Color(0.8, 0.78, 0.72))
 	# Le lampadaire du trottoir.
-	var lx := x0 + cote * 1.7
-	f.batch.box("trim", xf, Vector3(lx, 0.8, 0.9), Vector3(0.06, 1.6, 0.06), Color(0.12, 0.12, 0.13))
-	f.batch.box("trim", xf, Vector3(lx, 1.7, 0.9), Vector3(0.22, 0.26, 0.22), Color(0.15, 0.15, 0.16))
-	f._glass(xf, Vector3(lx, 1.68, 1.02), Vector2(0.16, 0.18), 0, true, Color(1.0, 0.85, 0.6))
-	f.glows.append([xf * Vector3(lx, 1.7, 0.9), Color(1.0, 0.85, 0.6)])
+	_lampadaire(f, xf, Vector3(x0 + cote * 1.7, 0, 0.9))
+
+
+# --- La mairie, place de la Mairie ------------------------------------------------------------------
+## D'après photo, depuis le parking : un pavillon central à deux niveaux sous un toit de tuiles à
+## quatre pans, chaînes d'angle et encadrements de pierre blanche sur l'enduit beige ; au milieu la
+## porte bleue à deux vantaux sous son imposte en plein cintre, trois marches, le balcon de fer aux
+## drapeaux français et européen, la plaque « MAIRIE » et, tout en haut, une petite fenêtre de comble ;
+## de chaque côté deux grandes fenêtres cintrées en bas, une fenêtre à l'étage. Deux ailes basses à
+## oculus et fenêtre cintrée, en légère avancée ; la rampe à garde-corps blanc à droite, deux
+## lampadaires noirs, les massifs fleuris. La façade regarde le sud-ouest, vers le parking.
+static func _mairie(f, b: Dictionary, hauteur: Callable) -> void:
+	var fa := _facade(b, Vector2(51.0, 38.0), hauteur)
+	var xf: Transform3D = fa.xf
+	var w: float = clampf(fa.w, 5.4, 6.4)
+	var d: float = clampf(fa.d, 4.5, 6.5)
+	var mur := Color(0.85, 0.8, 0.68)
+	var clair := Color(0.94, 0.92, 0.86)
+	var tuile := Color(0.72, 0.48, 0.34)
+	var bleu := Color(0.3, 0.42, 0.62)
+	var fer := Color(0.28, 0.2, 0.17)
+	var gh := 1.85
+	var h := gh + 1.55
+	# Le pavillon central : corps, soubassement, cordon d'étage, chaînes, corniche, toit, cheminées.
+	_socle(f, xf, w, d, fa.socle, mur.darkened(0.3))
+	f.batch.box("wall", xf, Vector3(0, h / 2.0, -d / 2.0), Vector3(w, h, d), mur)
+	f.batch.box("trim", xf, Vector3(0, BASE_H / 2.0, -d / 2.0), Vector3(w + 0.05, BASE_H, d + 0.05), mur.darkened(0.25))
+	f.batch.box("trim", xf, Vector3(0, gh + 0.02, 0.01), Vector3(w, 0.07, 0.04), clair)
+	_chaines(f, xf, w, h, clair)
+	f.batch.box("trim", xf, Vector3(0, h - 0.06, -d / 2.0), Vector3(w + 0.16, 0.12, d + 0.16), clair)
+	f._roof(xf, w, d, h, tuile, mur, "hip")
+	for s in [-1.0, 1.0]:
+		var top := h + 0.1 + d * 0.5 * tan(deg_to_rad(28.0))
+		f.batch.box("wall", xf, Vector3(s * (w / 2.0 - 0.7), top - 0.3, -d * 0.4), Vector3(0.34, 1.0, 0.3), mur.darkened(0.05))
+		f.batch.box("trim", xf, Vector3(s * (w / 2.0 - 0.7), top + 0.22, -d * 0.4), Vector3(0.42, 0.07, 0.38), clair)
+	# La porte bleue, sous son imposte cintrée et son encadrement de pierre ; les trois marches.
+	var seuil := 0.22
+	for i in 3:
+		f.batch.box("trim", xf, Vector3(0, 0.04 + i * 0.075, 0.52 - i * 0.18), Vector3(2.0 - i * 0.1, 0.08, 0.36 + i * 0.36), clair.darkened(0.12))
+	_fenetre(f, xf, Vector3(0, seuil, 0), Vector2(0.86, 1.46), clair, true, false, Color(1.0, 0.85, 0.6))
+	f.batch.box("trim", xf, Vector3(0, seuil + 0.55, 0.03), Vector3(0.86, 1.1, 0.03), bleu)
+	f.batch.box("trim", xf, Vector3(0, seuil + 0.55, 0.045), Vector3(0.025, 1.1, 0.01), bleu.darkened(0.4))
+	for s in [-1.0, 1.0]:
+		f._glass(xf, Vector3(s * 0.22, seuil + 0.72, 0.05), Vector2(0.3, 0.55), 1, true, Color(1.0, 0.85, 0.6))
+		f.batch.box("trim", xf, Vector3(s * 0.22, seuil + 0.22, 0.05), Vector3(0.3, 0.3, 0.01), bleu.lightened(0.08))
+		# Les deux petits écussons tricolores de part et d'autre de la porte.
+		for k in 3:
+			f.batch.box("trim", xf, Vector3(s * 0.72 + (k - 1) * 0.035, seuil + 0.95, 0.03), Vector3(0.035, 0.13, 0.02), [Color(0.1, 0.25, 0.6), Color(0.95, 0.95, 0.95), Color(0.85, 0.15, 0.2)][k])
+	f.glows.append([xf * Vector3(0, 1.0, 0.8), Color(1.0, 0.85, 0.6)])
+	# Le balcon de fer forgé, et ses deux drapeaux inclinés vers la place.
+	f.batch.box("trim", xf, Vector3(0, gh + 0.08, 0.2), Vector3(1.7, 0.1, 0.42), clair)
+	for i in 9:
+		f.batch.box("trim", xf, Vector3(-0.8 + i * 0.2, gh + 0.38, 0.39), Vector3(0.025, 0.5, 0.025), fer)
+	for s in [-1.0, 1.0]:
+		for k in 3:
+			f.batch.box("trim", xf, Vector3(s * 0.8, gh + 0.38, 0.2 + k * 0.09), Vector3(0.025, 0.5, 0.025), fer)
+		f.batch.box("trim", xf, Vector3(s * 0.8, gh + 0.63, 0.2), Vector3(0.03, 0.03, 0.4), fer)
+	for y in [0.2, 0.63]:
+		f.batch.box("trim", xf, Vector3(0, gh + y, 0.39), Vector3(1.62, 0.03, 0.03), fer)
+	for s in [-1.0, 1.0]:
+		var px: float = s * 0.32
+		f.batch.box_tilted("trim", xf, Vector3(px, gh + 0.95, 0.5), Vector3(0.025, 0.9, 0.025), -0.6, Color(0.6, 0.6, 0.62))
+		if s < 0.0:
+			for k in 3:
+				f.batch.box_tilted("trim", xf, Vector3(px - 0.07 + k * 0.07, gh + 1.0, 0.55), Vector3(0.07, 0.42, 0.015), -0.6, [Color(0.1, 0.25, 0.6), Color(0.95, 0.95, 0.95), Color(0.85, 0.15, 0.2)][k])
+		else:
+			f.batch.box_tilted("trim", xf, Vector3(px, gh + 1.0, 0.55), Vector3(0.21, 0.42, 0.015), -0.6, Color(0.1, 0.2, 0.55))
+			for k in 6:
+				f.batch.box_tilted("trim", xf, Vector3(px + 0.07 * cos(TAU * k / 6.0), gh + 1.0 + 0.1 * sin(TAU * k / 6.0), 0.565), Vector3(0.02, 0.02, 0.01), -0.6, Color(0.95, 0.8, 0.2))
+	# La porte-fenêtre du balcon, la plaque MAIRIE, la petite fenêtre de comble.
+	_fenetre(f, xf, Vector3(0, gh + 0.14, 0), Vector2(0.56, 0.88), clair, false, false, Color(1.0, 0.8, 0.5))
+	f.batch.box("trim", xf, Vector3(0, h - 0.4, 0.02), Vector3(0.78, 0.22, 0.04), clair)
+	f.batch.box("trim", xf, Vector3(0, h - 0.4, 0.045), Vector3(0.66, 0.14, 0.01), mur.darkened(0.08))
+	_lettres(f, xf, Vector3(0, h - 0.4, 0.06), "MAIRIE", 34, 0.0032, Color(0.2, 0.17, 0.14), 0.6)
+	_fenetre(f, xf, Vector3(0, h - 0.18, 0), Vector2(0.3, 0.2), clair, true, false, Color(1.0, 0.8, 0.5))
+	# De chaque côté : deux grandes fenêtres cintrées en bas, une fenêtre à l'étage, les massifs fleuris.
+	var bay := (w / 2.0 - 0.75) / 2.0
+	for s in [-1.0, 1.0]:
+		for k in 2:
+			var x: float = s * (0.75 + bay * (k + 0.5))
+			_fenetre(f, xf, Vector3(x, BASE_H + 0.3, 0), Vector2(0.66, 1.15), clair, true, f.rng.randf() < 0.3, Color(1.0, 0.82, 0.55))
+		_fenetre(f, xf, Vector3(s * (0.75 + bay), gh + 0.22, 0), Vector2(0.52, 0.86), clair, false, false, Color(1.0, 0.8, 0.5))
+	for i in 7:
+		var x := -w / 2.0 + 0.35 + i * 0.33
+		f.batch.box("trim", xf, Vector3(x, 0.18, 0.5 + (i % 2) * 0.1), Vector3(0.34, 0.3, 0.34), Color(0.26, 0.42, 0.2).lerp(Color(0.4, 0.5, 0.22), f.rng.randf()))
+		for k in 3:
+			f.batch.box("trim", xf, Vector3(x + (k - 1) * 0.1, 0.36, 0.5 + (i % 2) * 0.1), Vector3(0.07, 0.07, 0.07), [Color(0.95, 0.4, 0.6), Color(0.98, 0.95, 0.9), Color(0.9, 0.2, 0.3)][(i + k) % 3])
+	# La rampe d'accès à droite, et son garde-corps blanc.
+	var blanc := Color(0.95, 0.95, 0.93)
+	f.batch.box("trim", xf, Vector3(1.9, 0.11, 0.42), Vector3(1.9, 0.22, 0.5), clair.darkened(0.15))
+	for i in 6:
+		f.batch.box("trim", xf, Vector3(1.0 + i * 0.36, 0.5, 0.68), Vector3(0.03, 0.56, 0.03), blanc)
+	f.batch.box("trim", xf, Vector3(1.9, 0.78, 0.68), Vector3(1.9, 0.03, 0.03), blanc)
+	f.batch.box("trim", xf, Vector3(1.9, 0.5, 0.68), Vector3(1.9, 0.02, 0.02), blanc)
+	# Les deux ailes basses, en légère avancée, à oculus et fenêtre cintrée sous leur toit à quatre pans.
+	var ww := 2.3
+	var wd := clampf(d - 1.2, 3.0, 5.0)
+	var hw := 1.8
+	for s in [-1.0, 1.0]:
+		var axf := xf * Transform3D(Basis(), Vector3(s * (w / 2.0 + ww / 2.0 - 0.02), 0, 0.4))
+		_socle(f, axf, ww, wd, fa.socle + 0.02, mur.darkened(0.3))
+		f.batch.box("wall", axf, Vector3(0, hw / 2.0, -wd / 2.0), Vector3(ww, hw, wd), mur)
+		f.batch.box("trim", axf, Vector3(0, BASE_H / 2.0, -wd / 2.0), Vector3(ww + 0.05, BASE_H, wd + 0.05), mur.darkened(0.25))
+		f.batch.box("trim", axf, Vector3(0, hw - 0.05, -wd / 2.0), Vector3(ww + 0.14, 0.1, wd + 0.14), clair)
+		_chaines(f, axf, ww, hw, clair)
+		f._roof(axf, ww, wd, hw, tuile, mur, "hip")
+		_fenetre(f, axf, Vector3(0, BASE_H + 0.3, 0), Vector2(0.5, 0.78), clair, true, false, Color(1.0, 0.82, 0.55))
+		f.batch.box("trim", axf, Vector3(0, hw - 0.36, 0.02), Vector3(0.42, 0.42, 0.04), clair)
+		f.batch.box("trim", axf, Vector3(0, hw - 0.36, 0.045), Vector3(0.3, 0.3, 0.01), Color(0.3, 0.3, 0.32))
+		_lampadaire(f, xf, Vector3(s * (w / 2.0 + 0.5), 0, 1.6))
+
+
+# --- La porte des Cavaliers --------------------------------------------------------------------------
+## D'après photo : la vieille porte de ville, un passage voûté en plein cintre dans un mur de moellons,
+## sous un petit toit de tuiles, et à son côté la grosse tour ronde qui marque l'angle de la maison ;
+## la maison elle-même regarde la place : deux niveaux à l'enduit crème, les volets blancs, les
+## géraniums aux fenêtres. La rue des Cavaliers arrive de l'ouest et passe sous la voûte pour filer
+## derrière la maison.
+static func _porte_cavaliers(f, b: Dictionary, hauteur: Callable) -> void:
+	var fa := _facade(b, Vector2(51.0, 38.0), hauteur)
+	var xf: Transform3D = fa.xf
+	var w: float = clampf(fa.w, 4.0, 5.0)
+	var d := 4.4
+	# L'angle de la tour et de la porte est au bout de la façade le plus à l'ouest.
+	var ouest: float = (1.0 if fa.a.x < fa.c.x else -1.0) * fa.sens
+	var creme := Color(0.9, 0.84, 0.7)
+	var pierre := Color(0.78, 0.68, 0.5)
+	var joint := Color(0.62, 0.54, 0.4)
+	var blanc := Color(0.95, 0.95, 0.93)
+	var tuile := Color(0.76, 0.5, 0.34)
+	var clair := Color(0.92, 0.88, 0.78)
+	# La maison : corps enduit, soubassement, cordon, chaînes, toit à quatre pans, cheminée.
+	var h := BASE_H + 2.0 * FLOOR_H
+	_socle(f, xf, w, d, fa.socle, joint)
+	f.batch.box("wall", xf, Vector3(0, h / 2.0, -d / 2.0), Vector3(w, h, d), creme)
+	f.batch.box("trim", xf, Vector3(0, BASE_H / 2.0, -d / 2.0), Vector3(w + 0.05, BASE_H, d + 0.05), joint)
+	f.batch.box("trim", xf, Vector3(0, BASE_H + FLOOR_H + 0.02, 0.01), Vector3(w, 0.06, 0.04), clair)
+	_chaines(f, xf, w, h, clair)
+	f._roof(xf, w, d, h, tuile, creme, "hip")
+	var top := h + 0.1 + d * 0.5 * tan(deg_to_rad(28.0))
+	f.batch.box("wall", xf, Vector3(-ouest * (w / 2.0 - 0.7), top - 0.25, -d * 0.4), Vector3(0.34, 0.9, 0.3), creme.darkened(0.08))
+	f.batch.box("trim", xf, Vector3(-ouest * (w / 2.0 - 0.7), top + 0.22, -d * 0.4), Vector3(0.42, 0.07, 0.38), clair)
+	# Sur la place : la porte côté est, les fenêtres à volets blancs et leurs géraniums.
+	var xs := [-ouest * 1.5, -ouest * 0.45, ouest * 0.7]
+	f._door(xf, xs[0], blanc.darkened(0.1), clair, false)
+	for x in [xs[1], xs[2]]:
+		f._window(xf, Vector3(x, BASE_H + 0.3, 0), Vector2(0.5, 0.78), blanc, clair, 0.2)
+	for x in xs:
+		f._window(xf, Vector3(x, BASE_H + FLOOR_H + 0.3, 0), Vector2(0.5, 0.78), blanc, clair, 0.2)
+	# La tour ronde à l'angle ouest, en moellons, sous son toit conique de tuiles.
+	var r := 0.85
+	var tc := Vector3(ouest * (w / 2.0 - 0.1), 0, -0.35)
+	var ht := h + 0.25
+	_socle(f, xf * Transform3D(Basis(), tc), 2.0 * r, 0.01, fa.socle, joint)
+	f.batch.cylinder("wall", xf, tc + Vector3(0, -minf(fa.socle, 0.6), 0), r, ht + minf(fa.socle, 0.6), pierre, 12)
+	f.batch.cylinder("trim", xf, tc + Vector3(0, ht - 0.04, 0), r + 0.08, 0.08, joint, 12)
+	_cone(f, xf, tc + Vector3(0, ht + 0.04, 0), r + 0.14, 0.75, tuile, 12)
+	for k in 2:
+		var y := BASE_H + 0.45 + k * FLOOR_H
+		var a := atan2(1.0, ouest * 0.9)
+		var p := tc + Vector3(cos(a) * r, y + 0.3, sin(a) * r)
+		var wxf := xf * Transform3D(Basis(Vector3.UP, -a + PI / 2.0), p)
+		f.batch.box("trim", wxf, Vector3(0, 0, 0.0), Vector3(0.42, 0.7, 0.05), clair)
+		f._glass(wxf, Vector3(0, 0, 0.03), Vector2(0.28, 0.56), 0, false, Color(1.0, 0.8, 0.5))
+	# Le mur de la porte, en retrait de la façade, et le passage voûté qui le perce vers la ruelle.
+	var pw := 1.6
+	var p0 := ouest * (w / 2.0 + 0.1)
+	var pxf := xf * Transform3D(Basis(), Vector3(p0 + ouest * pw / 2.0, 0, -1.1))
+	var pd := 4.6
+	var ph := 2.45
+	var passage_z := -3.85
+	var passage_w := 1.5
+	var passage_h := 1.55
+	_socle(f, pxf, pw, pd, fa.socle, joint)
+	# Le mur plein devant le passage, et le pan au-dessus de la voûte.
+	var avant := passage_z + passage_w / 2.0
+	f.batch.box("wall", pxf, Vector3(0, ph / 2.0, avant / 2.0), Vector3(pw, ph, -avant), pierre)
+	f.batch.box("wall", pxf, Vector3(0, ph / 2.0, (passage_z - passage_w / 2.0 - pd) / 2.0), Vector3(pw, ph, pd + passage_z - passage_w / 2.0), pierre)
+	f.batch.box("wall", pxf, Vector3(0, (ph + passage_h) / 2.0, passage_z), Vector3(pw, ph - passage_h, passage_w + 0.02), pierre)
+	# La voûte en plein cintre, en claveaux de pierre claire, sur les deux faces du passage.
+	for s in [-1.0, 1.0]:
+		var vx: float = s * pw / 2.0
+		for k in 5:
+			var a0 := PI * k / 5.0
+			var a1 := PI * (k + 1) / 5.0
+			var am := (a0 + a1) / 2.0
+			var rr := passage_w / 2.0
+			var c := Vector3(vx + s * 0.03, passage_h - rr + rr * 0.86 * sin(am), passage_z + rr * 0.86 * cos(am))
+			f.batch.box("wall", pxf * Transform3D(Basis(Vector3.RIGHT, -am + PI / 2.0), c), Vector3.ZERO, Vector3(0.1, 0.3, 0.18), clair)
+		f.batch.box("trim", pxf, Vector3(vx + s * 0.02, passage_h - 0.5, passage_z + passage_w / 2.0 + 0.06), Vector3(0.08, 1.0, 0.14), clair)
+		f.batch.box("trim", pxf, Vector3(vx + s * 0.02, passage_h - 0.5, passage_z - passage_w / 2.0 - 0.06), Vector3(0.08, 1.0, 0.14), clair)
+	# Le dessous de la voûte, sombre, et le pavé du passage.
+	f.batch.box("trim", pxf, Vector3(0, passage_h + 0.02, passage_z), Vector3(pw + 0.02, 0.04, passage_w), joint.darkened(0.45))
+	f.batch.box("trim", pxf, Vector3(0, 0.02, passage_z), Vector3(pw + 0.3, 0.04, passage_w), joint.darkened(0.2))
+	# Une fenêtre à volets blancs au-dessus de la voûte, côté rue, et le petit toit du mur.
+	var wxf := pxf * Transform3D(Basis(Vector3.UP, ouest * PI / 2.0), Vector3(ouest * pw / 2.0, 0, passage_z))
+	f._window(wxf, Vector3(0, passage_h + 0.25, 0), Vector2(0.42, 0.55), blanc, clair, 0.2)
+	f.batch.box("trim", pxf, Vector3(0, ph - 0.05, -pd / 2.0), Vector3(pw + 0.12, 0.08, pd + 0.12), joint)
+	f._roof(pxf, pw, pd, ph, tuile, pierre, "hip")
 
 
 # --- Les outils ------------------------------------------------------------------------------------
@@ -254,3 +454,49 @@ static func _lettres(f, xf: Transform3D, at: Vector3, texte: String, taille: int
 	l.visibility_range_end = 40.0
 	f.parent.add_child(l)
 	f._fit(l, largeur)
+
+
+## Une fenêtre à encadrement de pierre, sans volets (mairie, dépendances) ; `arche` l'arrondit en
+## plein cintre, par un escalier de claveaux.
+static func _fenetre(f, xf: Transform3D, at: Vector3, size: Vector2, clair: Color, arche: bool, on: bool, lumiere: Color) -> void:
+	var c := at + Vector3(0, size.y / 2.0, 0)
+	f.batch.box("trim", xf, c + Vector3(0, -size.y / 2.0 - 0.03, 0.04), Vector3(size.x + 0.16, 0.06, 0.1), clair)
+	f.batch.box("trim", xf, c + Vector3(0, 0, 0.0), Vector3(size.x + 0.14, size.y, 0.04), clair)
+	f.batch.box("trim", xf, c + Vector3(0, 0, 0.025), Vector3(size.x, size.y - 0.08, 0.02), Color(0.5, 0.5, 0.52))
+	f._glass(xf, c + Vector3(0, 0, 0.04), Vector2(size.x - 0.06, size.y - 0.14), 0, on, lumiere)
+	if arche:
+		var r := size.x / 2.0 + 0.07
+		for k in 5:
+			var a := PI * (k + 0.5) / 5.0
+			var p := c + Vector3(r * 0.72 * cos(a), size.y / 2.0 + r * 0.72 * sin(a), 0.0)
+			f.batch.box("trim", xf * Transform3D(Basis(Vector3.BACK, a - PI / 2.0), p), Vector3.ZERO, Vector3(0.28, 0.14, 0.04), clair)
+		f.batch.box("trim", xf, c + Vector3(0, size.y / 2.0 + 0.12, 0.02), Vector3(size.x * 0.75, 0.24, 0.01), Color(0.5, 0.5, 0.52))
+		f._glass(xf, c + Vector3(0, size.y / 2.0 + 0.11, 0.035), Vector2(size.x * 0.7, 0.2), 2, on, lumiere)
+	else:
+		f.batch.box("trim", xf, c + Vector3(0, size.y / 2.0 + 0.06, 0.02), Vector3(size.x + 0.18, 0.1, 0.05), clair)
+
+
+## Un lampadaire noir à lanterne, le pied en `at`, posé au sol.
+static func _lampadaire(f, xf: Transform3D, at: Vector3) -> void:
+	var noir := Color(0.12, 0.12, 0.13)
+	f.batch.box("trim", xf, at + Vector3(0, 0.06, 0), Vector3(0.16, 0.12, 0.16), noir)
+	f.batch.box("trim", xf, at + Vector3(0, 0.8, 0), Vector3(0.06, 1.6, 0.06), noir)
+	f.batch.box("trim", xf, at + Vector3(0, 1.72, 0), Vector3(0.22, 0.26, 0.22), Color(0.15, 0.15, 0.16))
+	f.batch.box("trim", xf, at + Vector3(0, 1.88, 0), Vector3(0.26, 0.06, 0.26), noir)
+	for a in [0.0, PI / 2.0, PI, -PI / 2.0]:
+		var lxf := xf * Transform3D(Basis(Vector3.UP, a), at)
+		f._glass(lxf, Vector3(0, 1.7, 0.115), Vector2(0.16, 0.18), 0, true, Color(1.0, 0.85, 0.6))
+	f.glows.append([xf * (at + Vector3(0, 1.72, 0)), Color(1.0, 0.85, 0.6)])
+
+
+## Un toit conique, à facettes, posé sur `base` (le centre du cercle).
+static func _cone(f, xf: Transform3D, base: Vector3, radius: float, height: float, color: Color, sides := 12) -> void:
+	var apex := base + Vector3(0, height, 0)
+	for i in sides:
+		var a0 := TAU * i / sides
+		var a1 := TAU * (i + 1) / sides
+		var p0 := base + Vector3(cos(a0) * radius, 0, sin(a0) * radius)
+		var p1 := base + Vector3(cos(a1) * radius, 0, sin(a1) * radius)
+		var am := (a0 + a1) / 2.0
+		var n := Vector3(cos(am) * height, radius, sin(am) * height).normalized()
+		f.batch.tri("roof", xf, p0, apex, p1, n, color)
