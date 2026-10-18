@@ -64,3 +64,5 @@ rendering_device/fallback_to_opengl3=true
 textures/vram_compression/import_etc2_astc=true
 lights_and_shadows/directional_shadow/soft_shadow_filter_quality=3
 anti_aliasing/quality/msaa_3d=2
+limits/opengl/max_renderable_lights.web=256
+limits/opengl/max_lights_per_object.web=64

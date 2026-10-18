@@ -133,6 +133,17 @@ func spend(amount: int) -> bool:
 	return true
 
 
+## Des crédits posés en tapis sur une table à plusieurs (scripts/jeux/poker_multi.gd) : ils quittent la
+## poche sans être misés ; ce que montrent les donnes se compte à chaque abattage.
+func spend_chips(amount: int) -> bool:
+	if amount <= 0 or credits < amount:
+		return false
+	credits -= amount
+	Sfx.play("chips", -9.0)
+	changed.emit()
+	return true
+
+
 ## M. Brunet accorde toujours le prêt : le montant arrive en crédits, la dette compte les frais.
 ## from : le prêteur (« » : celui de la commune d'origine).
 func borrow(amount: int, from := "") -> void:
