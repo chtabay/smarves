@@ -1,9 +1,10 @@
 extends CanvasLayer
-## La bienvenue (autoload « Bienvenue ») : à chaque lancement, une fenêtre au milieu de la place. À
-## gauche la carte de la Vienne, Smarves en or et les villes publiées en vert d'eau ; à droite les
-## crédits, la nouvelle version du jeu quand il y en a une (autoload Version), les villes de la
-## Vienne (« Voir les villes » déplie la liste, à installer et à visiter sur place), le compte
-## Pyramides (autoload Compte : connexion, partie gardée au compte, choix entre deux parties) et
+## La bienvenue (autoload « Bienvenue ») : dès l'écran titre, un panneau à droite qui dit les
+## crédits, le compte Pyramides (autoload Compte : connexion, partie gardée au compte, choix entre
+## deux parties), les mises à jour du jeu et des villes (autoloads Version et Communes), et les villes
+## de la Vienne (« Villes et mises à jour → » déplie la liste). La carte de la Vienne est un bouton de
+## l'écran titre, pas une deuxième fois ici. Sur la place, la même fenêtre s'ouvre au milieu depuis
+## le menu Échap (« Votre compte Pyramides »), ou seule quand deux parties sont à départager, avec
 ## « Jouer ». Tout en bas, en tout petit, « Effacer ma partie… » : le seul endroit où l'on efface sa
 ## partie (il n'y a plus de « Nouvelle partie » dans le menu Échap), derrière une page qui demande
 ## d'écrire EFFACER. Direction « La Vienne », choisie par Guillaume le 17 octobre
@@ -16,7 +17,10 @@ const DOUX := Color(0.65, 0.7, 0.75)
 const ROUGE := Color(0.95, 0.45, 0.42)
 
 var _root: Control
-var _carte: CarteVienne
+var _centre: CenterContainer
+var _voile: ColorRect
+## Sur l'écran titre, la fenêtre est un panneau ancré à droite : pas de voile, pas de pause.
+var _dock := false
 var _box: VBoxContainer
 var _scroll: ScrollContainer
 ## Sous la colonne, hors du défilement : « Jouer » reste en vue quelle que soit la longueur.
@@ -24,8 +28,10 @@ var _pied: VBoxContainer
 var _liste := false
 ## La page qui efface la partie, ouverte par le petit lien du bas.
 var _effacer := false
-## Une fois par lancement ; jamais dans les captures.
-var _attendue := not "--capture" in " ".join(OS.get_cmdline_user_args())
+## Sur la place, la fenêtre ne s'ouvre seule que pour départager deux parties (Compte « choix »).
+var _attendue := false
+## Jamais dans les captures ni les outils de test (-s), qui mènent leur propre partie.
+var _seule := not "--capture" in " ".join(OS.get_cmdline_user_args())
 var _mouse_before := Input.MOUSE_MODE_VISIBLE
 var _paused_before := false
 
@@ -62,30 +68,49 @@ func is_open() -> bool:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if is_open() and event.is_action_pressed("ui_cancel"):
+	if is_open() and not _dock and event.is_action_pressed("ui_cancel"):
 		fermer()
 		get_viewport().set_input_as_handled()
 
 
-## Elle attend que le joueur soit sur la place, déjà accueilli par Josiane, sans carnet, réglages ni
-## partie en cours. Les outils de test (-s) mènent leur propre partie : pas de bienvenue pour eux.
+## Sur l'écran titre, le panneau est toujours là ; on le quitte avec lui. Sur la place, la fenêtre
+## attend le joueur déjà accueilli par Josiane, sans carnet, réglages ni partie en cours.
 func _essayer() -> void:
+	var titre := _sur_le_titre()
+	if _dock and not titre:
+		fermer()
+	if not _seule or get_tree().get_script() != null:
+		return
+	if titre:
+		if not is_open():
+			ouvrir()
+		return
 	if not _attendue:
 		return
 	var scene := get_tree().current_scene
-	if scene == null or scene.name != "Main" or get_tree().get_script() != null or scene.has_meta("vitrine") \
+	if scene == null or scene.name != "Main" or scene.has_meta("vitrine") \
 			or not Game.welcomed or Carnet.is_open() or Settings.is_open() or get_tree().paused:
 		return
 	_attendue = false
 	ouvrir()
 
 
+func _sur_le_titre() -> bool:
+	var scene := get_tree().current_scene
+	return scene != null and scene.name == "Titre"
+
+
 func ouvrir(liste := false) -> void:
-	if not is_open():
+	_dock = _sur_le_titre()
+	if not is_open() and not _dock:
 		_mouse_before = Input.mouse_mode
 		_paused_before = get_tree().paused
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	get_tree().paused = true
+	if not _dock:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		get_tree().paused = true
+	_voile.visible = not _dock
+	# Ancré à droite de l'écran titre, qui garde la gauche pour son nom et ses boutons.
+	_centre.anchor_left = 0.56 if _dock else 0.0
 	_root.visible = true
 	_liste = liste
 	_effacer = false
@@ -97,6 +122,9 @@ func fermer() -> void:
 		return
 	_root.visible = false
 	Communes.marquer_vues()
+	if _dock:
+		_dock = false
+		return
 	Input.mouse_mode = _mouse_before
 	get_tree().paused = _paused_before
 
@@ -106,32 +134,32 @@ func fermer() -> void:
 func _construire() -> void:
 	_root = Control.new()
 	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	# Sur l'écran titre, seuls le panneau et ses boutons prennent la souris ; ailleurs, le voile.
+	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_root)
-	var voile := ColorRect.new()
-	voile.color = Color(0, 0, 0, 0.45)
-	voile.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_root.add_child(voile)
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_root.add_child(center)
+	_voile = ColorRect.new()
+	_voile.color = Color(0, 0, 0, 0.45)
+	_voile.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_root.add_child(_voile)
+	_centre = CenterContainer.new()
+	_centre.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(_centre)
 	var fenetre := PanelContainer.new()
 	var st := _boite(Color(0.06, 0.08, 0.12, 0.96), Color(EAU, 0.35), 10, 28)
 	st.shadow_color = Color(0, 0, 0, 0.5)
 	st.shadow_size = 24
 	fenetre.add_theme_stylebox_override("panel", st)
-	center.add_child(fenetre)
+	_centre.add_child(fenetre)
 	var rang := HBoxContainer.new()
 	rang.add_theme_constant_override("separation", 28)
 	fenetre.add_child(rang)
-	_carte = CarteVienne.new()
-	_carte.custom_minimum_size = Vector2(380, 540)
-	rang.add_child(_carte)
 	var colonne := VBoxContainer.new()
 	colonne.add_theme_constant_override("separation", 14)
 	rang.add_child(colonne)
 	_scroll = ScrollContainer.new()
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_scroll.custom_minimum_size = Vector2(440, 0)
+	_scroll.custom_minimum_size = Vector2(460, 540)
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	colonne.add_child(_scroll)
 	_pied = VBoxContainer.new()
@@ -147,9 +175,6 @@ func _construire() -> void:
 func _remplir() -> void:
 	for c in _box.get_children() + _pied.get_children():
 		c.queue_free()
-	_carte.publiees = Communes.publiees().map(func(e): return e.insee)
-	_carte.installees = Communes.installees().map(func(id): return Communes.commune(id).insee)
-	_carte.queue_redraw()
 	if _effacer:
 		_remplir_effacer()
 	elif _liste:
@@ -160,12 +185,15 @@ func _remplir() -> void:
 
 func _remplir_accueil() -> void:
 	_box.add_child(_mot("S M A R V E S  ·  V I E N N E", 13, Color(0.55, 0.75, 0.75)))
-	_box.add_child(_mot("Bienvenue à Smarves", 38, Color.WHITE, Polices.titre()))
+	# Sur l'écran titre, le nom du jeu est déjà en grand à gauche.
+	if not _dock:
+		_box.add_child(_mot("Bienvenue à Smarves", 38, Color.WHITE, Polices.titre()))
 	# Deux parties à départager : la fenêtre ne parle que de cela.
 	if Compte.etat == "choix":
 		_box.add_child(_filet())
 		_remplir_compte()
-		_pied.add_child(_bouton("Décider plus tard", Color(0, 0, 0, 0), DOUX, Color(1, 1, 1, 0.3), fermer, 16))
+		if not _dock:
+			_pied.add_child(_bouton("Décider plus tard", Color(0, 0, 0, 0), DOUX, Color(1, 1, 1, 0.3), fermer, 16))
 		return
 	_box.add_child(_mot("%s crédits en poche  ·  fortune nette %s" % [Game.fmt(Game.credits), Game.fmt(Game.credits + Biens.value() - Game.debt)], 17, DOUX))
 	# Le compte en premier : c'est lui qui ouvre la table à plusieurs, et on le voit sans faire défiler.
@@ -181,7 +209,8 @@ func _remplir_accueil() -> void:
 	rang.add_theme_constant_override("separation", 10)
 	if not Communes.publiees().is_empty() or not Communes.installees().is_empty():
 		rang.add_child(_bouton("Villes et mises à jour  →", Color(0, 0, 0, 0), EAU, EAU, ouvrir.bind(true)))
-	rang.add_child(_bouton("Ouvrir la carte  (M)", Color(0, 0, 0, 0), TEXTE, Color(1, 1, 1, 0.3), _vers_la_carte))
+	if not _dock:
+		rang.add_child(_bouton("Ouvrir la carte  (M)", Color(0, 0, 0, 0), TEXTE, Color(1, 1, 1, 0.3), _vers_la_carte))
 	_box.add_child(rang)
 	# Tout au fond, à peine lisible : on n'efface pas sa partie par mégarde.
 	var effacer := _bouton("Effacer ma partie…", Color(0, 0, 0, 0), Color(DOUX, 0.45), Color(0, 0, 0, 0), func():
@@ -189,6 +218,9 @@ func _remplir_accueil() -> void:
 		_remplir(), 12)
 	effacer.focus_mode = Control.FOCUS_NONE
 	_box.add_child(effacer)
+	# Sur l'écran titre, « Jouer » est déjà sous le nom du jeu.
+	if _dock:
+		return
 	var jouer := _bouton("Jouer", OR, Color(0.1, 0.07, 0.03), Color(0, 0, 0, 0), fermer, 22)
 	jouer.custom_minimum_size.x = 220
 	_pied.add_child(jouer)
@@ -328,6 +360,9 @@ func _remplir_mises_a_jour() -> void:
 		var noms: Array = Communes.mises_a_jour_seules.map(func(id): return Communes.commune(id).nom if Communes.commune(id) else id)
 		ligne += " %s %s mise%s à jour toute%s seule%s." % [" et ".join(noms), "s'est" if noms.size() == 1 else "se sont",
 			"" if noms.size() == 1 else "s", "" if noms.size() == 1 else "s", "" if noms.size() == 1 else "s"]
+	if not Communes.arrivees_seules.is_empty():
+		var noms: Array = Communes.arrivees_seules.map(func(id): return Communes.commune(id).nom if Communes.commune(id) else id)
+		ligne += " Nouvelle%s sur la carte : %s." % ["" if noms.size() == 1 else "s", " et ".join(noms)]
 	_box.add_child(_mot(ligne, 17, TEXTE, null, true))
 	for id in faire:
 		if Communes.etat(id) == "telechargement":
