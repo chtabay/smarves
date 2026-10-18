@@ -100,6 +100,41 @@ func _verifier() -> void:
 	if typeof(data.banque) != TYPE_DICTIONARY or str(data.banque.get("preteur", "")) == "":
 		erreurs.append("la banque doit nommer son prêteur (banque.preteur)")
 	erreurs.append_array(Structures.verifier(data.get("structures")))
+	erreurs.append_array(verifier_facultatifs(data))
+
+
+## Les champs facultatifs de présentation (auteur, arrivée, population, licence, sources) : absents,
+## ils prennent leur valeur par défaut ; présents, ils doivent avoir le bon type. Le portail des
+## développeurs fait la même vérification (src/lib/communes/paquet.ts dans Pyramides2).
+static func verifier_facultatifs(m: Dictionary) -> PackedStringArray:
+	var out := PackedStringArray()
+	for k in ["auteur", "licence"]:
+		if m.has(k) and typeof(m[k]) != TYPE_STRING:
+			out.append("%s doit être un texte" % k)
+	if m.has("arrivee"):
+		var a = m.arrivee
+		if typeof(a) != TYPE_DICTIONARY:
+			out.append("arrivee doit être un objet (lot, nom, par)")
+		else:
+			for k in ["lot", "nom"]:
+				if a.has(k) and typeof(a[k]) != TYPE_STRING:
+					out.append("arrivee.%s doit être un texte" % k)
+			if a.has("par") and typeof(a.par) != TYPE_ARRAY:
+				out.append("arrivee.par doit être une liste de communes")
+	if m.has("population"):
+		var n = m.population
+		if (typeof(n) != TYPE_INT and typeof(n) != TYPE_FLOAT) or float(n) < 0 or float(n) != floorf(float(n)):
+			out.append("population doit être un nombre entier positif")
+	if m.has("sources"):
+		var s = m.sources
+		var ok := typeof(s) == TYPE_STRING
+		if typeof(s) == TYPE_ARRAY:
+			ok = true
+			for x in s:
+				ok = ok and typeof(x) == TYPE_STRING
+		if not ok:
+			out.append("sources doit être un texte ou une liste de textes")
+	return out
 
 
 ## Les lieux, dans la forme de PLACES (main.gd) : id, name, game, seuil, host, accord.
@@ -138,6 +173,36 @@ func centre() -> Vector2:
 ## Le comportement est au socle (Structures) et au registre (autoload Registre).
 func structures() -> Array:
 	return data.get("structures", [])
+
+
+## Qui a fait la commune, pour sa fiche sur la carte (« » si le manifeste ne le dit pas).
+func auteur() -> String:
+	return str(data.get("auteur", ""))
+
+
+## Le nom du lieu où l'on débarque (« La place de la Mairie »), ou « » s'il n'est pas donné.
+func arrivee_nom() -> String:
+	var a = data.get("arrivee", {})
+	return str(a.get("nom", "")) if typeof(a) == TYPE_DICTIONARY else ""
+
+
+## La population : celle du manifeste si elle est donnée (plus que zéro), sinon celle du référentiel
+## de la Vienne (communes/vienne.json).
+func population() -> int:
+	var n := int(data.get("population", 0))
+	return n if n > 0 else int(Vienne.commune(insee).get("population", 0))
+
+
+## La licence du plan et des photos, et leurs sources (une liste, vide si rien n'est dit).
+func licence() -> String:
+	return str(data.get("licence", ""))
+
+
+func sources() -> PackedStringArray:
+	var s = data.get("sources", [])
+	if typeof(s) == TYPE_STRING:
+		return PackedStringArray([s]) if s != "" else PackedStringArray()
+	return PackedStringArray(s)
 
 
 func banque() -> Dictionary:
