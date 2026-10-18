@@ -53,7 +53,8 @@ theme/custom_font="res://assets/polices/texte.tres"
 [rendering]
 
 renderer/rendering_method.mobile="mobile"
-rendering_device/driver.windows="d3d12"
+rendering_device/driver.windows="vulkan"
+rendering_device/fallback_to_d3d12=true
 rendering_device/fallback_to_opengl3=true
 textures/vram_compression/import_etc2_astc=true
 lights_and_shadows/directional_shadow/soft_shadow_filter_quality=3

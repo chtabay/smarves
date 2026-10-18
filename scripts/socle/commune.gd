@@ -20,6 +20,8 @@ var data := {}
 ## Le pack d'une commune greffée (« » : commune du dépôt ou en dossier), et s'il est monté.
 var pack := ""
 var montee := true
+## La date et la taille du pack quand on l'a lu : s'il change ensuite sur le disque, on le relit.
+var signature := ""
 ## Ce qui ne va pas dans le manifeste ; une commune avec des erreurs n'est pas enregistrée.
 var erreurs := PackedStringArray()
 

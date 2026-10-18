@@ -30,6 +30,11 @@ var _paused_before := false
 var _en_route := false
 ## Ouverte depuis l'écran titre : pas encore de partie, on n'est nulle part, « Revenir » rend le menu.
 var _titre := false
+## « car » à l'arrêt de la place (les lignes vers les communes desservies), « route » au bout d'une
+## route (la fiche de la voisine dans cette direction), « » sinon.
+var _mode := ""
+var _sur_titre: Label
+var _grand_titre: Label
 var _capture := "--capture" in " ".join(OS.get_cmdline_user_args())
 
 
@@ -82,24 +87,55 @@ func peut_ouvrir() -> bool:
 	return not (panneaux is Node and panneaux.get_child_count() > 0)
 
 
+## L'arrêt du car départemental, sur la place : la carte des communes où il s'arrête.
+func ouvrir_car() -> void:
+	ouvrir(false, "", "car")
+
+
+## Le bout d'une route : la carte, tournée vers la commune voisine dans cette direction.
+func ouvrir_vers(insee: String) -> void:
+	ouvrir(false, insee, "route")
+
+
+## Les communes où l'on peut aller d'ici : Smarves, les villes installées et les publiées.
+func desservies() -> Array:
+	var out := []
+	for i in [CarteVienne.ORIGINE_INSEE] + _carte.installees + _carte.publiees:
+		if i != _ici() and not out.has(i):
+			out.append(i)
+	return out
+
+
 ## depuis_titre : depuis le menu de départ, avant d'entrer dans le jeu ; choisir Smarves lance la partie.
-func ouvrir(depuis_titre := false) -> void:
+## vers : la commune à montrer d'emblée ; mode : « car », « route » ou « ».
+func ouvrir(depuis_titre := false, vers := "", mode := "") -> void:
 	if is_open():
 		return
 	_titre = depuis_titre
+	_mode = mode
 	_mouse_before = Input.mouse_mode
 	_paused_before = get_tree().paused
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	get_tree().paused = true
 	_root.visible = true
+	# La carte couvre tout l'écran : le village derrière elle n'a pas à être dessiné, la carte
+	# graphique se repose.
+	get_viewport().disable_3d = true
 	_rafraichir(false)
 	var ici := _ici()
 	_carte.ici = "" if _titre else ici
-	_carte.choisie = ""
-	_montrer(ici)
-	# On s'élève au-dessus de sa commune, puis le département entier se découvre.
+	_carte.choisie = vers
+	_carte.lignes = desservies() if _mode == "car" else []
+	_montrer(vers if vers != "" else ici)
+	# On s'élève au-dessus de sa commune, puis le département entier se découvre ; au bout d'une
+	# route, seulement jusqu'à voir les deux communes.
 	_carte.cadrer(ici, ZOOM_COMMUNE)
-	_carte.cadrer_tout(1.1)
+	if vers != "":
+		_carte.aller_a((_carte.centre_de(ici) + _carte.centre_de(vers)) / 2.0, 3.2, 1.1)
+	elif _mode == "car":
+		_carte.cadrer(ici, 2.6, 1.1)
+	else:
+		_carte.cadrer_tout(1.1)
 	_voile.color = Color(NUIT, 1.0)
 	var t := create_tween()
 	t.tween_property(_voile, "color:a", 0.0, 0.45)
@@ -126,6 +162,7 @@ func fermer() -> void:
 
 func _cacher() -> void:
 	_root.visible = false
+	get_viewport().disable_3d = false
 	_en_route = false
 	_voile.color.a = 0.0
 
@@ -151,6 +188,11 @@ func aller(insee: String) -> void:
 	elif not Communes.visiter(c.id):
 		get_tree().paused = _paused_before
 		Carnet.show_slip("%s ne s'ouvre pas : %s" % [c.nom, Communes.refus[-1][1] if not Communes.refus.is_empty() else "scène introuvable"])
+
+
+func _installer(id: String) -> void:
+	Communes.installer(id)
+	_rafraichir(true)
 
 
 func _ici() -> String:
@@ -218,8 +260,10 @@ func _construire() -> void:
 	tete.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tete.add_theme_constant_override("separation", 4)
 	cartouche.add_child(tete)
-	tete.add_child(_mot("L A   V I E N N E", 13, Color(0.55, 0.75, 0.75)))
-	tete.add_child(_mot("Carte du département", 34, Color.WHITE, Polices.titre()))
+	_sur_titre = _mot("", 13, Color(0.55, 0.75, 0.75))
+	tete.add_child(_sur_titre)
+	_grand_titre = _mot("", 34, Color.WHITE, Polices.titre())
+	tete.add_child(_grand_titre)
 	_compte = _mot("", 16, DOUX)
 	tete.add_child(_compte)
 	var legende := VBoxContainer.new()
@@ -297,6 +341,10 @@ func _fond() -> Texture2D:
 func _rafraichir(garder := true) -> void:
 	_carte.publiees = Communes.publiees().map(func(e): return e.insee)
 	_carte.installees = Communes.installees().map(func(id): return Communes.commune(id).insee)
+	_carte.a_jour = {}
+	for id in Communes.installees():
+		if Communes.mise_a_jour(id) != "":
+			_carte.a_jour[Communes.commune(id).insee] = Communes.mise_a_jour(id)
 	_carte.queue_redraw()
 	var n := 1 + Communes.installees().size()
 	var p := Communes.publiees().filter(func(e): return Communes.commune(e.id) == null).size()
@@ -305,6 +353,8 @@ func _rafraichir(garder := true) -> void:
 		s += ", %d à installer" % p
 	_compte.text = s
 	var ici := Communes.commune(Communes.actuelle())
+	_sur_titre.text = "C A R   D É P A R T E M E N T A L" if _mode == "car" else "L A   V I E N N E"
+	_grand_titre.text = ("Arrêt de la Place, %s" % (ici.nom if ici else "Smarves")) if _mode == "car" else "Carte du département"
 	_retour.text = "←  Revenir au menu" if _titre else "←  Revenir à %s" % (ici.nom if ici else "Smarves")
 	_aide.text = ("Pincer pour zoomer  ·  glisser pour déplacer  ·  toucher une commune" if Tactile.active
 		else "Molette pour zoomer  ·  glisser pour déplacer  ·  cliquer une commune  ·  Échap ou M pour revenir")
@@ -334,6 +384,8 @@ func _montrer(insee: String, alerte := "") -> void:
 		tete.add_child(_mot("VOUS ÊTES ICI", 12, EAU, Polices.gras()))
 	elif c == null and not e.is_empty() and Communes.nouvelles.has(e.id):
 		tete.add_child(_mot("NOUVELLE", 12, EAU, Polices.gras()))
+	elif c != null and Communes.mise_a_jour(c.id) != "":
+		tete.add_child(_mot("MISE À JOUR", 12, OR, Polices.gras()))
 	_fiche_box.add_child(tete)
 	var pop := int(v.get("population", 0))
 	var etat := ""
@@ -348,13 +400,21 @@ func _montrer(insee: String, alerte := "") -> void:
 		etat = "Installée" + ("  ·  version %s" % str(c.data.get("version", "")) if str(c.data.get("version", "")) != "" else "") \
 			+ ("  ·  par %s" % str(c.data.auteur) if str(c.data.get("auteur", "")) != "" else "")
 		texte = str(e.get("description", c.data.get("description", "")))
+		if Communes.mise_a_jour(c.id) != "":
+			texte += ("\n\n" if texte != "" else "") + "La version %s est publiée." % Communes.mise_a_jour(c.id)
+		elif Communes.en_attente(c.id) != "":
+			texte += ("\n\n" if texte != "" else "") + "La version %s est téléchargée : elle s'ouvrira au prochain lancement du jeu." % Communes.en_attente(c.id) \
+				+ ("" if Communes.peut_relancer() else " Fermez le jeu et rouvrez-le pour la voir.")
 	elif not e.is_empty():
 		etat = "Publiée par %s  ·  %s" % [e.auteur, Portail.taille(e.taille)]
 		texte = str(e.description)
 	else:
 		etat = "Pas encore développée"
-		texte = "Les développeurs construisent les villes de la Vienne sur le portail. Elle s'allumera ici le jour où elle sera publiée."
+		texte = ("La route continue jusqu'à %s, mais la ville n'est pas encore construite. " % v.nom if _mode == "route" else "Les développeurs construisent les villes de la Vienne sur le portail. ") \
+			+ "Elle s'allumera ici le jour où elle sera publiée."
 	_fiche_box.add_child(_mot(etat + ("  ·  %s\u00a0habitants" % Game.fmt(pop).replace(" ", "\u00a0") if pop > 0 and insee != CarteVienne.POITIERS_INSEE else ""), 15, DOUX, null, true))
+	if _mode == "car" and not ici and insee != CarteVienne.POITIERS_INSEE:
+		texte += ("\n\n" if texte != "" else "") + ("Le car s'y arrête." if desservies().has(insee) else "Le car ne s'y arrête pas encore.")
 	if texte != "":
 		_fiche_box.add_child(_mot(texte, 16, TEXTE, null, true))
 	if alerte != "":
@@ -364,12 +424,18 @@ func _montrer(insee: String, alerte := "") -> void:
 	if ici:
 		actions.add_child(_bouton("Revenir au village" if insee == CarteVienne.ORIGINE_INSEE else "Revenir à %s" % v.nom, OR if insee == CarteVienne.ORIGINE_INSEE else EAU, Color(0.08, 0.06, 0.03), Color(0, 0, 0, 0), fermer, 16))
 	elif c != null:
-		actions.add_child(_bouton((("Jouer à Smarves  →" if _titre else "Rentrer à Smarves  →") if c.id == Communes.ORIGINE else "Y aller  →"), OR if c.id == Communes.ORIGINE else EAU, Color(0.04, 0.1, 0.1), Color(0, 0, 0, 0), aller.bind(insee), 16))
+		actions.add_child(_bouton("Monter dans le car  →" if _mode == "car" else "Prendre la route  →" if _mode == "route" else (("Jouer à Smarves  →" if _titre else "Rentrer à Smarves  →") if c.id == Communes.ORIGINE else "Y aller  →"), OR if c.id == Communes.ORIGINE else EAU, Color(0.04, 0.1, 0.1), Color(0, 0, 0, 0), aller.bind(insee), 16))
+		if Communes.en_cours == c.id:
+			actions.add_child(_mot("Téléchargement…", 16, DOUX))
+		elif Communes.en_attente(c.id) != "" and Communes.peut_relancer():
+			actions.add_child(_bouton("Relancer maintenant", Color(0, 0, 0, 0), OR, OR, Communes.relancer, 16))
+		elif Communes.mise_a_jour(c.id) != "":
+			actions.add_child(_bouton("Mettre à jour (%s)" % Communes.mise_a_jour(c.id), Color(0, 0, 0, 0), OR, OR, _installer.bind(c.id), 16, Communes.en_cours == ""))
 	elif not e.is_empty():
 		if Communes.en_cours == e.id:
 			actions.add_child(_mot("Téléchargement en cours…", 16, DOUX))
 		else:
-			actions.add_child(_bouton("Installer", Color(0, 0, 0, 0), EAU, EAU, Communes.installer.bind(e.id), 16, Communes.en_cours == ""))
+			actions.add_child(_bouton("Installer", Color(0, 0, 0, 0), EAU, EAU, _installer.bind(e.id), 16, Communes.en_cours == ""))
 	if actions.get_child_count() > 0:
 		_fiche_box.add_child(_vide(2))
 		_fiche_box.add_child(actions)
