@@ -51,6 +51,10 @@ func _init() -> void:
 			check(p.seats[1].name == "Mme Duval", "Mme Duval à sa gauche")
 			var noms: Array = p.seats.map(func(s): return s.name)
 			check(not "Le Commandant" in noms, "le Commandant s'est levé")
+		if p.in_hand and compte.get("encart", 0) == 0:
+			var l: Array = p.encart_lignes()
+			compte.encart = l.size()
+			check(l.size() == 7 and "pot" in l[0] and "Bastien" in "".join(l) and "(donneur)" in "".join(l), "l'encart dit la donne : pot, six chaises, le donneur (%d lignes)" % l.size())
 		for _f in 3:
 			await process_frame
 	check(compte.donnes >= 2, "deux donnes suivies (%d)" % compte.donnes)
@@ -58,6 +62,8 @@ func _init() -> void:
 	check(compte.tableau >= 3, "le tableau retourné (%d cartes)" % compte.tableau)
 	check(compte.places >= 1, "les figurants placés")
 	check(not p.seated, "levé après « partir »")
+	var lignes: Array = p.encart_lignes()
+	check(lignes.size() >= 1 and "Vos crédits" in lignes[0], "l'encart commence par ses crédits")
 	# Deux donnes perdues, 100 puis 2 000 engagés : les mises sont parties des crédits au fil du jeu.
 	check(G.credits == 20000 - 2100, "les mises sont parties des crédits au fil des donnes (%d)" % G.credits)
 	check(G.staked == staked0 + 2100 and G.won == won0, "misé 2 100, rien gagné (%d, %d)" % [G.staked - staked0, G.won - won0])
