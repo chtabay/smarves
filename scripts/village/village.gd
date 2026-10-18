@@ -9,6 +9,7 @@ extends Node3D
 const FACADES := preload("res://scripts/village/facades.gd")
 const BOIS := preload("res://scripts/village/bois.gd")
 const CHEMIN := preload("res://scripts/village/passelourdin.gd")
+const PEPITES := preload("res://scripts/village/pepites.gd")
 const KK := "res://assets/kaykit/"
 const KN := "res://assets/kenney/nature/"
 const KC := "res://assets/kenney/cars/"
@@ -502,6 +503,11 @@ func _placette(f: FACADES) -> void:
 	for i in 2:
 		var car := _car(["sedan", "van"][i], Vector3(cx - 2.6 + i * 2.2, 0, 11.4), 0.0, 1.5)
 		main._solid(car)
+		if i == 1:
+			# Passé un seuil, la camionnette devient le van des chasseurs de pépites (pepites.gd).
+			var pepites: Node3D = PEPITES.new()
+			add_child(pepites)
+			pepites.setup(car, main.serif)
 	var xf := Transform3D(Basis(), Vector3(cx + 0.2, 0, 9.4))
 	f.batch.box("trim", xf, Vector3(0, 0.35, 0), Vector3(0.24, 0.7, 0.24), Color(0.25, 0.35, 0.3))
 	f.batch.box("trim", xf, Vector3(0, 0.6, 0.18), Vector3(0.06, 0.06, 0.3), Color(0.25, 0.35, 0.3))
