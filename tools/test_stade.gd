@@ -13,6 +13,15 @@ func check(ok: bool, what: String) -> void:
 		fails += 1
 
 
+func _textes(n: Node) -> Array:
+	var out: Array = []
+	if n is Label:
+		out.append((n as Label).text)
+	for c in n.get_children():
+		out += _textes(c)
+	return out
+
+
 func _init() -> void:
 	await process_frame
 	var game: Node = root.get_node("Game")
@@ -98,7 +107,28 @@ func _init() -> void:
 	var direct: Dictionary = foot.rencontre_en_direct(1, 6, foot.prochain_match("smarves").dom, foot.prochain_match("smarves").ext)
 	var mienne: Dictionary = direct.etat.equipes[0] if direct.etat.equipes[0].club == "smarves" else direct.etat.equipes[1]
 	check(mienne.formation == "3-5-2" and mienne.mentalite == "offensive", "le match de dimanche se jouera avec : %s, %s" % [mienne.formation, mienne.mentalite])
+	# Les locaux du club : le siège, d'où l'on ouvre la causerie, le mercato et le registre des obligations.
 	causerie.closed.emit()
+	await process_frame
+	var sieges: Array = stade.find_children("*", "Area3D", true, false).filter(func(a): return a.get_meta("interact", "") == "locaux")
+	check(sieges.size() == 1 and str(sieges[0].get_meta("prompt")).contains("siège"), "le siège du club est au stade")
+	stade.open_locaux()
+	await process_frame
+	var locaux: PanelContainer = stade._causerie
+	check(locaux != null and locaux.club == "smarves" and locaux.find_child("Causerie", true, false) != null and locaux.find_child("Mercato", true, false) != null and locaux.find_child("Obligations", true, false) != null, "le siège ouvre sur la causerie, le mercato et les obligations")
+	check(_textes(locaux).any(func(x): return str(x).begins_with("Prochain match : journée 6")), "le siège dit le prochain match")
+	(locaux.find_child("Obligations", true, false) as Button).pressed.emit()
+	await process_frame
+	check(stade._causerie != null and stade._causerie != locaux and stade._causerie.find_child("Prendre_1", true, false) != null, "le registre des obligations s'ouvre depuis le siège")
+	stade._causerie.closed.emit()
+	await process_frame
+	stade.open_locaux()
+	await process_frame
+	(stade._causerie.find_child("Causerie", true, false) as Button).pressed.emit()
+	await process_frame
+	check(stade._causerie != null and stade._causerie.find_child("Valider", true, false) != null, "la causerie s'ouvre depuis le siège : même direction")
+	check(stade._bandeau != null and stade._bandeau_score != null, "le bandeau du direct est en place")
+	stade._causerie.closed.emit()
 	await process_frame
 	check(stade._causerie == null, "Échap referme la causerie")
 	foot.decisions = {}

@@ -98,10 +98,7 @@ func _rangee(colonne: VBoxContainer, titre: String, cle: String, valeurs: Array,
 
 
 func _bas(colonne: VBoxContainer, valider: bool) -> void:
-	var bas := HBoxContainer.new()
-	bas.alignment = BoxContainer.ALIGNMENT_END
-	bas.add_theme_constant_override("separation", 10)
-	colonne.add_child(bas)
+	var bas := _pied(colonne)
 	if valider:
 		var b := _bouton("Donner la consigne", func(): donner())
 		b.name = "Valider"

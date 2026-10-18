@@ -35,10 +35,7 @@ func remplir(colonne: VBoxContainer) -> void:
 	colonne.add_child(_filet())
 	_ligne_etat = _mot(_etat_texte(), 15, DOUX, null, true)
 	colonne.add_child(_ligne_etat)
-	var bas := HBoxContainer.new()
-	bas.alignment = BoxContainer.ALIGNMENT_END
-	bas.add_theme_constant_override("separation", 10)
-	colonne.add_child(bas)
+	var bas := _pied(colonne)
 	bas.add_child(_bouton("Refermer le registre  (Échap)", func(): closed.emit()))
 
 

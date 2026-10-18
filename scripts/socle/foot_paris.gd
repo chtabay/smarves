@@ -48,10 +48,7 @@ func remplir(colonne: VBoxContainer) -> void:
 		colonne.add_child(_ligne_etat)
 	colonne.add_child(_filet())
 	_tickets(colonne)
-	var bas := HBoxContainer.new()
-	bas.alignment = BoxContainer.ALIGNMENT_END
-	bas.add_theme_constant_override("separation", 10)
-	colonne.add_child(bas)
+	var bas := _pied(colonne)
 	if not _journee.is_empty():
 		var b := _bouton("Jouer le ticket", func(): jouer())
 		b.name = "Jouer"
@@ -65,9 +62,16 @@ func _rangee_match(m: Dictionary) -> Control:
 	var h := HFlowContainer.new()
 	h.add_theme_constant_override("h_separation", 8)
 	h.add_theme_constant_override("v_separation", 4)
-	var noms := _mot("%s – %s" % [f.clubs[m.dom].nom, f.clubs[m.ext].nom], 15, CRAIE, Polices.gras())
-	noms.custom_minimum_size.x = 150 if _etroit() else 330
-	noms.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	# Les codes des clubs en gras, comme au tableau du dimanche ; les noms en petit dessous, pas sur un téléphone.
+	var noms := VBoxContainer.new()
+	noms.add_theme_constant_override("separation", 0)
+	noms.custom_minimum_size.x = 110 if _etroit() else 330
+	noms.add_child(_mot("%s – %s" % [f.clubs[m.dom].court, f.clubs[m.ext].court], 16, CRAIE, Polices.gras()))
+	if not _etroit():
+		var longs := _mot("%s – %s" % [f.clubs[m.dom].nom, f.clubs[m.ext].nom], 12, DOUX)
+		longs.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		longs.custom_minimum_size.x = 330
+		noms.add_child(longs)
 	h.add_child(noms)
 	var k := Paris.cle(m.dom, m.ext)
 	var c: Dictionary = p.cotes(_journee.s, m.dom, m.ext)

@@ -21,6 +21,11 @@ var division: Array = []
 var _colonne: VBoxContainer
 ## Sur un écran étroit, ce qui fait défiler la colonne.
 var _fenetre: ScrollContainer
+## Sur un écran étroit, la rangée du bas (les boutons) reste sous le défilement, toujours visible.
+var _pied_conteneur: VBoxContainer
+## La barre du haut d'un téléphone (le compteur de crédits à gauche, « Sortir » à droite) : l'ardoise
+## reste en dessous, et au-dessus du bord bas d'autant.
+const BARRE_HAUT := 96.0
 
 
 
@@ -52,23 +57,45 @@ func _preparer() -> void:
 	_colonne = VBoxContainer.new()
 	_colonne.add_theme_constant_override("separation", 6 if etroit else 10)
 	if etroit:
+		var ext := VBoxContainer.new()
+		ext.add_theme_constant_override("separation", 6)
+		add_child(ext)
 		_fenetre = ScrollContainer.new()
 		_fenetre.name = "Fenetre"
 		_fenetre.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-		add_child(_fenetre)
+		ext.add_child(_fenetre)
 		_colonne.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_fenetre.add_child(_colonne)
+		_pied_conteneur = VBoxContainer.new()
+		_pied_conteneur.name = "Pied"
+		ext.add_child(_pied_conteneur)
 		_colonne.minimum_size_changed.connect(_ajuster)
 		_ajuster()
 	else:
 		add_child(_colonne)
 
 
+## La rangée du bas d'une fenêtre (ses boutons), alignée à droite : dans la colonne sur un ordinateur ;
+## sur un écran étroit, sous le défilement, pour qu'on la voie sans dérouler.
+func _pied(colonne: VBoxContainer) -> HBoxContainer:
+	var bas := HBoxContainer.new()
+	bas.alignment = BoxContainer.ALIGNMENT_END
+	bas.add_theme_constant_override("separation", 10)
+	if _pied_conteneur != null:
+		_vider(_pied_conteneur)
+		_pied_conteneur.add_child(bas)
+	else:
+		colonne.add_child(bas)
+	return bas
+
+
 ## Sur un écran étroit, la fenêtre prend la taille de son contenu, sans dépasser l'écran : au-delà, on défile.
 func _ajuster() -> void:
 	if _fenetre == null or _colonne == null:
 		return
-	var maxi := _ecran() - Vector2(36, 36)
+	var maxi := _ecran() - Vector2(36, 36 + 2.0 * BARRE_HAUT)
+	if _pied_conteneur != null:
+		maxi.y -= _pied_conteneur.get_combined_minimum_size().y + 6.0
 	var taille := _colonne.get_combined_minimum_size()
 	_fenetre.custom_minimum_size = Vector2(minf(taille.x + 14.0, maxi.x), minf(taille.y, maxi.y))
 
@@ -137,9 +164,7 @@ func remplir(colonne: VBoxContainer) -> void:
 
 	colonne.add_child(_filet())
 	colonne.add_child(_mot(mot_de_la_commune(), 16, DOUX, null, true))
-	var bas := HBoxContainer.new()
-	bas.alignment = BoxContainer.ALIGNMENT_END
-	colonne.add_child(bas)
+	var bas := _pied(colonne)
 	bas.add_child(_bouton("Reposer la craie  (Échap)", func(): closed.emit()))
 
 
@@ -348,10 +373,7 @@ func ouvrir_feuille(s: int, j: int, dom: String, ext: String) -> void:
 	for ev in etat.evenements:
 		recit.add_child(_evenement(ev))
 
-	var bas := HBoxContainer.new()
-	bas.add_theme_constant_override("separation", 12)
-	bas.alignment = BoxContainer.ALIGNMENT_END
-	_colonne.add_child(bas)
+	var bas := _pied(_colonne)
 	bas.add_child(_bouton("Retour au tableau", func(): remplir(_colonne)))
 	bas.add_child(_bouton("Reposer la craie  (Échap)", func(): closed.emit()))
 

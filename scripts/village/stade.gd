@@ -33,6 +33,11 @@ var _depart_ballon := Vector3.ZERO
 var _chrono := 0.0
 var _possession := [0, 0]
 var _score: Label3D
+## Le bandeau du direct, en haut de l'écran : le score, la minute, le dernier fait (point UX des activités).
+var _bandeau: PanelContainer
+var _bandeau_score: Label
+var _bandeau_fait: Label
+var _bandeau_tween: Tween
 var _horloge: Label3D
 var _affiche: Label3D
 var _supporters: Array = []
@@ -44,6 +49,8 @@ const TABLEAU := preload("res://scripts/socle/foot_tableau.gd")
 ## Le président Chauvin, et sa causerie (les consignes du prochain match) quand elle est ouverte.
 const CAUSERIE := preload("res://scripts/socle/foot_causerie.gd")
 const MERCATO := preload("res://scripts/socle/foot_mercato.gd")
+const OBLIGATIONS := preload("res://scripts/socle/foot_obligations.gd")
+const LOCAUX := preload("res://scripts/socle/foot_locaux.gd")
 var _president: Node3D
 var _causerie: PanelContainer
 
@@ -59,6 +66,7 @@ func _ready() -> void:
 	_tableau_affichage()
 	_le_president()
 	_build_ui()
+	_bandeau_du_direct()
 	player = PLAYER.new()
 	player.position = Vector3(0, 0, -P / 2.0 - 4.0)
 	player.rotation.y = PI
@@ -231,6 +239,17 @@ func _tribune() -> void:
 	_label3d("BUVETTE", Vector3(0, 2.0, 1.02), 44, Color(0.95, 0.85, 0.6)).position += buvette.position
 	_lamp(buvette.position + Vector3(0, 2.2, 1.6), Color(1.0, 0.8, 0.5), 1.2, 6.0)
 	_interactive(buvette, "buvette", "E : un café à la buvette", Vector3(3.4, 2.4, 2.0), Vector3(0, 1.2, 1.8))
+	# Les locaux du club, de l'autre côté de la tribune : le siège, où l'on gère le club comme avec le président.
+	var locaux := Node3D.new()
+	locaux.position = Vector3(-tw / 2.0 - 3.0, 0, tz - 1.0)
+	add_child(locaux)
+	_box(Vector3(3.2, 2.6, 2.2), Vector3(0, 1.3, 0), _std(Color(0.86, 0.82, 0.7), 0.8), true, locaux)
+	_box(Vector3(3.4, 0.12, 2.5), Vector3(0, 2.62, 0.1), bleu, false, locaux)
+	_box(Vector3(0.9, 2.0, 0.08), Vector3(0.4, 1.0, 1.12), bois, false, locaux)
+	_box(Vector3(0.7, 0.6, 0.06), Vector3(-0.8, 1.6, 1.12), _std(Color(0.55, 0.7, 0.85), 0.3), false, locaux)
+	_label3d("LE SIÈGE DU CLUB", Vector3(0, 2.25, 1.14), 36, Color(0.95, 0.85, 0.6)).position += locaux.position
+	_lamp(locaux.position + Vector3(0, 2.3, 1.6), Color(1.0, 0.85, 0.6), 1.1, 6.0)
+	_interactive(locaux, "locaux", "E : entrer au siège du club", Vector3(3.6, 2.6, 2.2), Vector3(0, 1.3, 1.6))
 
 
 ## Le tableau d'affichage, derrière la touche sud, face à la tribune.
@@ -281,6 +300,51 @@ func open_mercato() -> void:
 	if _causerie != null:
 		return
 	var p: PanelContainer = MERCATO.new()
+	p.club = _club_de_la_commune()
+	p.closed.connect(func():
+		p.queue_free()
+		_causerie = null
+		player.frozen = false
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
+	player.frozen = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_panel_layer.add_child(p)
+	_causerie = p
+
+
+## Les locaux du club : le siège, d'où l'on ouvre la causerie, le mercato et le registre des obligations.
+func open_locaux() -> void:
+	if _causerie != null:
+		return
+	var p: PanelContainer = LOCAUX.new()
+	p.club = _club_de_la_commune()
+	var fermer := func():
+		p.queue_free()
+		_causerie = null
+	p.closed.connect(func():
+		fermer.call()
+		player.frozen = false
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
+	p.causerie.connect(func():
+		fermer.call()
+		open_causerie())
+	p.mercato.connect(func():
+		fermer.call()
+		open_mercato())
+	p.obligations.connect(func():
+		fermer.call()
+		open_obligations())
+	player.frozen = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_panel_layer.add_child(p)
+	_causerie = p
+
+
+## Le registre des obligations du club, le même qu'à l'étude de Maître Garnier.
+func open_obligations() -> void:
+	if _causerie != null:
+		return
+	var p: PanelContainer = OBLIGATIONS.new()
 	p.club = _club_de_la_commune()
 	p.closed.connect(func():
 		p.queue_free()
@@ -402,6 +466,9 @@ func _synchroniser(dun_coup := false) -> void:
 ## tableau d'affichage, et l'Étoile revient s'entraîner.
 func _terminer() -> void:
 	_resultat = _etat
+	if _bandeau != null and _bandeau.visible:
+		_afficher_bandeau(_score_bandeau(), "Terminé, la feuille au tableau.")
+		_effacer_bandeau(8.0)
 	_score.text = "%s  %d - %d  %s" % [Football.clubs[_rencontre.dom].court, _etat.score[0], _etat.score[1], Football.clubs[_rencontre.ext].court]
 	_horloge.text = "Journée %d  ·  terminé" % _rencontre.j
 	_affiche.text = "%s – %s  ·  la feuille de match au tableau (E)" % [Football.clubs[_rencontre.dom].nom, Football.clubs[_rencontre.ext].nom]
@@ -575,6 +642,19 @@ func _minute() -> void:
 	var evenements: Array = FootMatch.avancer(_etat, _joueurs, _hasard)
 	var qui: int = 0 if _etat.stats[0].possession > avant[0] else 1
 	_horloge.text = "Journée %d  ·  %s" % [_rencontre.j, FootMatch.libelle_minute(_etat)]
+	var fait := ""
+	for ev in evenements:
+		if ev.type in ["but", "carton", "remplacement", "penalty"]:
+			fait = str(ev.texte)
+	if _etat.pause == "mi-temps":
+		_afficher_bandeau("%s  ·  Mi-temps" % _score_bandeau().split("  ·  ")[0])
+	elif _etat.fini:
+		_afficher_bandeau(_score_bandeau(), "Terminé, la feuille au tableau.")
+		_effacer_bandeau(8.0)
+	elif fait != "" or _bandeau == null or not _bandeau.visible:
+		_afficher_bandeau(_score_bandeau(), fait)
+	else:
+		_bandeau_score.text = _score_bandeau()
 	var sens := 1.0 if qui == 0 else -1.0
 	# La minute précédente est finie, même si sa dernière scène ne l'était pas.
 	_scenes.clear()
@@ -721,6 +801,74 @@ func _marquer(i: int, ev: Dictionary) -> void:
 	Sfx.result(1, 50 if chez_nous else 0)
 
 
+## Le bandeau du direct : l'ardoise en haut au centre, le score et la minute en grand, le dernier fait dessous.
+func _bandeau_du_direct() -> void:
+	_bandeau = PanelContainer.new()
+	var st := StyleBoxFlat.new()
+	st.bg_color = Color(0.11, 0.17, 0.15, 0.9)
+	st.border_color = Color(0.55, 0.42, 0.25)
+	st.set_border_width_all(2)
+	st.set_corner_radius_all(6)
+	st.content_margin_left = 22
+	st.content_margin_right = 22
+	st.content_margin_top = 8
+	st.content_margin_bottom = 8
+	_bandeau.add_theme_stylebox_override("panel", st)
+	_bandeau.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_bandeau.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_bandeau.position.y = 18
+	_bandeau.visible = false
+	_bandeau.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 2)
+	_bandeau.add_child(v)
+	_bandeau_score = Label.new()
+	_bandeau_score.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_bandeau_score.add_theme_font_override("font", Polices.gras())
+	_bandeau_score.add_theme_font_size_override("font_size", 26)
+	_bandeau_score.add_theme_color_override("font_color", Color(0.95, 0.93, 0.85))
+	v.add_child(_bandeau_score)
+	_bandeau_fait = Label.new()
+	_bandeau_fait.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_bandeau_fait.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_bandeau_fait.custom_minimum_size.x = 420
+	_bandeau_fait.add_theme_font_override("font", _serif)
+	_bandeau_fait.add_theme_font_size_override("font_size", 15)
+	_bandeau_fait.add_theme_color_override("font_color", Color(0.96, 0.8, 0.45))
+	v.add_child(_bandeau_fait)
+	_speech.get_parent().add_child(_bandeau)
+
+
+## Ce que dit le bandeau : le score et la minute, et le dernier fait s'il y en a un (deux lignes au plus).
+func _afficher_bandeau(score: String, fait := "") -> void:
+	if _bandeau == null:
+		return
+	if _bandeau_tween:
+		_bandeau_tween.kill()
+	_bandeau.modulate.a = 1.0
+	_bandeau.visible = true
+	_bandeau_score.text = score
+	_bandeau_fait.text = fait
+	_bandeau_fait.visible = fait != ""
+
+
+## Le bandeau s'efface au bout d'un moment (le coup de sifflet final).
+func _effacer_bandeau(apres: float) -> void:
+	if _bandeau == null or not _bandeau.visible:
+		return
+	if _bandeau_tween:
+		_bandeau_tween.kill()
+	_bandeau_tween = create_tween()
+	_bandeau_tween.tween_interval(apres)
+	_bandeau_tween.tween_property(_bandeau, "modulate:a", 0.0, 1.0)
+	_bandeau_tween.tween_callback(func(): _bandeau.visible = false)
+
+
+## Le score du bandeau : « ESM 1 – 0 LVV · 63e ».
+func _score_bandeau() -> String:
+	return "%s  %d – %d  %s  ·  %s" % [Football.clubs[_rencontre.dom].court, _etat.score[0], _etat.score[1], Football.clubs[_rencontre.ext].court, FootMatch.libelle_minute(_etat)]
+
+
 func _dire(texte: String) -> void:
 	_speech.text = texte
 	_show_speech()
@@ -747,6 +895,8 @@ func _on_interact(target: Node) -> void:
 			get_tree().change_scene_to_file("res://scenes/main.tscn")
 		"president":
 			open_causerie()
+		"locaux":
+			open_locaux()
 		"feuille":
 			open_feuille()
 		"buvette":
@@ -780,6 +930,10 @@ func _maybe_capture() -> void:
 			open_causerie()
 		elif arg == "--open=mercato":
 			open_mercato()
+		elif arg == "--open=locaux":
+			open_locaux()
+		elif arg == "--open=obligations":
+			open_obligations()
 		elif arg.begins_with("--rejouer="):
 			_rejouer(arg.trim_prefix("--rejouer="))
 		elif arg.begins_with("--attendre="):
