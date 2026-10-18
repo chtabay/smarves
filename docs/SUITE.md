@@ -25,7 +25,7 @@ Les règles qui ne bougent pas :
 
 **Ordre tranché par Guillaume le 17 octobre 2026** : une fois le mobile au point, la connexion au compte, puis le multi différé, puis le temps réel. La carte de la Vienne n'en dépend pas et se fait en parallèle.
 
-9. **Les structures partagées et le championnat de la Vienne** (section 6) : une commune déclare sa gare, son arrêt de car, son terrain de football ; le socle tient le registre ; toute commune avec un terrain a un club dans la pyramide du football de la Vienne. *Commencé le 18 octobre 2026* : le champ « structures » et le registre.
+9. **Les structures partagées et le championnat de la Vienne** (section 6) : une commune déclare sa gare, son arrêt de car, son terrain de football ; le socle tient le registre ; toute commune avec un terrain a un club dans la pyramide du football de la Vienne. *Commencé le 18 octobre 2026* : le champ « structures », le registre, et la pyramide elle-même (saisons, montées et descentes), sans rien à l'écran encore.
 
 Le détail et l'impact sur les fils en cours sont à la section 7.
 
@@ -320,7 +320,7 @@ Un type de plus fait monter la version du socle ; un paquet qui s'en sert le dem
 
 1. **Le champ `structures` et le registre** (fait le 18 octobre 2026 : `Structures`, `Registre`, `tools/test_structures.gd`), sans rien changer à l'écran.
 2. **Le portail** : le validateur vérifie `structures` règle pour règle, le catalogue les publie, le kit les documente.
-3. **Le squelette du championnat** : le module `Football` lit les terrains du registre, forme la pyramide, le calendrier et les classements sur le calendrier réel, avec un hasard à graine ; les invités ; promotion et descente. Testé sous Godot sans affichage, avec plusieurs saisons simulées.
+3. **Le squelette du championnat** (fait le 18 octobre 2026) : l'autoload `Football` (`scripts/socle/football.gd`) lit les terrains du registre, fonde la pyramide et la met au jour du calendrier réel (`actualiser()`, à l'ouverture et quand le registre change) : saisons closes avec montées et descentes (`historique`), clubs nouveaux à la saison suivante (`en_attente()` tant qu'elle n'est pas ouverte), invités tirés des communes réelles les plus proches, jamais une commune développée. Le hasard rejouable (`Hasard`, `scripts/socle/hasard.gd`) est le mulberry32 du Vestiaire : mêmes graines, mêmes tirages des deux côtés. `calendrier`, `journee`, `classement`, `resultat(saison, journee, dom, ext)` et `decider(saison, journee, club, decisions)` ; le résultat est pour l'instant tiré d'un coup (forces par saison, Poisson), la simulation minute par minute viendra de Zeus. La pyramide est écrite dans `user://communes/football.json`. Test : `godot --headless --path . -s tools/test_football.gd` (treize saisons simulées).
 4. **Le tableau du dimanche** au café (le premier seuil), puis les paris.
 5. **Le match minute par minute** repris de Zeus, le terrain de Smarves et le match animé.
 6. **Les parts du club, le mercato**, puis le multi (décisions au serveur).
