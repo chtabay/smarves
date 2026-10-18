@@ -1,12 +1,17 @@
+class_name Stade
 extends "res://scripts/shop_interior.gd"
-## Le stade municipal de Smarves, à la première personne, derrière son seuil (docs/SUITE.md, section 6) :
-## la pelouse sous les projecteurs, la tribune couverte de l'Étoile, le tableau d'affichage, et le match
+## Le stade d'une commune, à la première personne, derrière son seuil (docs/SUITE.md, section 6) : la scène
+## est au socle, la même pour toute commune qui déclare un terrain (« terrain_foot ») ; le nom du club, son
+## sigle, ses couleurs, le nom du stade et la porte du retour viennent de cette structure, le président du
+## lieu qui la porte (champ « hote »). Smarves y joue l'Étoile ; une autre commune l'ouvre par
+## Football.ouvrir_stade(id), et sa sortie ramène dans sa scène, à la porte « lot » du terrain.
+## La pelouse sous les projecteurs, la tribune couverte du club, le tableau d'affichage, et le match
 ## du dimanche qui se joue minute par minute sur la pelouse (FootMatch, le même état que la feuille du
 ## café) : les vingt-deux joueurs suivent le ballon, chaque action se joue en scènes (la construction dans
 ## son couloir, le centre de l'ailier, le corner tiré du poteau, le coup franc, le tir qui finit au fond,
 ## dans les gants ou sur le poteau), le commentateur parle en bas de l'écran, le tableau tient le score. Avant la première journée, l'Étoile s'entraîne et le tableau donne le coup d'envoi.
 ## L'interface, la capture et les petits outils viennent de l'intérieur des vendeurs (shop_interior.gd).
-## Capture : godot --path . res://scenes/stade.tscn -- --capture=sortie.png [--at=x,z,lacet,tangage] [--won=…] [--journee=n] [--minute=m]
+## Capture : godot --path . res://scenes/stade.tscn -- --capture=sortie.png [--at=x,z,lacet,tangage] [--won=…] [--journee=n] [--minute=m] [--commune=id]
 
 ## La pelouse : sa longueur (x) et sa largeur (z), et l'échelle des joueurs.
 const L := 36.0
@@ -53,9 +58,33 @@ const OBLIGATIONS := preload("res://scripts/socle/foot_obligations.gd")
 const LOCAUX := preload("res://scripts/socle/foot_locaux.gd")
 var _president: Node3D
 var _causerie: PanelContainer
+## La commune dont c'est le stade, posée par ouvrir() avant le changement de scène (Smarves sinon), son
+## terrain au registre, et son club dans la pyramide ("" tant qu'il attend la saison prochaine).
+static var prochaine_commune := ""
+var commune := ""
+var _terrain := {}
+var _club := ""
+
+
+## Ouvre le stade d'une commune : la scène du socle, habillée de son terrain. La sortie ramène à sa scène.
+static func ouvrir(id: String) -> void:
+	prochaine_commune = id
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	(Engine.get_main_loop() as SceneTree).change_scene_to_file("res://scenes/stade.tscn")
 
 
 func _ready() -> void:
+	commune = prochaine_commune if prochaine_commune != "" else Communes.origine().id
+	prochaine_commune = ""
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--commune="):
+			commune = arg.trim_prefix("--commune=")
+	if Football.niveaux.is_empty():
+		Football.actualiser()
+	for e in Registre.de_commune(commune):
+		if e.type == "terrain_foot":
+			_terrain = e
+	_club = _club_de_la_commune()
 	_serif = Polices.texte()
 	W = L + 20.0
 	D = P + 24.0
@@ -185,7 +214,7 @@ func _pelouse() -> void:
 func _tribune() -> void:
 	var beton := _std(Color(0.75, 0.73, 0.7), 0.9)
 	var bois := _std(Color(0.55, 0.36, 0.22), 0.7)
-	var bleu := _std(Color(0.2, 0.3, 0.45), 0.6)
+	var bleu := _std(_couleur(), 0.6)
 	var tz := -P / 2.0 - 4.0
 	var tw := 22.0
 	for i in 4:
@@ -197,7 +226,7 @@ func _tribune() -> void:
 	var toit := _box(Vector3(tw + 1.0, 0.12, 5.6), Vector3(0, 4.6, tz - 2.2), bleu)
 	toit.rotation_degrees.x = -6.0
 	_box(Vector3(tw + 1.0, 0.5, 0.08), Vector3(0, 4.3, tz + 0.25), _std(Color(0.97, 0.95, 0.9), 0.6))
-	_label3d("L'ÉTOILE DE SMARVES  ·  STADE MUNICIPAL", Vector3(0, 4.3, tz + 0.3), 64, Color(0.15, 0.25, 0.5))
+	_label3d("%s  ·  %s" % [_enseigne(_nom_club()), _enseigne(_nom_stade())], Vector3(0, 4.3, tz + 0.3), 64, _couleur().darkened(0.1))
 	# Les supporters, assis en tribune : ils se lèvent au but.
 	var graine := 70
 	for i in 4:
@@ -208,7 +237,7 @@ func _tribune() -> void:
 			var c := CRITTER.new()
 			c.randomize_look(graine)
 			if graine % 2 == 0:
-				c.look["top_color"] = "#1b3c8c"
+				c.look["top_color"] = _couleurs()[0]
 			c.scale = Vector3.ONE * PEOPLE_SCALE
 			c.position = Vector3(-tw / 2.0 + 1.5 + k * (tw - 3.0) / 6.0 + (i % 2) * 0.8, 0.4 + i * 0.4, tz - 0.3 - i * 1.0)
 			add_child(c)
@@ -219,11 +248,11 @@ func _tribune() -> void:
 	for s in [-1.0, 1.0]:
 		_box(Vector3(0.24, 1.8, 0.24), Vector3(-tw / 2.0 - 1.0 + s * 0.75, 0.9, tz + 1.0), pierre)
 	_box(Vector3(1.8, 0.3, 0.1), Vector3(-tw / 2.0 - 1.0, 1.85, tz + 1.0), bleu)
-	_label3d("STADE MUNICIPAL", Vector3(-tw / 2.0 - 1.0, 1.85, tz + 1.07), 40, Color(1.0, 0.9, 0.55))
+	_label3d(_enseigne(_nom_stade()), Vector3(-tw / 2.0 - 1.0, 1.85, tz + 1.07), 40, Color(1.0, 0.9, 0.55))
 	var sortie := Node3D.new()
 	sortie.position = Vector3(-tw / 2.0 - 1.0, 0, tz + 1.0)
 	add_child(sortie)
-	_interactive(sortie, "exit", "E : sortir sur la route du Bois", Vector3(2.2, 2.2, 2.0), Vector3(0, 1.1, 0))
+	_interactive(sortie, "exit", "E : sortir sur la route du Bois" if commune == Communes.ORIGINE else "E : sortir du stade", Vector3(2.2, 2.2, 2.0), Vector3(0, 1.1, 0))
 	_lamp(Vector3(-tw / 2.0 - 1.0, 2.4, tz + 1.6), Color(1.0, 0.75, 0.45), 1.5, 7.0)
 	# Un muret ferme le reste, et la buvette dans l'angle.
 	_box(Vector3(W, 1.2, 0.3), Vector3(0, 0.6, -D / 2.0 + 0.2), pierre, true)
@@ -253,7 +282,8 @@ func _tribune() -> void:
 
 
 ## Le tableau d'affichage, derrière la touche sud, face à la tribune.
-## Le président Chauvin, debout au bord de la pelouse devant sa tribune : E ouvre la causerie.
+## Le président du club (l'hôte du lieu qui porte le terrain), debout au bord de la pelouse devant sa
+## tribune : E ouvre la causerie.
 func _le_president() -> void:
 	var c := CRITTER.new()
 	c.randomize_look(1987)
@@ -262,7 +292,7 @@ func _le_president() -> void:
 	c.look["legs"] = "pantalon"
 	c.look["legs_color"] = "#3a3a44"
 	c.look["hat"] = "casquette"
-	c.look["hat_color"] = "#1b3c8c"
+	c.look["hat_color"] = _couleurs()[0]
 	c.look.erase("prop_r")
 	c.look.erase("apron")
 	c.scale = Vector3.ONE * PEOPLE_SCALE
@@ -270,16 +300,18 @@ func _le_president() -> void:
 	c.rotation.y = PI * 0.75
 	add_child(c)
 	_president = c
-	_label3d("Le président Chauvin", c.position + Vector3(0, 2.3, 0), 22, Color(0.95, 0.85, 0.6), 180.0)
-	_interactive(c, "president", "E : parler au président Chauvin", Vector3(1.2, 1.0, 1.2), Vector3(0, 0.4, 0))
+	_label3d(_nom_president(), c.position + Vector3(0, 2.3, 0), 22, Color(0.95, 0.85, 0.6), 180.0)
+	_interactive(c, "president", "E : parler %s" % _a(_nom_president()), Vector3(1.2, 1.0, 1.2), Vector3(0, 0.4, 0))
 
 
 ## La causerie : les consignes de l'Étoile pour son prochain match, dans la même ardoise que le tableau du café.
 func open_causerie() -> void:
 	if _causerie != null:
 		return
+	if _sans_club():
+		return
 	var p: PanelContainer = CAUSERIE.new()
-	p.club = _club_de_la_commune()
+	p.club = _club
 	p.closed.connect(func():
 		p.queue_free()
 		_causerie = null
@@ -299,8 +331,10 @@ func open_causerie() -> void:
 func open_mercato() -> void:
 	if _causerie != null:
 		return
+	if _sans_club():
+		return
 	var p: PanelContainer = MERCATO.new()
-	p.club = _club_de_la_commune()
+	p.club = _club
 	p.closed.connect(func():
 		p.queue_free()
 		_causerie = null
@@ -316,8 +350,10 @@ func open_mercato() -> void:
 func open_locaux() -> void:
 	if _causerie != null:
 		return
+	if _sans_club():
+		return
 	var p: PanelContainer = LOCAUX.new()
-	p.club = _club_de_la_commune()
+	p.club = _club
 	var fermer := func():
 		p.queue_free()
 		_causerie = null
@@ -344,8 +380,10 @@ func open_locaux() -> void:
 func open_obligations() -> void:
 	if _causerie != null:
 		return
+	if _sans_club():
+		return
 	var p: PanelContainer = OBLIGATIONS.new()
-	p.club = _club_de_la_commune()
+	p.club = _club
 	p.closed.connect(func():
 		p.queue_free()
 		_causerie = null
@@ -357,13 +395,78 @@ func open_obligations() -> void:
 	_causerie = p
 
 
-## Le club de la commune d'origine (celui du terrain du registre), « smarves » ici.
+## Le club de la commune dans la pyramide (celui de son terrain), ou "" s'il attend la saison prochaine.
 func _club_de_la_commune() -> String:
-	var origine: Commune = Communes.origine()
 	for id in Football.clubs:
-		if str(Football.clubs[id].get("commune", "")) == origine.id:
+		if str(Football.clubs[id].get("commune", "")) == commune and not Football.clubs[id].get("invite", false):
 			return id
-	return "smarves"
+	return ""
+
+
+## Ce que la structure « terrain_foot » dit du club et du stade, avec le club de la pyramide en secours.
+func _nom_club() -> String:
+	var c: Dictionary = Football.clubs.get(_club, {})
+	return str(_terrain.get("champs", {}).get("club", c.get("nom", "le club")))
+
+
+func _nom_stade() -> String:
+	var c: Dictionary = Football.clubs.get(_club, {})
+	return str(_terrain.get("nom", c.get("stade", "le stade")))
+
+
+func _couleurs() -> Array:
+	var c: Array = _terrain.get("champs", {}).get("couleurs", Football.clubs.get(_club, {}).get("couleurs", []))
+	return c if c.size() >= 2 else ["#1b3c8c", "#f2c94c"]
+
+
+## La couleur du club pour les bancs, la tribune, les toits : la première, un peu éteinte.
+func _couleur() -> Color:
+	return Color.from_string(str(_couleurs()[0]), Color(0.2, 0.3, 0.45)).lerp(Color(0.2, 0.3, 0.45), 0.35)
+
+
+## Le président : l'hôte du lieu du manifeste qui porte le terrain (même id, ou la porte « lot »).
+func _nom_president() -> String:
+	var c: Commune = Communes.commune(commune)
+	if c:
+		for l in c.lieux():
+			if l.id == _terrain.get("id", "") or (l.id == _terrain.get("lot", "") and l.id != ""):
+				return str(l.host) if str(l.host) != "" else "Le président"
+	return "Le président"
+
+
+## « Le stade municipal » → « STADE MUNICIPAL ».
+static func _enseigne(nom: String) -> String:
+	var n := nom.strip_edges()
+	for a in ["Le ", "La ", "Les ", "L'", "L’"]:
+		if n.begins_with(a):
+			n = n.substr(a.length())
+			break
+	return n.to_upper()
+
+
+## « Le président Chauvin » → « au président Chauvin » ; « Mme Rivière » → « à Mme Rivière ».
+static func _a(nom: String) -> String:
+	if nom.begins_with("Le "):
+		return "au " + nom.substr(3)
+	if nom.begins_with("La "):
+		return "à la " + nom.substr(3)
+	if nom.begins_with("L'") or nom.begins_with("L’"):
+		return "à l'" + nom.substr(2)
+	return "à " + nom
+
+
+## La porte du village où l'on ressort : le « lot » du terrain, sinon son id (« stade » à Smarves).
+func _lot() -> String:
+	var lot := str(_terrain.get("lot", ""))
+	return lot if lot != "" else str(_terrain.get("id", "stade"))
+
+
+## Le club n'est pas encore dans la pyramide : rien à décider, le président le dit.
+func _sans_club() -> bool:
+	if _club != "":
+		return false
+	_dire("« %s entre dans le championnat à la saison prochaine. D'ici là, on s'entraîne. »" % _nom_club())
+	return true
 
 
 func _tableau_affichage() -> void:
@@ -395,17 +498,18 @@ func _tableau_affichage() -> void:
 func _choisir() -> Dictionary:
 	if Football.niveaux.is_empty():
 		Football.actualiser()
-	var tableau: PanelContainer = FootTableau.new()
-	var d: Array = tableau.division_suivie()
-	tableau.free()
+	var d: Array = Football.place_de(_club) if _club != "" else []
+	if d.is_empty():
+		var tableau: PanelContainer = FootTableau.new()
+		d = tableau.division_suivie()
+		tableau.free()
 	var s: int = Football.saison
 	var joues: int = Football.journee_jouee()
 	var j: int = joues if joues > 0 else 1
 	var matchs: Array = Football.journee(s, d[0], d[1], j, joues)
-	var origine: Commune = Communes.origine()
 	var choisi: Dictionary = matchs[0]
 	for m in matchs:
-		if origine and (m.dom == origine.id or m.ext == origine.id):
+		if _club != "" and (m.dom == _club or m.ext == _club):
 			choisi = m
 	return {"s": s, "j": j, "dom": choisi.dom, "ext": choisi.ext, "joue": joues > 0, "coup_envoi": Football.coup_envoi(s, j)}
 
@@ -439,7 +543,7 @@ func _composer() -> void:
 			_dire(_etat.evenements[-1].texte)
 	else:
 		_entrainer()
-		_note("L'Étoile s'entraîne sous les projecteurs. %s" % _affiche.text)
+		_note("%s s'entraîne sous les projecteurs. %s" % [_nom_club(), _affiche.text])
 	_placer(true)
 
 
@@ -791,8 +895,7 @@ func _marquer(i: int, ev: Dictionary) -> void:
 	_score.text = "%s  %d - %d  %s" % [cd.court, _etat.score[0], _etat.score[1], ce.court]
 	if _acteurs.has(ev.get("joueur", "")):
 		_acteurs[ev.joueur].cheer(2.0)
-	var origine: Commune = Communes.origine()
-	var chez_nous: bool = origine != null and (_rencontre.dom if i == 0 else _rencontre.ext) == origine.id
+	var chez_nous: bool = _club != "" and (_rencontre.dom if i == 0 else _rencontre.ext) == _club
 	for s in _supporters:
 		if chez_nous:
 			s.cheer(2.4)
@@ -890,9 +993,10 @@ func _show_speech() -> void:
 func _on_interact(target: Node) -> void:
 	match str(target.get_meta("interact", "")):
 		"exit":
-			Game.return_point = "stade"
+			Game.return_point = _lot()
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-			get_tree().change_scene_to_file("res://scenes/main.tscn")
+			var c: Commune = Communes.commune(commune)
+			get_tree().change_scene_to_file(str(c.data.scene) if c else "res://scenes/main.tscn")
 		"president":
 			open_causerie()
 		"locaux":
@@ -902,7 +1006,7 @@ func _on_interact(target: Node) -> void:
 		"buvette":
 			_dire(["« Un café, un. C'est la femme du président qui tient la buvette, et elle ne fait pas crédit. »",
 				"« Le chocolat chaud, c'est pour les moins de douze ans et les gardiens de but. »",
-				"« Le président Chauvin dit que l'Étoile montera. Il le dit depuis 1987. »"].pick_random())
+				"« %s dit que %s montera. Il le dit depuis 1987. »" % [_nom_president(), _nom_club()]].pick_random())
 
 
 # --- Capture --------------------------------------------------------------------------------------
@@ -921,11 +1025,12 @@ func _maybe_capture() -> void:
 			player.rotation.y = deg_to_rad(v[2])
 			if v.size() > 3:
 				player.camera.rotation.x = deg_to_rad(v[3])
-		elif arg.begins_with("--minute=") or arg.begins_with("--journee=") or arg == "--mercato":
+		elif arg.begins_with("--minute=") or arg.begins_with("--journee=") or arg == "--mercato" or arg.begins_with("--commune="):
 			pass
 		elif arg.begins_with("--actionnaires="):
 			# Des obligations du club pour la capture : --actionnaires=vous:3+1,Lucien:5 (les rangs, avant --open=causerie).
-			Football.forcer_porteurs(arg.trim_prefix("--actionnaires="), _club_de_la_commune())
+			if _club != "":
+				Football.forcer_porteurs(arg.trim_prefix("--actionnaires="), _club)
 		elif arg == "--open=causerie":
 			open_causerie()
 		elif arg == "--open=mercato":

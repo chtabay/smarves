@@ -394,6 +394,13 @@ func en_attente() -> Array:
 	return Registre.de_type("terrain_foot").map(func(e): return e.commune).filter(func(c): return not clubs.has(c) or clubs[c].invite)
 
 
+## Ouvre le stade d'une commune qui a un terrain : la scène du socle (scenes/stade.tscn, scripts/village/
+## stade.gd), habillée du club, des couleurs et du nom de stade de sa structure « terrain_foot ». La
+## commune l'appelle depuis sa scène (la porte de son terrain) ; la sortie du stade la ramène chez elle.
+func ouvrir_stade(commune: String) -> void:
+	load("res://scripts/village/stade.gd").ouvrir(commune)
+
+
 ## Le niveau et le groupe d'un club : [n, g], ou [] s'il n'est pas dans la pyramide.
 func place_de(club: String) -> Array:
 	for n in niveaux.size():
