@@ -399,12 +399,15 @@ def main():
                 "toit": toit,
                 "mur": mur,
             }
+            # Le rectangle de la maison : son centre, son grand et son petit côté, l'angle du grand
+            # côté, et le remplissage (1 pour une maison rectangulaire, moins pour un L ou un U).
+            # La scène en fait une maison du Poitou quand il est assez plein. Le toit : à deux pans
+            # le long du grand côté, à quatre pans si la maison est presque carrée.
             centre_m, lu, lv, ang, rempli = rectangle(anneau)
-            if rempli > 0.82 and lv >= 3.0 and pente > 0.4:
-                # Maison rectangulaire : un toit à deux pans le long du grand côté, à quatre pans
-                # si la maison est presque carrée.
-                b["rect"] = [u(centre_m[0]), u(centre_m[1]), u(lu), u(lv), round(ang, 4)]
-                b["pans"] = 4 if lu < lv * 1.35 else 2
+            b["rect"] = [u(centre_m[0]), u(centre_m[1]), u(lu), u(lv), round(ang, 4)]
+            b["rempli"] = round(rempli, 2)
+            b["pans"] = 4 if lu < lv * 1.35 else 2
+            b["_rect_m"] = (centre_m, lu, lv, ang)
             if usage == "Annexe":
                 b["annexe"] = True
             b["_m"] = anneau
@@ -441,6 +444,35 @@ def main():
             if tg.get("tunnel") or tg.get("layer", "0").startswith("-"):
                 continue
             routes.append(r)
+
+    # La façade de chaque maison : celui des deux longs côtés qui est le plus près d'une rue
+    # (face = +1 ou -1, le sens de v dans le repère du rectangle), et la distance à cette rue.
+    segments = []
+    for r in routes:
+        if r["k"] in ("footway", "path", "steps", "track") or r.get("pont"):
+            continue
+        pts_m = [(q[0] * UNITE, q[1] * UNITE) for q in r["p"]]
+        segments += list(zip(pts_m, pts_m[1:]))
+
+    def dist_rue(p):
+        best = 1e9
+        for a, b2 in segments:
+            if min(a[0], b2[0]) - best > p[0] or max(a[0], b2[0]) + best < p[0] or min(a[1], b2[1]) - best > p[1] or max(a[1], b2[1]) + best < p[1]:
+                continue
+            dx, dz = b2[0] - a[0], b2[1] - a[1]
+            n2 = dx * dx + dz * dz
+            t = 0 if n2 == 0 else max(0, min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dz) / n2))
+            best = min(best, math.hypot(a[0] + dx * t - p[0], a[1] + dz * t - p[1]))
+        return best
+
+    for b in batiments:
+        (cx, cz), lu, lv, ang = b["_rect_m"]
+        vx, vz = -math.sin(ang), math.cos(ang)
+        d_plus = dist_rue((cx + vx * lv / 2, cz + vz * lv / 2))
+        d_moins = dist_rue((cx - vx * lv / 2, cz - vz * lv / 2))
+        b["face"] = 1 if d_plus <= d_moins else -1
+        b["rue"] = u(min(d_plus, d_moins))
+        del b["_rect_m"]
 
     # --- L'eau ---------------------------------------------------------------------------------
     eau, ruisseaux = [], []
