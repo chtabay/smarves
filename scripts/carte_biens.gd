@@ -30,6 +30,8 @@ const LOTS := {
 	"maison": ["Rue de l'Église", Rect2(250, 15, 190, 85)],
 	# Le Moulin des Dames est au bout de la rue du Clain, à l'ouest, par la route.
 	"cotes": ["← Moulin des Dames", Rect2(10, 535, 220, 75)],
+	# Le stade municipal est sur la route du Bois, à l'est.
+	"etoile": ["Stade municipal →", Rect2(770, 535, 220, 75)],
 }
 ## Une cible qu'on touche du doigt fait au moins 48 px de côté.
 const MIN_TARGET := 48.0
@@ -99,7 +101,7 @@ func _draw() -> void:
 	draw_rect(_box(ROAD), Color(0.72, 0.7, 0.66))
 	draw_rect(_box(CHEMIN), Color(0.86, 0.82, 0.7))
 	_fit("La place de la Mairie", _box(Rect2(390, 240, 270, 280)), 24, INK_LIGHT)
-	_fit("Route de Poitiers", _box(Rect2(260, 540, 600, 50)), 22, INK_LIGHT)
+	_fit("Route de Poitiers", _box(Rect2(250, 540, 500, 50)), 22, INK_LIGHT)
 	_fit("Chemin de Passelourdin ↑", _box(Rect2(545, 20, 300, 60)), 22, INK_LIGHT, false)
 	for m in MARKS:
 		var r := _box(m[1])

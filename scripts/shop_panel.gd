@@ -225,7 +225,12 @@ func _detail(id: String) -> void:
 		_label(_list, "Pas encore cédé. %s attend que vous ayez gagné %s au jeu." % [it.from, Game.fmt(it.gate)], 16, INK_LIGHT)
 		return
 	_label(_list, "%s  —  %s" % [it.from, it.blurb], 15, INK_LIGHT)
-	if it.rente > 0:
+	if it.has("club"):
+		_label(_list, "Rente annoncée : %s par recette, selon le classement du club (×1,4 en tête, ×0,7 en queue)." % Game.fmt(it.rente), 16, INK)
+		var f := get_node_or_null("/root/Football")
+		if f != null:
+			_label(_list, str(f.phrase_actionnaires(str(it.club))), 15, INK_LIGHT)
+	elif it.rente > 0:
 		_label(_list, "Rente annoncée : %s par recette" % Game.fmt(it.rente), 16, INK)
 	if it.charge > 0:
 		_label(_list, "Charges : %s" % Game.fmt(it.charge), 16, INK)

@@ -52,6 +52,11 @@ const CATALOGUE := [
 	{"id": "casino", "kind": "part", "seller": "notaire", "name": "Une action du Casino de Smarves",
 		"price": 6000, "growth": 1.4, "max": 10, "rente": 600, "charge": 0, "standing": 1, "gate": 5000,
 		"from": "Monsieur Armand", "blurb": "« La maison gagne toujours, Monsieur. Soyez la maison. »"},
+	# Le club de la commune (docs/SUITE.md, section 6) : la rente suit le classement de l'Étoile (Football.recette_facteur),
+	# et qui tient le plus de parts parle au président (la causerie du stade). gate : le seuil du stade.
+	{"id": "etoile", "kind": "part", "seller": "notaire", "name": "Une part de l'Étoile de Smarves", "club": "smarves",
+		"price": 1500, "growth": 1.4, "max": 5, "rente": 150, "charge": 0, "standing": 1, "gate": 3000,
+		"from": "Le président Chauvin", "blurb": "« Le club cède des parts pour refaire la tribune. Une part, c'est une voix à la causerie, et la buvette les dimanches de victoire. »"},
 	# Chez Maître Garnier aussi : les murs.
 	{"id": "chambre", "kind": "maison", "seller": "notaire", "name": "La chambre au-dessus du café",
 		"price": 800, "growth": 1.0, "max": 1, "rente": 80, "charge": 5, "standing": 1, "gate": 0, "lot": "chambre_cafe",
@@ -563,6 +568,7 @@ func buy(id: String, financed := false) -> bool:
 	elif it.kind == "maison" and not logements.has(id):
 		logements[id] = _new_logement(id)
 		_souvenirs()
+	_declarer_parts(id)
 	Game.changed.emit()
 	changed.emit()
 	return true
@@ -590,9 +596,25 @@ func sell(id: String) -> int:
 	_busy = true
 	Game.credits += paid
 	_busy = false
+	_declarer_parts(id)
 	Game.changed.emit()
 	changed.emit()
 	return paid
+
+
+## Les parts d'un club se déclarent au championnat (Football.detenir) : c'est lui qui sait qui parle pour le club.
+func _declarer_parts(id: String) -> void:
+	var it := item(id)
+	if it.has("club"):
+		var f := get_node_or_null("/root/Football")
+		if f != null:
+			f.detenir(str(it.club), count(id))
+
+
+## Ce que le classement du club fait à la rente de ses parts (×0,7 à ×1,4 ; ×1 sans championnat).
+func facteur_club(club: String) -> float:
+	var f := get_node_or_null("/root/Football")
+	return float(f.recette_facteur(club)) if f != null else 1.0
 
 
 func wear(id: String) -> void:
@@ -662,6 +684,9 @@ func _recette() -> void:
 		if it.rente <= 0 or is_habite(id):
 			continue
 		var announced: int = it.rente * count(id)
+		if it.has("club"):
+			# Une part du club rapporte selon le classement du moment : la buvette suit les résultats.
+			announced = int(round(announced * facteur_club(str(it.club))))
 		var paid := int(round(announced * _rng.randf_range(YIELD_MIN, YIELD_MAX) * animation))
 		paid_total += paid
 		last_recette.append([it.name, paid, announced, it.charge * count(id)])

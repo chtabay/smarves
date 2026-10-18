@@ -39,6 +39,14 @@ func remplir(colonne: VBoxContainer) -> void:
 		Time.get_datetime_dict_from_unix_time(rencontre.quand).hour, ou, str(f.clubs[adv].nom)], 17, CRAIE, null, true))
 	colonne.add_child(_filet())
 	var actuelle: Dictionary = f.consigne_de(rencontre.s, rencontre.j, club)
+	if not f.actionnaires(club).is_empty():
+		# Les parts du club, cédées chez le notaire : qui en tient le plus parle au président.
+		colonne.add_child(_mot(str(f.phrase_actionnaires(club)), 15, OR, null, true))
+	if not f.peut_decider(club):
+		colonne.add_child(_mot("Le président n'écoute que son premier actionnaire. Maître Garnier cède des parts du club à l'étude.", 16, CRAIE, null, true))
+		colonne.add_child(_mot(etat_texte(actuelle), 15, DOUX, null, true))
+		_bas(colonne, false)
+		return
 	if _choix.is_empty():
 		_choix = (actuelle.consigne as Dictionary).duplicate()
 	_rangee(colonne, "La formation", "formation", FootMatch.FORMATIONS.keys(), func(k): return str(k))
@@ -105,5 +113,6 @@ func donner() -> bool:
 	var ok: bool = foot().decider(rencontre.s, rencontre.j, club, _choix)
 	remplir(_colonne)
 	if not ok and _ligne_etat != null:
-		_ligne_etat.text = "Trop tard : le coup d'envoi est donné. Les consignes attendent la journée suivante."
+		_ligne_etat.text = "Trop tard : le coup d'envoi est donné. Les consignes attendent la journée suivante." if foot().peut_decider(club) \
+			else "Le président n'écoute que son premier actionnaire."
 	return ok
