@@ -428,10 +428,10 @@ func _stats(id: String, st := {}) -> Dictionary:
 	var out := {}
 	for e in st.get("buteurs", []):
 		if str(e.get("id", "")) == id:
-			out.buts = int(e.get("buts", 0))
+			out.buts = int(e.get("buts", e.get("n", 0)))
 	for e in st.get("passeurs", []):
 		if str(e.get("id", "")) == id:
-			out.passes = int(e.get("passes", 0))
+			out.passes = int(e.get("passes", e.get("n", 0)))
 	return out
 
 
@@ -1109,7 +1109,7 @@ func _championnat(col: VBoxContainer) -> void:
 			h.add_child(_couleurs(c.couleurs))
 		h.add_child(_mot(str(c.get("nom", e.get("club", ""))), 15, DOUX))
 		grille.add_child(h)
-		var nombre := int(e.get({"buteurs": "buts", "passeurs": "passes", "clean_sheets": "n"}[onglet_championnat], 0))
+		var nombre := int(e.get({"buteurs": "buts", "passeurs": "passes", "clean_sheets": "n"}[onglet_championnat], e.get("n", 0)))
 		grille.add_child(_mot(str(nombre), 16, OR, Polices.gras()))
 
 
