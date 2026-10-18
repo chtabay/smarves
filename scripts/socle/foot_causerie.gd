@@ -18,15 +18,7 @@ var _ligne_etat: Label
 
 
 func _ready() -> void:
-	if foot().niveaux.is_empty():
-		foot().actualiser()
-	var st := _boite(ARDOISE, Color(0.55, 0.42, 0.25), 6, 24, 6)
-	st.shadow_color = Color(0, 0, 0, 0.5)
-	st.shadow_size = 24
-	add_theme_stylebox_override("panel", st)
-	_colonne = VBoxContainer.new()
-	_colonne.add_theme_constant_override("separation", 10)
-	add_child(_colonne)
+	_preparer()
 	remplir(_colonne)
 
 
@@ -35,7 +27,7 @@ func remplir(colonne: VBoxContainer) -> void:
 	var f := foot()
 	var c: Dictionary = f.clubs.get(club, {})
 	colonne.add_child(_mot("L A   C A U S E R I E   D U   P R É S I D E N T", 13, DOUX))
-	colonne.add_child(_mot(str(c.get("nom", "Le club")), 34, CRAIE, Polices.titre()))
+	colonne.add_child(_mot(str(c.get("nom", "Le club")), 26 if _etroit() else 34, CRAIE, Polices.titre(), _etroit()))
 	rencontre = f.prochain_match(club)
 	if rencontre.is_empty():
 		colonne.add_child(_mot("La saison qui vient n'est pas encore tirée : les consignes attendent le calendrier.", 16, DOUX, null, true))
@@ -77,8 +69,9 @@ func etat_texte(actuelle: Dictionary) -> String:
 
 func _rangee(colonne: VBoxContainer, titre: String, cle: String, valeurs: Array, nom: Callable) -> void:
 	colonne.add_child(_mot(titre, 15, DOUX))
-	var rang := HBoxContainer.new()
-	rang.add_theme_constant_override("separation", 8)
+	var rang := HFlowContainer.new()
+	rang.add_theme_constant_override("h_separation", 8)
+	rang.add_theme_constant_override("v_separation", 6)
 	colonne.add_child(rang)
 	for v in valeurs:
 		var b := _bouton(nom.call(v), func():

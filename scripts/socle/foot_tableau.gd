@@ -19,6 +19,8 @@ const MOIS := ["janvier", "février", "mars", "avril", "mai", "juin", "juillet",
 var division: Array = []
 ## La colonne de la fenêtre : le tableau, ou la feuille d'un match.
 var _colonne: VBoxContainer
+## Sur un écran étroit, ce qui fait défiler la colonne.
+var _fenetre: ScrollContainer
 
 
 
@@ -33,16 +35,59 @@ static func communes() -> Node:
 
 
 func _ready() -> void:
+	_preparer()
+	remplir(_colonne)
+
+
+## L'ardoise et sa colonne. Sur un écran étroit (un téléphone : Tactile ramène la base vers 1067 × 600),
+## la fenêtre tient dans l'écran et défile, les marges se serrent, les colonnes s'empilent.
+func _preparer() -> void:
 	if foot().niveaux.is_empty():
 		foot().actualiser()
-	var st := _boite(ARDOISE, Color(0.55, 0.42, 0.25), 6, 24, 6)
+	var etroit := _etroit()
+	var st := _boite(ARDOISE, Color(0.55, 0.42, 0.25), 6, 12 if etroit else 24, 6)
 	st.shadow_color = Color(0, 0, 0, 0.5)
 	st.shadow_size = 24
 	add_theme_stylebox_override("panel", st)
 	_colonne = VBoxContainer.new()
-	_colonne.add_theme_constant_override("separation", 10)
-	add_child(_colonne)
-	remplir(_colonne)
+	_colonne.add_theme_constant_override("separation", 6 if etroit else 10)
+	if etroit:
+		_fenetre = ScrollContainer.new()
+		_fenetre.name = "Fenetre"
+		_fenetre.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		add_child(_fenetre)
+		_colonne.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_fenetre.add_child(_colonne)
+		_colonne.minimum_size_changed.connect(_ajuster)
+		_ajuster()
+	else:
+		add_child(_colonne)
+
+
+## Sur un écran étroit, la fenêtre prend la taille de son contenu, sans dépasser l'écran : au-delà, on défile.
+func _ajuster() -> void:
+	if _fenetre == null or _colonne == null:
+		return
+	var maxi := _ecran() - Vector2(36, 36)
+	var taille := _colonne.get_combined_minimum_size()
+	_fenetre.custom_minimum_size = Vector2(minf(taille.x + 14.0, maxi.x), minf(taille.y, maxi.y))
+
+
+## L'écran, dans les unités de l'interface (1600 × 900 sur un ordinateur, moins sur un téléphone).
+func _ecran() -> Vector2:
+	var v := get_viewport()
+	return v.get_visible_rect().size if v != null else Vector2(1600, 900)
+
+
+## Un écran étroit : un téléphone, ou une petite fenêtre.
+func _etroit() -> bool:
+	var e := _ecran()
+	return e.x < 1300.0 or e.y < 760.0
+
+
+## La largeur d'un texte replié : il laisse, sur un téléphone, la place du bouton « Sortir » en haut à droite.
+func _large() -> float:
+	return minf(900.0, _ecran().x - 190.0)
 
 
 ## Remplit la fenêtre d'après la pyramide du moment.
@@ -60,7 +105,7 @@ func remplir(colonne: VBoxContainer) -> void:
 	elif foot().consignes_etat == "hors_ligne":
 		colonne.add_child(_mot("Hors ligne : les consignes des autres clubs se liront au retour du réseau.", 15, DOUX, null, true))
 	var rang := HBoxContainer.new()
-	rang.add_theme_constant_override("separation", 36)
+	rang.add_theme_constant_override("separation", 24 if _etroit() else 36)
 	colonne.add_child(rang)
 
 	# À gauche, le classement de la division suivie.
@@ -231,12 +276,16 @@ func ouvrir_feuille(s: int, j: int, dom: String, ext: String) -> void:
 	haut.add_theme_constant_override("separation", 14)
 	_colonne.add_child(haut)
 	haut.add_child(_couleurs(cd.couleurs))
-	haut.add_child(_mot("%s  %d - %d  %s" % [cd.nom, etat.score[0], etat.score[1], ce.nom], 28, OR, Polices.gras()))
+	var etroit := _etroit()
+	var titre := _mot("%s  %d - %d  %s" % [cd.nom, etat.score[0], etat.score[1], ce.nom], 22 if etroit else 28, OR, Polices.gras(), etroit)
+	if etroit:
+		titre.custom_minimum_size.x = _large() - 60.0
+	haut.add_child(titre)
 	haut.add_child(_couleurs(ce.couleurs))
 	_colonne.add_child(_mot("Journée %d de la saison %d  ·  %s  ·  %s" % [j, s, etat.stade, foot().nom_division(division[0], division[1])], 16, DOUX))
 
 	var rang := HBoxContainer.new()
-	rang.add_theme_constant_override("separation", 36)
+	rang.add_theme_constant_override("separation", 20 if etroit else 36)
 	_colonne.add_child(rang)
 	# Les buteurs, de part et d'autre.
 	var joueurs := {}
@@ -244,7 +293,7 @@ func ouvrir_feuille(s: int, j: int, dom: String, ext: String) -> void:
 	joueurs.merge(foot().effectif(ext, s))
 	for i in 2:
 		var col := VBoxContainer.new()
-		col.custom_minimum_size.x = 300
+		col.custom_minimum_size.x = 250 if etroit else 300
 		rang.add_child(col)
 		col.add_child(_mot("Buts %s" % [cd.court if i == 0 else ce.court], 16, CRAIE, Polices.gras()))
 		var aucun := true
@@ -282,15 +331,20 @@ func ouvrir_feuille(s: int, j: int, dom: String, ext: String) -> void:
 
 	_colonne.add_child(_filet())
 	_colonne.add_child(_mot("Le match minute par minute", 18, CRAIE, Polices.gras()))
-	var defile := ScrollContainer.new()
-	defile.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	defile.custom_minimum_size = Vector2(980, 260)
-	defile.name = "Recit"
-	_colonne.add_child(defile)
 	var recit := VBoxContainer.new()
 	recit.add_theme_constant_override("separation", 2)
 	recit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	defile.add_child(recit)
+	if etroit:
+		# Toute la fenêtre défile déjà : le récit s'y déroule en entier.
+		recit.name = "Recit"
+		_colonne.add_child(recit)
+	else:
+		var defile := ScrollContainer.new()
+		defile.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		defile.custom_minimum_size = Vector2(980, 260)
+		defile.name = "Recit"
+		_colonne.add_child(defile)
+		defile.add_child(recit)
 	for ev in etat.evenements:
 		recit.add_child(_evenement(ev))
 
@@ -323,7 +377,7 @@ func _evenement(ev: Dictionary) -> Control:
 		"ambiance", "info":
 			encre = DOUX
 	var texte := _mot(str(ev.texte), 14, encre, police, true)
-	texte.custom_minimum_size.x = 860
+	texte.custom_minimum_size.x = minf(860.0, _ecran().x - 150.0)
 	h.add_child(texte)
 	return h
 
@@ -361,7 +415,7 @@ func _mot(t: String, taille: int, couleur: Color, police: Font = null, replie :=
 	l.add_theme_color_override("font_color", couleur)
 	if replie:
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		l.custom_minimum_size.x = 900
+		l.custom_minimum_size.x = _large()
 	return l
 
 

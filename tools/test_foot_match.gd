@@ -41,13 +41,16 @@ func _init() -> void:
 	var a_ok := true
 	for j in eff.values():
 		var c: Dictionary = j.get("competences", {})
-		if c.size() != 7 or c.values().any(func(v): return v < 20 or v > 95):
+		if c.size() != 8 or c.values().any(func(v): return v < 20 or v > 95):
 			g_ok = false
 		if j.poste == "G" and c.get("gardien", 0) <= c.get("but", 0):
 			g_ok = false
 		if j.poste == "A" and c.get("but", 0) <= c.get("gardien", 0):
 			a_ok = false
-	check(g_ok and a_ok, "sept compétences par joueur : le gardien garde, le buteur marque")
+	check(g_ok and a_ok, "huit compétences par joueur : le gardien garde, le buteur marque")
+	var costaud := {"poste": "M", "note": 60, "age": 26, "competences": {"endurance": 90}}
+	var fragile := {"poste": "M", "note": 60, "age": 26, "competences": {"endurance": 30}}
+	check(FootMatch.perte_condition(costaud) < 0.75 * FootMatch.perte_condition(fragile) and FootMatch.perte_condition(fragile, 1.35) > FootMatch.perte_condition(fragile), "l'endurance ralentit l'usure, le pressing haut l'accélère : %.3f contre %.3f par minute" % [FootMatch.perte_condition(costaud), FootMatch.perte_condition(fragile)])
 	check(FootMatch.competence(eff.values()[0], "cpa") == float(eff.values()[0].competences.cpa) and FootMatch.competence({"poste": "M", "note": 60}, "jeu") > 55.0, "la compétence lue, ou déduite de la note quand elle manque")
 	check(FootMatch.couloir_de(FootMatch.FORMATIONS["4-4-2"][1]) == "gauche" and FootMatch.couloir_de(FootMatch.FORMATIONS["4-4-2"][2]) == "centre" and FootMatch.couloir_de(FootMatch.FORMATIONS["4-4-2"][4]) == "droite", "les cases ont leur couloir")
 
