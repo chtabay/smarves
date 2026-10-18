@@ -1,22 +1,34 @@
 extends CanvasLayer
 ## Le carnet du joueur (autoload « Carnet »), ouvert par C : un cahier d'écolier à petits carreaux,
-## écrit à l'encre bleue. On y tient ses biens, la dernière recette et ses comptes. Pas de commentaire :
-## les chiffres sont alignés, le joueur fait la soustraction. Une fiche de papier glisse en bas de
-## l'écran à chaque recette et à chaque reprise de M. Brunet.
+## écrit à l'encre bleue, partagé par des intercalaires de couleur. Pas de commentaire : les chiffres
+## sont alignés, le joueur fait la soustraction. Une fiche de papier glisse en bas de l'écran à chaque
+## recette, à chaque reprise d'un bien, à chaque ticket réglé.
+##
+## Les onglets, de gauche à droite :
+## - « Mon compte », tenu par le socle : ce qui suit le joueur d'une commune à l'autre (crédits, dettes
+##   par banque, biens, obligations, bourse, fortune nette), la semaine et les engagements en cours ;
+## - un onglet par commune : la commune d'origine d'abord, dont la page vient du jeu (le champ
+##   « page_carnet » de son manifeste), puis chaque commune qui tient des compteurs au carnet
+##   (docs/COMMUNE.md, « Le carnet du joueur ») : ils se lisent de partout, et ne bougent que quand
+##   le joueur y est ;
+## - « La Vienne » : les communes à installer et à visiter, et les derniers passages.
 
 const PAPER := Color(0.97, 0.95, 0.88)
 const MARGIN_RED := Color(0.85, 0.3, 0.3, 0.55)
 const INK := Color(0.12, 0.2, 0.5)
 const INK_LIGHT := Color(0.3, 0.38, 0.62)
 const PENCIL := Color(0.38, 0.36, 0.34)
-## Le plan du village : ses quartiers et ses lieux cachés (docs/VILLAGE.md, « Pour le plan du Carnet »).
-const VILLAGE := preload("res://scripts/village/village.gd")
-## La part de la maquette que couvre le plan, en mètres (x, z) : du Moulin au bois, des rochers à la route.
-const PLAN_WORLD := Rect2(-82.0, -79.0, 164.0, 95.0)
+const RED_INK := Color(0.7, 0.12, 0.12)
+## Le papier des intercalaires, un par onglet, dans l'ordre (le dernier se répète).
+const TEINTES := [Color(0.91, 0.8, 0.52), Color(0.7, 0.83, 0.68), Color(0.89, 0.7, 0.7), Color(0.71, 0.79, 0.9), Color(0.84, 0.75, 0.89)]
+
+## Au-delà, les compteurs d'une commune passent sur la page de droite.
+const LIGNES_A_GAUCHE := 14
 
 var _root: Control
 var _left: VBoxContainer
 var _right: VBoxContainer
+var _onglets: HBoxContainer
 var _slip: PanelContainer
 var _slip_label: Label
 var _slip_tween: Tween
@@ -28,12 +40,16 @@ var _mouse_before := Input.MOUSE_MODE_VISIBLE
 var _paused_before := false
 ## Le logement qu'on est en train d'aménager dans le carnet (« » : aucun).
 var _amenage := ""
-## Le plan du village, déplié par-dessus le carnet : sa feuille, et ce qu'on y dessine.
+## La feuille dépliée par-dessus le carnet (le plan d'une commune, la semaine) : sa feuille, et ce qu'on y écrit.
 var _cover: Control
 var _sheet: PanelContainer
 var _sheet_box: VBoxContainer
-## Ce que montre la feuille dépliée : « plan » (le plan du village) ou « agenda » (la semaine).
+## Ce que montre la feuille dépliée : « agenda » (la semaine), ou ce que la page d'origine sait déplier (« plan »).
 var _sheet_mode := "plan"
+## L'onglet ouvert : « compte », « vienne » ou l'id d'une commune.
+var _onglet := "compte"
+## La page de la commune d'origine (son manifeste, « page_carnet ») : un nœud qui remplit les deux pages.
+var _page_origine: Node
 
 
 func _ready() -> void:
@@ -44,6 +60,7 @@ func _ready() -> void:
 	_hand_bold = Polices.gras()
 	_build()
 	_root.visible = false
+	_charger_page_origine()
 	Biens.changed.connect(func():
 		if _root.visible:
 			_refresh())
@@ -59,12 +76,31 @@ func _ready() -> void:
 	Communes.etat_change.connect(func(_id):
 		if _root.visible:
 			_refresh.call_deferred())
-	# Le village n'est pas un autoload : on se branche sur lui quand la place se monte.
-	get_tree().node_added.connect(_on_node_added)
+	# Chaque passage dans une commune qui tient des compteurs se note, pour la date de la page.
+	if get_tree().has_signal("scene_changed"):
+		get_tree().connect("scene_changed", _noter_passage)
 
 
 func is_open() -> bool:
 	return _root.visible
+
+
+## La page de la commune d'origine, s'il y en a une : le jeu la désigne dans son manifeste. Un paquet de
+## commune ne fournit jamais de code au carnet ; ses compteurs suffisent (noter).
+func _charger_page_origine() -> void:
+	var o: Commune = Communes.origine()
+	var chemin := str(o.data.get("page_carnet", "")) if o != null else ""
+	if chemin == "" or not ResourceLoader.exists(chemin):
+		return
+	_page_origine = (load(chemin) as Script).new()
+	_page_origine.set("carnet", self)
+	_page_origine.name = "PageOrigine"
+	add_child(_page_origine)
+
+
+## La page de la commune d'origine (ou null) : la commune y range son plan, ses adresses.
+func page_origine() -> Node:
+	return _page_origine
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -78,6 +114,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			_show_sheet(false, _sheet_mode)
 		else:
 			toggle()
+		get_viewport().set_input_as_handled()
+	elif _root.visible and not _sheet.visible and event is InputEventKey and event.pressed \
+			and event.keycode in [KEY_LEFT, KEY_RIGHT, KEY_PAGEUP, KEY_PAGEDOWN]:
+		tourner(1 if event.keycode in [KEY_RIGHT, KEY_PAGEDOWN] else -1)
 		get_viewport().set_input_as_handled()
 
 
@@ -94,9 +134,93 @@ func toggle() -> void:
 		_mouse_before = Input.mouse_mode
 		_paused_before = get_tree().paused
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		_noter_passage()
 		_refresh()
 		_root.visible = true
 		get_tree().paused = true
+
+
+# --- Les onglets ----------------------------------------------------------------------------------
+
+## Les onglets du cahier, dans l'ordre : [[clé, nom]].
+func onglets() -> Array:
+	var out := [["compte", "Mon compte"]]
+	var o: Commune = Communes.origine()
+	if _page_origine != null and o != null:
+		out.append([o.id, o.nom])
+	for id in _communes_au_carnet():
+		out.append([id, _nom_commune(id)])
+	out.append(["vienne", "La Vienne"])
+	return out
+
+
+## Les communes qui ont une page de compteurs : les installées qui en déclarent, puis celles dont le
+## carnet garde une trace sans qu'elles soient là (désinstallées, ou pas encore lues au lancement).
+func _communes_au_carnet() -> Array:
+	var out: Array = []
+	var o: Commune = Communes.origine()
+	for id in Communes.ordre:
+		if o != null and id == o.id and _page_origine != null:
+			continue
+		if not _compteurs(id).is_empty():
+			out.append(id)
+	for id in Game.carnet:
+		if not out.has(id) and not (o != null and id == o.id and _page_origine != null) and not _compteurs(id).is_empty():
+			out.append(id)
+	return out
+
+
+func ouvrir_onglet(cle: String) -> void:
+	_onglet = cle
+	_amenage = ""
+	_refresh()
+
+
+## Passe à l'onglet suivant (1) ou précédent (-1), en bouclant.
+func tourner(sens: int) -> void:
+	var cles := onglets().map(func(o): return o[0])
+	var i := cles.find(_onglet)
+	ouvrir_onglet(cles[posmod((0 if i < 0 else i) + sens, cles.size())])
+
+
+func _fill_onglets() -> void:
+	var liste := onglets()
+	if not liste.any(func(o): return o[0] == _onglet):
+		_onglet = "compte"
+	for i in liste.size():
+		var cle: String = liste[i][0]
+		var actif := cle == _onglet
+		var b := Button.new()
+		b.text = liste[i][1]
+		b.focus_mode = Control.FOCUS_NONE
+		b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		b.add_theme_font_override("font", _hand_bold if actif else _hand)
+		b.add_theme_font_size_override("font_size", 19)
+		for k in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+			b.add_theme_color_override(k, INK if actif else INK_LIGHT)
+		var teinte: Color = TEINTES[mini(i, TEINTES.size() - 1)]
+		for k in ["normal", "hover", "pressed", "focus"]:
+			var st := StyleBoxFlat.new()
+			# L'intercalaire ouvert prend le papier de la page : il en sort, un peu plus haut que les autres.
+			st.bg_color = PAPER if actif else (teinte.lightened(0.12) if k == "hover" else teinte)
+			st.corner_radius_top_left = 7
+			st.corner_radius_top_right = 7
+			st.content_margin_left = 16
+			st.content_margin_right = 16
+			st.content_margin_top = 6 if actif else 4
+			st.content_margin_bottom = 6 if actif else 2
+			st.border_width_top = 2
+			st.border_color = MARGIN_RED if actif else teinte.darkened(0.18)
+			b.add_theme_stylebox_override(k, st)
+		b.size_flags_vertical = Control.SIZE_SHRINK_END
+		b.pressed.connect(ouvrir_onglet.bind(cle))
+		_onglets.add_child(b)
+	var vide := Control.new()
+	vide.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_onglets.add_child(vide)
+	var aide := _text(_onglets, "C ou Échap : fermer  ·  ← → : tourner les pages", 15, Color(0.86, 0.8, 0.72))
+	aide.autowrap_mode = TextServer.AUTOWRAP_OFF
+	aide.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 
 
 # --- Le cahier ------------------------------------------------------------------------------
@@ -130,23 +254,31 @@ func _build() -> void:
 	var center := CenterContainer.new()
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_root.add_child(center)
-	# La couverture de carton, et les deux pages ouvertes.
+	# La couverture de carton, les intercalaires qui en dépassent, et les deux pages ouvertes.
 	var cover := PanelContainer.new()
 	var cs := StyleBoxFlat.new()
 	cs.bg_color = Color(0.32, 0.12, 0.1)
 	cs.set_corner_radius_all(10)
 	cs.set_content_margin_all(14)
+	cs.content_margin_top = 8
 	cs.shadow_color = Color(0, 0, 0, 0.5)
 	cs.shadow_size = 18
 	cover.add_theme_stylebox_override("panel", cs)
 	center.add_child(cover)
 	_cover = cover
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 0)
+	cover.add_child(col)
+	_onglets = HBoxContainer.new()
+	_onglets.add_theme_constant_override("separation", 4)
+	_onglets.custom_minimum_size.y = 40
+	col.add_child(_onglets)
 	var spread := HBoxContainer.new()
 	spread.add_theme_constant_override("separation", 0)
-	cover.add_child(spread)
+	col.add_child(spread)
 	_left = _page(spread, false)
 	_right = _page(spread, true)
-	# Le plan, une grande feuille quadrillée collée dans la couverture, qu'on déplie.
+	# La feuille dépliée, une grande feuille quadrillée collée dans la couverture.
 	_sheet = Page.new()
 	_sheet.custom_minimum_size = Vector2(1148, 728)
 	var sh := StyleBoxFlat.new()
@@ -167,7 +299,7 @@ func _build() -> void:
 func _page(parent: Control, right: bool) -> VBoxContainer:
 	var p := Page.new()
 	p.margin_left = right
-	p.custom_minimum_size = Vector2(560, 700)
+	p.custom_minimum_size = Vector2(560, 680)
 	var st := StyleBoxFlat.new()
 	st.bg_color = PAPER
 	st.content_margin_left = 62 if right else 30
@@ -178,7 +310,6 @@ func _page(parent: Control, right: bool) -> VBoxContainer:
 		st.corner_radius_top_right = 4
 		st.corner_radius_bottom_right = 4
 	else:
-		st.corner_radius_top_left = 4
 		st.corner_radius_bottom_left = 4
 	p.add_theme_stylebox_override("panel", st)
 	parent.add_child(p)
@@ -243,157 +374,332 @@ func _gap(parent: Control, h := 10) -> void:
 
 
 func _refresh() -> void:
-	for c in _left.get_children() + _right.get_children() + _sheet_box.get_children():
+	for c in _left.get_children() + _right.get_children() + _sheet_box.get_children() + _onglets.get_children():
 		c.queue_free()
 	_cover.visible = not _sheet.visible
 	if _sheet.visible:
 		_fill_sheet()
 		return
-	_fill_left()
-	_fill_right()
+	_fill_onglets()
+	match _onglet:
+		"compte":
+			_fill_compte()
+		"vienne":
+			_fill_vienne()
+		_:
+			if _page_origine != null and Communes.origine() != null and _onglet == Communes.origine().id:
+				_page_origine.remplir(_left, _right)
+			else:
+				_fill_commune(_onglet)
 
 
-func _fill_left() -> void:
-	_fill_agenda()
-	_gap(_left)
-	_title(_left, "Mes biens")
+# --- Mon compte : ce qui suit le joueur partout --------------------------------------------------
+
+## Le nom de la banque d'un prêteur, d'après le manifeste de la commune qui le déclare.
+func _banque(preteur: String) -> String:
+	for id in Communes.ordre:
+		var c: Commune = Communes.communes[id]
+		if c.preteur() == preteur:
+			return str(c.banque().get("nom", c.nom))
+	return preteur.capitalize()
+
+
+## « Le Crédit Smarvois » devient « au Crédit Smarvois », « La Banque » « à la Banque ».
+static func _a_la(nom: String) -> String:
+	for p in [["Le ", "au "], ["La ", "à la "], ["Les ", "aux "], ["L'", "à l'"], ["L’", "à l’"]]:
+		if nom.begins_with(p[0]):
+			return p[1] + nom.substr(p[0].length())
+	return "à " + nom
+
+
+## Ce que valent les obligations tenues, reprises par l'étude : club -> crédits.
+func _obligations() -> Dictionary:
+	var out := {}
+	for club in Football.obligations_locales:
+		if not Football.mes_obligations(club).is_empty():
+			out[club] = int(round(Football.investi(club) * Football.RACHAT))
+	return out
+
+
+## Ce que valent les positions ouvertes en bourse, au dernier cours.
+func _en_bourse() -> int:
+	var t := 0
+	for p in Bourse.ouvertes():
+		t += int(p.get("valeur", p.get("garantie", 0)))
+	return t
+
+
+func _nom_club(club: String) -> String:
+	return str((Football.clubs.get(club, {}) as Dictionary).get("nom", club))
+
+
+func fortune_nette() -> int:
+	var t := Game.credits + Biens.value() + _en_bourse() - Game.debt
+	for club in _obligations():
+		t += int(_obligations()[club])
+	return t
+
+
+func _fill_compte() -> void:
+	_title(_left, "Mes comptes")
 	_gap(_left, 6)
-	if Biens.owned.is_empty():
-		_text(_left, "Rien encore. Maître Garnier a des parts de la Smarvoise à 200, et Josiane dit que c'est le placement du siècle.", 18, INK_LIGHT)
-	var paid_by := {}
-	for r in Biens.last_recette:
-		paid_by[r[0]] = r[1]
-	for it in Biens.catalogue():
-		var n := Biens.count(it.id)
-		if n <= 0:
-			continue
-		var name: String = it.name if n == 1 else "%s  × %d" % [it.name, n]
-		if it.kind == "tenue":
-			name += "  (portée)" if Biens.worn == it.id else ""
-		elif it.kind == "vehicule":
-			name += "  (au garage de la place)" if Biens.driven == it.id else ""
-		_text(_left, name, 19, INK, true)
-		var detail := ""
-		if Biens.is_habite(it.id):
-			detail = "habitée, ne verse pas de rente"
-		elif it.rente > 0:
-			detail = "rente annoncée %s" % Game.fmt(it.rente * n)
-			if paid_by.has(it.name):
-				detail += " · dernière recette %s" % Game.fmt(paid_by[it.name])
-		var ch := 0
-		if it.kind in ["part", "maison"]:
-			ch = it.charge * n
-		elif Biens.worn == it.id or Biens.driven == it.id:
-			ch = it.charge
-		if ch > 0:
-			detail += (" · " if detail != "" else "") + "charges %s" % Game.fmt(ch)
-		if detail != "":
-			_text(_left, detail, 16, INK_LIGHT)
-		if it.kind == "tenue" and Biens.worn != it.id:
-			_link(_left, "→ la porter", Biens.wear.bind(it.id))
-		elif it.kind == "vehicule" and Biens.driven != it.id:
-			_link(_left, "→ la prendre", Biens.wear.bind(it.id))
-	_fill_logement()
+	_row(_left, "Crédits en poche", Game.fmt(Game.credits))
+	_row(_left, "Mes biens (estimation à la revente)", Game.fmt(Biens.value()))
+	var obl := _obligations()
+	for club in obl:
+		_row(_left, "Obligations, %s" % _nom_club(club), Game.fmt(int(obl[club])))
+	if not Bourse.ouvertes().is_empty():
+		_row(_left, "En bourse (au dernier cours)", Game.fmt(_en_bourse()))
+	if Game.debts.is_empty():
+		_row(_left, "Dettes", "0")
+	for preteur in Game.debts:
+		_row(_left, "Dette " + _a_la(_banque(str(preteur))), Game.fmt(-Game.debt_of(str(preteur))), RED_INK)
+	_row(_left, "Fortune nette", Game.fmt(fortune_nette()), INK, true)
 	_gap(_left)
-	_title(_left, "La dernière recette")
-	if Biens.recettes == 0:
-		_text(_left, "Toutes les 20 mises. Pas encore de recette.", 17, INK_LIGHT)
+	_text(_left, "Depuis le début", 20, INK, true)
+	_row(_left, "Gagné au jeu", Game.fmt(Game.won), INK_LIGHT)
+	_row(_left, "Misé", Game.fmt(Game.staked), INK_LIGHT)
+	_row(_left, "Dépensé en biens", Game.fmt(Biens.total_spent), INK_LIGHT)
+	_row(_left, "Reçu en rentes", Game.fmt(Biens.total_rentes), INK_LIGHT)
+	_row(_left, "Payé en charges", Game.fmt(Biens.total_charges), INK_LIGHT)
+	if Football.dividendes_total > 0:
+		_row(_left, "Reçu en dividendes", Game.fmt(Football.dividendes_total), INK_LIGHT)
+	var paris := Paris.bilan()
+	if int(paris.tickets) > 0:
+		_row(_left, "Parié au comptoir", Game.fmt(int(paris.mise)), INK_LIGHT)
+		_row(_left, "Gagné au comptoir", Game.fmt(int(paris.gagne)), INK_LIGHT)
+	_fill_agenda(_right)
+	_fill_engagements(_right)
+
+
+## « Mes engagements » (docs/ACTIVITES.md, « Ce que rassemble le carnet ») : ce qui court et où le
+## retrouver. On n'y agit pas : chaque ligne dit où aller.
+func _fill_engagements(page: VBoxContainer) -> void:
+	_gap(page)
+	_title(page, "Mes engagements")
+	var t := Agenda.maintenant()
+	var rien := true
+	for tk in Paris.ouverts():
+		rien = false
+		var regle := Football.coup_envoi(int(tk.s), int(tk.j)) + Paris.REGLEMENT
+		var n: int = (tk.choix as Dictionary).size()
+		_text(page, "Ticket de la journée %d, %d %s" % [int(tk.j), n, "match" if n == 1 else "matchs"], 18, INK, true)
+		_text(page, "misé %s à %s, réglé %s à %s, où que vous soyez" % [Game.fmt(int(tk.mise)), str(tk.cote).replace(".", ","),
+			Agenda.jour_relatif(regle, t), Agenda.heure(regle)], 16, INK_LIGHT)
+	for club in _obligations():
+		rien = false
+		var rangs := Football.mes_obligations(club)
+		var par_journee := 0
+		for r in rangs:
+			par_journee += Football.dividende_de(r)
+		_text(page, "Obligations de %s" % _nom_club(club), 18, INK, true)
+		_text(page, "%d %s, %s investis, %s par journée avant le classement%s" % [rangs.size(),
+			"tenue" if rangs.size() == 1 else "tenues", Game.fmt(Football.investi(club)), Game.fmt(par_journee),
+			" · vous parlez au président" if Football.peut_decider(club) else ""], 16, INK_LIGHT)
+	for p in Bourse.ouvertes():
+		rien = false
+		var appel := Bourse.en_appel(p)
+		_text(page, Bourse.intitule(p), 18, RED_INK if appel else INK, true)
+		var r := Bourse.resultat(p)
+		_text(page, "garantie %s, %s%s au dernier cours%s" % [Game.fmt(int(p.get("garantie", 0))), "+" if r > 0 else "", Game.fmt(r),
+			" · appel de marge : renflouer ou solder à la charge" if appel else ""], 16, RED_INK if appel else INK_LIGHT)
+	if rien:
+		_text(page, "Rien d'engagé : ni ticket, ni obligation, ni position.", 16, INK_LIGHT)
+
+
+# --- Les pages des communes : leurs compteurs ----------------------------------------------------
+
+func _nom_commune(id: String) -> String:
+	var c: Commune = Communes.commune(id)
+	if c != null:
+		return c.nom
+	return str((Game.carnet.get(id, {}) as Dictionary).get("nom", id.capitalize()))
+
+
+## Les compteurs d'une commune : ceux de son manifeste quand elle est là, sinon la copie gardée au carnet.
+func _compteurs(id: String) -> Array:
+	var c: Commune = Communes.commune(id)
+	if c != null and c.data.get("carnet") is Array:
+		return c.data.carnet
+	var s = Game.carnet.get(id)
+	if s is Dictionary and s.get("compteurs") is Array:
+		return s.compteurs
+	return []
+
+
+## Une valeur telle qu'elle s'écrit sur la page, selon le genre de son compteur.
+func _ecrire_valeur(genre: String, v) -> String:
+	match genre:
+		"credits", "nombre":
+			return Game.fmt(int(v)) if v != null else "0"
+		"case":
+			return "oui" if v == true else "—"
+	return str(v) if v != null and str(v) != "" else "—"
+
+
+func _fill_commune(id: String) -> void:
+	var s: Dictionary = Game.carnet.get(id, {})
+	var valeurs: Dictionary = s.get("valeurs", {})
+	_title(_left, _nom_commune(id))
+	if Communes.actuelle() == id:
+		_text(_left, "Vous y êtes : la page se tient à jour.", 16, PENCIL)
+	elif int(s.get("vu", 0)) > 0:
+		_text(_left, "Noté à votre dernier passage, %s." % Agenda.date(int(s.vu)), 16, PENCIL)
 	else:
-		var anim := "recette pleine" if Biens.last_animation >= 0.99 else "village animé à %d %%" % int(Biens.last_animation * 100)
-		_text(_left, "Recette n° %d, %s." % [Biens.recettes, anim], 17, INK_LIGHT)
-		for r in Biens.last_recette:
-			_row(_left, r[0], "%s  (annoncé %s)" % [Game.fmt(r[1]), Game.fmt(r[2])], INK_LIGHT)
-		_row(_left, "Net de la recette", Game.fmt(Biens.last_net), INK, true)
+		_text(_left, "Pas encore de passage : la page se remplira sur place.", 16, PENCIL)
+	_gap(_left, 6)
+	var page := _left
+	var rubrique := ""
+	var lignes := 0
+	for d in _compteurs(id):
+		var r := str(d.get("rubrique", ""))
+		if lignes >= LIGNES_A_GAUCHE and page == _left and r != rubrique:
+			page = _right
+		if r != rubrique:
+			rubrique = r
+			if r != "":
+				_gap(page, 6)
+				_text(page, r, 20, INK, true)
+				lignes += 1
+		_row(page, str(d.libelle), _ecrire_valeur(str(d.genre), valeurs.get(str(d.id))), INK_LIGHT if not valeurs.has(str(d.id)) else INK)
+		lignes += 1
+	if page == _left:
+		page = _right
+	else:
+		_gap(page)
+	var e := Communes.au_catalogue(id)
+	if str(e.get("description", "")) != "":
+		_text(page, str(e.description), 17, INK_LIGHT)
+	var c: Commune = Communes.commune(id)
+	if c != null and Communes.actuelle() != id:
+		_link(page, "→ y aller", _visiter.bind(id))
+	elif c == null:
+		_text(page, "Elle n'est plus installée : sa page attend votre retour.", 16, PENCIL)
 
 
-## « Mon logement » : où l'on dort, et pour chaque maison les deux colonnes, louée ou habitée.
-func _fill_logement() -> void:
-	_gap(_left)
-	_title(_left, "Mon logement")
-	var home := Biens.habite()
-	_text(_left, "Adresse : %s" % (Biens.item(home).name if home != "" else "l'hôtel du casino, chez Monsieur Armand"), 18, INK)
-	for it in Biens.catalogue():
-		if not Biens.logements.has(it.id):
-			continue
-		var lived := Biens.is_habite(it.id)
-		_text(_left, "%s  (%s)" % [it.name, "habitée" if lived else "louée"], 18, INK, true)
-		_row(_left, "louée : rente annoncée", Game.fmt(it.rente), INK_LIGHT)
-		_row(_left, "habitée : standing", "+%d" % (it.standing * 2), INK_LIGHT)
-		var furnished := Biens.meubles_value(it.id)
-		_row(_left, "estimation, meubles compris", Game.fmt(int(round(it.price * Biens.RESALE)) + furnished), INK_LIGHT)
-		if lived:
-			_link(_left, "→ la remettre en location", Biens.louer.bind(it.id))
-		else:
-			_link(_left, "→ m'y installer", Biens.habiter.bind(it.id))
-		var here := get_tree().current_scene.scene_file_path if get_tree().current_scene else ""
-		_link(_left, "→ y aller", _go_home.bind(it.id), not (here == Biens.LOGEMENT_SCENE and Biens.visiting == it.id))
-		if _amenage != it.id:
-			_link(_left, "→ l'aménager  (%d meubles posés)" % Biens.logements[it.id].meubles.size(), _set_amenage.bind(it.id))
-			continue
-		_link(_left, "→ fermer le plan", _set_amenage.bind(""))
-		var room := ""
-		for sl in Biens.slots(it.id):
-			if sl.piece != room:
-				room = sl.piece
-				_text(_left, room, 17, INK, true)
-			var cur := str(Biens.logements[it.id].meubles.get(sl.id, ""))
-			var can := cur != "" or not Biens.posables(sl.genre).is_empty()
-			_link(_left, "%s : %s" % [sl.label.trim_prefix(room + ", "), Biens.name_of(cur) if cur != "" else "—"], _cycle.bind(it.id, sl), can)
-	var loose: Array = Biens.trouvailles.filter(func(t): return Biens.free_count(t) > 0)
-	if not loose.is_empty():
-		_text(_left, "Dans le carton : " + ", ".join(loose.map(func(t): return Biens.name_of(t))), 16, INK_LIGHT)
+# --- La Vienne --------------------------------------------------------------------------------
+
+func _fill_vienne() -> void:
+	_title(_left, "Les communes de la Vienne")
+	_fill_communes(_left, false)
+	_title(_right, "Mes passages")
+	var vus: Array = Game.carnet.keys().filter(func(id): return int((Game.carnet[id] as Dictionary).get("vu", 0)) > 0)
+	vus.sort_custom(func(a, b): return int(Game.carnet[a].vu) > int(Game.carnet[b].vu))
+	if vus.is_empty():
+		_text(_right, "Aucun passage noté ailleurs pour l'instant.", 17, INK_LIGHT)
+	for id in vus:
+		_row(_right, _nom_commune(id), Agenda.date(int(Game.carnet[id].vu)), INK)
+		if onglets().any(func(o): return o[0] == id):
+			_link(_right, "→ ouvrir sa page", ouvrir_onglet.bind(id))
+	_gap(_right)
+	_link(_right, "→ déplier la carte de la Vienne", _carte).custom_minimum_size.y = 48
 
 
-func _go_home(id: String) -> void:
-	if is_open():
-		toggle()
-	Biens.enter(id)
+func _carte() -> void:
+	toggle()
+	if Carte.peut_ouvrir():
+		Carte.ouvrir()
+	else:
+		show_slip("La carte de la Vienne se déplie dehors : sur la place, ou dans une commune.")
 
 
-func _set_amenage(id: String) -> void:
-	_amenage = id
+# --- Ce qu'une commune écrit au carnet ------------------------------------------------------------
+
+## Note la valeur d'un compteur déclaré par la commune (manifeste, champ « carnet »). Une commune n'écrit
+## que chez elle, quand le joueur y est ; le socle range la valeur dans sa sauvegarde, avec une copie de
+## la déclaration, pour que la page se lise de partout sans monter le paquet. Faux si c'est refusé (la
+## raison va dans Communes.refus).
+func noter(commune: String, cle: String, valeur) -> bool:
+	var c: Commune = Communes.commune(commune)
+	if c == null:
+		return _refuser(commune, "commune inconnue")
+	if Communes.actuelle() != commune:
+		return _refuser(commune, "une commune n'écrit au carnet que chez elle, quand le joueur y est")
+	var decl := {}
+	for d in _compteurs(commune):
+		if str(d.get("id", "")) == cle:
+			decl = d
+	if decl.is_empty():
+		return _refuser(commune, "compteur non déclaré : %s" % cle)
+	var v = valeur_du_genre(str(decl.genre), valeur)
+	if v == null:
+		return _refuser(commune, "valeur du mauvais genre pour %s (%s)" % [cle, decl.genre])
+	var s := _section(commune)
+	(s.valeurs as Dictionary)[cle] = v
+	s.vu = Agenda.maintenant()
+	Game.save_game()
+	if _root.visible:
+		_refresh()
+	return true
+
+
+## La valeur notée d'un compteur, ou defaut.
+func lire(commune: String, cle: String, defaut = null):
+	return ((Game.carnet.get(commune, {}) as Dictionary).get("valeurs", {}) as Dictionary).get(cle, defaut)
+
+
+## La valeur ramenée à son genre, ou null si elle n'en est pas.
+static func valeur_du_genre(genre: String, v):
+	match genre:
+		"nombre", "credits":
+			if typeof(v) == TYPE_INT:
+				return v
+			if typeof(v) == TYPE_FLOAT and is_finite(v) and v == floorf(v):
+				return int(v)
+		"texte":
+			if typeof(v) == TYPE_STRING or typeof(v) == TYPE_STRING_NAME:
+				return str(v).left(Commune.CARNET_TEXTE_MAX)
+		"case":
+			if typeof(v) == TYPE_BOOL:
+				return v
+	return null
+
+
+## La section d'une commune dans la sauvegarde du socle, tenue à jour de son nom et de sa déclaration.
+func _section(commune: String) -> Dictionary:
+	var s: Dictionary = Game.carnet.get(commune, {})
+	if not s.get("valeurs") is Dictionary:
+		s.valeurs = {}
+	var c: Commune = Communes.commune(commune)
+	if c != null:
+		s.nom = c.nom
+		s.compteurs = (c.data.get("carnet", []) as Array).duplicate(true)
+	Game.carnet[commune] = s
+	return s
+
+
+func _refuser(commune: String, raison: String) -> bool:
+	Communes.refus.append([commune, "carnet : " + raison])
+	push_warning("Carnet.noter(%s) : %s" % [commune, raison])
+	return false
+
+
+## Le joueur arrive dans une commune qui tient des compteurs : la date de son passage se note.
+func _noter_passage() -> void:
+	var id := Communes.actuelle()
+	var o: Commune = Communes.origine()
+	if (o != null and id == o.id) or Communes.commune(id) == null or _compteurs(id).is_empty():
+		return
+	_section(id).vu = Agenda.maintenant()
+	Game.save_game()
+
+
+# --- La feuille dépliée ---------------------------------------------------------------------------
+
+## Déplie (ou replie) la feuille : « agenda », la semaine ; sinon ce que la page d'origine sait déplier.
+func _show_sheet(open: bool, mode := "plan") -> void:
+	_sheet_mode = mode
+	_sheet.visible = open
 	_refresh()
 
 
-func _cycle(home: String, sl: Dictionary) -> void:
-	Biens.cycle(home, sl.id)
-
-
-func _fill_right() -> void:
-	_title(_right, "Mes comptes")
-	_gap(_right, 6)
-	_row(_right, "Crédits en poche", Game.fmt(Game.credits))
-	_row(_right, "Mes biens (estimation de Maître Garnier)", Game.fmt(Biens.value()))
-	_row(_right, "Dette au Crédit Smarvois", Game.fmt(-Game.debt) if Game.debt > 0 else "0", Color(0.7, 0.12, 0.12) if Game.debt > 0 else INK)
-	var net := Game.credits + Biens.value() - Game.debt
-	_row(_right, "Fortune nette", Game.fmt(net), INK, true)
-	_gap(_right, 6)
-	_row(_right, "Rente annoncée par recette", Game.fmt(Biens.rente_annoncee()), INK_LIGHT)
-	_row(_right, "Charges par recette", Game.fmt(Biens.charges()), INK_LIGHT)
-	_row(_right, "Standing", str(Biens.standing()), INK_LIGHT)
-	_gap(_right, 6)
-	_text(_right, "Depuis le début", 18, INK, true)
-	_row(_right, "Gagné au jeu", Game.fmt(Game.won), INK_LIGHT)
-	_row(_right, "Misé", Game.fmt(Game.staked), INK_LIGHT)
-	_row(_right, "Dépensé en biens", Game.fmt(Biens.total_spent), INK_LIGHT)
-	_row(_right, "Reçu en rentes", Game.fmt(Biens.total_rentes), INK_LIGHT)
-	_row(_right, "Payé en charges", Game.fmt(Biens.total_charges), INK_LIGHT)
-	if Biens.reprises > 0:
-		_row(_right, "Biens repris par M. Brunet", str(Biens.reprises), INK_LIGHT)
-	_fill_communes()
-	_fill_plan()
-	_gap(_right)
-	_title(_right, "Adresses")
-	var here := get_tree().current_scene.scene_file_path if get_tree().current_scene else ""
-	for id in Biens.SELLERS:
-		var s: Dictionary = Biens.SELLERS[id]
-		_link(_right, "%s  →  y aller" % s.name, go_to.bind(id), here != s.scene)
-	var on_square := here == "res://scenes/main.tscn"
-	var tl := _link(_right, "Offrir une tournée générale au café  (%s)" % Game.fmt(Biens.tournee_price()), _tournee, on_square and Game.credits >= Biens.tournee_price())
-	if not on_square:
-		tl.tooltip_text = "Au Café de la Place."
-	_gap(_right, 4)
-	_text(_right, "Fermer le carnet : C ou Échap", 15, PENCIL)
+func _fill_sheet() -> void:
+	if _sheet_mode == "agenda":
+		_fill_sheet_agenda()
+		return
+	if _page_origine == null or not _page_origine.feuille(_sheet_box, _sheet_mode):
+		_sheet.visible = false
+		_refresh.call_deferred()
 
 
 ## « Les communes de la Vienne » : celles que d'autres ont publiées sur le portail, à installer, et
@@ -443,140 +749,20 @@ func _visiter(id: String) -> void:
 		show_slip("%s ne s'ouvre pas : %s" % [Communes.commune(id).nom, Communes.refus[-1][1] if not Communes.refus.is_empty() else "scène introuvable"])
 
 
-func go_to(id: String) -> void:
-	if is_open():
-		toggle()
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	get_tree().paused = false
-	get_tree().change_scene_to_file(Biens.SELLERS[id].scene)
-
-
-func _tournee() -> void:
-	if Biens.offer_tournee():
-		if is_open():
-			toggle()
-		show_slip("Tournée générale ! Josiane remplit les verres : « Voilà un investisseur qui sait vivre. »")
-		var scene := get_tree().current_scene
-		var people = scene.get("villagers") if scene else null
-		if people != null:
-			for v in people:
-				if v.critter and v.global_position.x < -2.0:
-					v.critter.cheer(2.5)
-
-
-# --- Le plan du village -------------------------------------------------------------------------
-
-## Le plan se dessine en marchant : chaque quartier où l'on a mis les pieds, et les lieux cachés trouvés.
-## Ils sont rangés dans le tiroir de Smarves (socle commune), pas avec les biens.
-func _tiroir() -> Dictionary:
-	return Game.tiroir(Communes.ORIGINE)
-
-
-func zones_vues() -> Array:
-	return _tiroir().get("zones", [])
-
-
-func caches_trouvees() -> Array:
-	var found: Array = _tiroir().get("caches", []).duplicate()
-	# Une affiche trouvée avant que le carnet ne tienne le plan : la cabane est déjà connue.
-	if Biens.trouvailles.has("affiche_loto_1987") and not found.has("cabane_vigne"):
-		found.append("cabane_vigne")
-	return found
-
-
-func _on_node_added(node: Node) -> void:
-	if node.get_script() == VILLAGE:
-		node.zone_entered.connect(_on_zone_entered)
-		node.cache_found.connect(_on_cache_found)
-
-
-func _on_zone_entered(id: String) -> void:
-	if _note_on_plan("zones", id) and id != "place":
-		var nom := str(VILLAGE.ZONES[id].nom)
-		show_slip("Au plan du carnet : %s." % (nom.left(1).to_lower() + nom.substr(1)))
-
-
-func _on_cache_found(id: String) -> void:
-	_note_on_plan("caches", id)
-
-
-## Ajoute au plan ; vrai si c'est nouveau.
-func _note_on_plan(key: String, id: String) -> bool:
-	var t := _tiroir()
-	var list: Array = t.get(key, [])
-	if list.has(id):
-		return false
-	list.append(id)
-	t[key] = list
-	Game.save_game()
-	if _root.visible:
-		_refresh()
-	return true
-
-
-## Sur la page des comptes : où en est le plan, et de quoi le déplier.
-func _fill_plan() -> void:
-	_gap(_right)
-	_title(_right, "Le plan du village")
-	_text(_right, _plan_progress(), 16, INK_LIGHT)
-	_link(_right, "→ déplier le plan", _show_sheet.bind(true, "plan")).custom_minimum_size.y = 48
-
-
-func _plan_progress() -> String:
-	var left := VILLAGE.ZONES.size() - zones_vues().size()
-	if zones_vues().is_empty():
-		return "Une page blanche. Sortir sur la place pour commencer le plan."
-	if left > 0:
-		return "Encore %d %s à parcourir." % [left, "quartier" if left == 1 else "quartiers"]
-	return "Tout le village est au plan."
-
-
-func _show_sheet(open: bool, mode := "plan") -> void:
-	_sheet_mode = mode
-	_sheet.visible = open
-	_refresh()
-
-
-## La feuille dépliée : le plan sur toute la largeur, ou l'agenda de la semaine, et de quoi revenir au carnet.
-func _fill_sheet() -> void:
-	if _sheet_mode == "agenda":
-		_fill_sheet_agenda()
-		return
-	_sheet.custom_minimum_size = Vector2(1148, 728)
-	_title(_sheet_box, "Le plan du village")
-	var plan := Plan.new()
-	plan.font = _hand
-	plan.zones = zones_vues()
-	plan.caches = caches_trouvees()
-	var scene := get_tree().current_scene
-	var player = scene.get("player") if scene and scene.scene_file_path == "res://scenes/main.tscn" else null
-	if player is Node3D:
-		plan.here = Vector2(player.global_position.x, player.global_position.z)
-		plan.show_here = true
-	plan.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_sheet_box.add_child(plan)
-	var foot := HBoxContainer.new()
-	_sheet_box.add_child(foot)
-	var t := _text(foot, _plan_progress(), 17, INK_LIGHT)
-	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	t.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_link(foot, "← revenir au carnet", _show_sheet.bind(false, "plan")).custom_minimum_size = Vector2(220, 48)
-
-
 # --- L'agenda de la semaine (autoload Agenda) ------------------------------------------------
 
-## « Cette semaine », en tête du carnet (sur un téléphone, la page ne tient pas dans l'écran) : les trois
+## « Cette semaine », en tête de « Mon compte » (sur un téléphone, la page ne tient pas dans l'écran) : les trois
 ## prochains rendez-vous, et de quoi déplier toute la semaine.
-func _fill_agenda() -> void:
-	_title(_left, "Cette semaine")
+func _fill_agenda(page: VBoxContainer) -> void:
+	_title(page, "Cette semaine")
 	var t := Agenda.maintenant()
 	var liste := Agenda.prochains(3, t)
 	if liste.is_empty():
-		_text(_left, "Rien d'annoncé d'ici la semaine prochaine.", 16, INK_LIGHT)
+		_text(page, "Rien d'annoncé d'ici la semaine prochaine.", 16, INK_LIGHT)
 	for rv in liste:
 		var quand := "en ce moment" if Agenda.en_cours(rv, t) else "%s, %s" % [Agenda.jour_relatif(rv.quand, t), Agenda.heure(rv.quand)]
-		_text(_left, "%s  ·  %s%s" % [quand, rv.titre, "  (annoncé)" if rv.annonce else ""], 17, INK_LIGHT if rv.annonce else INK)
-	_link(_left, "→ toute la semaine", _show_sheet.bind(true, "agenda")).custom_minimum_size.y = 48
+		_text(page, "%s  ·  %s%s" % [quand, rv.titre, "  (annoncé)" if rv.annonce else ""], 17, INK_LIGHT if rv.annonce else INK)
+	_link(page, "→ toute la semaine", _show_sheet.bind(true, "agenda")).custom_minimum_size.y = 48
 
 
 ## L'écran, dans les unités de l'interface (1600 × 900 sur un ordinateur, moins sur un téléphone).
@@ -642,76 +828,6 @@ func _fill_sheet_agenda() -> void:
 	_text(col, "Tous les jours, à toute heure", 20 if etroit else 21, INK, true)
 	for p in Agenda.TOUS_LES_JOURS:
 		_text(col, "%s  —  %s" % [p[0], p[1]], 17, INK_LIGHT)
-
-
-## Le plan au crayon : les quartiers parcourus en lavis, leurs noms, les lieux cachés d'une croix rouge.
-class Plan extends Control:
-	var font: Font
-	var zones: Array = []
-	var caches: Array = []
-	var here := Vector2.ZERO
-	var show_here := false
-
-	func _to_page(p: Vector2) -> Vector2:
-		var k := minf(size.x / PLAN_WORLD.size.x, size.y / PLAN_WORLD.size.y)
-		var off := (size - PLAN_WORLD.size * k) / 2.0
-		return off + (p - PLAN_WORLD.position) * k
-
-	func _draw() -> void:
-		var pencil := Color(0.38, 0.36, 0.34)
-		for id in zones:
-			if not VILLAGE.ZONES.has(id):
-				continue
-			var r: Rect2 = VILLAGE.ZONES[id].rect
-			var a := _to_page(r.position)
-			var b := _to_page(r.end)
-			var box := Rect2(a, b - a)
-			draw_rect(box, Color(0.55, 0.68, 0.85, 0.22))
-			draw_rect(box, Color(0.12, 0.2, 0.5, 0.8), false, 1.5)
-			_label(str(VILLAGE.ZONES[id].nom), box)
-		for id in caches:
-			if not VILLAGE.CACHES.has(id):
-				continue
-			var c: Dictionary = VILLAGE.CACHES[id]
-			var p := _to_page(Vector2(c.pos.x, c.pos.z))
-			var red := Color(0.7, 0.12, 0.12)
-			draw_line(p + Vector2(-7, -7), p + Vector2(7, 7), red, 3.0)
-			draw_line(p + Vector2(-7, 7), p + Vector2(7, -7), red, 3.0)
-			_ink(str(c.nom), p + Vector2(11, 6), 18, red)
-		if show_here:
-			var h := _to_page(here)
-			draw_circle(h, 7.0, Color(0.12, 0.2, 0.5))
-			_ink("vous êtes ici", h + Vector2(11, 22), 18, pencil)
-
-	## Le nom du quartier, coupé en deux lignes s'il déborde de son rectangle.
-	func _label(t: String, box: Rect2) -> void:
-		var ink := Color(0.12, 0.2, 0.5)
-		var fs := 18
-		var lines := [t]
-		if font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > box.size.x - 6:
-			var words := t.split(" ")
-			var cut := words.size() / 2
-			lines = [" ".join(words.slice(0, cut)), " ".join(words.slice(cut))]
-		# En haut du quartier (le milieu est souvent pris par « vous êtes ici »), et toujours dans la feuille.
-		var lh := font.get_height(fs)
-		var widths := lines.map(func(l): return font.get_string_size(l, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x)
-		var top := clampf(box.position.y + 4.0, 4.0, size.y - lh * lines.size() - 4.0)
-		for i in lines.size():
-			var x := clampf(box.get_center().x - widths[i] / 2.0, 4.0, size.x - widths[i] - 4.0)
-			_paper(Rect2(x - 3.0, top + i * lh, widths[i] + 6.0, lh))
-		for i in lines.size():
-			var x := clampf(box.get_center().x - widths[i] / 2.0, 4.0, size.x - widths[i] - 4.0)
-			draw_string(font, Vector2(x, top + i * lh + font.get_ascent(fs)), lines[i], HORIZONTAL_ALIGNMENT_LEFT, -1, fs, ink)
-
-	## Un mot au crayon sur un fond de papier, pour qu'il se lise par-dessus les traits ; at est le pied du mot.
-	func _ink(t: String, at: Vector2, fs: int, color: Color) -> void:
-		var w := font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-		var p := Vector2(clampf(at.x, 4.0, size.x - w - 4.0), clampf(at.y, font.get_ascent(fs) + 4.0, size.y - font.get_descent(fs) - 4.0))
-		_paper(Rect2(p.x - 3.0, p.y - font.get_ascent(fs), w + 6.0, font.get_height(fs)))
-		draw_string(font, p, t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, color)
-
-	func _paper(r: Rect2) -> void:
-		draw_rect(r, Color(0.97, 0.95, 0.88, 0.85))
 
 
 # --- La fiche de papier ------------------------------------------------------------------------

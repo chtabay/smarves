@@ -102,6 +102,8 @@ Un dossier `communes/<id>/` avec au moins un manifeste `commune.json` et la scè
 | `jeux.regles_serveur` | non | les règles versées au serveur pour le multi (vide tant que le multi n'existe pas) |
 | `structures` | non | les structures de la commune qui comptent pour les autres communes : gare, arrêt de car, terrain de football (section « Les structures ») ; vide par défaut |
 | `notaire` | non | le notaire de la commune et son registre : toutes les adresses à vendre et le plan de l'étude (section « Le notaire ») |
+| `carnet` | non | socle 1.3 : les compteurs que la commune tient au carnet du joueur, une liste de 24 au plus `{id, libelle, genre, rubrique}` (section « Le carnet du joueur ») ; vide par défaut |
+| `page_carnet` | non | la page de la commune d'origine dans le carnet, un script du jeu (`res://scripts/carnet_smarves.gd`) ; lu pour la commune d'origine seulement, jamais dans un paquet |
 
 Les champs facultatifs gardent le format 1 : un manifeste qui ne les a pas reste valide et prend leur valeur par défaut. Présents, ils doivent avoir le bon type (un texte, un objet, un nombre entier positif, une liste de textes), sinon la commune est refusée, par le jeu comme par le portail. `Commune.auteur()`, `arrivee_nom()`, `population()`, `licence()` et `sources()` les lisent.
 
@@ -374,7 +376,7 @@ La page refuse ce que le jeu refuserait, règle pour règle (`src/lib/communes/p
 
 - **Au lancement**, `Communes` lit le catalogue s'il y a du réseau (dix secondes au plus, en arrière-plan, sans rien bloquer) ; sinon il garde la dernière copie (`user://communes/catalogue.json`). `Communes.catalogue_etat` dit `en_ligne` ou `hors_ligne`, le signal `catalogue_lu` l'annonce. `Portail.entrees()` ignore sans bruit une entrée abîmée.
 - **La bienvenue** (autoload `Bienvenue`, `scripts/bienvenue.gd`) : à chaque lancement, dès que le joueur est sur la place (après l'accueil de Josiane, hors carnet et réglages), une fenêtre s'ouvre. À gauche, la carte de la Vienne (`CarteVienne`, `scripts/socle/carte_vienne.gd`) : Smarves en or, les villes publiées en vert d'eau, plus vif quand elles sont installées. À droite, les crédits, « Les villes de la Vienne » (les nouvelles depuis la dernière visite, `Communes.nouvelles`, sinon ce qui est disponible) avec « Voir les villes », qui déplie la liste à installer et à visiter sur place, « Votre compte », où viendra la connexion, et « Jouer ». En la refermant, les villes vues ne sont plus nouvelles (`user://communes/vues.json`).
-- **Le carnet** (touche C) a une rubrique « Les communes de la Vienne » : chaque commune publiée, sa description, « → l'installer » (taille, auteur), puis « → y aller ». Une version plus récente au catalogue se propose à la place ; elle s'installe à côté et prend la place de l'ancienne au lancement suivant, parce qu'un pack déjà ouvert ne se remplace pas en cours de partie.
+- **Le carnet** (touche C) a un onglet « La Vienne » : chaque commune publiée, sa description, « → l'installer » (taille, auteur), puis « → y aller ». Une version plus récente au catalogue se propose à la place ; elle s'installe à côté et prend la place de l'ancienne au lancement suivant, parce qu'un pack déjà ouvert ne se remplace pas en cours de partie.
 - **L'installation** (`Communes.installer(id)`) télécharge le paquet dans `user://communes/<id>.pck`, vérifie son empreinte sha256 contre le catalogue, puis le soumet aux refus d'une greffe déposée à la main ; un paquet refusé est effacé. Le signal `installee(id, ok, message)` donne la phrase montrée au joueur.
 - **Y aller** (`Communes.visiter(id)`) monte le pack, ouvre la scène de la commune et pose les boutons « Revenir à Smarves » (`Communes.revenir()`) et « La carte ». `Communes.actuelle()` dit dans quelle commune on est.
 - **Pour la carte** : `Communes.carte()` porte en plus `publiee` (au catalogue, installable) à côté de `cliquable` (installée) ; `Communes.publiees()` et `Communes.installees()` donnent les deux listes.
@@ -413,6 +415,28 @@ godot --headless --path . -s tools/test_portail.gd
 
 Le référentiel : `Vienne.communes()`, `Vienne.commune(insee)`, `Vienne.centre(insee)`. `Commune.smarves()` est Smarves, lue une fois.
 
+### Le carnet du joueur (autoload `Carnet`, `scripts/carnet.gd`) — socle 1.3
+
+Le carnet est un cahier à intercalaires. **« Mon compte »** est au socle : ce qui suit le joueur d'une commune à l'autre (crédits, dette par banque au nom de la `banque` de chaque manifeste, biens, obligations des clubs, positions en bourse, fortune nette, bilan depuis le début), la semaine de l'agenda et les engagements en cours (tickets, obligations, positions). Viennent ensuite **un onglet par commune** (l'origine d'abord, puis chaque commune qui déclare des compteurs) et **« La Vienne »** (installer, visiter, les derniers passages). Les flèches ← → tournent les pages.
+
+Une commune n'écrit jamais dans le transversal ; elle tient **sa page** par des compteurs, déclarés dans son manifeste et écrits par le socle :
+
+```json
+"socle_min": "1.3",
+"carnet": [
+	{"id": "parts_moulin", "libelle": "Parts du moulin", "genre": "nombre", "rubrique": "Mes affaires"},
+	{"id": "caisse", "libelle": "Dans la caisse du café", "genre": "credits", "rubrique": "Mes affaires"},
+	{"id": "surnom", "libelle": "Au club de pétanque", "genre": "texte"},
+	{"id": "carte_peche", "libelle": "Carte de pêche", "genre": "case"}
+]
+```
+
+- **Les champs.** `id` : minuscules, chiffres, `_`, unique dans la commune. `libelle` : 60 caractères au plus, écrit tel quel. `genre` : `nombre` (entier), `credits` (entier, écrit comme les crédits), `texte` (coupé à 80 caractères), `case` (vrai ou faux, écrit « oui » ou « — »). `rubrique` (facultative) : les compteurs d'une même rubrique se suivent sous ce titre, dans l'ordre du manifeste ; au-delà de quatorze lignes, la page continue à droite.
+- **Écrire** : `Carnet.noter("<id de la commune>", "<id du compteur>", valeur)` rend vrai si c'est noté. Refusé (faux, et la raison dans `Communes.refus`) : une commune inconnue, une commune qui n'est pas celle où se trouve le joueur (`Communes.actuelle()` : on n'écrit que chez soi), un compteur non déclaré, une valeur d'un autre genre (`2.0` passe pour un nombre). **Lire** : `Carnet.lire(commune, cle, defaut)`.
+- **Où c'est rangé.** Dans la sauvegarde du socle (`socle.save`, clé `carnet`), pas dans le tiroir : `{commune: {nom, compteurs, valeurs, vu}}`, avec une copie de la déclaration. La page se dessine donc de partout, sans monter le paquet et sans appeler son code, même si la commune est désinstallée ; elle dit la date du dernier passage (`vu`, noté à chaque arrivée et à chaque écriture). Elle part au compte avec le reste de la partie.
+- **La vérification** (`Commune.verifier_carnet`, dans `verifier_facultatifs`) refuse le manifeste avec ces phrases, que le portail reprend : « carnet doit être une liste de compteurs », « carnet : 24 compteurs au plus », « carnet : compteur incomplet (id, libelle, genre) : … », « carnet : id invalide : « … » (minuscules, chiffres, _) », « carnet : compteur en double : … », « carnet : genre inconnu pour … : « … » (nombre, credits, texte, case) », « carnet : libelle de … trop long (60 caractères au plus) », « carnet : rubrique de … doit être un texte ».
+- Test : `godot --headless --path . -s tools/test_carnet.gd`.
+
 ### La sauvegarde en tiroirs (`scripts/socle/sauvegarde.gd`)
 
 | Fichier | Qui l'écrit | Ce qu'il tient |
@@ -432,7 +456,7 @@ Ces API existent dans le code de Smarves ; le cadrage (SUITE.md, section 5) dit 
 
 - `Game` : crédits, gagné au jeu (`won`, la clé partagée par toutes les communes), misé, dette par prêteur, `changed`, `brunet_calls`, `spend`, `cash_in`, `borrow`, `repay` ; plus tard une source (`commune/lieu`) sur `spend` et `cash_in`, et un signal `played(source, mise, gain)`.
 - `Biens` : catalogue, `buy`, `sell`, la recette toutes les 20 mises ; plus tard `Biens.register(commune_id, items)`.
-- `Carnet` : ses pages, `show_slip` ; plus tard une page et une adresse par commune.
+- `Carnet` : ses onglets, `show_slip`, `noter` et `lire` (section « Le carnet du joueur ») ; la page de Smarves est `scripts/carnet_smarves.gd`.
 - `Village.lots` : les portes de Smarves, avec leur `Area3D` (métadonnée `action`) ; plus tard une classe `Lots` commune.
 - Les seuils : aujourd'hui `PLACES` (main.gd) et `LOCKS` (casino), lus depuis le manifeste ; plus tard un registre `Seuils` qui annonce les ouvertures de toutes les communes.
 - `Cast.NAMED` et `Cast.resolve()` : les personnages ; plus tard `Cast.register(commune_id, fiches)`.

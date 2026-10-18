@@ -864,7 +864,7 @@ func _maybe_capture() -> void:
 		Carnet.toggle()
 		if plan:
 			# Tout le village parcouru, pour voir le plan rempli et son bandeau.
-			Carnet._tiroir()["zones"] = Carnet.VILLAGE.ZONES.keys()
+			Carnet.page_origine().tiroir()["zones"] = Carnet.page_origine().VILLAGE.ZONES.keys()
 			Carnet._show_sheet(true)
 			Carnet.show_slip("Au plan du carnet : la rue du Clain.")
 	await get_tree().create_timer(6.0).timeout
