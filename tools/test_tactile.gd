@@ -14,8 +14,8 @@ func _ready() -> void:
 	root.add_child(self)
 	Game.saving_enabled = false
 	Game.welcomed = true
-	# La fenêtre de bienvenue du carnet met le jeu en pause : pas pendant le test.
-	Carnet._accueil_attendu = false
+	# La fenêtre de bienvenue met le jeu en pause : pas pendant le test.
+	Bienvenue._attendue = false
 	if not "--tactile" in OS.get_cmdline_user_args():
 		_check("PC : pas de commandes tactiles", not Tactile.active and Tactile.get_child_count() == 0)
 		_end()
@@ -45,13 +45,19 @@ func _ready() -> void:
 	await _drag(0, size * Vector2(0.55, 0.5), size * Vector2(0.75, 0.5))
 	_check("glisser : la vue tourne", absf(m.camera._yaw_goal - yaw) > 0.3)
 
-	# Pincer : écarter les doigts rapproche d'un cran.
+	# Pincer : écarter les doigts rapproche d'un cran (à droite, loin des bulles et des panneaux).
 	var notch: int = m.camera.notch
-	await _pinch(size / 2.0, 60.0, 260.0)
+	await _pinch(size * Vector2(0.7, 0.5), 60.0, 260.0)
 	_check("écarter : un cran plus près (%d → %d)" % [notch, m.camera.notch], m.camera.notch < notch or notch == 0)
 	notch = m.camera.notch
-	await _pinch(size / 2.0, 260.0, 60.0)
+	await _pinch(size * Vector2(0.7, 0.5), 260.0, 60.0)
 	_check("pincer : un cran plus loin (%d → %d)" % [notch, m.camera.notch], m.camera.notch > notch)
+	# Au-delà du dernier cran, la carte de la Vienne s'ouvre ; Échap (le retour d'Android) la referme.
+	await _wait(1.5)
+	_check("pincer encore : la carte de la Vienne s'ouvre", Carte.is_open())
+	Tactile.press_key(KEY_ESCAPE)
+	await _wait(1.2)
+	_check("Échap : la carte se referme", not Carte.is_open())
 
 	# Le bouton Vue vaut Tab.
 	_check("bouton Vue affiché", Tactile._view_btn.visible)
@@ -62,6 +68,38 @@ func _ready() -> void:
 	await _wait(0.5)
 	_check("bouton Vue : retour en vue de dessus", m.fps and m.topdown)
 	_check("ligne d'aide du clavier cachée", not m._hint.visible)
+
+	# Le pouce virtuel sert aussi en vue de dessus : vers le haut, on s'éloigne de la caméra.
+	start = p.global_position
+	var thumb0 := size * Vector2(0.15, 0.75)
+	_touch(1, thumb0, true)
+	await _wait(0.05)
+	_move(1, thumb0 + Vector2(0, -80), Vector2(0, -80))
+	await _wait(1.0)
+	_touch(1, thumb0 + Vector2(0, -80), false)
+	await _wait(0.2)
+	_check("pouce en vue de dessus : on marche (%.1f m)" % start.distance_to(p.global_position), start.distance_to(p.global_position) > 1.0)
+	_check("pouce relâché en vue de dessus : on s'arrête", p.auto_move == Vector3.ZERO)
+
+	# Dans un lieu (habitant figé), le coin montre « Sortir », en haut.
+	p.frozen = true
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_check("dans un lieu : bouton Sortir, en haut", Tactile._menu_btn.visible and Tactile._menu_btn.text == "Sortir" and Tactile._corner_top)
+	p.frozen = false
+	await get_tree().process_frame
+
+	# Le carnet tient dans l'écran, et « Fermer » reste visible dessus.
+	Tactile.press_key(KEY_C)
+	await _wait(0.5)
+	var cover: Control = Carnet._cover
+	var shown := cover.size * cover.scale
+	_check("carnet ouvert : il tient dans l'écran (%.0f × %.0f sur %.0f × %.0f)" % [shown.x, shown.y, size.x, size.y],
+		Carnet.is_open() and shown.x <= size.x and shown.y <= size.y)
+	_check("bouton Fermer sur le carnet", Tactile._carnet_btn.visible and Tactile._carnet_btn.text == "Fermer" and Tactile.layer > Carnet.layer)
+	Tactile.press_key(KEY_C)
+	await _wait(0.3)
+	_check("carnet refermé", not Carnet.is_open())
 
 	# Au casino : pouce virtuel et regard.
 	get_tree().change_scene_to_file("res://scenes/casino.tscn")
@@ -89,6 +127,7 @@ func _ready() -> void:
 
 func _check(label: String, ok: bool) -> void:
 	report.append(("ok   " if ok else "ÉCHEC ") + label)
+	print("… ", report[-1])
 
 
 func _end() -> void:
