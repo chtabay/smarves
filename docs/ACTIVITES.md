@@ -1,6 +1,6 @@
 # Les activités transverses : le point et le modèle
 
-Ce document fait deux choses. D'abord le point sur l'expérience des activités qui vivent au rythme de la semaine (le football et tout ce qui l'entoure, le loto, le poker) : ce qui marche, ce qui coince, ce qui diffère d'une activité à l'autre sans raison. Ensuite le **modèle** qu'une nouvelle activité reprend (basket, courses, pétanque…) : les briques communes, ce que le socle fournit, ce que l'activité apporte, et la fiche de la première à construire.
+Ce document fait deux choses. D'abord le point sur l'expérience des activités qui vivent au rythme de la semaine (le football et tout ce qui l'entoure, le loto, le poker) : ce qui marche, ce qui coince, ce qui diffère d'une activité à l'autre sans raison. Ensuite le **modèle** qu'une nouvelle activité reprend (basket, courses, pétanque…) : les briques communes, ce que le socle fournit, ce que l'activité apporte, ce qu'un paquet de commune déclare pour y entrer, et la fiche de la première à construire.
 
 Il part de la demande de Guillaume du 18 octobre 2026 : « faire un point UX/UI surtout pour les activités transverses […] et en tirer des leçons pour créer d'autres activités comme le basket, les courses de chevaux ou la pétanque sur le modèle du foot ». Rien ici n'est construit : c'est la règle que suivront les prochains chantiers. La fiche de cadrage ([`CADRAGE.md`](CADRAGE.md)), la bible ([`BIBLE.md`](BIBLE.md)) et la suite ([`SUITE.md`](SUITE.md), section 6 pour le football) l'emportent en cas de doute.
 
@@ -192,7 +192,58 @@ func en_direct(rdv: String, t: int) -> Dictionary # brique 7 : l'état à l'inst
 
 **Alternatives écartées.** Un moteur générique de compétitions qui ferait le football, le basket et la pétanque par paramètres : chaque sport a sa forme de jeu, et c'est elle qui rend le direct vivant ; on partage le calendrier, l'argent et les fenêtres, pas le moteur. Une page « Activités » hors du monde (un menu) : on perdrait ce qui marche le mieux, les entrées dans le village.
 
-## 3. La première activité à construire : la pétanque
+## 3. Ce qu'un paquet de commune déclare pour une activité
+
+Ordre donné par Guillaume le 18 octobre 2026 : stabiliser les fonctionnalités, voir ce que suppose une deuxième commune développée (Availles-Limouzine) pour le kit, puis l'économie, puis peaufiner. Cette section dit ce qu'une commune doit écrire pour **rejoindre** une activité qui existe, et le chemin pour qu'un jour un joueur développeur en **apporte** une. Elle s'appuie sur le registre des structures ([`COMMUNE.md`](COMMUNE.md), « Les structures ») et ne change rien au format 1 du manifeste.
+
+### La règle
+
+**La commune déclare, le socle se comporte.** Un paquet ne contient que des données et des décors : ce qu'il possède (une structure), comment ça s'appelle, où c'est dans sa scène, qui en parle. Tout ce dont dépend un résultat commun (le calendrier, le moteur, les cotes, les dividendes, les tables du serveur) reste au socle, parce que tous les jeux doivent calculer la même chose avec le même code : un paquet qui changerait une règle changerait le résultat chez lui seul, ou chez les autres s'ils l'avaient installé.
+
+### Rejoindre une activité : ce que le paquet écrit
+
+Une entrée dans `structures`, du type que lit l'activité, et rien d'autre n'est obligatoire. Pour le football, déjà en place :
+
+```json
+"structures": [
+  {"type": "terrain_foot", "id": "stade", "nom": "Le stade des Cavaliers", "club": "Union sportive d'Availles",
+   "court": "USA", "couleurs": ["#7a1f2b", "#f4efe2"], "stade": "le stade des Cavaliers", "noeud": "Terrain", "lot": "route_du_stade"}
+]
+```
+
+| Ce que la commune donne | Champ | Ce que le socle en fait |
+|---|---|---|
+| **l'équipe** | `club`, `court`, `couleurs` (champs du type) | un club dans la compétition à la saison suivante, à la place d'un invité, avec son nom, son sigle sur les fiches et ses couleurs sur les maillots |
+| **le lieu** | `noeud` (le `Node3D` de sa scène qui place le terrain), `lot` (la porte du village qui y mène), `stade` (comment on le dit) | la carte de la Vienne le montre ; quand on s'en approche dans la commune, E y mène |
+| **qui en parle** (proposé) | `hote` sur la structure, comme pour un lieu | le nom du président ou de l'arbitre dans les fenêtres ; sans lui, « le président du club » |
+| **le seuil** (proposé) | une entrée dans `lieux` du même id que la structure | le moment où le lieu s'ouvre chez cette commune, annoncé par son hôte |
+
+Ce que le paquet **ne déclare jamais** : les rendez-vous (l'activité les inscrit elle-même à l'Agenda, pour toutes les communes à la fois), les joueurs de l'équipe (tirés de la graine de la saison), les cotes et les paris, les obligations et leur prix, les tables du serveur. Les paris restent au comptoir du café de la commune d'origine du joueur ; une commune qui voudra son propre guichet le déclarera plus tard comme structure (`comptoir`), sans code.
+
+### Ce qui reste au socle, et ce qui y manque aujourd'hui
+
+| Brique | Au socle aujourd'hui | Ce qui manque pour qu'une deuxième commune ait son match chez elle |
+|---|---|---|
+| Équipe et compétition | `Football` lit les terrains du registre : un `terrain_foot` déclaré suffit à faire entrer le club | rien |
+| Rendez-vous | le calendrier de `Football`, bientôt l'Agenda | rien côté paquet |
+| Lieu à visiter | `scenes/stade.tscn` est **le stade de Smarves** : `stade.gd` suit le club « smarves » et sort « sur la route du Bois » | une **scène de lieu type** fournie par le socle (le stade, demain le boulodrome), qui prend le club, les couleurs, le nom et la sortie de l'entrée du registre ; la commune ne fournit qu'un nœud et une porte, ou, si elle veut, sa propre scène dans `interieurs` sous l'id de la structure |
+| Fenêtres (tableau, causerie, fiche) | génériques, mais la division suivie est celle du club de la commune **d'origine** | la division du club **de la commune où l'on est**, pour qu'à Availles l'ardoise parle de l'Union sportive |
+| Paris, obligations | Smarves seulement (Josiane, Maître Garnier) | une banque et un notaire par commune sont déjà prévus par le manifeste (`banque`) ; les obligations d'un club se vendent chez le notaire de sa commune, sinon chez celui du joueur |
+
+Availles-Limouzine est le cas d'essai : déclarer son terrain dans son manifeste fait déjà entrer son club au championnat sans une ligne de code. Pour qu'on puisse **aller voir le match à Availles**, il faut la scène de lieu type ci-dessus ; c'est le premier travail de socle que révèle la deuxième commune, et il vaudra pour toutes les activités suivantes.
+
+### Apporter une activité : le chemin vers les compétitions de joueurs
+
+Idée de Guillaume, à long terme : un joueur développeur qui a acquis ce droit par ses gains crée une compétition dans son paquet ; d'autres joueurs créent leur équipe et y entrent, et les liaisons se font seules. La règle ci-dessus le permet si la compétition est **une donnée, pas du code** :
+
+1. **Les moteurs au socle, avec le contrat de la section 2.** Football d'abord, pétanque ensuite : chaque moteur est un sport, pas une compétition.
+2. **Les compétitions décrites par des données au socle.** Le championnat de la Vienne devient un fichier : le moteur qu'il emploie, le type de structure qu'il lit, la forme (championnat en pyramide, concours à élimination), le rythme (jour, heure, durée d'une saison), la taille des groupes. Le socle sait faire tourner n'importe quel fichier de ce format.
+3. **Un paquet peut apporter un tel fichier**, derrière un droit acquis en jeu et vérifié par le portail : il choisit un moteur et une forme parmi ceux du socle, nomme sa compétition, et déclare **un type de structure nouveau dans son espace de noms** (`availles:terrain_basket`), avec ses champs. Ses décors (la salle, les maillots, les affiches) sont des ressources de son paquet.
+4. **Les liaisons passent par le registre.** Toute autre commune qui déclare une structure de ce type a une équipe dans cette compétition à la saison suivante, exactement comme un terrain de football aujourd'hui. Le serveur ne tient que les décisions et le registre des compétitions publiées.
+
+Ce qu'un paquet n'apportera pas : un moteur à lui. Un résultat commun suppose le même code chez tout le monde, et le code d'un paquet n'est chez tout le monde que si tout le monde l'a installé. Un nouveau sport entre donc par le socle ; une nouvelle compétition peut venir d'un joueur.
+
+## 4. La première activité à construire : la pétanque
 
 ### Pourquoi la pétanque d'abord
 
@@ -220,6 +271,6 @@ La pétanque coûte le moins, ajoute le plus au modèle (le concours) et apparti
 - **Le serveur.** Une table de décisions sur le modèle de `smarves.consignes` (une migration, soumise à Guillaume avant d'être appliquée).
 - **Ce que le football y gagne.** Le concours apporte au socle le tableau à élimination ; le tournoi de poker du mercredi s'en servira pour ses tables et ses rangs.
 
-## 4. Les corrections transmises aux fils
+## 5. Les corrections transmises aux fils
 
 Les fenêtres du football, du mercato et du poker sont tenues par leurs fils. Les corrections proposées par ce point, fenêtre par fenêtre, avec le fichier et la ligne, sont dans `/mnt/project-files/ux-activites/corrections.md`, que le coordinateur transmet. Elles reprennent les constats 1 à 9 et 11 ci-dessus.

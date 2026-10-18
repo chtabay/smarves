@@ -358,6 +358,11 @@ func open_locaux() -> void:
 	if ResourceLoader.exists(BUREAU):
 		var b: Control = load(BUREAU).new()
 		b.club = _club
+		# Le bouton « Le registre des obligations » du bureau : on ferme la page, le registre s'ouvre à sa place.
+		if b.has_signal("obligations"):
+			b.obligations.connect(func():
+				b.closed.emit()
+				open_obligations.call_deferred())
 		b.closed.connect(func():
 			b.queue_free()
 			_causerie = null

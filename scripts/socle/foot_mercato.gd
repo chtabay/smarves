@@ -11,11 +11,16 @@ extends FootTableau
 ## enchères comptent pour tous les villages. Hors ligne, on lit le dernier état connu.
 ##
 ## Elle emprunte au tableau du dimanche son ardoise et ses petites pièces ; s'ouvre et se ferme comme
-## lui (signal closed, Échap). Le stade l'ouvre par open_mercato(), depuis le siège du club.
+## lui (signal closed, Échap). Le stade l'ouvre par open_mercato(), depuis le siège du club. Le bureau du club
+## (Bureau) l'emboîte aussi, sans ardoise ni onglets (integre) : ses pages Recherche et Offres en cours.
 
 var club := ""
-## « marche », « fiche » (lot_ouvert) ou « effectif » ; une fiche de l'effectif garde joueur_ouvert.
+## « marche », « suivis », « offres », « fiche » (lot_ouvert) ou « effectif » ; une fiche de l'effectif garde joueur_ouvert.
 var page := "marche"
+## Emboîtée dans le bureau du club : ni ardoise, ni titre, ni onglets, ni bouton pour sortir ; la place qu'on lui laisse.
+var integre := false
+var hauteur := 0.0
+var largeur := 0.0
 var lot_ouvert := ""
 var joueur_ouvert := ""
 var _ligne_etat: Label
@@ -28,8 +33,15 @@ var _lu := 0.0
 
 
 func _ready() -> void:
-	_preparer()
-	for arg in OS.get_cmdline_user_args():
+	if integre:
+		add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+		_colonne = VBoxContainer.new()
+		_colonne.add_theme_constant_override("separation", 8)
+		_colonne.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		add_child(_colonne)
+	else:
+		_preparer()
+	for arg in ([] as Array) if integre else OS.get_cmdline_user_args():
 		if arg == "--marche-demo":
 			demo(mercato(), club)
 		elif arg == "--mercato-page=effectif" or arg == "--mercato-page=suivis":
@@ -80,17 +92,19 @@ func remplir(colonne: VBoxContainer) -> void:
 	_saisie = null
 	var f := foot()
 	var c: Dictionary = f.clubs.get(club, {})
-	# Sur un téléphone, le haut se serre pour laisser la place à la liste.
-	if not _etroit():
-		colonne.add_child(_mot("L E   M E R C A T O", 13, DOUX))
-	colonne.add_child(_mot(("Le mercato  ·  " if _etroit() else "") + str(c.get("nom", "Le club")), 22 if _etroit() else 34, CRAIE, Polices.titre()))
-	var onglets := HFlowContainer.new()
-	onglets.add_theme_constant_override("h_separation", 10)
-	onglets.add_theme_constant_override("v_separation", 6)
-	colonne.add_child(onglets)
 	var m := mercato()
 	var t: int = m.maintenant()
 	var miens: Array = m.joueurs_de(club, t)
+	# Sur un téléphone, le haut se serre pour laisser la place à la liste.
+	if not _etroit() and not integre:
+		colonne.add_child(_mot("L E   M E R C A T O", 13, DOUX))
+	if not integre:
+		colonne.add_child(_mot(("Le mercato  ·  " if _etroit() else "") + str(c.get("nom", "Le club")), 22 if _etroit() else 34, CRAIE, Polices.titre()))
+	var onglets := HFlowContainer.new()
+	onglets.add_theme_constant_override("h_separation", 10)
+	onglets.add_theme_constant_override("v_separation", 6)
+	if not integre:
+		colonne.add_child(onglets)
 	for o in [["marche", "La recherche"], ["suivis", "Suivis  (%d)" % m.encheres_suivies().size()], ["effectif", "Nos joueurs  (%d)" % miens.size()]]:
 		var b := _bouton(o[1], func(): aller(o[0]), 15)
 		b.name = "Onglet_" + o[0]
@@ -104,7 +118,8 @@ func remplir(colonne: VBoxContainer) -> void:
 		onglets.add_child(b)
 	for n in m.nouvelles.slice(0, 2):
 		colonne.add_child(_mot(str(n), 15, OR, null, true))
-	colonne.add_child(_filet())
+	if not integre:
+		colonne.add_child(_filet())
 	# Le corps de la page défile seul : le haut et la rangée du bas restent à l'écran, téléphone compris.
 	var corps := VBoxContainer.new()
 	corps.add_theme_constant_override("separation", 6 if _etroit() else 8)
@@ -116,6 +131,8 @@ func remplir(colonne: VBoxContainer) -> void:
 			_effectif(corps, miens)
 		"suivis":
 			_suivis(corps)
+		"offres":
+			_offres(corps)
 		_:
 			_marche(corps)
 	var defile := ScrollContainer.new()
@@ -123,11 +140,13 @@ func remplir(colonne: VBoxContainer) -> void:
 	defile.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	defile.add_child(corps)
 	var haut_max := _ecran().y - (350.0 if _etroit() else 470.0) - 24.0 * mini(m.nouvelles.size(), 2)
-	defile.custom_minimum_size = Vector2(0.0 if _etroit() else minf(1080.0, _ecran().x - 160.0), maxf(160.0, haut_max))
+	if integre:
+		haut_max = hauteur - (96.0 if page == "fiche" else 56.0) - 26.0 * mini(m.nouvelles.size(), 2)
+	defile.custom_minimum_size = Vector2(largeur if integre else (0.0 if _etroit() else minf(1080.0, _ecran().x - 160.0)), maxf(160.0, haut_max))
 	colonne.add_child(defile)
 	# Une page courte ne garde pas toute la hauteur : on la mesure une fois posée.
 	(func():
-		if is_instance_valid(defile) and is_instance_valid(corps):
+		if is_instance_valid(defile) and is_instance_valid(corps) and not integre:
 			defile.custom_minimum_size.y = clampf(corps.get_combined_minimum_size().y, 80.0, maxf(160.0, haut_max))).call_deferred()
 	colonne.add_child(_filet())
 	_ligne_etat = _mot(_message if _message != "" else _etat_texte(), 15, DOUX, null, true)
@@ -138,7 +157,24 @@ func remplir(colonne: VBoxContainer) -> void:
 	colonne.add_child(bas)
 	if page == "fiche":
 		bas.add_child(_bouton("Retour", func(): aller(_retour)))
-	bas.add_child(_bouton("Laisser le président  (Échap)", func(): closed.emit()))
+	if not integre:
+		bas.add_child(_bouton("Laisser le président  (Échap)", func(): closed.emit()))
+	elif bas.get_child_count() == 0:
+		bas.queue_free()
+
+
+## Emboîtée, Échap ramène d'une fiche à la liste et laisse le reste au bureau.
+func _unhandled_input(event: InputEvent) -> void:
+	if not integre:
+		super(event)
+	elif visible and page == "fiche" and event.is_action_pressed("ui_cancel"):
+		aller(_retour)
+		get_viewport().set_input_as_handled()
+
+
+## Emboîtée, un texte replié tient dans la place laissée par le bureau.
+func _large() -> float:
+	return minf(900.0, largeur - 24.0) if integre and largeur > 0.0 else super()
 
 
 func aller(p: String) -> void:
@@ -262,6 +298,27 @@ func _suivis(colonne: VBoxContainer) -> void:
 		colonne.add_child(_mot("Vous ne suivez personne pour l'instant.", 16, CRAIE))
 	for e in liste:
 		colonne.add_child(_rangee(e, []))
+
+
+## Les offres en cours du club : ses enchères (en tête, dépassées, gagnées ou perdues ces trois derniers
+## jours), ses ventes, puis les joueurs suivis.
+func _offres(colonne: VBoxContainer) -> void:
+	var m := mercato()
+	var o: Dictionary = m.offres_du_club(club)
+	colonne.add_child(_mot("Nos enchères", 18, CRAIE, Polices.gras()))
+	if o.encheres.is_empty():
+		colonne.add_child(_mot("Le club n'a pas d'enchère en cours. La recherche de joueurs montre ceux qui sont en vente.", 15, DOUX, null, true))
+	for e in o.encheres:
+		colonne.add_child(_rangee(e, []))
+	colonne.add_child(_filet())
+	colonne.add_child(_mot("Nos ventes", 18, CRAIE, Polices.gras()))
+	if o.ventes.is_empty():
+		colonne.add_child(_mot("Rien en vente. Un joueur acheté au marché se remet en vente depuis sa fiche, dans l'effectif.", 15, DOUX, null, true))
+	for e in o.ventes:
+		colonne.add_child(_rangee(e, []))
+	colonne.add_child(_filet())
+	colonne.add_child(_mot("Les joueurs suivis", 18, CRAIE, Polices.gras()))
+	_suivis(colonne)
 
 
 ## Une ligne de la liste, à la Hattrick : le nom, le poste et l'âge, deux compétences en petites barres

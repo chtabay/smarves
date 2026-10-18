@@ -183,7 +183,7 @@ func _match_de_la_commune(foot: Node, s: int, j: int) -> Dictionary:
 	return {}
 
 
-## Le mercato (autoload Mercato) : seize joueurs mis aux enchères chaque dimanche à 17 h, dont les
+## Le mercato (autoload Mercato) : quarante joueurs mis aux enchères chaque dimanche à 17 h, dont les
 ## dernières dates limites tombent le samedi soir ; et nos propres enchères et ventes, par
 ## Mercato.rendez_vous(de, a), avec leur date limite.
 func _mercato(debut: int, fin: int) -> Array:
@@ -195,7 +195,7 @@ func _mercato(debut: int, fin: int) -> Array:
 	for k in [k0, k0 + 1, k0 + 2]:
 		var ouvre: int = mercato.debut_semaine(k)
 		if ouvre >= debut and ouvre < fin:
-			out.append({"id": "mercato@%d/lots" % k, "titre": "Seize joueurs mis aux enchères", "lieu": "le mercato, au bureau du club",
+			out.append({"id": "mercato@%d/lots" % k, "titre": "Quarante joueurs mis aux enchères", "lieu": "le mercato, au bureau du club",
 				"quand": ouvre, "activite": "mercato", "detail": "Le plus offrant l'emporte ; les dates limites courent du lundi au samedi soir."})
 		var dernier := 0
 		for i in mercato.LOTS:

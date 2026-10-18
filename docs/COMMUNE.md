@@ -21,8 +21,8 @@ L'autoload `Carte` (`scripts/carte.gd`) montre la carte en plein écran, dessin�
 - **Le car et la route.** Sur la place, l'arrêt du car départemental (à droite, entre deux platanes) ouvre la carte « Arrêt de la Place » : des tirets d'or partent de Smarves vers chaque commune où l'on peut aller (installée ou publiée), et l'on monte avec « Monter dans le car ». Au bout de chaque route, sur les socles des environs, un panneau blanc bordé de rouge porte le nom de la commune voisine dans cette direction (`Vienne.voisine`, la plus proche à moins de 40° du cap) : Ligugé à l'ouest (moulin), Nouaillé-Maupertuis à l'est (bois), Saint-Benoît au nord (Passelourdin). Il ouvre la carte tournée vers elle, avec « Prendre la route », « Installer », ou, si personne ne l'a encore construite, la promesse qu'elle s'allumera. Pas de gare : Smarves n'en a pas ; une commune qui en a une pourra poser la sienne.
 - **Les mises à jour.** Une ville installée dont le catalogue publie une version plus récente porte sous son nom une pastille d'or « mise à jour 0.2.0 » ; sa fiche dit « MISE À JOUR » et offre « Mettre à jour » à côté de « Y aller ». Une ville pas encore visitée dans la partie prend sa nouvelle version tout de suite ; une ville déjà visitée a son pack monté, que Godot ne sait pas remplacer : la nouvelle version attend le prochain lancement, et la fiche propose « Relancer maintenant » (la partie est enregistrée d'abord ; sur téléphone, on dit de fermer et rouvrir le jeu).
 - **Un seul état, les mêmes mots partout.** `Communes.etat(id)` dit où en est une ville (« publiee », « telechargement », « attente », « echec », « a_relancer », « mise_a_jour », « a_jour ») ; `resume(id)` le dit en français et `geste(id)` donne le bouton à proposer (Installer, Mettre à jour, Réessayer, Relancer maintenant). La bienvenue, la carte et le carnet s'en servent tous, et écoutent `etat_change`. Les téléchargements passent un par un (les autres attendent leur tour) et montrent une `BarreProgres` ; un échec garde son message jusqu'au prochain essai.
-- **Ce qui se fait tout seul.** Au lancement, le jeu relit sa version et le catalogue ; une ville installée mais pas encore ouverte dans la partie prend sa nouvelle version sans rien demander, et la bienvenue le dit (« Ligugé s'est mise à jour toute seule »). Le reste attend un geste : installer une ville nouvelle, mettre à jour une ville déjà ouverte (il faudra relancer), installer la nouvelle version du jeu.
-- **Une seule place pour tout voir.** Le bloc « MISES À JOUR » de la bienvenue résume (jeu, villes à mettre à jour, téléchargements, villes prêtes au prochain lancement) avec « Tout mettre à jour » et « Relancer maintenant » ; « Villes et mises à jour → » ouvre la liste détaillée. `tools/capture_mises_a_jour.gd` en prend les captures, chaque état posé à la main.
+- **Ce qui se fait tout seul.** Au lancement, le jeu relit sa version et le catalogue. Une ville publiée s'installe toute seule : le portail ne publie que des villes déjà validées avec leurs développeurs (« Nouvelle sur la carte : Vivonne »). Une ville installée mais pas encore ouverte dans la partie prend sa nouvelle version sans rien demander (« Ligugé s'est mise à jour toute seule »). Le reste attend un geste : mettre à jour une ville déjà ouverte (il faudra relancer), réessayer un échec, installer la nouvelle version du jeu.
+- **Une seule place pour tout voir, dès l'écran titre.** Le panneau de la bienvenue est ancré à droite de l'écran titre, avec le compte Pyramides ; après « Jouer », plus de fenêtre ni de deuxième carte (elle reste un bouton de l'écran titre et la touche M). Son bloc « MISES À JOUR » résume (jeu, villes à mettre à jour, téléchargements, villes prêtes au prochain lancement) avec « Tout mettre à jour » et « Relancer maintenant » ; « Villes et mises à jour → » ouvre la liste détaillée. `tools/capture_mises_a_jour.gd` en prend les captures, chaque état posé à la main.
 - **Un pack remplacé à la main pendant la partie** (une nouvelle version déposée dans `communes/` sans quitter le jeu) : s'il n'a pas encore été ouvert, on relit son manifeste et on ouvre la nouvelle version ; s'il l'a été, on refuse d'y entrer jusqu'au prochain lancement, plutôt que de lire le nouveau fichier aux places de l'ancien.
 
 **La vue à pied est fournie par le jeu** (`scripts/socle/vue.gd`, autoload `Vue`) : dans toute commune dont la scène expose `player` (un `fp_player.gd`) et `camera` (un `orbit_camera.gd`), Tab et le bouton « Vue » de l'interface tactile alternent la vue de dessus, où la caméra à crans suit l'habitant, et la vue à la première personne, exactement comme à Smarves ; `Vue.basculee(topdown)` prévient la scène, qui peut adapter sa ligne d'aide. Une scène qui a sa propre méthode `set_fps()` (Smarves) garde la main. Le paquet n'a rien à coder (`tools/test_availles.gd` le vérifie).
@@ -120,15 +120,37 @@ Une **structure** est quelque chose qu'une commune possède et qui compte pour l
 
 | Champ | Obligatoire | Ce que c'est |
 |---|---|---|
-| `type` | oui | un type connu du socle : `gare`, `arret_car`, `terrain_foot` (la liste est `Structures.TYPES`, `scripts/socle/structures.gd`) |
+| `type` | oui | un type connu du socle : `gare`, `arret_car`, `terrain_foot`, `salle_jeu` (socle 1.1) ; la liste est `Structures.TYPES`, `scripts/socle/structures.gd` |
 | `id` | oui | minuscules, chiffres et `_`, unique dans la commune ; la clé au registre est `<commune>/<id>` |
 | `nom` | oui | le nom affiché (« La gare de Ligugé ») |
 | `noeud` | non | le nom du nœud de la scène de la commune qui place la structure (un `Node3D`, cherché par son nom) ; sans lui, la structure compte pour les autres communes mais ne se voit pas chez soi |
 | `lot` | non | la porte du village qui y mène, quand la commune a des lots |
 
-Et par type : `gare` prend `quai` ; `arret_car` prend `abri` ; `terrain_foot` demande `club` (le nom du club) et prend `court` (le sigle), `couleurs` (deux couleurs, `#rrggbb`) et `stade`. Une seule structure de chaque type par commune.
+Et par type : `gare` prend `quai` ; `arret_car` prend `abri` ; `terrain_foot` demande `club` (le nom du club) et prend `court` (le sigle), `couleurs` (deux couleurs, `#rrggbb`) et `stade` ; `salle_jeu` demande `jeux` et prend `tenancier`, `graine`, `decor`, `repliques` et `enseigne` (plus bas). Une seule structure de chaque type par commune, sauf les salles de jeu : une commune peut en avoir plusieurs.
 
 **Le stade est une scène du socle.** Une commune qui déclare un terrain n'a pas de stade à construire : `scenes/stade.tscn` (`scripts/village/stade.gd`) est le même pour toutes, habillé de la structure. Il y lit **le nom du club** (`club`, sur la tribune et dans la bouche du commentateur), **le sigle** (`court`, au tableau d'affichage), **les couleurs** (`couleurs` : la première teint la tribune, les bancs, les toits, les casquettes et les maillots des supporters, la seconde les bas des joueurs), **le nom du stade** (`nom` de la structure, sur l'arche et la tribune : « Le stade des Prés » s'écrit « STADE DES PRÉS »), et **la porte du retour** (`lot`, sinon l'`id` de la structure : `Game.return_point` à la sortie). **Le président** est l'hôte (`hote`) du lieu du manifeste qui porte le terrain, celui dont l'`id` est le même que celui de la structure ou que son `lot` ; sans lieu, c'est « Le président ». La commune ouvre son stade depuis sa scène par `Football.ouvrir_stade("<id de la commune>")` (la porte de son terrain, le nœud `noeud`) ; la sortie du stade ramène à sa scène. Tant que le club attend la saison prochaine, on y regarde le match de la division suivie et le président n'a rien à décider. Un champ inconnu, un type inconnu, un champ du mauvais type ou un terrain sans club rendent le manifeste invalide : la commune n'est pas inscrite, et le portail refuse le paquet pour la même raison. Un type ajouté plus tard fera monter la version du socle ; un paquet qui s'en sert le demande par `socle_min`. Le championnat ne compte que les clubs inscrits : avec un seul terrain au registre, il n'y a pas de match, le club s'entraîne et le tableau dit qu'on attend un deuxième club ; deux terrains suffisent.
+
+**La salle de jeu est une scène du socle** (socle 1.1 : un paquet qui en déclare une met `"socle_min": "1.1"`). La commune ne construit ni la pièce ni les jeux : `scenes/salle_jeu.tscn` (`scripts/socle/salle_jeu.gd`) bâtit la salle, pose une table ou une machine par jeu en rangs de trois depuis le comptoir, et fait tourner les jeux de Smarves, les mêmes panneaux qu'au casino, avec la même bourse et le même total gagné.
+
+```json
+{"type": "salle_jeu", "id": "tripot", "nom": "Le tripot de la gare", "noeud": "PorteTripot", "lot": "place",
+ "jeux": ["machine", "blackjack", "roulette"], "tenancier": "Mme Rivière", "graine": 17, "decor": "cafe",
+ "enseigne": "Au Tripot", "repliques": ["« Ici on mise petit, mais on mise souvent. »"]}
+```
+
+| Champ | Ce que c'est |
+|---|---|
+| `jeux` | les jeux de la salle, une table chacun, parmi `machine`, `loto`, `blackjack`, `roulette`, `craps`, `baccara`, `poker`, `des`, `roue`, `courses` (`Structures.JEUX`) |
+| `tenancier` | qui tient le comptoir ; un habitant dessiné comme ceux de Smarves, tiré de `graine` (un nombre : le même tenancier d'une partie à l'autre) |
+| `decor` | `cafe` (carrelage et papier peint, par défaut), `salle` (parquet, une salle des fêtes) ou `cave` (dalles et pierre, une arrière-salle) |
+| `repliques` | ce que dit le tenancier quand on lui parle ; des phrases du socle à défaut |
+| `enseigne` | le nom écrit au fond de la salle ; `nom` à défaut |
+
+**Le seuil** vient des `lieux` du manifeste : la salle de même `id` qu'un lieu reste fermée tant que le joueur n'a pas gagné son `seuil`, et son `hote` fait signe quand elle ouvre. Une salle sans lieu du même id est ouverte d'emblée. La commune ouvre sa salle depuis sa scène, à la porte du nœud `noeud` : `SalleJeu.ouvrir("<id de la commune>", "<id de la salle>")` rend `false` si elle est encore fermée (`SalleJeu.ouverte()` et `SalleJeu.seuil()` permettent de l'écrire sur la porte). La sortie ramène dans la scène de la commune, devant la porte (`lot`, sinon l'`id` de la salle). `tools/test_salle_jeu.gd` vérifie tout le chemin avec la commune d'essai `tools/fixtures/salle_jeu/`.
+
+```sh
+godot --headless --path . -s tools/test_salle_jeu.gd
+```
 
 **Le registre** (autoload `Registre`, `scripts/socle/registre.gd`) est reconstruit à chaque inscription de commune et à chaque lecture du catalogue : il tient les structures des communes **installées** chez le joueur et celles des communes **publiées** sur le portail, installées ou non (le catalogue porte les structures de chaque paquet publié). Chaque entrée dit sa commune, son code INSEE, son centre sur la carte et si l'on peut y aller (`installee`). Ce qu'il expose :
 
@@ -187,7 +209,7 @@ Une commune est **tenue** par l'auteur de son premier paquet valide : lui seul y
 Le kit est un `.zip` à poser à la racine d'un clone de Smarves. Il contient :
 
 - `communes/<id>/commune.json` : le manifeste prérempli (`id`, `nom`, `insee`, `auteur`, `population`, `arrivee` avec son nom, `licence` et `sources` vides, un lieu et une banque « à écrire ») ;
-- `communes/<id>/commune.tscn` et `commune.gd` : **la scène de départ**, qui marche telle quelle. Une lumière et un ciel, un sol avec sa collision, le panneau de la commune, deux maisons d'exemple faites des façades du Poitou de Smarves (`res://scripts/village/facades.gd`, que le jeu prête à toutes les communes) et un repère `Arrivee`. Le script crée l'habitant de Smarves (`fp_player.gd`) et la caméra à crans du village (`orbit_camera.gd`) et les expose sous les noms que le jeu attend, **`player` et `camera`** : c'est ce qui donne sans une ligne de code la bascule de vue (Tab, autoload `Vue`), les commandes tactiles (`Tactile`) et la carte de la Vienne en dézoomant ;
+- `communes/<id>/commune.tscn` et `commune.gd` : **la scène de départ**, qui marche telle quelle. Une lumière et un ciel, un sol avec sa collision, le panneau de la commune, une petite place bâtie avec l'atelier du socle (deux maisons à façades du Poitou dont un café, deux arbres d'automne, un banc, trois habitants qui bavardent ou s'assoient : section suivante) et un repère `Arrivee`. Le script crée l'habitant de Smarves (`fp_player.gd`) et la caméra à crans du village (`orbit_camera.gd`) et les expose sous les noms que le jeu attend, **`player` et `camera`** : c'est ce qui donne sans une ligne de code la bascule de vue (Tab, autoload `Vue`), les commandes tactiles (`Tactile`) et la carte de la Vienne en dézoomant ;
 - `LISEZMOI.md` : le mode d'emploi, de l'installation de Godot au dépôt.
 
 Le modèle du kit vit dans Smarves, [`tools/kit/`](../tools/kit/) (les mêmes fichiers, avec `__ID__`, `__NOM__` et `__INSEE__` à la place des valeurs) ; le portail le recopie (`src/lib/communes/kit.ts` dans Pyramides2). Trois outils du dépôt accompagnent le kit :
@@ -204,6 +226,57 @@ Le modèle du kit vit dans Smarves, [`tools/kit/`](../tools/kit/) (les mêmes fi
   python3 -I tools/bourg_reel.py <id> --centre=0.656,46.1215 --cadre=-600,-330,460,420 --remarquables=lieux.json
   ```
 - **`tools/emballer_commune.gd`**, qui écrit `build/<id>.pck` (section « Le geste »).
+
+### L'atelier du socle
+
+Ce que Smarves a construit, le jeu le prête aux communes : une commune s'en sert sans rien mettre dans son paquet, parce que ces ressources sont déjà chez le joueur (le pack d'une commune se monte par-dessus le jeu, `res://scripts/…` et `res://assets/…` y sont visibles). Elle ne pèse que son propre code, et ses maisons ressemblent à celles du reste de la Vienne.
+
+Le catalogue est [`scripts/socle/atelier.json`](../scripts/socle/atelier.json), l'API la classe **`Atelier`** ([`scripts/socle/atelier.gd`](../scripts/socle/atelier.gd)). Les noms du catalogue sont un engagement : ils ne bougent pas quand le code de Smarves change, et `tools/test_atelier.gd` vérifie que chacun mène à quelque chose.
+
+| Rubrique | Ce qu'il y a | L'appel |
+|---|---|---|
+| Modèles | huit familles de modèles 3D sous licence CC0 (Kenney, KayKit) : `nature` (arbres, rochers, fleurs, cultures), `ville` (bancs, lampadaires, panneaux), `voitures`, `mobilier`, `restaurant`, `arcade`, `marche`, `salon` | `Atelier.modele("nature/tree_oak")`, `Atelier.modele("ville/bench", 0.35)` : pied au sol, à la hauteur conseillée de la famille ou à celle donnée (l'habitant mesure 0,7). `Atelier.modeles("nature")` les liste |
+| Maisons | les façades du Poitou de Smarves : calcaire, volets, tuiles canal, lucarnes, cheminées, vitrine avec enseigne | `Atelier.rue($Maisons, [[Transform3D, spec], …], graine)` ; les champs de `spec` sont dans le catalogue |
+| Figurants | des habitants anonymes, dessinés comme ceux de Smarves, debout, assis ou qui marchent sur une route, en tenue de village ou de soirée | `Atelier.figurant(graine, "sit")` ; la graine fixe son allure d'une partie à l'autre |
+| Meubles | la brocante : fauteuil club, buffet Henri II, juke-box, billard, table de jeu… | `Atelier.meuble("juke_box")`, à l'échelle d'un intérieur |
+| Sons | les bruitages (jetons, cartes, dés, gain…) et deux ambiances | `Atelier.son("dice")`, `Atelier.ambiance("village")` |
+| Matières | les shaders : calcaire, tuiles, vitre éclairée, pavés, eau, tapis, damas, marbre, feutre, ciel de nuit | `Atelier.matiere("cobbles")` |
+| Polices | les trois polices du jeu | `Polices.texte()`, `Polices.gras()`, `Polices.titre()` |
+| Scènes | le stade du socle (structure `terrain_foot`) et la salle de jeu (structure `salle_jeu`), section « Les structures » ; l'habitant et la caméra, dans la scène du kit | `Football.ouvrir_stade(commune)`, `SalleJeu.ouvrir(commune, id)` |
+
+Les personnages nommés de Smarves (Josiane, M. Brunet…) restent à Smarves : une commune a ses propres habitants, l'atelier ne lui prête que des figurants.
+
+```sh
+godot --headless --path . -s tools/test_atelier.gd
+```
+
+### Le Claude du développeur
+
+Le kit est aussi un **serveur MCP**, [`tools/mcp/kit_communes.py`](../tools/mcp/kit_communes.py) : le Claude du développeur y trouve les règles, l'atelier et les outils du dépôt sans avoir à les chercher. Il lit les mêmes fichiers que le jeu et lance les mêmes outils, donc ses réponses sont celles du jeu. Python 3.9 ou plus, aucune dépendance ; Godot 4.7 pour tester et emballer.
+
+| Outil | Ce qu'il fait |
+|---|---|
+| `contrat` | les sections de ce document (le manifeste, les structures, le paquet, la publication) |
+| `atelier` | le catalogue de l'atelier, une famille de modèles, ou une recherche par nom (« bench ») |
+| `nouvelle_commune` | une commune depuis le kit, par son seul code INSEE (nom et population viennent de `communes/vienne.json`) |
+| `verifier_manifeste` | les refus rapides d'un `commune.json` et ce que le portail affichera vide |
+| `tester_commune` | `tools/test_commune.gd` sur la commune, le kit ou un `.pck` |
+| `emballer_commune` | `tools/emballer_commune.gd`, avec la taille du paquet face aux 32 Mo |
+| `bourg_reel` | `tools/bourg_reel.py`, le plan réel du bourg |
+
+Le dépôt n'est pas publié par le serveur : le paquet se dépose sur le portail des développeurs, qui montre ce qu'il contient avant l'envoi.
+
+- **Claude Code** : le fichier [`.mcp.json`](../.mcp.json) à la racine du dépôt le déclare. En ouvrant `claude` dans le clone de Smarves, Claude Code propose de l'activer ; `/mcp` montre son état. Sous Windows, si `python3` n'existe pas, remplacez-le par `py` dans `.mcp.json`.
+- **L'application Claude** (bureau) : Réglages, Développeur, Modifier la configuration, puis ajoutez dans `claude_desktop_config.json`, avec le chemin du clone :
+  ```json
+  {"mcpServers": {"kit-communes": {"command": "python3", "args": ["/chemin/vers/smarves/tools/mcp/kit_communes.py"]}}}
+  ```
+  Si Godot n'est pas dans le PATH, ajoutez `"env": {"GODOT": "/chemin/vers/godot"}`.
+
+```sh
+python3 tools/mcp/test_kit_communes.py           # le protocole et les outils sans Godot
+python3 tools/mcp/test_kit_communes.py --godot   # avec tester_commune sur le kit et une commune créée
+```
 
 ### Le paquet
 

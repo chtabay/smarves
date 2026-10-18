@@ -38,6 +38,8 @@ var en_cours := ""
 var file: Array[String] = []
 var echecs := {}
 var mises_a_jour_seules: Array[String] = []
+## Les villes publiées installées toutes seules à ce lancement.
+var arrivees_seules: Array[String] = []
 var _http: HTTPRequest
 var _seules := {}
 ## Où vont les paquets installés, la dernière copie du catalogue (catalogue.json, pour la liste hors
@@ -224,7 +226,8 @@ func resume(id: String) -> String:
 			return "La version %s est publiée." % mise_a_jour(id)
 		"a_jour":
 			var v := str(installations.get(id, c.data.get("version", "")))
-			return ("Installée  ·  version %s" % v if v != "" else "Installée") + ("  ·  mise à jour toute seule" if mises_a_jour_seules.has(id) else "")
+			return ("Installée  ·  version %s" % v if v != "" else "Installée") + ("  ·  mise à jour toute seule" if mises_a_jour_seules.has(id)
+				else "  ·  arrivée à ce lancement" if arrivees_seules.has(id) else "")
 		"publiee":
 			return "Publiée par %s  ·  %s" % [e.auteur, Portail.taille(e.taille)]
 	return ""
@@ -275,10 +278,15 @@ func tout_mettre_a_jour() -> void:
 
 
 ## Au lancement : une commune installée mais pas encore ouverte dans la partie prend sa nouvelle
-## version toute seule, rien ne s'y oppose. Une commune déjà ouverte attend le geste du joueur.
+## version toute seule, rien ne s'y oppose. Une commune déjà ouverte attend le geste du joueur. Une
+## ville publiée s'installe aussi toute seule : le portail ne publie que des villes déjà validées
+## avec leurs développeurs, il n'y a rien à refuser.
 func _mettre_a_jour_seules() -> void:
 	for id in ordre:
 		if id != ORIGINE and mise_a_jour(id) != "" and not communes[id].montee and not echecs.has(id):
+			installer(id, true)
+	for id in a_installer():
+		if not echecs.has(id):
 			installer(id, true)
 
 
@@ -294,7 +302,8 @@ func installer(id: String, seule := false) -> void:
 		return
 	echecs.erase(id)
 	if seule:
-		_seules[id] = true
+		# true : une ville qui arrive ; false : une mise à jour.
+		_seules[id] = not communes.has(id)
 	if en_cours != "":
 		file.append(id)
 		etat_change.emit(id)
@@ -328,8 +337,9 @@ func _fini(id: String, ok: bool, message: String) -> void:
 	en_cours = ""
 	if ok:
 		echecs.erase(id)
-		if _seules.has(id) and not mises_a_jour_seules.has(id):
-			mises_a_jour_seules.append(id)
+		var liste: Array[String] = arrivees_seules if _seules.get(id, false) else mises_a_jour_seules
+		if _seules.has(id) and not liste.has(id):
+			liste.append(id)
 	else:
 		echecs[id] = message
 	_seules.erase(id)
@@ -376,7 +386,8 @@ func _installe(e: Dictionary, part: String, recu: bool) -> void:
 		DirAccess.remove_absolute(fin + ".ancien")
 	installations[id] = e.version
 	Portail.ecrire(dossier_greffes.path_join("installees.json"), JSON.stringify(installations))
-	_fini(id, true, ("%s s'est mise à jour toute seule en %s." % [e.nom, e.version]) if _seules.has(id)
+	_fini(id, true, ("%s est arrivée : elle est sur la carte." % e.nom) if _seules.get(id, false)
+		else ("%s s'est mise à jour toute seule en %s." % [e.nom, e.version]) if _seules.has(id)
 		else ("%s est installée." % e.nom) if not deja else ("La version %s de %s s'ouvrira au prochain lancement." % [e.version, e.nom]))
 
 

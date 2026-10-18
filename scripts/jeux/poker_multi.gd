@@ -5,19 +5,25 @@ extends "res://scripts/poker_panel.gd"
 ## mélange, donne, fait parler les habitués et règle les pots ; le jeu relit la table chaque seconde et
 ## rejoue à l'écran ce qui a changé (cartes, mises, tableau, abattage), sur la même table 3D que le solo.
 ##
-## L'argent : en s'asseyant, le joueur pose un tapis pris sur ses crédits ; il le reprend en se levant.
-## Les donnes ne touchent que le tapis. S'il disparaît (page fermée, réseau coupé), la chaise se libère
-## au bout de 30 s et le croupier garde le tapis : il revient dans les crédits à la prochaine chaise.
+## L'argent, comme au solo : rien n'est pris d'avance. Le tapis que voit la table n'est que l'image des
+## crédits du joueur (jusqu'à 10 000) ; chaque mise part des crédits quand elle part au pot, et la donne
+## finie, ce qu'elle rend y revient. Se lever ne déplace rien ; disparaître (page fermée, réseau coupé)
+## libère la chaise au bout de dix minutes ; entre-temps le croupier couche l'absent à chaque donne. `rendu` ne sert plus qu'à
+## remettre ce que la première version avait pris à l'entrée : le serveur le rend au premier passage.
 ##
 ## Les places : la sienne est toujours la place 0 de l'écran ; les autres tournent autour à partir de
 ## la place du serveur (6 chaises). Les habitués gardent leur nom ; un joueur prend la chaise de l'un d'eux.
+##
+## L'encart : à droite de l'écran, qui est à la table, avec quoi devant lui et son dernier geste dans la
+## donne, le donneur et celui qui parle ; en tête, ses crédits, le pot et le plafond d'une donne. Il se
+## replie d'un clic en une ligne, et vient replié sur un écran étroit (téléphone).
 
 ## Les habitués du serveur, par place, et leur figurant dans la salle (casino_interior.gd).
 const FIGURANTS := {"Le Commandant": "le-commandant", "Mme Duval": "mme-duval", "Teddy": "teddy",
 	"La comtesse Orlov": "comtesse-orlov", "Maître Garnier": "maitre-garnier"}
 const SRV_RANKS := ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"]
 const SRV_SUITS := ["♠", "♥", "♦", "♣"]
-## Le tapis posé en s'asseyant : tout ce qu'on a, jusqu'à 10 000.
+## Le tapis que la table montre pour soi : ses crédits, jusqu'à 10 000.
 const CAVE_MAX := 10000
 const RELIRE := 0.8
 
@@ -36,8 +42,14 @@ var _minuteur: Timer
 var _options := {}
 var _quitter_arme := false
 var _lineup_key := ""
+## Ce que le serveur me voyait de disponible (tapis moins l'engagé) à la dernière vue : la différence
+## d'une vue à l'autre est ce qui part des crédits (mise) ou y revient (gain). -1 : pas de repère.
+var _dispo := -1
 ## Pour les essais : une vue du serveur posée à la main, sans réseau.
 var hors_ligne := false
+var _encart: PanelContainer
+var _encart_texte: RichTextLabel
+var _encart_ouvert := true
 
 
 func _ready() -> void:
@@ -53,6 +65,8 @@ func _ready() -> void:
 	add_child(_minuteur)
 	if not hors_ligne:
 		_appeler("voir")
+	if embedded and get_parent() is Control:
+		_batir_encart(get_parent())
 	_render()
 
 
@@ -97,19 +111,15 @@ func appliquer(v: Dictionary, action := "voir") -> void:
 	if rendu > 0:
 		Game.credits += rendu
 		Game.changed.emit()
-		if action == "partir":
-			_log.text = "Le croupier vous rend %s crédits." % Game.fmt(rendu)
-		else:
-			_log.text = "Le croupier vous rend les %s crédits qu'il vous gardait." % Game.fmt(rendu)
+		_log.text = "Le croupier vous rend les %s crédits qu'il vous gardait." % Game.fmt(rendu)
 	var was_seated := seated
 	seated = v.get("seat") != null
 	my_seat = int(v.seat) if seated else -1
 	stack = int(round(float(v.get("stack", 0))))
 	if was_seated and not seated and action != "partir":
 		_log.text = "Le croupier a libéré votre chaise : vous n'avez plus donné de nouvelles."
-	if not seated and int(v.get("caisse", 0)) > 0:
-		_log.text = "Le croupier vous garde %s crédits : asseyez-vous pour les reprendre." % Game.fmt(int(v.caisse))
 	_lire_places(v)
+	_suivre_argent(action)
 	var pk: Dictionary = v.get("poker", {})
 	var h = pk.get("hand")
 	var last = v.get("last")
@@ -139,6 +149,32 @@ func appliquer(v: Dictionary, action := "voir") -> void:
 	if not in_hand:
 		_raconter_attente(pk)
 	_render()
+
+
+## Les crédits suivent la table : ce que le serveur me voit de disponible baisse d'une mise (elle part
+## des crédits, comptée comme misée) ou monte d'un gain (il y revient, compté comme gagné). S'asseoir et
+## recaver posent le repère sans rien déplacer : le tapis n'est que l'image des crédits.
+func _suivre_argent(action: String) -> void:
+	if not seated:
+		_dispo = -1
+		return
+	var dispo := int(seats[0].get("stack", 0))
+	if _dispo >= 0 and action != "s-asseoir" and action != "recaver":
+		var d := dispo - _dispo
+		if d < 0:
+			_miser(-d)
+		elif d > 0:
+			Game.cash_in(d)
+	_dispo = dispo
+
+
+func _miser(amount: int) -> void:
+	if Game.spend(amount):
+		return
+	# Les crédits ont bougé ailleurs depuis que le tapis a été posé : la mise part quand même.
+	Game.credits = maxi(0, Game.credits - amount)
+	Game.staked += amount
+	Game.changed.emit()
 
 
 func _moi(h: Dictionary) -> Dictionary:
@@ -307,21 +343,16 @@ func _abattage(last: Dictionary) -> void:
 		(" La maison prend %d." % int(last.rake)) if float(last.get("rake", 0)) > 0 else ""]
 	if not winners.is_empty():
 		showdown.emit(winners, not shown.is_empty(), net_pot)
-	# La donne compte dans la partie comme au solo : misé, rendu (le gain reste sur le tapis).
+	# Les crédits ont déjà suivi la donne (_suivre_argent) : reste le son du résultat, comme au solo.
 	if not mine.is_empty():
-		var bet := int(round(float(mine.staked)))
-		var payout := int(round(float(mine.returned)))
-		Game.staked += bet
-		Game.won += payout
-		Game.changed.emit()
-		Sfx.result(bet, payout)
+		Sfx.result(int(round(float(mine.staked))), int(round(float(mine.returned))))
 
 
 func _raconter_attente(pk: Dictionary) -> void:
 	if not seated:
 		return
 	if pk.get("waiting", false):
-		_log.text = "Votre tapis est sous %s : recavez pour être servi." % Game.fmt(CAP)
+		_log.text = "Il faut %s devant soi pour être servi : recavez, si vos crédits y suffisent." % Game.fmt(CAP)
 
 
 # --- Les gestes ------------------------------------------------------------------------------------
@@ -331,32 +362,18 @@ func cave() -> int:
 
 
 ## « Nouvelle donne » devient « S'asseoir » ou « Recaver » : les donnes partent seules au serveur.
+## Ni l'un ni l'autre ne prend de crédits : la table ne fait que lire ce qu'on a.
 func _new_hand() -> void:
 	var c := cave()
 	if c < CAP:
-		_log.text = "Il faut au moins %s crédits pour poser un tapis." % Game.fmt(CAP)
+		_log.text = "Il faut au moins %s crédits pour être servi." % Game.fmt(CAP)
 		return
 	if not seated:
-		if not Game.spend_chips(c):
-			return
-		_tapis_pose = c
 		_appeler_assis("s-asseoir", c)
 	elif srv.get("poker", {}).get("waiting", false):
-		var room := int(srv.get("cave", {}).get("stackMax", 20000)) - stack
-		c = mini(c, room)
-		if c < CAP:
-			_log.text = "Votre tapis est déjà assez haut."
-			return
-		if not Game.spend_chips(c):
-			return
-		_tapis_pose = c
 		_appeler_assis("recaver", c)
 
 
-var _tapis_pose := 0
-
-
-## S'asseoir et recaver : les crédits partent avant ; si le serveur refuse, ils reviennent.
 func _appeler_assis(action: String, c: int) -> void:
 	while _busy:
 		await get_tree().process_frame
@@ -366,13 +383,12 @@ func _appeler_assis(action: String, c: int) -> void:
 	if not is_inside_tree():
 		return
 	if r.code != 200 or not r.corps is Dictionary or r.corps.has("error"):
-		Game.credits += _tapis_pose
-		Game.changed.emit()
-		_tapis_pose = 0
-		_log.text = str(r.corps.error) if r.corps is Dictionary and r.corps.has("error") else "Le casino ne répond pas : vos crédits vous sont rendus."
+		_log.text = str(r.corps.error) if r.corps is Dictionary and r.corps.has("error") else "Le casino ne répond pas."
 		return
-	_tapis_pose = 0
-	_log.text = "Vous posez %s crédits devant vous. La donne part quand le croupier est prêt." % Game.fmt(c)
+	if action == "s-asseoir":
+		_log.text = "Vous prenez place avec %s crédits. La donne part quand le croupier est prêt." % Game.fmt(c)
+	else:
+		_log.text = "Votre tapis est remis à %s crédits." % Game.fmt(c)
 	appliquer(r.corps, action)
 
 
@@ -426,11 +442,109 @@ func _leave() -> void:
 
 # --- L'affichage -----------------------------------------------------------------------------------
 
+## L'encart des joueurs, posé à droite sur le même calque que la barre ; il part avec le panneau.
+func _batir_encart(layer: Control) -> void:
+	_encart = PanelContainer.new()
+	BARRE.style(_encart)
+	_encart.mouse_filter = Control.MOUSE_FILTER_STOP
+	_encart.gui_input.connect(func(e: InputEvent):
+		if (e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT) or (e is InputEventScreenTouch and e.pressed):
+			_encart_ouvert = not _encart_ouvert
+			_render_encart())
+	_encart_texte = RichTextLabel.new()
+	_encart_texte.bbcode_enabled = true
+	_encart_texte.fit_content = true
+	_encart_texte.scroll_active = false
+	_encart_texte.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_encart_texte.add_theme_font_override("normal_font", BARRE.KIT.serif())
+	_encart_texte.add_theme_font_size_override("normal_font_size", 20)
+	_encart_texte.add_theme_color_override("default_color", BARRE.CREAM)
+	_encart_texte.custom_minimum_size = Vector2(300, 0)
+	_encart.add_child(_encart_texte)
+	layer.add_child(_encart)
+	var poser := func(): _encart.set_anchors_and_offsets_preset(Control.PRESET_CENTER_RIGHT, Control.PRESET_MODE_KEEP_SIZE, 18)
+	_encart.set_anchors_and_offsets_preset(Control.PRESET_CENTER_RIGHT, Control.PRESET_MODE_MINSIZE, 18)
+	_encart.resized.connect(poser)
+	# Au téléphone, l'encart ouvert cacherait la table : il vient replié, un geste l'ouvre.
+	_encart_ouvert = get_viewport().get_visible_rect().size.x >= 900
+	tree_exiting.connect(func(): if _encart: _encart.queue_free())
+
+
+## Les lignes de l'encart (bbcode), dans l'ordre des chaises à partir de la sienne.
+func encart_lignes() -> Array[String]:
+	var cream := BARRE.CREAM.to_html(false)
+	var muted := BARRE.MUTED.to_html(false)
+	var gold := BARRE.GOLD.to_html(false)
+	var h = srv.get("poker", {}).get("hand")
+	var dans_donne := h is Dictionary and in_hand
+	var lignes: Array[String] = []
+	var tete := "Vos crédits : %s" % Game.fmt(Game.credits)
+	if dans_donne:
+		tete += "   ·   pot %s" % Game.fmt(pot)
+	tete += "   ·   %s par donne au plus" % Game.fmt(CAP)
+	lignes.append("[color=%s]%s[/color]" % [muted, tete])
+	var joueurs := {}
+	if h is Dictionary:
+		for p in h.players:
+			joueurs[rel(int(p.seat))] = p
+	for i in 6:
+		var s: Dictionary = seats[i]
+		if str(s.get("name", "")) == "":
+			continue
+		var p = joueurs.get(i)
+		var nom := "Vous" if i == 0 else str(s.name)
+		var avoir := Game.fmt(Game.credits) if i == 0 else ("habitué" if not s.get("human", false) else Game.fmt(int(s.get("stack", 0))))
+		var geste := ""
+		if dans_donne and p is Dictionary:
+			if p.get("button", false):
+				nom += " (donneur)"
+			geste = _geste(p)
+		elif dans_donne:
+			geste = "ne joue pas"
+		var parle: bool = dans_donne and p is Dictionary and p.get("turn", false)
+		var l := "%s%s  —  %s" % ["▶ " if parle else "    ", nom, avoir]
+		if geste != "":
+			l += "   ·   " + geste
+		if parle:
+			l = "[color=%s]%s[/color]" % [gold, l]
+		elif dans_donne and p is Dictionary and not p.get("in", false):
+			l = "[color=%s]%s[/color]" % [muted, l]
+		else:
+			l = "[color=%s]%s[/color]" % [cream, l]
+		lignes.append(l)
+	return lignes
+
+
+## Le dernier geste d'un joueur dans la donne, dit court.
+static func _geste(p: Dictionary) -> String:
+	if not p.get("in", false):
+		return "couché"
+	var mise := int(round(float(p.get("street", 0))))
+	var last = p.get("last")
+	if p.get("allIn", false):
+		return "tapis"
+	match str(last) if last != null else "":
+		"fold": return "couché"
+		"check": return "parle"
+		"call": return "suit %s" % Game.fmt(mise) if mise > 0 else "suit"
+		"bet": return "mise %s" % Game.fmt(mise)
+		"raise": return "relance à %s" % Game.fmt(mise)
+	if mise > 0:
+		return "blinde %s" % Game.fmt(mise)
+	return "attend" if p.get("turn", false) else "à suivre"
+
+
+func _render_encart() -> void:
+	if _encart == null:
+		return
+	if not _encart_ouvert:
+		_encart_texte.text = "[color=%s]Autour de la table ▸[/color]" % BARRE.MUTED.to_html(false)
+		return
+	_encart_texte.text = "\n".join(encart_lignes())
+
 func _render_bar() -> void:
 	var to_call := int(round(float(_options.get("toCall", 0))))
 	var parts: Array[String] = []
-	if seated:
-		parts.append("Tapis : %s" % Game.fmt(stack))
 	if in_hand:
 		parts.append("Pot : %s" % Game.fmt(pot))
 		if not seats[0].get("folded", false) and seats[0].has("cards"):
@@ -447,7 +561,7 @@ func _render_bar() -> void:
 	var acting := _waiting_player and in_hand
 	var waiting: bool = srv.get("poker", {}).get("waiting", false)
 	_buttons["deal"].visible = not seated or (waiting and not in_hand)
-	_buttons["deal"].text = "  S'asseoir  (tapis de %s)  " % Game.fmt(cave()) if not seated else "  Recaver  "
+	_buttons["deal"].text = "  S'asseoir  " if not seated else "  Recaver  "
 	for k in ["fold", "call", "raise", "less", "more"]:
 		_buttons[k].visible = in_hand and seated
 		_buttons[k].disabled = not acting
@@ -459,6 +573,7 @@ func _render_bar() -> void:
 func _render(show_all := false) -> void:
 	if embedded:
 		_render_bar()
+		_render_encart()
 		changed.emit()
 	elif _rows.size() == 6:
 		super(show_all)
