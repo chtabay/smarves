@@ -464,11 +464,20 @@ func _batiments() -> void:
 	var f = FACADES.new(self, Polices.texte(), 86015)
 	var murs := PackedVector3Array()
 	var a_part := {}
+	var absorbes := {}
 	for r in data.remarquables:
 		if r.has("batiment"):
 			a_part[int(r.batiment)] = r
+		for q in r.get("absorbe", []):
+			# Un bâtiment que la silhouette du lieu couvre déjà (une annexe, un pan de mur du cadastre) :
+			# le plus proche du point donné, pas dessiné à part.
+			var k := _batiment_en(Vector2(q[0], q[1]))
+			if k >= 0:
+				absorbes[k] = true
 	var lot := 0
 	for i in data.batiments.size():
+		if absorbes.has(i):
+			continue
 		var b: Dictionary = data.batiments[i]
 		var rem: Dictionary = a_part.get(i, {})
 		_collision(b, murs)
@@ -643,6 +652,19 @@ func _maison(f, b: Dictionary, rem: Dictionary) -> void:
 			var q := [pts[tri[t]], pts[tri[t + 1]], pts[tri[t + 2]]]
 			f.batch.tri("roof", Transform3D.IDENTITY, Vector3(q[0].x, y, q[0].y), Vector3(q[1].x, y, q[1].y),
 				Vector3(q[2].x, y, q[2].y), Vector3.UP, toit, [q[0] - pts[0], q[1] - pts[0], q[2] - pts[0]])
+
+
+## Le bâtiment dont le centre est le plus proche de `p`, à moins de deux unités ; -1 sinon.
+func _batiment_en(p: Vector2) -> int:
+	var best := -1
+	var dbest := 2.0
+	for i in data.batiments.size():
+		var r: Array = data.batiments[i].rect
+		var dd := p.distance_to(Vector2(r[0], r[1]))
+		if dd < dbest:
+			dbest = dd
+			best = i
+	return best
 
 
 ## Le nom peint sur la devanture d'un commerce de la place.
