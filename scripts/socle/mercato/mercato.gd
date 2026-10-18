@@ -514,6 +514,26 @@ func encheres_suivies() -> Array:
 
 
 ## Les enchères ouvertes, lots de la semaine et ventes des clubs.
+## Les offres en cours d'un club : {encheres, ventes}, les enchères où il a misé et ses ventes, ouvertes ou
+## closes depuis moins de trois jours, de la date limite la plus proche à la plus lointaine.
+func offres_du_club(club: String) -> Dictionary:
+	var t := maintenant()
+	var lots := {}
+	for o in etat.encheres:
+		if str(o.club) == club:
+			lots[str(o.lot)] = true
+	var miennes: Array = []
+	for lot in lots:
+		var e := enchere(lot)
+		if not e.is_empty() and e.valable and t - int(e.echeance) < 3 * 86400:
+			miennes.append(e)
+	var vendus: Array = ventes().filter(func(e): return e.club_vendeur == club and e.valable and t - int(e.echeance) < 3 * 86400)
+	var tri := func(a, b): return int(a.echeance) < int(b.echeance)
+	miennes.sort_custom(tri)
+	vendus.sort_custom(tri)
+	return {"encheres": miennes, "ventes": vendus}
+
+
 func ouvertes() -> Array:
 	var t := maintenant()
 	var out: Array = lots_semaine(semaine_a(t)).filter(func(e): return not e.ferme)
