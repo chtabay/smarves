@@ -165,5 +165,42 @@ func _init() -> void:
 	check(not stade._rencontre.joue and stade._etat.is_empty() and stade._horloge.text == "Entraînement", "avant la saison, l'Étoile s'entraîne")
 	check(stade._affiche.text.contains("dimanche 25 octobre"), "le tableau donne le premier coup d'envoi : %s" % stade._affiche.text)
 
+	# Le stade est une scène du socle : la commune d'essai, greffée, a son terrain ; son stade porte son
+	# club, son sigle, ses couleurs et son nom, et la sortie ramène chez elle ; la pyramide, rebâtie sans
+	# sauvegarde, lui donne son club tout de suite : on y suit son match et sa causerie.
+	var communes: Node = root.get_node("Communes")
+	DirAccess.make_dir_recursive_absolute("user://test_stade/")
+	var pk := PCKPacker.new()
+	pk.pck_start("user://test_stade/essai.pck")
+	pk.add_file("res://communes/essai/commune.json", "res://tools/commune_essai/commune.json")
+	pk.add_file("res://communes/essai/commune.tscn", "res://tools/commune_essai/commune.tscn")
+	pk.flush()
+	check(communes.charger_pack("user://test_stade/essai.pck") == "essai", "la commune d'essai se greffe avec son terrain %s" % str(communes.refus))
+	foot.actualiser()
+	check(foot.clubs.has("essai") and foot.clubs.essai.court == "USE", "l'Union sportive d'essai a son club : %s" % str(foot.place_de("essai")))
+	foot.regler_horloge(func(): return t5)
+	load("res://scripts/village/stade.gd").prochaine_commune = "essai"
+	change_scene_to_file("res://scenes/stade.tscn")
+	await create_timer(1.5).timeout
+	stade = current_scene
+	check(stade.commune == "essai" and stade._club == "essai", "le stade est celui de la commune d'essai, et de son club")
+	var enseignes: Array = stade.find_children("*", "Label3D", true, false).map(func(l): return l.text)
+	check("UNION SPORTIVE D'ESSAI  ·  STADE D'ESSAI" in enseignes and "STADE D'ESSAI" in enseignes and "Le président" in enseignes, "la tribune, l'arche et le président portent les noms du terrain d'essai : %s" % str(enseignes.slice(0, 6)))
+	sorties = stade.find_children("*", "Area3D", true, false).filter(func(a): return a.get_meta("interact", "") == "exit")
+	check(sorties.size() == 1 and str(sorties[0].get_meta("prompt")) == "E : sortir du stade" and stade._lot() == "stade", "la sortie ramène à la porte du terrain d'essai")
+	presidents = stade.find_children("*", "Area3D", true, false).filter(func(a): return a.get_meta("interact", "") == "president")
+	check(presidents.size() == 1 and str(presidents[0].get_meta("prompt")) == "E : parler au président", "on parle au président, sans nom : %s" % str(presidents[0].get_meta("prompt") if presidents.size() == 1 else ""))
+	check(stade._rencontre.j == 5 and stade._acteurs.size() == 22 and "essai" in [stade._rencontre.dom, stade._rencontre.ext], "on y regarde le match de l'Union sportive à la journée 5 : %s" % str(stade._rencontre))
+	stade.open_causerie()
+	await process_frame
+	check(stade._causerie != null and stade._causerie.club == "essai", "la causerie du président est celle de l'Union sportive")
+	stade._causerie.closed.emit()
+	await process_frame
+	stade._club = ""
+	stade.open_causerie()
+	await process_frame
+	check(stade._causerie == null, "sans club dans la pyramide, pas de causerie : le président renvoie à la saison prochaine")
+	check(stade._enseigne("L'Étoile de Smarves") == "ÉTOILE DE SMARVES" and stade._a("Le président Chauvin") == "au président Chauvin" and stade._a("Mme Rivière") == "à Mme Rivière", "les enseignes et les adresses se forment")
+
 	print("\n%d échec(s)" % fails)
 	quit(1 if fails > 0 else 0)
