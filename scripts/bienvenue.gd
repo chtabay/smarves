@@ -154,8 +154,12 @@ func _remplir_accueil() -> void:
 	var n := Communes.nouvelles.size()
 	_box.add_child(_mot(("%d VILLE%s NOUVELLE%s" % [n, "S" if n > 1 else "", "S" if n > 1 else ""]) if n > 0 else "LES VILLES DE LA VIENNE", 14, EAU, Polices.gras()))
 	_box.add_child(_mot(_villes_en_une_ligne(), 18, TEXTE, null, true))
+	var rang := HBoxContainer.new()
+	rang.add_theme_constant_override("separation", 10)
 	if not Communes.publiees().is_empty() or not Communes.installees().is_empty():
-		_box.add_child(_bouton("Voir les villes  →", Color(0, 0, 0, 0), EAU, EAU, ouvrir.bind(true)))
+		rang.add_child(_bouton("Voir les villes  →", Color(0, 0, 0, 0), EAU, EAU, ouvrir.bind(true)))
+	rang.add_child(_bouton("Ouvrir la carte  (M)", Color(0, 0, 0, 0), TEXTE, Color(1, 1, 1, 0.3), _vers_la_carte))
+	_box.add_child(rang)
 	_box.add_child(_filet())
 	_box.add_child(_mot("VOTRE COMPTE", 14, Color(0.55, 0.6, 0.66), Polices.gras()))
 	_box.add_child(_mot("La connexion viendra ici. Votre partie est gardée sur cet appareil.", 17, DOUX, null, true))
@@ -229,6 +233,11 @@ func _remplir_liste() -> void:
 	bas.add_child(_bouton("Relire la liste" if Communes.catalogue_etat != "lecture" else "Lecture…", Color(0, 0, 0, 0), DOUX, Color(0, 0, 0, 0), Communes.lire_catalogue, 15, Communes.catalogue_etat != "lecture" and Communes.en_cours == ""))
 	_box.add_child(bas)
 	Communes.marquer_vues.call_deferred()
+
+
+func _vers_la_carte() -> void:
+	fermer()
+	Carte.ouvrir()
 
 
 func _visiter(id: String) -> void:

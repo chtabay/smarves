@@ -3,8 +3,8 @@ extends Node
 ## manifeste ; les communes greffées arrivent de user://communes/, en pack (<id>.pck) ou en dossier
 ## (<id>/commune.json), et s'inscrivent de la même façon. Un pack n'est pas monté au lancement : son
 ## manifeste est lu dans le pack, et le pack n'est monté qu'au moment où l'on entre dans la commune
-## (ouvrir), pour ne pas alourdir le démarrage, sur le web surtout. Rien ne s'affiche : la carte de la
-## Vienne viendra lire ce registre. La notice est dans docs/COMMUNE.md.
+## (ouvrir), pour ne pas alourdir le démarrage, sur le web surtout. La carte de la Vienne (autoload
+## Carte) lit ce registre pour savoir quelles communes s'allument et où l'on peut aller. La notice est dans docs/COMMUNE.md.
 
 ## Une commune vient d'être inscrite (Smarves au démarrage, puis chaque greffe).
 signal inscrite(id: String)
@@ -47,6 +47,12 @@ func _ready() -> void:
 		charger_greffes()
 		_lire_copies()
 		lire_catalogue()
+	# Pour les captures : --greffes=<dossier> pose les greffes et la copie du catalogue d'un dossier d'essai.
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--greffes="):
+			dossier_greffes = arg.trim_prefix("--greffes=")
+			charger_greffes(dossier_greffes)
+			_lire_copies()
 
 
 func commune(id: String) -> Commune:
@@ -78,6 +84,17 @@ func carte() -> Array:
 		out.append({"insee": str(v.insee), "nom": str(v.nom), "centre": Vector2(v.centre[0], v.centre[1]),
 			"contour": v.contour, "id": c.id if c else "", "cliquable": c != null, "publiee": publiees.has(str(v.insee))})
 	return out
+
+
+## La commune où se trouve le joueur : celle dont la scène est ouverte, Smarves sinon (le village, et
+## aussi ses intérieurs).
+func actuelle() -> String:
+	var scene := get_tree().current_scene
+	var chemin := scene.scene_file_path if scene else ""
+	for id in ordre:
+		if id != ORIGINE and str(communes[id].data.get("scene", "")) == chemin:
+			return id
+	return ORIGINE
 
 
 ## Les communes greffées, installées chez le joueur (hors Smarves), dans l'ordre d'inscription.
@@ -212,12 +229,17 @@ func _bouton_retour(visible: bool) -> void:
 	if _retour == null:
 		_retour = CanvasLayer.new()
 		_retour.layer = 90
-		var b := Button.new()
-		b.text = "Revenir à Smarves"
-		b.position = Vector2(20, 20)
-		b.add_theme_font_size_override("font_size", 22)
-		b.pressed.connect(revenir)
-		_retour.add_child(b)
+		var rang := HBoxContainer.new()
+		rang.position = Vector2(20, 20)
+		rang.add_theme_constant_override("separation", 10)
+		_retour.add_child(rang)
+		for t in [["Revenir à Smarves", revenir], ["La carte  (M)", func(): Carte.ouvrir()]]:
+			var b := Button.new()
+			b.text = t[0]
+			b.add_theme_font_override("font", Polices.gras())
+			b.add_theme_font_size_override("font_size", 22)
+			b.pressed.connect(t[1])
+			rang.add_child(b)
 		add_child(_retour)
 	_retour.visible = visible
 

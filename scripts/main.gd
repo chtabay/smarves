@@ -82,6 +82,7 @@ func _ready() -> void:
 	camera.set_script(ORBIT)
 	add_child(camera)
 	camera.make_current()
+	camera.au_dela.connect(_vers_la_carte)
 	_build_ground()
 	if not has_meta("vitrine"):
 		_spawn_player()
@@ -99,6 +100,12 @@ func _ready() -> void:
 		_welcome()
 	Game.brunet_calls.connect(_on_brunet_calls)
 	_maybe_capture()
+
+
+## Au-delà du cran « quartier », le village laisse place à la carte de la Vienne.
+func _vers_la_carte() -> void:
+	if Carte.peut_ouvrir():
+		Carte.ouvrir()
 
 
 ## Méthode et non lambda : la connexion à l'autoload tombe avec la scène.
@@ -1182,6 +1189,20 @@ func _build_ui() -> void:
 
 # --- Capture d'écran : godot -- --capture=chemin.png [--open=cafe] [--view=d,x,y] ---
 
+## --carte ouvre la carte de la Vienne ; --carte=86133 y choisit une commune, --carte=86133@4 zoome sur elle.
+func _capture_carte(quoi: String) -> void:
+	await get_tree().create_timer(1.0).timeout
+	Carte.ouvrir()
+	if quoi == "":
+		return
+	await get_tree().create_timer(1.5).timeout
+	var insee := quoi.get_slice("@", 0)
+	var c: CarteVienne = Carte.get("_carte")
+	c.choix.emit(insee)
+	if "@" in quoi:
+		c.cadrer(insee, float(quoi.get_slice("@", 1)), 0.5)
+
+
 func _maybe_capture() -> void:
 	var path := ""
 	var open := ""
@@ -1199,6 +1220,8 @@ func _maybe_capture() -> void:
 				player.camera.rotation.x = deg_to_rad(v[3])
 		elif arg == "--welcome":
 			_welcome()
+		elif arg.begins_with("--carte"):
+			_capture_carte(arg.trim_prefix("--carte").trim_prefix("="))
 		elif arg == "--menu":
 			Settings.toggle()
 		elif arg.begins_with("--travel="):
