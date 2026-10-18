@@ -363,7 +363,8 @@ static func phrase(h: Hasard, cle: String, vars := {}) -> String:
 	var t := str(h.choix(PHRASES[cle]))
 	for k in ["j", "a", "g", "e", "o", "s", "sc", "n", "c"]:
 		t = t.replace("{%s}" % k, str(vars.get(k, "")))
-	return t
+	# « au le stade municipal » : le nom d'un stade porte son article, la phrase aussi.
+	return t.replace("au le ", "au ").replace("du le ", "du ").replace("au la ", "à la ").replace("du la ", "de la ")
 
 
 ## Le joueur tel qu'il est maintenant : sa condition baisse pendant le match.
