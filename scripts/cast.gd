@@ -133,6 +133,11 @@ const NAMED := {
 	"ginette": {"species": "humain", "fur": PEAU[1], "hair": "permanente", "hair_color": "#a8a298", "nose": "busque", "build": {"belly": 1.1, "leg": 0.96},
 		"top": "robe", "top_color": "#5f7f5a", "skirt_len": 0.62, "sleeves": "longues", "cuff": "#c8a050",
 		"neck": "collier", "face": ["demi_lune"], "frame": OR, "prop_l": "sac", "bag_color": TABAC, "shoes": "#4a3426"},
+	# Mme Vasseur, agent de change rue du Clain : tailleur ardoise, chignon serré, demi-lunes d'or et
+	# carnet d'ordres ; la seule du village qui regarde l'heure de New York.
+	"vasseur": {"species": "humain", "fur": PEAU[5], "hair": "chignon", "hair_color": "#2a2420", "nose": "busque", "build": {"leg": 1.06, "width": 0.92},
+		"top": "robe", "top_color": "#2c3440", "skirt_len": 0.7, "sleeves": "longues", "cuff": OR,
+		"neck": "collier", "face": ["demi_lune"], "frame": OR, "lip": BORDEAUX, "prop_l": "carnet", "shoes": NOIR},
 	"docteur": {"species": "humain", "fur": PEAU[1], "hair": "degarni", "hair_color": "#d8d4cc", "nose": "long", "build": {"leg": 1.04, "width": 0.94},
 		"top": "gilet", "top_color": "#5a5a64", "top2": BLANC,
 		"legs": "pantalon", "legs_color": "#3a3b44", "neck": "noeud", "neck_color": BORDEAUX, "face": ["demi_lune", "moustache"], "moustache": "#eeeaf0", "prop_r": "cartes", "shoes": "#141318"},
@@ -141,7 +146,7 @@ const NAMED := {
 ## Qui parle → quelle fiche.
 const BY_SPEAKER := {"josiane": "josiane", "dede": "dede", "lucien": "lucien", "brunet": "brunet", "ferrand": "ferrand",
 	"gaudin": "gaudin", "gardien": "gardien", "meunier": "meunier", "inconnu": "inconnu", "armand": "armand", "castel": "castel",
-	"garnier": "garnier", "raymonde": "raymonde", "fradin": "fradin", "ginette": "ginette"}
+	"garnier": "garnier", "raymonde": "raymonde", "fradin": "fradin", "ginette": "ginette", "vasseur": "vasseur"}
 ## Identifiants de modèle (anciens noms de fichiers ou noms de rôle) → fiche.
 const BY_MODEL := {"m-brunet": "brunet", "gardien-du-bois": "gardien", "portier-salon": "armand", "m-castel": "castel",
 	"maitre-garnier": "garnier", "mme-ferrand": "ferrand", "m-gaudin": "gaudin", "capucine-varenne": "capucine",

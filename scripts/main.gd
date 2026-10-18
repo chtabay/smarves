@@ -1244,6 +1244,7 @@ func _maybe_capture() -> void:
 			Game.won = int(arg.trim_prefix("--won="))
 			Game.credits += 2000
 			_refresh_places()
+			Game.changed.emit()
 	if path == "":
 		return
 	if open != "":

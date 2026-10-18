@@ -403,6 +403,9 @@ func _row(f: FACADES, row: Array, north: bool, x_start: float, dir: float) -> vo
 				if spec.has("id"):
 					lots[spec.id] = {"pos": Vector3(cx, 0, front), "rot": rot, "w": w, "d": d, "door": door}
 					_door_area(spec.id, door, rot)
+				if spec.get("id", "") == "lot_reserve":
+					lots.lot_reserve["xf"] = xf
+					_charge()
 			"porche":
 				# Un portail sur une cour pavée, et l'arbre de la cour qui dépasse du mur.
 				f.gate(Vector3(cx, 0, front - out * 0.1), rot, w - 0.7, f.pick(f.SHUTTERS))
@@ -745,6 +748,85 @@ func _door_area(id: String, at: Vector3, rot: float) -> void:
 		a.set_meta("action", func(): main._enter("stade"))
 	add_child(a)
 	lots[id]["area"] = a
+
+
+## La charge de Mme Vasseur s'installe dans le local réservé de la rue du Clain à son seuil (lieu
+## « bourse » du manifeste) ; avant, rien ne change.
+func charge_ouverte() -> bool:
+	return main.is_open("bourse")
+
+
+## La devanture repeinte par-dessus celle du local fermé : on ne refait pas la façade, pour que le
+## tirage des fenêtres du reste de la rue reste le même. Un bandeau vert bouteille et or, la vitrine
+## éclairée où se lit la cote, et la porte qui mène chez Mme Vasseur. Posée à la construction si le
+## seuil est passé, ou dès qu'il l'est (Game.changed), une seule fois.
+func _charge() -> void:
+	if lots.lot_reserve.has("charge"):
+		return
+	if not charge_ouverte():
+		if not Game.changed.is_connected(_charge):
+			Game.changed.connect(_charge)
+		return
+	if Game.changed.is_connected(_charge):
+		Game.changed.disconnect(_charge)
+	var lot: Dictionary = lots.lot_reserve
+	var xf: Transform3D = lot.xf
+	var w: float = lot.w
+	var root := Node3D.new()
+	root.name = "Charge"
+	add_child(root)
+	lot["charge"] = root
+	var gh := 1.45
+	var vert := Color(0.1, 0.26, 0.2)
+	var dw := 0.55
+	var vw := w - 0.5 - dw - 0.15
+	var vx := -w / 2.0 + 0.25 + vw / 2.0
+	var plein := func(taille: Vector3, ou: Vector3, c: Color, lueur := 0.0) -> void:
+		var mi := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = taille
+		mi.mesh = bm
+		var m := StandardMaterial3D.new()
+		m.albedo_color = c
+		m.roughness = 0.6
+		if lueur > 0.0:
+			m.emission_enabled = true
+			m.emission = c
+			m.emission_energy_multiplier = lueur
+		mi.material_override = m
+		mi.transform = xf * Transform3D(Basis(), ou)
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		root.add_child(mi)
+	plein.call(Vector3(w - 0.16, 0.34, 0.03), Vector3(0, gh - 0.17, 0.14), vert)
+	plein.call(Vector3(w - 0.12, 0.04, 0.05), Vector3(0, gh + 0.01, 0.14), Color(0.85, 0.68, 0.3))
+	plein.call(Vector3(vw, 0.78, 0.01), Vector3(vx, 0.77, 0.09), Color(1.0, 0.74, 0.42), 1.2)
+	plein.call(Vector3(dw, 1.0, 0.01), Vector3(w / 2.0 - 0.25 - dw / 2.0, 0.67, 0.09), Color(1.0, 0.74, 0.42), 1.0)
+	var enseigne := [["VASSEUR & CIE", 56, 0.004, Vector3(0, gh - 0.12, 0.16), Color(0.96, 0.8, 0.45)],
+		["Agent de change  ·  Bourse  ·  Titres", 30, 0.0032, Vector3(0, gh - 0.27, 0.16), Color(0.9, 0.82, 0.62)],
+		["COTE DU JOUR\nCAC 40  ·  S&P 500\nNIKKEI  ·  OR", 30, 0.0035, Vector3(vx, 0.8, 0.1), Color(0.2, 0.12, 0.05)]]
+	for e in enseigne:
+		var l := Label3D.new()
+		l.text = e[0]
+		l.font = main.serif
+		l.font_size = e[1]
+		l.pixel_size = e[2]
+		l.modulate = e[4]
+		l.outline_size = 0
+		l.shaded = true
+		l.double_sided = false
+		l.transform = xf * Transform3D(Basis(), e[3])
+		l.visibility_range_end = 40.0
+		root.add_child(l)
+	var lum := OmniLight3D.new()
+	lum.light_color = Color(1.0, 0.75, 0.45)
+	lum.light_energy = 0.8
+	lum.omni_range = 2.5
+	lum.position = xf * Vector3(vx, 0.8, 0.6)
+	root.add_child(lum)
+	# Le local réservé a trouvé son commerce : sa porte mène chez Mme Vasseur (docs/BOURSE.md).
+	if lot.has("area"):
+		lot.area.set_meta("prompt", "E : entrer chez Mme Vasseur, agent de change")
+		lot.area.set_meta("action", func(): main._enter("bourse"))
 
 
 ## Les portes qui mènent chez un vendeur du fil « Gestion » (autoload Biens, Biens.SELLERS).

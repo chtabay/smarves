@@ -36,7 +36,7 @@ Chaque devanture du village est un emplacement nommé, dans `village.gd` (`NORTH
 | `pharmacie` | la pharmacie et sa croix verte | route du Bois, côté sud | décor |
 | `ecole` | l'école publique (porte d'entrée) | route du Bois, côté nord | décor |
 | `stade` | le stade municipal (arche d'entrée) : lieu du manifeste derrière son seuil, le match de l'Étoile de Smarves minute par minute (`scripts/village/stade.gd`) | route du Bois, côté nord | `scenes/stade.tscn` |
-| `lot_reserve` | local réservé, vitrine passée au blanc, « Prochainement » | rue du Clain, côté nord | libre |
+| `lot_reserve` | local réservé, vitrine passée au blanc, « Prochainement » ; à 7 000 gagnés, l'enseigne « Vasseur & Cie, agent de change » s'y pose et la porte mène à la bourse à levier ([`BOURSE.md`](BOURSE.md)) | rue du Clain, côté nord | `scenes/bourse.tscn` |
 | `brocante` | Brocante Boutin, meubles et objets (Ginette Boutin), sur l'ancien local à céder | rue du Clain, côté sud | `Biens.SELLERS.brocante.scene` |
 | `chambre_cafe` | la chambre au-dessus du café, porte et escalier dans la ruelle au nord du café | place | `Biens.door_of` |
 | `maison_place` | la maison de maître, la maison verte au fond de la place | place | `Biens.door_of` |
