@@ -27,8 +27,18 @@ var _lu := 0.0
 
 func _ready() -> void:
 	_preparer()
-	if "--marche-demo" in OS.get_cmdline_user_args():
-		demo(mercato(), club)
+	for arg in OS.get_cmdline_user_args():
+		if arg == "--marche-demo":
+			demo(mercato(), club)
+		elif arg == "--mercato-page=effectif":
+			page = "effectif"
+		elif arg == "--mercato-page=fiche":
+			# La fiche d'une enchère ouverte où le club mène, sinon de la première ouverte (captures).
+			var ouverts: Array = mercato().lots_semaine(mercato().semaine_a(mercato().maintenant())).filter(func(e): return not e.ferme)
+			var miens := ouverts.filter(func(e): return e.meneur_moi)
+			if not ouverts.is_empty():
+				lot_ouvert = str((miens if not miens.is_empty() else ouverts)[0].lot)
+				page = "fiche"
 	var m := mercato()
 	m.change.connect(_rafraichir)
 	m.lire()
@@ -62,8 +72,10 @@ func remplir(colonne: VBoxContainer) -> void:
 	_saisie = null
 	var f := foot()
 	var c: Dictionary = f.clubs.get(club, {})
-	colonne.add_child(_mot("L E   M E R C A T O", 13, DOUX))
-	colonne.add_child(_mot(str(c.get("nom", "Le club")), 26 if _etroit() else 34, CRAIE, Polices.titre(), _etroit()))
+	# Sur un téléphone, le haut se serre pour laisser la place à la liste.
+	if not _etroit():
+		colonne.add_child(_mot("L E   M E R C A T O", 13, DOUX))
+	colonne.add_child(_mot(("Le mercato  ·  " if _etroit() else "") + str(c.get("nom", "Le club")), 22 if _etroit() else 34, CRAIE, Polices.titre()))
 	var onglets := HFlowContainer.new()
 	onglets.add_theme_constant_override("h_separation", 10)
 	onglets.add_theme_constant_override("v_separation", 6)
@@ -75,6 +87,12 @@ func remplir(colonne: VBoxContainer) -> void:
 		var b := _bouton(o[1], func(): aller(o[0]), 15)
 		b.name = "Onglet_" + o[0]
 		b.disabled = page == o[0]
+		# L'onglet ouvert : plein, à l'encre de l'ardoise.
+		var plein := _boite(Color(OR, 0.85), OR, 4, 8)
+		plein.content_margin_left = 18
+		plein.content_margin_right = 18
+		b.add_theme_stylebox_override("disabled", plein)
+		b.add_theme_color_override("font_disabled_color", ARDOISE)
 		onglets.add_child(b)
 	for n in m.nouvelles.slice(0, 2):
 		colonne.add_child(_mot(str(n), 15, OR, null, true))
@@ -94,10 +112,13 @@ func remplir(colonne: VBoxContainer) -> void:
 	defile.name = "Corps"
 	defile.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	defile.add_child(corps)
-	var haut_max := _ecran().y - (290.0 if _etroit() else 400.0) - 24.0 * mini(m.nouvelles.size(), 2)
-	defile.custom_minimum_size = Vector2(0.0 if _etroit() else minf(1080.0, _ecran().x - 160.0),
-		clampf(corps.get_combined_minimum_size().y, 120.0, maxf(160.0, haut_max)))
+	var haut_max := _ecran().y - (350.0 if _etroit() else 470.0) - 24.0 * mini(m.nouvelles.size(), 2)
+	defile.custom_minimum_size = Vector2(0.0 if _etroit() else minf(1080.0, _ecran().x - 160.0), maxf(160.0, haut_max))
 	colonne.add_child(defile)
+	# Une page courte ne garde pas toute la hauteur : on la mesure une fois posée.
+	(func():
+		if is_instance_valid(defile) and is_instance_valid(corps):
+			defile.custom_minimum_size.y = clampf(corps.get_combined_minimum_size().y, 80.0, maxf(160.0, haut_max))).call_deferred()
 	colonne.add_child(_filet())
 	_ligne_etat = _mot(_message if _message != "" else _etat_texte(), 15, DOUX, null, true)
 	colonne.add_child(_ligne_etat)
@@ -163,16 +184,22 @@ func _rangee(e: Dictionary) -> Control:
 	h.add_theme_constant_override("h_separation", 12)
 	h.add_theme_constant_override("v_separation", 2)
 	var nom := _mot("%s %s" % [j.prenom, j.nom], 15, CRAIE, Polices.gras())
-	nom.custom_minimum_size.x = 170 if _etroit() else 200
+	nom.custom_minimum_size.x = 150 if _etroit() else 200
 	h.add_child(nom)
 	var fiche := _mot("%s  ·  %d ans  ·  note %d" % [FootMatch.POSTES.get(j.poste, j.poste), j.age, j.note], 14, DOUX)
-	fiche.custom_minimum_size.x = 210 if _etroit() else 240
+	fiche.custom_minimum_size.x = 190 if _etroit() else 240
 	h.add_child(fiche)
 	var quand := _mot(_echeance_courte(e), 14, DOUX)
-	quand.custom_minimum_size.x = 130
+	quand.custom_minimum_size.x = 105 if _etroit() else 130
 	h.add_child(quand)
 	var prix := _mot(_prix_texte(e), 14, OR if e.meneur == club else CRAIE)
 	prix.custom_minimum_size.x = 250 if _etroit() else 300
+	if _etroit():
+		# Un long nom de club se coupe plutôt que de renvoyer le bouton à la ligne.
+		prix.clip_text = true
+		prix.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		prix.custom_minimum_size.x = 230
+		prix.size.x = 230
 	h.add_child(prix)
 	var b := _bouton("Enchérir" if not e.ferme else "Fiche", func(): ouvrir(str(e.lot)), 14)
 	b.name = "Fiche_" + str(e.lot)
@@ -205,10 +232,10 @@ func _prix_texte(e: Dictionary) -> String:
 	if e.ferme:
 		if e.gagnant == "":
 			return "invendu"
-		return "%s  ·  %s" % [fmt, _qui(e, e.gagnant)]
+		return "%s crédits, %s" % [fmt, _qui(e, e.gagnant)]
 	if e.meneur == "":
-		return "mise à prix %s" % fmt
-	return "%s  ·  %s" % [fmt, _qui(e, e.meneur)]
+		return "mise à prix : %s crédits" % fmt
+	return "%s crédits, %s" % [fmt, _qui(e, e.meneur)]
 
 
 # ---------------------------------------------------------------- la fiche
@@ -243,7 +270,6 @@ func _fiche(colonne: VBoxContainer) -> void:
 	# À gauche, le joueur : à la Hattrick, en mots.
 	var gauche := VBoxContainer.new()
 	gauche.add_theme_constant_override("separation", 4)
-	rang.add_child(gauche)
 	gauche.add_child(_mot("Forme : %s (%d)    Expérience : %s (%d)" % [m.FORMES[int(j.forme)], int(j.forme), m.NIVEAUX[clampi(int(j.experience), 0, 20)], int(j.experience)], 15, CRAIE))
 	var grille := GridContainer.new()
 	grille.name = "Competences"
@@ -261,8 +287,14 @@ func _fiche(colonne: VBoxContainer) -> void:
 	# À droite, l'enchère : la date limite, les offres, la mise.
 	var droite := VBoxContainer.new()
 	droite.add_theme_constant_override("separation", 6)
-	droite.custom_minimum_size.x = 300 if _etroit() else 400
-	rang.add_child(droite)
+	droite.custom_minimum_size.x = 460 if _etroit() else 400
+	# Sur un téléphone, l'enchère d'abord : la mise est à portée de pouce sans défiler.
+	if _etroit():
+		rang.add_child(droite)
+		rang.add_child(gauche)
+	else:
+		rang.add_child(gauche)
+		rang.add_child(droite)
 	if e.is_empty():
 		_vendre(droite, j)
 		return
@@ -310,7 +342,7 @@ func _fiche(colonne: VBoxContainer) -> void:
 func _texte(_parent: Control, t: String, taille: int, couleur: Color) -> Label:
 	var l := _mot(t, taille, couleur)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.custom_minimum_size.x = 300 if _etroit() else 400
+	l.custom_minimum_size.x = 460 if _etroit() else 400
 	return l
 
 
@@ -453,16 +485,16 @@ static func demo(m: Node, club: String) -> void:
 				break
 	var encheres: Array = []
 	var ventes: Array = []
-	# La semaine d'avant : le club a gagné deux joueurs, l'autre club un, qu'il remet en vente.
-	for i in [2, 9]:
-		var lot := "s%d-%d" % [k - 1, i]
-		var e: Dictionary = m.enchere(lot)
-		encheres.append({"lot": lot, "club": club, "montant": int(e.plafond) + 40, "par": "vous", "moi": true, "quand": "2026-10-12 10:00:00.000"})
-	var lot_autre := "s%d-5" % (k - 1)
-	encheres.append({"lot": lot_autre, "club": autre, "montant": int(m.enchere(lot_autre).plafond) + 100, "par": "Lucien", "moi": false, "quand": "2026-10-12 11:00:00.000"})
+	# Les enchères déjà closes de la semaine : le club en a gagné deux, l'autre club une, qu'il remet en vente.
+	var clos: Array = m.lots_semaine(k).filter(func(e): return e.ferme)
+	for e in clos.slice(0, 2):
+		encheres.append({"lot": e.lot, "club": club, "montant": int(e.plafond) + 40, "par": "vous", "moi": true, "quand": "2026-10-19 10:00:00.000"})
 	var heure := func(x: int) -> String: return Time.get_datetime_string_from_unix_time(x, true)
-	ventes.append({"id": 1, "club": autre, "joueur": lot_autre, "saison": f.saison_a(t), "prix_depart": 800,
-		"echeance": heure.call(m.echeance_vente(t, 3)), "cree": heure.call(t - 3600), "par": "Lucien", "moi": false})
+	if clos.size() > 2:
+		var lot_autre: String = clos[2].lot
+		encheres.append({"lot": lot_autre, "club": autre, "montant": int(clos[2].plafond) + 100, "par": "Lucien", "moi": false, "quand": "2026-10-19 11:00:00.000"})
+		ventes.append({"id": 1, "club": autre, "joueur": lot_autre, "saison": f.saison_a(t), "prix_depart": 800,
+			"echeance": heure.call(m.echeance_vente(t, 3)), "cree": heure.call(t - 3600), "par": "Lucien", "moi": false})
 	# Cette semaine : des offres sur les lots ouverts.
 	var lots: Array = m.lots_semaine(k).filter(func(e): return not e.ferme)
 	if lots.size() > 2:
@@ -476,3 +508,6 @@ static func demo(m: Node, club: String) -> void:
 		return {"code": 200, "corps": {"ok": true}}
 	m.appliquer({"encheres": encheres, "ventes": ventes, "prolongations": []})
 	m.nouvelles = []
+	if not clos.is_empty():
+		var g: Dictionary = m.enchere(clos[0].lot)
+		m.nouvelles = ["Enchère gagnée : %s %s rejoint %s pour %s crédits. Il joue dès le prochain coup d'envoi." % [g.joueur.prenom, g.joueur.nom, f.clubs.get(club, {}).get("nom", club), Game.fmt(int(g.prix))]]

@@ -131,6 +131,23 @@ func _init() -> void:
 	await m.lire()
 	check(m.ventes().all(func(x): return x.lot != "v99"), "une vente sans le joueur est ignorée")
 
+	# Une enchère où l'on a offert, perdue : l'agenda la montre tant qu'elle est ouverte, puis une nouvelle l'annonce.
+	var ouverts2: Array = m.lots_semaine(m.semaine_a(t)).filter(func(x): return not x.ferme and x.plafond >= x.prix_depart)
+	if ouverts2.is_empty():
+		t = m.debut_semaine(m.semaine_a(t) + 1) + 3600
+		ouverts2 = m.lots_semaine(m.semaine_a(t)).filter(func(x): return not x.ferme and x.plafond >= x.prix_depart)
+	var l2: Dictionary = ouverts2[0]
+	var haut := int(l2.plafond) + 10
+	r = await m.encherir(l2.lot, "smarves", maxi(haut, int(l2.minimum)))
+	check(r.ok and r.mene, "l'Étoile mène sur %s" % l2.lot)
+	var rdv: Array = m.rendez_vous(t, t + m.SEMAINE)
+	check(rdv.any(func(x): return x.id == "mercato/" + l2.lot and x.quand == l2.echeance), "l'agenda reçoit la date limite de l'enchère")
+	_offre(l2.lot, autre, maxi(haut, int(l2.minimum)) * 2, "lucien")
+	await m.lire()
+	t = int(l2.echeance) + 60
+	await m.lire()
+	check(str(m.nouvelles[0]).begins_with("Enchère perdue"), "l'enchère perdue s'annonce : %s" % m.nouvelles[0])
+
 	# Les refus : sans la direction, sans compte.
 	foot.parts["smarves"] = [{"par": "Gaston", "nombre": 3, "moi": false}]
 	var ouvert: Array = m.lots_semaine(m.semaine_a(t)).filter(func(x): return not x.ferme)
@@ -148,7 +165,7 @@ func _init() -> void:
 	m.etat = {"encheres": [], "ventes": [], "prolongations": {}}
 	m.charger()
 	check(m.etat.encheres.size() == n_avant and m.reglees.size() >= 2, "la sauvegarde relit le marché")
-	check(m.joueurs_de(autre, t) == [lot], "et qui possède qui, après relecture")
+	check(m.joueurs_de(autre, t).has(lot) and m.joueurs_de(autre, t).size() == 2, "et qui possède qui, après relecture")
 
 	await _fenetre(game)
 
