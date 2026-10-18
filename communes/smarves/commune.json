@@ -18,7 +18,8 @@
 		"logement": "res://scenes/logement.tscn",
 		"cafe": "res://scenes/cafe.tscn",
 		"rabelais": "res://scenes/rabelais.tscn",
-		"moulin": "res://scenes/moulin.tscn"
+		"moulin": "res://scenes/moulin.tscn",
+		"stade": "res://scenes/stade.tscn"
 	},
 	"lots": {"source": "Village.lots", "script": "res://scripts/village/village.gd"},
 	"lieux": [
@@ -26,7 +27,11 @@
 		{"id": "casino", "nom": "Le Casino de Smarves", "jeu": "salles de jeu", "seuil": 0, "hote": "Monsieur Armand"},
 		{"id": "banque", "nom": "Le Crédit Smarvois", "jeu": "prêts pour investir", "seuil": 0, "hote": "M. Brunet"},
 		{"id": "rabelais", "nom": "La salle François-Rabelais", "jeu": "le grand loto", "seuil": 8000, "hote": "M. Gaudin", "accord": "e"},
+		{"id": "stade", "nom": "Le stade municipal", "jeu": "le match de l'Étoile", "seuil": 3000, "hote": "Le président Chauvin"},
 		{"id": "moulin", "nom": "Le Moulin des Dames", "jeu": "le blackjack de l'arrière-salle", "seuil": 120000, "hote": "Le meunier"}
+	],
+	"structures": [
+		{"type": "terrain_foot", "id": "stade", "nom": "Le stade municipal", "club": "L'Étoile de Smarves", "court": "ESM", "couleurs": ["#1b3c8c", "#f2c94c"], "stade": "le stade municipal de Smarves"}
 	],
 	"salles": {
 		"casino": [

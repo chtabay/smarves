@@ -140,7 +140,7 @@ const PROMPTS := {
 	"pharmacie": "Pharmacie — la croix verte veille, la porte est close",
 	"lot_bois": "Local réservé — un nouveau commerce s'installe bientôt",
 	"ecole": "École publique — fermée le samedi soir",
-	"stade": "Stade municipal — match des vétérans de l'U.S. Smarves",
+	"stade": "E : entrer au stade municipal",
 }
 
 ## Les emplacements posés, par identifiant : {pos (milieu du pied de façade), rot, w, d, door (monde)}.
@@ -734,6 +734,9 @@ func _door_area(id: String, at: Vector3, rot: float) -> void:
 		a.set_meta("action", enter_seller.bind(id))
 	elif LOGEMENTS.has(id):
 		a.set_meta("action", enter_logement.bind(id))
+	elif id == "stade":
+		# Le stade est un lieu du manifeste, derrière son seuil : la scène principale en tient la porte.
+		a.set_meta("action", func(): main._enter("stade"))
 	add_child(a)
 	lots[id]["area"] = a
 

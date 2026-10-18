@@ -90,6 +90,7 @@ const SPEAKERS := {
 const RUMORS := {
 	"rabelais": "Samedi, grand loto à la salle Rabelais. M. Gaudin, le président du comité des fêtes, promet un carton historique.",
 	"moulin": "Le meunier tient un blackjack dans l'arrière-salle du Moulin des Dames.",
+	"stade": "Le dimanche à trois heures, l'Étoile de Smarves joue au stade municipal. Le président Chauvin cherche encore des supporters.",
 	"casino": "Le casino a ouvert de nouveaux salons à l'étage. Il faut avoir fait ses preuves.",
 }
 

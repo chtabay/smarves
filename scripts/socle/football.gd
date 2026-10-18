@@ -477,14 +477,25 @@ func rencontre(s: int, j: int, dom: String, ext: String) -> Dictionary:
 			cle += "|%s:%s" % [c, JSON.stringify(d)]
 	if _matchs.has(cle):
 		return _matchs[cle]
+	var direct := rencontre_en_direct(s, j, dom, ext)
+	FootMatch.simuler(direct.etat, direct.joueurs, direct.hasard)
+	_matchs[cle] = direct.etat
+	return direct.etat
+
+
+## Le même match, prêt pour le coup d'envoi et pas encore joué : {etat, joueurs, hasard}. Le stade le fait
+## avancer minute par minute (FootMatch.avancer) et retombe sur le score de rencontre().
+func rencontre_en_direct(s: int, j: int, dom: String, ext: String) -> Dictionary:
+	var cle := "match/%d/%d/%s/%s" % [s, j, dom, ext]
+	for c in [dom, ext]:
+		var d: Dictionary = decisions.get("%d/%d/%s" % [s, j, c], {})
+		if not d.is_empty():
+			cle += "|%s:%s" % [c, JSON.stringify(d)]
 	var joueurs := {}
 	joueurs.merge(effectif(dom, s))
 	joueurs.merge(effectif(ext, s))
 	var h := Hasard.depuis(Hasard.graine(cle))
-	var etat := FootMatch.creer(_equipe(s, j, dom, joueurs), _equipe(s, j, ext, joueurs), joueurs, h)
-	FootMatch.simuler(etat, joueurs, h)
-	_matchs[cle] = etat
-	return etat
+	return {"etat": FootMatch.creer(_equipe(s, j, dom, joueurs), _equipe(s, j, ext, joueurs), joueurs, h), "joueurs": joueurs, "hasard": h}
 
 
 ## Ce que FootMatch attend d'un club : son identité, sa tactique du jour (les décisions) et son effectif.

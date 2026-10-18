@@ -34,7 +34,8 @@ Chaque devanture du village est un emplacement nommé, dans `village.gd` (`NORTH
 | `garage` | Le garage Fradin, porte d'atelier à moitié ouverte, cour à pompes | route du Bois, côté nord, au sortir de la place | `Biens.SELLERS.garage.scene` |
 | `poste`, `boucherie`, `coiffure`, `pizzeria`, `epicerie`, `fleurs`, `bibliotheque` | commerces du bourg, éclairés, fermés au joueur pour l'instant | rue du Clain | décor |
 | `pharmacie` | la pharmacie et sa croix verte | route du Bois, côté sud | décor |
-| `ecole`, `stade` | l'école publique (porte d'entrée) et le stade municipal (arche d'entrée) | route du Bois, côté nord | décor |
+| `ecole` | l'école publique (porte d'entrée) | route du Bois, côté nord | décor |
+| `stade` | le stade municipal (arche d'entrée) : lieu du manifeste derrière son seuil, le match de l'Étoile de Smarves minute par minute (`scripts/village/stade.gd`) | route du Bois, côté nord | `scenes/stade.tscn` |
 | `lot_reserve` | local réservé, vitrine passée au blanc, « Prochainement » | rue du Clain, côté nord | libre |
 | `brocante` | Brocante Boutin, meubles et objets (Ginette Boutin), sur l'ancien local à céder | rue du Clain, côté sud | `Biens.SELLERS.brocante.scene` |
 | `chambre_cafe` | la chambre au-dessus du café, porte et escalier dans la ruelle au nord du café | place | `Biens.door_of` |
@@ -53,7 +54,7 @@ Chaque devanture du village est un emplacement nommé, dans `village.gd` (`NORTH
 
 **La tournée générale.** En terrasse du Café de la Place, entre les deux tables : « E : offrir une tournée générale (prix) », qui appelle `Biens.offer_tournee()`.
 
-**Les salles de jeu.** Depuis le 17 octobre, on ne joue plus dehors : chaque jeu du village se joue dans sa salle (décision de Guillaume). Le café, la salle Rabelais et le Moulin ont la leur (`scripts/village/salle.gd`, qui reprend la pièce des vendeurs) ; on y entre par le bâtiment (E, ou un clic en vue maquette), on s'approche de la machine ou de la table, et E ouvre le jeu. La scène vient du manifeste (`interieurs` de `communes/smarves/commune.json`, même id que le lieu) ; à la sortie, `Game.return_point` ramène devant la porte (`Village.SALLES`). La pétanque, la roulette de la boulangerie, la roue du parvis, la course des zèbres et la partie des rochers ont disparu : la place, le parvis, l'allée du bois et les rochers sont libres. Un lieu de jeu sans salle reste fermé (« pas encore installé »).
+**Les salles de jeu.** Depuis le 17 octobre, on ne joue plus dehors : chaque jeu du village se joue dans sa salle (décision de Guillaume). Le café, la salle Rabelais et le Moulin ont la leur (`scripts/village/salle.gd`, qui reprend la pièce des vendeurs) ; on y entre par le bâtiment (E, ou un clic en vue maquette), on s'approche de la machine ou de la table, et E ouvre le jeu. La scène vient du manifeste (`interieurs` de `communes/smarves/commune.json`, même id que le lieu) ; à la sortie, `Game.return_point` ramène devant la porte (`Village.SALLES`). La pétanque, la roulette de la boulangerie, la roue du parvis, la course des zèbres et la partie des rochers ont disparu : la place, le parvis, l'allée du bois et les rochers sont libres. Un lieu de jeu sans salle reste fermé (« pas encore installé »). Le stade municipal, sur la route du Bois, est un lieu du manifeste comme les autres : son arche appelle `_enter("stade")` et la sortie ramène devant (`Game.return_point = "stade"`).
 
 **Demander une place.** Un nouveau lieu dans la rue passe par ce chantier : on ajoute une entrée à l'une des rangées (ou on prend un local réservé), avec son id, son enseigne, et son invite dans `PROMPTS`. Rien d'autre n'est à toucher dans la scène principale.
 
