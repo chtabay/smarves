@@ -1224,6 +1224,8 @@ func _maybe_capture() -> void:
 			_capture_carte(arg.trim_prefix("--carte").trim_prefix("="))
 		elif arg == "--menu":
 			Settings.toggle()
+		elif arg == "--bienvenue":
+			Bienvenue.ouvrir()
 		elif arg.begins_with("--travel="):
 			await get_tree().process_frame
 			travel(arg.trim_prefix("--travel="))
