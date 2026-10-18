@@ -79,11 +79,17 @@ Un dossier `communes/<id>/` avec au moins un manifeste `commune.json` et la scè
 | `format` | oui | la version du format de manifeste ; ce socle lit le format 1 et refuse un format plus récent |
 | `id` | oui | minuscules, chiffres et `_` ; c'est le nom du dossier, du pack et du tiroir de sauvegarde |
 | `nom` | oui | le nom affiché (« Smarves ») |
+| `auteur` | non | qui a fait la commune, tel qu'il s'affiche dans sa fiche (carte, carnet) ; « » par défaut |
+| `version` | non (oui pour publier) | trois nombres (`0.1.0`), à monter à chaque dépôt |
+| `description` | non | deux phrases, montrées dans le carnet du joueur ; « » par défaut |
 | `socle_min` | non | la version du socle demandée (aujourd'hui `1.0`) |
 | `insee` | oui | le code INSEE d'une commune actuelle de la Vienne (`86263` pour Smarves) : c'est lui qui place la commune sur la carte, à sa vraie place ; deux communes développées ne peuvent pas avoir le même |
 | `carte` | non | plus tard, la scène du petit socle posé sur la carte |
 | `scene` | oui | la scène de la commune ; elle doit exister au chargement |
-| `arrivee` | non | le lot où l'on arrive, et les communes d'où l'on vient (le car départemental) |
+| `arrivee` | non | où l'on débarque : `lot` (la porte du village), `nom` (« La place de la Mairie », montré à l'arrivée et dans la fiche) et `par` (les communes d'où l'on vient, le car départemental) |
+| `population` | non | le nombre d'habitants, s'il est connu ; à défaut (ou `0`), celui de `communes/vienne.json` (`Commune.population()`) |
+| `licence` | non | la licence du plan et des photos de la commune (« ODbL et Licence Ouverte 2.0 », « CC BY 4.0 ») ; « » par défaut |
+| `sources` | non | d'où viennent le plan et les photos : un texte ou une liste de textes (« © les contributeurs d'OpenStreetMap ») ; vide par défaut |
 | `interieurs` | non | les scènes des intérieurs, par id |
 | `lots` | non | d'où viennent les portes de la commune ; pour Smarves, le dictionnaire `lots` du nœud `Village` |
 | `lieux` | oui | les lieux de jeu, dans l'ordre où ils s'ouvrent : `id`, `nom`, `jeu`, `seuil` (total gagné au jeu), `hote` (qui fait signe à l'ouverture), `accord` (`e`, `s` ou rien : « ouverte », « ouverts »). On ne joue pas dehors : un lieu de jeu se joue dans l'intérieur de même id (`interieurs`), sinon il reste fermé |
@@ -93,6 +99,8 @@ Un dossier `communes/<id>/` avec au moins un manifeste `commune.json` et la scè
 | `biens` | non | les biens et leurs vendeurs |
 | `jeux.regles_serveur` | non | les règles versées au serveur pour le multi (vide tant que le multi n'existe pas) |
 | `structures` | non | les structures de la commune qui comptent pour les autres communes : gare, arrêt de car, terrain de football (section « Les structures ») ; vide par défaut |
+
+Les champs facultatifs gardent le format 1 : un manifeste qui ne les a pas reste valide et prend leur valeur par défaut. Présents, ils doivent avoir le bon type (un texte, un objet, un nombre entier positif, une liste de textes), sinon la commune est refusée, par le jeu comme par le portail. `Commune.auteur()`, `arrivee_nom()`, `population()`, `licence()` et `sources()` les lisent.
 
 Le socle traduit `lieux` et `salles` dans la forme que le code connaissait déjà : `main.gd` lit `PLACES` et le casino `LOCKS` depuis le manifeste de Smarves, aux mêmes valeurs qu'avant (`tools/test_communes.gd` le vérifie lieu par lieu).
 
@@ -158,7 +166,7 @@ Une commune se publie sur **le portail des développeurs**, la page `/developpeu
 
 ### Le geste
 
-1. Sur la page, choisir sa commune parmi les 265 de la Vienne (Smarves et Poitiers exceptées) et **télécharger le kit de départ** : une commune minimale que le jeu accepte telle quelle (manifeste prérempli avec le nom, le code INSEE et l'id, une scène avec un sol, une lumière, une caméra et le panneau de la commune), et son mode d'emploi `LISEZMOI.md`.
+1. Sur la page, choisir sa commune parmi les 265 de la Vienne (Smarves et Poitiers exceptées) et **télécharger le kit de départ** : une commune minimale que le jeu accepte telle quelle, où l'on marche déjà (section « Le kit de départ »), et son mode d'emploi `LISEZMOI.md`.
 2. Poser le dossier du kit dans `communes/` d'un clone de Smarves, construire la commune, puis l'emballer :
    ```sh
    godot --headless --path . -s tools/emballer_commune.gd -- <id>
@@ -166,17 +174,42 @@ Une commune se publie sur **le portail des développeurs**, la page `/developpeu
    L'outil écrit `build/<id>.pck` et le fait passer par les refus du jeu (`Communes.charger_pack`, montage, chargement de la scène). `--depuis=res://…/` emballe un autre dossier sous `communes/<id>/` (c'est ainsi qu'est fait le paquet d'essai, `tools/paquet_essai/`).
 3. **Déposer** le `.pck` sur la page : il part directement du navigateur vers le stockage, puis le serveur le relit et affiche **le rapport de validation**, une ligne par règle. Un paquet valide est « prêt » ; **publier** le met au catalogue (une seule version publiée par commune, la nouvelle remplace l'ancienne), **dépublier** l'en retire. Chaque dépôt garde sa ligne : c'est l'historique des versions.
 
+**Une version par dépôt.** Chaque dépôt doit porter une version plus grande que la dernière déposée pour cette commune (`0.1.0`, puis `0.1.1` ou `0.2.0`) : avant d'envoyer le fichier, la page lit dans le pack sa taille, son nombre de fichiers et sa version, les affiche, et refuse tout de suite un pack dont la version est inférieure ou égale à la dernière déposée (un vieux `.pck` oublié dans `build/` ne passe pas). Un dépôt refusé ne consomme pas sa version. Chez le joueur, **une mise à jour s'ouvre au lancement suivant** : la nouvelle version s'installe à côté et prend la place de l'ancienne au prochain démarrage du jeu.
+
 Une commune est **tenue** par l'auteur de son premier paquet valide : lui seul y dépose et publie ensuite, avec l'organisateur.
+
+### Le kit de départ
+
+Le kit est un `.zip` à poser à la racine d'un clone de Smarves. Il contient :
+
+- `communes/<id>/commune.json` : le manifeste prérempli (`id`, `nom`, `insee`, `auteur`, `population`, `arrivee` avec son nom, `licence` et `sources` vides, un lieu et une banque « à écrire ») ;
+- `communes/<id>/commune.tscn` et `commune.gd` : **la scène de départ**, qui marche telle quelle. Une lumière et un ciel, un sol avec sa collision, le panneau de la commune, deux maisons d'exemple faites des façades du Poitou de Smarves (`res://scripts/village/facades.gd`, que le jeu prête à toutes les communes) et un repère `Arrivee`. Le script crée l'habitant de Smarves (`fp_player.gd`) et la caméra à crans du village (`orbit_camera.gd`) et les expose sous les noms que le jeu attend, **`player` et `camera`** : c'est ce qui donne sans une ligne de code la bascule de vue (Tab, autoload `Vue`), les commandes tactiles (`Tactile`) et la carte de la Vienne en dézoomant ;
+- `LISEZMOI.md` : le mode d'emploi, de l'installation de Godot au dépôt.
+
+Le modèle du kit vit dans Smarves, [`tools/kit/`](../tools/kit/) (les mêmes fichiers, avec `__ID__`, `__NOM__` et `__INSEE__` à la place des valeurs) ; le portail le recopie (`src/lib/communes/kit.ts` dans Pyramides2). Trois outils du dépôt accompagnent le kit :
+
+- **`tools/test_commune.gd`**, le test minimal : le pack s'ouvre comme chez un joueur, la scène expose `player` et `camera`, l'habitant se pose au sol et marche. Sans argument, il éprouve le kit lui-même ; avec `--pck=`, un paquet déjà emballé.
+  ```sh
+  godot --headless --path . -s tools/test_commune.gd -- <id>
+  godot --headless --path . -s tools/test_commune.gd -- <id> --pck=build/<id>.pck
+  ```
+- **`tools/bourg_reel.py`**, pour partir de la vraie disposition du bourg, comme Availles-Limouzine : rues, places, bâtiments à leur place et à leur hauteur, eau, bois et relief, tirés d'OpenStreetMap, de la BD TOPO et du RGE ALTI de l'IGN. Le code INSEE du manifeste suffit : l'outil en tire le centre du bourg et un cadre de 1 km de côté, et écrit `bourg.json` et `sol.png` dans `communes/<id>/`. Les réglages (centre, cadre, lieux remarquables, nom de la rivière) se gardent dans `communes/<id>/bourg_reel.json` ; celui d'Availles-Limouzine sert d'exemple ([`tools/paquet_essai/availles_limouzine/bourg_reel.json`](../tools/paquet_essai/availles_limouzine/bourg_reel.json)), et sa scène ([`availles.gd`](../tools/paquet_essai/availles_limouzine/availles.gd)) montre comment construire le bourg depuis `bourg.json`. Les sources et leurs licences sont écrites dans `bourg.json` : recopiez-les dans `licence` et `sources` du manifeste.
+  ```sh
+  python3 -m pip install pillow
+  python3 -I tools/bourg_reel.py <id>
+  python3 -I tools/bourg_reel.py <id> --centre=0.656,46.1215 --cadre=-600,-330,460,420 --remarquables=lieux.json
+  ```
+- **`tools/emballer_commune.gd`**, qui écrit `build/<id>.pck` (section « Le geste »).
 
 ### Le paquet
 
 - Un **pack Godot 4** (`.pck`, formats 2 à 4, non chiffré), nommé par l'id de la commune. Pas une archive zip : c'est le format que le socle sait lire sans le monter.
 - **Tout sous `res://communes/<id>/`**, plus seulement ce qu'un export ajoute de lui-même (`.godot/imported/`, `.godot/exported/`, `.godot/uid_cache.bin`, `.godot/global_script_class_cache.cfg`, `project.binary`). L'id est celui du manifeste ; le kit le tire du nom (« La Villedieu-du-Clain » → `la_villedieu_du_clain`).
 - **Aucun code natif** : ni `.gdextension`, ni `.so`, `.dll`, `.dylib`, `.wasm`, `.framework`. Scènes, ressources et GDScript seulement.
-- **32 Mo au plus.**
+- **32 Mo au plus**, refusé au-delà par la page avant même l'envoi.
 - Un seul manifeste, `res://communes/<id>/commune.json`, au format décrit plus haut, avec en plus pour la publication :
   - `insee` : la commune choisie sur la page, une commune actuelle de la Vienne de `communes/vienne.json`, ni Smarves (86263) ni Poitiers (86194) ;
-  - `version` : trois nombres (`0.1.0`), neuve pour cette commune (un dépôt refusé ne consomme pas sa version) ;
+  - `version` : trois nombres (`0.1.0`), plus grande que la dernière version déposée pour cette commune (un dépôt refusé ne consomme pas sa version) ;
   - `scene` : sous `res://communes/<id>/`, présente dans le pack (ou sa forme exportée `.remap`) ;
   - `banque.preteur` : le prêteur de la commune, jamais `smarves` (c'est la dette envers M. Brunet) ;
   - `description` (facultative) : deux phrases, montrées dans le carnet du joueur.

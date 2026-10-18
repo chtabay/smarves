@@ -3,9 +3,13 @@ extends "res://scripts/shop_interior.gd"
 ## François-Rabelais et son grand loto, l'arrière-salle du Moulin des Dames et son blackjack. On ne joue
 ## plus dehors : on entre, on s'approche de la machine ou de la table, E ouvre le jeu (docs/VILLAGE.md).
 ## La pièce, les matériaux, la porte et l'interface viennent de l'intérieur des vendeurs (shop_interior.gd).
-## Capture : godot --path . res://scenes/cafe.tscn -- --capture=sortie.png [--at=x,z,lacet,tangage] [--open=jeu] [--won=…]
+## Capture : godot --path . res://scenes/cafe.tscn -- --capture=sortie.png [--at=x,z,lacet,tangage] [--open=jeu|tableau|feuille] [--won=…] [--journee=n]
 
 const SLOT := preload("res://scripts/slot_machine.gd")
+const TABLEAU := preload("res://scripts/socle/foot_tableau.gd")
+## Le total gagné au jeu à partir duquel Josiane accroche l'ardoise du championnat de la Vienne au mur
+## du café : le premier rendez-vous du football (docs/SUITE.md, section 6), qu'on lit sans miser.
+const SEUIL_TABLEAU := 1000
 const LOTO := preload("res://scripts/loto_panel.gd")
 const BLACKJACK := preload("res://scripts/blackjack_panel.gd")
 const KA := "res://assets/kenney/arcade/"
@@ -31,6 +35,8 @@ const SALLES := {
 
 var _salle: Dictionary
 var _game: Control
+## L'ardoise du championnat, une fois accrochée.
+var _ardoise: Node3D
 
 
 func _ready() -> void:
@@ -122,6 +128,8 @@ func _on_interact(target: Node) -> void:
 				c.talk(2.5)
 		"jeu":
 			open_game()
+		"tableau":
+			open_tableau()
 
 
 # --- Le jeu ---------------------------------------------------------------------------------------
@@ -156,6 +164,22 @@ func open_game() -> void:
 	_game = p
 
 
+## L'ardoise du championnat, en grand : on la lit, on ne joue pas.
+func open_tableau() -> void:
+	if _game != null:
+		return
+	var p: PanelContainer = TABLEAU.new()
+	p.closed.connect(func():
+		p.queue_free()
+		_game = null
+		player.frozen = false
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
+	player.frozen = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_panel_layer.add_child(p)
+	_game = p
+
+
 func _on_played(bet: int, payout: int) -> void:
 	Sfx.result(bet, payout)
 	var before := Game.won
@@ -166,6 +190,9 @@ func _on_played(bet: int, payout: int) -> void:
 	for p in Commune.smarves().lieux():
 		if p.seuil > 0 and before < p.seuil and Game.won >= p.seuil:
 			_note("%s vous fait signe : %s ouvre ce soir." % [p.host, p.name.substr(0, 1).to_lower() + p.name.substr(1)])
+	if shop == "cafe" and before < SEUIL_TABLEAU and Game.won >= SEUIL_TABLEAU and _ardoise == null:
+		_tableau_du_dimanche()
+		_note("Josiane accroche une ardoise au mur de l'est : le tableau du dimanche, le championnat de la Vienne.")
 	if shop == "cafe" and Game.advance_if_broke(SLOT.BETS[0]):
 		say("Je vous avance %d crédits. « Un placement, ça se soutient. »" % Game.ADVANCE)
 
@@ -305,6 +332,68 @@ func _cafe() -> void:
 	_solid(juke)
 	_bulb(Vector3(-1.5, H - 0.7, 0.2), Color(0.85, 0.55, 0.3))
 	_bulb(Vector3(2.4, H - 0.7, 0.6), Color(0.85, 0.55, 0.3))
+	if Game.won >= SEUIL_TABLEAU:
+		_tableau_du_dimanche()
+
+
+## L'ardoise du championnat de la Vienne, sur le mur de l'est, entre la fenêtre et la porte : le titre à la craie,
+## la division suivie et son premier, le prochain coup d'envoi. E l'ouvre en grand (FootTableau).
+func _tableau_du_dimanche() -> void:
+	if _ardoise != null:
+		return
+	_ardoise = Node3D.new()
+	_ardoise.position = Vector3(W / 2.0 - 0.05, 1.7, 2.6)
+	add_child(_ardoise)
+	var cadre := _std(Color(0.42, 0.28, 0.14), 0.6)
+	_box(Vector3(0.06, 1.3, 1.9), Vector3.ZERO, cadre, false, _ardoise)
+	_box(Vector3(0.04, 1.18, 1.78), Vector3(-0.02, 0, 0), _std(Color(0.12, 0.17, 0.15), 0.95), false, _ardoise)
+	# Le petit rebord et ses craies.
+	_box(Vector3(0.12, 0.03, 1.9), Vector3(-0.04, -0.66, 0), cadre, false, _ardoise)
+	for k in 3:
+		var craie := _cyl(0.008, 0.08, Vector3(-0.07, -0.63, -0.5 + k * 0.17), _std(Color(0.93, 0.93, 0.88), 0.9), _ardoise)
+		craie.rotation_degrees.x = 90.0
+		craie.rotation_degrees.y = k * 30.0 - 30.0
+	_lamp(Vector3(W / 2.0 - 0.8, 2.3, 2.6), Color(1.0, 0.85, 0.6), 0.6, 3.0)
+	_interactive(_ardoise, "tableau", "E : lire le tableau du dimanche", Vector3(1.4, 2.4, 2.2), Vector3(-0.6, -0.9, 0))
+	_ecrire_ardoise()
+	Football.change.connect(_ecrire_ardoise)
+
+
+## Ce que Josiane a écrit à la craie sur l'ardoise, remis au jour quand la pyramide bouge.
+func _ecrire_ardoise() -> void:
+	if _ardoise == null:
+		return
+	for c in _ardoise.get_children():
+		if c is Label3D:
+			c.free()
+	if Football.niveaux.is_empty():
+		Football.actualiser()
+	var tableau: PanelContainer = TABLEAU.new()
+	var d: Array = tableau.division_suivie()
+	var lignes: Array = Football.classement(Football.saison, d[0], d[1])
+	var prochain: Array = Football.prochain_coup_envoi(Football.maintenant())
+	var joues: int = Football.journee_jouee()
+	var textes := [
+		["Le tableau du dimanche", 0.42, 30, Color(0.95, 0.85, 0.6)],
+		["Championnat de la Vienne  ·  saison %d" % Football.saison, 0.27, 17, Color(0.93, 0.93, 0.88)],
+		["%s  ·  %s" % [Football.nom_division(d[0], d[1]), "journée %d" % joues if joues > 0 else "avant la 1re journée"], 0.1, 17, Color(0.93, 0.93, 0.88)],
+	]
+	for i in mini(3, lignes.size()):
+		var l: Dictionary = lignes[i]
+		textes.append(["%d.  %s   %d pts" % [i + 1, Football.clubs[l.club].nom, l.pts], -0.05 - i * 0.13, 16, Color(0.93, 0.93, 0.88)])
+	textes.append(["Coup d'envoi : %s à %d h" % [TABLEAU.date(prochain[2]), Football.HEURE_COUP_ENVOI], -0.5, 17, Color(0.95, 0.85, 0.6)])
+	for t in textes:
+		var l := Label3D.new()
+		l.text = t[0]
+		l.font = _serif
+		l.font_size = t[2]
+		l.pixel_size = 0.004
+		l.modulate = t[3]
+		l.outline_size = 0
+		l.position = Vector3(-0.045, t[1], 0)
+		l.rotation_degrees.y = -90.0
+		_ardoise.add_child(l)
+	tableau.free()
 
 
 ## Un obstacle invisible.
@@ -448,9 +537,13 @@ func _moulin() -> void:
 func _maybe_capture() -> void:
 	var path := ""
 	var open := false
+	var tableau := false
+	var feuille := false
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--capture="):
 			path = arg.trim_prefix("--capture=")
+			# La pyramide d'une capture se fonde sur place, sans toucher au fichier du joueur.
+			Football.dossier = ""
 		elif arg.begins_with("--at="):
 			var v := arg.trim_prefix("--at=").split_floats(",")
 			player.position = Vector3(v[0], 0, v[1])
@@ -459,14 +552,33 @@ func _maybe_capture() -> void:
 				player.camera.rotation.x = deg_to_rad(v[3])
 		elif arg == "--open=jeu":
 			open = true
+		elif arg == "--open=tableau":
+			tableau = true
+		elif arg == "--open=feuille":
+			tableau = true
+			feuille = true
+		elif arg.begins_with("--journee="):
+			# L'horloge du football posée une heure après le coup d'envoi de cette journée de la saison 1.
+			var t: int = Football.coup_envoi(1, int(arg.trim_prefix("--journee="))) + 3600
+			Football.regler_horloge(func(): return t)
 		else:
 			_capture_setup(arg)
 	if path == "":
 		return
+	if shop == "cafe" and Game.won >= SEUIL_TABLEAU:
+		_tableau_du_dimanche()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	if open:
+	if open or tableau:
 		await get_tree().create_timer(1.0).timeout
-		open_game()
+		if tableau:
+			open_tableau()
+			if feuille:
+				# La feuille du premier match de la dernière journée jouée.
+				var d: Array = _game.division
+				var m: Dictionary = Football.journee(Football.saison, d[0], d[1], Football.journee_jouee())[0]
+				_game.ouvrir_feuille(Football.saison, Football.journee_jouee(), m.dom, m.ext)
+		else:
+			open_game()
 	await get_tree().create_timer(6.0).timeout
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(path)

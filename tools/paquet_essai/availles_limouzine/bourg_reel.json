@@ -1,0 +1,33 @@
+{
+	"insee": "86015",
+	"centre": [0.656, 46.1215],
+	"cadre": [-600.0, -330.0, 460.0, 420.0],
+	"riviere": "La Vienne",
+	"remarquables": [
+		{"id": "eglise", "nom": "Église Saint-Martin", "genre": "monument", "osm": "way/64158647"},
+		{"id": "mairie", "nom": "La mairie", "genre": "monument", "osm": "way/64158835"},
+		{"id": "pont", "nom": "Le pont sur la Vienne", "genre": "ouvrage", "osm": "way/39472163"},
+		{"id": "porte_cavaliers", "nom": "La porte des Cavaliers", "genre": "monument", "osm": "way/64160435"},
+		{"id": "porte_riviere", "nom": "La porte de la Rivière", "genre": "monument", "osm": "way/1193944966"},
+		{"id": "chateau", "nom": "Le logis de la Châtellenie", "genre": "monument", "osm": "way/64160486"},
+		{"id": "halles", "nom": "La maison Malmache et les anciennes halles", "genre": "monument", "osm": "node/13926583502"},
+		{"id": "salle_fetes", "nom": "La salle des fêtes", "genre": "lieu", "osm": "way/64160783"},
+		{"id": "monument_morts", "nom": "Le monument aux morts", "genre": "monument", "osm": "node/13329356359"},
+		{"id": "croix", "nom": "La croix", "genre": "monument", "osm": "node/13329356353"},
+		{"id": "hotel", "nom": "L'hôtel-restaurant de la Châtellenie", "genre": "commerce", "osm": "node/4280211690"},
+		{"id": "adrien_bernard", "nom": "Le 10 place Adrien-Bernard", "genre": "maison", "osm": "way/64160464"},
+		{"id": "office_tourisme", "nom": "L'office de tourisme", "genre": "lieu", "osm": "way/64158780"},
+		{"id": "ecole", "nom": "L'école", "genre": "lieu", "osm": "node/4294659881"},
+		{"id": "pompiers", "nom": "La caserne des pompiers", "genre": "lieu", "osm": "way/64158776"},
+		{"id": "poste", "nom": "La Poste", "genre": "commerce", "osm": "node/4294659834"},
+		{"id": "boulangerie", "nom": "La boulangerie", "genre": "commerce", "osm": "node/4280119991"},
+		{"id": "boucherie", "nom": "La boucherie", "genre": "commerce", "osm": "node/4280165091"},
+		{"id": "pharmacie", "nom": "La pharmacie", "genre": "commerce", "osm": "node/4294659839"},
+		{"id": "cafe", "nom": "Le café de la place", "genre": "commerce", "osm": "node/10765833210"},
+		{"id": "restaurant", "nom": "Le restaurant de la rue Adrien-Veillon", "genre": "commerce", "osm": "node/4281120590"},
+		{"id": "garage", "nom": "Le garage", "genre": "commerce", "osm": "node/4280165092"},
+		{"id": "fontaine", "nom": "La fontaine", "genre": "monument", "osm": "node/3397137001"},
+		{"id": "camping", "nom": "Le camping du Parc", "genre": "lieu", "osm": "node/472692717"},
+		{"id": "passerelle", "nom": "La passerelle", "genre": "ouvrage", "osm": "way/364676674"}
+	]
+}
