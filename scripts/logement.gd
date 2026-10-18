@@ -5,6 +5,7 @@ extends "res://scripts/shop_interior.gd"
 ## et on y pose ses meubles sur place (E), comme depuis le carnet. Rien à vendre, personne au comptoir.
 
 const MEUBLES_3D := preload("res://scripts/meubles.gd")
+const GRENIER_PANEL := preload("res://scripts/grenier_panel.gd")
 ## La taille de chaque logement : largeur, profondeur, hauteur sous plafond.
 const SIZES := {"chambre": Vector3(8, 6.5, 2.9), "maison": Vector3(14, 12, 3.1), "maison_place": Vector3(18, 16, 3.8)}
 const FLOORS := {"chambre": Color(0.55, 0.38, 0.24), "maison": Color(0.5, 0.33, 0.2), "maison_place": Color(0.36, 0.2, 0.12)}
@@ -21,6 +22,9 @@ var home := ""
 var _spots := {}
 ## Ce qui est posé, par emplacement, pour le remplacer quand on change de meuble.
 var _placed := {}
+## Le coin du grenier : où s'empilent les cartons (le grenier ou le sous-sol, sinon la dernière pièce).
+var _coin := Vector3.ZERO
+var _cartons: Node3D
 
 
 func _ready() -> void:
@@ -56,6 +60,13 @@ func _ready() -> void:
 	Sfx.set_ambience("village")
 	Biens.changed.connect(_refurnish)
 	_maybe_capture()
+	if "--grenier" in OS.get_cmdline_user_args():
+		# Capture : tout ce qui n'est pas posé monte au grenier, sauf le dernier, pour voir les deux listes.
+		var libres: Array = Biens.rangeables()
+		for i in libres.size() - 1:
+			Biens.ranger(home, libres[i])
+		if not "--cartons" in OS.get_cmdline_user_args():
+			get_tree().create_timer(1.5).timeout.connect(open_grenier)
 
 
 func _place_name() -> String:
@@ -88,14 +99,20 @@ func _layout() -> void:
 			cells.append(Vector2i(c, r))
 	var door := Vector2(0, D / 2.0)
 	cells.sort_custom(func(a, b): return _cell_center(a, cw, rd).distance_to(door) < _cell_center(b, cw, rd).distance_to(door))
+	var grenier := Rect2()
+	var trouve := false
 	for i in rooms.size():
 		var cell: Vector2i = cells[i]
 		var rect := Rect2(-W / 2.0 + cell.x * cw, -D / 2.0 + cell.y * rd, cw, rd)
 		var piece: String = rooms[i][0]
+		if piece in ["Grenier", "Sous-sol"] or (not trouve and piece != "Jardin"):
+			grenier = rect
+			trouve = piece in ["Grenier", "Sous-sol"]
 		_zone(rect, piece, cell.x, cell.y, cols)
 		_arrange(rect, by_room.get(piece, []))
 		if piece != "Jardin":
 			_bulb(Vector3(rect.get_center().x, H - 0.6, rect.get_center().y), Color(0.9, 0.82, 0.65))
+	_grenier(grenier)
 	_refurnish()
 
 
@@ -187,11 +204,62 @@ func _gueridon(pos: Vector3) -> void:
 	_cyl(0.18, 0.03, pos + Vector3(0, 0.015, 0), wood)
 
 
+## Le coin des cartons, devant à droite de la pièce : on y touche (E) pour ouvrir le grenier.
+func _grenier(rect: Rect2) -> void:
+	_coin = Vector3(rect.end.x - 0.55, 0, rect.end.y - 0.55)
+	_cartons = Node3D.new()
+	add_child(_cartons)
+	var hit := Node3D.new()
+	hit.position = _coin + Vector3(-0.5, 0, -0.3)
+	add_child(hit)
+	_interactive(hit, "grenier", "", Vector3(1.6, 1.4, 1.4), Vector3(0, 0.6, 0))
+
+
+## Les cartons : un par chose rangée, par piles de trois, en rangées le long du mur de devant.
+func _empiler() -> void:
+	if _cartons == null:
+		return
+	for c in _cartons.get_children():
+		c.queue_free()
+	var n := Biens.grenier(home).size()
+	var kraft := _std(Color(0.72, 0.55, 0.34), 0.9)
+	var tape := _std(Color(0.84, 0.74, 0.5), 0.6)
+	for i in n:
+		var pile := i / 3
+		var etage := i % 3
+		var at := _coin + Vector3(-(pile % 4) * 0.56, 0.21 + etage * 0.42, -(pile / 4) * 0.56)
+		var rot := deg_to_rad(float((i * 37) % 11) - 5.0)
+		var b := _box(Vector3(0.5, 0.4, 0.46), at, kraft, false, _cartons)
+		b.rotation.y = rot
+		var t := _box(Vector3(0.08, 0.005, 0.47), at + Vector3(0, 0.2, 0), tape, false, _cartons)
+		t.rotation.y = rot
+	for a in find_children("*", "Area3D", true, false):
+		if a.get_meta("interact", "") == "grenier":
+			a.set_meta("prompt", "E : le grenier  ·  %d carton%s sur %d" % [n, "s" if n > 1 else "", Biens.capacite_grenier(home)])
+
+
+func open_grenier() -> void:
+	if _panel != null or home == "":
+		return
+	var p: PanelContainer = GRENIER_PANEL.new()
+	p.home = home
+	p.closed.connect(func():
+		p.queue_free()
+		_panel = null
+		player.frozen = false
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
+	player.frozen = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_panel_layer.add_child(p)
+	_panel = p
+
+
 ## Repose les meubles d'après Biens.logements : ce qui a changé est remplacé, le reste ne bouge pas.
 func _refurnish() -> void:
 	if home == "" or not Biens.logements.has(home):
 		return
 	var meubles: Dictionary = Biens.logements[home].meubles
+	_empiler()
 	for slot in _spots:
 		var want := str(meubles.get(slot, ""))
 		var have: Node3D = _placed.get(slot)
@@ -222,6 +290,8 @@ func _on_interact(target: Node) -> void:
 			Game.return_point = str(Biens.item(home).get("lot", ""))
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 			get_tree().change_scene_to_file("res://scenes/main.tscn")
+		"grenier":
+			open_grenier()
 		"slot":
 			Biens.cycle(home, str(target.get_meta("slot")))
 			if Biens.posables(_genre_of_slot(str(target.get_meta("slot")))).is_empty() and str(Biens.logements[home].meubles.get(target.get_meta("slot"), "")) == "":
