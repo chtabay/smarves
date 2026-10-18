@@ -12,5 +12,9 @@
 	"lieux": [
 		{"id": "comptoir", "nom": "Le comptoir d'essai", "jeu": "rien encore", "seuil": 40000, "hote": "Le tenancier d'essai"}
 	],
+	"structures": [
+		{"type": "gare", "id": "gare", "nom": "La halte d'essai", "noeud": "Gare"},
+		{"type": "terrain_foot", "id": "stade", "nom": "Le stade d'essai", "noeud": "Terrain", "club": "Union sportive d'essai", "court": "USE", "couleurs": ["#1b3c8c", "#f2c94c"]}
+	],
 	"banque": {"id": "caisse_essai", "nom": "La caisse d'essai", "banquier": "Le caissier d'essai", "preteur": "essai", "lieu": "comptoir"}
 }
