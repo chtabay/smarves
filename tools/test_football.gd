@@ -154,6 +154,20 @@ func _init() -> void:
 	foot._effectifs = {}
 	foot._matchs = {}
 
+	# Le crochet du module mercato : un renfort entre dans l'effectif de la journée, pas dans celui d'avant.
+	var base: Dictionary = foot.effectif("essai", 2)
+	var premier: String = base.keys()[0]
+	foot.renforts = func(_s: int, j: int, _c: String) -> Array:
+		return [] if j < 3 else [{"id": "essai/m2-7", "prenom": "Jan", "nom": "Hattrick", "poste": "A", "age": 24,
+			"note": 70, "condition": 100, "moral": 70, "competences": base[premier].competences}]
+	foot.oublier_effectifs()
+	check(not foot.effectif("essai", 2, 2).has("essai/m2-7") and foot.effectif("essai", 2, 3).has("essai/m2-7"), "le renfort acheté joue à partir de la journée 3")
+	check(foot.effectif("essai", 2, 3).size() == base.size() + 1 and foot.effectif("essai", 2, 3).has(premier) and not foot.effectif("essai", 2, 3)["essai/m2-7"].has("id"), "il s'ajoute aux joueurs du cru")
+	check(foot.rencontre_en_direct(2, 3, "essai", "smarves").joueurs.has("essai/m2-7"), "le match de la journée 3 le connaît")
+	foot.renforts = Callable()
+	foot.oublier_effectifs()
+	check(not foot.effectif("essai", 2, 3).has("essai/m2-7"), "sans module, l'effectif est celui du tirage")
+
 	# Huit terrains de plus au catalogue : le bas est plein, un niveau 2 à deux groupes s'ouvre.
 	var entrees := []
 	var inseeS := ["86133", "86290", "86015", "86009", "86062", "86100", "86150", "86200"]
