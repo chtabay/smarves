@@ -49,5 +49,7 @@ text = "__NOM__"
 
 [node name="Maisons" type="Node3D" parent="."]
 
+[node name="Decor" type="Node3D" parent="."]
+
 [node name="Arrivee" type="Marker3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 2)
