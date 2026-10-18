@@ -2,13 +2,33 @@
 
 Smarves est la première commune d'une carte de la Vienne où d'autres viendront se greffer (le cadrage est dans [`SUITE.md`](SUITE.md), section 5). Cette page dit ce qu'une commune doit fournir et ce que le socle lui expose. Le partage suit la bible ([`BIBLE.md`](BIBLE.md), en tête) : le ton, l'époque, la règle des lieux et des seuils, l'économie en crédits et le vocabulaire sont au socle ; la géographie, les lieux, les personnages, la banque et son banquier appartiennent à la commune.
 
-La carte de la Vienne et la première commune greffée (Ligugé) sont des chantiers suivants ; d'ici là, une commune publiée sur le portail se trouve dans le carnet (section « Publier sa commune »).
+La carte de la Vienne est un écran du jeu depuis le 18 octobre 2026 (section suivante), éprouvé par une commune d'essai, Ligugé, livrée en paquet séparé ; une commune publiée sur le portail se trouve aussi dans la bienvenue et le carnet (section « Publier sa commune »).
 
 ## La carte de la Vienne
 
 **L'emplacement des communes est celui de la carte officielle des communes de la Vienne** (décision de Guillaume, 17 octobre 2026). Le référentiel [`communes/vienne.json`](../communes/vienne.json) tient les 265 communes actuelles du département : code INSEE, nom, population, centre et contour en longitude et latitude. Il est construit par `tools/vienne_communes.py` à partir de la liste officielle des communes (paquet `@etalab/decoupage-administratif`) et des contours de l'IGN ; le contour d'une commune nouvelle (Valence-en-Poitou, Saint-Martin-la-Pallu…) est l'union de ses anciennes communes. On ne place jamais une commune à la main : son manifeste donne son code INSEE, et la carte la pose là où elle est.
 
 **Toutes les communes sont sur la carte, seules les communes développées sont cliquables.** `Communes.carte()` rend les 265 communes ; `cliquable` n'est vrai que pour celles qui sont inscrites au registre avec ce code INSEE (aujourd'hui Smarves seule). Les autres restent des silhouettes. Poitiers reste un trou dans la brume, jamais développé (SUITE.md, section 5).
+
+### L'écran de la carte
+
+L'autoload `Carte` (`scripts/carte.gd`) montre la carte en plein écran, dessinée par la même `CarteVienne` que la bienvenue, rendue navigable :
+
+- **On y arrive** en dézoomant au-delà du cran « quartier » du village (molette, ou pincer sur téléphone : la caméra `orbit_camera.gd` émet `au_dela`), avec la touche M, ou depuis la bienvenue (« Ouvrir la carte »). Dans une commune greffée, M et le bouton « La carte », posé à côté de « Revenir à Smarves », l'ouvrent aussi.
+- **On en repart** en zoomant encore sur sa commune quand la carte est au plus près, avec Échap ou M, ou par « Revenir ». La carte replonge sur la commune et s'efface.
+- **Ce qu'on voit** : Smarves en or, les villes installées en vert d'eau vif, les villes publiées en vert d'eau pâle, les autres en filigrane, avec leur nom en filigrane quand on zoome ; le Clain et la Vienne (tracé approché, de commune riveraine en commune riveraine) ; Poitiers dans une brume qui dérive ; une épingle sur la commune où l'on est. Une commune qui arrive (publiée ou installée depuis la dernière ouverture) s'allume sous les yeux du joueur ; celles déjà vues sont retenues dans `user://communes/allumees.json`.
+- **Toucher une commune** la montre dans la fiche (nom, population, état, description du catalogue) avec ce qu'on peut y faire : « Y aller » pour une ville installée, « Rentrer à Smarves », « Installer » pour une ville publiée. Poitiers et les communes pas encore développées ne mènent nulle part.
+
+**Rien à changer dans un paquet pour la carte** : elle lit le code INSEE, la scène, le nom, la version, l'auteur et la description, déjà au format. Une commune qui veut ouvrir la carte depuis sa propre caméra appelle `Carte.ouvrir()` (Ligugé le fait au-delà de son dernier cran, comme le village).
+
+**Ligugé**, la commune d'essai (`tools/paquet_essai/liguge/`), est un paquet qui apporte son script : le prieuré Saint-Martin, le Clain et son pont, quelques maisons et le Café du Pont, fermé, construits en code, avec la caméra à crans de Smarves. `tools/test_carte.gd` l'emballe, la greffe, vérifie qu'elle s'allume, qu'on y va depuis la carte, qu'on rouvre la carte depuis Ligugé et qu'on rentre à Smarves :
+
+```sh
+godot --headless --path . -s tools/test_carte.gd
+godot --headless --path . -s tools/emballer_commune.gd -- liguge --depuis=res://tools/paquet_essai/liguge/
+```
+
+Le second emballe Ligugé dans `build/liguge.pck` ; déposé dans le dossier `communes/` des données du jeu (sous Windows `%APPDATA%\Godot\app_userdata\Smarves\communes\`), il s'allume sur la carte au lancement suivant.
 
 ## Ce qu'une commune fournit
 
@@ -134,7 +154,7 @@ La page refuse ce que le jeu refuserait, règle pour règle (`src/lib/communes/p
 - **La bienvenue** (autoload `Bienvenue`, `scripts/bienvenue.gd`) : à chaque lancement, dès que le joueur est sur la place (après l'accueil de Josiane, hors carnet et réglages), une fenêtre s'ouvre. À gauche, la carte de la Vienne (`CarteVienne`, `scripts/socle/carte_vienne.gd`) : Smarves en or, les villes publiées en vert d'eau, plus vif quand elles sont installées. À droite, les crédits, « Les villes de la Vienne » (les nouvelles depuis la dernière visite, `Communes.nouvelles`, sinon ce qui est disponible) avec « Voir les villes », qui déplie la liste à installer et à visiter sur place, « Votre compte », où viendra la connexion, et « Jouer ». En la refermant, les villes vues ne sont plus nouvelles (`user://communes/vues.json`).
 - **Le carnet** (touche C) a une rubrique « Les communes de la Vienne » : chaque commune publiée, sa description, « → l'installer » (taille, auteur), puis « → y aller ». Une version plus récente au catalogue se propose à la place ; elle s'installe à côté et prend la place de l'ancienne au lancement suivant, parce qu'un pack déjà ouvert ne se remplace pas en cours de partie.
 - **L'installation** (`Communes.installer(id)`) télécharge le paquet dans `user://communes/<id>.pck`, vérifie son empreinte sha256 contre le catalogue, puis le soumet aux refus d'une greffe déposée à la main ; un paquet refusé est effacé. Le signal `installee(id, ok, message)` donne la phrase montrée au joueur.
-- **Y aller** (`Communes.visiter(id)`) monte le pack, ouvre la scène de la commune et pose un bouton « Revenir à Smarves » (`Communes.revenir()`), en attendant le car départemental de la carte.
+- **Y aller** (`Communes.visiter(id)`) monte le pack, ouvre la scène de la commune et pose les boutons « Revenir à Smarves » (`Communes.revenir()`) et « La carte ». `Communes.actuelle()` dit dans quelle commune on est.
 - **Pour la carte** : `Communes.carte()` porte en plus `publiee` (au catalogue, installable) à côté de `cliquable` (installée) ; `Communes.publiees()` et `Communes.installees()` donnent les deux listes.
 
 Le chemin entier est vérifié par `tools/test_portail.gd` : un petit serveur local tient lieu de portail, sert un catalogue et le paquet d'essai de La Villedieu-du-Clain, que le jeu lit, installe, inscrit et ouvre ; un paquet à l'empreinte fausse est refusé et effacé ; hors ligne, la liste reste.

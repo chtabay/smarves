@@ -1,6 +1,9 @@
 extends Camera3D
 ## Caméra qui tourne autour du diorama : clic droit pour tourner, molette pour zoomer.
 
+## On dézoome encore alors que la caméra est arrivée au dernier cran : au-delà, c'est la carte.
+signal au_dela
+
 var target := Vector3(0.0, 0.3, 0.0)
 var yaw := deg_to_rad(0.0)
 var pitch := deg_to_rad(-40.0)
@@ -107,6 +110,8 @@ func use_notches(list: Array, start: int) -> void:
 
 
 func set_notch(i: int) -> void:
+	if i >= notches.size() and notch == notches.size() - 1 and absf(distance - _dist_goal) < 2.0:
+		au_dela.emit()
 	notch = clampi(i, 0, notches.size() - 1)
 	var n: Array = notches[notch]
 	_dist_goal = n[0]

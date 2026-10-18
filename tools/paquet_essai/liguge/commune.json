@@ -1,0 +1,16 @@
+{
+	"format": 1,
+	"id": "liguge",
+	"nom": "Ligugé",
+	"auteur": "Claude",
+	"version": "0.1.0",
+	"socle_min": "1.0",
+	"insee": "86133",
+	"description": "Commune d'essai de la carte : le prieuré Saint-Martin, où vécut Rabelais, au bord du Clain. Du décor seulement, rien ne s'y joue encore.",
+	"scene": "res://communes/liguge/commune.tscn",
+	"arrivee": {"lot": "pont", "par": ["smarves"]},
+	"lieux": [
+		{"id": "cafe_du_pont", "nom": "Le Café du Pont", "jeu": "pas encore", "seuil": 40000, "hote": "Mme Rivière"}
+	],
+	"banque": {"id": "caisse_du_pont", "nom": "La Caisse du Pont", "banquier": "M. Delage", "preteur": "liguge", "lieu": "cafe_du_pont"}
+}
