@@ -1,23 +1,19 @@
 class_name FootCauserie
 extends FootTableau
-## La causerie du président : la fenêtre où l'on donne au club de la commune ses consignes pour son
-## prochain match (docs/SUITE.md, section 6). La formation, la mentalité et le pressing, les trois
-## choses que FootMatch lit avant le coup d'envoi. La consigne vaut tout de suite ici et part au
-## championnat (Football.decider) si le joueur est connecté à son compte ; sinon elle reste sur cet
-## appareil, et la fenêtre le dit : un match n'est commun que si ses consignes le sont.
+## La causerie du président : un personnage, pas un pupitre (demande de Guillaume du 18 octobre 2026 : « le
+## pilotage ne se fait pas avec le président, il se fait plutôt dans le bureau »). Il dit où en est le club,
+## ce qu'il attend du prochain match, qui parle pour le club (les obligations), et renvoie au bureau, où se
+## décident la tactique, la composition, les rôles et le marché.
 ##
 ## Elle emprunte au tableau du dimanche son ardoise et ses petites pièces ; s'ouvre et se ferme comme
 ## lui (signal closed, Échap).
 
-## Le joueur veut passer au mercato (le stade ouvre FootMercato).
-signal mercato
+## Le joueur veut passer au bureau (le stade ouvre le siège du club).
+signal bureau
 
 ## Le club dont on parle (l'id du registre), et son prochain match.
 var club := ""
 var rencontre := {}
-## Ce qui est coché, avant de valider.
-var _choix := {}
-var _ligne_etat: Label
 
 
 func _ready() -> void:
@@ -32,90 +28,67 @@ func remplir(colonne: VBoxContainer) -> void:
 	colonne.add_child(_mot("L A   C A U S E R I E   D U   P R É S I D E N T", 13, DOUX))
 	colonne.add_child(_mot(str(c.get("nom", "Le club")), 26 if _etroit() else 34, CRAIE, Polices.titre(), _etroit()))
 	rencontre = f.prochain_match(club)
-	if rencontre.is_empty():
-		colonne.add_child(_mot("La saison qui vient n'est pas encore tirée : les consignes attendent le calendrier.", 16, DOUX, null, true))
-		_bas(colonne, false)
-		return
-	var adv: String = rencontre.ext if rencontre.dom == club else rencontre.dom
-	var ou := "à domicile" if rencontre.dom == club else "en déplacement"
-	colonne.add_child(_mot("Prochain match : journée %d, %s à %d h, %s contre %s." % [rencontre.j, date(rencontre.quand),
-		Time.get_datetime_dict_from_unix_time(rencontre.quand).hour, ou, str(f.clubs[adv].nom)], 17, CRAIE, null, true))
+	for phrase in paroles():
+		colonne.add_child(_mot(phrase, 17, CRAIE, null, true))
 	colonne.add_child(_filet())
-	var actuelle: Dictionary = f.consigne_de(rencontre.s, rencontre.j, club)
 	if not f.actionnaires(club).is_empty():
-		# Les parts du club, cédées chez le notaire : qui en tient le plus parle au président.
 		colonne.add_child(_mot(str(f.phrase_actionnaires(club)), 15, OR, null, true))
-	if not f.peut_decider(club):
-		colonne.add_child(_mot("Le président n'écoute que son premier porteur d'obligations. Maître Garnier cède celles du club à l'étude.", 16, CRAIE, null, true))
-		colonne.add_child(_mot(etat_texte(actuelle), 15, DOUX, null, true))
-		_bas(colonne, false)
-		return
-	if _choix.is_empty():
-		_choix = (actuelle.consigne as Dictionary).duplicate()
-	_rangee(colonne, "La formation", "formation", FootMatch.FORMATIONS.keys(), func(k): return str(k))
-	_rangee(colonne, "La mentalité", "mentalite", FootMatch.MENTALITES.keys(), func(k): return str(FootMatch.MENTALITES[k].nom))
-	_rangee(colonne, "Le pressing", "pressing", FootMatch.PRESSINGS.keys(), func(k): return str(FootMatch.PRESSINGS[k].nom))
-	colonne.add_child(_filet())
-	_ligne_etat = _mot(etat_texte(actuelle), 15, DOUX, null, true)
-	colonne.add_child(_ligne_etat)
-	_bas(colonne, true)
-
-
-## Ce que la fenêtre dit de la consigne en place : d'où elle vient, et si elle compte pour tout le monde.
-func etat_texte(actuelle: Dictionary) -> String:
-	var compte: Node = (Engine.get_main_loop() as SceneTree).root.get_node_or_null("Compte")
-	var connecte: bool = compte != null and compte.connecte()
-	match str(actuelle.etat):
-		"commune":
-			return "Consigne au championnat%s : tout le monde jouera ce match ainsi." % (" (posée par %s)" % actuelle.par if actuelle.par != "" else "")
-		"locale":
-			if connecte:
-				return "Consigne gardée sur cet appareil, en route vers le championnat."
-			return "Consigne gardée sur cet appareil seulement : connectez-vous à votre compte Pyramides (dans la bienvenue) pour qu'elle compte pour tout le monde."
-		_:
-			if connecte:
-				return "Aucune consigne encore : le club jouera en 4-4-2, équilibré, pressing normal."
-			return "Aucune consigne encore. Sans compte Pyramides, une consigne reste sur cet appareil."
-
-
-func _rangee(colonne: VBoxContainer, titre: String, cle: String, valeurs: Array, nom: Callable) -> void:
-	colonne.add_child(_mot(titre, 15, DOUX))
-	var rang := HFlowContainer.new()
-	rang.add_theme_constant_override("h_separation", 8)
-	rang.add_theme_constant_override("v_separation", 6)
-	colonne.add_child(rang)
-	for v in valeurs:
-		var b := _bouton(nom.call(v), func():
-			_choix[cle] = str(v)
-			remplir(_colonne), 15)
-		b.name = "Choix_%s_%s" % [cle, str(v)]
-		if str(_choix.get(cle, "")) == str(v):
-			for etat in ["normal", "hover", "pressed", "focus"]:
-				b.add_theme_stylebox_override(etat, _boite(Color(OR, 0.45), CRAIE, 4, 8))
-			for ct in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
-				b.add_theme_color_override(ct, CRAIE)
-		rang.add_child(b)
-
-
-func _bas(colonne: VBoxContainer, valider: bool) -> void:
+	colonne.add_child(_mot("« Pour la tactique, la composition et le marché, c'est au bureau que ça se passe : la porte à côté de la buvette. »", 15, DOUX, null, true))
 	var bas := _pied(colonne)
-	if valider:
-		var b := _bouton("Donner la consigne", func(): donner())
-		b.name = "Valider"
-		bas.add_child(b)
-	var m := _bouton("Le mercato" + ("  ·  ouvert" if foot().mercato_ouvert(foot().saison) else ""), func(): mercato.emit())
-	m.name = "Mercato"
-	bas.add_child(m)
+	var b := _bouton("Passer au bureau", func(): bureau.emit())
+	b.name = "Bureau"
+	bas.add_child(b)
 	bas.add_child(_bouton("Laisser le président  (Échap)", func(): closed.emit()))
 
 
-## Pose la consigne cochée pour le prochain match ; vrai si le championnat l'a prise.
-func donner() -> bool:
+## Ce que le président dit du club : le championnat, le dernier match, le prochain. Entre guillemets, à
+## la première personne, dans un ordre tiré de la journée pour qu'il ne répète pas la même chose.
+func paroles() -> Array:
+	var f := foot()
+	var out: Array = []
+	var place: Array = f.place_de(club)
+	if place.is_empty():
+		out.append("« Notre club entre dans le championnat à la saison prochaine. D'ici là, on s'entraîne. »")
+		return out
+	var groupe: Array = f.niveaux[place[0]][place[1]]
+	if groupe.size() < 2:
+		out.append("« Nous sommes seuls en %s pour l'instant : le championnat attend qu'une autre commune déclare son terrain. On s'entraîne, et on garde la forme. »" % f.nom_division(place[0], place[1]))
+		return out
+	var joues: int = f.journee_jouee()
+	var cl: Array = f.classement(f.saison, place[0], place[1])
+	var rang := 0
+	for i in cl.size():
+		if cl[i].club == club:
+			rang = i + 1
+	if joues > 0 and rang > 0:
+		var l: Dictionary = cl[rang - 1]
+		var ou := "en tête" if rang == 1 else ("derniers" if rang == cl.size() else "%ds" % rang if rang != 2 else "deuxièmes")
+		out.append("« Après %d journée%s, nous sommes %s de la %s, avec %d point%s. %s »" % [joues, "s" if joues > 1 else "", ou, f.nom_division(place[0], place[1]),
+			int(l.pts), "s" if int(l.pts) > 1 else "", "Je ne demande rien de plus." if rang == 1 else ("Il va falloir se réveiller." if rang == cl.size() else "On peut mieux faire.")])
+		var dernier := _dernier(f, joues)
+		if not dernier.is_empty():
+			var nous: int = dernier.score[0] if dernier.dom == club else dernier.score[1]
+			var eux: int = dernier.score[1] if dernier.dom == club else dernier.score[0]
+			var adv: String = dernier.ext if dernier.dom == club else dernier.dom
+			var mot := "une belle victoire" if nous > eux else ("un match nul qui laisse des regrets" if nous == eux else "une défaite qui fait mal")
+			out.append("« Dimanche dernier, %d à %d contre %s : %s. »" % [nous, eux, str(f.clubs.get(adv, {}).get("nom", adv)), mot])
+	else:
+		out.append("« La saison n'a pas commencé : tout reste à écrire. »")
 	if rencontre.is_empty():
-		return false
-	var ok: bool = foot().decider(rencontre.s, rencontre.j, club, _choix)
-	remplir(_colonne)
-	if not ok and _ligne_etat != null:
-		_ligne_etat.text = "Trop tard : le coup d'envoi est donné. Les consignes attendent la journée suivante." if foot().peut_decider(club) \
-			else "Le président n'écoute que son premier actionnaire."
-	return ok
+		out.append("« Le calendrier de la saison qui vient n'est pas encore tiré. »")
+	else:
+		var adv: String = rencontre.ext if rencontre.dom == club else rencontre.dom
+		out.append("« Prochain match : journée %d, %s à %d h, %s contre %s. %s »" % [rencontre.j, date(rencontre.quand), f.HEURE_COUP_ENVOI,
+			"à domicile" if rencontre.dom == club else "en déplacement", str(f.clubs.get(adv, {}).get("nom", adv)),
+			"Devant nos supporters, pas le droit de décevoir." if rencontre.dom == club else "Un point là-bas serait déjà bien."])
+	return out
+
+
+## Le dernier match joué du club : {dom, ext, score}, ou {}.
+func _dernier(f: Node, joues: int) -> Dictionary:
+	var place: Array = f.place_de(club)
+	for j in range(joues, 0, -1):
+		for m in f.journee(f.saison, place[0], place[1], j, joues):
+			if (m.dom == club or m.ext == club) and not m.score.is_empty():
+				return m
+	return {}

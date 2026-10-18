@@ -28,6 +28,9 @@ func _init() -> void:
 	game.staked = 0
 	foot.regler_horloge(func(): return t)
 	t = foot.coup_envoi(1, 1) - 86400
+	# Une Division 1 à huit clubs : la commune d'essai et six communes du catalogue, avec leur terrain.
+	load("res://tools/essai.gd").greffer(root)
+	load("res://tools/essai.gd").completer(root)
 	foot.actualiser()
 
 	# Les cotes.

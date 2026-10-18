@@ -161,9 +161,8 @@ func _football(debut: int, fin: int) -> Array:
 				var dom: Dictionary = foot.clubs.get(m.dom, {})
 				var ext: Dictionary = foot.clubs.get(m.ext, {})
 				rv.titre = "%s – %s" % [dom.get("nom", m.dom), ext.get("nom", m.ext)]
-				rv.lieu = str(dom.get("stade", "")) if not dom.get("invite", true) and str(dom.get("stade", "")) != "" \
-					else "chez %s" % dom.get("nom", m.dom)
-				rv.detail = "Championnat de la Vienne, %s, journée %d. Les consignes se donnent avant 15 h, à la causerie." \
+				rv.lieu = str(dom.get("stade", "")) if str(dom.get("stade", "")) != "" else "chez %s" % dom.get("nom", m.dom)
+				rv.detail = "Championnat de la Vienne, %s, journée %d. Les consignes se donnent avant 15 h, au bureau du club." \
 					% [foot.nom_division(m.n, m.g), j]
 			out.append(rv)
 	return out
@@ -196,13 +195,13 @@ func _mercato(debut: int, fin: int) -> Array:
 	for k in [k0, k0 + 1, k0 + 2]:
 		var ouvre: int = mercato.debut_semaine(k)
 		if ouvre >= debut and ouvre < fin:
-			out.append({"id": "mercato@%d/lots" % k, "titre": "Seize joueurs mis aux enchères", "lieu": "le mercato, à la causerie du stade",
+			out.append({"id": "mercato@%d/lots" % k, "titre": "Seize joueurs mis aux enchères", "lieu": "le mercato, au bureau du club",
 				"quand": ouvre, "activite": "mercato", "detail": "Le plus offrant l'emporte ; les dates limites courent du lundi au samedi soir."})
 		var dernier := 0
 		for i in mercato.LOTS:
 			dernier = maxi(dernier, int(mercato.echeance_lot(k, i)))
 		if dernier >= debut and dernier < fin:
-			out.append({"id": "mercato@%d/fin" % k, "titre": "Dernières enchères de la semaine", "lieu": "le mercato, à la causerie du stade",
+			out.append({"id": "mercato@%d/fin" % k, "titre": "Dernières enchères de la semaine", "lieu": "le mercato, au bureau du club",
 				"quand": dernier, "activite": "mercato", "detail": "Les derniers joueurs de la semaine partent au plus offrant."})
 	if mercato.has_method("rendez_vous"):
 		for rv in mercato.rendez_vous(debut, fin):

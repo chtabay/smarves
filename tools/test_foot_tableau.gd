@@ -20,6 +20,9 @@ func _init() -> void:
 	# La veille du premier coup d'envoi.
 	var t0: int = foot.coup_envoi(1, 1) - 86400
 	foot.regler_horloge(func(): return t0)
+	# Une Division 1 à huit clubs : la commune d'essai et six communes du catalogue, avec leur terrain.
+	load("res://tools/essai.gd").greffer(root)
+	load("res://tools/essai.gd").completer(root)
 	foot.actualiser()
 	check(not foot.niveaux.is_empty(), "la pyramide se fonde pour la fenêtre")
 	check(FootTableau.date(foot.coup_envoi(1, 1)) == "dimanche 25 octobre", "la date s'écrit en français : %s" % FootTableau.date(foot.coup_envoi(1, 1)))

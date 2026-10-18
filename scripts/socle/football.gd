@@ -1,27 +1,36 @@
 extends Node
-## Le football de la Vienne (autoload « Football ») : une pyramide de divisions à huit clubs, à la
+## Le football de la Vienne (autoload « Football ») : une pyramide de divisions à huit clubs au plus, à la
 ## Hattrick, qui lit les terrains du registre des structures (docs/SUITE.md, section 6). Toute commune
 ## qui déclare un terrain (« terrain_foot ») a un club, qui entre dans la division la plus basse à la
-## saison suivante ; les places vides sont tenues par des clubs invités, des communes réelles de la
-## Vienne sans paquet (jamais une commune développée : sans terrain, pas de club). Le premier de chaque groupe monte, les deux derniers descendent dans les deux
-## groupes fils. Le championnat vit sur le calendrier réel : un match le dimanche à 15 h, quatorze
-## journées puis une semaine de trêve et une de mercato, trois saisons par an. Un résultat ne dépend
-## que d'une graine (saison, journée, clubs) et des consignes prises avant le coup d'envoi : tout le
-## monde calcule le même, hors ligne : le match est joué minute par minute (FootMatch, repris du
-## Vestiaire) avec les effectifs de la saison, et son score est le résultat officiel.
+## saison suivante. Seuls les clubs inscrits jouent : pas de club fictif pour remplir (demande de
+## Guillaume du 18 octobre 2026), deux clubs suffisent pour commencer, et un club seul attend le
+## deuxième. Le premier de chaque groupe monte, les deux derniers descendent dans les deux groupes fils.
+## Le championnat vit sur le calendrier réel : un match le dimanche à 15 h, quatorze journées puis une
+## semaine de trêve et une de mercato, trois saisons par an. Un résultat ne dépend que d'une graine
+## (saison, journée, clubs) et des consignes prises avant le coup d'envoi : tout le monde calcule le
+## même, hors ligne : le match est joué minute par minute (FootMatch, repris du Vestiaire) avec les
+## effectifs de la saison, et son score est le résultat officiel.
 ##
-## Les consignes (formation, mentalité, pressing) sont la seule chose qu'un joueur change au
-## championnat, et elles entrent dans la graine : pour que le résultat reste commun, elles sont tenues
-## au serveur (fonctions public.smarves_consignes et smarves_consigne_poser, supabase/migrations) et
-## lues au lancement. Une consigne posée sans compte reste « locale » : le jeu la garde, la montre
-## comme telle, et l'envoie dès que le joueur se connecte, si le coup d'envoi n'est pas passé.
+## Les consignes (formation, mentalité, pressing, et depuis le 18 octobre la composition, le banc et un
+## rôle par joueur) sont la seule chose qu'un joueur change au championnat, et elles entrent dans la
+## graine : pour que le résultat reste commun, elles sont tenues au serveur (fonctions
+## public.smarves_consignes et smarves_consigne_poser, supabase/migrations) et lues au lancement. Une
+## consigne posée sans compte reste « locale » : le jeu la garde, la montre comme telle, et l'envoie dès
+## que le joueur se connecte, si le coup d'envoi n'est pas passé.
 
 ## La pyramide a changé (une saison s'est finie, un club est entré).
 signal change
 
-## L'effectif d'un club pour une saison : deux gardiens, six défenseurs, six milieux, quatre attaquants,
-## tirés de la graine du club et de la saison ; des noms inventés, combinés sans viser personne.
+## L'effectif de fondation d'un club : deux gardiens, six défenseurs, six milieux, quatre attaquants,
+## tirés une fois pour toutes de la graine du club ; des noms inventés, combinés sans viser personne.
+## Ils restent d'une saison à l'autre, vieillissent d'un an par saison, progressent ou déclinent avec
+## l'âge (progression), et un joueur qui passe RETRAITE laisse sa place à un jeune du cru.
 const EFFECTIF := [["G", 2], ["D", 6], ["M", 6], ["A", 4]]
+const RETRAITE := 35
+## Le rôle d'un joueur sur le terrain, la consigne individuelle de la tactique (FootMatch.EFFETS_ROLES
+## dit ce que chacun fait au match) ; « normal » ne s'écrit pas dans la consigne.
+const ROLES := {"normal": "Normal", "offensif": "Offensif", "defensif": "Défensif", "createur": "Créateur", "tireur": "Tireur de coups de pied arrêtés"}
+const ROLE_DEFAUT := "normal"
 const PRENOMS := ["Adrien", "Alban", "Alexis", "Amaury", "Anselme", "Arno", "Aurèle", "Bastien", "Benoît", "Bertrand",
 	"Bruno", "Cédric", "Célestin", "Clément", "Corentin", "Damien", "Denis", "Dorian", "Edgar", "Élie",
 	"Émile", "Enzo", "Éric", "Étienne", "Fabien", "Félix", "Firmin", "Florent", "Gaël", "Gaspard",
@@ -53,7 +62,8 @@ const DESCENDENT := 2
 ## Le fichier de la pyramide (dans le dossier des greffes, à côté du catalogue).
 const FICHIER := "football.json"
 
-## Les noms d'un club invité, tirés de la graine de sa commune, et des paires de couleurs.
+## Les noms d'un club de village (clubs_de_la_vienne : les vendeurs et acheteurs du marché, hors
+## championnat), tirés de la graine de sa commune, et des paires de couleurs.
 ## Les joueurs libres d'une saison : combien par poste, et le prix d'une recrue d'après sa note.
 const LIBRES := [["G", 2], ["D", 4], ["M", 4], ["A", 2]]
 const NOMS_INVITES := ["Union sportive %s", "Étoile sportive %s", "Avenir %s", "Jeunesse sportive %s", "Football-club %s", "Espérance %s", "Entente sportive %s", "Olympique %s"]
@@ -61,14 +71,16 @@ const COULEURS := [["#1b3c8c", "#f2c94c"], ["#a3192e", "#ffffff"], ["#0f6b3f", "
 	["#f07a1a", "#1a1a1a"], ["#111111", "#e8e8e8"], ["#7a1f3d", "#f4d6b0"], ["#e6c229", "#123a6b"], ["#2b2b2b", "#d23b2b"], ["#3d7a2a", "#f2e6c9"], ["#c8102e", "#0e2b5c"]]
 
 ## La saison en cours (1 au départ) et la pyramide : niveaux[n] est la liste des groupes du niveau n
-## (le niveau 0 est le haut), un groupe est une liste d'ids de clubs. clubs : id -> {nom, court,
-## couleurs, commune, insee, invite}. historique : [{saison, champion, montes, descendus}].
+## (le niveau 0 est le haut), un groupe est une liste d'ids de clubs (de zéro à TAILLE). clubs : id ->
+## {nom, court, couleurs, commune, insee, stade, fondation (la saison où le club est entré)}.
+## historique : [{saison, champion, montes, descendus}].
 var saison := 1
 var niveaux: Array = []
 var clubs := {}
 var historique: Array = []
-## Les consignes prises avant un match : "saison/journee/club" -> {formation, mentalite, pressing}, toujours
-## ces trois clés dans cet ordre (consigne()) : elles entrent telles quelles dans la graine.
+## Les consignes prises avant un match : "saison/journee/club" -> {formation, mentalite, pressing, puis
+## s'ils sont donnés compo (onze ids, « » pour une case laissée à l'adjoint), banc ([ids]) et roles ({id:
+## role})}, toujours ces clés dans cet ordre (consigne()) : elles entrent telles quelles dans la graine.
 var decisions := {}
 ## Les consignes de cet appareil que le serveur n'a pas encore : clé -> true. Le tableau le dit.
 var locales := {}
@@ -229,7 +241,7 @@ func actualiser() -> void:
 		change.emit()
 
 
-## Le premier groupe : les terrains du registre, complétés par des invités.
+## Le premier groupe : les terrains du registre, et rien d'autre (vide tant qu'aucune commune n'a de terrain).
 func _fonder() -> void:
 	clubs = {}
 	for e in Registre.de_type("terrain_foot"):
@@ -237,7 +249,6 @@ func _fonder() -> void:
 	var groupe: Array = clubs.keys()
 	groupe.sort()
 	niveaux = [[groupe]]
-	_completer()
 
 
 ## Ferme la saison en cours : classements finaux, le premier de chaque groupe monte dans le groupe
@@ -249,7 +260,7 @@ func clore_saison() -> void:
 		for g in niveaux[n].size():
 			rangs.append(classement(saison, n, g, JOURNEES).map(func(l): return l.club))
 		finals.append(rangs)
-	var champion: String = finals[0][0][0]
+	var champion: String = finals[0][0][0] if not finals[0][0].is_empty() else ""
 	var montes := []
 	var descendus := []
 	var suivants := []
@@ -259,7 +270,8 @@ func clore_saison() -> void:
 			groupes.append(finals[n][g].duplicate())
 		suivants.append(groupes)
 	# Du bas vers le haut : les fils (niveau n+1, groupes 2g et 2g+1) envoient leur premier au père g,
-	# le père envoie son 7e au fils 2g et son 8e au fils 2g+1.
+	# le père envoie son avant-dernier au fils 2g et son dernier au fils 2g+1. Un fils vide n'envoie
+	# personne et ne reçoit personne ; un père trop petit pour descendre quelqu'un sous son champion garde tout.
 	for n in range(niveaux.size() - 2, -1, -1):
 		for g in niveaux[n].size():
 			var pere: Array = suivants[n][g]
@@ -268,10 +280,13 @@ func clore_saison() -> void:
 				if f >= suivants[n + 1].size():
 					continue
 				var fils: Array = suivants[n + 1][f]
+				var i: int = pere.size() - DESCENDENT + k
+				if fils.is_empty() or i < 1:
+					continue
 				var monte: String = fils[0]
-				var descend: String = pere[TAILLE - DESCENDENT + k]
+				var descend: String = pere[i]
 				fils[0] = descend
-				pere[TAILLE - DESCENDENT + k] = monte
+				pere[i] = monte
 				montes.append(monte)
 				descendus.append(descend)
 	historique.append({"saison": saison, "champion": champion, "montes": montes, "descendus": descendus})
@@ -283,7 +298,7 @@ func clore_saison() -> void:
 
 
 ## Les terrains du registre qui n'ont pas encore de club : un club chacun, dans la division la plus
-## basse, à la place d'un invité ; quand il n'y a plus d'invité en bas, un niveau s'ouvre dessous.
+## basse, au premier groupe qui a de la place ; quand le bas est plein, un niveau s'ouvre dessous.
 ## Un club dont la commune a disparu du registre reste : on ne raye pas un club du jour au lendemain.
 func _accueillir() -> bool:
 	var bouge := false
@@ -291,89 +306,56 @@ func _accueillir() -> bool:
 		if clubs.has(e.commune):
 			continue
 		_club_du_registre(e)
-		# Sa commune était invitée : le club de plein droit prend sa place, où qu'elle soit.
-		var invite: String = "invite_" + str(e.insee)
-		if clubs.has(invite):
-			var p: Array = place_de(invite)
-			var g: Array = niveaux[p[0]][p[1]]
-			g[g.find(invite)] = e.commune
-			clubs.erase(invite)
-			bouge = true
-			continue
 		var place := _place_libre()
-		if place.is_empty():
+		if place < 0:
 			niveaux.append([])
 			for g in 1 << (niveaux.size() - 1):
 				niveaux[-1].append([])
-			place = _place_libre()
-		var groupe: Array = niveaux[-1][place.groupe]
-		if place.has("invite"):
-			groupe[groupe.find(place.invite)] = e.commune
-			clubs.erase(place.invite)
-		else:
-			groupe.append(e.commune)
+			place = 0
+		niveaux[-1][place].append(e.commune)
 		bouge = true
 	if bouge:
-		_completer()
 		for n in niveaux.size():
 			for g in niveaux[n]:
 				g.sort()
 	return bouge
 
 
-## Une place pour un club nouveau au dernier niveau : un groupe incomplet, sinon un invité à remplacer.
-func _place_libre() -> Dictionary:
+## Le premier groupe du dernier niveau qui n'est pas plein, ou -1.
+func _place_libre() -> int:
 	for g in niveaux[-1].size():
 		if niveaux[-1][g].size() < TAILLE:
-			return {"groupe": g}
-	for g in niveaux[-1].size():
-		for id in niveaux[-1][g]:
-			if clubs[id].invite:
-				return {"groupe": g, "invite": id}
-	return {}
+			return g
+	return -1
 
 
-## Remplit chaque groupe à huit avec des invités : les communes réelles sans club les plus proches
-## du centre des clubs du groupe (ou de Smarves, pour un groupe vide), dans un ordre stable.
-func _completer() -> void:
-	var prises := {}
-	for id in clubs:
-		prises[clubs[id].insee] = true
-	for n in niveaux.size():
-		for g in niveaux[n].size():
-			var groupe: Array = niveaux[n][g]
-			var centre := Vienne.centre(Communes.origine().insee) if Communes.origine() else Vector2.ZERO
-			if not groupe.is_empty():
-				centre = Vector2.ZERO
-				for id in groupe:
-					centre += Vienne.centre(clubs[id].insee)
-				centre /= groupe.size()
-			var candidates := Vienne.communes().filter(func(c): return not prises.has(str(c.insee)) and str(c.insee) != "86194" and Communes.par_insee(str(c.insee)) == null)
-			candidates.sort_custom(func(a, b):
-				var da: float = Vector2(a.centre[0], a.centre[1]).distance_squared_to(centre)
-				var db: float = Vector2(b.centre[0], b.centre[1]).distance_squared_to(centre)
-				return da < db if da != db else str(a.insee) < str(b.insee))
-			var k := 0
-			while groupe.size() < TAILLE and k < candidates.size():
-				var id := _inviter(candidates[k])
-				prises[str(candidates[k].insee)] = true
-				groupe.append(id)
-				k += 1
-
-
-func _inviter(c: Dictionary) -> String:
-	var insee := str(c.insee)
-	var id := "invite_" + insee
-	var h := Hasard.depuis(Hasard.graine("invite/" + insee))
+## Le nom d'un club de village pour une commune de la Vienne (une entrée de Vienne.communes()), tiré de
+## sa graine : « Union sportive de Nouaillé », « Avenir d'Iteuil ».
+static func nom_de_village(c: Dictionary) -> String:
+	var h := Hasard.depuis(Hasard.graine("invite/" + str(c.insee)))
 	var nom: String = str(c.nom)
 	var patron: String = NOMS_INVITES[h.entier(0, NOMS_INVITES.size() - 1)]
-	var complement := ("d'%s" if nom.left(1).to_lower() in ["a", "e", "i", "o", "u", "y", "é", "h"] else "de %s") % nom
-	var mots := PackedStringArray()
-	for m in nom.replace("-", " ").split(" ", false):
-		mots.append(m.left(1).to_upper())
-	clubs[id] = {"nom": patron % complement, "court": "".join(mots).left(3).rpad(3, "V") if mots.size() < 3 else "".join(mots).left(3),
-		"couleurs": COULEURS[h.entier(0, COULEURS.size() - 1)], "commune": "", "insee": insee, "invite": true}
-	return id
+	return patron % _de(nom)
+
+
+## Les clubs de village de la Vienne qui ne sont pas au championnat : les quarante communes réelles sans
+## paquet les plus proches de la commune d'origine, par leur nom de club, triés. Le marché (module
+## mercato) y prend ses vendeurs et ses acheteurs ; ils ne jouent aucun match.
+func clubs_de_la_vienne() -> Array:
+	var prises := {}
+	for id in clubs:
+		prises[str(clubs[id].insee)] = true
+	var centre := Vienne.centre(Communes.origine().insee) if Communes.origine() else Vector2.ZERO
+	var candidates := Vienne.communes().filter(func(c): return not prises.has(str(c.insee)) and str(c.insee) != "86194" and Communes.par_insee(str(c.insee)) == null)
+	candidates.sort_custom(func(a, b):
+		var da: float = Vector2(a.centre[0], a.centre[1]).distance_squared_to(centre)
+		var db: float = Vector2(b.centre[0], b.centre[1]).distance_squared_to(centre)
+		return da < db if da != db else str(a.insee) < str(b.insee))
+	var out: Array = []
+	for c in candidates.slice(0, 40):
+		out.append(nom_de_village(c))
+	out.sort()
+	return out
 
 
 func _club_du_registre(e: Dictionary) -> void:
@@ -386,12 +368,13 @@ func _club_du_registre(e: Dictionary) -> void:
 				court += m.left(1).to_upper()
 		court = court.left(3)
 	var couleurs: Array = champs.get("couleurs", COULEURS[Hasard.graine(e.commune) % COULEURS.size()])
-	clubs[e.commune] = {"nom": nom, "court": court, "couleurs": couleurs, "commune": e.commune, "insee": e.insee, "invite": false, "stade": str(champs.get("stade", e.nom))}
+	clubs[e.commune] = {"nom": nom, "court": court, "couleurs": couleurs, "commune": e.commune, "insee": e.insee,
+		"stade": str(champs.get("stade", e.nom)), "fondation": saison}
 
 
 ## Les terrains du registre qui attendent la prochaine saison pour avoir leur club : [commune].
 func en_attente() -> Array:
-	return Registre.de_type("terrain_foot").map(func(e): return e.commune).filter(func(c): return not clubs.has(c) or clubs[c].invite)
+	return Registre.de_type("terrain_foot").map(func(e): return e.commune).filter(func(c): return not clubs.has(c))
 
 
 ## Ouvre le stade d'une commune qui a un terrain : la scène du socle (scenes/stade.tscn, scripts/village/
@@ -417,15 +400,23 @@ static func nom_division(n: int, g: int) -> String:
 
 # ---------------------------------------------------------------- le calendrier d'un groupe
 
-## Les quatorze journées d'un groupe : [{dom, ext}] par journée, aller puis retour (méthode du cercle,
-## comme le Vestiaire), dans un ordre tiré de la graine de la saison et du groupe.
+## Les quatorze journées d'un groupe : [{dom, ext}] par journée. Un tour complet (méthode du cercle,
+## comme le Vestiaire) dans un ordre tiré de la graine de la saison et du groupe, rejoué autant de fois
+## qu'il faut pour remplir les quatorze dimanches, en inversant le terrain à chaque tour : à huit clubs,
+## c'est l'aller puis le retour ; à deux, les deux se rencontrent quatorze fois, chacun chez soi à son tour.
+## Moins de deux clubs : quatorze journées vides.
 static func calendrier(s: int, groupe: Array, n: int, g: int) -> Array:
+	var out := []
+	if groupe.size() < 2:
+		for j in JOURNEES:
+			out.append([])
+		return out
 	var h := Hasard.depuis(Hasard.graine("calendrier/%d/%d/%d" % [s, n, g]))
 	var equipes := h.melanger(groupe)
 	if equipes.size() % 2 == 1:
 		equipes.append("")
 	var taille := equipes.size()
-	var aller := []
+	var tours := []
 	var tour := equipes.duplicate()
 	for j in taille - 1:
 		var journee := []
@@ -436,11 +427,12 @@ static func calendrier(s: int, groupe: Array, n: int, g: int) -> Array:
 				continue
 			var inverse := (j % 2 == 1) if k == 0 else (k % 2 == 1)
 			journee.append({"dom": b, "ext": a} if inverse else {"dom": a, "ext": b})
-		aller.append(journee)
+		tours.append(journee)
 		tour.insert(1, tour.pop_back())
-	var out := aller.duplicate(true)
-	for journee in aller:
-		out.append(journee.map(func(m): return {"dom": m.ext, "ext": m.dom}))
+	for j in JOURNEES:
+		var cycle: int = j / tours.size()
+		var base: Array = tours[j % tours.size()]
+		out.append(base.map(func(m): return {"dom": m.ext, "ext": m.dom} if cycle % 2 == 1 else {"dom": m.dom, "ext": m.ext}))
 	return out
 
 
@@ -508,17 +500,22 @@ func classement(s: int, n: int, g: int, joues := -1) -> Array:
 
 # ---------------------------------------------------------------- le résultat d'un match
 
-## La force d'un club pour une saison (40 à 80) : tirée de la graine du club et de la saison, en
-## attendant les effectifs et les tactiques repris de Zeus.
+## La force d'un club pour une saison : la note moyenne de ses onze meilleurs joueurs du cru (les paris
+## s'en servent pour leurs cotes).
 func force(club: String, s: int) -> float:
-	var h := Hasard.depuis(Hasard.graine("force/%d/%s" % [s, club]))
-	return clampf(h.normal(60.0, 8.0), 40.0, 80.0)
+	var notes: Array = _effectif_cru(club, s).values().map(func(j): return float(j.note))
+	if notes.is_empty():
+		return 50.0
+	notes.sort()
+	notes.reverse()
+	var onze: Array = notes.slice(0, 11)
+	return onze.reduce(func(a, b): return a + b, 0.0) / onze.size()
 
 
-## L'effectif d'un club pour une saison : {id: {prenom, nom, poste, age, note, condition, moral, competences}}, les
-## notes autour de la force du club (les premiers de chaque poste un peu au-dessus, les autres un peu en
-## dessous), et les sept compétences de chacun (FootMatch.COMPETENCES) autour de sa note. Avec une journée j,
-## s'y ajoutent les joueurs achetés au marché que le club a ce dimanche-là (le crochet renforts).
+## L'effectif d'un club pour une saison : {id: {prenom, nom, poste, age, note, condition, moral, competences}},
+## les fondateurs vieillis jusqu'à la saison s (les retraités remplacés par des jeunes du cru) et la recrue
+## libre de la saison. Avec une journée j, s'y ajoutent les joueurs achetés au marché que le club a ce
+## dimanche-là (le crochet renforts).
 func effectif(club: String, s: int, j := 0) -> Dictionary:
 	var cru := _effectif_cru(club, s)
 	if j <= 0 or not renforts.is_valid():
@@ -536,12 +533,20 @@ func effectif(club: String, s: int, j := 0) -> Dictionary:
 	return out
 
 
-func _effectif_cru(club: String, s: int) -> Dictionary:
-	var cle := "%d/%s" % [s, club]
-	if _effectifs.has(cle):
-		return _effectifs[cle]
-	var h := Hasard.depuis(Hasard.graine("effectif/" + cle))
-	var niveau := force(club, s)
+## Un joueur tiré au sort : son nom, sa note autour d'un niveau, ses compétences (d'un tirage à part, pour
+## laisser les noms et les notes où ils sont).
+func _joueur(h: Hasard, poste: String, age: int, niveau: float, graine: String) -> Dictionary:
+	var j := {"prenom": h.choix(PRENOMS), "nom": h.choix(NOMS), "poste": poste, "age": age,
+		"note": clampi(int(roundf(h.normal(niveau, 5.0))), 35, 92), "condition": 100, "moral": 70}
+	j.competences = FootMatch.tirer_competences(j, Hasard.depuis(Hasard.graine("competences/" + graine)))
+	return j
+
+
+## Les dix-huit fondateurs d'un club, tirés une fois pour toutes de sa graine : les premiers de chaque poste un
+## peu au-dessus du niveau du club, les autres un peu en dessous.
+func fondateurs(club: String) -> Dictionary:
+	var h := Hasard.depuis(Hasard.graine("fondation/" + club))
+	var niveau: float = clampf(h.normal(60.0, 6.0), 45.0, 75.0)
 	var out := {}
 	var n := 0
 	for ligne in EFFECTIF:
@@ -549,14 +554,52 @@ func _effectif_cru(club: String, s: int) -> Dictionary:
 		var titulaires: int = 1 if poste == "G" else (2 if poste == "A" else 4)
 		for k in ligne[1]:
 			n += 1
-			var age: int = clampi(int(roundf(h.normal(26.0, 4.0))), 17, 36)
-			var bonus := 3.0 if k < titulaires else -3.0
 			var id := "%s/%d" % [club, n]
-			var j := {"prenom": h.choix(PRENOMS), "nom": h.choix(NOMS), "poste": poste, "age": age,
-				"note": clampi(int(roundf(h.normal(niveau + bonus, 5.0))), 35, 92), "condition": 100, "moral": 70}
-			# Ses sept compétences, d'un tirage à part pour laisser les noms et les notes où ils sont.
-			j.competences = FootMatch.tirer_competences(j, Hasard.depuis(Hasard.graine("competences/%s/%s" % [cle, id])))
-			out[id] = j
+			out[id] = _joueur(h, poste, clampi(int(roundf(h.normal(26.0, 4.0))), 17, 33), niveau + (3.0 if k < titulaires else -3.0), "fondation/" + id)
+	return out
+
+
+## Ce que l'âge fait d'une saison à l'autre : les jeunes progressent, les anciens déclinent (le marché a la même).
+static func progression(age: int, h: Hasard) -> int:
+	if age <= 20:
+		return 4 + h.entier(0, 2)
+	if age <= 23:
+		return 2 + h.entier(0, 1)
+	if age <= 28:
+		return h.entier(0, 1)
+	if age <= 30:
+		return -1 - h.entier(0, 1)
+	if age <= 32:
+		return -3 - h.entier(0, 1)
+	return -5 - h.entier(0, 2)
+
+
+func _effectif_cru(club: String, s: int) -> Dictionary:
+	var cle := "%d/%s" % [s, club]
+	if _effectifs.has(cle):
+		return _effectifs[cle]
+	var out := fondateurs(club)
+	var n := out.size()
+	# Saison après saison depuis la fondation : un an de plus, la progression de l'âge, et la retraite.
+	for ss in range(int(clubs.get(club, {}).get("fondation", 1)) + 1, s + 1):
+		var h := Hasard.depuis(Hasard.graine("saison/%d/%s" % [ss, club]))
+		var moyenne := 0.0
+		for id in out:
+			moyenne += float(out[id].note)
+		moyenne /= maxi(out.size(), 1)
+		for id in out.keys():
+			var j: Dictionary = out[id]
+			j.age = int(j.age) + 1
+			if int(j.age) > RETRAITE:
+				n += 1
+				var nid := "%s/%d" % [club, n]
+				out.erase(id)
+				out[nid] = _joueur(h, str(j.poste), h.entier(17, 19), moyenne - 8.0, "jeune/%s/%d" % [nid, ss])
+				continue
+			var d := progression(int(j.age), h)
+			j.note = clampi(int(j.note) + d, 30, 95)
+			for c in j.competences:
+				j.competences[c] = clampi(int(j.competences[c]) + d + h.entier(-1, 1), 10, 99)
 	# La recrue du mercato prend la place du plus faible de son poste.
 	var r := recrue(s, club)
 	if not r.is_empty():
@@ -575,11 +618,110 @@ func _effectif_cru(club: String, s: int) -> Dictionary:
 	return out
 
 
+## La saison et la journée du prochain coup d'envoi du championnat : [s, j] (la dernière journée de la
+## saison en cours si la suivante n'est pas tirée).
+func prochaine_journee() -> Array:
+	var pce := prochain_coup_envoi(maintenant())
+	return [pce[0], pce[1]] if pce[0] == saison else [saison, JOURNEES]
+
+
+## Les joueurs d'un club au prochain coup d'envoi (le cru et les renforts du marché), pour le bureau : une
+## liste triée gardiens, défenseurs, milieux, attaquants puis par note, chacun avec son id.
+func effectif_actuel(club: String) -> Array:
+	var pj := prochaine_journee()
+	var e := effectif(club, pj[0], pj[1])
+	var out: Array = []
+	for id in e:
+		var j: Dictionary = e[id].duplicate(true)
+		j["id"] = id
+		out.append(j)
+	var ordre := {"G": 0, "D": 1, "M": 2, "A": 3}
+	out.sort_custom(func(a, b):
+		var pa: int = ordre.get(str(a.poste), 9)
+		var pb: int = ordre.get(str(b.poste), 9)
+		if pa != pb:
+			return pa < pb
+		if int(a.note) != int(b.note):
+			return int(a.note) > int(b.note)
+		return str(a.id) < str(b.id))
+	return out
+
+
+## Un joueur d'un club à une journée, avec son id, ou {} s'il n'y est pas.
+func joueur_de(club: String, s: int, j: int, id: String) -> Dictionary:
+	var e := effectif(club, s, j)
+	if not e.has(id):
+		return {}
+	var out: Dictionary = e[id].duplicate(true)
+	out["id"] = id
+	return out
+
+
+## Le onze que l'adjoint alignerait pour une formation à une journée : les ids, dans l'ordre des cases de
+## FootMatch.FORMATIONS[formation]. Et le banc qui va avec un onze.
+func compo_auto(club: String, s: int, j: int, formation: String) -> Array:
+	var e := effectif(club, s, j)
+	return FootMatch.compo_auto(e.keys(), e, formation)
+
+
+func banc_auto(club: String, s: int, j: int, compo: Array) -> Array:
+	var e := effectif(club, s, j)
+	return FootMatch.banc_auto(e.keys(), e, compo)
+
+
 ## Oublie les effectifs et les matchs calculés : à appeler quand ce qui les fait (recrues, renforts) a changé.
 func oublier_effectifs() -> void:
 	_effectifs.clear()
 	_matchs.clear()
 	change.emit()
+
+
+# ---------------------------------------------------------------- les statistiques du championnat
+
+## Les buteurs, les passeurs et les clean sheets d'un groupe après « joues » journées : {buteurs: [{id, prenom,
+## nom, club, buts, penaltys}], passeurs: [{..., passes}], clean_sheets: [{..., n}]} (le clean sheet va au gardien
+## sur la pelouse au coup de sifflet final d'un match sans but encaissé), les meilleurs d'abord.
+func statistiques(s: int, n: int, g: int, joues := -1) -> Dictionary:
+	if joues < 0:
+		joues = journee_jouee() if s == saison else (JOURNEES if s < saison else 0)
+	var buteurs := {}
+	var passeurs := {}
+	var gardiens := {}
+	for j in range(1, joues + 1):
+		for m in journee(s, n, g, j, joues):
+			var etat := rencontre(s, j, m.dom, m.ext)
+			for b in etat.buts:
+				var club: String = m.dom if int(b.equipe) == 0 else m.ext
+				var l := _ligne(buteurs, club, str(b.buteur), s, j, {"buts": 0, "penaltys": 0})
+				l.buts += 1
+				if bool(b.get("penalty", false)):
+					l.penaltys += 1
+				if b.passeur != null:
+					_ligne(passeurs, club, str(b.passeur), s, j, {"passes": 0}).passes += 1
+			for i in 2:
+				if int(etat.score[1 - i]) == 0:
+					var gid = FootMatch.gardien(etat, i)
+					if gid != null:
+						_ligne(gardiens, m.dom if i == 0 else m.ext, str(gid), s, j, {"n": 0}).n += 1
+	return {"buteurs": _classer(buteurs, "buts"), "passeurs": _classer(passeurs, "passes"), "clean_sheets": _classer(gardiens, "n")}
+
+
+func _ligne(table: Dictionary, club: String, id: String, s: int, j: int, zero: Dictionary) -> Dictionary:
+	if not table.has(id):
+		var joueur: Dictionary = effectif(club, s, j).get(id, {})
+		var l := {"id": id, "prenom": str(joueur.get("prenom", "")), "nom": str(joueur.get("nom", id)), "club": club}
+		l.merge(zero)
+		table[id] = l
+	return table[id]
+
+
+static func _classer(table: Dictionary, cle: String) -> Array:
+	var out: Array = table.values()
+	out.sort_custom(func(a, b):
+		if int(a[cle]) != int(b[cle]):
+			return int(a[cle]) > int(b[cle])
+		return str(a.nom) + str(a.id) < str(b.nom) + str(b.id))
+	return out
 
 
 # ---------------------------------------------------------------- le mercato
@@ -756,16 +898,35 @@ func rencontre_en_direct(s: int, j: int, dom: String, ext: String) -> Dictionary
 	return {"etat": FootMatch.creer(_equipe(s, j, dom, joueurs), _equipe(s, j, ext, joueurs), joueurs, h), "joueurs": joueurs, "hasard": h}
 
 
-## Ce que FootMatch attend d'un club : son identité, sa tactique du jour (les décisions) et son effectif.
+## Ce que FootMatch attend d'un club : son identité, sa tactique du jour (les décisions : formation, mentalité,
+## pressing, et s'ils sont donnés le onze, le banc et les rôles) et son effectif. Un joueur de la consigne qui
+## n'est plus là au coup d'envoi (vendu) laisse sa case à l'adjoint, qui la comble avec le meilleur restant.
 func _equipe(s: int, j: int, club: String, joueurs: Dictionary) -> Dictionary:
 	var c: Dictionary = clubs[club]
 	var d: Dictionary = decisions.get("%d/%d/%s" % [s, j, club], {})
 	var ids: Array = joueurs.keys().filter(func(id): return str(id).begins_with(club + "/"))
-	return {"id": club, "nom": c.nom, "court": c.court, "stade": str(c.get("stade", "le stade %s" % _de(c.nom))),
-		"formation": str(d.get("formation", "4-4-2")) if FootMatch.FORMATIONS.has(str(d.get("formation", ""))) else "4-4-2",
+	var formation: String = str(d.get("formation", "4-4-2")) if FootMatch.FORMATIONS.has(str(d.get("formation", ""))) else "4-4-2"
+	var out := {"id": club, "nom": c.nom, "court": c.court, "stade": str(c.get("stade", "le stade %s" % _de(c.nom))),
+		"formation": formation,
 		"mentalite": str(d.get("mentalite", "equilibree")) if FootMatch.MENTALITES.has(str(d.get("mentalite", ""))) else "equilibree",
 		"pressing": str(d.get("pressing", "normal")) if FootMatch.PRESSINGS.has(str(d.get("pressing", ""))) else "normal",
 		"effectif": ids}
+	var voulu: Array = d.get("compo", [])
+	if voulu is Array and voulu.any(func(x): return str(x) != "" and ids.has(str(x))):
+		out["compo"] = FootMatch.compo_auto(ids, joueurs, formation, voulu.map(func(x): return str(x) if ids.has(str(x)) else null))
+	var banc: Array = d.get("banc", [])
+	if banc is Array and not banc.is_empty():
+		var sur_le_terrain: Array = out.get("compo", FootMatch.compo_auto(ids, joueurs, formation))
+		out["banc"] = FootMatch.banc_auto(ids, joueurs, sur_le_terrain, 7, banc.map(func(x): return str(x)).filter(func(x): return ids.has(x) and not sur_le_terrain.has(x)))
+	var roles: Dictionary = d.get("roles", {})
+	if roles is Dictionary and not roles.is_empty():
+		var propres := {}
+		for id in roles:
+			if ids.has(str(id)) and ROLES.has(str(roles[id])):
+				propres[str(id)] = str(roles[id])
+		if not propres.is_empty():
+			out["roles"] = propres
+	return out
 
 
 ## « de l'Étoile », « d'Avenir », « de Jeunesse »…
@@ -793,15 +954,47 @@ func decider(s: int, j: int, club: String, d: Dictionary) -> bool:
 	return true
 
 
-## Une consigne propre : les trois clés, dans le même ordre partout, les valeurs inconnues ramenées au défaut.
+## Une consigne propre : les trois clés de la tactique, dans le même ordre partout, les valeurs inconnues ramenées
+## au défaut ; puis, seulement s'ils disent quelque chose, compo (onze cases, « » pour une case laissée à
+## l'adjoint), banc (jusqu'à sept ids) et roles (id -> rôle, les clés triées, « normal » omis). Une consigne
+## sans eux reste la consigne d'avant, mot pour mot : la graine des matchs déjà joués ne bouge pas.
 static func consigne(d: Dictionary) -> Dictionary:
-	return {"formation": str(d.get("formation", "")) if FootMatch.FORMATIONS.has(str(d.get("formation", ""))) else "4-4-2",
+	var out := {"formation": str(d.get("formation", "")) if FootMatch.FORMATIONS.has(str(d.get("formation", ""))) else "4-4-2",
 		"mentalite": str(d.get("mentalite", "")) if FootMatch.MENTALITES.has(str(d.get("mentalite", ""))) else "equilibree",
 		"pressing": str(d.get("pressing", "")) if FootMatch.PRESSINGS.has(str(d.get("pressing", ""))) else "normal"}
+	var compo: Array = []
+	var source = d.get("compo", [])
+	if source is Array:
+		for i in 11:
+			var x = source[i] if i < source.size() else null
+			compo.append("" if x == null else str(x))
+	if compo.any(func(x): return x != ""):
+		out["compo"] = compo
+	var banc: Array = []
+	source = d.get("banc", [])
+	if source is Array:
+		for x in source:
+			if x != null and str(x) != "" and not banc.has(str(x)) and banc.size() < 7:
+				banc.append(str(x))
+	if not banc.is_empty():
+		out["banc"] = banc
+	var roles := {}
+	source = d.get("roles", {})
+	if source is Dictionary:
+		var cles: Array = source.keys().map(func(k): return str(k))
+		cles.sort()
+		for k in cles:
+			var r := str(source.get(k, source.get(StringName(k), "")))
+			if ROLES.has(r) and r != ROLE_DEFAUT:
+				roles[k] = r
+	if not roles.is_empty():
+		out["roles"] = roles
+	return out
 
 
 ## La consigne d'un club pour une journée, et d'où elle vient : {consigne, etat, par}, etat « aucune »,
-## « locale » (sur cet appareil seulement) ou « commune » (au serveur, par le joueur nommé).
+## « locale » (sur cet appareil seulement) ou « commune » (au serveur, par le joueur nommé). La consigne
+## porte compo, banc et roles seulement s'ils ont été donnés (consigne()).
 func consigne_de(s: int, j: int, club: String) -> Dictionary:
 	var cle := "%d/%d/%s" % [s, j, club]
 	if not decisions.has(cle):
@@ -833,7 +1026,11 @@ func appliquer_consignes(liste: Array) -> bool:
 		if not c is Dictionary or not c.has("club"):
 			continue
 		var cle := "%d/%d/%s" % [int(c.get("saison", 0)), int(c.get("journee", 0)), str(c.club)]
-		var d := consigne(c)
+		# Le détail (compo, banc, roles) voyage dans une colonne à part du serveur.
+		var source: Dictionary = (c as Dictionary).duplicate()
+		if c.get("detail") is Dictionary:
+			source.merge(c.detail, true)
+		var d := consigne(source)
 		if decisions.get(cle) != d or locales.has(cle):
 			bouge = true
 		decisions[cle] = d
@@ -869,8 +1066,15 @@ func envoyer_locales() -> void:
 	for cle in locales.keys():
 		var p: PackedStringArray = str(cle).split("/")
 		var d: Dictionary = decisions.get(cle, {})
-		var r: Dictionary = await compte.appeler("smarves_consigne_poser", {"p_saison": int(p[0]), "p_journee": int(p[1]), "p_club": p[2],
-			"p_formation": d.get("formation", "4-4-2"), "p_mentalite": d.get("mentalite", "equilibree"), "p_pressing": d.get("pressing", "normal")})
+		var corps := {"p_saison": int(p[0]), "p_journee": int(p[1]), "p_club": p[2],
+			"p_formation": d.get("formation", "4-4-2"), "p_mentalite": d.get("mentalite", "equilibree"), "p_pressing": d.get("pressing", "normal")}
+		var detail := {}
+		for k in ["compo", "banc", "roles"]:
+			if d.has(k):
+				detail[k] = d[k]
+		if not detail.is_empty():
+			corps["p_detail"] = detail
+		var r: Dictionary = await compte.appeler("smarves_consigne_poser", corps)
 		if r.code == 200 and r.corps is Dictionary:
 			if r.corps.get("ok", false):
 				locales.erase(cle)
@@ -943,7 +1147,7 @@ func investi(club: String) -> int:
 	return t
 
 
-## Qui parle pour un club à la causerie : sans porteur, tout le monde ; sinon la plus grosse somme investie,
+## Qui parle pour un club au bureau : sans porteur, tout le monde ; sinon la plus grosse somme investie,
 ## et chacun à égalité.
 func peut_decider(club: String) -> bool:
 	var a := actionnaires(club)
@@ -952,7 +1156,7 @@ func peut_decider(club: String) -> bool:
 	return investi(club) >= int(a[0].investi)
 
 
-## Une phrase pour le notaire, la causerie et les locaux : qui a mis combien, et qui parle.
+## Une phrase pour le notaire, le président et le bureau : qui a mis combien, et qui parle.
 func phrase_actionnaires(club: String) -> String:
 	var a := actionnaires(club)
 	if a.is_empty():
@@ -967,15 +1171,18 @@ func phrase_actionnaires(club: String) -> String:
 	return "%s : %s." % [", ".join(morceaux), qui]
 
 
-## Ce que le classement fait au dividende : ×1,4 en tête, ×0,7 en queue, ×1 tant que rien n'est joué.
+## Ce que le classement fait au dividende : ×1,4 en tête, ×0,7 en queue (et entre les deux au prorata, quelle
+## que soit la taille du groupe), ×1 tant que rien n'est joué ou qu'on est seul.
 func recette_facteur(club: String) -> float:
 	var place := place_de(club)
 	if place.is_empty() or journee_jouee() <= 0:
 		return 1.0
 	var cl := classement(saison, place[0], place[1])
+	if cl.size() < 2:
+		return 1.0
 	for i in cl.size():
 		if cl[i].club == club:
-			return 0.7 + 0.1 * (TAILLE - (i + 1))
+			return 0.7 + 0.7 * float(cl.size() - 1 - i) / float(cl.size() - 1)
 	return 1.0
 
 
@@ -1209,6 +1416,17 @@ func charger() -> void:
 		saison = int(lu.get("saison", 1))
 		niveaux = lu.niveaux
 		clubs = lu.clubs
+		# Les clubs invités des sauvegardes d'avant le 18 octobre 2026 s'en vont : seuls les inscrits jouent.
+		for id in clubs.keys():
+			if bool(clubs[id].get("invite", false)):
+				clubs.erase(id)
+			else:
+				clubs[id].erase("invite")
+				if not clubs[id].has("fondation"):
+					clubs[id].fondation = 1
+		for n in niveaux.size():
+			for g in niveaux[n].size():
+				niveaux[n][g] = (niveaux[n][g] as Array).filter(func(id): return clubs.has(id))
 		historique = lu.get("historique", [])
 		decisions = lu.get("decisions", {})
 		locales = lu.get("locales", {})

@@ -1,10 +1,10 @@
 class_name FootLocaux
 extends FootTableau
-## Les locaux du club (docs/SUITE.md, section 6) : le siège, à côté de la buvette du stade. On y gère le
-## club comme avec le président, depuis la même porte : la causerie (les consignes du prochain match), le
-## mercato, le registre des obligations ; et le siège dit où en est le club, qui le dirige, ce que les
-## obligations ont versé. Demande de Guillaume du 18 octobre : « on peut gérer le club avec le président
-## ou dans les locaux du club ».
+## Les locaux du club (docs/SUITE.md, section 6) : le siège, à côté de la buvette du stade, en attendant le
+## bureau pleine page du fil « Bureau du club et mercato » (scripts/socle/bureau.gd), que le stade ouvre à sa
+## place dès qu'il existe. D'ici là : le mercato, le registre des obligations, un mot du président ; et le
+## siège dit où en est le club, qui le dirige, ce que les obligations ont versé. Demande de Guillaume du
+## 18 octobre : « le pilotage ne se fait pas avec le président, il se fait plutôt dans le bureau ».
 ##
 ## Elle emprunte au tableau du dimanche son ardoise et ses petites pièces ; s'ouvre et se ferme comme
 ## lui (signal closed, Échap).
@@ -56,7 +56,7 @@ func remplir(colonne: VBoxContainer) -> void:
 	rang.add_theme_constant_override("h_separation", 10)
 	rang.add_theme_constant_override("v_separation", 6)
 	colonne.add_child(rang)
-	var b1 := _bouton("La causerie du président", func(): causerie.emit())
+	var b1 := _bouton("Un mot du président", func(): causerie.emit())
 	b1.name = "Causerie"
 	rang.add_child(b1)
 	var b2 := _bouton("Le mercato" + ("  ·  ouvert" if f.mercato_ouvert(f.saison) else ""), func(): mercato.emit())
@@ -65,7 +65,7 @@ func remplir(colonne: VBoxContainer) -> void:
 	var b3 := _bouton("Le registre des obligations", func(): obligations.emit())
 	b3.name = "Obligations"
 	rang.add_child(b3)
-	colonne.add_child(_mot("Avec le président ou ici, c'est la même direction : les consignes, la recrue et les obligations sont les mêmes.", 14, DOUX, null, true))
+	colonne.add_child(_mot("C'est ici que le club se dirige : le président commente, il ne décide pas. La tactique complète (le onze sur le terrain, les rôles) arrive avec le bureau.", 14, DOUX, null, true))
 	var bas := _pied(colonne)
 	bas.add_child(_bouton("Refermer la porte  (Échap)", func(): closed.emit()))
 

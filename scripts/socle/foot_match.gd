@@ -48,6 +48,18 @@ const PRESSINGS := {
 
 const POSTES := {"G": "Gardien", "D": "Défenseur", "M": "Milieu", "A": "Attaquant"}
 
+## Ce qu'un rôle (la consigne individuelle, Football.ROLES) fait au joueur qui le tient : sa part de défense,
+## d'attaque (aile, passe, but) et de milieu (jeu) dans les secteurs ; l'offensif conclut plus souvent, le
+## défensif moins ; le tireur prend les coups de pied arrêtés (corners, coups francs, penaltys) s'il est sur
+## la pelouse, meilleur ou non.
+const EFFETS_ROLES := {
+	"normal": {"defense": 1.0, "attaque": 1.0, "milieu": 1.0, "tir": 1.0},
+	"offensif": {"defense": 0.9, "attaque": 1.12, "milieu": 1.0, "tir": 1.3},
+	"defensif": {"defense": 1.12, "attaque": 0.88, "milieu": 1.0, "tir": 0.75},
+	"createur": {"defense": 0.95, "attaque": 1.0, "milieu": 1.12, "tir": 1.0},
+	"tireur": {"defense": 1.0, "attaque": 1.0, "milieu": 1.0, "tir": 1.0},
+}
+
 ## Les huit compétences d'un joueur, et leur nom sur une feuille. L'endurance ne joue pas une action :
 ## elle dit à quelle vitesse les sept autres s'usent au fil du match.
 const COMPETENCES := {"gardien": "Gardien", "defense": "Défense", "jeu": "Jeu", "aile": "Aile", "passe": "Passe", "but": "But", "cpa": "Coups de pied arrêtés", "endurance": "Endurance"}
@@ -194,12 +206,13 @@ static func secteurs(eq: Dictionary, joueurs: Dictionary) -> Dictionary:
 		if e.poste == "G":
 			gardien = _c(e, joueurs, "gardien", cond)
 			continue
+		var r: Dictionary = role_de(eq, e.id)
 		var poids_milieu := 1.0 if e.poste == "M" else (0.35 if e.poste == "D" else 0.3)
-		out.milieu += _c(e, joueurs, "jeu", cond) * poids_milieu
-		var defense := _c(e, joueurs, "defense", cond)
-		var aile := _c(e, joueurs, "aile", cond)
-		var passe := _c(e, joueurs, "passe", cond)
-		var but := _c(e, joueurs, "but", cond)
+		out.milieu += _c(e, joueurs, "jeu", cond) * poids_milieu * r.milieu
+		var defense: float = _c(e, joueurs, "defense", cond) * r.defense
+		var aile: float = _c(e, joueurs, "aile", cond) * r.attaque
+		var passe: float = _c(e, joueurs, "passe", cond) * r.attaque
+		var but: float = _c(e, joueurs, "but", cond) * r.attaque
 		for c in COULOIRS:
 			var meme: bool = c == couloir
 			# La défense : les défenseurs partout, pleinement dans leur couloir ; les milieux un peu.
@@ -242,12 +255,19 @@ static func secteurs(eq: Dictionary, joueurs: Dictionary) -> Dictionary:
 
 
 ## Le meilleur onze pour une formation : chaque case prend d'abord le meilleur joueur du poste ; on ne
-## déplace un joueur hors de son poste que s'il n'y a plus personne. ids : les joueurs disponibles.
-static func compo_auto(ids: Array, joueurs: Dictionary, formation: String) -> Array:
+## déplace un joueur hors de son poste que s'il n'y a plus personne. ids : les joueurs disponibles. voulu :
+## les cases déjà choisies par l'entraîneur (un id par case, null ou « » pour une case laissée à l'adjoint,
+## un id absent des disponibles est ignoré) ; l'adjoint ne comble que les trous.
+static func compo_auto(ids: Array, joueurs: Dictionary, formation: String, voulu: Array = []) -> Array:
 	var cases: Array = FORMATIONS.get(formation, FORMATIONS["4-4-2"])
 	var libres: Array = ids.duplicate()
 	var compo: Array = []
 	compo.resize(cases.size())
+	for i in mini(cases.size(), voulu.size()):
+		var id = voulu[i]
+		if id != null and str(id) != "" and libres.has(id):
+			compo[i] = id
+			libres.erase(id)
 	for naturel in [true, false]:
 		for poste in ["G", "A", "D", "M"]:
 			for i in cases.size():
@@ -270,13 +290,19 @@ static func compo_auto(ids: Array, joueurs: Dictionary, formation: String) -> Ar
 	return compo
 
 
-## Les remplaçants : les sept meilleurs restants, dont un gardien si possible.
-static func banc_auto(ids: Array, joueurs: Dictionary, compo: Array, taille := 7) -> Array:
+## Les remplaçants : ceux que l'entraîneur a nommés (voulu, hors du onze), puis les meilleurs restants
+## jusqu'à sept, dont un gardien si possible.
+static func banc_auto(ids: Array, joueurs: Dictionary, compo: Array, taille := 7, voulu: Array = []) -> Array:
 	var restants: Array = ids.filter(func(id): return not compo.has(id))
 	restants.sort_custom(func(a, b): return joueurs[a].note > joueurs[b].note)
 	var banc: Array = []
+	for id in voulu:
+		if restants.has(id) and not banc.has(id) and banc.size() < taille:
+			banc.append(id)
 	for id in restants:
-		if joueurs[id].poste == "G":
+		if banc.size() >= taille:
+			break
+		if joueurs[id].poste == "G" and not banc.any(func(b): return joueurs[b].poste == "G"):
 			banc.append(id)
 			break
 	for id in restants:
@@ -332,7 +358,19 @@ static func _creer_equipe(club: Dictionary, joueurs: Dictionary) -> Dictionary:
 	return {"club": club.id, "nom": club.nom, "court": club.court, "formation": formation,
 		"onze": onze, "banc": banc.duplicate(), "sortis": [], "expulses": [], "blesses": [],
 		"remplacements": 0, "mentalite": str(club.get("mentalite", "equilibree")), "pressing": str(club.get("pressing", "normal")),
+		"roles": (club.get("roles", {}) as Dictionary).duplicate(),
 		"condition": condition, "notes": notes, "jaunes": {}, "auto": true}
+
+
+## Le rôle d'un joueur dans une équipe du match (EFFETS_ROLES), « normal » sans consigne.
+static func role_de(eq: Dictionary, id) -> Dictionary:
+	return EFFETS_ROLES.get(str((eq.get("roles", {}) as Dictionary).get(id, "normal")), EFFETS_ROLES.normal)
+
+
+## Le gardien de l'équipe i sur la pelouse (son id), ou null : le clean sheet est à lui.
+static func gardien(etat: Dictionary, i: int) -> Variant:
+	var g = _gardien_de(etat.equipes[i])
+	return g.id if g != null else null
 
 
 static func _ajouter(etat: Dictionary, type: String, equipe: int, texte: String, extra := {}) -> Dictionary:
@@ -426,7 +464,7 @@ static func _choisir_tireur(eq: Dictionary, joueurs: Dictionary, h: Hasard, coul
 	if cands.is_empty():
 		return eq.onze[0] if not eq.onze.is_empty() else null
 	return h.pondere(cands, func(e):
-		var w: float = poids[e.poste] * _comp(eq, joueurs, e.id, "but")
+		var w: float = poids[e.poste] * _comp(eq, joueurs, e.id, "but") * role_de(eq, e.id).tir
 		if couloir != "centre":
 			w *= 2.5 if str(e.get("couloir", "centre")) == couloir else 0.5
 		return w)
@@ -449,6 +487,14 @@ static func _gardien_de(eq: Dictionary) -> Variant:
 		if e.poste == "G":
 			return e
 	return null
+
+
+## Qui tire les coups de pied arrêtés : le joueur au rôle « tireur » s'il est sur la pelouse, sinon le meilleur.
+static func tireur_cpa(eq: Dictionary, joueurs: Dictionary) -> Variant:
+	for e in eq.onze:
+		if e.poste != "G" and str((eq.get("roles", {}) as Dictionary).get(e.id, "")) == "tireur":
+			return e
+	return _meilleur(eq, joueurs, "cpa")
 
 
 static func _noter(eq: Dictionary, id, delta: float) -> void:
@@ -818,7 +864,7 @@ static func _corner(etat: Dictionary, i: int, couloir: String, joueurs: Dictiona
 	etat.stats[i].corners += 1
 	if not h.chance(0.35) or att.onze.size() < 2:
 		return
-	var tireur = _meilleur(att, joueurs, "cpa")
+	var tireur = tireur_cpa(att, joueurs)
 	if tireur == null:
 		return
 	var cands: Array = att.onze.filter(func(e): return e.id != tireur.id and e.poste != "G")
@@ -840,7 +886,7 @@ static func _corner(etat: Dictionary, i: int, couloir: String, joueurs: Dictiona
 static func _coup_franc(etat: Dictionary, i: int, joueurs: Dictionary, h: Hasard) -> void:
 	var att: Dictionary = etat.equipes[i]
 	var def: Dictionary = etat.equipes[1 - i]
-	var tireur = _meilleur(att, joueurs, "cpa")
+	var tireur = tireur_cpa(att, joueurs)
 	if tireur == null:
 		return
 	etat.stats[i].coups_francs += 1
@@ -874,7 +920,7 @@ static func _penalty(etat: Dictionary, i: int, couloir: String, joueurs: Diction
 	var att: Dictionary = etat.equipes[i]
 	var def: Dictionary = etat.equipes[1 - i]
 	var victime = _choisir_tireur(att, joueurs, h, couloir)
-	var tireur = _meilleur(att, joueurs, "cpa")
+	var tireur = tireur_cpa(att, joueurs)
 	if victime == null or tireur == null:
 		return
 	var vars := _vars(etat, i, joueurs, victime, null, couloir)

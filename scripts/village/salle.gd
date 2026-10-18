@@ -652,8 +652,9 @@ func _maybe_capture() -> void:
 			if feuille:
 				# La feuille du premier match de la dernière journée jouée.
 				var d: Array = _game.division
-				var m: Dictionary = Football.journee(Football.saison, d[0], d[1], Football.journee_jouee())[0]
-				_game.ouvrir_feuille(Football.saison, Football.journee_jouee(), m.dom, m.ext)
+				var matchs: Array = Football.journee(Football.saison, d[0], d[1], Football.journee_jouee())
+				if not matchs.is_empty():
+					_game.ouvrir_feuille(Football.saison, Football.journee_jouee(), matchs[0].dom, matchs[0].ext)
 		else:
 			open_game()
 	await get_tree().create_timer(6.0).timeout

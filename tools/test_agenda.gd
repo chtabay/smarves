@@ -33,6 +33,8 @@ func _init() -> void:
 	paris.effacer()
 	t = local(2026, 10, 18, 20)
 	foot.regler_horloge(func(): return t)
+	# Un deuxième club au championnat : la commune d'essai et son terrain.
+	load("res://tools/essai.gd").greffer(root)
 	foot.actualiser()
 
 	# Les dates à la française.

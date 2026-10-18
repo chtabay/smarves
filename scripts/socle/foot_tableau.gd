@@ -147,7 +147,10 @@ func remplir(colonne: VBoxContainer) -> void:
 	droite.add_theme_constant_override("separation", 6)
 	droite.custom_minimum_size.x = 380
 	rang.add_child(droite)
-	if joues > 0:
+	if foot().niveaux[n][g].size() < 2:
+		droite.add_child(_mot("Pas de match", 22, CRAIE, Polices.gras()))
+		droite.add_child(_mot("Le championnat attend un deuxième club : une commune qui déclare un terrain a son club.", 16, DOUX, null, true))
+	elif joues > 0:
 		droite.add_child(_mot("Journée %d, dimanche dernier" % joues, 22, CRAIE, Polices.gras()))
 		for m in foot().journee(s, n, g, joues):
 			droite.add_child(_match(m, s, joues))

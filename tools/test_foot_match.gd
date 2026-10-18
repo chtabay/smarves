@@ -21,6 +21,9 @@ func _init() -> void:
 	foot.dossier = ""
 	var t5: int = foot.coup_envoi(1, 5) + 3600
 	foot.regler_horloge(func(): return t5)
+	# Une Division 1 à huit clubs : la commune d'essai et six communes du catalogue, avec leur terrain.
+	load("res://tools/essai.gd").greffer(root)
+	load("res://tools/essai.gd").completer(root)
 	foot.actualiser()
 	var groupe: Array = foot.niveaux[0][0]
 	var dom: String = groupe[0]

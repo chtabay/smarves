@@ -21,6 +21,8 @@ func _lancer() -> void:
 	foot.effacer()
 	var t := Time.get_unix_time_from_datetime_dict({"year": 2026, "month": 10, "day": 18, "hour": 20, "minute": 0, "second": 0})
 	foot.regler_horloge(func(): return t)
+	# Un deuxième club au championnat : la commune d'essai et son terrain.
+	load("res://tools/essai.gd").greffer(root)
 	foot.actualiser()
 	change_scene_to_file("res://scenes/main.tscn")
 	await create_timer(3.0).timeout
