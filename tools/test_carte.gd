@@ -113,24 +113,25 @@ func _car_et_routes(carte: CanvasLayer) -> void:
 ## Une version publiée plus récente se voit sur la carte et dans la fiche ; un pack remplacé pendant la
 ## partie n'est pas relu par-dessus l'ancien.
 func _mises_a_jour(carte: CanvasLayer, communes: Node) -> void:
-	communes.catalogue = [{"insee": "86133", "id": "liguge", "nom": "Ligugé", "auteur": "Claude", "version": "0.2.0",
+	communes.catalogue = [{"insee": "86133", "id": "liguge", "nom": "Ligugé", "auteur": "Claude", "version": "0.3.0",
 		"description": "", "paquet": "https://exemple.fr/liguge.pck", "taille": 1, "sha256": "0".repeat(64), "publie_le": ""}]
-	check(communes.mise_a_jour("liguge") == "0.2.0", "la version 0.2.0 publiée est une mise à jour de la 0.1.0")
+	check(communes.mise_a_jour("liguge") == "0.3.0", "la version 0.3.0 publiée est une mise à jour de la 0.2.0")
 	carte.ouvrir()
 	await _attendre(0.3)
 	var c: CarteVienne = carte.get("_carte")
-	check(c.a_jour == {"86133": "0.2.0"}, "la carte marque Ligugé d'une pastille")
+	check(c.a_jour == {"86133": "0.3.0"}, "la carte marque Ligugé d'une pastille")
 	carte.call("_montrer", "86133")
 	await _attendre(0.1)
 	var textes := []
 	for n in (carte.get("_fiche_box") as Node).find_children("*", "", true, false):
 		if n is Label or n is Button:
 			textes.append(n.text)
-	check("MISE À JOUR" in textes and "Mettre à jour (0.2.0)" in textes, "la fiche propose la mise à jour : %s" % str(textes))
+	check("MISE À JOUR" in textes and "Mettre à jour (0.3.0)" in textes, "la fiche propose la mise à jour : %s" % str(textes))
+	check(textes.any(func(t): return "version 0.2.0" in t and "par Claude" in t), "la fiche dit la version et l'auteur : %s" % str(textes))
 	carte.fermer()
 	await _attendre(0.8)
-	communes.installations["liguge"] = "0.2.0"
-	check(communes.mise_a_jour("liguge") == "" and communes.en_attente("liguge") == "0.2.0", "téléchargée, elle attend le prochain lancement")
+	communes.installations["liguge"] = "0.3.0"
+	check(communes.mise_a_jour("liguge") == "" and communes.en_attente("liguge") == "0.3.0", "téléchargée, elle attend le prochain lancement")
 	communes.installations.erase("liguge")
 	communes.catalogue = []
 	# Ligugé est montée ; on dépose par-dessus un autre pack du même nom.
@@ -151,7 +152,7 @@ func _telechargement(communes: Node) -> void:
 	DirAccess.remove_absolute(TMP + "liguge.pck.nouveau")
 	var pid := OS.create_process("python3", ["-m", "http.server", "8765", "--bind", "127.0.0.1", "--directory", ProjectSettings.globalize_path(srv)])
 	await _attendre(1.5)
-	communes.catalogue = [{"insee": "86133", "id": "liguge", "nom": "Ligugé", "auteur": "Claude", "version": "0.3.0", "description": "",
+	communes.catalogue = [{"insee": "86133", "id": "liguge", "nom": "Ligugé", "auteur": "Claude", "version": "0.4.0", "description": "",
 		"paquet": "http://127.0.0.1:8765/liguge.pck", "taille": FileAccess.get_file_as_bytes(srv + "liguge.pck").size(),
 		"sha256": FileAccess.get_sha256(srv + "liguge.pck"), "publie_le": ""}]
 	var fin := [null]
@@ -166,7 +167,7 @@ func _telechargement(communes: Node) -> void:
 	paused = false
 	communes.installee.disconnect(rappel)
 	check(fin[0] != null and fin[0][1], "jeu en pause, le paquet se télécharge : %s" % str(fin[0]))
-	check(FileAccess.file_exists(TMP + "liguge.pck.nouveau") and communes.en_attente("liguge") == "0.3.0", "Ligugé déjà ouverte : la 0.3.0 attend le prochain lancement")
+	check(FileAccess.file_exists(TMP + "liguge.pck.nouveau") and communes.en_attente("liguge") == "0.4.0", "Ligugé déjà ouverte : la 0.4.0 attend le prochain lancement")
 	check(communes.etat("liguge") == "a_relancer" and (communes.geste("liguge").is_empty() or communes.geste("liguge")[0] == "Relancer maintenant"),
 		"son état est « à relancer » : %s" % communes.resume("liguge"))
 

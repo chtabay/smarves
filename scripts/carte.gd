@@ -417,8 +417,11 @@ func _montrer(insee: String, alerte := "") -> void:
 		# L'état et ses mots sont ceux de la bienvenue et du carnet (Communes.etat, resume).
 		var id: String = c.id if c != null else e.id
 		etat = Communes.resume(id) if Communes.etat(id) in ["a_jour", "publiee"] else ("Installée" if c != null else "Publiée")
-		if c != null and str(c.data.get("auteur", "")) != "" and Communes.etat(id) == "a_jour":
-			etat += "  ·  par %s" % str(c.data.auteur)
+		if c != null and Communes.etat(id) != "a_jour" and str(c.data.get("version", "")) != "":
+			etat += "  ·  version %s" % str(c.data.version)
+		# L'auteur du manifeste, à côté de la version (« Publiée par » le dit déjà pour une ville à installer).
+		if c != null and c.auteur() != "":
+			etat += "  ·  par %s" % c.auteur()
 		texte = str(e.get("description", c.data.get("description", "") if c != null else ""))
 		if not Communes.etat(id) in ["a_jour", "publiee"]:
 			texte += ("\n\n" if texte != "" else "") + Communes.resume(id)

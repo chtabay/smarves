@@ -27,7 +27,7 @@ L'autoload `Carte` (`scripts/carte.gd`) montre la carte en plein écran, dessin�
 
 **Rien à changer dans un paquet pour la carte** : elle lit le code INSEE, la scène, le nom, la version, l'auteur et la description, déjà au format. Une commune qui veut ouvrir la carte depuis sa propre caméra appelle `Carte.ouvrir()` (Ligugé le fait au-delà de son dernier cran, comme le village).
 
-**Ligugé**, la commune d'essai (`tools/paquet_essai/liguge/`), est un paquet qui apporte son script : le prieuré Saint-Martin, le Clain et son pont, quelques maisons et le Café du Pont, fermé, construits en code, avec la caméra à crans de Smarves. `tools/test_carte.gd` l'emballe, la greffe, vérifie qu'elle s'allume, qu'on y va depuis la carte, qu'on rouvre la carte depuis Ligugé et qu'on rentre à Smarves :
+**Ligugé**, la commune d'essai (`tools/paquet_essai/liguge/`), est un paquet qui apporte son script : le prieuré Saint-Martin, le Clain et son pont, quelques maisons et le Café du Pont, fermé, construits en code, avec la caméra à crans de Smarves. Comme le kit de départ, elle expose `player` et `camera` : on y marche avec Tab, et `tools/test_commune.gd -- liguge --depuis=res://tools/paquet_essai/liguge/` le vérifie. `tools/test_carte.gd` l'emballe, la greffe, vérifie qu'elle s'allume, qu'on y va depuis la carte, qu'on rouvre la carte depuis Ligugé et qu'on rentre à Smarves :
 
 ```sh
 godot --headless --path . -s tools/test_carte.gd

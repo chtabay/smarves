@@ -3,12 +3,23 @@ extends Node3D
 ## Clain et son pont, quelques maisons et le Café du Pont, fermé. Du décor, construit ici en code
 ## pour éprouver la greffe d'un paquet qui apporte son script. La caméra est celle de Smarves, avec
 ## ses trois crans ; dézoomer au-delà du dernier ouvre la carte (Carte.ouvrir), comme au village.
+## Comme le kit de départ (tools/kit/), la scène expose `player` et `camera` : le jeu y ajoute la vue
+## à pied (Tab, ou le bouton « Vue »), les commandes tactiles et la carte.
 
 const KN := "res://assets/kenney/nature/"
 const PIERRE := Color(0.93, 0.87, 0.74)
 const ARDOISE := Color(0.32, 0.36, 0.42)
 const TUILE := Color(0.82, 0.45, 0.28)
 const LUEUR := Color(1.0, 0.78, 0.45)
+
+## Les crans de la caméra de dessus : distance, tangage, champ, du plus près au plus loin.
+const CRANS := [[9.0, -48.0, 34.0], [18.0, -51.0, 30.0], [40.0, -60.0, 30.0]]
+## L'arrivée, sur la rue du bourg, entre le pont et le prieuré.
+const ARRIVEE := Vector3(1.0, 0.05, 2.2)
+
+## Pour le jeu (vue, tactile, carte) : l'habitant qu'on dirige et la caméra à crans.
+var player: CharacterBody3D
+var camera: Camera3D
 
 var _mats := {}
 
@@ -35,18 +46,9 @@ func _ready() -> void:
 		add_child(a)
 	for p in [Vector3(-0.6, 0, 2.2), Vector3(3, 0, 1.2), Vector3(7.5, 0, 1.6), Vector3(-4.3, 0, 1)]:
 		_reverbere(p)
-	var cam := Camera3D.new()
-	cam.set_script(load("res://scripts/orbit_camera.gd"))
-	add_child(cam)
-	cam.make_current()
-	cam.target = Vector3(1.5, 0.3, 0)
-	cam.set("_target_goal", cam.target)
-	cam.yaw = deg_to_rad(20.0)
-	cam.set("_yaw_goal", cam.yaw)
-	cam.use_notches([[9.0, -48.0, 34.0], [18.0, -51.0, 30.0], [40.0, -60.0, 30.0]], 2)
-	cam.au_dela.connect(func(): Carte.ouvrir())
+	_joueur()
 	var aide := Label.new()
-	aide.text = "Ligugé, commune d'essai  ·  clic droit pour tourner  ·  molette pour zoomer  ·  M ou dézoomer encore pour la carte"
+	aide.text = "Ligugé, commune d'essai  ·  Tab pour marcher  ·  clic droit pour tourner  ·  molette pour zoomer  ·  M pour la carte"
 	aide.add_theme_font_override("font", Polices.texte())
 	aide.add_theme_font_size_override("font_size", 16)
 	aide.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
@@ -55,6 +57,51 @@ func _ready() -> void:
 	var ui := CanvasLayer.new()
 	ui.add_child(aide)
 	add_child(ui)
+
+
+## L'habitant de Smarves et la caméra à crans du village, posés à l'arrivée (comme le kit).
+func _joueur() -> void:
+	camera = Camera3D.new()
+	camera.set_script(load("res://scripts/orbit_camera.gd"))
+	camera.far = 400.0
+	add_child(camera)
+	player = load("res://scripts/fp_player.gd").new()
+	player.eye = 0.6
+	player.body_height = 0.7
+	player.radius = 0.14
+	player.speed = 1.5
+	player.reach = 2.4
+	add_child(player)
+	var me: Node3D = load("res://scripts/critter.gd").new()
+	me.look = Cast.player(Biens.worn)
+	me.walk_speed = 1.0
+	me.run_speed = 1.9
+	me.rotation.y = PI
+	player.add_child(me)
+	player.avatar = me
+	player.global_position = ARRIVEE
+	camera.make_current()
+	player.follow_camera = camera
+	camera.au_dela.connect(func(): Carte.ouvrir())
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	camera.target = player.global_position + Vector3(0, 0.3, 0)
+	camera.set("_target_goal", camera.target)
+	camera.yaw = deg_to_rad(20.0)
+	camera.set("_yaw_goal", camera.yaw)
+	camera.use_notches(CRANS, 1)
+
+
+## Un volume qu'on ne traverse pas : le sol, les murs.
+func _solide(taille: Vector3, at: Vector3, rot := 0.0, parent: Node = self) -> void:
+	var corps := StaticBody3D.new()
+	corps.position = at
+	corps.rotation_degrees.y = rot
+	var forme := CollisionShape3D.new()
+	var b := BoxShape3D.new()
+	b.size = taille
+	forme.shape = b
+	corps.add_child(forme)
+	parent.add_child(corps)
 
 
 func _mat(c: Color, lueur := false) -> StandardMaterial3D:
@@ -123,6 +170,7 @@ func _ciel() -> void:
 
 func _sol() -> void:
 	_boite(Vector3(34, 0.2, 24), Vector3(0, -0.1, 0), Color(0.42, 0.55, 0.3))
+	_solide(Vector3(34, 0.2, 24), Vector3(0, -0.1, 0))
 	# La rue du bourg et la place devant le prieuré.
 	_boite(Vector3(22, 0.03, 1.8), Vector3(1, 0.01, 1.8), Color(0.62, 0.6, 0.56))
 	_boite(Vector3(5, 0.03, 3.2), Vector3(4, 0.012, 0), Color(0.7, 0.66, 0.58))
@@ -144,6 +192,7 @@ func _clain() -> void:
 func _prieure(at: Vector3) -> void:
 	# La nef, le chœur plus bas, et le clocher-porche surmonté de sa flèche.
 	_boite(Vector3(6.0, 2.6, 2.6), at + Vector3(0, 1.3, 0), PIERRE)
+	_solide(Vector3(9.0, 2.6, 2.6), at + Vector3(0.15, 1.3, 0))
 	_toit(6.0, 2.9, 1.5, at + Vector3(0, 3.35, 0), ARDOISE)
 	_boite(Vector3(1.8, 2.0, 2.0), at + Vector3(3.9, 1.0, 0), PIERRE.darkened(0.04))
 	_toit(1.8, 2.2, 1.1, at + Vector3(3.9, 2.55, 0), ARDOISE)
@@ -176,6 +225,7 @@ func _maison(at: Vector3, rot: float, toit: Color, fermee: bool) -> Node3D:
 	murs.material_override = _mat(PIERRE.darkened(fmod(absf(at.x) * 0.013, 0.08)))
 	murs.position.y = 0.95
 	n.add_child(murs)
+	_solide(b.size, Vector3(0, 0.95, 0), 0.0, n)
 	var mt := MeshInstance3D.new()
 	var p := PrismMesh.new()
 	p.size = Vector3(2.0, 1.0, 2.6)
