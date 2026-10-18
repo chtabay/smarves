@@ -64,6 +64,20 @@ jobs:
           path: Smarves-web.tar.gz
           retention-days: 30
 
+      # Le SDK des communes : le socle en clair, sans le village de Smarves (tools/sdk/construire_sdk.py),
+      # déballé hors du dépôt et éprouvé (kit, atelier, salle de jeu, Availles, lanceur, serveur MCP)
+      # avant de partir avec la Release. Un développeur construit sa commune sans accès au dépôt.
+      - name: Construire et vérifier le SDK des communes
+        run: |
+          GODOT="$PWD/godot" sh tools/sdk/test_sdk.sh "$RUNNER_TEMP/sdk"
+          cp "$RUNNER_TEMP"/sdk/smarves-sdk-*.zip smarves-sdk.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Smarves-sdk
+          path: smarves-sdk.zip
+          retention-days: 30
+
   # L'installateur Windows (Inno Setup, installer/smarves.iss), construit sur un runner Windows à
   # partir de l'exécutable exporté, puis essayé de bout en bout : installation silencieuse, raccourcis,
   # lancement du jeu par le raccourci, désinstallation. Sur main, il rejoint la Release.
@@ -295,6 +309,11 @@ jobs:
           path: build
 
       - uses: actions/download-artifact@v4
+        with:
+          name: Smarves-sdk
+          path: build
+
+      - uses: actions/download-artifact@v4
         if: needs.android.result == 'success'
         with:
           name: Smarves-android
@@ -333,11 +352,13 @@ jobs:
             Sans installation : Smarves-windows.zip, à décompresser, puis lancer Smarves.exe.
             Sur téléphone Android : télécharger Smarves.apk depuis le téléphone et l'installer.
             Smarves-web.tar.gz : la version qui se joue dans un navigateur (publiée en ligne).
+            smarves-sdk.zip : le SDK des communes, un projet Godot pour construire une commune de la Vienne.
           files: |
             Smarves-windows.zip
             build/Smarves-installateur.exe
             build/Smarves.apk
             build/Smarves-web.tar.gz
+            build/smarves-sdk.zip
           fail_on_unmatched_files: false
           make_latest: true
 
