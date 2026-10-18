@@ -108,8 +108,8 @@ jobs:
           if (-not (Test-Path build\Smarves-installateur.exe)) { throw "Pas d'installateur" }
           # L'exécutable porte l'icône de Smarves (assets/icone/smarves.ico), pas celle de Godot.
           Add-Type -AssemblyName System.Drawing
-          $exe = [System.Drawing.Icon]::ExtractAssociatedIcon((Resolve-Path build\Smarves.exe)).ToBitmap()
-          $ref = (New-Object System.Drawing.Icon((Resolve-Path assets\icone\smarves.ico), 32, 32)).ToBitmap()
+          $exe = [System.Drawing.Icon]::ExtractAssociatedIcon((Resolve-Path build\Smarves.exe).Path).ToBitmap()
+          $ref = (New-Object System.Drawing.Icon((Resolve-Path assets\icone\smarves.ico).Path, 32, 32)).ToBitmap()
           $ecart = 0
           for ($x = 0; $x -lt 32; $x += 2) { for ($y = 0; $y -lt 32; $y += 2) {
             $a = $exe.GetPixel($x, $y); $b = $ref.GetPixel($x, $y)
