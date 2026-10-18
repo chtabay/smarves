@@ -13,8 +13,10 @@ extends Node
 
 signal change
 
-## Les mises qu'on peut poser, en crédits.
+## Les mises qu'on pose d'un doigt, en crédits : des raccourcis, la mise est libre (MISE_MIN au moins,
+## et pas plus que la bourse du joueur).
 const MISES := [10, 20, 50, 100, 200]
+const MISE_MIN := 1
 ## Ce que la maison garde sur chaque cote.
 const MARGE := 0.12
 ## L'avantage du terrain, en points de force.
@@ -92,13 +94,13 @@ static func cle(dom: String, ext: String) -> String:
 # ---------------------------------------------------------------- les tickets
 
 ## Pose un ticket sur la journée j de la saison s, dans la division [n, g] : choix {"dom|ext": issue}, une
-## entrée par match coché ; la mise part tout de suite. {ok: true, ticket} ou {ok: false, raison} :
-## « vide », « mise », « joue » (le coup d'envoi est donné), « credits ».
+## entrée par match coché ; la mise, libre, part tout de suite. {ok: true, ticket} ou {ok: false, raison} :
+## « vide », « mise » (moins de MISE_MIN), « joue » (le coup d'envoi est donné), « credits ».
 func parier(s: int, j: int, n: int, g: int, choix: Dictionary, mise: int) -> Dictionary:
 	var f := foot()
 	if choix.is_empty():
 		return {"ok": false, "raison": "vide"}
-	if not MISES.has(mise):
+	if mise < MISE_MIN:
 		return {"ok": false, "raison": "mise"}
 	if f.maintenant() >= f.coup_envoi(s, j):
 		return {"ok": false, "raison": "joue"}

@@ -289,8 +289,8 @@ func ouvrir_feuille(s: int, j: int, dom: String, ext: String) -> void:
 	_colonne.add_child(rang)
 	# Les buteurs, de part et d'autre.
 	var joueurs := {}
-	joueurs.merge(foot().effectif(dom, s))
-	joueurs.merge(foot().effectif(ext, s))
+	joueurs.merge(foot().effectif(dom, s, j))
+	joueurs.merge(foot().effectif(ext, s, j))
 	for i in 2:
 		var col := VBoxContainer.new()
 		col.custom_minimum_size.x = 250 if etroit else 300

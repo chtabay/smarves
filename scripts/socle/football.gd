@@ -93,6 +93,11 @@ var _horloge: Callable = Callable()
 ## Les matchs déjà joués et les effectifs déjà tirés, en mémoire : tout se recalcule à l'identique.
 var _matchs := {}
 var _effectifs := {}
+## Le crochet du module mercato (fil dédié) : renforts(s, j, club) -> Array de joueurs {id, prenom, nom, poste,
+## age, note, condition, moral, competences, ...} achetés au marché, que le club a au coup d'envoi de la journée
+## j ; ils s'ajoutent à l'effectif du cru (la composition prend les meilleurs). Leur id commence par « club/ ».
+## Invalide sans module, et l'effectif est celui du tirage.
+var renforts := Callable()
 
 
 func _ready() -> void:
@@ -486,8 +491,26 @@ func force(club: String, s: int) -> float:
 
 ## L'effectif d'un club pour une saison : {id: {prenom, nom, poste, age, note, condition, moral, competences}}, les
 ## notes autour de la force du club (les premiers de chaque poste un peu au-dessus, les autres un peu en
-## dessous), et les sept compétences de chacun (FootMatch.COMPETENCES) autour de sa note.
-func effectif(club: String, s: int) -> Dictionary:
+## dessous), et les sept compétences de chacun (FootMatch.COMPETENCES) autour de sa note. Avec une journée j,
+## s'y ajoutent les joueurs achetés au marché que le club a ce dimanche-là (le crochet renforts).
+func effectif(club: String, s: int, j := 0) -> Dictionary:
+	var cru := _effectif_cru(club, s)
+	if j <= 0 or not renforts.is_valid():
+		return cru
+	var cle := "%d/%d/%s" % [s, j, club]
+	if _effectifs.has(cle):
+		return _effectifs[cle]
+	var out: Dictionary = cru.duplicate(true)
+	for r in renforts.call(s, j, club):
+		if r is Dictionary and r.has("id"):
+			var copie: Dictionary = (r as Dictionary).duplicate(true)
+			copie.erase("id")
+			out[str(r.id)] = copie
+	_effectifs[cle] = out
+	return out
+
+
+func _effectif_cru(club: String, s: int) -> Dictionary:
 	var cle := "%d/%s" % [s, club]
 	if _effectifs.has(cle):
 		return _effectifs[cle]
@@ -524,6 +547,13 @@ func effectif(club: String, s: int) -> Dictionary:
 		out[nid] = copie
 	_effectifs[cle] = out
 	return out
+
+
+## Oublie les effectifs et les matchs calculés : à appeler quand ce qui les fait (recrues, renforts) a changé.
+func oublier_effectifs() -> void:
+	_effectifs.clear()
+	_matchs.clear()
+	change.emit()
 
 
 # ---------------------------------------------------------------- le mercato
@@ -694,8 +724,8 @@ func rencontre_en_direct(s: int, j: int, dom: String, ext: String) -> Dictionary
 		if not d.is_empty():
 			cle += "|%s:%s" % [c, JSON.stringify(d)]
 	var joueurs := {}
-	joueurs.merge(effectif(dom, s))
-	joueurs.merge(effectif(ext, s))
+	joueurs.merge(effectif(dom, s, j))
+	joueurs.merge(effectif(ext, s, j))
 	var h := Hasard.depuis(Hasard.graine(cle))
 	return {"etat": FootMatch.creer(_equipe(s, j, dom, joueurs), _equipe(s, j, ext, joueurs), joueurs, h), "joueurs": joueurs, "hasard": h}
 
