@@ -1,8 +1,8 @@
 extends SceneTree
 ## Vérifie le tableau du dimanche sans affichage : godot --headless --path . -s tools/test_foot_tableau.gd
 ## La fenêtre se remplit depuis une pyramide fondée sur place (sans toucher au fichier du joueur), avant
-## la première journée puis en pleine saison ; elle suit la Division 1 tant que Smarves n'a pas de club,
-## et dit à Smarves qu'il lui manque un terrain ; les dates sont en français.
+## la première journée puis en pleine saison ; elle suit la division de l'Étoile de Smarves et le dit ;
+## les dates sont en français.
 
 var fails := 0
 
@@ -29,11 +29,11 @@ func _init() -> void:
 	root.add_child(fenetre)
 	await process_frame
 	var textes := _textes(fenetre)
-	check(fenetre.division == [0, 0], "sans club à Smarves, la fenêtre suit la Division 1 : %s" % str(fenetre.division))
+	check(fenetre.division == [0, 0], "la fenêtre suit la division de l'Étoile de Smarves, la première : %s" % str(fenetre.division))
 	check("Division 1" in textes and "Pas encore de match cette saison" in textes, "avant la première journée : le classement vierge et l'annonce")
 	check("Journée 1, à venir" in textes, "la prochaine journée est affichée")
 	check(textes.has("Coup d'envoi : dimanche 25 octobre, à 15 h."), "le coup d'envoi est au tableau : %s" % textes.filter(func(x): return x.begins_with("Coup")))
-	check(textes.any(func(x): return x.begins_with("Smarves n'a pas encore de club")), "Smarves sait qu'il lui manque un terrain")
+	check(textes.any(func(x): return x.begins_with("L'Étoile de Smarves joue en Division 1")), "l'Étoile de Smarves sait où elle joue")
 	check(textes.any(func(x): return x.contains("8 clubs en une division")), "la pyramide se résume")
 	var fermes := [0]
 	fenetre.closed.connect(func(): fermes[0] += 1)

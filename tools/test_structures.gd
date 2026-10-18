@@ -1,7 +1,7 @@
 extends SceneTree
 ## Vérifie les structures et leur registre sans affichage : godot --headless --path . -s tools/test_structures.gd
 ## Le vocabulaire (Structures) refuse ce qu'un paquet ne doit pas déclarer ; les manifestes sans
-## structures restent valides ; la commune d'essai (tools/commune_essai/), emballée en pack, inscrit sa
+## structures restent valides ; Smarves n'inscrit que son stade ; la commune d'essai (tools/commune_essai/), emballée en pack, inscrit sa
 ## halte et son stade au registre ; une commune seulement publiée au catalogue y paraît aussi, non
 ## installée ; la gare mène aux autres gares, la plus proche d'abord.
 
@@ -24,7 +24,8 @@ func _init() -> void:
 	_vocabulaire()
 	_manifestes()
 	DirAccess.make_dir_recursive_absolute(TMP)
-	check(registre.entrees.is_empty(), "Smarves seule : le registre est vide (%d)" % registre.entrees.size())
+	check(registre.entrees.size() == 1 and registre.structure("smarves/stade").champs.club == "L'Étoile de Smarves",
+		"Smarves seule : le registre n'a que son stade (%d)" % registre.entrees.size())
 	var annonces := [0]
 	registre.change.connect(func(): annonces[0] += 1)
 
@@ -42,7 +43,7 @@ func _init() -> void:
 	var stade: Dictionary = registre.structure("essai/stade")
 	check(stade.get("champs", {}).get("club") == "Union sportive d'essai" and stade.champs.couleurs == ["#1b3c8c", "#f2c94c"],
 		"le stade porte son club et ses couleurs")
-	check(registre.de_commune("essai").size() == 2 and registre.de_type("terrain_foot").size() == 1, "deux structures, un terrain")
+	check(registre.de_commune("essai").size() == 2 and registre.de_type("terrain_foot").size() == 2, "deux structures d'essai, deux terrains avec celui de Smarves")
 
 	# Le catalogue : une commune publiée, pas installée, avec une gare ; une structure fautive est écartée sans bruit.
 	var catalogue := {"format": 1, "communes": [
@@ -107,7 +108,7 @@ func _vocabulaire() -> void:
 
 
 func _manifestes() -> void:
-	check(Commune.smarves().valide() and Commune.smarves().structures().is_empty(), "le manifeste de Smarves reste valide")
+	check(Commune.smarves().valide() and Commune.smarves().structures().size() == 1, "le manifeste de Smarves reste valide, avec son stade")
 	for id in ["liguge", "la_villedieu_du_clain", "availles_limouzine"]:
 		var t := FileAccess.get_file_as_string("res://tools/paquet_essai/%s/commune.json" % id)
 		var c := Commune.depuis_texte(t, "res://communes/%s/commune.json" % id, "essai.pck")
