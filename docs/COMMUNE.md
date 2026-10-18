@@ -101,6 +101,7 @@ Un dossier `communes/<id>/` avec au moins un manifeste `commune.json` et la scè
 | `biens` | non | les biens et leurs vendeurs |
 | `jeux.regles_serveur` | non | les règles versées au serveur pour le multi (vide tant que le multi n'existe pas) |
 | `structures` | non | les structures de la commune qui comptent pour les autres communes : gare, arrêt de car, terrain de football (section « Les structures ») ; vide par défaut |
+| `notaire` | non | le notaire de la commune et son registre : toutes les adresses à vendre et le plan de l'étude (section « Le notaire ») |
 
 Les champs facultatifs gardent le format 1 : un manifeste qui ne les a pas reste valide et prend leur valeur par défaut. Présents, ils doivent avoir le bon type (un texte, un objet, un nombre entier positif, une liste de textes), sinon la commune est refusée, par le jeu comme par le portail. `Commune.auteur()`, `arrivee_nom()`, `population()`, `licence()` et `sources()` les lisent.
 
@@ -170,6 +171,41 @@ La commune d'essai (`tools/commune_essai/`) déclare une halte et un stade ; `to
 ```sh
 godot --headless --path . -s tools/test_structures.gd
 ```
+
+## Le notaire
+
+L'étude du notaire est une structure du socle : **la commune déclare son notaire et son registre, le socle en fait l'étude, les fiches et le plan.** Rien de l'étude n'est propre à Smarves (`scripts/socle/notaire.gd`, plan dessiné par `scripts/carte_biens.gd`).
+
+```json
+"notaire": {
+	"nom": "Maître Garnier", "etude": "L'étude de Maître Garnier",
+	"titre": "Étude de Maître Garnier, notaire à Smarves",
+	"registre": {"source": "res://scripts/adresses.gd"}
+}
+```
+
+`registre` est soit `{"source": "<script>"}`, un script dont `static func registre()` rend le registre (Smarves le calcule depuis les rangées de façades de son village, pour que le plan suive les maisons), soit le registre écrit dans le manifeste : `{"quartiers": [...], "adresses": [...]}`.
+
+Le plan se dessine sur un papier de 1000 × 620 ; les rectangles s'écrivent `[x, y, largeur, hauteur]`.
+
+| Un quartier (un onglet du plan) | |
+|---|---|
+| `id`, `nom` | la clé et le nom de l'onglet (« La rue du Clain ») |
+| `style` | `plan` : chaque case porte son nom et son prix ; `rue` : des façades numérotées, l'enseigne couchée le long de la case quand elle est étroite |
+| `decor` | des formes sous les cases : `{"forme": "rect", "rect", "teinte"}` ou `{"forme": "rond", "centre": [x, y], "rayon", "teinte"}` ; teintes : `place`, `route`, `chemin`, `jardin`, `cour`, `fond` |
+| `textes` | `{"texte", "rect", "taille", "centre"}` : les noms de rues et de places |
+| `liens` | `{"rect", "vers", "texte"}` : un bout de rue qui ouvre un autre quartier |
+
+| Une adresse | |
+|---|---|
+| `id`, `quartier`, `rect` | la clé du bien, son onglet, sa case |
+| `etiquette`, `numero`, `ligne` | ce qui s'écrit dans la case, le numéro de la façade (0 : pas de numéro), l'adresse sur la fiche (« 13, rue du Clain ») |
+| `genre` | `maison` (un logement qu'on habite ou qu'on loue), `murs` (une boutique : on achète les murs, le commerçant paie), `public` (la commune reste et paie), `part` (l'`id` est un bien déjà au catalogue de `biens`) |
+| `nom`, `prix`, `de`, `phrase` | la fiche : le nom de l'acte, le prix, qui cède, sa phrase |
+| `interieur` | pour une maison : le gabarit de l'intérieur (`maisonnette_v1`, `maison_v1`, `maison_haute_v1`, `pavillon_v1`, ou un de ceux des logements de `Biens`) |
+| `standing`, `seuil` | facultatifs ; un lieu à seuil se vend tout de suite mais n'ouvre qu'au seuil |
+
+Le socle tire la fiche du prix : rente annoncée 10 % du prix par recette (8 % pour un bâtiment public), charges un cent-vingtième, standing selon le genre et le prix. Un manifeste sans `notaire` reste valide : l'étude prend « Le notaire » et un registre vide. `Commune` vérifie le champ (`notaire.verifier`), un quartier inconnu, un genre inconnu ou une adresse sans prix rendent le manifeste invalide.
 
 ## Comment une commune arrive
 

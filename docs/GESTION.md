@@ -58,6 +58,10 @@ On ne porte qu'une tenue et on ne conduit qu'un véhicule à la fois : seuls ceu
 
 La rente annoncée vaut 10 % du prix par recette : sur la brochure, un bien se rembourse en dix recettes, soit 200 mises, un petit quart d'heure. En vrai, à 65 % de l'annonce, il en faut plutôt quinze, si l'on mise assez pour que la recette soit pleine.
 
+### Toutes les adresses du village
+
+Chez le notaire, chaque adresse du village s'achète : une cinquantaine, posées sur un plan en trois onglets (la place, la rue du Clain, la route du Bois), chaque façade à sa place et à sa largeur, numérotée, impairs au nord et pairs au sud. Une maison ou un pavillon devient un logement, qu'on habite, qu'on meuble ou qu'on loue (le prix suit la largeur et les étages, l'intérieur aussi : maisonnette, maison, maison haute, pavillon). Une boutique se vend en murs : le commerçant reste et paie son loyer. Un bâtiment public (mairie, église, école, bibliothèque, poste, banque) se vend plus cher et la commune paie un loyer plus sage (8 %). Les cafés, les salles et le casino gardent leurs parts. Le registre est celui du manifeste de la commune (`docs/COMMUNE.md`, section « Le notaire ») ; pour Smarves, `scripts/adresses.gd` le calcule depuis les rangées de façades du village.
+
 ## La courbe de la première heure
 
 Simulation : `godot --headless --path . res://tools/sim_gestion.tscn`. Ce sont les 300 joueurs moyens de `sim_progression` (un coup toutes les 5 secondes, une mise d'un dixième des crédits, avances de Josiane puis M. Brunet), joués avec les mêmes tirages sans rien acheter, puis en achetant : le bien le moins cher proposé (une fois sur deux, le moins cher qui rapporte) dès qu'on a trois fois son prix en poche. Trois profils : le joueur moyen (un sur quatre fait financer), celui qui n'achète que comptant, celui qui fait toujours financer ce qu'il n'a pas de quoi payer trois fois.

@@ -263,7 +263,7 @@ func _fill_left() -> void:
 	var paid_by := {}
 	for r in Biens.last_recette:
 		paid_by[r[0]] = r[1]
-	for it in Biens.CATALOGUE:
+	for it in Biens.catalogue():
 		var n := Biens.count(it.id)
 		if n <= 0:
 			continue
@@ -312,7 +312,7 @@ func _fill_logement() -> void:
 	_title(_left, "Mon logement")
 	var home := Biens.habite()
 	_text(_left, "Adresse : %s" % (Biens.item(home).name if home != "" else "l'hôtel du casino, chez Monsieur Armand"), 18, INK)
-	for it in Biens.CATALOGUE:
+	for it in Biens.catalogue():
 		if not Biens.logements.has(it.id):
 			continue
 		var lived := Biens.is_habite(it.id)

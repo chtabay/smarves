@@ -34,12 +34,14 @@ const SOLD := "« Repris à %s. Le marché est ce qu'il est, mais vous gardez l'
 const TOO_POOR := "« Il vous manque quelques crédits. M. Brunet finance, vous savez : c'est son métier, et il l'aime. »"
 
 const CARTE := preload("res://scripts/carte_biens.gd")
+const NOTAIRE := preload("res://scripts/socle/notaire.gd")
 const OBLIGATIONS := preload("res://scripts/socle/foot_obligations.gd")
 
 var _list: VBoxContainer
 ## Chez le notaire, le registre est un plan : les biens sur leurs bâtiments, la fiche du lot choisi à côté.
 var _map: Control
 var _picked := ""
+var _tabs := {}
 var _status: Label
 var _serif: Font
 
@@ -66,7 +68,9 @@ func _ready() -> void:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 8)
 	add_child(v)
-	var head: Array = HEADINGS.get(seller, HEADINGS.notaire)
+	var head: Array = HEADINGS.get(seller, HEADINGS.notaire).duplicate()
+	if seller == "notaire":
+		head[0] = NOTAIRE.etude(Commune.smarves()).titre
 	_label(v, head[0], 28, INK, true).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_label(v, head[1], 16, INK_LIGHT).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var rule := ColorRect.new()
@@ -81,11 +85,33 @@ func _ready() -> void:
 		h.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		h.add_theme_constant_override("separation", 18)
 		v.add_child(h)
+		var left := VBoxContainer.new()
+		left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		left.add_theme_constant_override("separation", 6)
+		h.add_child(left)
+		# Les quartiers du plan, en onglets assez grands pour le doigt.
+		var tabs := HBoxContainer.new()
+		tabs.add_theme_constant_override("separation", 6)
+		left.add_child(tabs)
+		var reg := NOTAIRE.registre(Commune.smarves())
+		for quart in reg.quartiers:
+			var q := str(quart.id)
+			var t := _button(str(quart.nom), _on_quartier.bind(q))
+			t.toggle_mode = true
+			t.add_theme_color_override("font_pressed_color", INK)
+			t.add_theme_color_override("font_hover_pressed_color", INK)
+			t.custom_minimum_size = Vector2(150, 48)
+			t.name = q
+			tabs.add_child(t)
+			_tabs[q] = t
 		_map = CARTE.new()
+		_map.registre = reg
 		_map.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_map.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		_map.picked.connect(_on_picked)
-		h.add_child(_map)
+		_map.quartier_changed.connect(_on_quartier_changed)
+		left.add_child(_map)
+		_on_quartier_changed(_map.quartier)
 		scroll.custom_minimum_size.x = 320
 		h.add_child(scroll)
 	else:
@@ -147,7 +173,7 @@ func _refresh() -> void:
 	if _map:
 		_detail(_picked)
 		_map.queue_redraw()
-	for it in Biens.CATALOGUE:
+	for it in Biens.catalogue():
 		if _map:
 			break
 		if it.seller != seller:
@@ -205,7 +231,31 @@ func _card(it: Dictionary) -> void:
 		right.add_child(resell)
 
 
+func _on_quartier(q: String) -> void:
+	_map.set_quartier(q)
+	_on_quartier_changed(_map.quartier)
+
+
+func _on_quartier_changed(q: String) -> void:
+	for k in _tabs:
+		_tabs[k].set_pressed_no_signal(k == q)
+	if _picked != "" and not _dans(_picked, q):
+		_picked = ""
+		_map.select("")
+		_refresh()
+
+
+## Une adresse est-elle sur le plan de ce quartier (le Moulin est sur la place et au bout de la rue du Clain).
+func _dans(id: String, q: String) -> bool:
+	for a in NOTAIRE.registre(Commune.smarves()).adresses:
+		if str(a.id) == id and str(a.quartier) == q:
+			return true
+	return false
+
+
 func _on_picked(id: String) -> void:
+	if not _dans(id, _map.quartier):
+		_map.set_quartier(NOTAIRE.quartier_of(Commune.smarves(), id))
 	_picked = id
 	_map.select(id)
 	_refresh()
@@ -220,15 +270,20 @@ func _detail(id: String) -> void:
 		_legend("à vous", CARTE.MINE)
 		_legend("pas encore cédé", CARTE.CLOSED)
 		var mine: Array[String] = []
-		for it in Biens.CATALOGUE:
+		for it in Biens.catalogue():
 			if it.seller == seller and Biens.count(it.id) > 0:
 				mine.append(it.name if Biens.count(it.id) == 1 else "%s ×%d" % [it.name, Biens.count(it.id)])
-		_label(_list, "Vos biens chez Maître Garnier : " + (", ".join(mine) if not mine.is_empty() else "aucun pour l'instant."), 15, INK_LIGHT)
+		_label(_list, "Vos biens chez %s : " % NOTAIRE.etude(Commune.smarves()).nom + (", ".join(mine) if not mine.is_empty() else "aucun pour l'instant."), 15, INK_LIGHT)
 		return
 	var it: Dictionary = Biens.item(id)
 	var n := Biens.count(id)
 	_label(_list, it.name, 21, INK, true)
-	_label(_list, CARTE.LOTS[id][0], 15, INK_LIGHT)
+	var adr := NOTAIRE.adresse(Commune.smarves(), id)
+	var lieu := str(adr.get("ligne", ""))
+	if int(adr.get("numero", 0)) == 0 and str(adr.get("etiquette", "")) not in ["", lieu]:
+		lieu = "%s  ·  %s" % [adr.etiquette, lieu] if lieu != "" and not lieu.begins_with("Le ") else str(adr.etiquette)
+	if lieu != "":
+		_label(_list, lieu, 15, INK_LIGHT)
 	if Game.won < it.gate:
 		_label(_list, "Pas encore cédé. %s attend que vous ayez gagné %s au jeu." % [it.from, Game.fmt(it.gate)], 16, INK_LIGHT)
 		return
@@ -261,6 +316,14 @@ func _detail(id: String) -> void:
 		for b in [_button("Payer comptant", _buy.bind(id, false)), _button("Financer au Crédit Smarvois", _buy.bind(id, true))]:
 			b.custom_minimum_size.y = 48
 			_list.add_child(b)
+	if Biens.logements.has(id):
+		# Une maison à soi : on y habite, ou on la loue ; on change d'avis ici comme dans le carnet.
+		var lived := Biens.is_habite(id)
+		_label(_list, "Vous y habitez : elle ne verse pas de rente, et compte double en standing." if lived else "Louée : elle verse sa rente à chaque recette.", 15, INK)
+		var choice := _button("La remettre en location" if lived else "M'y installer", (Biens.louer if lived else Biens.habiter).bind(id))
+		choice.custom_minimum_size.y = 48
+		choice.pressed.connect(_refresh)
+		_list.add_child(choice)
 	if n > 0:
 		var resell := _button("Revendre (%s)" % Game.fmt(Biens.resale_of(id)), _sell.bind(id))
 		resell.custom_minimum_size.y = 48

@@ -1,38 +1,17 @@
 extends Control
-## Le plan cadastral de l'étude de Maître Garnier : la place de la Mairie et le début du chemin de
-## Passelourdin, vus d'en haut, avec chaque bien du registre posé sur son bâtiment (le café pour la
-## Smarvoise, la boulangerie pour le fournil, la maison verte pour la maison de maître…). Un lot se
-## touche ou se clique pour ouvrir sa fiche. Couleurs : à vendre, à vous, pas encore cédé.
+## Le plan de l'étude du notaire, dessiné depuis le registre de la commune (scripts/socle/notaire.gd) :
+## un onglet par quartier, chaque adresse posée sur son papier à sa place et à sa largeur. Un quartier
+## « plan » montre ses bâtiments avec leur nom et leur prix ; un quartier « rue » montre ses façades
+## numérotées des deux côtés. Une adresse se touche ou se clique pour ouvrir sa fiche. Couleurs : à vendre,
+## à vous, pas encore cédé. Rien ici n'est propre à Smarves.
 
 signal picked(id: String)
+## Le plan change de quartier (un onglet, ou le bout d'une rue).
+signal quartier_changed(id: String)
 
-## Le plan est un schéma, comme celui de l'agence Lacroix d'Addict Casino : les bâtiments gardent leur
-## place autour de la place de la Mairie, mais chaque case est assez grande pour son nom et son prix.
-## Tout est dessiné sur un papier de DESIGN unités, mis à l'échelle de la fenêtre.
-const DESIGN := Vector2(1000.0, 620.0)
-const SQUARE := Rect2(150, 120, 710, 400)
-const ROAD := Rect2(0, 530, 1000, 70)
-const CHEMIN := Rect2(470, 0, 60, 120)
-## Les bâtiments qui ne se vendent pas, pour s'y retrouver : [nom, case].
-const MARKS := [
-	["Mairie", Rect2(390, 140, 130, 80)],
-	["Église", Rect2(540, 140, 110, 80)],
-	["Banque", Rect2(680, 400, 160, 70)],
-]
-## Les biens du registre sur le plan : id du catalogue → [nom du lieu, case].
-const LOTS := {
-	"maison_place": ["Maison de maître", Rect2(170, 135, 190, 80)],
-	"chambre": ["La chambre", Rect2(170, 230, 190, 80)],
-	"smarvoise": ["Café de la Place", Rect2(170, 325, 190, 80)],
-	"comite": ["Salle Rabelais", Rect2(170, 420, 190, 80)],
-	"casino": ["Casino", Rect2(680, 135, 160, 110)],
-	"fournil": ["Boulangerie", Rect2(680, 265, 160, 110)],
-	"maison": ["Rue de l'Église", Rect2(250, 15, 190, 85)],
-	# Le Moulin des Dames est au bout de la rue du Clain, à l'ouest, par la route.
-	"cotes": ["← Moulin des Dames", Rect2(10, 535, 220, 75)],
-	# Le stade municipal est sur la route du Bois, à l'est.
-	"etoile": ["Stade municipal →", Rect2(770, 535, 220, 75)],
-}
+const NOTAIRE := preload("res://scripts/socle/notaire.gd")
+## Tout est dessiné sur un papier de cette taille, mis à l'échelle de la fenêtre.
+const DESIGN := NOTAIRE.PAPIER
 ## Une cible qu'on touche du doigt fait au moins 48 px de côté.
 const MIN_TARGET := 48.0
 
@@ -41,21 +20,60 @@ const INK_LIGHT := Color(0.32, 0.32, 0.42)
 const FOR_SALE := Color(0.98, 0.84, 0.45)
 const MINE := Color(0.55, 0.78, 0.5)
 const CLOSED := Color(0.82, 0.8, 0.75)
+const TEINTES := {
+	"place": Color(0.88, 0.84, 0.74), "route": Color(0.72, 0.7, 0.66), "chemin": Color(0.86, 0.82, 0.7),
+	"jardin": Color(0.62, 0.72, 0.5), "cour": Color(0.8, 0.77, 0.7), "fond": Color(0.9, 0.87, 0.79),
+}
 
+## Le registre dessiné : celui de la commune en cours, sauf si on en donne un autre avant _ready.
+var registre := {}
 var selected := ""
+var quartier := ""
 var _font: Font
 
 
 func _ready() -> void:
 	_font = Polices.texte()
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	if registre.is_empty():
+		registre = NOTAIRE.registre(Commune.smarves())
+	if quartier == "" and not quartiers().is_empty():
+		quartier = str(quartiers()[0].id)
 	Biens.changed.connect(queue_redraw)
 	Game.changed.connect(queue_redraw)
+
+
+func quartiers() -> Array:
+	return registre.get("quartiers", [])
 
 
 func select(id: String) -> void:
 	selected = id
 	queue_redraw()
+
+
+func set_quartier(id: String) -> void:
+	if _quartier(id).is_empty() or id == quartier:
+		return
+	quartier = id
+	quartier_changed.emit(id)
+	queue_redraw()
+
+
+func _quartier(id: String) -> Dictionary:
+	for q in quartiers():
+		if str(q.id) == id:
+			return q
+	return {}
+
+
+## Les adresses du quartier affiché.
+func _lots() -> Array:
+	var out := []
+	for a in registre.get("adresses", []):
+		if str(a.quartier) == quartier:
+			out.append(a)
+	return out
 
 
 func _k() -> float:
@@ -68,17 +86,18 @@ func _box(r: Rect2) -> Rect2:
 	return Rect2(off + r.position * k, r.size * k)
 
 
-## La zone qu'on touche : le lot, grossi jusqu'à 48 px s'il est plus petit.
-func _target(id: String) -> Rect2:
-	var r := _box(LOTS[id][1])
-	return r.grow_individual(maxf(0.0, (MIN_TARGET - r.size.x) / 2.0), maxf(0.0, (MIN_TARGET - r.size.y) / 2.0),
-		maxf(0.0, (MIN_TARGET - r.size.x) / 2.0), maxf(0.0, (MIN_TARGET - r.size.y) / 2.0))
+## La zone qu'on touche : la case, grossie jusqu'à 48 px si elle est plus petite.
+func _target(rect: Rect2) -> Rect2:
+	var r := _box(rect)
+	var gx := maxf(0.0, (MIN_TARGET - r.size.x) / 2.0)
+	var gy := maxf(0.0, (MIN_TARGET - r.size.y) / 2.0)
+	return r.grow_individual(gx, gy, gx, gy)
 
 
-## Ce que montre un lot : à vendre (prix), à vous, complet, ou pas encore cédé.
+## Ce que montre une adresse : à vendre (prix), à vous, ou pas encore cédé.
 static func state_of(id: String) -> String:
 	var it: Dictionary = Biens.item(id)
-	if Game.won < int(it.gate):
+	if it.is_empty() or Game.won < int(it.gate):
 		return "ferme"
 	if it.kind == "club":
 		# Les obligations du club : à vous dès qu'on y a mis quelque chose, à prendre sinon.
@@ -90,34 +109,48 @@ static func state_of(id: String) -> String:
 
 
 func _gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		for id in LOTS:
-			if _target(id).has_point(event.position):
-				select(id)
-				picked.emit(id)
-				accept_event()
-				return
+	if not (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT):
+		return
+	for a in _lots():
+		if _target(a.rect).has_point(event.position):
+			select(str(a.id))
+			picked.emit(str(a.id))
+			accept_event()
+			return
+	# Le bout d'une rue mène à un autre quartier.
+	for l in _quartier(quartier).get("liens", []):
+		if _target(l.rect).has_point(event.position):
+			set_quartier(str(l.vers))
+			accept_event()
+			return
 
 
 func _draw() -> void:
-	# La place, la route, le chemin qui monte vers Passelourdin.
-	draw_rect(_box(SQUARE), Color(0.88, 0.84, 0.74))
-	draw_rect(_box(ROAD), Color(0.72, 0.7, 0.66))
-	draw_rect(_box(CHEMIN), Color(0.86, 0.82, 0.7))
-	_fit("La place de la Mairie", _box(Rect2(390, 240, 270, 280)), 24, INK_LIGHT)
-	_fit("Route de Poitiers", _box(Rect2(250, 540, 500, 50)), 22, INK_LIGHT)
-	_fit("Chemin de Passelourdin ↑", _box(Rect2(545, 20, 300, 60)), 22, INK_LIGHT, false)
-	for m in MARKS:
-		var r := _box(m[1])
-		draw_rect(r, Color(0.78, 0.74, 0.66))
-		draw_rect(r, Color(0.45, 0.32, 0.18, 0.6), false, 1.0)
-		_fit(m[0], r, 21, INK_LIGHT)
-	for id in LOTS:
-		_lot(id)
+	var q := _quartier(quartier)
+	if q.is_empty():
+		return
+	for d in q.decor:
+		var c: Color = TEINTES.get(d.teinte, TEINTES.place)
+		if d.forme == "rond":
+			var b := _box(Rect2(d.centre - Vector2.ONE * d.rayon, Vector2.ONE * d.rayon * 2.0))
+			draw_circle(b.get_center(), b.size.x / 2.0, c)
+		else:
+			draw_rect(_box(d.rect), c)
+	for t in q.textes:
+		_fit(t.texte, _box(t.rect), t.taille, INK_LIGHT, t.centre)
+	for l in q.liens:
+		var r := _box(l.rect)
+		draw_rect(r, TEINTES.chemin)
+		draw_rect(r, Color(0.45, 0.32, 0.18), false, 1.5)
+		_fit(l.texte, r, 22, INK)
+	var street: bool = q.style == "rue"
+	for a in _lots():
+		_lot(a, street)
 
 
-func _lot(id: String) -> void:
-	var r := _box(LOTS[id][1])
+func _lot(a: Dictionary, street: bool) -> void:
+	var id := str(a.id)
+	var r := _box(a.rect)
 	var state := state_of(id)
 	var fill: Color = {"vente": FOR_SALE, "a_vous": MINE, "ferme": CLOSED}[state]
 	if state == "vente" and Biens.count(id) > 0:
@@ -126,9 +159,10 @@ func _lot(id: String) -> void:
 	var sel := id == selected
 	draw_rect(r, Color(0.65, 0.12, 0.08) if sel else Color(0.45, 0.32, 0.18), false, 3.0 if sel else 1.5)
 	var line := ""
-	if Biens.item(id).kind == "club" and state != "ferme":
+	var it: Dictionary = Biens.item(id)
+	if it.get("kind", "") == "club" and state != "ferme":
 		var f: Node = (Engine.get_main_loop() as SceneTree).root.get_node_or_null("Football")
-		var inv: int = int(f.investi(str(Biens.item(id).club))) if f != null else 0
+		var inv: int = int(f.investi(str(it.club))) if f != null else 0
 		line = "%s cr. placés" % Game.fmt(inv) if inv > 0 else "obligations"
 	else:
 		match state:
@@ -140,10 +174,39 @@ func _lot(id: String) -> void:
 				line = "à vous" if Biens.count(id) <= 1 else "à vous ×%d" % Biens.count(id)
 			"ferme":
 				line = "pas encore"
+	if street and int(a.numero) > 0:
+		_street_label(str(a.numero), str(a.etiquette), line, r, state)
+		return
 	# Le nom en haut, le prix ou l'état en bas, chacun dans sa moitié de case.
 	var half := Vector2(r.size.x, r.size.y / 2.0)
-	_fit(LOTS[id][0], Rect2(r.position + Vector2(0, r.size.y * 0.06), half), 25, INK)
+	_fit(str(a.etiquette), Rect2(r.position + Vector2(0, r.size.y * 0.06), half), 25, INK)
 	_fit(line, Rect2(r.position + Vector2(0, r.size.y * 0.44), half), 23, INK if state != "ferme" else INK_LIGHT)
+
+
+## Une façade de la rue, souvent étroite : le numéro, en grand ; l'enseigne en dessous, couchée le long de
+## la façade quand la case est plus haute que large ; le prix, s'il tient.
+func _street_label(num: String, nom: String, line: String, r: Rect2, state: String) -> void:
+	_fit(num, Rect2(r.position, Vector2(r.size.x, r.size.y * 0.3)), 30, INK)
+	var rest := Rect2(r.position + Vector2(0, r.size.y * 0.3), Vector2(r.size.x, r.size.y * 0.7))
+	var lines: Array[String] = []
+	if nom != "":
+		lines.append(nom)
+	lines.append(line)
+	if rest.size.y > rest.size.x * 1.3:
+		# Couché : on écrit le long de la case, de bas en haut, comme sur un plan cadastral.
+		draw_set_transform(rest.get_center(), -PI / 2.0)
+		var turned := Rect2(-rest.size.y / 2.0, -rest.size.x / 2.0, rest.size.y, rest.size.x)
+		_lines(lines, turned, state)
+		draw_set_transform(Vector2.ZERO)
+	else:
+		_lines(lines, rest, state)
+
+
+func _lines(lines: Array[String], r: Rect2, state: String) -> void:
+	var h := r.size.y / lines.size()
+	for i in lines.size():
+		var last := i == lines.size() - 1
+		_fit(lines[i], Rect2(r.position + Vector2(0, h * i), Vector2(r.size.x, h)), 20 if last else 22, INK_LIGHT if last and state == "ferme" else INK)
 
 
 ## Un texte dans sa case : la taille suit l'échelle du plan, et rapetisse s'il le faut pour ne jamais déborder.

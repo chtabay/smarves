@@ -98,6 +98,26 @@ func _ready() -> void:
 	_check(not Biens.logements.has("chambre") and Biens.habite() == "", "M. Brunet reprend la chambre, retour à l'hôtel")
 	_check(Biens.count("lit_cuivre") == 0, "le lit part avec la chambre")
 	_check(noted.size() > 0 and "carton" in noted[-1], "la trouvaille revient dans un carton")
+	# Toutes les adresses du village sont au registre : maisons, murs des boutiques, bâtiments publics.
+	var reg := Biens.NOTAIRE.registre(Commune.smarves())
+	var numeros: Array = reg.adresses.filter(func(a): return int(a.numero) > 0)
+	_check(numeros.size() >= 30, "plus de trente adresses dans les rues (%d)" % numeros.size())
+	for a in reg.adresses:
+		_check(not Biens.item(a.id).is_empty(), "l'adresse %s a sa fiche (%s)" % [a.ligne, a.id])
+	_check(Biens.NOTAIRE.verifier(Commune.smarves().data.notaire).is_empty(), "le notaire du manifeste est bien écrit")
+	_check(Biens.item("adr_mairie").kind == "murs" and Biens.item("adr_mairie").gate == 0, "les murs de la mairie se vendent dès le départ")
+	var maisons: Array = reg.adresses.filter(func(a): return a.genre == "maison")
+	var m: String = maisons[0].id
+	Game.credits = 50000
+	_check(Biens.buy(m) and Biens.logements.has(m), "une maison de la rue devient un logement (%s)" % m)
+	_check(Biens.slots(m).size() > 0, "et a ses emplacements (%s)" % Biens.logements[m].interieur)
+	var r1 := Biens.rente_annoncee()
+	Biens.habiter(m)
+	_check(Biens.habite() == m and Biens.rente_annoncee() == r1 - Biens.item(m).rente, "habitée, elle ne verse plus de rente")
+	var s2 := Biens.standing()
+	_check(Biens.buy("adr_boucherie") and Biens.standing() == s2 + Biens.item("adr_boucherie").standing, "les murs de la boucherie comptent au standing")
+	_check(Biens.charges() >= Biens.item("adr_boucherie").charge, "et coûtent leurs charges")
+	_check(not Biens.logements.has("adr_boucherie"), "des murs ne sont pas un logement")
 	Game.staked = 0
 	Game.changed.emit()
 	_check(Biens.owned.is_empty() and Biens.recettes == 0 and Biens.logements.is_empty(), "nouvelle partie : plus de biens")

@@ -157,12 +157,28 @@ const INTERIEURS := {
 		["Cuisine", ["sol", 1], ["mur", 1], ["petit", 2]], ["Jardin", ["jardin", 4]]],
 }
 
+## Les gabarits des maisons de la rue (Adresses) : une maisonnette de plain-pied, la maison à étage
+## (maison_v1, ci-dessus), la haute maison de trois niveaux, le pavillon avec son garage.
+const INTERIEURS_RUE := {
+	"maisonnette_v1": [["Séjour", ["sol", 2], ["mur", 2], ["petit", 1]], ["Chambre", ["lit", 1], ["mur", 1], ["sol", 1]],
+		["Cuisine", ["sol", 1], ["petit", 1]], ["Jardin", ["jardin", 2]]],
+	"maison_haute_v1": [["Salon", ["sol", 3], ["mur", 2], ["petit", 1]], ["Salle à manger", ["sol", 2], ["mur", 1], ["petit", 1]],
+		["Cuisine", ["sol", 1], ["mur", 1], ["petit", 1]], ["Chambre", ["lit", 1], ["mur", 1], ["sol", 1], ["petit", 1]],
+		["Chambre d'amis", ["lit", 1], ["sol", 1]], ["Bureau", ["sol", 2], ["mur", 1]], ["Jardin", ["jardin", 2]]],
+	"pavillon_v1": [["Salon", ["sol", 3], ["mur", 2], ["petit", 1]], ["Cuisine", ["sol", 1], ["mur", 1], ["petit", 1]],
+		["Chambre", ["lit", 1], ["mur", 1], ["sol", 1]], ["Sous-sol", ["sol", 2], ["grand", 1]], ["Jardin", ["jardin", 3]]],
+}
+
 const SELLERS := {
 	"notaire": {"name": "L'étude de Maître Garnier", "host": "Maître Garnier", "scene": "res://scenes/notaire.tscn"},
 	"couture": {"name": "Raymonde, couture et retouches", "host": "Raymonde", "scene": "res://scenes/couture.tscn"},
 	"garage": {"name": "Le garage Fradin", "host": "Roger Fradin", "scene": "res://scenes/garage.tscn"},
 	"brocante": {"name": "Ginette Boutin, brocante et meubles", "host": "Ginette Boutin", "scene": "res://scenes/brocante.tscn"},
 }
+
+## L'étude du notaire : toutes les adresses de la commune, à vendre (scripts/socle/notaire.gd ; pour
+## Smarves, le registre vient de scripts/adresses.gd, comme le dit le manifeste).
+const NOTAIRE := preload("res://scripts/socle/notaire.gd")
 
 const SAVE_PATH := "user://smarves_biens.save"
 ## L'intérieur d'un logement : la porte d'une maison possédée y mène (Biens.enter()).
@@ -209,11 +225,27 @@ func _ready() -> void:
 
 # --- Le catalogue ----------------------------------------------------------------------------
 
+## Tout ce qui se vend : le catalogue, et les adresses du village (les maisons et les murs).
+static func catalogue() -> Array:
+	if _catalogue.is_empty():
+		_catalogue = CATALOGUE + NOTAIRE.fiches(Commune.smarves())
+		for it in _catalogue:
+			_items[it.id] = it
+	return _catalogue
+
+
+static var _catalogue: Array = []
+static var _items := {}
+
+
 static func item(id: String) -> Dictionary:
-	for it in CATALOGUE:
-		if it.id == id:
-			return it
-	return {}
+	catalogue()
+	return _items.get(id, {})
+
+
+## Le gabarit d'intérieur, d'où qu'il vienne.
+static func interieur(gabarit: String) -> Array:
+	return INTERIEURS.get(gabarit, INTERIEURS_RUE.get(gabarit, []))
 
 
 ## Le prix du n-ième exemplaire (0 : le premier).
@@ -257,7 +289,7 @@ func standing() -> int:
 	var s := 0
 	for id in owned:
 		var it := item(id)
-		if it.kind in ["part", "maison"]:
+		if it.kind in ["part", "maison", "murs"]:
 			s += it.standing * count(id)
 	var home := habite()
 	if home != "":
@@ -326,7 +358,7 @@ func slots(id: String) -> Array:
 	var out := []
 	if not logements.has(id):
 		return out
-	for room in INTERIEURS.get(str(logements[id].interieur), []):
+	for room in interieur(str(logements[id].interieur)):
 		var piece: String = room[0]
 		var key := piece.to_lower().replace(" ", "_").replace("'", "_").replace("à", "a").replace("é", "e").replace("è", "e")
 		for g in room.slice(1):
@@ -434,7 +466,7 @@ func enter(id: String) -> void:
 ## Pour les portes du village : le lot d'un logement, s'il est au joueur, et la scène qui l'ouvre.
 ## {owned, logement, scene, en_vente} ; en_vente : on peut l'acheter chez Maître Garnier.
 func door_of(lot: String) -> Dictionary:
-	for it in CATALOGUE:
+	for it in catalogue():
 		if str(it.get("lot", "")) == lot:
 			return {"owned": logements.has(it.id), "logement": it.id,
 				"scene": LOGEMENT_SCENE if logements.has(it.id) and ResourceLoader.exists(LOGEMENT_SCENE) else "",
@@ -457,7 +489,7 @@ func _souvenirs() -> void:
 
 
 func _new_logement(id: String) -> Dictionary:
-	return {"lot": str(item(id).get("lot", "")), "habite": false, "interieur": id + "_v1", "meubles": {}, "facade": {}}
+	return {"lot": str(item(id).get("lot", "")), "habite": false, "interieur": str(item(id).get("interieur", id + "_v1")), "meubles": {}, "facade": {}}
 
 
 ## Le logement quitte le joueur : les meubles posés et les trouvailles se décrochent.
@@ -469,7 +501,7 @@ func charges() -> int:
 	var c := 0
 	for id in owned:
 		var it := item(id)
-		if it.kind in ["part", "maison"]:
+		if it.kind in ["part", "maison", "murs"]:
 			c += it.charge * count(id)
 	if worn != "":
 		c += item(worn).charge
