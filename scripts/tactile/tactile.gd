@@ -27,6 +27,10 @@ var _carnet_btn: Button
 var _menu_btn: Button
 var _stick_base: Panel
 var _stick_knob: Panel
+## Les boutons de coin : en bas à droite en marchant, en haut à droite dans un lieu (la barre de
+## jeu occupe le bas).
+var _corner: HBoxContainer
+var _corner_top := false
 
 ## Les doigts posés sur la surface : index → {start, pos, time, role}.
 var _touches := {}
@@ -52,7 +56,9 @@ func _ready() -> void:
 		set_process(false)
 		set_physics_process(false)
 		return
-	layer = 30
+	# Au-dessus du carnet (40), de la bienvenue (45) et de la carte (46), pour que « Fermer » reste sous
+	# le doigt ; les autres boutons se cachent quand le jeu est en pause.
+	layer = 47
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	# Le retour d'Android ne quitte plus le jeu : il ferme ce qui est ouvert (Échap).
 	get_tree().quit_on_go_back = false
@@ -144,13 +150,10 @@ func _build() -> void:
 	add_child(_act)
 
 	var corner := HBoxContainer.new()
-	corner.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	corner.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	corner.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	corner.offset_right = -24
-	corner.offset_bottom = -24
 	corner.add_theme_constant_override("separation", 14)
 	add_child(corner)
+	_corner = corner
+	_place_corner()
 	_view_btn = _button("Vue", 22)
 	_view_btn.pressed.connect(press_key.bind(KEY_TAB))
 	corner.add_child(_view_btn)
@@ -167,6 +170,18 @@ func _build() -> void:
 	_stick_knob.visible = false
 	add_child(_stick_base)
 	add_child(_stick_knob)
+
+
+func _place_corner() -> void:
+	# Ancres et marges remises d'un bloc : set_anchors_preset seul garderait la position courante.
+	_corner.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT if _corner_top else Control.PRESET_BOTTOM_RIGHT)
+	_corner.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_corner.grow_vertical = Control.GROW_DIRECTION_END if _corner_top else Control.GROW_DIRECTION_BEGIN
+	_corner.offset_right = -24
+	if _corner_top:
+		_corner.offset_top = 24
+	else:
+		_corner.offset_bottom = -24
 
 
 func _button(text: String, size: int) -> Button:
@@ -216,7 +231,14 @@ func _process(delta: float) -> void:
 	_view_btn.visible = walking and s != null and s.has_method("set_fps")
 	_carnet_btn.visible = (walking or Carnet.is_open()) and not Settings.is_open()
 	_carnet_btn.text = "Fermer" if Carnet.is_open() else "Carnet"
-	_menu_btn.visible = walking
+	# Dans un lieu (café, banque, table…), l'habitant est figé et Échap en sort : le bouton le dit.
+	var inside: bool = p != null and p.frozen and not get_tree().paused and not (Carnet.is_open() or Settings.is_open())
+	_menu_btn.visible = walking or inside
+	_menu_btn.text = "Menu" if walking else "Sortir"
+	if inside != _corner_top:
+		_corner_top = inside
+		_place_corner()
+	_fit_carnet()
 	# Les touches du clavier ne servent pas au doigt : les lignes d'aide « ZQSD : marcher… » s'effacent.
 	if s != _hints_scene:
 		_hints_scene = s
@@ -231,6 +253,20 @@ func _process(delta: float) -> void:
 		if is_instance_valid(l):
 			l.visible = false
 	_update_act(p, walking)
+
+
+## Le carnet est dessiné pour 1600 × 900 : sur un petit écran, sa couverture et son plan rapetissent
+## pour tenir dedans, centrés comme avant.
+func _fit_carnet() -> void:
+	if not Carnet.is_open():
+		return
+	var size := get_viewport().get_visible_rect().size
+	for c: Control in [Carnet._cover, Carnet._sheet]:
+		if c == null or not c.visible or c.size.x <= 0.0:
+			continue
+		var s := minf(1.0, minf((size.x - 16.0) / c.size.x, (size.y - 16.0) / c.size.y))
+		c.pivot_offset = c.size / 2.0
+		c.scale = Vector2(s, s)
 
 
 ## L'invite « E : … » de la scène devient un bouton posé dessus, avec le même texte sans le « E : ».
@@ -277,7 +313,8 @@ func _touch_down(index: int, pos: Vector2) -> void:
 	if p == null:
 		return
 	var role := "tap"
-	if not _topdown(p) and pos.x < _surface.size.x * 0.4 and _stick_index == -1:
+	# Le pouce virtuel à gauche, en vue de dessus comme à pied (un toucher bref y reste un « tap »).
+	if pos.x < _surface.size.x * 0.4 and _stick_index == -1:
 		role = "stick"
 		_stick_index = index
 		_stick_base.position = pos - _stick_base.size / 2.0
@@ -286,6 +323,8 @@ func _touch_down(index: int, pos: Vector2) -> void:
 		_place_knob(pos)
 	_touches[index] = {"start": pos, "pos": pos, "time": Time.get_ticks_msec() / 1000.0, "role": role}
 	if _touches.size() == 2 and _topdown(p):
+		# Deux doigts en vue de dessus : un pincement, même si le premier était posé sur le pouce.
+		_release_stick()
 		_pinch_start = _pinch_distance()
 		for t in _touches.values():
 			t.role = "pinch"
@@ -316,9 +355,12 @@ func _touch_up(index: int, pos: Vector2) -> void:
 		return
 	var t: Dictionary = _touches[index]
 	_touches.erase(index)
+	var brief: bool = Time.get_ticks_msec() / 1000.0 - t.time < TAP_TIME and pos.distance_to(t.start) <= TAP_SLOP
 	if t.role == "stick":
 		_release_stick()
-	elif t.role == "tap" and Time.get_ticks_msec() / 1000.0 - t.time < TAP_TIME:
+		if brief:
+			_tap(pos)
+	elif t.role == "tap" and brief:
 		_tap(pos)
 	if _touches.size() < 2:
 		for o in _touches.values():
