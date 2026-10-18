@@ -291,7 +291,7 @@ Le référentiel : `Vienne.communes()`, `Vienne.commune(insee)`, `Vienne.centre(
 - **Au premier lancement**, l'ancien fichier unique `user://smarves.save` est lu une fois, réécrit en tiroirs, puis renommé `smarves.save.ancien` : rien n'est perdu, et l'ancien fichier ne repasse jamais devant les tiroirs. Un outil lancé par `-s` lit l'ancien fichier sans le migrer. `tools/test_sauvegarde.gd` écrit une partie à l'ancien format, la migre, la relit, et relit aussi un fichier de biens à l'ancien format.
 - **Une commune greffée range ses affaires** dans `Game.tiroir("<id>")`, un dictionnaire de valeurs JSON, écrit avec la partie à chaque `Game.changed`. Elle n'écrit jamais dans le socle.
 - **La dette est tenue par prêteur.** `Game.borrow(montant, preteur)`, `Game.repay(montant, preteur)` et `Game.debt_of(preteur)` ; sans prêteur, c'est celui de la commune d'origine (`banque.preteur` du manifeste de Smarves, donc M. Brunet). `Game.debt` reste le total, et l'écrire ajuste le prêteur par défaut : le code d'avant (Biens, le guichet de M. Brunet, le carnet) garde le même sens. Les intérêts courent pour chaque prêteur, au même taux.
-- **Nouvelle partie** : `Game.reset()` efface le socle et tous les tiroirs.
+- **Effacer sa partie** (tout au fond de la bienvenue, `scripts/bienvenue.gd`, après avoir écrit EFFACER ; plus de « Nouvelle partie » dans le menu Échap) : `Game.reset()` efface le socle et tous les tiroirs.
 
 ### Ce qui existe déjà et reste à rendre générique
 
