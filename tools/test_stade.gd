@@ -109,30 +109,25 @@ func _init() -> void:
 	var direct: Dictionary = foot.rencontre_en_direct(1, 6, foot.prochain_match("smarves").dom, foot.prochain_match("smarves").ext)
 	var mienne: Dictionary = direct.etat.equipes[0] if direct.etat.equipes[0].club == "smarves" else direct.etat.equipes[1]
 	check(mienne.formation == "3-5-2" and mienne.mentalite == "offensive", "le match de dimanche se jouera avec : %s, %s" % [mienne.formation, mienne.mentalite])
-	# Les locaux du club : le siège, d'où l'on ouvre la causerie, le mercato et le registre des obligations.
+	# Le siège du club : la porte ouvre le bureau, pleine page, d'où l'on gagne le registre des obligations.
 	causerie.closed.emit()
 	await process_frame
 	var sieges: Array = stade.find_children("*", "Area3D", true, false).filter(func(a): return a.get_meta("interact", "") == "locaux")
 	check(sieges.size() == 1 and str(sieges[0].get_meta("prompt")).contains("siège"), "le siège du club est au stade")
 	stade.open_locaux()
 	await process_frame
-	var locaux: PanelContainer = stade._causerie
-	check(locaux != null and locaux.club == "smarves" and locaux.find_child("Causerie", true, false) != null and locaux.find_child("Mercato", true, false) != null and locaux.find_child("Obligations", true, false) != null, "le siège ouvre sur la causerie, le mercato et les obligations")
-	check(_textes(locaux).any(func(x): return str(x).begins_with("Prochain match : journée 6")), "le siège dit le prochain match")
-	(locaux.find_child("Obligations", true, false) as Button).pressed.emit()
+	var bureau: Control = stade._causerie
+	check(bureau != null and bureau.get_script().get_global_name() == "Bureau" and bureau.club == "smarves", "le siège ouvre le bureau du club")
+	check(bureau.find_child("Nav_tactique", true, false) != null and bureau.find_child("Nav_championnat", true, false) != null, "le bureau a sa barre de gauche : tactique, championnat")
+	check(_textes(bureau).any(func(x): return str(x).contains("journée 6") or str(x).contains("Journée 6")), "le bureau dit le prochain match")
+	bureau.obligations.emit()
 	await process_frame
-	check(stade._causerie != null and stade._causerie != locaux and stade._causerie.find_child("Prendre_1", true, false) != null, "le registre des obligations s'ouvre depuis le siège")
+	await process_frame
+	check(stade._causerie != null and stade._causerie != bureau and stade._causerie.find_child("Prendre_1", true, false) != null, "le registre des obligations s'ouvre depuis le bureau")
 	stade._causerie.closed.emit()
 	await process_frame
-	stade.open_locaux()
-	await process_frame
-	(stade._causerie.find_child("Causerie", true, false) as Button).pressed.emit()
-	await process_frame
-	check(stade._causerie != null and stade._causerie.find_child("Bureau", true, false) != null, "la causerie s'ouvre depuis le siège")
 	check(stade._bandeau != null and stade._bandeau_score != null, "le bandeau du direct est en place")
-	stade._causerie.closed.emit()
-	await process_frame
-	check(stade._causerie == null, "Échap referme la causerie")
+	check(stade._causerie == null, "Échap referme le registre")
 	foot.decisions = {}
 	foot.locales = {}
 
