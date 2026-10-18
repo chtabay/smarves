@@ -8,11 +8,15 @@ extends "res://scripts/poker_panel.gd"
 ## L'argent, comme au solo : rien n'est pris d'avance. Le tapis que voit la table n'est que l'image des
 ## crédits du joueur (jusqu'à 10 000) ; chaque mise part des crédits quand elle part au pot, et la donne
 ## finie, ce qu'elle rend y revient. Se lever ne déplace rien ; disparaître (page fermée, réseau coupé)
-## libère la chaise au bout de 30 s, et la donne en cours se joue sans lui. `rendu` ne sert plus qu'à
+## libère la chaise au bout de dix minutes ; entre-temps le croupier couche l'absent à chaque donne. `rendu` ne sert plus qu'à
 ## remettre ce que la première version avait pris à l'entrée : le serveur le rend au premier passage.
 ##
 ## Les places : la sienne est toujours la place 0 de l'écran ; les autres tournent autour à partir de
 ## la place du serveur (6 chaises). Les habitués gardent leur nom ; un joueur prend la chaise de l'un d'eux.
+##
+## L'encart : à droite de l'écran, qui est à la table, avec quoi devant lui et son dernier geste dans la
+## donne, le donneur et celui qui parle ; en tête, ses crédits, le pot et le plafond d'une donne. Il se
+## replie d'un clic en une ligne, et vient replié sur un écran étroit (téléphone).
 
 ## Les habitués du serveur, par place, et leur figurant dans la salle (casino_interior.gd).
 const FIGURANTS := {"Le Commandant": "le-commandant", "Mme Duval": "mme-duval", "Teddy": "teddy",
@@ -43,6 +47,9 @@ var _lineup_key := ""
 var _dispo := -1
 ## Pour les essais : une vue du serveur posée à la main, sans réseau.
 var hors_ligne := false
+var _encart: PanelContainer
+var _encart_texte: RichTextLabel
+var _encart_ouvert := true
 
 
 func _ready() -> void:
@@ -58,6 +65,8 @@ func _ready() -> void:
 	add_child(_minuteur)
 	if not hors_ligne:
 		_appeler("voir")
+	if embedded and get_parent() is Control:
+		_batir_encart(get_parent())
 	_render()
 
 
@@ -433,6 +442,106 @@ func _leave() -> void:
 
 # --- L'affichage -----------------------------------------------------------------------------------
 
+## L'encart des joueurs, posé à droite sur le même calque que la barre ; il part avec le panneau.
+func _batir_encart(layer: Control) -> void:
+	_encart = PanelContainer.new()
+	BARRE.style(_encart)
+	_encart.mouse_filter = Control.MOUSE_FILTER_STOP
+	_encart.gui_input.connect(func(e: InputEvent):
+		if (e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT) or (e is InputEventScreenTouch and e.pressed):
+			_encart_ouvert = not _encart_ouvert
+			_render_encart())
+	_encart_texte = RichTextLabel.new()
+	_encart_texte.bbcode_enabled = true
+	_encart_texte.fit_content = true
+	_encart_texte.scroll_active = false
+	_encart_texte.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_encart_texte.add_theme_font_override("normal_font", BARRE.KIT.serif())
+	_encart_texte.add_theme_font_size_override("normal_font_size", 20)
+	_encart_texte.add_theme_color_override("default_color", BARRE.CREAM)
+	_encart_texte.custom_minimum_size = Vector2(300, 0)
+	_encart.add_child(_encart_texte)
+	layer.add_child(_encart)
+	var poser := func(): _encart.set_anchors_and_offsets_preset(Control.PRESET_CENTER_RIGHT, Control.PRESET_MODE_KEEP_SIZE, 18)
+	_encart.set_anchors_and_offsets_preset(Control.PRESET_CENTER_RIGHT, Control.PRESET_MODE_MINSIZE, 18)
+	_encart.resized.connect(poser)
+	# Au téléphone, l'encart ouvert cacherait la table : il vient replié, un geste l'ouvre.
+	_encart_ouvert = get_viewport().get_visible_rect().size.x >= 900
+	tree_exiting.connect(func(): if _encart: _encart.queue_free())
+
+
+## Les lignes de l'encart (bbcode), dans l'ordre des chaises à partir de la sienne.
+func encart_lignes() -> Array[String]:
+	var cream := BARRE.CREAM.to_html(false)
+	var muted := BARRE.MUTED.to_html(false)
+	var gold := BARRE.GOLD.to_html(false)
+	var h = srv.get("poker", {}).get("hand")
+	var dans_donne := h is Dictionary and in_hand
+	var lignes: Array[String] = []
+	var tete := "Vos crédits : %s" % Game.fmt(Game.credits)
+	if dans_donne:
+		tete += "   ·   pot %s" % Game.fmt(pot)
+	tete += "   ·   %s par donne au plus" % Game.fmt(CAP)
+	lignes.append("[color=%s]%s[/color]" % [muted, tete])
+	var joueurs := {}
+	if h is Dictionary:
+		for p in h.players:
+			joueurs[rel(int(p.seat))] = p
+	for i in 6:
+		var s: Dictionary = seats[i]
+		if str(s.get("name", "")) == "":
+			continue
+		var p = joueurs.get(i)
+		var nom := "Vous" if i == 0 else str(s.name)
+		var avoir := Game.fmt(Game.credits) if i == 0 else ("habitué" if not s.get("human", false) else Game.fmt(int(s.get("stack", 0))))
+		var geste := ""
+		if dans_donne and p is Dictionary:
+			if p.get("button", false):
+				nom += " (donneur)"
+			geste = _geste(p)
+		elif dans_donne:
+			geste = "ne joue pas"
+		var parle: bool = dans_donne and p is Dictionary and p.get("turn", false)
+		var l := "%s%s  —  %s" % ["▶ " if parle else "    ", nom, avoir]
+		if geste != "":
+			l += "   ·   " + geste
+		if parle:
+			l = "[color=%s]%s[/color]" % [gold, l]
+		elif dans_donne and p is Dictionary and not p.get("in", false):
+			l = "[color=%s]%s[/color]" % [muted, l]
+		else:
+			l = "[color=%s]%s[/color]" % [cream, l]
+		lignes.append(l)
+	return lignes
+
+
+## Le dernier geste d'un joueur dans la donne, dit court.
+static func _geste(p: Dictionary) -> String:
+	if not p.get("in", false):
+		return "couché"
+	var mise := int(round(float(p.get("street", 0))))
+	var last = p.get("last")
+	if p.get("allIn", false):
+		return "tapis"
+	match str(last) if last != null else "":
+		"fold": return "couché"
+		"check": return "parle"
+		"call": return "suit %s" % Game.fmt(mise) if mise > 0 else "suit"
+		"bet": return "mise %s" % Game.fmt(mise)
+		"raise": return "relance à %s" % Game.fmt(mise)
+	if mise > 0:
+		return "blinde %s" % Game.fmt(mise)
+	return "attend" if p.get("turn", false) else "à suivre"
+
+
+func _render_encart() -> void:
+	if _encart == null:
+		return
+	if not _encart_ouvert:
+		_encart_texte.text = "[color=%s]Autour de la table ▸[/color]" % BARRE.MUTED.to_html(false)
+		return
+	_encart_texte.text = "\n".join(encart_lignes())
+
 func _render_bar() -> void:
 	var to_call := int(round(float(_options.get("toCall", 0))))
 	var parts: Array[String] = []
@@ -464,6 +573,7 @@ func _render_bar() -> void:
 func _render(show_all := false) -> void:
 	if embedded:
 		_render_bar()
+		_render_encart()
 		changed.emit()
 	elif _rows.size() == 6:
 		super(show_all)
