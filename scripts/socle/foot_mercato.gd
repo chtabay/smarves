@@ -2,7 +2,7 @@ class_name FootMercato
 extends FootTableau
 ## Le mercato du président : le marché des transferts à la Hattrick (autoload Mercato, docs/SUITE.md
 ## section 6, « le mercato »). Trois pages sur la même ardoise :
-## - le marché : les seize nouveaux de la semaine et les joueurs que les clubs remettent en vente, avec
+## - la recherche : les quarante nouveaux de la semaine et les joueurs que les clubs remettent en vente, filtrés et triés à la Hattrick, avec
 ##   leur date limite, le prix du moment et qui mène ;
 ## - la fiche d'un joueur, à la Hattrick : forme, expérience, endurance, les sept compétences en mots,
 ##   salaire, valeur, les offres, et la case où l'on tape sa mise (pas de limite, sinon sa poche) ;
@@ -22,6 +22,8 @@ var _ligne_etat: Label
 var _saisie: LineEdit
 var _message := ""
 var _minuteur: Timer
+## La page d'où l'on a ouvert la fiche.
+var _retour := "marche"
 var _lu := 0.0
 
 
@@ -30,8 +32,11 @@ func _ready() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg == "--marche-demo":
 			demo(mercato(), club)
-		elif arg == "--mercato-page=effectif":
-			page = "effectif"
+		elif arg == "--mercato-page=effectif" or arg == "--mercato-page=suivis":
+			page = arg.get_slice("=", 1)
+		elif arg == "--mercato-filtre":
+			# Une recherche de défenseurs, bons défenseurs au moins, triés par prix (captures).
+			mercato().filtres = {"poste": "D", "comp1": "defense", "niv1": 10, "tri": "prix"}
 		elif arg == "--mercato-page=fiche":
 			# La fiche d'une enchère ouverte où le club mène, sinon de la première ouverte (captures).
 			var ouverts: Array = mercato().lots_semaine(mercato().semaine_a(mercato().maintenant())).filter(func(e): return not e.ferme)
@@ -64,6 +69,9 @@ static func mercato() -> Node:
 func _rafraichir() -> void:
 	if _saisie != null and is_instance_valid(_saisie) and _saisie.has_focus():
 		return
+	var focus := get_viewport().gui_get_focus_owner() if get_viewport() != null else null
+	if focus is LineEdit or focus is OptionButton:
+		return
 	remplir(_colonne)
 
 
@@ -83,7 +91,7 @@ func remplir(colonne: VBoxContainer) -> void:
 	var m := mercato()
 	var t: int = m.maintenant()
 	var miens: Array = m.joueurs_de(club, t)
-	for o in [["marche", "Le marché"], ["effectif", "Nos joueurs du marché  (%d)" % miens.size()]]:
+	for o in [["marche", "La recherche"], ["suivis", "Suivis  (%d)" % m.encheres_suivies().size()], ["effectif", "Nos joueurs  (%d)" % miens.size()]]:
 		var b := _bouton(o[1], func(): aller(o[0]), 15)
 		b.name = "Onglet_" + o[0]
 		b.disabled = page == o[0]
@@ -106,6 +114,8 @@ func remplir(colonne: VBoxContainer) -> void:
 			_fiche(corps)
 		"effectif":
 			_effectif(corps, miens)
+		"suivis":
+			_suivis(corps)
 		_:
 			_marche(corps)
 	var defile := ScrollContainer.new()
@@ -127,11 +137,13 @@ func remplir(colonne: VBoxContainer) -> void:
 	bas.add_theme_constant_override("h_separation", 10)
 	colonne.add_child(bas)
 	if page == "fiche":
-		bas.add_child(_bouton("Retour", func(): aller("effectif" if joueur_ouvert != "" else "marche")))
+		bas.add_child(_bouton("Retour", func(): aller(_retour)))
 	bas.add_child(_bouton("Laisser le président  (Échap)", func(): closed.emit()))
 
 
 func aller(p: String) -> void:
+	if p == "fiche" and page != "fiche":
+		_retour = page
 	page = p
 	_message = ""
 	if p != "fiche":
@@ -149,62 +161,194 @@ func ouvrir(lot: String, joueur := "") -> void:
 
 # ---------------------------------------------------------------- le marché
 
+## Les postes, les âges, les crans et les tris proposés par la recherche.
+const CHOIX_POSTES := [["", "Tous les postes"], ["G", "Gardiens"], ["D", "Défenseurs"], ["M", "Milieux"], ["A", "Attaquants"]]
+const CHOIX_AGES := [[0, 99, "Tous les âges"], [17, 20, "17 à 20 ans"], [21, 24, "21 à 24 ans"], [25, 28, "25 à 28 ans"], [29, 99, "29 ans et plus"]]
+const CHOIX_TRIS := [["echeance", "Date limite"], ["prix", "Prix"], ["age", "Âge"], ["note", "Note"], ["comp1", "1re compétence"]]
+const NOMS_COMP := {"endurance": "Endurance", "gardien": "Gardien", "defense": "Défense", "jeu": "Construction", "aile": "Ailes",
+	"passe": "Passes", "but": "Buteur", "cpa": "Coups de pied arrêtés"}
+
+
+## La recherche de transferts, à la Hattrick : les filtres en haut, la liste triée en dessous.
 func _marche(colonne: VBoxContainer) -> void:
 	var m := mercato()
-	var t: int = m.maintenant()
-	var k: int = m.semaine_a(t)
-	colonne.add_child(_mot("Seize joueurs mis en vente chaque dimanche à 17 h par les clubs de la Vienne, aux enchères jusqu'à leur date limite. Le plus offrant l'emporte.", 15, DOUX, null, true))
+	var f: Dictionary = m.filtres
+	var filtres := HFlowContainer.new()
+	filtres.name = "Filtres"
+	filtres.add_theme_constant_override("h_separation", 10)
+	filtres.add_theme_constant_override("v_separation", 6)
+	colonne.add_child(filtres)
+	filtres.add_child(_choix("Poste", CHOIX_POSTES.map(func(x): return x[1]), CHOIX_POSTES.map(func(x): return x[0]).find(str(f.get("poste", ""))),
+		func(i): _filtrer({"poste": CHOIX_POSTES[i][0]})))
+	var age_i := 0
+	for i in CHOIX_AGES.size():
+		if int(CHOIX_AGES[i][0]) == int(f.get("age_min", 0)) and int(CHOIX_AGES[i][1]) == int(f.get("age_max", 99)):
+			age_i = i
+	filtres.add_child(_choix("Age", CHOIX_AGES.map(func(x): return x[2]), age_i, func(i): _filtrer({"age_min": CHOIX_AGES[i][0], "age_max": CHOIX_AGES[i][1]})))
+	var comps := [""] + NOMS_COMP.keys()
+	var crans := range(4, 19)
+	for n in ["1", "2"]:
+		filtres.add_child(_choix("Comp" + n, ["Compétence"] + NOMS_COMP.values(), maxi(0, comps.find(str(f.get("comp" + n, "")))),
+			func(i): _filtrer({"comp" + n: comps[i], "niv" + n: int(f.get("niv" + n, 9)) if i > 0 else 0})))
+		if str(f.get("comp" + n, "")) != "":
+			filtres.add_child(_choix("Niv" + n, crans.map(func(c): return "au moins " + mercato().NIVEAUX[c]), maxi(0, crans.find(int(f.get("niv" + n, 9)))),
+				func(i): _filtrer({"niv" + n: crans[i]})))
+	var plafond := LineEdit.new()
+	plafond.name = "PrixMax"
+	plafond.placeholder_text = "Prix maximum"
+	plafond.text = str(int(f.prix_max)) if int(f.get("prix_max", 0)) > 0 else ""
+	plafond.custom_minimum_size.x = 150
+	plafond.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_NUMBER
+	plafond.add_theme_font_size_override("font_size", 14)
+	plafond.text_submitted.connect(func(x): _filtrer({"prix_max": int(x.to_int())}))
+	plafond.focus_exited.connect(func():
+		if is_instance_valid(plafond) and int(plafond.text.to_int()) != int(m.filtres.get("prix_max", 0)):
+			_filtrer.call_deferred({"prix_max": int(plafond.text.to_int())}))
+	filtres.add_child(plafond)
+	filtres.add_child(_choix("Tri", CHOIX_TRIS.map(func(x): return "Trier : " + x[1]), maxi(0, CHOIX_TRIS.map(func(x): return x[0]).find(str(f.get("tri", "echeance")))),
+		func(i): _filtrer({"tri": CHOIX_TRIS[i][0]})))
+	if not f.is_empty():
+		filtres.add_child(_bouton("Tout voir", func():
+			m.filtres = {}
+			m.sauver()
+			remplir(_colonne), 13))
+	var trouves: Array = m.rechercher(f)
+	var total: int = m.ouvertes().size()
+	colonne.add_child(_mot("%d joueur%s sur %d en vente. Quarante nouveaux chaque dimanche à 17 h, mis en vente par les clubs de la Vienne ; le plus offrant l'emporte." % [trouves.size(), "s" if trouves.size() > 1 else "", total], 14, DOUX, null, true))
 	var liste := VBoxContainer.new()
-	liste.add_theme_constant_override("separation", 4 if _etroit() else 6)
-	var lots: Array = m.lots_semaine(k)
-	for e in m.ventes():
-		if e.valable and (not e.ferme or t - int(e.echeance) < 3 * 86400):
-			lots.append(e)
-	var ouverts := lots.filter(func(e): return not e.ferme)
-	var clos := lots.filter(func(e): return e.ferme)
-	ouverts.sort_custom(func(a, b): return int(a.echeance) < int(b.echeance))
-	clos.sort_custom(func(a, b): return int(a.echeance) > int(b.echeance))
-	liste.add_child(_mot("En vente  ·  %d" % ouverts.size(), 19, CRAIE, Polices.gras()))
-	if ouverts.is_empty():
-		liste.add_child(_mot("Plus rien en vente cette semaine : les nouveaux arrivent dimanche à 17 h.", 15, DOUX, null, true))
-	for e in ouverts:
-		liste.add_child(_rangee(e))
-	if not clos.is_empty():
-		liste.add_child(_mot("Partis cette semaine", 19, CRAIE, Polices.gras()))
-		for e in clos:
-			liste.add_child(_rangee(e))
+	liste.add_theme_constant_override("separation", 4 if _etroit() else 5)
+	for e in trouves:
+		liste.add_child(_rangee(e, [str(f.get("comp1", "")), str(f.get("comp2", ""))]))
+	if trouves.is_empty():
+		liste.add_child(_mot("Personne ne répond à ces critères cette semaine." if total > 0 else "Plus rien en vente cette semaine : les nouveaux arrivent dimanche à 17 h.", 15, CRAIE, null, true))
 	colonne.add_child(liste)
 
 
-func _rangee(e: Dictionary) -> Control:
+func _filtrer(d: Dictionary) -> void:
+	var m := mercato()
+	for k in d:
+		if d[k] is String and d[k] == "" or (k.begins_with("niv") or k == "prix_max") and int(d[k]) == 0:
+			m.filtres.erase(k)
+		else:
+			m.filtres[k] = d[k]
+	if int(m.filtres.get("age_min", 0)) == 0 and int(m.filtres.get("age_max", 99)) == 99:
+		m.filtres.erase("age_min")
+		m.filtres.erase("age_max")
+	if str(m.filtres.get("tri", "echeance")) == "echeance":
+		m.filtres.erase("tri")
+	m.sauver()
+	remplir(_colonne)
+
+
+## Une liste déroulante sur l'ardoise.
+func _choix(nom: String, libelles: Array, choisi: int, action: Callable) -> OptionButton:
+	var o := OptionButton.new()
+	o.name = nom
+	o.add_theme_font_size_override("font_size", 14)
+	o.add_theme_font_override("font", Polices.texte())
+	for l in libelles:
+		o.add_item(str(l))
+	o.select(clampi(choisi, 0, libelles.size() - 1))
+	o.item_selected.connect(func(i): action.call(i))
+	return o
+
+
+## Les joueurs suivis : leur prix du moment et qui mène, comme au marché.
+func _suivis(colonne: VBoxContainer) -> void:
+	var m := mercato()
+	var liste: Array = m.encheres_suivies()
+	colonne.add_child(_mot("Les joueurs que vous suivez, de la date limite la plus proche à la plus lointaine. L'étoile d'une ligne ou d'une fiche les ajoute ou les retire.", 14, DOUX, null, true))
+	if liste.is_empty():
+		colonne.add_child(_mot("Vous ne suivez personne pour l'instant.", 16, CRAIE))
+	for e in liste:
+		colonne.add_child(_rangee(e, []))
+
+
+## Une ligne de la liste, à la Hattrick : le nom, le poste et l'âge, deux compétences en petites barres
+## (celles de la recherche, sinon les deux de son poste), la date limite, le prix et qui mène, l'étoile.
+func _rangee(e: Dictionary, comps: Array) -> Control:
 	var m := mercato()
 	var j: Dictionary = e.joueur
 	var h := HFlowContainer.new()
 	h.name = "Lot_" + str(e.lot)
-	h.add_theme_constant_override("h_separation", 12)
+	h.add_theme_constant_override("h_separation", 6 if _etroit() else 10)
 	h.add_theme_constant_override("v_separation", 2)
+	var etoile := _etoile(str(e.lot), 14)
+	h.add_child(etoile)
 	var nom := _mot("%s %s" % [j.prenom, j.nom], 15, CRAIE, Polices.gras())
-	nom.custom_minimum_size.x = 150 if _etroit() else 200
+	nom.custom_minimum_size.x = 120 if _etroit() else 180
 	h.add_child(nom)
-	var fiche := _mot("%s  ·  %d ans  ·  note %d" % [FootMatch.POSTES.get(j.poste, j.poste), j.age, j.note], 14, DOUX)
-	fiche.custom_minimum_size.x = 190 if _etroit() else 240
+	var fiche := _mot("%s  ·  %d ans  ·  %d" % [str(j.poste), j.age, j.note], 14, DOUX)
+	fiche.tooltip_text = "%s, %d ans, note %d" % [FootMatch.POSTES.get(j.poste, j.poste), j.age, j.note]
+	fiche.mouse_filter = Control.MOUSE_FILTER_PASS
+	fiche.custom_minimum_size.x = 92 if _etroit() else 110
 	h.add_child(fiche)
+	var a_montrer: Array = comps.filter(func(c): return c != "")
+	for c in m.PRINCIPALES[str(j.poste)]:
+		if a_montrer.size() < 2 and not c in a_montrer:
+			a_montrer.append(c)
+	for c in a_montrer:
+		h.add_child(_mini(c, float(j.competences.get(c, 0))))
 	var quand := _mot(_echeance_courte(e), 14, DOUX)
-	quand.custom_minimum_size.x = 105 if _etroit() else 130
+	quand.custom_minimum_size.x = 88 if _etroit() else 120
 	h.add_child(quand)
 	var prix := _mot(_prix_texte(e), 14, OR if e.meneur == club else CRAIE)
-	prix.custom_minimum_size.x = 250 if _etroit() else 300
-	if _etroit():
-		# Un long nom de club se coupe plutôt que de renvoyer le bouton à la ligne.
-		prix.clip_text = true
-		prix.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		prix.custom_minimum_size.x = 230
-		prix.size.x = 230
+	prix.clip_text = true
+	prix.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	prix.custom_minimum_size.x = 150 if _etroit() else 250
 	h.add_child(prix)
 	var b := _bouton("Enchérir" if not e.ferme else "Fiche", func(): ouvrir(str(e.lot)), 14)
 	b.name = "Fiche_" + str(e.lot)
 	h.add_child(b)
 	return h
+
+
+## Une compétence en petit : son nom court, une barre de la couleur de son cran, le cran.
+func _mini(cle: String, v: float) -> Control:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 4)
+	var court := {"endurance": "End", "gardien": "Gar", "defense": "Déf", "jeu": "Cons", "aile": "Ail", "passe": "Pas", "but": "But", "cpa": "CPA"}
+	var l := _mot(court.get(cle, cle), 12, DOUX)
+	l.custom_minimum_size.x = 32
+	h.add_child(l)
+	h.add_child(_barre(v, 40 if _etroit() else 54))
+	var n := _mot(str(mercato().niveau(v)), 13, couleur_cran(mercato().niveau(v)))
+	n.custom_minimum_size.x = 18
+	n.tooltip_text = mercato().mot_niveau(v)
+	n.mouse_filter = Control.MOUSE_FILTER_PASS
+	h.add_child(n)
+	h.custom_minimum_size.x = 100 if _etroit() else 118
+	return h
+
+
+## La couleur d'un cran, du rouge des crans faibles à l'or des grands.
+static func couleur_cran(n: int) -> Color:
+	if n <= 4:
+		return Color(0.86, 0.38, 0.32)
+	if n <= 7:
+		return Color(0.9, 0.6, 0.3)
+	if n <= 10:
+		return Color(0.88, 0.8, 0.42)
+	if n <= 13:
+		return Color(0.55, 0.8, 0.45)
+	return Color(0.98, 0.84, 0.35)
+
+
+## L'étoile qui suit un joueur.
+func _etoile(lot: String, taille := 16) -> Button:
+	var m := mercato()
+	var suivi: bool = m.suivis.has(lot)
+	var b := Button.new()
+	b.name = "Suivre_" + lot
+	b.flat = true
+	b.text = "★" if suivi else "☆"
+	b.tooltip_text = "Ne plus suivre" if suivi else "Suivre ce joueur"
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	b.add_theme_font_size_override("font_size", taille + 4)
+	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		b.add_theme_color_override(c, OR if suivi else DOUX)
+	b.pressed.connect(func(): m.suivre(lot, not suivi))
+	return b
 
 
 ## « mardi 20 h », ou « dans 2 h 14 » le dernier jour, « clos » après.
@@ -256,11 +400,17 @@ func _fiche(colonne: VBoxContainer) -> void:
 		var v: Dictionary = m.vente_ouverte(joueur_ouvert)
 		if not v.is_empty():
 			e = v
-	colonne.add_child(_mot("%s %s" % [j.prenom, j.nom], 24 if _etroit() else 28, CRAIE, Polices.gras()))
+	var titre := HBoxContainer.new()
+	titre.add_theme_constant_override("separation", 6)
+	if not e.is_empty() and lot_ouvert != "":
+		titre.add_child(_etoile(lot_ouvert, 20))
+	titre.add_child(_mot("%s %s" % [j.prenom, j.nom], 24 if _etroit() else 28, CRAIE, Polices.gras()))
+	colonne.add_child(titre)
 	var origine := ""
 	if not e.is_empty():
 		origine = "mis en vente par %s" % e.vendeur
-	colonne.add_child(_mot("%s  ·  %d ans  ·  note %d%s" % [FootMatch.POSTES.get(j.poste, j.poste), j.age, j.note, "  ·  " + origine if origine != "" else ""], 16, DOUX, null, true))
+	var jours: int = m.age_jours(m.maintenant())
+	colonne.add_child(_mot("%s  ·  %d ans et %d jour%s  ·  note %d%s" % [FootMatch.POSTES.get(j.poste, j.poste), j.age, jours, "s" if jours > 1 else "", j.note, "  ·  " + origine if origine != "" else ""], 16, DOUX, null, true))
 	var rang: Container = HFlowContainer.new() if _etroit() else HBoxContainer.new()
 	rang.add_theme_constant_override("separation", 36)
 	rang.add_theme_constant_override("h_separation", 36)
@@ -279,9 +429,9 @@ func _fiche(colonne: VBoxContainer) -> void:
 	gauche.add_child(grille)
 	for cle in ["endurance", "gardien", "defense", "jeu", "aile", "passe", "but", "cpa"]:
 		var v := float(j.competences.get(cle, 0))
-		grille.add_child(_mot({"cpa": "Coups de pied arrêtés", "jeu": "Construction", "aile": "Ailes", "passe": "Passes", "but": "Buteur"}.get(cle, FootMatch.COMPETENCES[cle]), 14, DOUX))
+		grille.add_child(_mot(NOMS_COMP[cle], 14, DOUX))
 		grille.add_child(_barre(v))
-		grille.add_child(_mot("%s (%d)" % [m.mot_niveau(v), m.niveau(v)], 14, CRAIE))
+		grille.add_child(_mot("%s (%d)" % [m.mot_niveau(v), m.niveau(v)], 14, couleur_cran(m.niveau(v))))
 	gauche.add_child(_mot("Salaire : %s crédits la semaine    Valeur estimée : %s crédits" % [Game.fmt(int(j.salaire)), Game.fmt(int(j.valeur))], 15, DOUX, null, _etroit()))
 
 	# À droite, l'enchère : la date limite, les offres, la mise.
@@ -309,8 +459,24 @@ func _fiche(colonne: VBoxContainer) -> void:
 		droite.add_child(_texte(droite, "Pas encore d'offre.", 17, CRAIE))
 	else:
 		droite.add_child(_texte(droite, "En tête : %s, %s crédits." % [_qui(e, e.meneur), Game.fmt(int(e.prix))], 17, OR))
-	for o in e.offres.slice(0, 4):
-		droite.add_child(_texte(droite, "%s crédits  ·  %s, pour %s" % [Game.fmt(int(o.montant)), "vous" if bool(o.get("moi", false)) else str(o.par), foot().clubs.get(o.club, {}).get("nom", o.club)], 14, DOUX))
+	if not e.offres.is_empty():
+		# L'historique des offres, en petit tableau.
+		var offres := GridContainer.new()
+		offres.name = "Offres"
+		offres.columns = 3
+		offres.add_theme_constant_override("h_separation", 14)
+		offres.add_theme_constant_override("v_separation", 2)
+		for t in ["Offre", "Club", "Par"]:
+			offres.add_child(_mot(t, 12, DOUX))
+		for o in e.offres.slice(0, 6):
+			offres.add_child(_mot(Game.fmt(int(o.montant)), 14, CRAIE))
+			var nc := _mot(str(foot().clubs.get(o.club, {}).get("nom", o.club)), 14, DOUX)
+			nc.clip_text = true
+			nc.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			nc.custom_minimum_size.x = 170
+			offres.add_child(nc)
+			offres.add_child(_mot("vous" if bool(o.get("moi", false)) else str(o.par), 14, DOUX))
+		droite.add_child(offres)
 	if e.ferme:
 		return
 	if e.club_vendeur == club:
@@ -351,14 +517,15 @@ func _ajouter(x: int) -> void:
 		_saisie.text = str(int(_saisie.text.to_int()) + x)
 
 
-func _barre(v: float) -> Control:
+## Une barre de compétence, de la couleur de son cran.
+func _barre(v: float, largeur := 0) -> Control:
 	var fond := ColorRect.new()
 	fond.color = Color(1, 1, 1, 0.08)
-	fond.custom_minimum_size = Vector2(90 if _etroit() else 140, 10)
+	fond.custom_minimum_size = Vector2(largeur if largeur > 0 else (90 if _etroit() else 140), 8 if largeur > 0 else 10)
 	fond.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var plein := ColorRect.new()
-	plein.color = Color(OR, 0.75)
-	plein.size = Vector2(fond.custom_minimum_size.x * clampf(v / 100.0, 0.0, 1.0), 10)
+	plein.color = Color(couleur_cran(mercato().niveau(v)), 0.85)
+	plein.size = Vector2(fond.custom_minimum_size.x * clampf(v / 100.0, 0.0, 1.0), fond.custom_minimum_size.y)
 	fond.add_child(plein)
 	return fond
 
@@ -508,6 +675,10 @@ static func demo(m: Node, club: String) -> void:
 		return {"code": 200, "corps": {"ok": true}}
 	m.appliquer({"encheres": encheres, "ventes": ventes, "prolongations": []})
 	m.nouvelles = []
+	m.suivis = {}
+	for e in lots.slice(0, 7):
+		if lots.find(e) % 2 == 0:
+			m.suivis[e.lot] = true
 	if not clos.is_empty():
 		var g: Dictionary = m.enchere(clos[0].lot)
 		m.nouvelles = ["Enchère gagnée : %s %s rejoint %s pour %s crédits. Il joue dès le prochain coup d'envoi." % [g.joueur.prenom, g.joueur.nom, f.clubs.get(club, {}).get("nom", club), Game.fmt(int(g.prix))]]

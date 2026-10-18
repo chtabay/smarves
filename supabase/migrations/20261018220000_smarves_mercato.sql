@@ -1,7 +1,7 @@
 -- Smarves, le marché des transferts (le championnat de football, docs/SUITE.md section 6, « le mercato ») :
 -- un marché à la Hattrick, ouvert toute l'année, commun à tous les villages.
 --
--- Chaque dimanche à 17 h, le jeu met en vente seize nouveaux joueurs, les mêmes partout (lot « s<semaine>-<rang> »,
+-- Chaque dimanche à 17 h, le jeu met en vente quarante nouveaux joueurs, les mêmes partout (lot « s<semaine>-<rang> »,
 -- la semaine 1 commençant le 25 octobre 2026) ; chacun part aux enchères jusqu'à sa date limite, du lundi au
 -- samedi entre 19 h et 22 h. Un club peut aussi remettre en vente un joueur acheté au marché (lot « v<id> »).
 -- Le plus offrant l'emporte ; les clubs invités, que le jeu fait enchérir avec un plafond tiré de la graine du
@@ -63,7 +63,7 @@ $$;
 create or replace function smarves.mercato_echeance(k integer, i integer) returns timestamptz
   language sql immutable set search_path = ''
 as $$
-  select (timestamp '2026-10-25 15:00:00' + make_interval(weeks => k - 1, days => 1 + (i * 6) / 16, hours => 4 + i % 4)) at time zone 'Europe/Paris'
+  select (timestamp '2026-10-25 15:00:00' + make_interval(weeks => k - 1, days => 1 + (i * 6) / 40, hours => 4 + i % 4)) at time zone 'Europe/Paris'
 $$;
 
 create or replace function smarves.heure_paris(t timestamptz) returns text
@@ -97,7 +97,7 @@ begin
   if p_lot ~ '^s[0-9]{1,5}-[0-9]{1,2}$' then
     k := split_part(substr(p_lot, 2), '-', 1)::integer;
     i := split_part(p_lot, '-', 2)::integer;
-    if i >= 16 then return json_build_object('ok', false, 'raison', 'inconnu'); end if;
+    if i >= 40 then return json_build_object('ok', false, 'raison', 'inconnu'); end if;
     ouverture := smarves.mercato_ouverture(k);
     fin := coalesce((select echeance from smarves.mercato_prolongations where lot = p_lot), smarves.mercato_echeance(k, i));
   elsif p_lot ~ '^v[0-9]{1,18}$' then

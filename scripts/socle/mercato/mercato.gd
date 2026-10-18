@@ -1,7 +1,7 @@
 extends Node
 ## Le marché des transferts du football de la Vienne (autoload « Mercato », docs/SUITE.md section 6,
 ## « le mercato ») : un marché à la Hattrick, ouvert toute l'année. Chaque dimanche à 17 h, deux heures
-## après le coup d'envoi, seize nouveaux joueurs sont mis en vente par des clubs de la Vienne, les mêmes
+## après le coup d'envoi, quarante nouveaux joueurs sont mis en vente par des clubs de la Vienne, les mêmes
 ## chez tout le monde (tirage de la semaine) ; chacun part aux enchères jusqu'à sa date limite, du lundi
 ## au samedi soir, et le plus offrant l'emporte. Un club peut remettre en vente un joueur acheté au
 ## marché ; les dix-huit joueurs du cru, que le moteur tire chaque saison, sont du pays et ne se vendent pas.
@@ -24,9 +24,15 @@ extends Node
 
 signal change
 
-## Les joueurs mis en vente chaque semaine, et leurs postes (mélangés chaque semaine).
-const LOTS := 16
-const POSTES_LOTS := ["G", "G", "D", "D", "D", "D", "D", "M", "M", "M", "M", "M", "A", "A", "A", "A"]
+## Les joueurs mis en vente chaque semaine, et leurs postes (mélangés chaque semaine) : quatre gardiens,
+## douze défenseurs, treize milieux, onze attaquants.
+const LOTS := 40
+const POSTES_LOTS := ["G", "G", "G", "G", "D", "D", "D", "D", "D", "D", "D", "D", "D", "D", "D", "D",
+	"M", "M", "M", "M", "M", "M", "M", "M", "M", "M", "M", "M", "M", "A", "A", "A", "A", "A", "A", "A", "A", "A", "A", "A"]
+## Les deux compétences qui disent un joueur à son poste, pour la liste compacte.
+const PRINCIPALES := {"G": ["gardien", "cpa"], "D": ["defense", "jeu"], "M": ["jeu", "passe"], "A": ["but", "passe"]}
+## Une année de football dure une saison de seize semaines : 112 jours (comme à Hattrick).
+const JOURS_PAR_AN := 112
 const SEMAINE := 7 * 86400
 ## Une offre dans les trois dernières minutes repousse la date limite d'autant (le serveur la tient).
 const PROLONGATION := 180
@@ -49,6 +55,9 @@ var etat := {"encheres": [], "ventes": [], "prolongations": {}}
 var retenues := {}
 ## Les ventes déjà encaissées et les achats déjà annoncés : lot -> true.
 var reglees := {}
+## Les joueurs qu'on suit (lot -> true), et les filtres de la dernière recherche.
+var suivis := {}
+var filtres := {}
 ## Les dernières nouvelles du marché pour celui qui joue (gagné, dépassé, vendu), les plus récentes d'abord.
 var nouvelles: Array = []
 ## « » (jamais lu), « en_cours », « a_jour », « hors_ligne ».
@@ -128,7 +137,8 @@ static func semaine_a(t: int) -> int:
 	return int(floor(float(t - debut_semaine(0)) / SEMAINE))
 
 
-## La date limite du lot i de la semaine k : du lundi au samedi, entre 19 h et 22 h.
+## La date limite du lot i de la semaine k : du lundi au samedi, entre 19 h et 22 h (le même calcul que
+## smarves.mercato_echeance).
 static func echeance_lot(k: int, i: int) -> int:
 	var jour: int = 1 + (i * 6) / LOTS
 	var heure: int = 19 + i % 4
@@ -241,7 +251,7 @@ static func forme(id: String, k: int) -> int:
 
 # ---------------------------------------------------------------- les lots
 
-## Les lots d'une semaine : les seize joueurs mis en vente ce dimanche-là.
+## Les lots d'une semaine : les quarante joueurs mis en vente ce dimanche-là.
 func lots_semaine(k: int) -> Array:
 	var out: Array = []
 	for i in LOTS:
@@ -479,6 +489,80 @@ func vente_ouverte(joueur: String) -> Dictionary:
 		if e.valable and not e.ferme and str(e.joueur.id) == joueur:
 			return e
 	return {}
+
+
+## Suivre un joueur du marché (ou ne plus le suivre).
+func suivre(lot: String, oui := true) -> void:
+	if oui:
+		suivis[lot] = true
+	else:
+		suivis.erase(lot)
+	sauver()
+	change.emit()
+
+
+## Les enchères suivies, ouvertes ou closes depuis moins de trois jours, de la plus proche à la plus lointaine.
+func encheres_suivies() -> Array:
+	var t := maintenant()
+	var out: Array = []
+	for lot in suivis:
+		var e := enchere(lot)
+		if not e.is_empty() and e.valable and t - int(e.echeance) < 3 * 86400:
+			out.append(e)
+	out.sort_custom(func(a, b): return int(a.echeance) < int(b.echeance))
+	return out
+
+
+## Les enchères ouvertes, lots de la semaine et ventes des clubs.
+func ouvertes() -> Array:
+	var t := maintenant()
+	var out: Array = lots_semaine(semaine_a(t)).filter(func(e): return not e.ferme)
+	for e in ventes():
+		if e.valable and not e.ferme:
+			out.append(e)
+	return out
+
+
+## La recherche de transferts, à la Hattrick : f = {poste, age_min, age_max, comp1, niv1, comp2, niv2,
+## prix_max, tri} (tout est facultatif ; niv en crans de 0 à 20 ; tri : echeance, prix, age, note, comp1).
+func rechercher(f: Dictionary) -> Array:
+	var out: Array = []
+	for e in ouvertes():
+		var j: Dictionary = e.joueur
+		if str(f.get("poste", "")) != "" and j.poste != f.poste:
+			continue
+		if int(j.age) < int(f.get("age_min", 0)) or int(j.age) > int(f.get("age_max", 99)):
+			continue
+		if int(f.get("prix_max", 0)) > 0 and int(e.prix) > int(f.prix_max):
+			continue
+		var ok := true
+		for n in ["1", "2"]:
+			var c := str(f.get("comp" + n, ""))
+			if c != "" and niveau(float(j.competences.get(c, 0))) < int(f.get("niv" + n, 0)):
+				ok = false
+		if ok:
+			out.append(e)
+	var tri := str(f.get("tri", "echeance"))
+	var c1 := str(f.get("comp1", ""))
+	out.sort_custom(func(a, b):
+		match tri:
+			"prix":
+				return int(a.prix) < int(b.prix)
+			"age":
+				return int(a.joueur.age) < int(b.joueur.age)
+			"note":
+				return int(a.joueur.note) > int(b.joueur.note)
+			"comp1":
+				if c1 != "":
+					return float(a.joueur.competences.get(c1, 0)) > float(b.joueur.competences.get(c1, 0))
+		return int(a.echeance) < int(b.echeance))
+	return out
+
+
+## Les jours passés depuis le dernier anniversaire, à l'instant t (l'année du football : une saison).
+func age_jours(t: int) -> int:
+	var f := foot()
+	return clampi(int(floor(float(t - f.debut(f.saison_a(t))) / 86400.0)), 0, JOURS_PAR_AN - 1)
 
 
 # ---------------------------------------------------------------- enchérir, vendre
@@ -769,6 +853,8 @@ func charger() -> void:
 		retenues = lu.get("retenues", {})
 		reglees = lu.get("reglees", {})
 		nouvelles = lu.get("nouvelles", [])
+		suivis = lu.get("suivis", {})
+		filtres = lu.get("filtres", {})
 		depuis = int(lu.get("depuis", 0))
 		_oublier()
 
@@ -776,7 +862,7 @@ func charger() -> void:
 func sauver() -> void:
 	if dossier == "":
 		return
-	Portail.ecrire(dossier.path_join(FICHIER), JSON.stringify({"etat": etat, "retenues": retenues, "reglees": reglees, "nouvelles": nouvelles, "depuis": depuis}))
+	Portail.ecrire(dossier.path_join(FICHIER), JSON.stringify({"etat": etat, "retenues": retenues, "reglees": reglees, "nouvelles": nouvelles, "depuis": depuis, "suivis": suivis, "filtres": filtres}))
 
 
 ## Repart de rien (essais, nouvelle partie).
@@ -785,6 +871,8 @@ func effacer() -> void:
 	retenues = {}
 	reglees = {}
 	nouvelles = []
+	suivis = {}
+	filtres = {}
 	lecture = ""
 	depuis = 0
 	_lu_a = 0
