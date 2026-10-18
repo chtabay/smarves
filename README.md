@@ -2,7 +2,7 @@
 
 Un jeu incrémental dans l'esprit d'Addict Casino, où le casino est tout un village : le vrai Smarves, dans la Vienne. On joue au café, sur la place, à la boulangerie, à la kermesse, au bois de Saint-Pierre… et au Casino de Smarves, dont les salles s'ouvrent à mesure qu'on gagne. Au premier degré, tout le village encourage à jouer : le jeu est un investissement, et M. Brunet, du Crédit Smarvois, prête toujours.
 
-La fiche de cadrage est dans [`docs/CADRAGE.md`](docs/CADRAGE.md), la bible du monde (lieux, personnages, ton, vocabulaire) dans [`docs/BIBLE.md`](docs/BIBLE.md), la suite (village à parcourir, housing, multi, carte de la Vienne) dans [`docs/SUITE.md`](docs/SUITE.md), les captures dans [`docs/captures/`](docs/captures/).
+La fiche de cadrage est dans [`docs/CADRAGE.md`](docs/CADRAGE.md), la bible du monde (lieux, personnages, ton, vocabulaire) dans [`docs/BIBLE.md`](docs/BIBLE.md), la suite (village à parcourir, housing, multi, carte de la Vienne) dans [`docs/SUITE.md`](docs/SUITE.md), le modèle des activités transverses (rendez-vous, paris, parts, fiches) dans [`docs/ACTIVITES.md`](docs/ACTIVITES.md), les captures dans [`docs/captures/`](docs/captures/).
 
 ## Jouer
 
