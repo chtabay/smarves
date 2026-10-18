@@ -130,6 +130,8 @@ func say(text: String) -> void:
 		layer.layer = 5
 		add_child(layer)
 		_bubble = PanelContainer.new()
+		# La bulle se lit, elle ne se touche pas : le sol dessous reste atteignable au doigt.
+		_bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = Color(0.99, 0.96, 0.9, 0.94)
 		sb.set_corner_radius_all(14)
@@ -138,6 +140,7 @@ func say(text: String) -> void:
 		sb.shadow_size = 6
 		_bubble.add_theme_stylebox_override("panel", sb)
 		_bubble_label = Label.new()
+		_bubble_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_bubble_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_bubble_label.custom_minimum_size = Vector2(320, 0)
 		_bubble_label.add_theme_font_override("font", Polices.texte())
