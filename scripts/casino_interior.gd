@@ -328,6 +328,8 @@ func _speaker_for(model: String) -> String:
 		return "caissier"
 	if model == "portier-salon":
 		return "armand"
+	if model == "capucine-varenne":
+		return "capucine"
 	return "habitant"
 
 
