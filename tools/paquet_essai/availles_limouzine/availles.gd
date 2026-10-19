@@ -45,6 +45,10 @@ var _arrivee := Vector2.ZERO
 ## Les trottoirs, par case d'une unité : [x, z, largeur] des points de leur axe (voir _trottoirs).
 var _bandes := {}
 const TROTTOIR_H := 0.12
+## Les zones travaillées à la main d'après l'orthophoto (zones.json) : emprise nivelée, enrobé,
+## trottoirs, arbres, passages, stationnements. Chaque zone garde son polygone dans « poly ».
+const ZONES := DOSSIER + "zones.json"
+var zones: Array = []
 
 
 func _ready() -> void:
@@ -56,6 +60,8 @@ func _ready() -> void:
 	_z0 = r.z0
 	_pas = r.pas
 	_h = PackedFloat32Array(r.h)
+	_charger_zones()
+	_niveler()
 	for p in data.places:
 		if p.nom == ARRIVEE_NOM:
 			_arrivee = Vector2(p.x, p.z)
@@ -68,6 +74,7 @@ func _ready() -> void:
 	_routes()
 	_sols()
 	_trottoirs()
+	_zones_dessin()
 	_batiments()
 	_arbres()
 	_noms()
@@ -110,6 +117,105 @@ func hauteur(x: float, z: float) -> float:
 	if tx + tz <= 1.0:
 		return h00 + (h10 - h00) * tx + (h01 - h00) * tz
 	return h11 + (h01 - h11) * (1.0 - tx) + (h10 - h11) * (1.0 - tz)
+
+
+# --- Les zones travaillées à la main ---------------------------------------------------------------
+
+func _charger_zones() -> void:
+	if not FileAccess.file_exists(ZONES):
+		return
+	var j = JSON.parse_string(FileAccess.get_file_as_string(ZONES))
+	if not j is Dictionary:
+		return
+	for z in j.get("zones", []):
+		var poly := PackedVector2Array()
+		for q in z.emprise:
+			poly.append(Vector2(q[0], q[1]))
+		z["poly"] = poly
+		zones.append(z)
+
+
+func _dans_zone(p: Vector2) -> bool:
+	for z in zones:
+		if Geometry2D.is_point_in_polygon(p, z.poly):
+			return true
+	return false
+
+
+## La distance de `p` au polygone : 0 dedans, sinon jusqu'au bord le plus proche.
+func _distance_poly(p: Vector2, poly: PackedVector2Array) -> float:
+	if Geometry2D.is_point_in_polygon(p, poly):
+		return 0.0
+	var d := INF
+	for k in poly.size():
+		d = minf(d, p.distance_to(Geometry2D.get_closest_point_to_segment(p, poly[k], poly[(k + 1) % poly.size()])))
+	return d
+
+
+## Le nivellement d'une zone : le relief dans l'emprise est remplacé par le plan des moindres carrés
+## de ses points (la pente d'ensemble reste, les bosses et les creux s'en vont), raccordé en douceur
+## sur trois unités autour. Les bâtiments à portée reposent ensuite sur ce sol.
+func _niveler() -> void:
+	const RACCORD := 3.0
+	for z in zones:
+		if not z.get("nivelle", false):
+			continue
+		var poly: PackedVector2Array = z.poly
+		var bas := Vector2(INF, INF)
+		var haut := Vector2(-INF, -INF)
+		for q in poly:
+			bas = Vector2(minf(bas.x, q.x), minf(bas.y, q.y))
+			haut = Vector2(maxf(haut.x, q.x), maxf(haut.y, q.y))
+		var sxx := 0.0
+		var sxz := 0.0
+		var szz := 0.0
+		var sx := 0.0
+		var sz := 0.0
+		var n := 0.0
+		var shx := 0.0
+		var shz := 0.0
+		var sh := 0.0
+		for j in _nz:
+			for i in _nx:
+				var p := Vector2(_x0 + i * _pas, _z0 + j * _pas)
+				if p.x < bas.x or p.x > haut.x or p.y < bas.y or p.y > haut.y:
+					continue
+				if not Geometry2D.is_point_in_polygon(p, poly):
+					continue
+				var h := _h[j * _nx + i]
+				sxx += p.x * p.x
+				sxz += p.x * p.y
+				szz += p.y * p.y
+				sx += p.x
+				sz += p.y
+				n += 1.0
+				shx += h * p.x
+				shz += h * p.y
+				sh += h
+		if n < 3.0:
+			continue
+		var m := Basis(Vector3(sxx, sxz, sx), Vector3(sxz, szz, sz), Vector3(sx, sz, n))
+		var abc := m.inverse() * Vector3(shx, shz, sh)
+		for j in _nz:
+			for i in _nx:
+				var p := Vector2(_x0 + i * _pas, _z0 + j * _pas)
+				if p.x < bas.x - RACCORD or p.x > haut.x + RACCORD or p.y < bas.y - RACCORD or p.y > haut.y + RACCORD:
+					continue
+				var d := _distance_poly(p, poly)
+				if d >= RACCORD:
+					continue
+				var plan := abc.x * p.x + abc.y * p.y + abc.z
+				var k := j * _nx + i
+				_h[k] = lerpf(plan, _h[k], smoothstep(0.0, 1.0, d / RACCORD))
+	for b in data.batiments:
+		var c := Vector2(b.rect[0], b.rect[1])
+		for z in zones:
+			if z.get("nivelle", false) and _distance_poly(c, z.poly) < 4.0:
+				var plancher := INF
+				for q in b.p:
+					plancher = minf(plancher, hauteur(q[0], q[1]))
+				b.sol = minf(float(b.sol), plancher)
+				break
 
 
 ## Le niveau où l'on pose un pied, un socle ou un lampadaire : le terrain, plus le trottoir s'il y en a un.
@@ -441,6 +547,7 @@ func _ruban(st: SurfaceTool, pts: Array, largeur: float, dessus: float, c: Color
 	st.set_color(c)
 	var g: Array[Vector3] = []
 	var d: Array[Vector3] = []
+	var dehors := PackedByteArray()
 	for k in ligne.size():
 		var avant := ligne[maxi(k - 1, 0)]
 		var apres := ligne[mini(k + 1, ligne.size() - 1)]
@@ -450,7 +557,11 @@ func _ruban(st: SurfaceTool, pts: Array, largeur: float, dessus: float, c: Color
 		var pd := ligne[k] - perp
 		g.append(Vector3(pg.x, hauteur(pg.x, pg.y) + dessus, pg.y))
 		d.append(Vector3(pd.x, hauteur(pd.x, pd.y) + dessus, pd.y))
+		dehors.append(0 if _dans_zone(ligne[k]) else 1)
 	for k in ligne.size() - 1:
+		# Dans une zone travaillée à la main, le ruban s'efface (un pas de recouvrement au bord).
+		if dehors[k] == 0 and dehors[k + 1] == 0:
+			continue
 		st.add_vertex(g[k])
 		st.add_vertex(d[k])
 		st.add_vertex(d[k + 1])
@@ -500,6 +611,8 @@ func _pointilles() -> void:
 			if depuis < 2.0 or l < 0.01:
 				continue
 			depuis = 0.0
+			if _dans_zone(a) or _dans_zone(b):
+				continue
 			var m := (a + b) / 2.0
 			var dir := (b - a) / l
 			xfs.append(Transform3D(Basis(Vector3.UP, -atan2(dir.y, dir.x)), Vector3(m.x, hauteur(m.x, m.y) + 0.062, m.y)))
@@ -531,7 +644,7 @@ func _sols() -> void:
 		var poly := PackedVector2Array()
 		for q in z.p:
 			poly.append(Vector2(q[0], q[1]))
-		if poly.size() < 3:
+		if poly.size() < 3 or _dans_zone(poly[0]):
 			continue
 		var m: String = "gravier" if z.k == "cour" else "bitume"
 		var teinte := 1.0 if z.k == "cour" else 1.14
@@ -541,24 +654,7 @@ func _sols() -> void:
 			sts[m] = st
 		var st: SurfaceTool = sts[m]
 		st.set_color(Color(teinte, teinte, teinte))
-		var x0 := INF
-		var z0 := INF
-		var x1 := -INF
-		var z1 := -INF
-		for q in poly:
-			x0 = minf(x0, q.x)
-			z0 = minf(z0, q.y)
-			x1 = maxf(x1, q.x)
-			z1 = maxf(z1, q.y)
-		for i in range(int(floor(x0)), int(ceil(x1))):
-			for j in range(int(floor(z0)), int(ceil(z1))):
-				var case := PackedVector2Array([Vector2(i, j), Vector2(i + 1, j), Vector2(i + 1, j + 1), Vector2(i, j + 1)])
-				for morceau in Geometry2D.intersect_polygons(case, poly):
-					var tri := Geometry2D.triangulate_polygon(morceau)
-					for t in range(0, tri.size(), 3):
-						for c in [tri[t], tri[t + 2], tri[t + 1]]:
-							var q: Vector2 = morceau[c]
-							st.add_vertex(Vector3(q.x, hauteur(q.x, q.y) + 0.042, q.y))
+		_draper(st, poly, 0.042)
 	for m in sts:
 		var st: SurfaceTool = sts[m]
 		st.generate_normals()
@@ -567,6 +663,133 @@ func _sols() -> void:
 		mi.mesh = st.commit()
 		mi.material_override = _mats[m]
 		add_child(mi)
+
+
+## Un polygone drapé sur le relief, découpé en cases d'une unité clippées, à `dessus` du terrain.
+func _draper(st: SurfaceTool, poly: PackedVector2Array, dessus: float) -> void:
+	var x0 := INF
+	var z0 := INF
+	var x1 := -INF
+	var z1 := -INF
+	for q in poly:
+		x0 = minf(x0, q.x)
+		z0 = minf(z0, q.y)
+		x1 = maxf(x1, q.x)
+		z1 = maxf(z1, q.y)
+	for i in range(int(floor(x0)), int(ceil(x1))):
+		for j in range(int(floor(z0)), int(ceil(z1))):
+			var case := PackedVector2Array([Vector2(i, j), Vector2(i + 1, j), Vector2(i + 1, j + 1), Vector2(i, j + 1)])
+			for morceau in Geometry2D.intersect_polygons(case, poly):
+				var tri := Geometry2D.triangulate_polygon(morceau)
+				for t in range(0, tri.size(), 3):
+					for c in [tri[t], tri[t + 2], tri[t + 1]]:
+						var q: Vector2 = morceau[c]
+						st.add_vertex(Vector3(q.x, hauteur(q.x, q.y) + dessus, q.y))
+
+
+## Une zone travaillée à la main : l'enrobé sur toute l'emprise, puis ses trottoirs, ses arbres,
+## ses passages piétons et ses places de stationnement, d'après zones.json.
+func _zones_dessin() -> void:
+	_sols_materiaux()
+	for z in zones:
+		var noeud := Node3D.new()
+		noeud.name = "Zone_" + str(z.id)
+		add_child(noeud)
+		var teinte: float = z.get("teinte", 0.96)
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		st.set_color(Color(teinte, teinte, teinte))
+		_draper(st, z.poly, 0.05)
+		st.generate_normals()
+		var mi := MeshInstance3D.new()
+		mi.name = "Enrobe"
+		mi.mesh = st.commit()
+		mi.material_override = _mats.bitume
+		noeud.add_child(mi)
+		var sd := SurfaceTool.new()
+		sd.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var sb := SurfaceTool.new()
+		sb.begin(Mesh.PRIMITIVE_TRIANGLES)
+		for t in z.get("trottoirs", []):
+			_bande(sd, sb, _densifier(t.ligne, 0.5), float(t.l))
+		sd.generate_normals()
+		var md := MeshInstance3D.new()
+		md.name = "Trottoirs"
+		md.mesh = sd.commit()
+		md.material_override = _mats.dalles
+		noeud.add_child(md)
+		sb.generate_normals()
+		var mb := MeshInstance3D.new()
+		mb.name = "Bordures"
+		mb.mesh = sb.commit()
+		mb.material_override = _mats.bordure
+		noeud.add_child(mb)
+		for a in z.get("arbres", []):
+			_arbre(noeud, Vector2(a[0], a[1]))
+		for pp in z.get("passages", []):
+			var c := Vector2(pp.c[0], pp.c[1])
+			var dir := Vector2(pp.dir[0], pp.dir[1]).normalized()
+			var n: int = int(pp.n)
+			for k in n:
+				var q: Vector2 = c + dir * ((k - (n - 1) / 2.0) * 0.32)
+				var bande := _boite(Vector3(float(pp.l), 0.012, 0.16), Color(0.88, 0.88, 0.84), noeud)
+				bande.material_override = _mats.marque
+				bande.transform = Transform3D(Basis(Vector3.UP, -atan2(dir.y, dir.x) + PI / 2.0), Vector3(q.x, hauteur(q.x, q.y) + 0.062, q.y))
+		for sp in z.get("stationnements", []):
+			var a := Vector2(sp.a[0], sp.a[1])
+			var b := Vector2(sp.b[0], sp.b[1])
+			var dir := (b - a).normalized()
+			var perp := Vector2(-dir.y, dir.x) * float(sp.cote)
+			var n: int = int(sp.n)
+			var prof: float = float(sp.prof)
+			for k in n + 1:
+				var q: Vector2 = a + dir * (a.distance_to(b) * k / n) + perp * prof / 2.0
+				var marque := _boite(Vector3(0.06, 0.012, prof), Color(0.88, 0.88, 0.84), noeud)
+				marque.material_override = _mats.marque
+				marque.transform = Transform3D(Basis(Vector3.UP, -atan2(dir.y, dir.x)), Vector3(q.x, hauteur(q.x, q.y) + 0.062, q.y))
+
+
+## Une bande de trottoir posée à la main : le dessus en pavés, les deux faces et les bouts en pierre
+## claire ; elle compte pour sol() comme les trottoirs des rues.
+func _bande(sd: SurfaceTool, sb: SurfaceTool, ligne: PackedVector2Array, l: float) -> void:
+	if ligne.size() < 2:
+		return
+	var g: Array[Vector3] = []
+	var d: Array[Vector3] = []
+	var gb: Array[Vector3] = []
+	var db: Array[Vector3] = []
+	for k in ligne.size():
+		var avant := ligne[maxi(k - 1, 0)]
+		var apres := ligne[mini(k + 1, ligne.size() - 1)]
+		var dir := (apres - avant).normalized()
+		var perp := Vector2(-dir.y, dir.x) * l / 2.0
+		var pg := ligne[k] + perp
+		var pd := ligne[k] - perp
+		var yg := hauteur(pg.x, pg.y)
+		var yd := hauteur(pd.x, pd.y)
+		g.append(Vector3(pg.x, yg + TROTTOIR_H, pg.y))
+		d.append(Vector3(pd.x, yd + TROTTOIR_H, pd.y))
+		gb.append(Vector3(pg.x, yg - 0.06, pg.y))
+		db.append(Vector3(pd.x, yd - 0.06, pd.y))
+		var cle := Vector2i(int(floor(ligne[k].x)), int(floor(ligne[k].y)))
+		if not _bandes.has(cle):
+			_bandes[cle] = []
+		_bandes[cle].append([ligne[k].x, ligne[k].y, l])
+	for k in ligne.size() - 1:
+		_quad2(sd, g[k], d[k], d[k + 1], g[k + 1])
+		_quad2(sb, gb[k], g[k], g[k + 1], gb[k + 1])
+		_quad2(sb, db[k], d[k], d[k + 1], db[k + 1])
+	_quad2(sb, g[0], d[0], db[0], gb[0])
+	var n := ligne.size() - 1
+	_quad2(sb, g[n], d[n], db[n], gb[n])
+
+
+## Un arbre de l'atelier (le chêne du Nature Kit), posé en `p`.
+func _arbre(parent: Node3D, p: Vector2) -> void:
+	var scene: Node3D = load(KN + "tree_oak.glb").instantiate()
+	var ech := 2.2 + fmod(absf(p.x * 1.7 + p.y * 0.9), 1.0) * 0.6
+	scene.transform = Transform3D(Basis(Vector3.UP, p.x * 37.0).scaled(Vector3.ONE * ech), Vector3(p.x, hauteur(p.x, p.y) - 0.05, p.y))
+	parent.add_child(scene)
 
 
 # --- Les trottoirs ---------------------------------------------------------------------------------
@@ -641,8 +864,11 @@ func _trottoirs() -> void:
 					larg[k] = 0.0
 					continue
 				var w := clampf(ecart, 0.14, 1.4)
-				# Pas de trottoir dans l'emprise d'une autre voie (un carrefour, une impasse qui débouche).
+				# Pas de trottoir dans l'emprise d'une autre voie (un carrefour, une impasse qui débouche),
+				# ni dans une zone travaillée à la main.
 				var c: Vector2 = p + perp * (demi + w / 2.0)
+				if _dans_zone(c):
+					w = 0.0
 				for i in range(cx - 2, cx + 3):
 					for j in range(cz - 2, cz + 3):
 						for v in voies.get(Vector2i(i, j), []):
