@@ -209,6 +209,7 @@ func build(m: Node3D) -> void:
 	# Sur les socles du moulin et du bois, la route garde son marquage et ses réverbères.
 	_plinth_road(-80.8, -59.2, [-63.0, -71.0, -78.5])
 	_plinth_road(59.2, 80.8, [63.0, 74.5])
+	_joints()
 	_tournee()
 	_logements()
 	_biens()
@@ -299,6 +300,39 @@ func _board(x0: float, x1: float, z0: float, z1: float, title: String, walls: Ar
 		var mid := (a + b) / 2.0
 		var size := Vector3(maxf(0.2, absf(b.x - a.x)), 3.0, maxf(0.2, absf(b.z - a.z)))
 		main._solid_box(size, mid + Vector3(0, 1.5, 0))
+
+
+# --- Les joints entre socles -------------------------------------------------------------------
+
+## Les bandes entre deux socles : le sol d'un socle (22 × 16) s'arrête 30 cm avant le bord de son bois
+## (22,6 × 16,6), là où la rue voisine commence. Sans elles, la jointure laissait voir le bois en contrebas,
+## comme une fente. Le sol solide de chaque socle couvre ces bandes (main._build_ground).
+## Les bandes est-ouest : de x0 à x1, sur la largeur commune des socles.
+const JOINTS_X := [[-11.3, -11.0], [11.0, 11.3], [-59.0, -58.9], [58.9, 59.0]]
+## Les bandes nord-sud du chemin de Passelourdin : de z0 à z1, sur la largeur du chemin.
+const JOINTS_Z := [[-8.3, -8.0], [-62.0, -61.7]]
+
+
+func _joints() -> void:
+	var curb := StandardMaterial3D.new()
+	curb.albedo_color = Color(0.82, 0.8, 0.75)
+	curb.roughness = 0.8
+	for j in JOINTS_X:
+		var w: float = j[1] - j[0]
+		var cx: float = (j[0] + j[1]) / 2.0
+		main._box(Vector3(w, 0.1, 16.0), Vector3(cx, -0.05, 0.0), mats.grass, self)
+		main._box(Vector3(w, 0.11, ROAD_W), Vector3(cx, -0.04, ROAD_Z), mats.asphalt, self)
+		main._box(Vector3(w, 0.12, 0.9), Vector3(cx, 0.0, NORTH_FRONT + 0.45), mats.slabs, self)
+		# Le trottoir sud déborde du socle : la bande s'arrête au bord du sol, en z = 8.
+		main._box(Vector3(w, 0.12, 8.0 - (SOUTH_FRONT - 0.9)), Vector3(cx, 0.0, (8.0 + SOUTH_FRONT - 0.9) / 2.0), mats.slabs, self)
+		for z in [ROAD_Z - ROAD_W / 2.0 - 0.04, ROAD_Z + ROAD_W / 2.0 + 0.04]:
+			main._box(Vector3(w, 0.14, 0.08), Vector3(cx, 0.0, z), curb, self)
+	for j in JOINTS_Z:
+		var d: float = j[1] - j[0]
+		main._box(Vector3(CHEMIN.X1 - CHEMIN.X0, 0.1, d), Vector3((CHEMIN.X0 + CHEMIN.X1) / 2.0, -0.05, (j[0] + j[1]) / 2.0), mats.grass, self)
+	# La rue de l'Église part de la place : ses dalles traversent la bande.
+	var lane: float = CHEMIN.EAST_FRONT - CHEMIN.WEST_FRONT - 0.1
+	main._box(Vector3(lane, 0.08, 0.3), Vector3(CHEMIN.LANE_X, 0.0, -8.15), mats.slabs, self)
 
 
 # --- La rue du Clain ---------------------------------------------------------------------------

@@ -50,6 +50,23 @@ func _init() -> void:
 				break
 		x += 0.5
 	check(blocked.is_empty(), "la route est libre du moulin au bois %s" % ("" if blocked.is_empty() else str(blocked.slice(0, 8))))
+	# Aucune fente entre deux socles : le sol porte l'habitant de part et d'autre de chaque jointure.
+	var holes := []
+	for j in village.JOINTS_X:
+		var jz := -8.0
+		while jz <= 8.0:
+			for jx in [j[0] - 0.05, (j[0] + j[1]) / 2.0, j[1] + 0.05]:
+				if space.intersect_ray(PhysicsRayQueryParameters3D.create(Vector3(jx, 0.5, jz), Vector3(jx, -3.0, jz))).is_empty():
+					holes.append(Vector2(snappedf(jx, 0.05), snappedf(jz, 0.5)))
+			jz += 0.5
+	for j in village.JOINTS_Z:
+		var cx: float = village.CHEMIN.X0
+		while cx <= village.CHEMIN.X1:
+			for z in [j[0] - 0.05, (j[0] + j[1]) / 2.0, j[1] + 0.05]:
+				if space.intersect_ray(PhysicsRayQueryParameters3D.create(Vector3(cx, 0.5, z), Vector3(cx, -3.0, z))).is_empty():
+					holes.append(Vector2(snappedf(cx, 0.5), snappedf(z, 0.05)))
+			cx += 0.5
+	check(holes.is_empty(), "pas de fente entre les socles %s" % ("" if holes.is_empty() else str(holes.slice(0, 8))))
 	# Les quartiers, pour le plan du Carnet.
 	var spots := {"place": Vector3(0, 0, 0), "rue_du_clain": Vector3(-30, 0, 6), "route_du_bois": Vector3(30, 0, 6),
 		"chemin_passelourdin": Vector3(-2, 0, -30), "moulin": Vector3(-70, 0, 0), "bois": Vector3(70, 0, 0), "rochers": Vector3(0, 0, -70)}
