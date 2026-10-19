@@ -88,6 +88,7 @@ static func peupler(racine: Node3D) -> Node3D:
 	if K != null:
 		_lot_b(n, K.places, g)
 		_lot_c(n, K.places, g + 400)
+		_lot_d(n, K.places, g + 800)
 	return n
 
 
@@ -337,6 +338,47 @@ static func _lot_c(n: Node3D, pl: Dictionary, g: int) -> void:
 		if i % 3 == 0:
 			g += 1
 			_asseoir(n, g, bancs[i], ["sit", "sit_talk"][g % 2])
+
+
+## Les figurants du lot D (les coulisses), aux places notées par ses zones : les agents devant les écrans de
+## la surveillance, au sas du coffre et à l'entretien (avec le client interpellé), les compteurs au comptage et à
+## l'arrière-caisse, les cuisiniers, le chef et le plongeur, les livreurs au quai, les employés aux vestiaires,
+## en pause et au couloir de service ; le rondier de l'épine, le croupier qui va prendre son service.
+static func _lot_d(n: Node3D, pl: Dictionary, g: int) -> void:
+	var P = load(PERSONNAGES)
+	var assis := [["agent", "d_secu"], ["agent", "d_gardes_assis"], ["compteur", "d_comptage"], ["compteur", "d_arriere"],
+		["employe", "d_vestiaire_assis"], ["employe", "d_pause"], ["employe", "d_service_assis"], ["agent", "d_sas_banc"],
+		["agent", "d_entretien_agent"], ["client", "d_interpelle"]]
+	for a in assis:
+		var places: Array = pl.get(a[1], [])
+		for i in places.size():
+			if a[1] == "d_sas_banc" and i > 0:
+				break
+			g += 1
+			_asseoir(n, g, places[i], ["sit", "sit_talk", "sit"][g % 3], a[0])
+	var debout := [["agent", "d_secu_debout", ["arms", "idle"]], ["agent", "d_gardes", ["arms", "idle"]], ["compteur", "d_comptage_debout", ["interact"]], ["compteur", "d_arriere_debout", ["phone"]],
+		["cuisinier", "d_cuisine", ["interact"]], ["cuisinier", "d_chef", ["arms"]], ["plongeur", "d_plonge", ["interact"]],
+		["livreur", "d_quai", ["interact", "idle", "talk", "talk"]], ["employe", "d_vestiaire", ["idle", "interact", "phone"]],
+		["employe", "d_pause_debout", ["drink"]], ["employe", "d_pause_duos", ["talk", "drink"]], ["employe", "d_service", ["idle", "interact"]]]
+	for d in debout:
+		var places: Array = pl.get(d[1], [])
+		var gestes: Array = d[2]
+		for i in places.size():
+			g += 1
+			_tenir(n, d[0], g, places[i], gestes[i % gestes.size()])
+	# Le rondier, qui fait le tour de l'épine ; le croupier qui va de la pointeuse à la porte de la fosse.
+	var ronde: Array = pl.get("d_couloir_ronde", [])
+	if not ronde.is_empty():
+		g += 1
+		var r = P.figurant("agent", g)
+		n.add_child(r)
+		r.suivre(ronde, 0, 0.9, 2.0)
+	var tour: Array = pl.get("d_service_tour", [])
+	if not tour.is_empty():
+		g += 1
+		var c = P.figurant("croupier", g)
+		n.add_child(c)
+		c.suivre(tour, 0, 1.0, 3.0)
 
 
 ## Des clients debout à une place sur pas, chacun son geste.

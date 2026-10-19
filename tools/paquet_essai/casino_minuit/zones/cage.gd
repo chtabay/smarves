@@ -3,13 +3,14 @@ extends RefCounted
 ## z ∈ [12, 18], la grille de caisse à cinq guichets sur z = 18 (arcades de laque noire, barreaux d'or,
 ## fronton à horloge sans aiguilles), les postes des caissiers derrière, la file serpentine entre potelets.
 ## On y change ses jetons (minuit.gd, « caisse ») : un jeton vaut un crédit. Liaisons : la fosse (nord), le
-## club (ouest), la porte blindée du personnel (sud, close).
+## club (ouest), la porte blindée du personnel L14 vers l'arrière-caisse (sud ; posée par minuit.gd, close
+## sous le seuil des coulisses).
 
 const LOT_B := "res://communes/casino_minuit/zones/lot_b.gd"
 const LOT_C := "res://communes/casino_minuit/zones/lot_c.gd"
 const H := 5.4
 const B := {"x0": 20.0, "x1": 36.0, "z0": 12.0, "z1": 21.0}
-const OUV := {"north": [{"at": 28.0, "w": 8.0, "h": 3.6}], "west": [{"at": 15.0, "w": 5.0, "h": 3.4}]}
+const OUV := {"north": [{"at": 28.0, "w": 8.0, "h": 3.6}], "west": [{"at": 15.0, "w": 5.0, "h": 3.4}], "south": [{"at": 31.5, "w": 1.2, "h": 2.2}]}
 const XS := [22.8, 25.4, 28.0, 30.6, 33.2]
 const ZG := 18.0
 
@@ -110,7 +111,6 @@ static func construire(K) -> void:
 				K.box(mats[(k + r * 2 + g) % 5], 0.19, 0.2 + ((k * 3 + r) % 3) * 0.05, 0.14, x - 0.92 + k * 0.23, 0.55 + r * 0.5, 20.46)
 	K.obstacle(21.4, 29.4, 20.45, 20.8, 0.0, 2.4)
 	K.obstacle(33.1, 35.5, 20.45, 20.8, 0.0, 2.4)
-	K.box("acier", 1.2, 2.2, 0.06, 31.5, 1.1, 20.94)
 	K.box("or", 1.3, 0.06, 0.08, 31.5, 2.23, 20.92)
 	LB.enseigne(K, "RÉSERVÉ AU PERSONNEL", 31.5, 2.5, 20.88, PI, 0.9, 0.16, "plaque")
 	K.lumiere(28, 3.3, 19.3, K.pal.lumiere, 1.5, 12.0)

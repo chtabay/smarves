@@ -4,13 +4,13 @@ extends RefCounted
 ## encore jouables) ; le pupitre du chef de table au centre de l'ovale ; la gaine de l'ascenseur panoramique
 ## ASC-B et les deux escalators qui montent à la mezzanine (on les gravit à pied). Liaisons : colonnade
 ## ouverte vers l'atrium (ouest), baie à deux colonnes vers la caisse (sud), baie du foyer (nord), porte du
-## personnel close (est).
+## personnel L25 (est), vers les coulisses : posée par minuit.gd, close sous le seuil du lieu.
 
 const LOT_B := "res://communes/casino_minuit/zones/lot_b.gd"
 const LOT_C := "res://communes/casino_minuit/zones/lot_c.gd"
 const H := 5.4
 const B := {"x0": 18.0, "x1": 36.0, "z0": -12.0, "z1": 12.0}
-const OUV := {"west": false, "north": [{"at": 20.0, "w": 3.6, "h": 3.6}], "south": [{"at": 28.0, "w": 8.0, "h": 3.6}]}
+const OUV := {"west": false, "north": [{"at": 20.0, "w": 3.6, "h": 3.6}], "south": [{"at": 28.0, "w": 8.0, "h": 3.6}], "east": [{"at": 2.0, "w": 1.4, "h": 2.2}]}
 const CX := 28.5
 const CZ := 1.5
 const RX := 5.4
@@ -48,8 +48,7 @@ static func construire(K) -> void:
 	L.registres(K, 21, 11.8, 35.8, 11.8, {"n": [0.0, -1.0], "base": "laque_noire", "skip": [[3.0, 11.0]], "pil": [1.5, 12.9], "pil_mat": "laque_noire"})
 	L.registres(K, 33.3, -11.8, 35.8, -11.8, {"n": [0.0, 1.0], "base": "laque_noire", "pil": [1.25], "pil_mat": "laque_noire"})
 	K.box("laque_rouge", 8.6, 0.62, 0.2, 27.5, H + 0.3, -11.9)
-	# La porte du personnel (mur est), close.
-	K.box("laque_noire", 0.06, 2.3, 1.5, 35.86, 1.15, 2.0)
+	# L'encadrement de la porte du personnel (mur est) ; la porte elle-même est posée par minuit.gd.
 	K.box("or", 0.04, 2.4, 0.06, 35.84, 1.2, 1.24)
 	K.box("or", 0.04, 2.4, 0.06, 35.84, 1.2, 2.76)
 	K.box("or", 0.04, 0.06, 1.58, 35.84, 2.4, 2.0)

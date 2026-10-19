@@ -39,6 +39,16 @@ const TENUES := {
 	"vigile": [["dealer-businessman", {"Suit": "#15171a", "Tie": "#15171a", "White": "#e8e8e8"}], ["man-suit", {}], ["dealer-businessman", {"Suit": "#15171a", "Tie": "#15171a", "White": "#e8e8e8", "Skin": "#7a5a3c", "Hair": "#0f0d0c"}]],
 	"serveur": [["dealer-businessman", {"Suit": "#f2f0ea", "Tie": "#101010", "Black": "#17181b"}], ["dealer-woman-green", {"LimeGreen": "#17181b", "Gold": "#e8e8e8"}]],
 	"hotesse": [["dealer-woman-green", {"LimeGreen": "#1f3a5f", "Gold": "#d9a441"}], ["woman-dress", {"Dress": "#1f2c44"}]],
+	# Le personnel des coulisses (lot D) : vestes blanches de cuisine, plongeurs en bleu de travail, agents de
+	# sécurité en costume marine, compteurs en blouse verte, livreurs, employés en civil ou en uniforme bordeaux.
+	"cuisinier": [["dealer-businessman", {"Suit": "#f2f0ea", "Tie": "#f2f0ea", "Black": "#e8e8e8"}], ["dealer-woman-green", {"LimeGreen": "#f2f0ea", "Gold": "#e8e8e8"}]],
+	"plongeur": [["real-worker", {"Worker_Yellow": "#2c4a72", "Worker_Vest": "#3d5f8c", "Brown2": "#23324a"}]],
+	"agent": [["dealer-businessman", {"Suit": "#1c2740", "Tie": "#1c2740", "White": "#dfe4ea"}], ["dealer-woman-green", {"LimeGreen": "#1c2740", "Gold": "#dfe4ea"}],
+		["dealer-businessman", {"Suit": "#1c2740", "Tie": "#1c2740", "White": "#dfe4ea", "Skin": "#7a5a3c", "Hair": "#0f0d0c"}]],
+	"compteur": [["dealer-businessman", {"Suit": "#2f5d50", "Tie": "#1b1b20"}], ["dealer-woman-green", {"LimeGreen": "#2f5d50", "Gold": "#cfcfd6"}]],
+	"livreur": [["real-worker", {}], ["real-worker", {"Worker_Vest": "#d4622a", "Skin": "#7a5a3c"}]],
+	"employe": [["real-casual-man", {}], ["real-casual-woman", {}], ["real-hoodie-man", {}], ["dealer-businessman", {"Suit": "#6e1423", "Tie": "#101010"}],
+		["dealer-woman-green", {"LimeGreen": "#6e1423", "Gold": "#d9a441"}]],
 	"client": [["man-longsleeves", {}], ["man-tshirt", {}], ["man-blond", {}], ["woman-casual", {}], ["woman-dress", {}], ["woman-tanktop", {}],
 		["woman-punk", {}], ["real-casual-man", {}], ["real-hoodie-man", {}], ["real-punk-man", {}], ["real-punk-woman", {}], ["real-casual-woman", {}], ["man-suit", {}]],
 }

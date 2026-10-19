@@ -4,7 +4,8 @@ extends RefCounted
 ## façades (la joaillerie et la couture, ouvertes avec leur comptoir ; les parfums et le cabinet des curiosités,
 ## clos) et deux vitrines murales. Les deux boutiques ouvertes reçoivent au-delà du seuil du lieu : un cordon,
 ## posé par minuit.gd, barre leur porte jusque-là. L'arrivée des escalators (trémie bordée d'un garde-corps),
-## l'arrêt haut de l'ascenseur ASC-B ; la gaine de service [36, 40] × [-12, -4] reste close (lot D).
+## l'arrêt haut de l'ascenseur ASC-B ; la gaine de l'escalier du personnel [36, 40] × [-12, -4] (lot D,
+## escalier_staff.gd), derrière la porte M12.
 ## Liaisons : la galerie (ouest, colonnes du lot A), la baie du restaurant (nord).
 
 const LOT_B := "res://communes/casino_minuit/zones/lot_b.gd"
@@ -52,10 +53,9 @@ static func construire(K) -> void:
 	K.mur(18, 11.9, 40, 11.9, H, 0, -1, [], "pierre", 0.0, false)
 	K.mur(39.9, -4, 39.9, 12, H, -1, 0, [], "pierre", 0.0, false)
 	K.mur(35.9, -12, 35.9, -3.8, H, -1, 0, [], "pierre", 0.0, false)
-	K.mur(36, -3.9, 40, -3.9, H, 0, 1, [], "pierre", 0.0, false)
+	K.mur(36, -3.9, 40, -3.9, H, 0, 1, [{"at": 2.0, "w": 1.2, "h": 2.2}], "pierre", 0.0, false)
 	L.voile(K, "pierre", "x", 18.1, -6, 6, ouest, haut, {"n": 12})
-	# La porte du personnel de la gaine de service, close.
-	K.box("laque_noire", 1.2, 2.2, 0.04, 38, 1.1, -3.78)
+	# La porte M12 du personnel, vers l'escalier de service : posée par minuit.gd, close sous le seuil des coulisses.
 	LB.enseigne(K, "RÉSERVÉ AU PERSONNEL", 38, 2.45, -3.76, 0, 0.9, 0.16, "plaque")
 	# La corniche de naissance de la voûte, les soubassements.
 	L.registres(K, 18.2, -11.8, 35.8, -11.8, {"n": [0.0, 1.0], "h": YS + 0.06, "base": "pierre_sombre", "bh": 0.7, "corniche_mat": "pierre", "gorge": false, "applique": false, "skip": [[0.3, 3.3]]})

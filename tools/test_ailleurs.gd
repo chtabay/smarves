@@ -2,7 +2,8 @@ extends SceneTree
 ## Les communes « ailleurs » (socle 1.5) : godot --headless --path . -s tools/test_ailleurs.gd
 ## Le champ « ailleurs » et ses refus ; Casino Minuit (tools/paquet_essai/casino_minuit/), emballé ici,
 ## se greffe sans code INSEE ; on y vole depuis Poitiers-Biard, on y marche jusqu'à la galerie par le
-## grand escalier, le stade de la Fortune s'ouvre à son seuil, habillé par Minuit, et son club entre au
+## grand escalier, les coulisses restent closes sous leur seuil puis mènent au sous-sol par l'escalier du
+## personnel, le stade de la Fortune s'ouvre à son seuil, habillé par Minuit, et son club entre au
 ## championnat ; la porte du Strip ouvre la carte, et le vol retour ramène à Smarves.
 
 const SOURCE := "res://tools/paquet_essai/casino_minuit/"
@@ -130,6 +131,78 @@ func _init() -> void:
 		await process_frame
 		check(str(s.get("_message").text).contains("1 jeton = 1 crédit"), "la caisse annonce le taux : %s" % s.get("_message").text)
 
+	# Le lot D, les coulisses : ses salles sont bâties et peuplées ; sous le seuil du lieu, ses portes restent
+	# closes ; au seuil, de la fosse on passe au couloir de service, et l'escalier du personnel descend à l'épine.
+	manquantes = []
+	for z in ["R-SERVICE", "R-ARRIERE", "ESC-STAFF", "B-COULOIR", "B-COMPTAGE", "B-ANTICHAMBRE", "B-COFFRE", "B-SECURITE",
+			"B-ENTRETIEN", "B-VESTIAIRE", "B-CUISINE", "B-QUAI"]:
+		if s.get_node_or_null(z) == null:
+			manquantes.append(z)
+	check(manquantes.is_empty(), "les coulisses sont bâties %s" % str(manquantes))
+	check(places.has("d_secu") and places.has("d_comptage") and places.has("d_cuisine") and places.has("d_quai") and places.has("d_couloir_ronde"), "elles notent les places de leurs figurants")
+	var coulisses := 0
+	for f in (figurants.get_children() if figurants else []):
+		if f is Node3D and (f.position.y < -4.0 or (f.position.y < 1.0 and (f.position.x > 36.0 or (f.position.x > 27.0 and f.position.z > 21.2)))):
+			coulisses += 1
+	check(coulisses > 30, "le lot D a ses figurants (%d aux coulisses)" % coulisses)
+	var game: Node = root.get_node("Game")
+	var gagne: int = game.won
+	game.won = 0
+	reload_current_scene()
+	await create_timer(0.8, true).timeout
+	s = current_scene
+	p = s.player if s != null else null
+	if p == null:
+		game.won = gagne
+		_fin()
+		return
+	var porte_c: Node = s.find_child("coulisses", true, false)
+	check(porte_c != null, "sous son seuil, les portes des coulisses sont closes, avec leur invite")
+	p.global_position = Vector3(34.6, 0.05, 2.0)
+	p.velocity = Vector3.ZERO
+	await create_timer(0.3, true).timeout
+	p.auto_move = Vector3(1, 0, 0)
+	await create_timer(1.5, true).timeout
+	p.auto_move = Vector3.ZERO
+	check(p.global_position.x < 35.9, "la porte du personnel de la fosse est close (x %.2f)" % p.global_position.x)
+	if porte_c != null:
+		p.interact.emit(porte_c)
+		await process_frame
+		check(str(s.get("_message").text).contains("coulisses") and str(s.get("_message").text).contains("60"), "elle annonce son seuil : %s" % s.get("_message").text)
+	var coffre: Node = s.find_child("coffre", true, false)
+	check(coffre != null, "la porte du coffre est une interaction")
+	if coffre != null:
+		p.interact.emit(coffre)
+		await process_frame
+		check(str(s.get("_message").text).contains("coffre"), "le coffre reste clos : %s" % s.get("_message").text)
+	game.won = 60000
+	reload_current_scene()
+	await create_timer(0.8, true).timeout
+	s = current_scene
+	p = s.player if s != null else null
+	if p == null:
+		game.won = gagne
+		_fin()
+		return
+	check(s.find_child("coulisses", true, false) == null, "au seuil, les portes des coulisses sont ouvertes")
+	p.global_position = Vector3(34.6, 0.05, 2.0)
+	p.velocity = Vector3.ZERO
+	await create_timer(0.3, true).timeout
+	p.auto_move = Vector3(1, 0, 0)
+	await create_timer(2.0, true).timeout
+	p.auto_move = Vector3.ZERO
+	check(p.global_position.x > 36.5 and absf(p.global_position.y) < 0.2, "la porte L25 mène au couloir de service (%.1f, %.1f, %.1f)" % [p.global_position.x, p.global_position.y, p.global_position.z])
+	# Du couloir de service, l'escalier du personnel : la volée est descend au demi-palier, la volée ouest à l'épine.
+	p.global_position = Vector3(38.0, 0.05, 1.0)
+	p.velocity = Vector3.ZERO
+	await create_timer(0.3, true).timeout
+	for etape in [[Vector3(0, 0, -1), 2.0], [Vector3(1, 0, 0), 0.3], [Vector3(0, 0, -1), 2.5], [Vector3(-1, 0, 0), 0.45], [Vector3(0, 0, 1), 3.0], [Vector3(-1, 0, 0), 1.5]]:
+		p.auto_move = etape[0]
+		await create_timer(etape[1], true).timeout
+	p.auto_move = Vector3.ZERO
+	check(p.global_position.x < 35.8 and p.global_position.y < -4.5, "l'escalier du personnel descend à l'épine du sous-sol (%.1f, %.1f, %.1f)" % [p.global_position.x, p.global_position.y, p.global_position.z])
+	game.won = gagne
+
 	# Le club : son terrain est au registre, rattaché à Poitiers(-Biard) sur la carte.
 	var terrain := {}
 	for e in root.get_node("Registre").de_commune("casino_minuit"):
@@ -150,8 +223,7 @@ func _init() -> void:
 	foot.obligations_locales = avant
 
 	# Le stade de la Fortune : fermé sous son seuil, puis le stade du socle avec l'habillage de Minuit.
-	var game: Node = root.get_node("Game")
-	var gagne: int = game.won
+	gagne = game.won
 	game.won = 0
 	var porte: Node = s.find_child("stade", true, false)
 	check(porte != null, "la porte du stade de la Fortune est une interaction")

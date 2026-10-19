@@ -103,6 +103,11 @@ func mat(nom: String) -> Material:
 		l.cull_mode = BaseMaterial3D.CULL_DISABLED
 		_mats[nom] = l
 		return l
+	# « aplat#RRGGBB » : une pastille de peinture mate (les aplats de l'atlas du lot D : signalétique,
+	# mobilier technique, effets du personnel).
+	if nom.begins_with("aplat#"):
+		_mats[nom] = _std(Color(nom.substr(5)), 0.62, 0.05)
+		return _mats[nom]
 	match nom:
 		"pierre": m = _marbre(Color("#CBBCA2"), Color("#B3A386"), 0.75, 0.3)
 		"pierre_haute": m = _marbre(Color("#8E8371"), Color("#7C715F"), 0.9, 0.3)
@@ -211,6 +216,16 @@ func mat(nom: String) -> Material:
 		"ecran_vert": m = _lueur(Color("#4DFF9A"), 1.8)
 		"ecran_bleu": m = _lueur(Color("#7FA8FF"), 1.4)
 		"gorge_douce": m = _lueur(Color("#B8742E"), 1.0)
+		# Le lot D (js/zones/d-commun.js) : le béton peint des coulisses, le béton brut, le lino, le blindage du coffre.
+		"beton": m = _std(Color("#B9BDB6"), 0.88, 0.0)
+		"brut": m = _std(Color("#878A8F"), 0.92, 0.0)
+		"lino": m = _std(Color("#3F5A52"), 0.55, 0.0)
+		"blindage":
+			var bl := _std(Color("#B0B8C0"), 0.42, 0.75)
+			bl.emission_enabled = true
+			bl.emission = Color("#15171b")
+			m = bl
+		"sol_coffre": m = _std(Color("#565C63"), 0.32, 0.25)
 		"vitrine":
 			var v := _std(Color(0.81, 0.89, 0.92, 0.16), 0.03, 0.0)
 			v.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
