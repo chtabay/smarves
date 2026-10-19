@@ -47,13 +47,17 @@ var _lineup_key := ""
 var _dispo := -1
 ## Pour les essais : une vue du serveur posée à la main, sans réseau.
 var hors_ligne := false
+## La table du serveur (SMARVES.tables) : vide, le Poker des Ambassadeurs ; un paquet de commune y met
+## l'une des siennes (« minuit:poker-1 ») et son titre.
+var table_id := ""
 var _encart: PanelContainer
 var _encart_texte: RichTextLabel
 var _encart_ouvert := true
 
 
 func _ready() -> void:
-	title = "Poker des Ambassadeurs · à plusieurs"
+	if table_id == "":
+		title = "Poker des Ambassadeurs · à plusieurs"
 	super()
 	for i in range(1, 6):
 		seats[i] = {"name": "", "ai": true, "stack": 0}
@@ -76,7 +80,7 @@ func _appeler(action: String, args := {}) -> void:
 	if _busy or hors_ligne:
 		return
 	_busy = true
-	var r: Dictionary = await Compte.casino(action, args)
+	var r: Dictionary = await Compte.casino(action, avec_table(args))
 	_busy = false
 	if not is_inside_tree():
 		return
@@ -95,6 +99,13 @@ func _appeler(action: String, args := {}) -> void:
 			_appeler.call_deferred("voir")
 		return
 	appliquer(r.corps, action)
+
+
+## Les arguments d'une demande, avec la table quand ce n'est pas celle des Ambassadeurs.
+func avec_table(args: Dictionary) -> Dictionary:
+	if table_id != "":
+		args["table"] = table_id
+	return args
 
 
 func _info_text(t: String) -> void:
@@ -378,7 +389,7 @@ func _appeler_assis(action: String, c: int) -> void:
 	while _busy:
 		await get_tree().process_frame
 	_busy = true
-	var r: Dictionary = await Compte.casino(action, {"cave": c})
+	var r: Dictionary = await Compte.casino(action, avec_table({"cave": c}))
 	_busy = false
 	if not is_inside_tree():
 		return

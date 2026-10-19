@@ -149,6 +149,59 @@ func _init() -> void:
 			pn.closed.emit()
 			await process_frame
 			check(not p.frozen and s.get("_tables").get("_panneau") == null, "se lever referme le jeu")
+	# Le poker à plusieurs, sans réseau : une salle posée à la main (la vue de l'action « salle »).
+	var tb = s.get("_tables")
+	var salle := {"tables": [
+		{"id": "minuit:poker-1", "nom": "Table 1", "joueurs": ["A", "B", "C", "D", "E", "F"], "libres": 0, "moi": false},
+		{"id": "minuit:poker-3", "nom": "Table 2", "joueurs": ["G", "H"], "libres": 4, "moi": false},
+		{"id": "minuit:poker-5", "nom": "Table 3", "joueurs": [], "libres": 6, "moi": false}],
+		"attente": {"longueur": 0, "rang": null}}
+	tb.essai_salle = salle
+	check(s.find_child("salle_poker", true, false) != null, "la salle du poker s'ouvre au mur des tournois")
+	var pk1: Node = s.find_child("table_poker-1", true, false)
+	if pk1 != null:
+		p.interact.emit(pk1)
+		await process_frame
+		check(tb.get("_panneau") == null and str(s.get("_message").text).contains("table 2 a 4 chaises"),
+			"une table pleine renvoie à celle qui se remplit : %s" % s.get("_message").text)
+	var pk3: Node = s.find_child("table_poker-3", true, false)
+	if pk3 != null:
+		p.interact.emit(pk3)
+		await process_frame
+		var pm: Control = tb.get("_panneau")
+		check(pm != null and str(pm.get_script().resource_path).ends_with("poker_multi.gd") and pm.table_id == "minuit:poker-3"
+			and str(pm.title).contains("table 2"), "la table 2 ouvre le poker à plusieurs du socle, sur sa table au serveur")
+		if pm != null:
+			check(pm.avec_table({"cave": 3000}) == {"cave": 3000, "table": "minuit:poker-3"}, "chaque demande nomme la table")
+			pm.closed.emit()
+			await process_frame
+	# Toutes pleines : la salle s'ouvre, l'inscrit est appelé à la table dont les chaises couvrent son rang.
+	var pleine := salle.duplicate(true)
+	for t in pleine.tables:
+		t.libres = 0
+	tb.essai_salle = pleine
+	if pk1 != null:
+		p.interact.emit(pk1)
+		await process_frame
+		var sp: Control = tb.get("_panneau")
+		check(sp != null and str(sp.get_script().resource_path).ends_with("salle_poker.gd") and sp.complete(pleine),
+			"toutes les tables pleines : la salle et sa liste d'attente")
+		if sp != null:
+			var appel := pleine.duplicate(true)
+			appel.attente = {"longueur": 2, "rang": 2}
+			appel.tables[2].libres = 1
+			check(sp.appelee(appel) == "", "une chaise pour deux inscrits : le second attend encore")
+			appel.tables[1].libres = 2
+			check(sp.appelee(appel) == "minuit:poker-3", "deux chaises : le second est appelé")
+			sp.montrer(appel)
+			await process_frame
+			var pm2: Control = tb.get("_panneau")
+			check(pm2 != null and pm2.table_id == "minuit:poker-3", "appelé, on s'assoit à sa table")
+			if pm2 != null:
+				pm2.closed.emit()
+				await process_frame
+	tb.essai_salle = {}
+	check(not p.frozen and tb.get("_panneau") == null, "on se lève du poker")
 
 	# Le lot D, les coulisses : ses salles sont bâties et peuplées ; sous le seuil du lieu, ses portes restent
 	# closes ; au seuil, de la fosse on passe au couloir de service, et l'escalier du personnel descend à l'épine.

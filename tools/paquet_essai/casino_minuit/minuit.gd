@@ -191,6 +191,7 @@ func _interagir(cible: Node) -> void:
 		"coffre": _dire("La porte du coffre ne s'ouvre qu'à deux, devant les caméras : elle reste close.")
 		"paris": _dire("Les paris suivent les matchs du dimanche, comme à Smarves. Les guichets ouvriront plus tard.")
 		"table": _tables.ouvrir(cible)
+		"salle_poker": _tables.ouvrir_salle()
 
 
 ## Le pupitre des fontaines : le prochain spectacle, qu'on peut lancer tout de suite.

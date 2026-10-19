@@ -15,6 +15,9 @@ const TEX_PARIS := {"A": "0dc3b62b4657f012.png", "B": "7f35b7f588180eff.png"}
 
 var scene: Node3D
 var K
+## Les maillages qui portent chaque écran, par nom de texture (le mur des tournois sert de repère à la
+## salle du poker, tables.gd).
+var porteurs := {}
 var _hasard := RandomNumberGenerator.new()
 
 # b-machines.js l. 72-80 : la cagnotte part de 1 284 560 et gagne 137 à 736 chaque seconde.
@@ -139,6 +142,8 @@ func _matieres(noms: Array) -> Dictionary:
 				var f := mat.albedo_texture.resource_path.get_file()
 				if r.has(f) and not r[f].has(mat):
 					r[f].append(mat)
+				if r.has(f):
+					porteurs.get_or_add(f, []).append(mi)
 	return r
 
 
