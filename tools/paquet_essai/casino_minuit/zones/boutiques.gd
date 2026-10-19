@@ -36,14 +36,15 @@ static func construire(K) -> void:
 	var closes := [{"x0": 28.3, "x1": 40.0, "z0": 6.2, "z1": 12.0}, {"x0": 35.2, "x1": 40.0, "z0": 1.15, "z1": 6.2}]
 
 	# --- enveloppe : sol de marbre, place en mosaïque, voûte en berceau « ciel » ---
-	L.sol(K, "marbre_creme", 18, 40, -12, 12, 0.0, trous + closes)
-	K.plan("marbre_creme", 28.3, 40, 6.2, 12, 0)
-	K.plan("marbre_creme", 35.2, 40, 1.15, 6.2, 0)
-	K.disque("mosaique", FX, FZ, 4.4, 0.006, 40)
+	L.sol(K, "marbre_nuit", 18, 40, -12, 12, 0.0, trous + closes)
+	K.plan("marbre_nuit", 28.3, 40, 6.2, 12, 0)
+	K.plan("marbre_nuit", 35.2, 40, 1.15, 6.2, 0)
+	K.disque("mosaique_place", FX, FZ, 4.4, 0.006, 40)
+	K.mat("mosaique_place").set_shader_parameter("origine", Vector2(FX - 4.4, FZ - 4.4))
 	K.tore("or", 4.4, 0.03, K.xf(FX, 0.01, FZ), 56)
 	for r in [[18.0, 35.0, -9.0, -8.75], [18.0, 35.0, 5.75, 6.0]]:
 		K.plan("damier", r[0], r[1], r[2], r[3], 0.005)
-	LB.voute(K, "ciel_nuit", 18.2, 39.8, -HALF, HALF, YS, RISE, 28)
+	LB.voute(K, "ciel_jour", 18.2, 39.8, -HALF, HALF, YS, RISE, 28)
 	var ouest := func(a: float) -> float: return vy(a)
 	var haut := func(_a: float) -> float: return H
 	# Les murs (pas de coque : les gaines les découpent).

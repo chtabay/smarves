@@ -288,7 +288,10 @@ static func voute(K, nom_mat: String, x0: float, x1: float, z0: float, z1: float
 		var a1 := PI * (i + 1) / seg
 		var p := func(x: float, a: float) -> Vector3: return Vector3(x, y0 + fleche * sin(a), cz - r * cos(a))
 		var n := Vector3(0, -sin((a0 + a1) / 2.0), cos((a0 + a1) / 2.0))
-		K._quad(st, p.call(x0, a0), p.call(x1, a0), p.call(x1, a1), p.call(x0, a1), n)
+		# UV du berceau du moteur web (demi-cylindre) : u autour de l'arc, v le long de la voûte.
+		var u0 := float(i) / seg
+		var u1 := float(i + 1) / seg
+		K._quad(st, p.call(x0, a0), p.call(x1, a0), p.call(x1, a1), p.call(x0, a1), n, Vector2(u0, 0), Vector2(u0, 1), Vector2(u1, 1), Vector2(u1, 0))
 	K.put(nom_mat, st.commit())
 
 

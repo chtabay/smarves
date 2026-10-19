@@ -26,6 +26,8 @@ var _mats := {}
 var _meshes := {}
 var _indexees := {}
 var _anim: Array = []
+## Les matières lumineuses et leur éclat de base (compenser).
+var lueurs: Array = []
 ## Les places que les zones laissent aux figurants (sièges, postes, comptoirs), par nom, en coordonnées du casino.
 var places := {}
 
@@ -111,55 +113,75 @@ func mat(nom: String) -> Material:
 	match nom:
 		"pierre": m = _marbre(Color("#CBBCA2"), Color("#B3A386"), 0.75, 0.3)
 		"pierre_haute": m = _marbre(Color("#8E8371"), Color("#7C715F"), 0.9, 0.3)
-		"marbre_creme": m = _marbre(PAL.marbre_creme, PAL.marbre_veine, 0.18)
-		"marbre_noir": m = _marbre(PAL.marbre_noir, Color("#6E6878"), 0.12)
-		"marbre_rouge": m = _marbre(PAL.marbre_rouge, Color("#D9B8A0"), 0.2)
-		"damier":
-			var sm := ShaderMaterial.new()
-			sm.shader = load("res://shaders/marble_checker.gdshader")
-			sm.set_shader_parameter("tile", 1.0)
-			m = sm
-		"moquette":
-			var sm := ShaderMaterial.new()
-			sm.shader = load("res://shaders/carpet.gdshader")
-			sm.set_shader_parameter("base_col", Color("#4A0C16"))
-			sm.set_shader_parameter("motif_col", Color("#8F6C2C"))
-			sm.set_shader_parameter("scale", 1.0)
-			m = sm
+		# Les textures de la DA (K.texDA du moteur web, relevées telles quelles), en dalles de taille réelle (K.TILE).
+		"marbre_creme": m = _da("marbre_creme", Vector2(2, 2), 0.32)
+		"marbre_noir": m = _da("marbre_noir", Vector2(2, 2), 0.25, 0.05)
+		"marbre_rouge": m = _da("marbre_rouge", Vector2(2, 2), 0.3)
+		"marbre_nuit": m = _da("marbre_creme", Vector2(2, 2), 0.32, 0.0, Color(0.6, 0.57, 0.55))
+		"damier": m = _da("damier", Vector2(2, 2), 0.3)
+		"moquette": m = _da("moquette_a", Vector2(2, 2), 0.95)
 		"or": m = _std(PAL["or"], 0.32, 0.85)
 		"or_brosse": m = _std(PAL["or"], 0.5, 0.7)
 		"statue_or": m = _std(Color("#C99A3E"), 0.28, 0.9)
 		"laque_noire": m = _std(PAL.laque_noire, 0.25, 0.0)
 		"laque_rouge": m = _std(PAL.rouge_laque, 0.3, 0.0)
 		"coussin": m = _std(PAL.rouge_profond, 0.85, 0.0)
-		"bois_laque": m = _std(Color("#2A110B"), 0.4, 0.05)
-		"plafond_bas": m = _std(Color("#3A2A22"), 0.8, 0.0)
+		"bois_laque": m = _da("bois_laque", Vector2(1, 2), 0.35, 0.05)
+		"plafond_bas": m = _da("caisson", Vector2(4, 4), 1.0)
 		"feutre": m = _std(PAL.feutre, 0.95, 0.0)
 		"verre":
 			var v := _std(Color(0.75, 0.85, 0.85, 0.18), 0.05, 0.1)
 			v.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 			v.cull_mode = BaseMaterial3D.CULL_DISABLED
 			m = v
-		"lanterne": m = _lueur(Color("#D2522A"), 1.6)
+		"lanterne": m = _lueur(Color("#FF5A2A"), 0.8)
 		"ampoule": m = _lueur(Color("#FFE2B4"), 3.0)
 		"gorge": m = _lueur(Color("#C27A30"), 1.4)
 		"pendeloque": m = _lueur(Color("#FFE2B4"), 2.2)
-		"onyx": m = _shader("onyx")
-		"eau": m = _shader("eau")
+		# L'onyx rétroéclairé (DA.onyx) : la texture luit telle quelle, en dalles d'un mètre.
+		"onyx":
+			m = _shader("da_lueur")
+			m.set_shader_parameter("motif", load(BASE + "textures/onyx.png"))
+			m.set_shader_parameter("dalle", Vector2(1, 1))
+			# Rétroéclairé, pas éblouissant : à pleine valeur, sous l'ACES de Godot, il brûle (vue de l'atrium).
+			m.set_shader_parameter("gain", 0.5)
+			lueurs.append([m, 0.5])
+		"eau":
+			m = _shader("eau_da")
+			m.set_shader_parameter("motif", load(BASE + "textures/eau.png"))
+			lueurs.append([m, 1.0])
 		"jet": m = _shader("jet")
 		"strip": m = _shader("strip")
 		"coupole": m = _shader("coupole")
 		"rosace": m = _shader("rosace")
 		# Le lot B (js/zones/b-0-commun.js) : ses étoffes, ses cuirs, son jardin, ses néons.
-		"bois_clair": m = _std(Color("#8A5A32"), 0.45, 0.05)
-		"velours": m = _std(Color("#5A0F1C"), 0.9, 0.0)
-		"capiton_rouge": m = _std(Color("#7A0E18"), 0.7, 0.0)
-		"moquette_b": m = _moquette(Color("#141A3A"), Color("#3A2A5E"))
-		"moquette_c": m = _moquette(Color("#1A1430"), Color("#6A5A2A"))
-		"moquette_d": m = _moquette(Color("#3A0C14"), Color("#B8893A"))
-		"moquette_e": m = _moquette(Color("#170A20"), Color("#7A2A50"))
-		"mosaique": m = _marbre(Color("#C8B38A"), Color("#7E2A22"), 0.5, 0.25)
-		"dallage": m = _marbre(Color("#C4B08C"), Color("#8E7C5E"), 0.6, 0.4)
+		"bois_clair": m = _da("bois_clair", Vector2(1, 2), 0.4)
+		"velours": m = _da("velours", Vector2(2, 4), 0.9)
+		"capiton_rouge":
+			m = _da("capiton", Vector2(0.8, 0.8), 0.7)
+			# Le relief du capiton est un bump dans le moteur web : la texture seule, adoucie.
+			m.set_shader_parameter("contraste", 0.45)
+		"moquette_b": m = _da("moquette_b", Vector2(2, 2), 0.95)
+		"moquette_c": m = _da("moquette_c", Vector2(2, 2), 0.95)
+		"moquette_d": m = _da("moquette_d", Vector2(2, 2), 0.95)
+		"moquette_e": m = _da("moquette_e", Vector2(2, 2), 0.95)
+		"mosaique": m = _da("mosaique", Vector2(2, 2), 0.55)
+		# La place des boutiques : une seule rosace de mosaïque sur tout le disque (la zone règle son origine).
+		"mosaique_place": m = _da("mosaique", Vector2(8.8, 8.8), 0.55)
+		"dallage": m = _da("dallage", Vector2(2, 2), 0.6)
+		# Le ciel peint des boutiques, passé au crépuscule (c.t.ciel : la texture du ciel, teintée, sans éclairage).
+		"ciel_jour":
+			var cj := StandardMaterial3D.new()
+			cj.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			cj.albedo_texture = load(BASE + "textures/ciel_jour.png")
+			cj.albedo_color = Color(0.24, 0.22, 0.34)
+			cj.cull_mode = BaseMaterial3D.CULL_DISABLED
+			cj.disable_fog = true
+			m = cj
+		# Les caisses des machines à sous (K.M.cabA, cabB, cabC).
+		"caisse_a": m = _std(Color("#8A1A2E"), 0.4, 0.15)
+		"caisse_b": m = _std(Color("#25327A"), 0.4, 0.15)
+		"caisse_c": m = _std(Color("#57297A"), 0.4, 0.15)
 		"feutre_hl": m = _std(Color("#6E1423"), 0.95, 0.0)
 		"feutre_bleu": m = _std(Color("#1C2C6A"), 0.96, 0.0)
 		"housse": m = _std(Color("#3C4560"), 0.92, 0.0)
@@ -310,16 +332,31 @@ func _lueur(c: Color, energie: float) -> StandardMaterial3D:
 	m.emission_enabled = true
 	m.emission = c
 	m.emission_energy_multiplier = energie
+	lueurs.append([m, energie])
 	return m
 
 
-func _moquette(fond: Color, motif: Color) -> ShaderMaterial:
-	var sm := ShaderMaterial.new()
-	sm.shader = load("res://shaders/carpet.gdshader")
-	sm.set_shader_parameter("base_col", fond)
-	sm.set_shader_parameter("motif_col", motif)
-	sm.set_shader_parameter("scale", 1.0)
-	return sm
+## Les matières qui luisent ne passent pas par l'exposition dans le moteur web (toneMapped: false) : leur éclat
+## suit l'inverse de l'exposition courante, ramenée à celle du profil public (0,9).
+func compenser(expo: float) -> void:
+	var f := 0.9 / maxf(expo, 0.1)
+	for l in lueurs:
+		var m: Material = l[0]
+		if m is StandardMaterial3D:
+			(m as StandardMaterial3D).emission_energy_multiplier = l[1] * f
+		else:
+			(m as ShaderMaterial).set_shader_parameter("gain", l[1] * f)
+
+
+## Une texture de la DA (textures/<nom>.png), posée en dalles de taille réelle par le shader da.
+func _da(nom: String, dalle: Vector2, rugosite: float, metal := 0.0, teinte := Color.WHITE) -> ShaderMaterial:
+	var m := _shader("da")
+	m.set_shader_parameter("motif", load(BASE + "textures/%s.png" % nom))
+	m.set_shader_parameter("dalle", dalle)
+	m.set_shader_parameter("rugosite", rugosite)
+	m.set_shader_parameter("metal", metal)
+	m.set_shader_parameter("teinte", teinte)
+	return m
 
 
 func _marbre(fond: Color, veine: Color, poli: float, echelle := 0.6) -> ShaderMaterial:

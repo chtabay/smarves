@@ -229,7 +229,7 @@ static func _roue_fortune(K, L, LB) -> Dictionary:
 	LB.rbox(K, g, "laque_noire", 1.5, 0.12, 0.7, 0, 0.06, -0.56)
 	LB.rbox(K, g, "or", 1.56, 0.03, 0.76, 0, 0.13, -0.56)
 	var c: Vector2 = LB.loc(g, 0, -0.5)
-	var dos: Vector2 = LB.loc(g, 0, -0.6)
+	var dos: Vector2 = LB.loc(g, 0, -0.4)
 	# Le disque tourne : un nœud à part (L.roue, dressé), ses secteurs de six couleurs.
 	L.roue(K, c.x, 1.98, c.y, PI / 2.0, 1.0, 0.08, ["creme", "or", "creme", "laque_rouge", "creme", "or", "feutre", "bleu_nuit", "laque_noire"], 54, 0.35, false)
 	K.tore("or", 1.03, 0.045, K.xf(c.x, 1.98, c.y, 0, 0, PI / 2.0), 54)

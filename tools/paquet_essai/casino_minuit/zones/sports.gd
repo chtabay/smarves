@@ -25,7 +25,7 @@ static func construire(K) -> void:
 	L.sol(K, "moquette_c", B.x0, B.x1, B.z0, B.z1)
 	L.plafond(K, "plafond_bas", B.x0, B.x1, B.z0, B.z1, H)
 	LB.coque(K, B, H, "laque_noire", OUV)
-	var reg := {"base": "cuir", "gorge": "neon_vert", "pil_mat": "laque_noire", "applique": false}
+	var reg := {"base": "cuir_bleu", "gorge": "neon_vert", "pil_mat": "laque_noire", "applique": false}
 	L.registres(K, 22.2, -29.8, 22.2, -12.2, _avec(reg, {"n": [1.0, 0.0], "skip": [[6.8, 12.8]], "pil": [3.3, 6.35, 13.25, 15.6]}))
 	L.registres(K, 39.8, -29.8, 39.8, -12.2, _avec(reg, {"n": [-1.0, 0.0], "skip": [[2.7, 10.7], [14.1, 16.3]], "pil": [1.3, 12.2]}))
 	L.registres(K, 22.2, -12.2, 39.8, -12.2, _avec(reg, {"n": [0.0, -1.0], "skip": [[4.4, 13.2]], "pil": [2.2, 15.4]}))
@@ -104,7 +104,7 @@ static func construire(K) -> void:
 		K.obstacle(24.65, 33.35, z - 0.88, z - 0.6, 0.0, 0.8)
 		for k in 6:
 			var x := 25.25 + k * 1.5
-			parieurs.append(L.fauteuil(K, x, z, 0.0, "cuir"))
+			parieurs.append(L.fauteuil(K, x, z, 0.0, "cuir_bleu"))
 			K.box("ecran_vert", 0.26, 0.012, 0.16, x, 0.756, z - 0.74)
 	K.places["sports_fauteuils"] = parieurs
 

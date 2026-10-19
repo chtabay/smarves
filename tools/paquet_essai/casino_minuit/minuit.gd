@@ -60,9 +60,12 @@ var player: CharacterBody3D
 var camera: Camera3D
 
 var K
+var _rendu
 var _t := 0.0
 ## Les groupes de nœuds que la vue montre ou cache selon où l'on est, et le dernier état appliqué.
 var _groupes := {}
+## Le nœud de zone dont dépend la visibilité d'un nœud du dedans (zone, figurant).
+var _zone_de := {}
 var _vue := ""
 var _invite: Label
 var _message: Label
@@ -80,6 +83,7 @@ func _ready() -> void:
 	_arene_porte()
 	_concert_portes()
 	load(BASE + "zones/figurants.gd").peupler(self)
+	_eclairer()
 	_joueur()
 	_decouper()
 	_interface()
@@ -91,36 +95,27 @@ func _ready() -> void:
 func _process(dt: float) -> void:
 	_t += dt
 	K.animer(dt, _t)
+	_rendu.chaque_image(dt, player.global_position, -player.global_basis.z)
 	_cadrer()
 	var f = player.focus_target if player else null
 	_invite.text = str(f.get_meta("prompt", "")) + "  [E]" if f != null and f.has_meta("prompt") else ""
 
 
+## L'ambiance (rendu.gd) : les profils de scène et de zone du moteur web, ses lampes au budget, ses halos.
 func _ambiance() -> void:
-	var env := Environment.new()
-	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color("#07060a")
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color("#6b4a32")
-	env.ambient_light_energy = 0.75
-	env.tonemap_mode = Environment.TONE_MAPPER_AGX
-	env.tonemap_exposure = 1.1
-	env.glow_enabled = true
-	env.glow_intensity = 0.7
-	env.glow_bloom = 0.08
-	env.glow_hdr_threshold = 1.1
-	env.fog_enabled = true
-	env.fog_light_color = Color("#2a1a12")
-	env.fog_density = 0.006
-	var we := WorldEnvironment.new()
-	we.environment = env
-	add_child(we)
-	# Une clarté chaude et douce venue d'en haut, pour que les volumes se lisent sans ombres.
-	var haut := DirectionalLight3D.new()
-	haut.light_color = Color("#ffd9a8")
-	haut.light_energy = 0.35
-	haut.rotation_degrees = Vector3(-70, 20, 0)
-	add_child(haut)
+	_rendu = load(BASE + "rendu.gd").new(self)
+
+
+## Après la construction : les halos relevés sous leurs zones ; les lumières que les zones du dedans ont posées
+## cèdent la place aux lampes au budget (le dehors, l'arène et la salle de concert gardent les leurs).
+func _eclairer() -> void:
+	_rendu.poser_halos()
+	for c in get_children():
+		var nom := str(c.name)
+		if nom.begins_with("R-") or nom.begins_with("M-") or nom.begins_with("B-") or nom.begins_with("ESC-"):
+			for l in c.find_children("*", "OmniLight3D", true, false):
+				l.visible = false
+				l.light_energy = 0.0
 
 
 ## Un visiteur à taille d'homme (le casino est à l'échelle réelle), et la caméra à crans.
@@ -136,6 +131,8 @@ func _joueur() -> void:
 	player.speed = 3.2
 	player.reach = 2.6
 	add_child(player)
+	# Le champ du moteur web : 68° à la verticale.
+	player.camera.fov = 68.0
 	var me: Node3D = load("res://scripts/critter.gd").new()
 	me.look = Cast.player(Biens.worn)
 	me.walk_speed = 2.4
@@ -335,6 +332,7 @@ func _concert_portes() -> void:
 ## le reste du dedans, l'arène, la salle de concert.
 func _decouper() -> void:
 	_groupes = {"dehors": [], "vu": [], "dedans": [], "hall": [], "arene": [], "concert": []}
+	_zone_de = {}
 	for c in get_children():
 		var nom := str(c.name)
 		if nom.begins_with("X-") or nom == "Porte_arene":
@@ -347,8 +345,11 @@ func _decouper() -> void:
 			_groupes.concert.append(c)
 		elif nom in DEDANS_VU:
 			_groupes.vu.append(c)
+			_zone_de[c] = nom
 		elif nom.begins_with("R-") or nom.begins_with("M-") or nom.begins_with("B-") or nom.begins_with("ESC-") or nom.begins_with("Cordon") or nom.begins_with("Coulisses"):
 			_groupes.dedans.append(c)
+			if not (nom.begins_with("Cordon") or nom.begins_with("Coulisses")):
+				_zone_de[c] = nom
 	var fig := get_node_or_null("Figurants")
 	if fig:
 		for c in fig.get_children():
@@ -361,23 +362,38 @@ func _decouper() -> void:
 				_groupes.concert.append(c)
 			else:
 				_groupes.dedans.append(c)
+				# Un figurant du dedans se montre avec la zone où il se tient.
+				var z: Dictionary = _rendu.zone_a((c as Node3D).global_position + Vector3(0, 0.1, 0))
+				if not z.is_empty():
+					_zone_de[c] = _rendu.noeud(z.id)
 	_cadrer()
 
 
 ## Ce que la vue montre d'où l'on est : dehors, le dedans s'arrête à la rotonde et à l'atrium (vus par la
-## porte) ; dedans, le dehors s'efface passé la rotonde ; le hall de l'arène (vu par sa porte) dès qu'on est
+## porte) ; dedans, seules les zones qu'on voit de celle où l'on est (rendu.gd, les « sees » du moteur web) et
+## leurs figurants ; le dehors s'efface passé la rotonde ; le hall de l'arène (vu par sa porte) dès qu'on est
 ## dehors, sa salle depuis le trottoir d'en face, la salle de concert depuis le foyer. La caméra voit loin dehors (le ciel, les tours), court dedans.
 func _cadrer() -> void:
 	if player == null or _groupes.is_empty():
 		return
 	var p := player.global_position
 	var dehors := p.z > 30.5
-	var vue := "%d%d%d%d" % [int(p.z > 12.0), int(dehors), int(p.z > 75.0), int(p.x > 4.0 and p.z < -12.0)]
+	var noms := {}
+	if not dehors and not _rendu.zone.is_empty():
+		noms = _rendu.noeuds_visibles(p)
+	var cle := ",".join(PackedStringArray(noms.keys()))
+	var vue := "%d%d%d%d" % [int(p.z > 12.0), int(dehors), int(p.z > 75.0), int(p.x > 4.0 and p.z < -12.0)] + cle
 	if vue == _vue:
 		return
 	_vue = vue
 	_montrer(_groupes.dehors, p.z > 12.0)
-	_montrer(_groupes.dedans, not dehors)
+	if noms.is_empty():
+		_montrer(_groupes.dedans, not dehors)
+		_montrer(_groupes.vu, true)
+	else:
+		for g in [_groupes.dedans, _groupes.vu]:
+			for n in g:
+				_montrer([n], noms.has(_zone_de[n]) if _zone_de.has(n) else true)
 	_montrer(_groupes.hall, dehors)
 	_montrer(_groupes.arene, p.z > 75.0)
 	_montrer(_groupes.concert, p.x > 4.0 and p.z < -12.0)

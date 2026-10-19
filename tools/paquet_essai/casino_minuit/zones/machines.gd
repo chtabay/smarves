@@ -74,7 +74,7 @@ static func construire(K) -> void:
 			var a := k * PI / 3.0
 			var x := cx + 1.1 * sin(a)
 			var z := cz + 1.1 * cos(a)
-			joueurs.append(L.machine(K, x, z, a, ["ecran", "ecran_rose", "ecran_or"][(k + ci) % 3], ["laque_rouge", "laque_noire", "bois_laque"][(k + ci) % 3]))
+			joueurs.append(L.machine(K, x, z, a, ["ecran", "ecran_rose", "ecran_or"][(k + ci) % 3], ["caisse_a", "caisse_b", "caisse_c"][(k + ci) % 3]))
 			K.rond(x, z, 0.4)
 	K.places["machines"] = joueurs
 
