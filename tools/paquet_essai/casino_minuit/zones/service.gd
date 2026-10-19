@@ -1,7 +1,7 @@
 extends RefCounted
 ## Lot D, zone R-SERVICE (js/zones/d-r-service.js) : le couloir du personnel du rez-de-chaussée, [36, 40] ×
 ## [-4 ; 26,5], derrière le mur est de la fosse. Au nord la cage de l'escalier du personnel (escalier_staff.gd),
-## au sud l'ascenseur de service ASC-S (portes closes). Les portes : L25 vers la fosse (posée par minuit.gd,
+## au sud l'ascenseur de service ASC-S. Les portes : L25 vers la fosse (posée par minuit.gd,
 ## close sous le seuil des coulisses), L15 vers l'arrière-caisse (posée par arriere.gd). Côté couloir, le
 ## rappel de scène, le miroir et la pointeuse ; les casiers des extras, le portant des vestes, les chariots.
 

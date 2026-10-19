@@ -425,7 +425,7 @@ static func roulette(K, x: float, z: float, rot: float, wend: float) -> Dictiona
 # --- Ascenseur, escalators ----------------------------------------------------------------------------------
 
 ## La gaine de l'ascenseur panoramique est (L.gaineAscB, ASC-B) : [18, 21] × [9, 12], vitrée au sud et à
-## l'est, porte sur x = 18. Les cabines viendront plus tard : la porte est close. y : le sol du niveau.
+## l'est, porte sur x = 18. La cabine, sa porte et ses parois : ascenseurs.gd. y : le sol du niveau.
 static func gaine_b(K, H: float, y := 0.0, etage := "Casino") -> void:
 	for p in [[18.06, 9.06], [20.94, 9.06], [18.06, 11.74], [20.94, 11.74]]:
 		K.box("or", 0.12, H, 0.12, p[0], y + H / 2.0, p[1])
@@ -443,7 +443,6 @@ static func gaine_b(K, H: float, y := 0.0, etage := "Casino") -> void:
 	K.box("onyx", 2.6, H - 0.3, 0.02, 19.5, y + H / 2.0, 11.8)
 	K.box("gorge", 2.5, 0.03, 0.04, 19.5, y + H - 0.12, 9.1)
 	B().enseigne(K, "Ascenseur · " + etage, 17.985, y + 3.0, 10.5, -PI / 2.0, 1.2, 0.26, "plaque")
-	K.obstacle(18, 21, 9, 12, y, H)
 
 
 ## Les escalators ESC (L.ESC) : deux voies de 1 m entre z = -11,725 et -9,15, du pied (x 23,2, y 0) à la

@@ -53,6 +53,31 @@ func _init() -> void:
 	check(c.inObstacle.is_empty(), "aucun PNJ dans un obstacle %s" % str(c.inObstacle.slice(0, 3)))
 	check(c.leaks.is_empty(), "aucune place ni point gardé à tort %s" % str(c.leaks.slice(0, 4)))
 
+	# L'ascenseur ouest : on y entre au rez-de-chaussée, on monte à la mezzanine, on en sort.
+	var asc: Node = s.get_node_or_null("Ascenseurs")
+	check(asc != null and asc.get_node_or_null("elevator-ASC-A") != null, "les cabines des trois ascenseurs sont là")
+	var E: Dictionary = pnj.elevators["ASC-A"]
+	var pj: CharacterBody3D = s.player
+	if E.cur.level != 0.0:
+		pnj.elev_go(E, 0.0)
+		await create_timer(5.0, true).timeout
+	pj.global_position = Vector3(-19.5, 0.1, 10.5)
+	pj.rotation.y = -PI / 2.0
+	pj.velocity = Vector3.ZERO
+	await create_timer(0.5, true).timeout
+	var cible_p: Node = pj.focus_target
+	check(cible_p != null and str(cible_p.get_meta("interact", "")) == "ascenseur_panneau", "dans la cabine, le tableau de bord : %s" % (str(cible_p.get_meta("prompt", "")) if cible_p else "rien"))
+	s._ascenseurs.utiliser(asc.get_node("elevator-ASC-A/Panneau"))
+	await create_timer(5.0, true).timeout
+	check(E.cur.level == 1.0 and E.state == "idle", "la cabine est montée (niveau %s, %s)" % [E.cur.level, E.state])
+	check(absf(pj.global_position.y - 6.0) < 0.3, "le joueur est monté avec elle (y %.2f)" % pj.global_position.y)
+	pj.auto_move = Vector3(0, 0, -1)
+	await create_timer(1.5, true).timeout
+	pj.auto_move = Vector3.ZERO
+	check(pj.global_position.x > -17.9 and absf(pj.global_position.y - 6.0) < 0.3, "il sort à la mezzanine (%s)" % str(pj.global_position))
+	pj.global_position = Vector3(0, 0.05, 26.0)
+	await create_timer(0.3, true).timeout
+
 	# Une embrouille entre deux clients : la sécurité intervient et l'affaire se termine.
 	var i0: int = pnj.log_.interventions
 	var f = pnj.spawn_fight()

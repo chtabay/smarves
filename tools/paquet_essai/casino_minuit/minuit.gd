@@ -65,6 +65,8 @@ var _decor_
 var _tables
 ## Les gens du casino (pnj/pnj.gd, le moteur des PNJ de l'original).
 var pnj
+## Les ascenseurs (ascenseurs.gd), que les PNJ prennent aussi.
+var _ascenseurs
 var _t := 0.0
 ## Les groupes de nœuds que la vue montre ou cache selon où l'on est, et le dernier état appliqué.
 var _groupes := {}
@@ -122,8 +124,16 @@ func _peupler() -> void:
 		pnj.free()
 		pnj = null
 	else:
+		_ascenseurs = load(BASE + "ascenseurs.gd").new(self, K, pnj)
+		_ascenseurs.poser()
 		add_child(pnj)
 	load(BASE + "zones/figurants.gd").peupler(self, pnj == null)
+
+
+## Les cabines, portes et voyants, à chaque pas des ascenseurs (pnj.update_elevators).
+func ascenseurs_animer(_elevators: Dictionary) -> void:
+	if _ascenseurs != null:
+		_ascenseurs.animer()
 
 
 ## Une zone est-elle montrée (les PNJ d'une zone cachée ne sont ni affichés ni animés) ?
@@ -219,6 +229,7 @@ func _interagir(cible: Node) -> void:
 		"coffre": _dire("La porte du coffre ne s'ouvre qu'à deux, devant les caméras : elle reste close.")
 		"paris": _dire("Les paris suivent les matchs du dimanche, comme à Smarves. Les guichets ouvriront plus tard.")
 		"table": _tables.ouvrir(cible)
+		"ascenseur_appel", "ascenseur_panneau": _ascenseurs.utiliser(cible)
 		"salle_poker": _tables.ouvrir_salle()
 
 

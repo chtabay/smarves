@@ -555,7 +555,7 @@ static func machine(K, x: float, z: float, rot: float, ecran: String, caisse: St
 
 
 ## La gaine de l'ascenseur panoramique ouest (B.gaineA, ASC-A) : [-21, -18] × [9, 12], vitrée, porte
-## sur x = -18. Les cabines viendront plus tard : les portes sont closes.
+## sur x = -18. La cabine, ses portes et ses parois : ascenseurs.gd.
 static func gaine(K, H: float) -> void:
 	for p in [[-20.93, 9.07], [-18.27, 9.07], [-20.93, 11.73]]:
 		K.box("or", 0.14, H, 0.14, p[0], H / 2.0, p[1])
@@ -568,7 +568,6 @@ static func gaine(K, H: float) -> void:
 	K.box("onyx", 2.5, H - 0.3, 0.02, -19.6, H / 2.0, 11.78)
 	K.box("laque_noire", 0.06, 2.3, 1.5, -18.12, 1.15, 10.5)
 	K.box("or", 0.08, 2.4, 1.6, -18.1, 1.2, 10.5)
-	K.obstacle(-21, -18, 9, 12, 0.0, H)
 
 
 ## Des toilettes (B.toilettes) : repère à la porte, -z local entre dans la pièce. o : x, z, rot, W, D,

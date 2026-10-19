@@ -4875,7 +4875,7 @@ func tick_bubbles() -> void:
 func _ascenseurs() -> void:
 	for o in M.ascenseurs:
 		var E := {"id": o.id, "x": o.x, "z": o.z, "w": o.w, "d": o.d, "facing": o.facing, "label": o.label, "stops": [], "state": "idle", "cur": null, "dest": null,
-			"pending": null, "t": 0.0, "y": 0.0, "y0": 0.0, "dur": 0.0}
+			"pending": null, "t": 0.0, "y": 0.0, "y0": 0.0, "dur": 0.0, "rider": false}
 		for s in o.stops:
 			E.stops.append({"level": float(s.level), "y": float(s.y), "zone": s.zone, "name": s.name, "k": 0.0, "outside": s.outside, "inside": s.inside, "doorAt": s.doorAt,
 				"dw": s.dw, "navNode": s.navNode})
@@ -4914,6 +4914,25 @@ func elev_go(E: Dictionary, level) -> bool:
 	return true
 
 
+## Le point (x, z) est-il dans la cabine, à m près de ses parois (contains) ?
+func elev_contains(E: Dictionary, x: float, z: float, m := 0.0) -> bool:
+	var sf := sin(float(E.facing))
+	var cf := cos(float(E.facing))
+	var lx: float = (x - E.x) * cf - (z - E.z) * sf
+	var lz: float = (x - E.x) * sf + (z - E.z) * cf
+	return absf(lx) <= E.w / 2.0 - m and absf(lz) <= E.d / 2.0 - m
+
+
+## L'arrêt suivant (nextStop) : celui du dessus, sinon celui du dessous.
+func elev_next(E: Dictionary) -> Dictionary:
+	var i: int = E.stops.find(E.cur)
+	if i + 1 < E.stops.size():
+		return E.stops[i + 1]
+	if i - 1 >= 0:
+		return E.stops[i - 1]
+	return E.cur
+
+
 func elev_door_open(E: Dictionary, level) -> bool:
 	var s = elev_stop(E, level)
 	return s != null and s.k > 0.6
@@ -4927,6 +4946,10 @@ func update_elevators(dt: float) -> void:
 				E.t = 0.0
 				E.y0 = E.cur.y
 				E.dur = maxf(1.8, absf(E.dest.y - E.cur.y) / 2.2)
+				# le joueur dans la cabine part avec elle
+				E.rider = not essai and J.mode == "walk" and J.link == null and J.level == E.cur.level and elev_contains(E, J.x, J.z)
+				if E.rider:
+					J.elevator = E
 		elif E.state == "moving":
 			E.t = minf(1.0, E.t + dt / E.dur)
 			E.y = E.y0 + (E.dest.y - E.y0) * ease_(E.t)
@@ -4935,6 +4958,9 @@ func update_elevators(dt: float) -> void:
 				E.dest = null
 				E.y = E.cur.y
 				E.state = "idle"
+				if E.rider:
+					E.rider = false
+					J.elevator = null
 				if E.pending != null:
 					var p: Dictionary = E.pending
 					E.pending = null
