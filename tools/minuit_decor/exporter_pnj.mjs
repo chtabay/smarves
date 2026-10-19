@@ -2,7 +2,9 @@
 // navigation, graphe (nœuds, arêtes, treillis par niveau), liaisons, ascenseurs, points de routine, apparitions,
 // caméras, portes, zones, stations et leurs places, gabarits des personnages (vitesse de marche mesurée, assise,
 // axes de la tête et du buste), teintes des rôles du manifeste, plan du Strip. Le portage (pnj/) rejoue ces données.
-// Usage : node exporter_pnj.mjs SORTIE.json   (MINUIT_VENDOR : le dossier vendor/, par défaut ./vendor)
+// Le second fichier (facultatif) garde des réponses de l'original (dégagements, nœuds proches, chemins) pour vérifier
+// que le portage répond pareil (tools/test_minuit_pnj.gd).
+// Usage : node exporter_pnj.mjs SORTIE.json [VERIF.json]   (MINUIT_VENDOR : le dossier vendor/, par défaut ./vendor)
 import { createRequire } from 'module';
 import { spawn } from 'child_process';
 import fs from 'fs';
@@ -12,7 +14,7 @@ const require = createRequire(import.meta.url);
 let pw; try { pw = require('playwright'); } catch (e) { pw = require('/opt/node-tools/node_modules/playwright'); }
 const { chromium } = pw;
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const SRC = '/mnt/project-files/casino-minuit/source', OUT = process.argv[2], PORT = 8769;
+const SRC = '/mnt/project-files/casino-minuit/source', OUT = process.argv[2], VERIF = process.argv[3], PORT = 8769;
 const VENDOR = process.env.MINUIT_VENDOR || path.join(HERE, 'vendor');
 const MIME = { '.js': 'application/javascript', '.css': 'text/css', '.woff2': 'font/woff2' };
 const vendorFile = f => ({ status: 200, contentType: MIME[path.extname(f)] || 'application/octet-stream', headers: { 'Access-Control-Allow-Origin': '*' }, body: fs.readFileSync(path.join(VENDOR, f)) });
@@ -84,10 +86,20 @@ function findChromium() { const base = '/opt/pw-browsers'; for (const d of fs.re
     const tpls = Object.keys(K.templates).map(k => { const t = K.templates[k]; const ax = a => a ? { yaw: val(a.yaw), pitch: val(a.pitch) } : null;
       return { name: t.name, human: t.human, female: t.female, scale: t.scale, names: t.names, libs: t.libs, natural: t.natural, measured: t.measured, sitKey: t.sitKey, sitOnce: t.sitOnce, seatH: t.seatH, hipsZ: t.hipsZ, settle: t.settle, height: t.height, head: ax(t.head), torso: ax(t.torso) }; });
     const E = C.lotE, LAY = E && E.LAY ? plain(E.LAY) : null;
-    return { levels, colliders, nodes, edges: W.nav.edges, links, elevators, points, spawns, cameras, doors, zones, stations, templates: tpls, roles: C.npc.manifestRoles, lay: LAY,
+    /* réponses de référence, tirées par un hasard à graine propre (le Math.random de la page est déjà entamé) */
+    let sd = 12345; const rnd = () => { sd = (sd * 1103515245 + 12345) % 2147483648; return sd / 2147483648; };
+    const lvls = Z.levels(), pick = () => { const l = lvls[Math.floor(rnd() * lvls.length)], g = Z.defineLevel(l, {}).grid; const n = g[Math.floor(rnd() * g.length)]; return { x: r4(n.x + (rnd() - 0.5) * 2), z: r4(n.z + (rnd() - 0.5) * 2), level: l }; };
+    const pt = p => ({ x: r4(p.x), z: r4(p.z), y: r4(p.y), level: p.level, link: p.link ? { type: p.link.type, id: p.link.id, toLevel: p.link.toLevel } : undefined });
+    const verif = { clearance: [], nearest: [], paths: [], zones: [], staffZone: Object.keys(K.world.staffZone).sort() };
+    for (let i = 0; i < 400; i++) { const p = pick(); verif.clearance.push([p.x, p.z, p.level, r4(W.nav.clearance(p.x, p.z, p.level))]); verif.zones.push([p.x, p.z, p.level, K.zoneOf(p.x, p.z, p.level)]); }
+    for (let i = 0; i < 100; i++) { const p = pick(), n = W.nav.nearest(p, 14, p.level); verif.nearest.push([p.x, p.z, p.level, n ? n.id : -1]); }
+    for (let i = 0; i < 80; i++) { const a = pick(), b = i % 3 ? pick() : Object.assign(pick(), { level: a.level }); verif.paths.push({ from: a, to: b, path: W.nav.findPath(a, b).map(pt) }); }
+    return { verif, levels, colliders, nodes, edges: W.nav.edges, links, elevators, points, spawns, cameras, doors, zones, stations, templates: tpls, roles: C.npc.manifestRoles, lay: LAY,
       stats: { nodes: W.nav.nodes.length, edges: W.nav.edges.length, npcs: C.npc.list.length } };
   });
+  const verif = res.verif; delete res.verif;
   fs.writeFileSync(OUT, JSON.stringify(res));
+  if (VERIF) fs.writeFileSync(VERIF, JSON.stringify(verif));
   console.log('niveaux', res.levels.length, 'obstacles', res.colliders.length, 'nœuds', res.nodes.length, 'arêtes', res.edges.length, 'stations', res.stations.length, 'gabarits', res.templates.length, 'points', Object.keys(res.points).map(k => k + ':' + res.points[k].length).join(' '));
   await browser.close(); process.exit(0);
 })();
