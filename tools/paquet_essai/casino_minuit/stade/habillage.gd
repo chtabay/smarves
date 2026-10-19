@@ -3,12 +3,14 @@ extends Node3D
 ## stade du socle (champ « habillage » du terrain, socle 1.6). La pelouse, la tribune du club, le tableau
 ## d'affichage et le match sont ceux du socle ; ici, ce qui fait Las Vegas autour : le Strip la nuit sur
 ## les quatre côtés, deux virages de velours rouge sous des marquises dorées, la grande enseigne au néon
-## derrière le tableau, la roue de la Fortune, des palmiers et des guirlandes de lanternes.
+## derrière le tableau, la roue de la Fortune, des palmiers et des guirlandes de lanternes ; au-dessus du Strip
+## peint à l'ouest, la tour du casino et sa couronne rouge « MINUIT », celle qu'on voit depuis le boulevard.
 ## Repère du stade : pelouse x ∈ [-18, 18], z ∈ [-11, 11] ; tribune au sud (z < -15), tableau au nord
 ## (z = 16), mains courantes à x = ±22 et z = ±14, murets à x = ±28 et z = ±23.
 
 const KIT := "res://communes/casino_minuit/kit.gd"
 const PERSONNAGES := "res://communes/casino_minuit/personnages.gd"
+const LOT_E := "res://communes/casino_minuit/zones/lot_e.gd"
 
 var K
 var _t := 0.0
@@ -19,6 +21,7 @@ func _ready() -> void:
 	K = load(KIT).new(self)
 	K.zone_debut("STADE-FORTUNE")
 	_strip()
+	_tour_minuit()
 	for s in [-1.0, 1.0]:
 		_virage(s)
 	_enseigne()
@@ -49,6 +52,16 @@ func _strip() -> void:
 		mi.rotation.y = c[1]
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(mi)
+
+
+## La tour de Minuit (lot E, facade.gd) au-delà du Strip peint de l'ouest : le stade est à son pied, derrière
+## le casino ; sa couronne rouge dépasse le décor peint.
+func _tour_minuit() -> void:
+	var E = load(LOT_E)
+	E.bloc(K, -84.0, -68.0, -14.0, 2.0, 0.0, 80.0, E.TOUR, "sneo", Color("#1A0A0E"))
+	K.box("laque_noire", 17.0, 5.0, 17.0, -76.0, 82.5, -6.0)
+	K.box("rouge_lum", 17.2, 0.25, 17.2, -76.0, 80.1, -6.0)
+	E.enseigne(K, "MINUIT", "#FF3348", 15.0, 3.6, -67.4, 82.5, -6.0, PI / 2.0)
 
 
 ## Un virage, derrière un but (s = -1 à l'ouest, 1 à l'est) : cinq gradins de velours rouge entre la

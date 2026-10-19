@@ -202,7 +202,7 @@ static func construire(K) -> void:
 	K.jets(liste, 0.42, func(i, t): return 0.55 + 0.45 * sin(t * 1.7 - i * PI / 4.0))
 	K.rond(CX, CZ, 3.2)
 
-	# --- entrée principale : porte-tambour tournante, vantaux vitrés, le Strip peint derrière ---
+	# --- entrée principale : porte-tambour tournante, vantaux vitrés, le Strip derrière ---
 	K.box("marbre_noir", 7.0, 0.01, 1.2, 0, 0.01, 30.2)
 	for r in [[PI / 4.0 + 0.12, 3.0 * PI / 4.0 - 0.12], [5.0 * PI / 4.0 + 0.12, 7.0 * PI / 4.0 - 0.12]]:
 		K.bande("verre", 0, 29.6, [0.92, 0.92, 0.05], [0.92, 0.92, 2.5], r[0], r[1], "out", 0.0, 0.2)
@@ -228,17 +228,8 @@ static func construire(K) -> void:
 	tourniquet.add_child(vantail2)
 	K.zone.add_child(tourniquet)
 	K.chaque_image(func(dt, _t): tourniquet.rotation.y += dt * 0.55)
+	# Le tambour tourne au milieu ; on passe de part et d'autre, sur le parvis du Strip (lot E, facade.gd).
 	K.rond(0, 29.6, 0.96)
-	K.solide(7.0, 3.6, 0.3, 0, 1.8, 30.6)
-	var strip := MeshInstance3D.new()
-	var fond := QuadMesh.new()
-	fond.size = Vector2(26, 12)
-	strip.mesh = fond
-	strip.material_override = K.mat("strip")
-	strip.position = Vector3(0, 4.5, 40)
-	strip.rotation.y = PI
-	K.zone.add_child(strip)
-	K.interaction("sortie", "Sortir sur le Strip", 0, 1.3, 29.0, Vector3(2.2, 2.6, 0.6))
 
 	# --- bancs courbes contre le tambour, sous les niches ---
 	for k in 4:

@@ -1,9 +1,10 @@
 extends RefCounted
 ## Lot C, zone R-FOYER (js/zones/c-foyer.js) : le foyer du théâtre. Rectangle [14, 22] × [-30, -12], rez-de-
-## chaussée, 5,4 m sous plafond. La façade du « Minuit Showroom » sous sa marquise à ampoules (la salle de
-## concert viendra avec le lot F : ses portes sont closes), la billetterie à deux guichets, trois affiches
-## éclairées, deux banquettes. Liaisons : vers l'atrium et la fosse (sud), vers les paris sportifs (est) ;
-## à l'ouest, une porte du stade de la Fortune, qui mène au stade comme celle du grand escalier.
+## chaussée, 5,4 m sous plafond. La façade du « Minuit Showroom » sous sa marquise à ampoules : ses deux portes,
+## qui s'ouvrent au seuil du lieu, mènent au sas de Minuit Live, la salle de concert du lot F (concert.gd) ; la
+## billetterie à deux guichets, trois affiches éclairées, deux banquettes. Liaisons : vers l'atrium et la fosse
+## (sud), vers les paris sportifs (est) ; à l'ouest, une porte du stade de la Fortune, qui mène au stade comme
+## celle du grand escalier.
 
 const LOT_B := "res://communes/casino_minuit/zones/lot_b.gd"
 const LOT_C := "res://communes/casino_minuit/zones/lot_c.gd"
@@ -76,10 +77,8 @@ static func construire(K) -> void:
 		L.colonne(K, 18 + s * 3.45, ZF + 1.55, 0.34, 3.45)
 	for x in [16.05, 19.95]:
 		for s in [-1.0, 1.0]:
+			# Les vantaux (clos ou ouverts selon le seuil de Minuit Live) sont posés par la scène (minuit.gd).
 			K.box("laque_noire", 0.1, 2.75, 0.14, x + s * 1.0, 1.375, ZF + 0.07)
-			# Les vantaux, clos jusqu'à la saison du théâtre (lot F).
-			K.box("laque_rouge", 0.93, 2.6, 0.06, x + s * 0.48, 1.3, ZF + 0.02)
-			K.box("or", 0.04, 0.4, 0.08, x + s * 0.1, 1.1, ZF + 0.06)
 		K.box("or", 2.2, 0.06, 0.16, x, 2.78, ZF + 0.08)
 	K.box("gorge", 1.36, 1.96, 0.02, 18, 1.75, ZF + 0.04)
 	K.box("laque_rouge", 1.24, 1.86, 0.02, 18, 1.75, ZF + 0.055)
@@ -91,8 +90,8 @@ static func construire(K) -> void:
 	K.box("or", 0.9, 0.2, 0.03, 18, 0.48, ZF + 0.05)
 	K.texte("RELÂCHE CE SOIR", 0.8, 0.09, 18, 0.48, ZF + 0.07, 0, "grave", K.pal.laque_noire)
 	L.potelets(K, [[14.9, ZF + 0.95], [16.6, ZF + 0.95], [18.0, ZF + 0.95], [19.4, ZF + 0.95], [21.1, ZF + 0.95]], [0, 3])
-	K.obstacle(14.2, 21.8, ZF, ZF + 0.3, 0.0, 2.8)
-	K.interaction("theatre", "Le Minuit Showroom", 18, 1.3, ZF + 0.6, Vector3(5.0, 2.6, 0.8))
+	# Entre les deux portes, le trumeau de l'affiche.
+	K.obstacle(17.0, 19.0, ZF, ZF + 0.3, 0.0, 2.8)
 
 	# --- la billetterie (mur ouest) : deux guichets sous un dais laqué ---
 	K.box("laque_noire", 0.42, 1.06, 4.5, 15.38, 0.53, -25.4)

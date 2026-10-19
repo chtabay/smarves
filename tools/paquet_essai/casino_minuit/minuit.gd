@@ -1,21 +1,25 @@
 extends Node3D
 ## Casino Minuit, sur le Strip de Las Vegas : une commune « ailleurs » (socle 1.5), rejointe en avion
-## depuis Poitiers-Biard. Portage en GDScript des lots A à D du moteur web, bâtis par le kit (kit.gd)
+## depuis Poitiers-Biard. Portage en GDScript des lots A à F du moteur web, bâtis par le kit (kit.gd)
 ## zone par zone : la rotonde d'entrée, l'atrium, le grand escalier et la galerie de la mezzanine (lot A) ;
 ## l'ouest (lot B) : le lobby de l'hôtel, le salon, les machines, le poker, les hautes limites, et à la
 ## mezzanine le lounge et le jardin d'hiver ; l'est (lot C) : le foyer du théâtre, la fosse aux tables, la
 ## caisse, le club Minuit, les paris sportifs, et à la mezzanine le Lucullus et les boutiques ; les coulisses
 ## (lot D) : le couloir de service, l'arrière-caisse, l'escalier du personnel et, au sous-sol, l'épine, le
-## comptage, le sas et le coffre (clos), la surveillance, l'entretien, les vestiaires, la cuisine et le quai.
+## comptage, le sas et le coffre (clos), la surveillance, l'entretien, les vestiaires, la cuisine et le quai ;
+## dehors (lot E) : le parvis et la façade, les fontaines, le boulevard et son trafic, le trottoir d'en face ;
+## le lot F : l'arène de boxe en face et la salle de concert derrière le foyer, closes sous leur seuil.
 ## Comme toute commune, la scène expose `player` et `camera` : le jeu y ajoute la bascule de vue
-## (Tab), les commandes tactiles et la carte. On entre à pied, par la porte-tambour de la rotonde.
+## (Tab), les commandes tactiles et la carte. On entre à pied, par la porte-tambour de la rotonde ; on repart
+## de dehors, par le voiturier de la porte-cochère ou la station de taxis : la carte et le vol du retour.
 
 const BASE := "res://communes/casino_minuit/"
 const ZONES := ["rotonde", "atrium", "escalier", "galerie",
 	"lobby", "salon", "machines", "poker", "hautes_limites", "wc_ouest", "lounge", "jardin", "wc_mezzanine",
 	"foyer", "pit", "cage", "club", "wc_est", "sports", "restaurant", "boutiques",
 	"service", "arriere", "escalier_staff", "couloir", "comptage", "antichambre", "coffre", "securite",
-	"entretien", "vestiaire", "cuisine", "quai"]
+	"entretien", "vestiaire", "cuisine", "quai",
+	"strip", "facade", "fontaines", "boulevard", "enface", "arene", "concert"]
 ## Le change : un jeton du Minuit vaut un crédit de Smarves. C'est un premier taux, que réglera plus tard
 ## une doctrine économique commune aux villes. La caisse l'affiche ; rien ne s'y échange tant que les tables
 ## ne sont pas jouables.
@@ -31,6 +35,13 @@ const BOUTIQUES := "boutiques"
 const COULISSES := "coulisses"
 const PORTES_COULISSES := [["L25", Vector3(35.4, 1.1, 2.0), 0.0], ["L14", Vector3(31.5, 1.1, 20.4), 0.0], ["M12", Vector3(38.0, 1.1, -3.4), 6.0]]
 const LOT_D := BASE + "zones/lot_d.gd"
+## Le lot F : l'arène (sa porte sur le trottoir d'en face) et la salle de concert (les deux portes du foyer).
+const ARENE := "arene"
+const CONCERT := "concert"
+const PORTES_CONCERT := [16.05, 19.95]
+const ZF := -29.8
+## Le découpage de la vue : dehors, dedans, l'arène, la salle de concert (zones K, figurants).
+const DEDANS_VU := ["R-ROTONDE", "R-ATRIUM", "R-ESCALIER", "M-GALERIE"]
 ## Les cordons de velours des lieux à seuil du lot C : le lieu, l'invite, la hauteur du sol, les travées
 ## [[ax, az], [bx, bz]] tendues devant leurs portes.
 const CORDONS := [
@@ -50,6 +61,9 @@ var camera: Camera3D
 
 var K
 var _t := 0.0
+## Les groupes de nœuds que la vue montre ou cache selon où l'on est, et le dernier état appliqué.
+var _groupes := {}
+var _vue := ""
 var _invite: Label
 var _message: Label
 
@@ -63,8 +77,11 @@ func _ready() -> void:
 	for c in CORDONS:
 		_cordon_lieu(c[0], c[1], c[2], c[3])
 	_coulisses()
+	_arene_porte()
+	_concert_portes()
 	load(BASE + "zones/figurants.gd").peupler(self)
 	_joueur()
+	_decouper()
 	_interface()
 	# On entre à pied : la vue de dessus reste à un Tab.
 	if get_tree().current_scene == self:
@@ -74,6 +91,7 @@ func _ready() -> void:
 func _process(dt: float) -> void:
 	_t += dt
 	K.animer(dt, _t)
+	_cadrer()
 	var f = player.focus_target if player else null
 	_invite.text = str(f.get_meta("prompt", "")) + "  [E]" if f != null and f.has_meta("prompt") else ""
 
@@ -145,7 +163,8 @@ func _joueur() -> void:
 
 func _interagir(cible: Node) -> void:
 	match str(cible.get_meta("interact", "")):
-		# Sortir sur le Strip, c'est repartir : la carte montre Las Vegas et le vol du retour.
+		# Le voiturier de la porte-cochère ou la station de taxis : repartir, c'est la carte de Las Vegas et
+		# le vol du retour.
 		"sortie": Carte.ouvrir()
 		"stade": _stade()
 		"change": _dire("Au change, un jeton du Minuit vaut %s crédit. La caisse est à l'est, derrière la fosse aux tables." % _taux())
@@ -156,9 +175,32 @@ func _interagir(cible: Node) -> void:
 		"lucullus": _lieu(LUCULLUS, "Le Lucullus reçoit à dîner à partir de %s crédits gagnés au jeu.", "Le maître d'hôtel vous attend : la carte du Lucullus viendra plus tard.")
 		"boutiques": _lieu(BOUTIQUES, "Les boutiques de luxe reçoivent à partir de %s crédits gagnés au jeu.", "Les vitrines vous sont ouvertes ; les achats viendront plus tard.")
 		"theatre": _dire("Le Minuit Showroom fait relâche ce soir : la saison du théâtre viendra plus tard.")
+		"arene": _lieu(ARENE, "Minuit Arena ouvre ses portes à %s crédits gagnés au jeu : M. Delgado, le promoteur, vous y attend.", "M. Delgado vous fait passer le contrôle : le combat du soir est commencé.")
+		"concert": _lieu(CONCERT, "Minuit Live ouvre à %s crédits gagnés au jeu : Mme Rivière, la programmatrice, vous y fera entrer.", "Mme Rivière vous ouvre la salle : le concert a commencé.")
+		"fontaines": _fontaines(cible)
+		"cloche": _cloche(cible)
 		"coulisses": _lieu(COULISSES, "Les coulisses sont réservées au personnel : M. Vasseur, le chef de la sécurité, vous les ouvrira à %s crédits gagnés au jeu.", "M. Vasseur vous a fait badger : les coulisses vous sont ouvertes.")
 		"coffre": _dire("La porte du coffre ne s'ouvre qu'à deux, devant les caméras : elle reste close.")
 		"paris": _dire("Les paris suivent les matchs du dimanche, comme à Smarves. Les guichets ouvriront avec les tables.")
+
+
+## Le pupitre des fontaines : le prochain spectacle, qu'on peut lancer tout de suite.
+func _fontaines(cible: Node) -> void:
+	var etat: Dictionary = cible.get_meta("etat", {})
+	if etat.get("en_cours", false):
+		_dire("Le spectacle des fontaines est en cours.")
+		return
+	etat.debut = etat.get("t", _t)
+	_dire("Les jets se lèvent : le spectacle des fontaines commence.")
+
+
+## La cloche du chronométreur : elle clôt le round, ou relance le combat.
+func _cloche(cible: Node) -> void:
+	var etat: Dictionary = cible.get_meta("etat", {})
+	if etat.is_empty():
+		return
+	load(BASE + "zones/arene.gd")._cloche(etat)
+	_dire("Ding ! Round %d." % etat.round if etat.en_cours else "Ding ! Fin du round : une minute de repos.")
 
 
 func _taux() -> String:
@@ -248,6 +290,106 @@ func _coulisses() -> void:
 			var v: Vector3 = p[1]
 			K.interaction(COULISSES, "Les coulisses", v.x, v.y, v.z, Vector3(1.4, 2.2, 1.4))
 		K.zone_fin()
+
+
+## La porte de l'arène sur le trottoir d'en face : ses vantaux de verre fermés (on voit le hall au travers) tant
+## que le joueur n'a pas gagné le seuil du lieu ; au-delà, ils restent coulissés de part et d'autre.
+func _arene_porte() -> void:
+	if Game.won >= _seuil(ARENE):
+		return
+	K.zone_debut("Porte_arene")
+	for s in [-1.0, 1.0]:
+		K.box("verre", 2.96, 3.9, 0.04, s * 1.5, 1.95, 90.35)
+		K.box("or", 0.05, 3.9, 0.08, s * 2.98, 1.95, 90.35)
+		K.box("or", 2.96, 0.06, 0.08, s * 1.5, 3.92, 90.35)
+		K.box("or", 0.04, 1.2, 0.06, s * 0.15, 1.1, 90.3)
+	K.texte("FERMÉ · OUVERTURE AU SEUIL DU LIEU", 2.6, 0.12, 0, 1.6, 90.31, PI, "grave", Color("#F3EAD7"))
+	K.solide(6.0, 4.2, 0.3, 0, 2.1, 90.35)
+	K.interaction(ARENE, "Minuit Arena", 0, 1.2, 89.2, Vector3(6.0, 2.4, 1.4))
+	K.zone_fin()
+
+
+## Les deux portes du foyer vers Minuit Live : leurs vantaux rouges clos tant que le joueur n'a pas gagné le seuil
+## du lieu ; au-delà, ouverts à 100° contre le parement du sas.
+func _concert_portes() -> void:
+	var ouvert := Game.won >= _seuil(CONCERT)
+	K.zone_debut("Portes_concert")
+	for x in PORTES_CONCERT:
+		for s in [-1.0, 1.0]:
+			if ouvert:
+				var hx: float = x + s * 0.94
+				K.box("laque_rouge", 0.06, 2.5, 0.9, hx + s * 0.06, 1.3, -30.75)
+				K.cyl("or", 0.03, 0.03, 0.5, hx + s * 0.11, 1.1, -31.0, 6)
+				K.obstacle(hx - 0.02 + minf(0.0, s * 0.12), hx + 0.02 + maxf(0.0, s * 0.12), -31.25, -30.3)
+			else:
+				K.box("laque_rouge", 0.93, 2.6, 0.06, x + s * 0.48, 1.3, ZF + 0.02)
+				K.box("or", 0.04, 0.4, 0.08, x + s * 0.1, 1.1, ZF + 0.06)
+		if not ouvert:
+			K.obstacle(x - 0.95, x + 0.95, ZF - 0.1, ZF + 0.2, 0.0, 2.8)
+	if not ouvert:
+		K.interaction(CONCERT, "Minuit Live", 18, 1.3, ZF + 0.6, Vector3(5.0, 2.6, 0.8))
+	K.zone_fin()
+
+
+## Les groupes de la vue : dehors (le lot E et ses figurants), le dedans qu'on voit par la porte-tambour,
+## le reste du dedans, l'arène, la salle de concert.
+func _decouper() -> void:
+	_groupes = {"dehors": [], "vu": [], "dedans": [], "hall": [], "arene": [], "concert": []}
+	for c in get_children():
+		var nom := str(c.name)
+		if nom.begins_with("X-") or nom == "Porte_arene":
+			_groupes.dehors.append(c)
+		elif nom == "F-ARENE":
+			_groupes.hall.append(c)
+		elif nom.begins_with("F-ARENE"):
+			_groupes.arene.append(c)
+		elif nom.begins_with("F-CONCERT") or nom == "Portes_concert":
+			_groupes.concert.append(c)
+		elif nom in DEDANS_VU:
+			_groupes.vu.append(c)
+		elif nom.begins_with("R-") or nom.begins_with("M-") or nom.begins_with("B-") or nom.begins_with("ESC-") or nom.begins_with("Cordon") or nom.begins_with("Coulisses"):
+			_groupes.dedans.append(c)
+	var fig := get_node_or_null("Figurants")
+	if fig:
+		for c in fig.get_children():
+			var nom := str(c.name)
+			if nom == "Dehors":
+				_groupes.dehors.append(c)
+			elif nom == "Arene":
+				_groupes.arene.append(c)
+			elif nom == "Concert":
+				_groupes.concert.append(c)
+			else:
+				_groupes.dedans.append(c)
+	_cadrer()
+
+
+## Ce que la vue montre d'où l'on est : dehors, le dedans s'arrête à la rotonde et à l'atrium (vus par la
+## porte) ; dedans, le dehors s'efface passé la rotonde ; le hall de l'arène (vu par sa porte) dès qu'on est
+## dehors, sa salle depuis le trottoir d'en face, la salle de concert depuis le foyer. La caméra voit loin dehors (le ciel, les tours), court dedans.
+func _cadrer() -> void:
+	if player == null or _groupes.is_empty():
+		return
+	var p := player.global_position
+	var dehors := p.z > 30.5
+	var vue := "%d%d%d%d" % [int(p.z > 12.0), int(dehors), int(p.z > 75.0), int(p.x > 4.0 and p.z < -12.0)]
+	if vue == _vue:
+		return
+	_vue = vue
+	_montrer(_groupes.dehors, p.z > 12.0)
+	_montrer(_groupes.dedans, not dehors)
+	_montrer(_groupes.hall, dehors)
+	_montrer(_groupes.arene, p.z > 75.0)
+	_montrer(_groupes.concert, p.x > 4.0 and p.z < -12.0)
+	camera.far = 900.0 if p.z > 12.0 else 300.0
+
+
+## Montre ou cache un groupe ; les figurants cachés s'arrêtent (les zones gardent leurs collisions).
+func _montrer(liste: Array, oui: bool) -> void:
+	for n in liste:
+		(n as Node3D).visible = oui
+		if n.get_parent() != self:
+			n.process_mode = Node.PROCESS_MODE_INHERIT if oui else Node.PROCESS_MODE_DISABLED
 
 
 func _dire(t: String) -> void:

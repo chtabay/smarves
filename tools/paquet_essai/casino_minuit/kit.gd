@@ -231,6 +231,65 @@ func mat(nom: String) -> Material:
 			v.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 			v.cull_mode = BaseMaterial3D.CULL_DISABLED
 			m = v
+		# Le lot E, dehors (js/zones/e-0-commun.js, E.M) : la rue, ses métaux, ses lumineux ; les façades, les écrans,
+		# les ampoules, le ciel et les voitures sont des shaders, chacun un seul matériau pour tout le Strip.
+		"asphalte": m = _marbre(Color("#2A2A2F"), Color("#3A3A40"), 0.75, 0.9)
+		"trottoir": m = _marbre(Color("#77777C"), Color("#5A5B61"), 0.82, 0.5)
+		"granit": m = _marbre(Color("#2C2930"), Color("#4A4450"), 0.45, 0.35)
+		"bordure": m = _std(Color("#A8A49C"), 0.85, 0.0)
+		"beton_e": m = _std(Color("#55565C"), 0.92, 0.0)
+		"acier_sombre": m = _std(Color("#3A3E44"), 0.45, 0.7)
+		"chrome": m = _std(Color("#C8CCD2"), 0.2, 0.9)
+		"verre_sombre":
+			var vs := _std(Color("#141A26"), 0.08, 0.6)
+			vs.emission_enabled = true
+			vs.emission = Color("#05070C")
+			m = vs
+		"pneu": m = _std(Color("#141414"), 0.9, 0.0)
+		"blanc": m = _std(Color("#E8E8E4"), 0.6, 0.0)
+		"jaune": m = _std(Color("#E8C21A"), 0.6, 0.0)
+		"marine": m = _std(Color("#1A2240"), 0.5, 0.0)
+		"tapis_rouge": m = _std(Color("#8A1020"), 0.95, 0.0)
+		"rouge_sombre": m = _std(Color("#5A0A12"), 0.5, 0.0)
+		"rouge_e": m = _std(Color("#B3121F"), 0.25, 0.1)
+		"terre_e": m = _std(Color("#2A2018"), 1.0, 0.0)
+		"lumiere": m = _lueur(Color("#FFE2B4"), 2.6)
+		"fenetre": m = _lueur(Color("#FFD08A"), 1.3)
+		"blanc_froid": m = _lueur(Color("#EAF2FF"), 2.2)
+		"rouge_lum": m = _lueur(Color("#FF3348"), 2.6)
+		"vert_lum": m = _lueur(Color("#4DFF9A"), 2.2)
+		"ambre_lum": m = _lueur(Color("#FFB347"), 2.2)
+		"cyan_lum": m = _lueur(Color("#3DE0E0"), 2.2)
+		"bleu_lum": m = _lueur(Color("#4D7BFF"), 2.2)
+		"rose_lum": m = _lueur(Color("#FF4D8D"), 2.4)
+		"eau_nuit":
+			var en := _shader("eau")
+			en.set_shader_parameter("fond", Color("#06141E"))
+			en.set_shader_parameter("clair", Color("#1F5A78"))
+			m = en
+		"facade", "led", "ampoules", "nuit", "faisceau", "vehicule", "foule": m = _shader(nom)
+		"palmier":
+			var pm := StandardMaterial3D.new()
+			pm.vertex_color_use_as_albedo = true
+			pm.vertex_color_is_srgb = true
+			pm.roughness = 0.85
+			pm.cull_mode = BaseMaterial3D.CULL_DISABLED
+			pm.emission_enabled = true
+			pm.emission = Color("#081208")
+			m = pm
+		# Le lot F, l'arène et la salle de concert (js/zones/f-0-commun.js, F.mat) : la salle dans le noir.
+		"acoustique": m = _std(Color("#2A2630"), 0.92, 0.0)
+		"acoustique_bleu": m = _std(Color("#1A2440"), 0.9, 0.0)
+		"beton_noir": m = _marbre(Color("#1A1A1E"), Color("#26262C"), 0.8, 0.5)
+		"noir_mat": m = _std(Color("#0C0C0E"), 0.95, 0.0)
+		"noir_satin": m = _std(Color("#161618"), 0.5, 0.1)
+		"alu": m = _std(Color("#B8BCC4"), 0.35, 0.85)
+		"gris": m = _std(Color("#4A4C52"), 0.6, 0.4)
+		"rouge_ring": m = _std(Color("#B3121F"), 0.6, 0.0)
+		"bleu_ring": m = _std(Color("#1D3F8A"), 0.6, 0.0)
+		"blanc_ring": m = _std(Color("#EDEDE8"), 0.6, 0.0)
+		"tapis_ring": m = _std(Color("#22407A"), 0.85, 0.0)
+		"plancher": m = _std(Color("#3A2A1E"), 0.6, 0.0)
 		_:
 			push_error("Casino Minuit : matériau inconnu « %s »" % nom)
 			m = _std(Color.MAGENTA, 1.0, 0.0)

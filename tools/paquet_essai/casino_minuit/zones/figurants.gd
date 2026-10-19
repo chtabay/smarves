@@ -4,7 +4,9 @@ extends RefCounted
 ## fontaine, accoudés à la galerie, et des promeneurs qui font le tour du casino par le grand escalier.
 ## Tout est posé ici, en coordonnées du lot A (voir les zones) ; le jeu web les pilotait par des besoins,
 ## ici ils tiennent une place ou suivent un circuit. Ceux du lot B (l'ouest) sont posés aux places que
-## leurs zones ont notées dans K.places, comme ceux du lot C (l'est).
+## leurs zones ont notées dans K.places, comme ceux des lots C (l'est) et D (les coulisses) ; ceux du dehors
+## (lot E) et des salles du lot F sont rangés sous leurs nœuds (« Dehors », « Arene », « Concert »), que la
+## scène montre et arrête selon où l'on est.
 
 const PERSONNAGES := "res://communes/casino_minuit/personnages.gd"
 
@@ -89,6 +91,8 @@ static func peupler(racine: Node3D) -> Node3D:
 		_lot_b(n, K.places, g)
 		_lot_c(n, K.places, g + 400)
 		_lot_d(n, K.places, g + 800)
+		_lot_e(n, K.places, g + 1200)
+		_lot_f(n, K.places, g + 1600)
 	return n
 
 
@@ -387,3 +391,194 @@ static func _debout(n: Node3D, places: Array, g: int, pas: int, gestes: Array) -
 		if i % pas == 0:
 			g += 1
 			_tenir(n, "client", g, places[i], gestes[g % gestes.size()])
+
+
+## Un groupe de figurants, sous les figurants (la scène le cache et l'arrête quand on est loin).
+static func _groupe(n: Node3D, nom: String) -> Node3D:
+	var d := Node3D.new()
+	d.name = nom
+	n.add_child(d)
+	return d
+
+
+## Les figurants du dehors (lot E), aux places notées par ses zones : les promeneurs sur les deux trottoirs, les
+## portiers et les voituriers de la porte-cochère, des clients qui bavardent sous la marquise, le public des
+## fontaines, l'attente aux abribus et à la station de taxis, la file de l'arène et son videur, les badauds devant
+## l'écran géant, le vendeur de hot-dogs et ses clients, quelques-uns sur les bancs.
+static func _lot_e(n: Node3D, pl: Dictionary, g: int) -> void:
+	var P = load(PERSONNAGES)
+	var d := _groupe(n, "Dehors")
+	for cle in ["e_promenade_casino", "e_promenade_enface"]:
+		var tour: Array = pl.get(cle, [])
+		if tour.is_empty():
+			continue
+		var nb := 12 if cle == "e_promenade_casino" else 9
+		for k in nb:
+			g += 1
+			var c = P.figurant("client", g)
+			d.add_child(c)
+			c.suivre(tour, (k * tour.size()) / nb, 1.0 + 0.1 * (k % 4), 2.0 if k % 5 == 0 else 0.0, "phone" if k % 2 else "idle")
+	for p in pl.get("e_portiers", []):
+		g += 1
+		_tenir(d, "portier", g, p, "arms" if g % 2 else "idle")
+	var voit: Array = pl.get("e_voiturier", [])
+	if not voit.is_empty():
+		g += 1
+		_tenir(d, "voiturier", g, voit[0], "interact")
+	if voit.size() > 1:
+		# Le second voiturier va et vient entre son pupitre et les voitures garées sous la porte-cochère.
+		g += 1
+		var v = P.figurant("voiturier", g)
+		d.add_child(v)
+		var a: Vector3 = voit[1][0]
+		v.suivre([a, a + Vector3(0, 0, 3.6), a + Vector3(6.0, 0, 3.6), a + Vector3(6.0, 0, 0)], 0, 1.2, 3.0, "idle")
+	_debout(d, pl.get("e_cochere", []), g, 1, ["talk", "phone", "talk", "drink"])
+	g += 10
+	_debout(d, pl.get("e_fontaines", []), g, 3, ["idle", "phone", "clap", "idle"])
+	g += 40
+	for cle in ["e_bus_casino", "e_bus_enface", "e_taxi_enface"]:
+		var sieges: Array = pl.get(cle, [])
+		for i in sieges.size():
+			if i % 2 == 0:
+				g += 1
+				_asseoir(d, g, sieges[i], "sit")
+		_debout(d, pl.get(cle + "_attente", []), g, 2, ["phone", "idle", "arms"])
+		g += 10
+	_debout(d, pl.get("e_file_arene", []), g, 1, ["idle", "phone", "talk", "arms", "idle", "drink"])
+	g += 10
+	for p in pl.get("e_videur_arene", []):
+		g += 1
+		_tenir(d, "vigile", g, p, "arms")
+	_debout(d, pl.get("e_ecran_arene", []), g, 2, ["idle", "clap"])
+	g += 10
+	_debout(d, pl.get("e_bavards_enface", []), g, 1, ["talk", "drink"])
+	g += 10
+	var hd: Array = pl.get("e_hotdog", [])
+	for i in hd.size():
+		g += 1
+		_tenir(d, "serveur" if i == 0 else "client", g, hd[i], "interact" if i == 0 else ["drink", "idle"][i % 2])
+	var bancs: Array = pl.get("e_bancs_terrasse", []) + pl.get("e_bancs_enface", [])
+	for i in bancs.size():
+		if i % 3 == 0:
+			g += 1
+			_asseoir(d, g, bancs[i], ["sit", "sit_talk"][g % 2])
+
+
+## Les figurants du lot F. L'arène : le personnel (billetterie, contrôle, bar, placeurs, vigiles), la file aux
+## tourniquets, le public du hall, les boxeurs, l'arbitre, les soigneurs, les juges, les invités du bord de ring
+## et le premier rang des gradins. Minuit Live : les musiciens sur scène, la régie, les vigiles de la fosse, le
+## bar et la boutique, les ouvreurs du sas, les danseurs de la fosse, le premier rang des gradins ; au foyer, la
+## file devant les portes.
+static func _lot_f(n: Node3D, pl: Dictionary, g: int) -> void:
+	var a := _groupe(n, "Arene")
+	for p in pl.get("f_billetterie", []):
+		g += 1
+		_tenir(a, "hotesse", g, p, "interact")
+	_debout(a, pl.get("f_billetterie_file", []), g, 2, ["interact", "phone"])
+	g += 10
+	for p in pl.get("f_controle", []):
+		g += 1
+		_tenir(a, "vigile", g, p, "idle")
+	_debout(a, pl.get("f_controle_file", []), g, 2, ["idle", "phone", "talk"])
+	g += 10
+	_debout(a, pl.get("f_vitrine", []) + pl.get("f_affiches", []), g, 1, ["idle", "phone", "idle"])
+	g += 10
+	_debout(a, pl.get("f_hall_duos", []), g, 1, ["talk", "drink"])
+	g += 10
+	var bar: Dictionary = pl.get("f_bar", {})
+	if bar.has("barman"):
+		g += 1
+		var b = _poser(a, "barman", g, bar.barman[0], "interact")
+		b.suivre(bar.barman, 0, 0.6, 5.0, "interact")
+		var tabourets: Array = bar.tabourets
+		for i in tabourets.size():
+			if i % 2 == 0:
+				g += 1
+				_asseoir(a, g, tabourets[i], "sit_talk" if g % 3 == 0 else "sit")
+	var banc: Array = pl.get("f_hall_banc", [])
+	if not banc.is_empty():
+		g += 1
+		_asseoir(a, g, banc[0], "sit")
+	for p in pl.get("f_placeurs", []):
+		g += 1
+		_tenir(a, "hotesse", g, p, "idle")
+	for p in pl.get("f_vigiles_ring", []):
+		g += 1
+		_tenir(a, "vigile", g, p, "arms")
+	_debout(a, pl.get("f_arene_debout", []), g, 1, ["clap", "idle", "arms"])
+	g += 10
+	var ring: Dictionary = pl.get("f_ring", {})
+	if ring.has("rouge"):
+		g += 1
+		_tenir(a, "boxeur_rouge", g, ring.rouge, "arms")
+		g += 1
+		_tenir(a, "boxeur_bleu", g, ring.bleu, "arms")
+		g += 1
+		_tenir(a, "arbitre", g, ring.arbitre, "idle")
+		for p in ring.soigneurs:
+			g += 1
+			_tenir(a, "employe", g, p, "idle")
+	for p in pl.get("f_juges", []):
+		g += 1
+		_asseoir(a, g, p, "sit", "agent")
+	var invites: Array = pl.get("f_invites", [])
+	for i in invites.size():
+		if (i * 7) % 5 < 2:
+			g += 1
+			_asseoir(a, g, invites[i], ["sit", "sit_talk", "sit"][g % 3])
+	var gradins: Array = pl.get("f_gradins", [])
+	for i in gradins.size():
+		if (i * 5) % 7 < 2:
+			g += 1
+			_asseoir(a, g, gradins[i], "sit")
+	# Minuit Live.
+	var c := _groupe(n, "Concert")
+	var mus: Dictionary = pl.get("f_musiciens", {})
+	var gestes := {"chant": "clap", "guitare": "interact", "basse": "interact", "batterie": "sit", "claviers": "interact"}
+	for nom in mus:
+		g += 1
+		if nom == "batterie":
+			var pb: Array = mus[nom]
+			_asseoir(c, g, [pb[0] + Vector3(0, 0.45, 0), pb[1]], "sit", "musicien")
+		else:
+			_tenir(c, "musicien", g, mus[nom], gestes[nom])
+	for p in pl.get("f_regie", []):
+		g += 1
+		_tenir(c, "technicien", g, p, "interact")
+	for p in pl.get("f_vigiles_fosse", []):
+		g += 1
+		_tenir(c, "vigile", g, p, "arms")
+	for p in pl.get("f_ouvreurs", []):
+		g += 1
+		_tenir(c, "hotesse", g, p, "idle")
+	var cbar: Dictionary = pl.get("f_concert_bar", {})
+	if cbar.has("barman"):
+		g += 1
+		var b = _poser(c, "barman", g, cbar.barman[0], "interact")
+		b.suivre(cbar.barman, 0, 0.6, 4.0, "interact")
+		var tabourets: Array = cbar.tabourets
+		for i in tabourets.size():
+			if i % 2 == 1:
+				g += 1
+				_asseoir(c, g, tabourets[i], "sit_talk" if g % 3 == 0 else "sit")
+	var bout: Dictionary = pl.get("f_concert_boutique", {})
+	if bout.has("vendeur"):
+		g += 1
+		_tenir(c, "hotesse", g, bout.vendeur, "idle")
+		_debout(c, bout.clients, g, 1, ["interact"])
+		g += 5
+	_debout(c, pl.get("f_concert_duos", []), g, 1, ["talk", "drink"])
+	g += 10
+	_debout(c, pl.get("f_concert_danse", []), g, 4, ["clap", "clap", "idle"])
+	g += 40
+	_debout(c, pl.get("f_concert_regards", []), g, 1, ["clap", "drink", "idle"])
+	g += 10
+	var cg: Array = pl.get("f_concert_gradins", [])
+	for i in cg.size():
+		if (i * 3) % 7 < 2:
+			g += 1
+			_asseoir(c, g, cg[i], "sit")
+	# Au foyer, devant les portes : la file des spectateurs (dans le dedans du casino).
+	for i in 5:
+		g += 1
+		_tenir(n, "client", g, [Vector3(16.0 + (i % 2) * 0.4, 0, -28.2 + i * 0.85), 0.0], ["idle", "phone", "talk", "idle", "arms"][i])

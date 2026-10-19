@@ -4,7 +4,9 @@ extends SceneTree
 ## se greffe sans code INSEE ; on y vole depuis Poitiers-Biard, on y marche jusqu'à la galerie par le
 ## grand escalier, les coulisses restent closes sous leur seuil puis mènent au sous-sol par l'escalier du
 ## personnel, le stade de la Fortune s'ouvre à son seuil, habillé par Minuit, et son club entre au
-## championnat ; la porte du Strip ouvre la carte, et le vol retour ramène à Smarves.
+## championnat ; on sort à pied sur le Strip (lot E), l'arène et la salle de concert (lot F) restent closes
+## sous leur seuil puis s'ouvrent ; le voiturier et la station de taxis ouvrent la carte, et le vol retour ramène
+## à Smarves.
 
 const SOURCE := "res://tools/paquet_essai/casino_minuit/"
 const TMP := "user://test_ailleurs/"
@@ -257,15 +259,108 @@ func _init() -> void:
 		_fin()
 		return
 
-	# La porte du Strip : la carte s'ouvre sur Las Vegas.
-	var sortie: Node = s.find_child("sortie", true, false)
-	check(sortie != null and sortie.get_meta("interact", "") == "sortie", "la porte du Strip est une interaction")
-	if sortie != null:
-		p.interact.emit(sortie)
+	# Le lot E, dehors : ses zones sont bâties et peuplées ; on sort à pied par la porte-tambour sur le parvis, la
+	# vue s'ouvre (le ciel, le lointain) et le dedans s'efface derrière soi.
+	manquantes = []
+	for z in ["X-STRIP", "X-FACADE", "X-FONTAINES", "X-BOULEVARD", "X-ENFACE", "F-ARENE", "F-ARENE-SALLE", "F-CONCERT", "F-CONCERT-SAS"]:
+		if s.get_node_or_null(z) == null:
+			manquantes.append(z)
+	check(manquantes.is_empty(), "le dehors, l'arène et la salle de concert sont bâtis %s" % str(manquantes))
+	places = s.K.places
+	check(places.has("e_promenade_casino") and places.has("e_fontaines") and places.has("e_file_arene") and places.has("f_gradins") and places.has("f_musiciens"), "elles notent les places de leurs figurants")
+	figurants = s.get_node_or_null("Figurants")
+	var groupes := {}
+	for g in ["Dehors", "Arene", "Concert"]:
+		var n: Node = figurants.get_node_or_null(g) if figurants else null
+		groupes[g] = n.get_child_count() if n else 0
+	check(groupes.Dehors > 40 and groupes.Arene > 40 and groupes.Concert > 30, "dehors, à l'arène et au concert, des figurants %s" % str(groupes))
+	p.global_position = Vector3(1.5, 0.05, 27.0)
+	p.rotation.y = 0.0
+	p.velocity = Vector3.ZERO
+	await create_timer(0.3, true).timeout
+	p.auto_move = Vector3(0, 0, 1)
+	await create_timer(6.5, true).timeout
+	p.auto_move = Vector3.ZERO
+	await process_frame
+	check(p.global_position.z > 46.0 and absf(p.global_position.y) < 0.2, "la porte-tambour mène au parvis et au trottoir du Strip (%.1f, %.1f, %.1f)" % [p.global_position.x, p.global_position.y, p.global_position.z])
+	check(s.camera.far > 600.0 and not s.get_node("R-PIT").visible and s.get_node("X-FONTAINES").visible, "dehors, la vue porte loin et le dedans s'efface")
+	var fontaines: Node = s.find_child("fontaines", true, false)
+	check(fontaines != null, "le pupitre des fontaines est une interaction")
+	if fontaines != null:
+		p.interact.emit(fontaines)
 		await process_frame
-		check(carte.is_open(), "sortir sur le Strip ouvre la carte")
-		carte.fermer()
-		await create_timer(0.8, true).timeout
+		await process_frame
+		check(bool(fontaines.get_meta("etat").en_cours), "il lance le spectacle des fontaines : %s" % s.get("_message").text)
+
+	# Le lot F : l'arène et Minuit Live restent closes sous leur seuil, s'ouvrent au-delà.
+	gagne = game.won
+	game.won = 0
+	reload_current_scene()
+	await create_timer(0.8, true).timeout
+	s = current_scene
+	p = s.player if s != null else null
+	if p == null:
+		game.won = gagne
+		_fin()
+		return
+	for t in [["arene", Vector3(0.0, 0.05, 86.0), Vector3(0, 0, 1), "150"], ["concert", Vector3(16.05, 0.05, -27.4), Vector3(0, 0, -1), "90"]]:
+		var lieu: Node = s.find_child(t[0], true, false)
+		check(lieu != null, "sous son seuil, « %s » est close, avec son invite" % t[0])
+		p.global_position = t[1]
+		p.velocity = Vector3.ZERO
+		await create_timer(0.3, true).timeout
+		p.auto_move = t[2]
+		await create_timer(2.5, true).timeout
+		p.auto_move = Vector3.ZERO
+		var dedans: bool = p.global_position.z > 90.2 if t[0] == "arene" else p.global_position.z < -30.3
+		check(not dedans, "sa porte ne laisse pas passer (%.1f, %.1f)" % [p.global_position.x, p.global_position.z])
+		if lieu != null:
+			p.interact.emit(lieu)
+			await process_frame
+			check(str(s.get("_message").text).contains(t[3]), "elle annonce son seuil : %s" % s.get("_message").text)
+	game.won = 150000
+	reload_current_scene()
+	await create_timer(0.8, true).timeout
+	s = current_scene
+	p = s.player if s != null else null
+	if p == null:
+		game.won = gagne
+		_fin()
+		return
+	check(s.find_child("arene", true, false) == null and s.find_child("concert", true, false) == null, "au seuil, l'arène et la salle de concert sont ouvertes")
+	for t in [["arene", Vector3(0.0, 0.05, 86.0), Vector3(0, 0, 1)], ["concert", Vector3(16.05, 0.05, -27.4), Vector3(0, 0, -1)]]:
+		p.global_position = t[1]
+		p.velocity = Vector3.ZERO
+		await create_timer(0.3, true).timeout
+		p.auto_move = t[2]
+		await create_timer(3.0, true).timeout
+		p.auto_move = Vector3.ZERO
+		var dedans: bool = p.global_position.z > 94.0 if t[0] == "arene" else p.global_position.z < -32.0
+		check(dedans and absf(p.global_position.y) < 0.2, "on entre dans « %s » (%.1f, %.1f, %.1f)" % [t[0], p.global_position.x, p.global_position.y, p.global_position.z])
+		check(s.get_node("F-ARENE-SALLE" if t[0] == "arene" else "F-CONCERT").visible, "la salle se montre quand on y entre")
+	var cloche: Node = s.find_child("cloche", true, false)
+	check(cloche != null, "la cloche du chronométreur est une interaction")
+	if cloche != null:
+		p.interact.emit(cloche)
+		await process_frame
+		check(str(s.get("_message").text).begins_with("Ding"), "elle sonne : %s" % s.get("_message").text)
+	game.won = gagne
+
+	# Repartir : de dehors, le voiturier de la porte-cochère et la station de taxis ouvrent la carte de Las Vegas.
+	p.global_position = Vector3(-9.6, 0.05, 36.0)
+	p.velocity = Vector3.ZERO
+	await create_timer(0.3, true).timeout
+	check(s.find_child("sortie", true, false) != null and s.find_child("sortie", true, false).get_parent().name == "X-FACADE", "le voiturier est dehors, à la porte-cochère")
+	var taxi: Node = s.find_child("taxi_aeroport", true, false)
+	check(taxi != null and taxi.get_meta("interact", "") == "sortie", "la station de taxis d'en face mène aussi à l'aéroport")
+	var sortie: Node = s.find_child("sortie", true, false)
+	for borne in [taxi, sortie]:
+		if borne != null:
+			p.interact.emit(borne)
+			await process_frame
+			check(carte.is_open(), "« %s » ouvre la carte" % borne.get_meta("prompt", ""))
+			carte.fermer()
+			await create_timer(0.8, true).timeout
 
 	# Le retour.
 	carte.voler()

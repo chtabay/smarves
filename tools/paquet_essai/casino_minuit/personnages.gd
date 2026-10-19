@@ -49,6 +49,15 @@ const TENUES := {
 	"livreur": [["real-worker", {}], ["real-worker", {"Worker_Vest": "#d4622a", "Skin": "#7a5a3c"}]],
 	"employe": [["real-casual-man", {}], ["real-casual-woman", {}], ["real-hoodie-man", {}], ["dealer-businessman", {"Suit": "#6e1423", "Tie": "#101010"}],
 		["dealer-woman-green", {"LimeGreen": "#6e1423", "Gold": "#d9a441"}]],
+	# Dehors (lot E) : les portiers en redingote rouge et or, les voituriers en gilet noir ; au lot F, l'arbitre en
+	# chemise blanche, les boxeurs (les couleurs de leur coin), les musiciens et les techniciens en noir.
+	"portier": [["dealer-businessman", {"Suit": "#8a1020", "Tie": "#d9a441", "White": "#f2ead7"}], ["dealer-woman-green", {"LimeGreen": "#8a1020", "Gold": "#d9a441"}]],
+	"voiturier": [["dealer-businessman", {"Suit": "#17181b", "Tie": "#8a1020", "White": "#f2f0ea"}], ["dealer-businessman", {"Suit": "#17181b", "Tie": "#8a1020", "White": "#f2f0ea", "Skin": "#7a5a3c", "Hair": "#0f0d0c"}]],
+	"arbitre": [["dealer-businessman", {"Suit": "#f2f0ea", "Tie": "#101010", "Black": "#101010"}]],
+	"boxeur_rouge": [["real-worker", {"Worker_Yellow": "#b3121f", "Worker_Vest": "#b3121f", "Brown2": "#b3121f"}]],
+	"boxeur_bleu": [["real-worker", {"Worker_Yellow": "#1d3f8a", "Worker_Vest": "#1d3f8a", "Brown2": "#1d3f8a", "Skin": "#7a5a3c"}]],
+	"musicien": [["real-punk-man", {}], ["real-punk-woman", {}], ["real-hoodie-man", {}], ["woman-punk", {}]],
+	"technicien": [["real-hoodie-man", {"Black": "#17181b"}], ["real-casual-woman", {}]],
 	"client": [["man-longsleeves", {}], ["man-tshirt", {}], ["man-blond", {}], ["woman-casual", {}], ["woman-dress", {}], ["woman-tanktop", {}],
 		["woman-punk", {}], ["real-casual-man", {}], ["real-hoodie-man", {}], ["real-punk-man", {}], ["real-punk-woman", {}], ["real-casual-woman", {}], ["man-suit", {}]],
 }
