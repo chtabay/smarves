@@ -1,0 +1,47 @@
+{
+ "lignes": {
+  "3": {
+   "y": 242,
+   "de": 7,
+   "a": 160,
+   "premiere": 0
+  },
+  "4": {
+   "y": 282,
+   "de": 23,
+   "a": 160,
+   "premiere": 154
+  }
+ },
+ "statut": {
+  "3": {
+   "y": 242,
+   "eteint": 0,
+   "allume": 1
+  },
+  "4": {
+   "y": 282,
+   "eteint": 2,
+   "allume": 3
+  }
+ },
+ "cellule": [
+  176,
+  40
+ ],
+ "statut_taille": [
+  248,
+  40
+ ],
+ "x_nombre": 600,
+ "x_statut": 776,
+ "taille": [
+  1024,
+  384
+ ],
+ "essai": {
+  "3": 41,
+  "4": 160,
+  "allume": true
+ }
+}

@@ -4,7 +4,9 @@ extends CanvasLayer
 ## zoomant sur sa commune, avec Échap ou « Revenir ». Smarves en or, les villes installées en vert
 ## d'eau vif, les villes publiées sur le portail en vert d'eau pâle, les autres en filigrane, et
 ## Poitiers dans la brume. Une commune qui arrive (publiée, installée) s'allume à l'ouverture
-## suivante. Toucher une commune la montre dans la fiche ; « Y aller » change de commune.
+## suivante. Toucher une commune la montre dans la fiche ; « Y aller » change de commune. Au bord de
+## la brume, l'aéroport de Poitiers-Biard dessert les destinations lointaines (socle 1.5) : la fiche
+## de Poitiers donne leurs vols, et l'on y part en avion (voler).
 
 const OR := Color(0.96, 0.8, 0.45)
 const EAU := Color(0.35, 0.8, 0.75)
@@ -36,12 +38,20 @@ var _mode := ""
 var _sur_titre: Label
 var _grand_titre: Label
 var _capture := "--capture" in " ".join(OS.get_cmdline_user_args())
+## Le vol vers une destination lointaine (ou le retour) : un écran à part, au-dessus de tout.
+var _vol: CanvasLayer
+var _vol_trajet: Control
+var _vol_titre: Label
+var _vol_ligne: Label
+## La durée d'un vol à l'écran (secondes) ; un test la raccourcit.
+var duree_vol := 2.6
 
 
 func _ready() -> void:
 	layer = 46
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_construire()
+	_construire_vol()
 	_root.visible = false
 	Communes.catalogue_lu.connect(func():
 		if is_open():
@@ -52,10 +62,9 @@ func _ready() -> void:
 	Communes.installee.connect(func(id, ok, message):
 		if is_open():
 			_rafraichir(true)
-			if not ok:
-				_montrer(Communes.au_catalogue(id).get("insee", ""), message)
-			else:
-				_montrer(Communes.commune(id).insee))
+			# Une destination lointaine n'a pas de code INSEE : sa fiche est celle de Poitiers(-Biard).
+			var insee: String = Communes.au_catalogue(id).get("insee", "") if not ok else Communes.commune(id).insee
+			_montrer(insee if insee != "" else CarteVienne.POITIERS_INSEE, "" if ok else message))
 
 
 func is_open() -> bool:
@@ -125,8 +134,8 @@ func ouvrir(depuis_titre := false, vers := "", mode := "") -> void:
 	# graphique se repose.
 	get_viewport().disable_3d = true
 	_rafraichir(false)
-	var ici := _ici()
-	_carte.ici = "" if _titre else ici
+	var ici := _ici() if not _loin() else CarteVienne.POITIERS_INSEE
+	_carte.ici = "" if _titre or _loin() else ici
 	_carte.choisie = vers
 	_carte.lignes = desservies() if _mode == "car" else []
 	_montrer(vers if vers != "" else ici)
@@ -154,7 +163,7 @@ func fermer() -> void:
 	if not is_open() or _en_route:
 		return
 	_en_route = true
-	_carte.cadrer(_ici(), ZOOM_COMMUNE, 0.45)
+	_carte.cadrer(_ici() if not _loin() else CarteVienne.POITIERS_INSEE, ZOOM_COMMUNE, 0.45)
 	var t := create_tween()
 	t.tween_property(_voile, "color:a", 1.0, 0.45)
 	await t.finished
@@ -174,11 +183,15 @@ func _cacher() -> void:
 func aller(insee: String) -> void:
 	if _en_route:
 		return
-	if insee == _ici() and not _titre:
+	if insee == _ici() and not _titre and not _loin():
 		fermer()
 		return
 	var c := Communes.par_insee(insee)
 	if c == null:
+		return
+	# Depuis une destination lointaine, toute la Vienne est de l'autre côté de l'océan : on reprend l'avion.
+	if _loin():
+		voler(c.id)
 		return
 	_en_route = true
 	_carte.cadrer(insee, ZOOM_COMMUNE, 0.6)
@@ -215,6 +228,12 @@ func _ici() -> String:
 	return c.insee if c else CarteVienne.ORIGINE_INSEE
 
 
+## Le joueur est-il dans une destination lointaine (hors de la Vienne) ?
+func _loin() -> bool:
+	var c := Communes.commune(Communes.actuelle())
+	return c != null and c.lointaine()
+
+
 ## Les communes marquées sur la carte : Smarves, les villes installées et les publiées.
 func _allumees() -> Array:
 	var out := [CarteVienne.ORIGINE_INSEE]
@@ -228,6 +247,128 @@ func _neuves() -> Array:
 	var vues = Portail.lire_json(Communes.dossier_greffes.path_join(VUES))
 	var deja: Array = vues if vues is Array else []
 	return _allumees().filter(func(i): return not deja.has(i))
+
+
+# --- Les destinations lointaines (socle 1.5) ------------------------------------------------------
+
+## La fiche d'une destination lointaine, quand on y est : on n'en repart qu'en avion.
+func _fiche_lointaine(id: String) -> void:
+	var c := Communes.commune(id)
+	var tete := HBoxContainer.new()
+	tete.add_theme_constant_override("separation", 10)
+	tete.add_child(_mot(c.nom, 26, Color.WHITE, Polices.titre()))
+	tete.add_child(_mot("VOUS ÊTES ICI", 12, EAU, Polices.gras()))
+	_fiche_box.add_child(tete)
+	_fiche_box.add_child(_mot("%s%s  ·  hors de la Vienne" % [c.ville(), (", " + c.pays()) if c.pays() != "" else ""], 15, DOUX, null, true))
+	_fiche_box.add_child(_mot("La Vienne est de l'autre côté de l'océan. Pour y revenir, on reprend l'avion jusqu'à Poitiers-Biard, puis le car jusqu'à Smarves.", 16, TEXTE, null, true))
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 10)
+	actions.add_child(_bouton("Reprendre l'avion  →", OR, Color(0.08, 0.06, 0.03), Color(0, 0, 0, 0), voler.bind(Communes.ORIGINE), 16))
+	actions.add_child(_bouton("Rester à %s" % c.ville(), Color(0, 0, 0, 0), EAU, EAU, fermer, 16))
+	_fiche_box.add_child(_vide(2))
+	_fiche_box.add_child(actions)
+
+
+## Part en avion : vers une destination lointaine depuis la Vienne, ou d'une destination lointaine vers
+## une commune de la Vienne (Smarves par défaut). L'écran du vol couvre le changement de scène.
+func voler(id := Communes.ORIGINE) -> void:
+	var arrivee := Communes.commune(id)
+	if arrivee == null or _vol.visible:
+		return
+	var loin := arrivee if arrivee.lointaine() else Communes.commune(Communes.actuelle())
+	if loin == null or not loin.lointaine():
+		return
+	var aller := arrivee.lointaine()
+	_vol_titre.text = ("VOL POUR %s" % loin.ville() if aller else "VOL RETOUR").to_upper()
+	_vol_ligne.text = ("Poitiers-Biard  →  %s" % loin.aeroport()) if aller else ("%s  →  Poitiers-Biard" % loin.aeroport())
+	if loin.vol() != "":
+		_vol_ligne.text += "\n" + loin.vol()
+	_vol_trajet.set("aller", aller)
+	_vol_trajet.set("avance", 0.0)
+	_vol.visible = true
+	_en_route = true
+	var voile: ColorRect = _vol.get_child(0)
+	voile.modulate.a = 0.0
+	var t := create_tween()
+	t.tween_property(voile, "modulate:a", 1.0, 0.35)
+	t.tween_property(_vol_trajet, "avance", 1.0, duree_vol).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	await t.finished
+	if _root.visible:
+		_cacher()
+	_en_route = false
+	if arrivee.id == Communes.ORIGINE:
+		Communes.revenir()
+	elif not Communes.visiter(arrivee.id):
+		Carnet.show_slip("%s ne s'ouvre pas : %s" % [arrivee.nom, Communes.refus[-1][1] if not Communes.refus.is_empty() else "scène introuvable"])
+	var t2 := create_tween()
+	t2.tween_property(voile, "modulate:a", 0.0, 0.5)
+	await t2.finished
+	_vol.visible = false
+
+
+func _construire_vol() -> void:
+	_vol = CanvasLayer.new()
+	_vol.layer = 95
+	_vol.visible = false
+	add_child(_vol)
+	var voile := ColorRect.new()
+	voile.color = NUIT
+	voile.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_vol.add_child(voile)
+	_vol_trajet = Trajet.new()
+	_vol_trajet.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_vol_trajet.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	voile.add_child(_vol_trajet)
+	var boite := VBoxContainer.new()
+	boite.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	boite.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	boite.offset_top = 90
+	boite.alignment = BoxContainer.ALIGNMENT_CENTER
+	boite.add_theme_constant_override("separation", 10)
+	voile.add_child(boite)
+	_vol_titre = _mot("", 15, Color(0.55, 0.75, 0.75))
+	_vol_titre.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	boite.add_child(_vol_titre)
+	_vol_ligne = _mot("", 30, Color.WHITE, Polices.titre())
+	_vol_ligne.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	boite.add_child(_vol_ligne)
+
+
+## Le trajet du vol : un arc de tirets d'or au-dessus de l'océan, et l'avion qui le suit.
+class Trajet extends Control:
+	var avance := 0.0:
+		set(v):
+			avance = v
+			queue_redraw()
+	var aller := true
+
+	func _draw() -> void:
+		var a := Vector2(size.x * 0.16, size.y * 0.66)
+		var b := Vector2(size.x * 0.84, size.y * 0.66)
+		if not aller:
+			var t := a
+			a = b
+			b = t
+		var haut := size.y * 0.28
+		var point := func(u: float) -> Vector2: return a.lerp(b, u) - Vector2(0, 4.0 * haut * u * (1.0 - u))
+		var n := 48
+		for i in n:
+			if i % 2 == 0:
+				draw_line(point.call(float(i) / n), point.call(float(i + 1) / n), Color(0.96, 0.8, 0.45, 0.35 if float(i) / n > avance else 0.9), 2.0, true)
+		for p in [a, b]:
+			draw_circle(p, 6.0, Color(0.96, 0.8, 0.45))
+		# L'avion : un fuseau et deux ailes, tourné selon la pente de l'arc.
+		var ici: Vector2 = point.call(avance)
+		var dir: Vector2 = (point.call(minf(avance + 0.01, 1.0)) - point.call(maxf(avance - 0.01, 0.0))).normalized()
+		var nrm := Vector2(-dir.y, dir.x)
+		var blanc := Color(0.95, 0.96, 0.98)
+		draw_colored_polygon(PackedVector2Array([ici + dir * 22, ici + nrm * 4 - dir * 16, ici - nrm * 4 - dir * 16]), blanc)
+		draw_colored_polygon(PackedVector2Array([ici + dir * 4, ici + nrm * 20 - dir * 6, ici + nrm * 20 - dir * 10, ici - dir * 4]), blanc)
+		draw_colored_polygon(PackedVector2Array([ici + dir * 4, ici - nrm * 20 - dir * 6, ici - nrm * 20 - dir * 10, ici - dir * 4]), blanc)
+		draw_colored_polygon(PackedVector2Array([ici - dir * 12, ici + nrm * 8 - dir * 18, ici - nrm * 8 - dir * 18]), blanc)
+		var f := Polices.texte()
+		draw_string(f, a + Vector2(-60, 34), "Poitiers-Biard" if aller else "", HORIZONTAL_ALIGNMENT_CENTER, 120, 16, Color(0.65, 0.7, 0.75))
+		draw_string(f, b + Vector2(-60, 34), "Poitiers-Biard" if not aller else "", HORIZONTAL_ALIGNMENT_CENTER, 120, 16, Color(0.65, 0.7, 0.75))
 
 
 # --- L'écran ------------------------------------------------------------------------------------
@@ -354,8 +495,8 @@ func _fond() -> Texture2D:
 
 
 func _rafraichir(garder := true) -> void:
-	_carte.publiees = Communes.publiees().map(func(e): return e.insee)
-	_carte.installees = Communes.installees().map(func(id): return Communes.commune(id).insee)
+	_carte.publiees = Communes.publiees().map(func(e): return e.insee).filter(func(i): return i != "")
+	_carte.installees = Communes.installees().map(func(id): return Communes.commune(id).insee).filter(func(i): return i != "")
 	_carte.a_jour = {}
 	for id in Communes.installees():
 		if Communes.mise_a_jour(id) != "":
@@ -383,6 +524,9 @@ func _montrer(insee: String, alerte := "") -> void:
 		c.queue_free()
 	if insee == "":
 		insee = _ici()
+	if insee == "" and _loin():
+		_fiche_lointaine(Communes.actuelle())
+		return
 	var v := Vienne.commune(insee)
 	if v.is_empty():
 		return
@@ -413,6 +557,8 @@ func _montrer(insee: String, alerte := "") -> void:
 	elif insee == CarteVienne.POITIERS_INSEE:
 		etat = "Dans la brume"
 		texte = "On n'y va pas. C'est là que partent ceux qui ne croient pas au jeu."
+		if not Communes.lointaines().is_empty() or Communes.publiees().any(func(x): return str(x.insee) == ""):
+			texte += "\n\nÀ sa lisière, l'aéroport de Poitiers-Biard a des vols pour plus loin que la Vienne."
 	elif c != null or not e.is_empty():
 		# L'état et ses mots sont ceux de la bienvenue et du carnet (Communes.etat, resume).
 		var id: String = c.id if c != null else e.id
@@ -445,6 +591,21 @@ func _montrer(insee: String, alerte := "") -> void:
 		_geste(c.id, actions)
 	elif not e.is_empty():
 		_geste(e.id, actions)
+	if insee == CarteVienne.POITIERS_INSEE and not _titre:
+		for id in Communes.lointaines():
+			if id != Communes.actuelle():
+				var vols := HBoxContainer.new()
+				vols.add_theme_constant_override("separation", 10)
+				vols.add_child(_bouton("Embarquer pour %s  →" % Communes.commune(id).ville(), OR, Color(0.08, 0.06, 0.03), Color(0, 0, 0, 0), voler.bind(id), 16))
+				_fiche_box.add_child(vols)
+		# Les destinations publiées sur le portail, pas encore installées : on les installe d'ici.
+		for x in Communes.publiees():
+			if str(x.insee) == "" and x.has("ailleurs") and Communes.commune(x.id) == null:
+				var vol := HBoxContainer.new()
+				vol.add_theme_constant_override("separation", 10)
+				vol.add_child(_mot("Vol pour %s" % str(x.ailleurs.ville), 15, TEXTE))
+				_geste(x.id, vol)
+				_fiche_box.add_child(vol)
 	if actions.get_child_count() > 0:
 		_fiche_box.add_child(_vide(2))
 		_fiche_box.add_child(actions)

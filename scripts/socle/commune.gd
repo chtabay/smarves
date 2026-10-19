@@ -2,12 +2,13 @@ class_name Commune
 extends RefCounted
 ## Une commune de la Vienne, décrite par son manifeste (communes/<id>/commune.json). Le socle lit le
 ## manifeste, le vérifie et le traduit dans la forme que le code connaît déjà (PLACES de main.gd,
-## LOCKS du casino). Le format est décrit dans docs/COMMUNE.md.
+## LOCKS du casino). Le format est décrit dans docs/COMMUNE.md. Depuis le socle 1.5, une destination
+## lointaine (champ « ailleurs », hors de la Vienne, sans code INSEE) se rejoint en avion.
 
 ## Le format de manifeste que ce socle sait lire.
 const FORMAT := 1
 ## La version du socle, comparée au champ « socle_min » des manifestes.
-const SOCLE := "1.4"
+const SOCLE := "1.6"
 ## Les compteurs du carnet (champ « carnet ») : leurs genres et leurs bornes.
 const CARNET_GENRES := ["nombre", "credits", "texte", "case"]
 const CARNET_COMPTEURS_MAX := 24
@@ -15,6 +16,8 @@ const CARNET_LIBELLE_MAX := 60
 const CARNET_TEXTE_MAX := 80
 const SMARVES := "res://communes/smarves/commune.json"
 const REQUIS := ["format", "id", "nom", "insee", "scene", "lieux", "banque"]
+## Socle 1.5 : les champs d'une destination lointaine (« ailleurs »), avec leur type ; « ville » est requise.
+const AILLEURS_CHAMPS := {"ville": TYPE_STRING, "pays": TYPE_STRING, "vol": TYPE_STRING, "aeroport": TYPE_STRING}
 
 var id := ""
 var nom := ""
@@ -76,8 +79,36 @@ func scene_presente() -> bool:
 	return ResourceLoader.exists(str(data.get("scene", "")))
 
 
+## Une destination lointaine (socle 1.5) : hors de la Vienne, rejointe en avion depuis Poitiers-Biard.
+func lointaine() -> bool:
+	return data.has("ailleurs")
+
+
+## La ville d'une destination lointaine (« Las Vegas »), « » pour une commune de la Vienne.
+func ville() -> String:
+	return str(data.get("ailleurs", {}).get("ville", "")) if lointaine() else ""
+
+
+## Le pays d'une destination lointaine (« États-Unis »), « » s'il n'est pas dit.
+func pays() -> String:
+	return str(data.get("ailleurs", {}).get("pays", "")) if lointaine() else ""
+
+
+## L'aéroport d'arrivée (« McCarran »), la ville à défaut.
+func aeroport() -> String:
+	var a := str(data.get("ailleurs", {}).get("aeroport", "")) if lointaine() else ""
+	return a if a != "" else ville()
+
+
+## Le vol tel qu'il s'affiche au départ (« MN 1203 · via Paris-Charles-de-Gaulle »), « » s'il n'est pas dit.
+func vol() -> String:
+	return str(data.get("ailleurs", {}).get("vol", "")) if lointaine() else ""
+
+
 func _verifier() -> void:
 	for k in REQUIS:
+		if k == "insee" and data.has("ailleurs"):
+			continue
 		if not data.has(k):
 			erreurs.append("champ manquant : %s" % k)
 	if not erreurs.is_empty():
@@ -90,7 +121,9 @@ func _verifier() -> void:
 		erreurs.append("id invalide : « %s » (minuscules, chiffres, _)" % id)
 	elif not chemin.begins_with("res://communes/%s/" % id) and not chemin.begins_with("user://"):
 		erreurs.append("le manifeste de « %s » doit être dans res://communes/%s/" % [id, id])
-	if Vienne.commune(insee).is_empty():
+	if data.has("ailleurs"):
+		erreurs.append_array(verifier_ailleurs(data))
+	elif Vienne.commune(insee).is_empty():
 		erreurs.append("code INSEE inconnu dans la Vienne : « %s »" % insee)
 	if montee and not scene_presente():
 		erreurs.append("scène introuvable : %s" % data.scene)
@@ -107,6 +140,28 @@ func _verifier() -> void:
 	erreurs.append_array(Structures.verifier(data.get("structures")))
 	erreurs.append_array(load("res://scripts/socle/notaire.gd").verifier(data.get("notaire")))
 	erreurs.append_array(verifier_facultatifs(data))
+
+
+## Le champ « ailleurs » (socle 1.5) : une destination hors de la Vienne, sans code INSEE, rejointe en
+## avion. Les phrases sont celles du rapport du portail.
+static func verifier_ailleurs(m: Dictionary) -> PackedStringArray:
+	var out := PackedStringArray()
+	var a = m.get("ailleurs")
+	if typeof(a) != TYPE_DICTIONARY:
+		out.append("ailleurs doit être un objet (ville, pays, vol, aeroport)")
+		return out
+	if str(m.get("insee", "")) != "":
+		out.append("une destination lointaine (ailleurs) n'a pas de code INSEE")
+	if str(m.get("socle_min", "1.0")).naturalnocasecmp_to("1.5") < 0:
+		out.append("une destination lointaine (ailleurs) demande le socle 1.5 (socle_min)")
+	if typeof(a.get("ville")) != TYPE_STRING or str(a.get("ville", "")).strip_edges() == "":
+		out.append("ailleurs.ville : il faut nommer la ville")
+	for k in a:
+		if not AILLEURS_CHAMPS.has(k):
+			out.append("ailleurs : champ inconnu « %s »" % k)
+		elif typeof(a[k]) != AILLEURS_CHAMPS[k]:
+			out.append("ailleurs.%s doit être un texte" % k)
+	return out
 
 
 ## Les champs facultatifs de présentation (auteur, arrivée, population, licence, sources) : absents,
@@ -228,7 +283,7 @@ func arrivee_nom() -> String:
 ## de la Vienne (communes/vienne.json).
 func population() -> int:
 	var n := int(data.get("population", 0))
-	return n if n > 0 else int(Vienne.commune(insee).get("population", 0))
+	return n if n > 0 or lointaine() else int(Vienne.commune(insee).get("population", 0))
 
 
 ## La licence du plan et des photos, et leurs sources (une liste, vide si rien n'est dit).

@@ -11,7 +11,7 @@ signal change
 
 ## Une entrée par structure, dans l'ordre des communes (Smarves d'abord, puis les inscrites, puis
 ## celles du catalogue seulement) :
-##   cle (« <commune>/<id> »), commune, insee, commune_nom, centre (longitude, latitude), installee
+##   cle (« <commune>/<id> »), commune, insee, commune_nom, centre (longitude, latitude ; Poitiers pour une commune « ailleurs », qui part de Poitiers-Biard), installee
 ##   (la commune est chez le joueur, on peut y aller), type, id, nom, et les champs du type tels que
 ##   le manifeste les donne (club, couleurs…), sous « champs ».
 var entrees: Array = []
@@ -47,7 +47,7 @@ func _entree(commune: String, insee: String, nom: String, s: Dictionary, install
 		if not Structures.COMMUNS.has(k):
 			champs[k] = s[k]
 	return {"cle": "%s/%s" % [commune, s.id], "commune": commune, "insee": insee, "commune_nom": nom,
-		"centre": Vienne.centre(insee), "installee": installee, "type": str(s.type), "id": str(s.id),
+		"centre": Vienne.centre(insee if insee != "" else CarteVienne.POITIERS_INSEE), "installee": installee, "type": str(s.type), "id": str(s.id),
 		"nom": str(s.nom), "noeud": str(s.get("noeud", "")), "lot": str(s.get("lot", "")), "champs": champs}
 
 
