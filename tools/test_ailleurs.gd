@@ -365,6 +365,28 @@ func _init() -> void:
 					manquantes.append(z)
 			check(manquantes.is_empty(), "le bol, le hall, la piscine, le lounge, le penthouse, la roue et le parvis sont bâtis %s" % str(manquantes))
 			check(st.places.bas.size() > 1000 and st.places.haut.size() > 1000, "les deux étages ont leurs places (%d en bas, %d en haut)" % [st.places.bas.size(), st.places.haut.size()])
+			# La semaine du stade : désert le mardi, l'entraînement public du mercredi soir, le dimanche qui se
+			# remplit des portes au coup d'envoi ; les foules, la pelouse et les projecteurs suivent l'horloge.
+			var sem = load("res://communes/casino_minuit/stade/semaine.gd")
+			var jours := {"desert": "2026-10-20T16:00:00", "entrainement": "2026-10-21T19:00:00", "portes": "2026-10-25T14:00:00",
+				"match": "2026-10-25T15:40:00", "sortie": "2026-10-25T18:00:00"}
+			var vus := {}
+			for m in jours:
+				var tq: int = Time.get_unix_time_from_datetime_string(jours[m])
+				foot.regler_horloge(func() -> int: return tq)
+				st.call("_vivre")
+				var mm: MultiMesh = st.get("_foules")[0].multimesh
+				vus[m] = [sem.moment(tq), mm.visible_instance_count, mm.instance_count]
+			foot.regler_horloge(Callable())
+			st.call("_vivre")
+			check(vus.desert[0] == "desert" and vus.desert[1] == 0, "le mardi, le stade est désert %s" % str(vus.desert))
+			check(vus.entrainement[0] == "entrainement" and vus.entrainement[1] > 0 and vus.entrainement[1] < vus.entrainement[2] / 10,
+				"le mercredi à 19 h, quelques curieux regardent l'entraînement %s" % str(vus.entrainement))
+			check(vus.portes[0] == "portes" and vus.portes[1] > vus.entrainement[1] and vus.portes[1] < vus.portes[2], "le dimanche à 14 h, le stade se remplit %s" % str(vus.portes))
+			check(vus.match[0] == "match" and vus.match[1] == vus.match[2] and vus.match[2] > 2000, "pendant le match, le stade est plein %s" % str(vus.match))
+			check(vus.sortie[0] == "sortie" and vus.sortie[1] < vus.match[1], "après le match, la foule s'en va %s" % str(vus.sortie))
+			var rdv: Array = sem.rendez_vous(Time.get_unix_time_from_datetime_string("2026-10-19T00:00:00"), Time.get_unix_time_from_datetime_string("2026-10-26T00:00:00"))
+			check(rdv.size() == 2, "l'agenda a l'entraînement du mercredi et le dimanche du RCM (%d rendez-vous)" % rdv.size())
 			var sp: CharacterBody3D = st.player
 			check(sp.global_position.distance_to(Vector3(0, 0.05, -83.5)) < 1.5, "le taxi dépose sur le parvis (%.1f, %.1f, %.1f)" % [sp.global_position.x, sp.global_position.y, sp.global_position.z])
 			# Le tapis rouge, entre les fontaines, mène à la porte de verre, puis l'escalier du hall à la promenade.

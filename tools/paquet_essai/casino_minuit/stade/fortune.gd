@@ -15,6 +15,8 @@ const BATIMENT := BASE + "stade/batiment.gd"
 const ROUE := BASE + "stade/roue.gd"
 const PARVIS := BASE + "stade/parvis.gd"
 const TAXI := BASE + "stade/taxi.gd"
+const SEMAINE := BASE + "stade/semaine.gd"
+const LOT_E := BASE + "zones/lot_e.gd"
 ## La roue tourne d'un tour en deux minutes.
 const VITESSE_ROUE := TAU / 120.0
 
@@ -23,6 +25,12 @@ var _t := 0.0
 var _roue := {}
 var _parvis := {}
 var places := {}
+## La vie de la semaine (semaine.gd) : le moment, les foules (assise aux tribunes, debout au parvis et au hall)
+## et les projecteurs de la pelouse, qu'on baisse quand le stade est désert.
+var moment := ""
+var _foules: Array[MultiMeshInstance3D] = []
+var _projecteurs: Array[SpotLight3D] = []
+var _revu := 0.0
 
 
 func _ready() -> void:
@@ -38,6 +46,28 @@ func _ready() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--y="):
 			player.position.y = float(arg.trim_prefix("--y="))
+	load(SEMAINE).inscrire()
+	_vivre()
+	_annoncer()
+
+
+## Ce que le visiteur entend en arrivant, selon le moment : le stade du socle parle d'entraînement à toute
+## heure ; ici, il dort la semaine.
+func _annoncer() -> void:
+	var nom := _nom_club()
+	match moment:
+		"desert":
+			_note("Le stade de la Fortune dort : rendez-vous mercredi à 18 h pour l'entraînement public, ou dimanche dès 13 h.")
+		"entrainement":
+			_note("Entraînement public de %s jusqu'à 20 h : les tribunes sont ouvertes, prenez place." % nom)
+		"portes":
+			_note("Les portes sont ouvertes, la foule arrive : coup d'envoi à %d h." % Football.HEURE_COUP_ENVOI if _a_domicile()
+				else "Les portes sont ouvertes : %s joue à l'extérieur, le match passe sur l'écran géant à %d h." % [nom, Football.HEURE_COUP_ENVOI])
+		"match":
+			if not _a_domicile():
+				_note("%s joue à l'extérieur : tout le stade regarde le match sur l'écran géant." % nom)
+		"sortie":
+			_note("Le match est fini, la foule redescend vers le Strip. Les taxis attendent sur le parvis.")
 
 
 func _place_name() -> String:
@@ -82,6 +112,7 @@ func _nuit() -> void:
 		spot.spot_angle = 42.0
 		spot.shadow_enabled = a < PI / 2.0
 		add_child(spot)
+		_projecteurs.append(spot)
 		spot.position = Vector3(sin(a) * r, 20.0, cos(a) * r)
 		spot.look_at(Vector3(sin(a) * 6.0, 0, cos(a) * 4.0), Vector3.UP)
 
@@ -92,6 +123,77 @@ func _tribune() -> void:
 	_roue = load(ROUE).construire(K)
 	_parvis = load(PARVIS).construire(K)
 	_figurants()
+	_foule()
+
+
+## Les foules du dimanche, posées une fois pour toutes et montrées par parts (visible_instance_count) : les
+## places des deux étages mêlées au hasard, pour que le stade se remplisse partout à la fois ; debout, la file
+## du parvis et les gens du hall.
+func _foule() -> void:
+	var E = load(LOT_E)
+	var h := RandomNumberGenerator.new()
+	h.seed = 1203
+	var assis := []
+	for p in places.bas + places.haut:
+		var v: Vector3 = p[0]
+		assis.append([v.x, v.y, v.z, float(p[1]) + PI])
+	_melanger(assis, h)
+	var debout := []
+	for i in 360:
+		var x := h.randf_range(-34.0, 34.0)
+		var z := h.randf_range(-91.0, -37.0)
+		# Ni sur le tapis, ni dans les bassins, ni sur Jackpot.
+		if absf(x) < 3.4 or (absf(x) > 7.6 and absf(x) < 30.4 and z > -62.4 and z < -41.6) or Vector2(x, z + 70.0).length() < 7.4:
+			continue
+		debout.append([x, 0.0, z, h.randf() * TAU])
+	# La file, le long des cordons du tapis, tournée vers la porte de verre.
+	for i in 320:
+		var x := h.randf_range(3.7, 7.3) * (1.0 if i % 2 == 0 else -1.0)
+		var z := h.randf_range(-90.0, -38.0)
+		if Vector2(x, z + 70.0).length() < 7.4:
+			continue
+		debout.append([x, 0.0, z, PI + h.randf_range(-0.5, 0.5)])
+	for i in 90:
+		debout.append([h.randf_range(-15.0, 15.0), 0.0, h.randf_range(-34.8, -23.5), h.randf() * TAU])
+	_melanger(debout, h)
+	K.zone_debut("FORTUNE-FOULE")
+	_foules = [E.foule(K, assis, "assis", 1203, "foule_tribunes"), E.foule(K, debout, "debout", 1204, "foule_parvis")]
+	K.zone_fin()
+
+
+static func _melanger(a: Array, h: RandomNumberGenerator) -> void:
+	for i in range(a.size() - 1, 0, -1):
+		var j := h.randi_range(0, i)
+		var t = a[i]
+		a[i] = a[j]
+		a[j] = t
+
+
+## Le stade au moment de la semaine : les foules à leur part, la pelouse vide hors de l'entraînement et du
+## match à domicile (à l'extérieur, le match passe sur l'écran à 360°), les projecteurs baissés quand il est désert.
+func _vivre() -> void:
+	var S = load(SEMAINE)
+	var t: int = Football.maintenant()
+	moment = S.moment(t)
+	var part: float = S.remplissage(t)
+	if _foules.size() == 2:
+		var a: MultiMesh = _foules[0].multimesh
+		a.visible_instance_count = int(a.instance_count * part)
+		var d: MultiMesh = _foules[1].multimesh
+		var debout := part if moment == "portes" or moment == "sortie" else (0.15 if moment == "match" else 0.0)
+		d.visible_instance_count = int(d.instance_count * debout)
+	var sur_la_pelouse := moment == "entrainement" or ((moment == "portes" or moment == "match") and _a_domicile())
+	for id in _acteurs:
+		(_acteurs[id] as Node3D).visible = sur_la_pelouse
+	if _ballon:
+		_ballon.visible = sur_la_pelouse
+	for sp in _projecteurs:
+		sp.light_energy = 7.0 if moment != "desert" else 2.2
+
+
+## Le Racing Club Minuit reçoit-il ce dimanche ? Sinon (ou sans club au championnat), le match est ailleurs.
+func _a_domicile() -> bool:
+	return _club != "" and str(_rencontre.get("dom", "")) == _club
 
 
 ## L'entrée du stade du socle (portail, panneau du club) : ici, on entre par le parvis et le hall, où le
@@ -170,6 +272,10 @@ func _process(delta: float) -> void:
 		for i in range(1, m.size()):
 			for k in 3:
 				m[i][k].text = m[0][k].text
+	_revu += delta
+	if _revu > 1.0:
+		_revu = 0.0
+		_vivre()
 	for o in _parvis.get("yeux", []):
 		var mat: StandardMaterial3D = o.material_override
 		mat.emission_energy_multiplier = 2.4 + 1.2 * sin(_t * 1.3)
