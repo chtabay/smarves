@@ -1,9 +1,12 @@
 extends SceneTree
 ## Emballe une commune en paquet pour le portail des développeurs, et le fait passer par les mêmes
 ## refus que le jeu : godot --headless --path . -s tools/emballer_commune.gd -- <id>
-##   --depuis=res://chemin/  le dossier source (par défaut res://communes/<id>/) ; un dossier hors du
-##                           projet (--depuis=/chemin/vers/vegas, le dépôt d'une commune) est d'abord
-##                           recopié sous res://build/sources/<id>/ et importé, sans .git, tests/ ni .md
+##   --depuis=res://chemin/  le dossier source (par défaut res://communes/<id>/) ; un autre dossier, dans
+##                           le projet ou hors de lui (--depuis=/chemin/vers/vegas, le dépôt d'une
+##                           commune), est d'abord recopié sous res://communes/<id>/, là où le jeu le
+##                           chargera, et importé là (sans .git, tests/ ni .md), puis retiré après
+##                           l'emballage : un modèle importé nomme ses textures par leur chemin, qui doit
+##                           être celui du paquet
 ##   --sortie=chemin.pck     où écrire le paquet (par défaut build/<id>.pck)
 ## Tout est rangé sous res://communes/<id>/ dans le paquet. Une ressource importée (image, son,
 ## modèle) part sous sa forme importée (.godot/imported/), avec son fichier .import ; l'original ne
@@ -30,7 +33,9 @@ func _init() -> void:
 		depuis = "res://communes/%s/" % id
 	if not depuis.ends_with("/"):
 		depuis += "/"
-	if not depuis.begins_with("res://"):
+	var cible_id := "res://communes/%s/" % id
+	var recopie := depuis != cible_id
+	if recopie:
 		depuis = _recopier(depuis, id)
 		if depuis == "":
 			quit(1)
@@ -50,6 +55,14 @@ func _init() -> void:
 	for cible in fichiers:
 		pk.add_file(cible, fichiers[cible])
 	pk.flush()
+	# Aucune ressource importée ne doit nommer un chemin hors du paquet : le jeu ne le trouverait pas.
+	var hors := _chemins_hors(fichiers, id)
+	if recopie:
+		_retirer(id)
+	if not hors.is_empty():
+		printerr("Des ressources du paquet nomment des fichiers hors de res://communes/%s/ : %s" % [id, ", ".join(hors.slice(0, 5))])
+		quit(1)
+		return
 	print("%d fichiers emballés dans %s (%s)" % [fichiers.size(), sortie, Portail.taille(FileAccess.get_file_as_bytes(sortie).size())])
 
 	# Les refus du jeu, tels qu'un joueur les rencontrerait en l'installant.
@@ -83,6 +96,8 @@ func _init() -> void:
 func _parcourir(dossier: String, racine: String, cible: String, out: Dictionary) -> void:
 	var d := DirAccess.open(dossier)
 	for f in d.get_files():
+		if f == TEMOIN:
+			continue
 		var chemin := dossier + f
 		var dans_le_paquet := cible + chemin.trim_prefix(racine)
 		if f.ends_with(".import"):
@@ -99,16 +114,28 @@ func _parcourir(dossier: String, racine: String, cible: String, out: Dictionary)
 		_parcourir(dossier + sub + "/", racine, cible, out)
 
 
-## Recopie le dossier d'un dépôt hors du projet sous res://build/sources/<id>/ (sans ce qui ne part pas
-## dans un paquet), puis fait importer ses ressources par le moteur : « » si le dossier n'existe pas.
-func _recopier(dehors: String, id: String) -> String:
+const TEMOIN := ".emballage"
+
+
+## Recopie le dossier source sous res://communes/<id>/ (sans ce qui ne part pas dans un paquet), puis
+## fait importer ses ressources par le moteur : « » si le dossier n'existe pas, ou si une commune du
+## projet occupe déjà ce chemin.
+func _recopier(source: String, id: String) -> String:
+	var dehors := ProjectSettings.globalize_path(source) if source.begins_with("res://") else source
+	if not dehors.ends_with("/"):
+		dehors += "/"
 	if not DirAccess.dir_exists_absolute(dehors):
 		printerr("Pas de dossier %s" % dehors)
 		return ""
-	var dedans := "res://build/sources/%s/" % id
-	_vider(ProjectSettings.globalize_path(dedans))
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dedans))
-	_copier(dehors, ProjectSettings.globalize_path(dedans))
+	var dedans := "res://communes/%s/" % id
+	var dossier := ProjectSettings.globalize_path(dedans)
+	if DirAccess.dir_exists_absolute(dossier) and not FileAccess.file_exists(dossier + TEMOIN):
+		printerr("%s existe déjà dans le projet : emballez-le sans --depuis" % dedans)
+		return ""
+	_vider(dossier)
+	DirAccess.make_dir_recursive_absolute(dossier)
+	FileAccess.open(dossier + TEMOIN, FileAccess.WRITE).store_string("recopie de %s par tools/emballer_commune.gd\n" % source)
+	_copier(dehors, dossier)
 	var sortie := []
 	var code := OS.execute(OS.get_executable_path(), ["--headless", "--path", ProjectSettings.globalize_path("res://"), "--import"], sortie, true)
 	if code != 0:
@@ -120,7 +147,14 @@ func _recopier(dehors: String, id: String) -> String:
 func _copier(de: String, vers: String) -> void:
 	var d := DirAccess.open(de)
 	for f in d.get_files():
-		if not f.ends_with(".md"):
+		if f.ends_with(".md") or f.ends_with(".uid"):
+			continue
+		if f.ends_with(".import"):
+			# les réglages d'import suivent, pas l'identifiant : la copie reçoit le sien
+			var t := FileAccess.get_file_as_string(de + f)
+			var lignes := Array(t.split("\n")).filter(func(l): return not l.begins_with("uid=") and not l.begins_with("source_file=") and not l.begins_with("dest_files=") and not l.begins_with("path"))
+			FileAccess.open(vers + f, FileAccess.WRITE).store_string("\n".join(lignes))
+		else:
 			DirAccess.copy_absolute(de + f, vers + f)
 	for sous in d.get_directories():
 		if not sous.begins_with(".") and sous != "tests":
@@ -132,8 +166,34 @@ func _vider(dossier: String) -> void:
 	var d := DirAccess.open(dossier)
 	if d == null:
 		return
+	d.include_hidden = true
 	for f in d.get_files():
 		DirAccess.remove_absolute(dossier + f)
 	for sous in d.get_directories():
 		_vider(dossier + sous + "/")
 		DirAccess.remove_absolute(dossier + sous)
+
+
+## La recopie retirée du projet, et ce que son import a laissé.
+func _retirer(id: String) -> void:
+	var dossier := ProjectSettings.globalize_path("res://communes/%s/" % id)
+	if FileAccess.file_exists(dossier + TEMOIN):
+		_vider(dossier)
+		DirAccess.remove_absolute(dossier)
+
+
+## Les chemins res:// hors du paquet que nomment ses ressources importées (un modèle et ses textures).
+func _chemins_hors(fichiers: Dictionary, id: String) -> Array:
+	var hors := {}
+	var re := RegEx.new()
+	re.compile("res://[A-Za-z0-9_./-]+")
+	var bon := "res://communes/%s/" % id
+	for cible in fichiers:
+		if not str(cible).begins_with("res://.godot/imported/"):
+			continue
+		var b := FileAccess.get_file_as_bytes(fichiers[cible])
+		for m in re.search_all(b.get_string_from_ascii()):
+			var c := m.get_string()
+			if not c.begins_with(bon) and not c.begins_with("res://.godot/"):
+				hors[c] = true
+	return hors.keys()
