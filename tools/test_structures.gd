@@ -24,8 +24,8 @@ func _init() -> void:
 	_vocabulaire()
 	_manifestes()
 	DirAccess.make_dir_recursive_absolute(TMP)
-	check(registre.entrees.size() == 1 and registre.structure("smarves/stade").champs.club == "L'Étoile de Smarves",
-		"Smarves seule : le registre n'a que son stade (%d)" % registre.entrees.size())
+	check(registre.entrees.size() == 2 and registre.structure("smarves/stade").champs.club == "L'Étoile de Smarves" and registre.structure("smarves/gymnase").champs.club == "Les Hérons du Clain",
+		"Smarves seule : le registre n'a que son stade et son gymnase (%d)" % registre.entrees.size())
 	var annonces := [0]
 	registre.change.connect(func(): annonces[0] += 1)
 
@@ -108,7 +108,7 @@ func _vocabulaire() -> void:
 
 
 func _manifestes() -> void:
-	check(Commune.smarves().valide() and Commune.smarves().structures().size() == 1, "le manifeste de Smarves reste valide, avec son stade")
+	check(Commune.smarves().valide() and Commune.smarves().structures().size() == 2, "le manifeste de Smarves reste valide, avec son stade et son gymnase")
 	for id in ["liguge", "la_villedieu_du_clain", "availles_limouzine"]:
 		var t := FileAccess.get_file_as_string("res://tools/paquet_essai/%s/commune.json" % id)
 		var c := Commune.depuis_texte(t, "res://communes/%s/commune.json" % id, "essai.pck")

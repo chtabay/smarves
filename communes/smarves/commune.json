@@ -33,7 +33,8 @@
 		{"id": "bourse", "nom": "La charge de Mme Vasseur", "jeu": "la bourse à levier", "seuil": 7000, "hote": "Mme Vasseur", "accord": "e"}
 	],
 	"structures": [
-		{"type": "terrain_foot", "id": "stade", "nom": "Le stade municipal", "club": "L'Étoile de Smarves", "court": "ESM", "couleurs": ["#1b3c8c", "#f2c94c"], "stade": "le stade municipal de Smarves"}
+		{"type": "terrain_foot", "id": "stade", "nom": "Le stade municipal", "club": "L'Étoile de Smarves", "court": "ESM", "couleurs": ["#1b3c8c", "#f2c94c"], "stade": "le stade municipal de Smarves"},
+		{"type": "gymnase", "id": "gymnase", "nom": "Le Clain Garden", "club": "Les Hérons du Clain", "court": "HCL", "couleurs": ["#14213d", "#d4a93a"]}
 	],
 	"salles": {
 		"casino": [
