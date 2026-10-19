@@ -162,19 +162,25 @@ func _init() -> void:
 			check(str(s.get("_credits").text) == "%s crédits" % root.get_node("Game").fmt(root.get_node("Game").credits),
 				"le coin du compte montre les crédits : %s" % s.get("_credits").text)
 			check(str(s.get("_aide").text).contains("C : le carnet"), "le rappel des commandes nomme le carnet")
-	# La machine à sous demande à la scène de payer la mise : elle s'ouvre, et tire.
-	var slot: Node = s.find_child("table_slot-1", true, false)
-	if slot != null:
+	# La machine à sous demande à la scène de payer la mise : elle s'ouvre, et tire. Les PNJ tiennent des
+	# machines : on prend la première libre.
+	var sm: Control = null
+	for k in range(1, 13):
+		var slot: Node = s.find_child("table_slot-%d" % k, true, false)
+		if slot == null:
+			continue
 		p.interact.emit(slot)
 		await process_frame
-		var sm: Control = s.get("_tables").get("_panneau")
-		check(sm != null and str(sm.get_script().resource_path).ends_with("slot_machine.gd") and sm.game == s,
-			"la machine à sous s'ouvre, payée par la scène")
+		sm = s.get("_tables").get("_panneau")
 		if sm != null:
-			var credits_avant: int = root.get_node("Game").credits
-			check(s.spend(5) and root.get_node("Game").credits == credits_avant - 5, "la scène paie la mise de la machine")
-			sm.closed.emit()
-			await process_frame
+			break
+	check(sm != null and str(sm.get_script().resource_path).ends_with("slot_machine.gd") and sm.game == s,
+		"la machine à sous s'ouvre, payée par la scène")
+	if sm != null:
+		var credits_avant: int = root.get_node("Game").credits
+		check(s.spend(5) and root.get_node("Game").credits == credits_avant - 5, "la scène paie la mise de la machine")
+		sm.closed.emit()
+		await process_frame
 	# Le poker à plusieurs, sans réseau : une salle posée à la main (la vue de l'action « salle »).
 	var tb = s.get("_tables")
 	var salle := {"tables": [
