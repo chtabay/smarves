@@ -43,5 +43,5 @@ as $$
       order by c.saison, c.journee, c.club) x), '[]'::json)
 $$;
 
-revoke all on function public.smarves_consigne_poser(text, integer, integer, text, text, text, json), public.smarves_consignes(text) from public;
-grant execute on function public.smarves_consigne_poser(text, integer, integer, text, text, text, json), public.smarves_consignes(text) to anon, authenticated;
+revoke all on function public.smarves_consigne_poser(text, integer, integer, text, text, text, text, json), public.smarves_consignes(text) from public;
+grant execute on function public.smarves_consigne_poser(text, integer, integer, text, text, text, text, json), public.smarves_consignes(text) to anon, authenticated;
