@@ -22,7 +22,8 @@ const TOUR := [
 ]
 
 
-## dedans : les figurants du casino (lots A à D) ; faux quand les PNJ de l'original (pnj/pnj.gd) l'habitent.
+## dedans : les figurants de tout le casino (lots A à F) ; faux quand les PNJ de l'original (pnj/pnj.gd, pnj/vie.gd)
+## l'habitent : aucun figurant alors.
 static func peupler(racine: Node3D, dedans := true) -> Node3D:
 	var P = load(PERSONNAGES)
 	var n := Node3D.new()
@@ -30,12 +31,8 @@ static func peupler(racine: Node3D, dedans := true) -> Node3D:
 	racine.add_child(n)
 	var g := 11
 	if not dedans:
-		# la graine où le lot A s'arrête (ses 49 figurants) : le dehors et le lot F gardent leurs tenues
-		g = 60
-		var K0 = racine.get("K")
-		if K0 != null:
-			_lot_e(n, K0.places, g + 1200)
-			_lot_f(n, K0.places, g + 1600)
+		# les PNJ de l'original habitent aussi le dehors et le lot F (pnj/vie.gd : passants, musiciens, public,
+		# boxeurs ; le personnel du dehors à ses postes) : plus de figurants ici
 		return n
 	# Les barmen, derrière les deux comptoirs du bar ; ils vont et viennent le long des bouteilles.
 	for sg in [-1.0, 1.0]:

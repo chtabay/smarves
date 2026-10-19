@@ -537,16 +537,20 @@ static func foule(K, places: Array, pose: String, graine: int, nom := "foule") -
 	mm.instance_count = places.size()
 	var h := RandomNumberGenerator.new()
 	h.seed = graine
+	var t0s: Array[Transform3D] = []
 	for i in places.size():
 		var p: Array = places[i]
 		var s := 0.92 + h.randf() * 0.16
-		mm.set_instance_transform(i, Transform3D(Basis.from_euler(Vector3(0, p[3], 0)).scaled(Vector3.ONE * s), Vector3(p[0], p[1], p[2])))
+		t0s.append(Transform3D(Basis.from_euler(Vector3(0, p[3], 0)).scaled(Vector3.ONE * s), Vector3(p[0], p[1], p[2])))
+		mm.set_instance_transform(i, t0s[i])
 		var c := Color(hauts[h.randi() % hauts.size()]).srgb_to_linear()
 		mm.set_instance_custom_data(i, Color(c.r, c.g, c.b, h.randf()))
 		mm.set_instance_color(i, Color.WHITE)
 	var mi := MultiMeshInstance3D.new()
 	mi.name = nom
 	mi.multimesh = mm
+	# les places d'origine, pour les figurants qui prennent le relais de près (pnj/vie.gd, swapper)
+	mi.set_meta("t0s", t0s)
 	mi.material_override = K.mat("foule")
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	K.zone.add_child(mi)

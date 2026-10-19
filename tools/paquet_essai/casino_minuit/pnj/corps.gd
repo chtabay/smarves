@@ -36,6 +36,8 @@ class Corps:
 	var kb := ""
 	var head := {}
 	var torso := {}
+	## Les vitesses propres à un clip (timeScale de l'original : la danse au tempo du morceau).
+	var vitesses := {}
 
 	## Les gabarits : nom → { données exportées, lib (AnimationLibrary propre au gabarit : clés courtes), clips (clé → Animation | null), res }
 	static var gabarits := {}
@@ -199,7 +201,7 @@ class Corps:
 				b.seek(0.0, true)
 			else:
 				b.stop()
-		a.speed_scale = 1.0
+		a.speed_scale = vitesses.get(ka, 1.0)
 
 	## Oublie le clip en cours s'il est celui-là : le prochain jouer() le relance (un geste rejoué).
 	func oublier(k: String) -> void:
@@ -347,6 +349,11 @@ class Corps:
 
 	func cadence(k: float) -> void:
 		a.speed_scale = k
+
+	func regler_vitesse(k: String, v: float) -> void:
+		vitesses[k] = v
+		if ka == k:
+			a.speed_scale = v
 
 	func avancer(dt: float) -> void:
 		a.advance(dt)

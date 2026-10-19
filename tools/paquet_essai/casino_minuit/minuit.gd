@@ -80,6 +80,7 @@ var _message: Label
 func _ready() -> void:
 	_ambiance()
 	K = load(BASE + "kit.gd").new(self)
+	K.places["pilotes"] = load(BASE + "zones/pilotes.gd").new()
 	for z in ZONES:
 		load(BASE + "zones/%s.gd" % z).construire(K)
 	_cordon()
@@ -103,6 +104,7 @@ func _ready() -> void:
 
 func _process(dt: float) -> void:
 	_t += dt
+	K.places.pilotes.avancer()
 	K.animer(dt, _t)
 	_rendu.chaque_image(dt, player.global_position, -player.global_basis.z)
 	_cadrer()
@@ -243,13 +245,9 @@ func _fontaines(cible: Node) -> void:
 	_dire("Les jets se lèvent : le spectacle des fontaines commence.")
 
 
-## La cloche du chronométreur : elle clôt le round, ou relance le combat.
-func _cloche(cible: Node) -> void:
-	var etat: Dictionary = cible.get_meta("etat", {})
-	if etat.is_empty():
-		return
-	load(BASE + "zones/arene.gd")._cloche(etat)
-	_dire("Ding ! Round %d." % etat.round if etat.en_cours else "Ding ! Fin du round : une minute de repos.")
+## La cloche du chronométreur (arene-cloche : AR.bell('joueur')) : elle lance le round, le clôt, ou relance la soirée.
+func _cloche(_cible: Node) -> void:
+	K.places.pilotes.bell("joueur")
 
 
 func _taux() -> String:

@@ -192,4 +192,5 @@ static func construire(K) -> void:
 	E.enseigne(K, "FONTAINES", "#BFEAFF", 1.6, 0.32, L.LAKE_IN + 0.6, 1.3, z1 + 0.56, 0, "bloc")
 	var a: Area3D = K.interaction("fontaines", "Le spectacle des fontaines", L.LAKE_IN + 0.6, 1.2, z1 + 0.6, Vector3(1.6, 2.2, 1.4))
 	a.set_meta("etat", etat)
+	K.places["e_fontaines_etat"] = etat
 	K.zone_fin()

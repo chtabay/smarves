@@ -140,6 +140,8 @@ var J := {"x": 0.0, "z": 0.0, "y": 0.0, "level": 0.0, "mode": "walk", "station":
 var synchrone := false
 var essai := false
 var _hors_scene := false
+## Les lieux encore fermés aux clients (seuils de Smarves) : ni concert ni arène pour eux tant qu'ils le sont.
+var lieux_fermes: Array = []
 
 
 func note(k: String) -> void:
@@ -256,6 +258,7 @@ func preparer(s: Node3D, fermes: Array = []) -> bool:
 	var zc: Array = []
 	for l in fermes:
 		zc.append_array(LIEUX_FERMES.get(l, []))
+	lieux_fermes = fermes.duplicate()
 	if not M.charger(BASE + "donnees/pnj_monde.json", zc):
 		return false
 	CORPS = load(BASE + "pnj/corps.gd")
@@ -4982,6 +4985,8 @@ var staff_target := 0
 var ext_decide: Array = []
 var ext_tick: Array = []
 var ext_start: Array = []
+## La vague « vie » (pnj/vie.gd) : le Strip, le concert, l'arène.
+var vie = null
 const HOT := {"respond": 1, "chase": 1, "combat": 1, "provoke": 1, "escort": 1, "escorted": 1, "fight": 1, "spectate": 1, "ko": 1, "held": 1, "flee": 1, "callSec": 1, "getup": 1}
 
 
@@ -5198,6 +5203,8 @@ func start() -> void:
 	var k := roundi(client_target * 0.85)
 	for i in k:
 		spawn_in_place()
+	if vie == null and not _hors_scene:
+		vie = load(BASE + "pnj/vie.gd").new(self, scene)
 	for f in ext_start:
 		f.call()
 	spawn_t = now + 1.5

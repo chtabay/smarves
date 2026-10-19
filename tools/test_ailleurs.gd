@@ -343,10 +343,17 @@ func _init() -> void:
 	check(places.has("e_promenade_casino") and places.has("e_fontaines") and places.has("e_file_arene") and places.has("f_gradins") and places.has("f_musiciens"), "elles notent les places de leurs figurants")
 	figurants = s.get_node_or_null("Figurants")
 	var groupes := {}
-	for g in ["Dehors", "Arene", "Concert"]:
-		var n: Node = figurants.get_node_or_null(g) if figurants else null
-		groupes[g] = n.get_child_count() if n else 0
-	check(groupes.Dehors > 40 and groupes.Arene > 40 and groupes.Concert > 30, "dehors, à l'arène et au concert, des figurants %s" % str(groupes))
+	var vie = s.pnj.vie if s.get("pnj") != null else null
+	if vie != null:
+		# les PNJ de l'original (pnj/vie.gd) : passants du Strip, public et artistes de l'arène et du concert
+		for g in ["strip", "arene", "concert"]:
+			groupes[g] = vie.venues[g].extras.size() if vie.venues.has(g) else 0
+		check(groupes.strip >= 18 and groupes.arene > 40 and groupes.concert > 30, "dehors, à l'arène et au concert, des PNJ %s" % str(groupes))
+	else:
+		for g in ["Dehors", "Arene", "Concert"]:
+			var n: Node = figurants.get_node_or_null(g) if figurants else null
+			groupes[g] = n.get_child_count() if n else 0
+		check(groupes.Dehors > 40 and groupes.Arene > 40 and groupes.Concert > 30, "dehors, à l'arène et au concert, des figurants %s" % str(groupes))
 	p.global_position = Vector3(1.5, 0.05, 27.0)
 	p.rotation.y = 0.0
 	p.velocity = Vector3.ZERO
