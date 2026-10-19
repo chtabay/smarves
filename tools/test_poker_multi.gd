@@ -72,5 +72,59 @@ func _init() -> void:
 	check(p.rel(1) == 4 and p.rel(3) == 0 and p.rel(2) == 5, "les places tournent autour du joueur")
 	var c: Dictionary = MULTI.carte({"r": "10", "s": "♦"})
 	check(c.r == 8 and c.s == 2, "une carte du serveur se lit comme une carte du jeu")
+	# Les tarifs d'une table de commune (socle 1.7) : annoncés par configurer_table, confirmés par le serveur.
+	var cave_vue := func(t): return {"seat": null, "stack": 0, "seats": [], "poker": {"regulars": [], "waiting": false},
+		"last": null, "cave": {"min": 10000, "max": 10000}, "table": t}
+	var bonne := {"id": "cloue:poker-cave", "nom": "La Contrebande", "blindes": [125, 250], "plafond": 10000}
+	var essais := [[bonne, true, "le serveur confirme la Contrebande : on joue"],
+		[{"id": "cloue:poker-cave", "nom": "La Contrebande", "blindes": [25, 50], "plafond": 2000}, false, "d'autres tarifs : refusé"],
+		[{"id": "poker:ambassadeurs", "nom": "x", "blindes": [125, 250], "plafond": 10000}, false, "une autre table : refusé"],
+		[null, false, "un serveur qui ne dit pas sa table : refusé"]]
+	for e in essais:
+		var q: PanelContainer = MULTI.new()
+		q.hors_ligne = true
+		check(q.configurer_table("cloue:poker-cave", 125, 250, 10000), "configurer_table accepte 125/250, 10 000")
+		layer.add_child(q)
+		var vue: Dictionary = cave_vue.call(e[0])
+		if e[0] == null:
+			vue.erase("table")
+		q.appliquer(vue, "voir")
+		check(q.refusee != e[1] and (q.srv.has("table") == e[1]), e[2])
+		if e[1]:
+			check(q.SB == 125 and q.BB == 250 and q.CAP == 10000 and q.table_id == "cloue:poker-cave", "les blindes de la table sont 125/250, 10 000 par donne")
+			G.credits = 30000
+			check(q.cave() == 10000, "le tapis d'admission est de 10 000 (%d)" % q.cave())
+		else:
+			check("ne confirme pas" in q._log.text, "le refus est dit au joueur")
+		q.queue_free()
+	var mauvais: PanelContainer = MULTI.new()
+	check(not mauvais.configurer_table("cloue:poker-cave", 250, 125, 10000) and not mauvais.configurer_blindes(125, 250, 100), "des tarifs incohérents sont refusés")
+	check(mauvais.SB == 25 and mauvais.BB == 50 and mauvais.CAP == 2000 and mauvais.table_id == "", "et ne changent rien")
+	mauvais.free()
+	# Sans annonce, les Ambassadeurs et les tables de Minuit attendent 25/50 et 2 000.
+	var amb: PanelContainer = MULTI.new()
+	amb.hors_ligne = true
+	amb.table_id = "minuit:poker-1"
+	layer.add_child(amb)
+	amb.appliquer(cave_vue.call({"id": "minuit:poker-1", "nom": "Table 1", "blindes": [25, 50], "plafond": 2000}), "voir")
+	check(not amb.refusee, "une table de Minuit à 25/50 passe")
+	amb.queue_free()
+	var amb2: PanelContainer = MULTI.new()
+	amb2.hors_ligne = true
+	layer.add_child(amb2)
+	amb2.appliquer(cave_vue.call({"id": "poker:ambassadeurs", "nom": "x", "blindes": [125, 250], "plafond": 10000}), "voir")
+	check(amb2.refusee, "les Ambassadeurs à d'autres tarifs : refusé")
+	amb2.queue_free()
+	# Le solo d'une commune : il faut la grosse blinde pour s'asseoir.
+	var solo: PanelContainer = load("res://scripts/poker_panel.gd").new()
+	check(solo.configurer_blindes(125, 250, 10000), "configurer_blindes accepte 125/250, 10 000")
+	layer.add_child(solo)
+	G.credits = 249
+	solo._new_hand()
+	check(not solo.in_hand and "250" in solo._log.text, "au solo, 249 crédits ne suffisent pas")
+	G.credits = 250
+	solo._new_hand()
+	check(solo.in_hand, "au solo, 250 crédits suffisent")
+	solo.queue_free()
 	print("\n%d échec(s)" % fails)
 	quit(1 if fails > 0 else 0)
