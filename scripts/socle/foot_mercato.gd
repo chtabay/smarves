@@ -84,6 +84,10 @@ func _rafraichir() -> void:
 	var focus := get_viewport().gui_get_focus_owner() if get_viewport() != null else null
 	if focus is LineEdit or focus is OptionButton:
 		return
+	# Pas sous un clic en cours : un bouton refait entre l'appui et le relâché perdrait le clic.
+	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and is_inside_tree():
+		get_tree().create_timer(0.2).timeout.connect(_rafraichir)
+		return
 	remplir(_colonne)
 
 

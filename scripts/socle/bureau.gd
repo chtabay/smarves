@@ -45,6 +45,11 @@ var joueur_choisi := ""
 var _message := ""
 
 var _nav: VBoxContainer
+var _boutons_nav := {}
+var _nom_club: Label
+var _rang: Label
+var _solde: Label
+var _rafraichir_prevu := false
 var _titre: Label
 var _sous_titre: Label
 var _corps: VBoxContainer
@@ -163,7 +168,20 @@ func aller(p: String) -> void:
 ## Redessine ce qui bouge quand Football ou Mercato changent ; la tactique garde ce qu'on y écrit, et les
 ## pages du mercato se redessinent seules.
 func _rafraichir() -> void:
+	# Plusieurs signaux d'affilée ne font qu'un dessin, à la fin de l'image.
+	if _rafraichir_prevu:
+		return
+	_rafraichir_prevu = true
+	_rafraichir_maintenant.call_deferred()
+
+
+func _rafraichir_maintenant() -> void:
+	_rafraichir_prevu = false
 	if not is_inside_tree():
+		return
+	# Pas sous un clic en cours : la page se redessine une fois le bouton relâché.
+	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+		get_tree().create_timer(0.2).timeout.connect(_rafraichir)
 		return
 	var focus := get_viewport().gui_get_focus_owner()
 	if focus is LineEdit or focus is OptionButton:
@@ -216,7 +234,36 @@ func _defile() -> VBoxContainer:
 # ---------------------------------------------------------------- la barre de gauche
 
 func _barre_nav() -> void:
-	_vider(_nav)
+	if _boutons_nav.is_empty():
+		_poser_barre()
+	var f := foot()
+	var c: Dictionary = f.clubs.get(club, {})
+	if _nom_club != null:
+		_ecrire(_nom_club, str(c.get("nom", "Le club")))
+	if _rang != null:
+		_ecrire(_rang, _phrase_rang())
+		_rang.visible = _rang.text != ""
+	if _solde != null:
+		_ecrire(_solde, "Vous avez %s crédits." % Game.fmt(Game.credits))
+	for p in PAGES:
+		var b: Button = _boutons_nav[p[0]]
+		var texte: String = p[1]
+		if p[0] == "offres":
+			var m := _mercato_noeud()
+			if m != null:
+				var o: Dictionary = m.offres_du_club(club)
+				var n: int = o.encheres.filter(func(e): return not e.ferme).size() + o.ventes.filter(func(e): return not e.ferme).size()
+				if n > 0:
+					texte += "  (%d)" % n
+		if b.text != texte:
+			b.text = texte
+		if bool(b.get_meta("ouvert", false)) != (p[0] == page):
+			_habiller_onglet(b, p[0] == page)
+
+
+## La barre se pose une fois : ses boutons restent les mêmes, seuls leurs textes changent. Un bouton
+## refait sous le curseur perdrait le clic entre l'appui et le relâché.
+func _poser_barre() -> void:
 	var f := foot()
 	var c: Dictionary = f.clubs.get(club, {})
 	var etroit := _etroit()
@@ -228,16 +275,14 @@ func _barre_nav() -> void:
 		ecusson.add_child(_couleurs(c.get("couleurs", ["#2a8fd1", "#ffffff"])))
 		ecusson.add_child(_mot("B U R E A U", 12, DOUX))
 		_nav.add_child(ecusson)
-		var n := _mot(str(c.get("nom", "Le club")), 22, CRAIE, Polices.titre(), false)
-		n.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		n.custom_minimum_size.x = 218
-		_nav.add_child(n)
-		var rang := _phrase_rang()
-		if rang != "":
-			var r := _mot(rang, 14, OR)
-			r.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			r.custom_minimum_size.x = 218
-			_nav.add_child(r)
+		_nom_club = _mot("", 22, CRAIE, Polices.titre(), false)
+		_nom_club.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_nom_club.custom_minimum_size.x = 218
+		_nav.add_child(_nom_club)
+		_rang = _mot("", 14, OR)
+		_rang.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_rang.custom_minimum_size.x = 218
+		_nav.add_child(_rang)
 		var sep := Control.new()
 		sep.custom_minimum_size.y = 14
 		_nav.add_child(sep)
@@ -245,17 +290,11 @@ func _barre_nav() -> void:
 	if etroit:
 		rangee.add_child(_couleurs(c.get("couleurs", ["#2a8fd1", "#ffffff"])))
 	for p in PAGES:
-		var texte: String = p[1]
-		if p[0] == "offres":
-			var m := _mercato_noeud()
-			if m != null:
-				var o: Dictionary = m.offres_du_club(club)
-				var n: int = o.encheres.filter(func(e): return not e.ferme).size() + o.ventes.filter(func(e): return not e.ferme).size()
-				if n > 0:
-					texte += "  (%d)" % n
-		var b := _onglet(texte, p[0] == page, func(): aller(p[0]))
-		b.name = "Nav_" + p[0]
+		var cle: String = p[0]
+		var b := _onglet(p[1], cle == page, func(): aller(cle))
+		b.name = "Nav_" + cle
 		rangee.add_child(b)
+		_boutons_nav[cle] = b
 	if etroit:
 		var q := _bouton("Quitter  (Échap)", func(): closed.emit(), 14)
 		q.name = "Quitter"
@@ -265,10 +304,17 @@ func _barre_nav() -> void:
 	ressort.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_nav.add_child(ressort)
 	_nav.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_nav.add_child(_mot("Vous avez %s crédits." % Game.fmt(Game.credits), 14, DOUX))
+	_solde = _mot("", 14, DOUX)
+	_nav.add_child(_solde)
 	var q := _bouton("Quitter le bureau  (Échap)", func(): closed.emit(), 15)
 	q.name = "Quitter"
 	_nav.add_child(q)
+
+
+## Ne touche un texte que s'il change : rien ne se remet en page pour rien.
+func _ecrire(l: Label, texte: String) -> void:
+	if l.text != texte:
+		l.text = texte
 
 
 ## Une entrée de la barre : à plat, l'entrée ouverte soulignée d'or à gauche (en bas sur un téléphone).
@@ -277,8 +323,15 @@ func _onglet(texte: String, ouvert: bool, action: Callable) -> Button:
 	b.text = texte
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	b.add_theme_font_override("font", Polices.gras() if ouvert else Polices.texte())
 	b.add_theme_font_size_override("font_size", 14 if _etroit() else 17)
+	_habiller_onglet(b, ouvert)
+	b.pressed.connect(action)
+	return b
+
+
+func _habiller_onglet(b: Button, ouvert: bool) -> void:
+	b.set_meta("ouvert", ouvert)
+	b.add_theme_font_override("font", Polices.gras() if ouvert else Polices.texte())
 	for etat in ["normal", "hover", "pressed", "focus", "disabled"]:
 		var s := _boite(Color(OR, 0.16) if ouvert else (Color(1, 1, 1, 0.06) if etat == "hover" else Color.TRANSPARENT), Color.TRANSPARENT, 4, 8)
 		s.content_margin_left = 14
@@ -292,8 +345,6 @@ func _onglet(texte: String, ouvert: bool, action: Callable) -> Button:
 		b.add_theme_stylebox_override(etat, s)
 	for k in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 		b.add_theme_color_override(k, OR if ouvert else CRAIE)
-	b.pressed.connect(action)
-	return b
 
 
 ## « 2e de la Division 1, 12 points » d'après le classement du moment.

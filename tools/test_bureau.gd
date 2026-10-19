@@ -45,6 +45,21 @@ func _lancer() -> void:
 	centre.add_child(b)
 	await process_frame
 	check(b.find_child("Nav_tactique", true, false) != null and b.find_child("Nav_offres", true, false) != null, "la barre de gauche montre les pages")
+	# Les signaux de Football et du Mercato ne refont pas les boutons de la barre : un clic commencé
+	# sur « Offres en cours » ou « Quitter » s'y termine.
+	b.call("aller", "recherche")
+	await process_frame
+	var offres: Node = b.find_child("Nav_offres", true, false)
+	var quitter: Node = b.find_child("Quitter", true, false)
+	foot.change.emit()
+	m.change.emit()
+	await process_frame
+	await process_frame
+	check(is_instance_valid(offres) and offres.is_inside_tree() and b.find_child("Nav_offres", true, false) == offres
+		and is_instance_valid(quitter) and quitter.is_inside_tree(), "la barre garde ses boutons quand le marché change")
+	(offres as Button).pressed.emit()
+	await process_frame
+	check(b.get("page") == "offres" and b.find_child("Nav_offres", true, false) == offres, "« Offres en cours » ouvre la page des offres")
 	for p in ["accueil", "effectif", "tactique", "agenda", "championnat", "recherche", "offres"]:
 		b.call("aller", p)
 		await process_frame
