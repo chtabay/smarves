@@ -1,7 +1,8 @@
 extends SceneTree
 ## Captures du stade de la Fortune de Casino Minuit (tools/paquet_essai/casino_minuit/stade/), emballé ici comme
 ## dans capture_minuit.gd : godot --path . -s tools/capture_stade_minuit.gd -- --capture=sortie.png
-## [--at=x,z,lacet,tangage] [--y=hauteur] [--attendre=s] [--journee=n --minute=m]
+## [--at=x,z,lacet,tangage] [--y=hauteur] [--attendre=s] [--journee=n --minute=m] [--quand=AAAA-MM-JJTHH:MM]
+## (--quand fixe l'horloge du football, heure locale : le stade vit ce moment de la semaine).
 ## Sans --at, le visiteur à la station de taxis du parvis ; la scène du stade prend la capture elle-même.
 
 const SOURCE := "res://tools/paquet_essai/casino_minuit/"
@@ -24,6 +25,11 @@ func _init() -> void:
 		return
 	root.get_node("Game").welcomed = true
 	communes.ouvrir("casino_minuit")
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--quand="):
+			var q := arg.trim_prefix("--quand=")
+			var t: int = Time.get_unix_time_from_datetime_string(q if q.length() > 16 else q + ":00")
+			root.get_node("Football").regler_horloge(func() -> int: return t)
 	root.get_node("Football").ouvrir_stade("casino_minuit")
 
 

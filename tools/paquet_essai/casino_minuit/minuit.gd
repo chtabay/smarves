@@ -87,6 +87,8 @@ var _aide: Label
 func _ready() -> void:
 	_ambiance()
 	K = load(BASE + "kit.gd").new(self)
+	# Les rendez-vous du stade de la Fortune (l'entraînement du mercredi, le dimanche du RCM) à l'agenda.
+	load(BASE + "stade/semaine.gd").inscrire()
 	K.places["pilotes"] = load(BASE + "zones/pilotes.gd").new()
 	for z in ZONES:
 		load(BASE + "zones/%s.gd" % z).construire(K)
