@@ -4,7 +4,7 @@ extends RefCounted
 ## fontaine, accoudés à la galerie, et des promeneurs qui font le tour du casino par le grand escalier.
 ## Tout est posé ici, en coordonnées du lot A (voir les zones) ; le jeu web les pilotait par des besoins,
 ## ici ils tiennent une place ou suivent un circuit. Ceux du lot B (l'ouest) sont posés aux places que
-## leurs zones ont notées dans K.places.
+## leurs zones ont notées dans K.places, comme ceux du lot C (l'est).
 
 const PERSONNAGES := "res://communes/casino_minuit/personnages.gd"
 
@@ -87,6 +87,7 @@ static func peupler(racine: Node3D) -> Node3D:
 	var K = racine.get("K")
 	if K != null:
 		_lot_b(n, K.places, g)
+		_lot_c(n, K.places, g + 400)
 	return n
 
 
@@ -191,3 +192,156 @@ static func _poser(n: Node3D, role: String, graine: int, at: Vector3, geste: Str
 	n.add_child(f)
 	f.jouer(geste)
 	return f
+
+
+## Les figurants du lot C (l'est), aux places notées par ses zones : croupiers et joueurs à la fosse, le chef
+## de table à son pupitre, les caissiers derrière la grille et la file à la caisse, l'hôte et les vigiles du
+## club, les parieurs devant le mur d'écrans, les dîneurs, serveurs et cuisiniers du Lucullus, les flâneurs et
+## les vendeurs des boutiques, le public du foyer.
+static func _lot_c(n: Node3D, pl: Dictionary, g: int) -> void:
+	var P = load(PERSONNAGES)
+	# La fosse : un croupier par table, les joueurs sur un tabouret sur deux ou trois.
+	for t in pl.get("pit_bj", []) + pl.get("pit_roulettes", []):
+		g += 1
+		_tenir(n, "croupier", g, t.croupier, "arms" if g % 4 == 0 else "idle")
+		for i in t.sieges.size():
+			if (i + g) % 5 < 2 or (i + g) % 5 == 3:
+				g += 1
+				_asseoir(n, g, t.sieges[i], "sit_talk" if g % 5 == 0 else "sit")
+	var roue: Dictionary = pl.get("pit_roue", {})
+	if roue.has("croupier"):
+		g += 1
+		_tenir(n, "croupier", g, roue.croupier, "interact")
+		for i in roue.sieges.size():
+			if i % 2 == 1:
+				g += 1
+				_tenir(n, "client", g, roue.sieges[i], ["clap", "idle"][i % 2])
+	var pupitre: Array = pl.get("pit_pupitre", [])
+	if not pupitre.is_empty():
+		g += 1
+		_tenir(n, "croupier", g, pupitre[0], "arms")
+	_debout(n, pl.get("pit_regards", []), g, 2, ["idle", "arms", "talk"])
+	g += 20
+	_debout(n, pl.get("pit_duos", []), g, 1, ["talk", "drink", "idle", "phone"])
+	g += 20
+	# La caisse : un caissier à chaque guichet, deux clients au comptoir, la file, le vigile.
+	for p in pl.get("cage_caissiers", []):
+		g += 1
+		_tenir(n, "hotesse" if g % 2 else "serveur", g, p, "interact")
+	var clients: Array = pl.get("cage_clients", [])
+	for i in clients.size():
+		if i % 2 == 0:
+			g += 1
+			_tenir(n, "client", g, clients[i], "interact")
+	var file: Array = pl.get("cage_file", [])
+	for i in mini(4, file.size()):
+		g += 1
+		_tenir(n, "client", g, file[i], ["idle", "phone", "idle", "arms"][i])
+	_debout(n, pl.get("cage_duos", []), g, 1, ["talk", "talk"])
+	g += 5
+	for p in [pl.get("cage_vigile"), pl.get("pit_vigile")]:
+		if p != null:
+			g += 1
+			_tenir(n, "vigile", g, p, "arms")
+	# Le club Minuit : l'hôte à son comptoir, un client inscrit, un retrait au distributeur, les vigiles.
+	if pl.has("club_hote"):
+		g += 1
+		_tenir(n, "hotesse", g, pl.club_hote, "talk")
+	_debout(n, pl.get("club_comptoir", []), g, 2, ["talk"])
+	g += 5
+	_debout(n, pl.get("club_dab", []), g, 3, ["interact"])
+	g += 5
+	_debout(n, pl.get("club_bornes", []), g, 2, ["interact"])
+	g += 5
+	_debout(n, pl.get("club_duos", []), g, 1, ["talk", "drink"])
+	g += 10
+	for p in pl.get("club_vigiles", []):
+		g += 1
+		_tenir(n, "vigile", g, p, "arms")
+	# Le foyer : les guichetiers de la billetterie, le public des affiches et des banquettes.
+	for p in pl.get("foyer_guichetiers", []):
+		g += 1
+		_tenir(n, "hotesse", g, p, "idle")
+	_debout(n, pl.get("foyer_affiches", []), g, 2, ["idle", "phone"])
+	g += 5
+	_debout(n, pl.get("foyer_duos", []), g, 1, ["talk", "talk"])
+	g += 5
+	# Les toilettes : quelqu'un se lave les mains.
+	var vasques: Array = pl.get("wc_e_vasques", [])
+	if not vasques.is_empty():
+		g += 1
+		_tenir(n, "client", g, vasques[1], "interact")
+	# Les paris sportifs : les parieurs dans les fauteuils, les guichetiers, le barman et ses clients.
+	var fauteuils: Array = pl.get("sports_fauteuils", [])
+	for i in fauteuils.size():
+		if (i * 5) % 7 < 3:
+			g += 1
+			_asseoir(n, g, fauteuils[i], ["sit", "sit_talk", "sit"][g % 3])
+	for p in pl.get("sports_guichetiers", []):
+		g += 1
+		_tenir(n, "hotesse" if g % 2 else "serveur", g, p, "interact")
+	_debout(n, pl.get("sports_guichets", []), g, 2, ["interact"])
+	g += 5
+	var bar: Dictionary = pl.get("sports_bar", {})
+	if bar.has("barman"):
+		g += 1
+		var b = _poser(n, "barman", g, bar.barman[0], "interact")
+		b.suivre(bar.barman, 0, 0.6, 5.0, "interact")
+		var tabourets: Array = bar.tabourets
+		for i in tabourets.size():
+			if i % 2 == 1:
+				g += 1
+				_asseoir(n, g, tabourets[i], "sit_talk" if g % 3 == 0 else "sit")
+	_debout(n, pl.get("sports_debout", []), g, 2, ["talk", "drink", "clap"])
+	g += 10
+	_debout(n, pl.get("sports_regards", []), g, 1, ["arms", "idle", "clap"])
+	g += 10
+	# Le Lucullus : les dîneurs, le maître d'hôtel, la brigade, trois serveurs entre la passe et les tables.
+	var dineurs: Array = pl.get("resto_dineurs", [])
+	for i in dineurs.size():
+		if (i * 3) % 5 < 3:
+			g += 1
+			_asseoir(n, g, dineurs[i], "sit_talk" if g % 2 == 0 else "sit")
+	if pl.has("resto_maitre"):
+		g += 1
+		_tenir(n, "serveur", g, pl.resto_maitre, "idle")
+	for p in pl.get("resto_brigade", []):
+		g += 1
+		_tenir(n, "barman", g, p, "interact")
+	if pl.has("resto_service"):
+		var allees := [Vector3(34.2, 6, -22.45), Vector3(21.8, 6, -22.45), Vector3(21.8, 6, -18.35), Vector3(34.2, 6, -18.35)]
+		for k in 3:
+			g += 1
+			var s = P.figurant("serveur", g)
+			n.add_child(s)
+			s.suivre(allees, k, 0.9, 2.0 + k)
+	# Les boutiques : les vendeurs à leur comptoir, des flâneurs autour de la fontaine, aux vitrines, aux bancs.
+	for p in pl.get("boutiques_vendeurs", []):
+		g += 1
+		_tenir(n, "hotesse", g, p, "idle")
+	var tour: Array = pl.get("boutiques_tour", [])
+	if not tour.is_empty():
+		var retour := tour.duplicate()
+		retour.reverse()
+		for k in 5:
+			g += 1
+			var c = P.figurant("client", g)
+			n.add_child(c)
+			c.suivre(tour if k % 2 == 0 else retour, k * 2, 0.8 + 0.1 * (k % 3), 3.0 if k % 2 == 0 else 0.0)
+	_debout(n, pl.get("boutiques_vitrines", []), g, 1, ["idle", "phone", "idle"])
+	g += 10
+	_debout(n, pl.get("boutiques_duos", []), g, 1, ["talk", "drink", "talk"])
+	g += 10
+	var bancs: Array = pl.get("boutiques_bancs", []) + pl.get("foyer_bancs", []) + pl.get("cage_bancs", []) + pl.get("club_salon", [])
+	for i in bancs.size():
+		if i % 3 == 0:
+			g += 1
+			_asseoir(n, g, bancs[i], ["sit", "sit_talk"][g % 2])
+
+
+## Des clients debout à une place sur pas, chacun son geste.
+static func _debout(n: Node3D, places: Array, g: int, pas: int, gestes: Array) -> void:
+	for i in places.size():
+		if i % pas == 0:
+			g += 1
+			_tenir(n, "client", g, places[i], gestes[g % gestes.size()])

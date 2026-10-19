@@ -95,6 +95,41 @@ func _init() -> void:
 	p.auto_move = Vector3.ZERO
 	check(p.global_position.x < -21.0 and p.global_position.y > 5.6, "la baie ouest de la galerie ouvre sur le jardin d'hiver (%.1f, %.1f, %.1f)" % [p.global_position.x, p.global_position.y, p.global_position.z])
 
+	# Le lot C, l'est : ses salles sont bâties et peuplées ; de l'atrium on passe dans la fosse aux tables, et
+	# l'escalator de la fosse se gravit jusqu'aux boutiques de la mezzanine.
+	manquantes = []
+	for z in ["R-FOYER", "R-PIT", "R-CAGE", "R-CLUB", "R-WC-E", "R-SPORTS", "M-RESTAURANT", "M-BOUTIQUES"]:
+		if s.get_node_or_null(z) == null:
+			manquantes.append(z)
+	check(manquantes.is_empty(), "les salles de l'est sont bâties %s" % str(manquantes))
+	check(places.has("pit_bj") and places.has("cage_caissiers") and places.has("resto_dineurs") and places.has("boutiques_tour"), "elles notent les places de leurs figurants")
+	var est := 0
+	for f in (figurants.get_children() if figurants else []):
+		if f is Node3D and f.position.x > 18.5:
+			est += 1
+	check(est > 80, "le lot C a ses figurants (%d à l'est)" % est)
+	p.global_position = Vector3(15.0, 0.05, -1.5)
+	p.rotation.y = 0.0
+	p.velocity = Vector3.ZERO
+	await create_timer(0.3, true).timeout
+	p.auto_move = Vector3(1, 0, 0)
+	await create_timer(2.5, true).timeout
+	p.auto_move = Vector3.ZERO
+	check(p.global_position.x > 20.0 and absf(p.global_position.y) < 0.2, "la colonnade est de l'atrium ouvre sur la fosse (%.1f, %.1f, %.1f)" % [p.global_position.x, p.global_position.y, p.global_position.z])
+	p.global_position = Vector3(22.0, 0.05, -11.15)
+	p.velocity = Vector3.ZERO
+	await create_timer(0.3, true).timeout
+	p.auto_move = Vector3(1, 0, 0)
+	await create_timer(5.5, true).timeout
+	p.auto_move = Vector3.ZERO
+	check(p.global_position.y > 5.6 and p.global_position.x > 31.8, "l'escalator monte aux boutiques (%.1f, %.1f, %.1f)" % [p.global_position.x, p.global_position.y, p.global_position.z])
+	var caisse: Node = s.find_child("caisse", true, false)
+	check(caisse != null, "la caisse est une interaction")
+	if caisse != null:
+		p.interact.emit(caisse)
+		await process_frame
+		check(str(s.get("_message").text).contains("1 jeton = 1 crédit"), "la caisse annonce le taux : %s" % s.get("_message").text)
+
 	# Le club : son terrain est au registre, rattaché à Poitiers(-Biard) sur la carte.
 	var terrain := {}
 	for e in root.get_node("Registre").de_commune("casino_minuit"):

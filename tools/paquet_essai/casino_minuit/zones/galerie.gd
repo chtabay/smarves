@@ -3,7 +3,8 @@ extends RefCounted
 ## la nef. Dalles : nord [-18, 18] × [-30 ; -25,5] · ouest [-18, -14] × [-25,5 ; 12] · est [14, 18] × [-25,5 ; 12]
 ## · pont sud [-14, 14] × [9, 12]. Le vide sur la nef n'a pas de dalle. La zone bâtit aussi le plafond de la
 ## nef (y 13, caissons de 4 × 4 m) et les garde-corps. Les salles de la mezzanine (jardin d'hiver, lounge,
-## restaurant, boutiques) : le jardin et le lounge (lot B) s'ouvrent, ceux du lot C restent fermés.
+## restaurant, boutiques) s'ouvrent : le jardin et le lounge (lot B) à l'ouest, le restaurant et les boutiques
+## (lot C) à l'est.
 
 const Y := 6.0
 const H := 7.0
@@ -33,23 +34,23 @@ static func construire(K) -> void:
 	K.garde_corps(-6.9, -25.55, 6.9, -25.55, Y)
 	# Entre la tête d'escalier et le bassin (x de 6,9 à 7 et de 11 à 11,1), la balustrade des limons ferme.
 
-	# --- murs périphériques : pierre ombrée, lambris, corniche à gorge ; baies des salles à venir, fermées ---
+	# --- murs périphériques : pierre ombrée, lambris, corniche à gorge ; baies des salles ---
 	K.mur(-17.9, -30, -17.9, 12, H, 1, 0, [{"at": 11.0, "w": 6.0, "h": 4.2}, {"at": 28.5, "w": 15.0, "h": 5.0}, {"at": 40.5, "w": 1.6, "h": 2.4}], "pierre_haute", 1.2, true, Y)
 	K.mur(17.9, -30, 17.9, 12, H, -1, 0, [{"at": 11.0, "w": 4.0, "h": 3.2}, {"at": 30.0, "w": 12.0, "h": 5.0}, {"at": 40.5, "w": 1.6, "h": 2.4}], "pierre_haute", 1.2, true, Y)
 	K.mur(-18, -29.9, 18, -29.9, H, 0, 1, [], "pierre_haute", 1.2, true, Y)
 	K.mur(-18, 11.9, 18, 11.9, H, 0, -1, [{"at": 18.0, "w": 6.0, "h": 4.0}], "pierre_haute", 1.2, true, Y)
 	# Les baies : arche à treillage du jardin d'hiver, travées du lounge, porte vitrée du restaurant, boutiques.
 	# Le jardin d'hiver et le lounge (lot B) s'ouvrent à l'ouest ; à l'est, le restaurant et les boutiques
-	# (lot C) attendent derrière leur rideau.
+	# (lot C) : le restaurant a son cordon, posé par minuit.gd.
 	K.seuil(-18, -22, -18, -16, Y)
 	K.texte("JARDIN D'HIVER", 2.6, 0.32, -17.76, Y + 4.75, -19, PI / 2.0)
 	K.seuil(-18, -9, -18, 6, Y)
 	for z in [-4.0, 1.0]:
 		K.colonne(-18, z, 0.5, 5.0, false, true, Y)
 	K.texte("LOUNGE", 2.6, 0.5, -17.76, Y + 5.6, -1.5, PI / 2.0, "neon")
-	_ferme(K, 18.0, -19.0, 4.0, 3.2, 1.0)
+	K.seuil(18, -21, 18, -17, Y)
 	K.texte("LE LUCULLUS", 3.0, 0.5, 17.76, Y + 3.75, -19, -PI / 2.0, "neon")
-	_ferme(K, 18.0, 0.0, 12.0, 5.0, 1.0)
+	K.seuil(18, -6, 18, 6, Y)
 	for z in [-2.0, 2.0]:
 		K.colonne(18, z, 0.5, 5.0, false, true, Y)
 	K.texte("LES BOUTIQUES", 3.2, 0.36, 17.76, Y + 5.6, 0, -PI / 2.0)
@@ -104,12 +105,6 @@ static func construire(K) -> void:
 		K.lumiere(sg * 16, Y + 3.0, -8, K.pal.ambre, 1.2, 14.0)
 	K.zone_fin()
 
-
-## Une baie fermée d'une salle à venir : un rideau de velours rouge tiré, qui arrête le pas.
-static func _ferme(K, x: float, z: float, w: float, h: float, sg: float) -> void:
-	K.box("coussin", 0.08, h, w, x + sg * 0.3, Y + h / 2.0, z)
-	K.solide(0.3, h, w, x + sg * 0.3, Y + h / 2.0, z)
-	K.box("or", 0.12, 0.12, w + 0.2, x + sg * 0.22, Y + h, z)
 
 
 static func _pilastre(K, x: float, z: float, ry: float) -> void:

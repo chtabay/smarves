@@ -28,9 +28,7 @@ static func construire(K) -> void:
 	for x in [-14.0, 14.0]:
 		K.arche(x, 12, 0, 5, 4.6)
 		K.seuil(x - 2.5, 12, x + 2.5, 12)
-	# Le club (lot C) est à construire : une grille fermée. L'hôtel (lot B) est ouvert, par le lobby.
-	K.box("laque_noire", 5.0, 4.0, 0.06, 14, 2.0, 12.3)
-	K.solide(5.0, 4.6, 0.3, 14, 2.3, 12.3)
+	# L'hôtel (lot B) s'ouvre par le lobby, le club Minuit (lot C) par son arche.
 	K.texte("HÔTEL · RÉCEPTION", 3.4, 0.36, -14, 4.98, 11.78, PI)
 	K.texte("CLUB MINUIT · CAISSE", 3.4, 0.36, 14, 4.98, 11.78, PI)
 	K.texte("SORTIE", 2.2, 0.44, 0, 5.12, 11.76, PI, "neon", K.pal.or_clair)
@@ -41,20 +39,16 @@ static func construire(K) -> void:
 	K.texte("SALON HAUTES LIMITES", 3.0, 0.34, -16, 3.5, -11.78, 0)
 	K.cadre(16, -12, 0, 3.6, 3.6)
 	K.texte("THÉÂTRE · PARIS SPORTIFS", 3.2, 0.34, 16, 4.1, -11.78, 0)
-	# Le théâtre (lot C) reste fermé ; le salon des hautes limites (lot B) a son cordon, posé par minuit.gd.
-	K.box("laque_noire", 3.6, 3.6, 0.06, 16, 1.8, -12.25)
-	K.solide(3.6, 3.6, 0.3, 16, 1.8, -12.3)
+	# Le foyer du théâtre (lot C) s'ouvre ; le salon des hautes limites (lot B) a son cordon, posé par minuit.gd.
 
-	# --- colonnades ouvertes vers les machines et la fosse (x = ±18), fermées pour l'instant ---
+	# --- colonnades ouvertes vers les machines et la fosse (x = ±18) ---
 	for sg in [-1.0, 1.0]:
 		for z in [-9.0, -3.0, 3.0, 9.0]:
 			K.colonne(sg * 18, z, 0.5, 4.9)
 		K.box("pierre", 0.46, 0.5, 21, sg * 18, 5.15, -1.5)
 		K.box("or", 0.52, 0.05, 21, sg * 18, 4.9, -1.5)
 		K.seuil(sg * 18, -12, sg * 18, 9)
-	# À l'ouest, la forêt des machines (lot B) ; à l'est, la fosse (lot C) : un rideau de velours tiré.
-	K.box("coussin", 0.08, 4.9, 21, 18.4, 2.45, -1.5)
-	K.solide(0.3, 4.9, 21, 18.3, 2.45, -1.5)
+	# À l'ouest, la forêt des machines (lot B) ; à l'est, la fosse aux tables (lot C).
 
 	# --- plafonds bas sous la galerie (5,4 m) et lanternes d'allée ---
 	for r in [[-18.0, -14.0, -12.0, 12.0], [14.0, 18.0, -12.0, 12.0], [-14.0, 14.0, 9.0, 12.0]]:

@@ -137,19 +137,12 @@ static func construire(K) -> void:
 				K.mur(w0.x, w0.y, w1.x, w1.y, y1, -sin(a.b), cos(a.b), [{"at": a.hw, "w": 5.0, "h": 4.6}], "pierre", 0.0, false)
 				K.arche(mid.x, mid.y, PI / 2.0, 5.0, 4.6)
 				K.seuil(mid.x, mid.y - 2.5, mid.x, mid.y + 2.5)
-				# À l'ouest, le lobby de l'hôtel (lot B) ; à l'est, le club (lot C), pas encore construit : une grille fermée.
-				if k == 1:
-					K.box("laque_noire", 0.06, 4.0, 5.0, mid.x + sin(a.b) * 0.3, 2.0, mid.y)
-					K.solide(0.3, 4.6, 5.0, mid.x + sin(a.b) * 0.3, 2.3, mid.y)
+				# À l'ouest, le lobby de l'hôtel (lot B) ; à l'est, le club Minuit (lot C).
 	# Les inscriptions des attiques.
 	for e in [[3, "HÔTEL · RÉCEPTION"], [1, "CLUB MINUIT · CAISSE"], [2, "BONNE FORTUNE"]]:
 		var a: Dictionary = AXES[e[0]]
 		var m := _p(a, 0.0, sqrt(R * R - a.hw * a.hw) - 0.02)
 		K.texte(e[1], 4.6, 0.5, m.x, a.H + 0.75, m.y, atan2(-sin(a.b), cos(a.b)), "grave")
-	for e in [[1, "CLUB · BIENTÔT"]]:
-		var a: Dictionary = AXES[e[0]]
-		var mid := _p(a, 0.0, a.D - 0.4)
-		K.texte(e[1], 3.4, 0.32, mid.x, 2.4, mid.y, atan2(-sin(a.b), cos(a.b)), "grave")
 
 	# --- colonnade : 8 colonnes par paires autour des portails, lanternes ---
 	for a in AXES:

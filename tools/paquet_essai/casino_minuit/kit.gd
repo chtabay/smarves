@@ -194,6 +194,28 @@ func mat(nom: String) -> Material:
 		"ecran": m = _lueur(Color("#3A6AB8"), 1.6)
 		"ecran_rose": m = _lueur(Color("#B83A78"), 1.6)
 		"ecran_or": m = _lueur(Color("#C89A3A"), 1.6)
+		# Le lot C (js/zones/c-0-commun.js) : nappes, cuirs bleus, acier de cuisine, jetons, vitrines, écrans des paris.
+		"nappe": m = _std(Color("#F3EAD7"), 0.9, 0.0)
+		"creme": m = _std(Color("#E9DFCB"), 0.35, 0.0)
+		"noir_poli": m = _std(Color("#1B171F"), 0.2, 0.1)
+		"satin": m = _std(Color("#141117"), 0.6, 0.05)
+		"bordeaux": m = _std(Color("#4A0C16"), 0.85, 0.0)
+		"cuir_bleu": m = _std(Color("#1A2548"), 0.6, 0.0)
+		"tissu_bleu": m = _std(Color("#24306A"), 0.85, 0.0)
+		"acier": m = _std(Color("#9A9AA0"), 0.3, 0.9)
+		"pierre_sombre": m = _std(Color("#A89878"), 0.85, 0.0)
+		"ardoise": m = _std(Color("#4A4650"), 0.7, 0.0)
+		"jeton_vert": m = _std(Color("#0D5C3F"), 0.5, 0.0)
+		"jeton_bleu": m = _std(Color("#24306A"), 0.5, 0.0)
+		"jeton_ivoire": m = _std(Color("#F3EAD7"), 0.5, 0.0)
+		"ecran_vert": m = _lueur(Color("#4DFF9A"), 1.8)
+		"ecran_bleu": m = _lueur(Color("#7FA8FF"), 1.4)
+		"gorge_douce": m = _lueur(Color("#B8742E"), 1.0)
+		"vitrine":
+			var v := _std(Color(0.81, 0.89, 0.92, 0.16), 0.03, 0.0)
+			v.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			v.cull_mode = BaseMaterial3D.CULL_DISABLED
+			m = v
 		_:
 			push_error("Casino Minuit : matériau inconnu « %s »" % nom)
 			m = _std(Color.MAGENTA, 1.0, 0.0)

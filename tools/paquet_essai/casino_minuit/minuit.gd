@@ -1,20 +1,33 @@
 extends Node3D
 ## Casino Minuit, sur le Strip de Las Vegas : une commune « ailleurs » (socle 1.5), rejointe en avion
-## depuis Poitiers-Biard. Portage en GDScript des lots A et B du moteur web, bâtis par le kit (kit.gd) zone
-## par zone : la rotonde d'entrée, l'atrium, le grand escalier et la galerie de la mezzanine (lot A) ;
+## depuis Poitiers-Biard. Portage en GDScript des lots A, B et C du moteur web, bâtis par le kit (kit.gd)
+## zone par zone : la rotonde d'entrée, l'atrium, le grand escalier et la galerie de la mezzanine (lot A) ;
 ## l'ouest (lot B) : le lobby de l'hôtel, le salon, les machines, le poker, les hautes limites, et à la
-## mezzanine le lounge et le jardin d'hiver.
+## mezzanine le lounge et le jardin d'hiver ; l'est (lot C) : le foyer du théâtre, la fosse aux tables, la
+## caisse, le club Minuit, les paris sportifs, et à la mezzanine le Lucullus et les boutiques.
 ## Comme toute commune, la scène expose `player` et `camera` : le jeu y ajoute la bascule de vue
 ## (Tab), les commandes tactiles et la carte. On entre à pied, par la porte-tambour de la rotonde.
 
 const BASE := "res://communes/casino_minuit/"
 const ZONES := ["rotonde", "atrium", "escalier", "galerie",
-	"lobby", "salon", "machines", "poker", "hautes_limites", "wc_ouest", "lounge", "jardin", "wc_mezzanine"]
+	"lobby", "salon", "machines", "poker", "hautes_limites", "wc_ouest", "lounge", "jardin", "wc_mezzanine",
+	"foyer", "pit", "cage", "club", "wc_est", "sports", "restaurant", "boutiques"]
 ## Le change : un jeton du Minuit vaut un crédit de Smarves. C'est un premier taux, que réglera plus tard
-## une doctrine économique commune aux villes ; la caisse viendra avec les tables (lot C).
+## une doctrine économique commune aux villes. La caisse l'affiche ; rien ne s'y échange tant que les tables
+## ne sont pas jouables.
 const TAUX_JETONS := 1.0
 ## Le salon des hautes limites : son cordon s'ouvre au seuil de son lieu.
 const HAUTES_LIMITES := "hautes_limites"
+## Les lieux du lot C qui s'ouvrent à leur seuil.
+const CLUB_MINUIT := "club_minuit"
+const LUCULLUS := "lucullus"
+const BOUTIQUES := "boutiques"
+## Les cordons de velours des lieux à seuil du lot C : le lieu, l'invite, la hauteur du sol, les travées
+## [[ax, az], [bx, bz]] tendues devant leurs portes.
+const CORDONS := [
+	[LUCULLUS, "Le Lucullus", 6.0, [[[18.55, -20.9], [18.55, -17.1]], [[18.6, -12.55], [21.4, -12.55]]]],
+	[BOUTIQUES, "Les boutiques de luxe", 6.0, [[[25.65, 5.8], [23.85, 5.8]], [[34.8, -2.2], [34.8, -0.45]]]],
+]
 ## Les crans de la caméra de dessus, au plus près : sous les plafonds, on ne recule pas loin.
 const CRANS := [[4.0, -40.0, 50.0], [7.0, -55.0, 50.0], [11.0, -70.0, 50.0]]
 ## L'arrivée, juste derrière la porte-tambour, face au nord et à la fontaine de la Fortune.
@@ -38,6 +51,8 @@ func _ready() -> void:
 	for z in ZONES:
 		load(BASE + "zones/%s.gd" % z).construire(K)
 	_cordon()
+	for c in CORDONS:
+		_cordon_lieu(c[0], c[1], c[2], c[3])
 	load(BASE + "zones/figurants.gd").peupler(self)
 	_joueur()
 	_interface()
@@ -123,8 +138,34 @@ func _interagir(cible: Node) -> void:
 		# Sortir sur le Strip, c'est repartir : la carte montre Las Vegas et le vol du retour.
 		"sortie": Carte.ouvrir()
 		"stade": _stade()
-		"change": _dire("Au change, un jeton du Minuit vaut %s crédit. La caisse ouvrira avec les tables." % str(TAUX_JETONS).trim_suffix(".0"))
+		"change": _dire("Au change, un jeton du Minuit vaut %s crédit. La caisse est à l'est, derrière la fosse aux tables." % _taux())
+		"caisse": _dire("À la caisse, 1 jeton = %s crédit de Smarves. Rien ne s'échange encore : les tables ne sont pas jouables." % _taux())
 		"hautes_limites": _dire("Le salon des hautes limites ouvre à %s crédits gagnés au jeu." % Game.fmt(_seuil(HAUTES_LIMITES)))
+		"club_minuit": _club()
+		"distributeur": _dire("Le distributeur affiche votre solde : %s crédits. Les retraits viendront avec les tables." % Game.fmt(Game.credits))
+		"lucullus": _lieu(LUCULLUS, "Le Lucullus reçoit à dîner à partir de %s crédits gagnés au jeu.", "Le maître d'hôtel vous attend : la carte du Lucullus viendra plus tard.")
+		"boutiques": _lieu(BOUTIQUES, "Les boutiques de luxe reçoivent à partir de %s crédits gagnés au jeu.", "Les vitrines vous sont ouvertes ; les achats viendront plus tard.")
+		"theatre": _dire("Le Minuit Showroom fait relâche ce soir : la saison du théâtre viendra plus tard.")
+		"paris": _dire("Les paris suivent les matchs du dimanche, comme à Smarves. Les guichets ouvriront avec les tables.")
+
+
+func _taux() -> String:
+	return str(TAUX_JETONS).trim_suffix(".0")
+
+
+## Le comptoir du club de fidélité : on s'y inscrit une fois le seuil du lieu gagné au jeu.
+func _club() -> void:
+	var seuil := _seuil(CLUB_MINUIT)
+	if Game.won < seuil:
+		_dire("Le Club Minuit accueille ses membres à partir de %s crédits gagnés au jeu." % Game.fmt(seuil))
+		return
+	_dire("Bienvenue au Club Minuit : vos points vaudront de l'or quand les tables ouvriront.")
+
+
+## Un lieu à seuil : son invite tant qu'il est fermé, son accueil au-delà.
+func _lieu(id: String, ferme: String, ouvert: String) -> void:
+	var seuil := _seuil(id)
+	_dire(ferme % Game.fmt(seuil) if Game.won < seuil else ouvert)
 
 
 ## Le seuil d'un lieu de la commune (le total gagné au jeu qui l'ouvre).
@@ -158,6 +199,27 @@ func _cordon() -> void:
 		K.beam("coussin", Vector3(-17.35, 0.9, -11.3), Vector3(-14.65, 0.9, -11.3), 0.05, 0.05)
 		K.obstacle(-17.5, -14.5, -11.5, -11.1)
 		K.interaction(HAUTES_LIMITES, "Le salon des hautes limites", -16, 1.0, -11.0, Vector3(3.0, 2.0, 0.8))
+	K.zone_fin()
+
+
+## Les cordons des lieux du lot C (CORDONS) : tendus devant leurs portes tant que le joueur n'a pas gagné le
+## seuil du lieu ; au-delà, les poteaux restent seuls contre les tableaux et les portes sont libres.
+func _cordon_lieu(id: String, invite: String, y: float, travees: Array) -> void:
+	K.zone_debut("Cordon_" + id)
+	var ouvert := Game.won >= _seuil(id)
+	for t in travees:
+		var a := Vector3(t[0][0], y, t[0][1])
+		var b := Vector3(t[1][0], y, t[1][1])
+		for p in [a, b]:
+			K.cyl("or", 0.17, 0.2, 0.04, p.x, y + 0.02, p.z, 12)
+			K.cyl("or", 0.025, 0.025, 1.0, p.x, y + 0.52, p.z, 8)
+			K.sph("or", 0.06, p.x, y + 1.05, p.z)
+		if not ouvert:
+			K.beam("coussin", a + Vector3(0, 0.9, 0), b + Vector3(0, 0.9, 0), 0.05, 0.05)
+			K.segment(a.x, a.z, b.x, b.z, 0.3, y, 2.4)
+			var c := (a + b) / 2.0
+			var n := Vector3(b.z - a.z, 0, a.x - b.x).normalized() * 0.4
+			K.interaction(id, invite, c.x - n.x, y + 1.0, c.z - n.z, Vector3(maxf(absf(b.x - a.x), 0.8), 2.0, maxf(absf(b.z - a.z), 0.8)))
 	K.zone_fin()
 
 
