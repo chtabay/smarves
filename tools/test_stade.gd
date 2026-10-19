@@ -128,6 +128,39 @@ func _init() -> void:
 	await process_frame
 	check(stade._bandeau != null and stade._bandeau_score != null, "le bandeau du direct est en place")
 	check(stade._causerie == null, "Échap referme le registre")
+	# L'entrée du stade (demande de Guillaume du 19 octobre) : un portail qui dit SORTIE, et le panneau du club,
+	# l'essentiel du club et ses porteurs d'obligations, avec le registre pour en prendre une sans entrer au siège.
+	var ecriteaux: Array = stade.find_children("*", "Label3D", true, false).map(func(l): return str(l.text))
+	check(ecriteaux.any(func(x): return x.begins_with("SORTIE")), "le portail dit SORTIE")
+	var panneaux: Array = stade.find_children("*", "Area3D", true, false).filter(func(a): return a.get_meta("interact", "") == "panneau")
+	check(panneaux.size() == 1 and str(panneaux[0].get_meta("prompt")).contains("panneau du club"), "le panneau du club est à l'entrée")
+	stade.open_panneau()
+	await process_frame
+	var panneau: PanelContainer = stade._causerie
+	var mots: Array = _textes(panneau)
+	check(panneau != null and panneau.club == "smarves" and mots.any(func(x): return str(x).contains("Division 1")) and mots.any(func(x): return str(x).begins_with("Prochain match")), "le panneau dit la place du club et le prochain match")
+	var porteur1: Label = panneau.find_child("Porteur_1", true, false)
+	if foot.actionnaires("smarves").is_empty():
+		check(mots.any(func(x): return str(x).begins_with("Personne ne tient d'obligation")), "sans porteur, le panneau le dit")
+	else:
+		check(porteur1 != null and str(porteur1.text).contains("dirige le club"), "le panneau dit qui tient les obligations et qui dirige : %s" % (porteur1.text if porteur1 else "—"))
+	check(panneau.find_child("Prendre_1", true, false) != null or panneau.find_child("Rendre_1", true, false) != null, "le registre se lit et s'achète depuis le panneau")
+	panneau.closed.emit()
+	await process_frame
+	# Le siège a un intérieur : la porte y mène, le bureau ouvre la gestion, sa porte ramène au stade.
+	var bureaux: Array = stade.find_children("*", "Area3D", true, false).filter(func(a): return a.get_meta("interact", "") == "bureau")
+	var sorties_siege: Array = stade.find_children("*", "Area3D", true, false).filter(func(a): return a.get_meta("interact", "") == "sortir_siege")
+	check(bureaux.size() == 1 and sorties_siege.size() == 1, "le siège a un bureau et une porte pour ressortir")
+	var dehors: Vector3 = stade.player.position
+	stade._on_interact(sieges[0])
+	check(stade.player.position.distance_to(stade._siege_interieur) < 3.0 and stade.player.position.distance_to(dehors) > 15.0, "la porte du siège mène dans la pièce")
+	stade._on_interact(bureaux[0])
+	await process_frame
+	check(stade._causerie != null and stade._causerie.get_script().get_global_name() == "Bureau", "le bureau de la pièce ouvre la gestion du club")
+	stade._causerie.closed.emit()
+	await process_frame
+	stade._on_interact(sorties_siege[0])
+	check(stade.player.position.distance_to(stade._siege_porte) < 0.5, "la porte de la pièce ramène devant le siège")
 	foot.decisions = {}
 	foot.locales = {}
 
