@@ -8,6 +8,7 @@ extends Node3D
 ## (z = 16), mains courantes à x = ±22 et z = ±14, murets à x = ±28 et z = ±23.
 
 const KIT := "res://communes/casino_minuit/kit.gd"
+const PERSONNAGES := "res://communes/casino_minuit/personnages.gd"
 
 var K
 var _t := 0.0
@@ -26,6 +27,7 @@ func _ready() -> void:
 		_palmier(p[0], p[1], 7.5 + fmod(absf(p[0]) * 0.37, 1.5))
 	_guirlandes()
 	K.zone_fin()
+	_supporters()
 
 
 func _process(dt: float) -> void:
@@ -174,3 +176,23 @@ func _guirlandes() -> void:
 			K.lanterne(x, y - 0.55, 14.5, 0.55, 0.4)
 		K.beam("or", Vector3(x0, 5.0, 14.5), Vector3(x0 + 5.0, 3.8, 14.5), 0.02, 0.02)
 		K.beam("or", Vector3(x0 + 5.0, 3.8, 14.5), Vector3(x0 + 10.0, 5.0, 14.5), 0.02, 0.02)
+
+
+## Les supporters du Racing Club Minuit, les figurants du casino : assis dans les virages, quelques-uns
+## debout au premier rang qui applaudissent, tournés vers la pelouse.
+func _supporters() -> void:
+	var P = load(PERSONNAGES)
+	var g := 300
+	for s in [-1.0, 1.0]:
+		for i in 5:
+			var h: float = 0.45 + i * 0.5
+			var x: float = s * (23.5 + i * 0.95)
+			for k in 4:
+				g += 1
+				var z: float = -12.5 + k * 8.3 + fmod(g * 1.37, 2.5)
+				var f = P.figurant("client", g)
+				var debout: bool = i == 0 and k % 2 == 0
+				f.position = Vector3(x + s * 0.12, h if debout else h - 0.03, z)
+				add_child(f)
+				f.regarder(Vector3(0, f.position.y, z))
+				f.jouer("clap" if debout else ("sit_talk" if g % 4 == 0 else "sit"))

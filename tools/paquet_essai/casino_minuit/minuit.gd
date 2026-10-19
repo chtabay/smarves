@@ -29,6 +29,7 @@ func _ready() -> void:
 	K = load(BASE + "kit.gd").new(self)
 	for z in ZONES:
 		load(BASE + "zones/%s.gd" % z).construire(K)
+	load(BASE + "zones/figurants.gd").peupler(self)
 	_joueur()
 	_interface()
 	# On entre à pied : la vue de dessus reste à un Tab.
