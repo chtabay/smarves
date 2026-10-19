@@ -421,9 +421,13 @@ func _init() -> void:
 	var cloche: Node = s.find_child("cloche", true, false)
 	check(cloche != null, "la cloche du chronométreur est une interaction")
 	if cloche != null:
+		# comme dans l'original (AR.bell('joueur')) : la cloche lance le round, sans message
+		var AR: Dictionary = s.K.places.pilotes.arene
+		var bt: float = AR.bellT
+		var etat0: String = AR.state
 		p.interact.emit(cloche)
 		await process_frame
-		check(str(s.get("_message").text).begins_with("Ding"), "elle sonne : %s" % s.get("_message").text)
+		check(AR.bellT != bt and AR.state != etat0, "elle sonne : %s → %s (round %d)" % [etat0, AR.state, AR.round])
 	game.won = gagne
 
 	# Repartir : de dehors, le voiturier de la porte-cochère et la station de taxis ouvrent la carte de Las Vegas.
