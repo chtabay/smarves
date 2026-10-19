@@ -1,8 +1,8 @@
 extends SceneTree
 ## Vérifie le championnat de football de la Vienne sans affichage : godot --headless --path . -s tools/test_football.gd
 ## Le hasard rejouable donne les mêmes tirages que le Vestiaire (Zeus) ; le championnat ne compte que les
-## clubs inscrits (un terrain au registre), deux suffisent, un club seul attend ; un terrain nouveau reçoit
-## son club à la saison suivante ; quand le bas est plein, un niveau s'ouvre ; le premier monte, les deux
+## clubs inscrits (un terrain au registre), deux suffisent ; un terrain nouveau reçoit son club à la saison
+## suivante, ou tout de suite tant que personne n'a joué ; quand le bas est plein, un niveau s'ouvre ; le premier monte, les deux
 ## derniers descendent ; l'effectif est celui de la fondation, vieilli saison après saison ; la consigne
 ## porte la composition et les rôles ; un résultat ne dépend que de la graine et des décisions prises
 ## avant le coup d'envoi ; les statistiques comptent les buts des matchs joués.
@@ -66,7 +66,8 @@ func _init() -> void:
 	check(e1.keys().any(func(id): return e3.has(id) and e3[id].note != e1[id].note), "les notes bougent avec l'âge")
 	check(foot.progression(19, Hasard.depuis(1)) >= 4 and foot.progression(34, Hasard.depuis(1)) <= -5, "les jeunes progressent, les anciens déclinent")
 
-	# La commune d'essai déclare un terrain : son club entre à la saison suivante, pas pendant celle-ci.
+	# La commune d'essai déclare un terrain pendant la saison 1, trois journées passées sans match : personne
+	# n'a joué, le club entre tout de suite et le championnat part à la journée qui vient.
 	t = foot.coup_envoi(1, 3) + 60
 	var pck := TMP + "essai.pck"
 	var pk := PCKPacker.new()
@@ -76,15 +77,21 @@ func _init() -> void:
 	pk.flush()
 	check(communes.charger_pack(pck) == "essai", "la commune d'essai se greffe")
 	foot.actualiser()
-	check(not foot.clubs.has("essai") and foot.en_attente() == ["essai"], "en pleine saison, le club d'essai attend la saison suivante")
-	check(foot.journee_jouee() == 3 and foot.periode() == "saison", "trois journées jouées")
+	check(foot.clubs.has("essai") and foot.en_attente().is_empty() and foot.niveaux == [[["essai", "smarves"]]], "seul jusque-là, l'Étoile reçoit son adversaire sans attendre la saison suivante : %s" % str(foot.niveaux))
+	check(foot.journee_jouee() == 3 and foot.clubs.essai.fondation == 1 and foot.clubs.essai.depuis == 4, "fondé à la saison 1, à partir de la journée 4")
+	check(foot.journee(1, 0, 0, 3).is_empty() and foot.journee(1, 0, 0, 4).size() == 1 and foot.journee(1, 0, 0, 14).size() == 1, "pas de match avant son arrivée, un match par journée ensuite")
+	var pm1: Dictionary = foot.prochain_match("smarves")
+	check(pm1.s == 1 and pm1.j == 4 and "essai" in [pm1.dom, pm1.ext] and pm1.quand == foot.coup_envoi(1, 4), "le prochain match de l'Étoile est la journée 4 : %s" % str(pm1))
+	check(foot.classement(1, 0, 0).size() == 2 and foot.classement(1, 0, 0).all(func(l): return l.j == 0), "deux lignes au classement, aucun match joué")
+	t = foot.coup_envoi(1, 5) + 60
+	check(foot.classement(1, 0, 0).all(func(l): return l.j == 2), "deux dimanches plus tard, deux matchs chacun")
 	check(foot.saison_a(foot.coup_envoi(1, 14) + 86400 * 9) == 2, "la semaine après la dernière journée appartient déjà à la saison suivante")
 
 	# Saison 2 : deux clubs, ça suffit pour jouer. Quatorze journées, un match chacune, chacun chez soi à son tour.
 	t = foot.coup_envoi(2, 1) - 3600
 	foot.actualiser()
-	check(foot.saison == 2 and foot.historique.size() == 1 and foot.historique[0].champion == "smarves" and foot.historique[0].montes.is_empty(), "la saison 1 est close, sans montée")
-	check(foot.niveaux == [[["essai", "smarves"]]] and foot.clubs.essai.fondation == 2, "l'Union sportive d'essai entre en Division 1, fondée à la saison 2")
+	check(foot.saison == 2 and foot.historique.size() == 1 and foot.historique[0].champion in ["essai", "smarves"] and foot.historique[0].montes.is_empty(), "la saison 1 est close, sans montée")
+	check(foot.niveaux == [[["essai", "smarves"]]] and foot.clubs.essai.fondation == 1, "l'Union sportive d'essai reste en Division 1")
 	check(foot.clubs.essai.nom == "Union sportive d'essai" and foot.clubs.essai.court == "USE" and foot.clubs.essai.couleurs == ["#1b3c8c", "#f2c94c"], "son nom, son sigle et ses couleurs viennent du manifeste")
 	var cal: Array = foot.calendrier(2, foot.niveaux[0][0], 0, 0)
 	check(cal.size() == 14 and cal.all(func(j): return j.size() == 1), "quatorze journées d'un match")
