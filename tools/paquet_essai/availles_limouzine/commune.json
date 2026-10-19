@@ -3,7 +3,7 @@
 	"id": "availles_limouzine",
 	"nom": "Availles-Limouzine",
 	"auteur": "Claude",
-	"version": "0.5.2",
+	"version": "0.5.3",
 	"socle_min": "1.0",
 	"insee": "86015",
 	"description": "Le bourg dans sa disposition réelle, sur son coteau au-dessus de la Vienne : l'église Saint-Martin, la mairie, les portes de la ville et le pont. Du décor que l'on parcourt ; son club, l'Avenir, joue au stade municipal dans le championnat de la Vienne.",
@@ -11,7 +11,7 @@
 	"arrivee": {"lot": "place_mairie", "par": ["smarves"]},
 	"lieux": [],
 	"structures": [
-		{"type": "terrain_foot", "id": "stade", "nom": "Le stade municipal", "club": "L'Avenir d'Availles-Limouzine", "court": "AVL", "couleurs": ["#1f7a3a", "#f4f1e8"], "stade": "le stade municipal d'Availles-Limouzine"}
+		{"type": "terrain_foot", "id": "stade", "nom": "Le stade municipal", "noeud": "Stade", "club": "L'Avenir d'Availles-Limouzine", "court": "AVL", "couleurs": ["#1f7a3a", "#f4f1e8"], "stade": "le stade municipal d'Availles-Limouzine"}
 	],
 	"banque": {"id": "caisse_de_la_vienne", "nom": "La Caisse de la Vienne", "banquier": "M. Peyraud", "preteur": "availles_limouzine", "lieu": "mairie"}
 }
