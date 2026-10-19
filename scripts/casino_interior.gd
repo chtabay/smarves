@@ -106,6 +106,8 @@ func _ready() -> void:
 	player.rotation.y = 0.0
 	add_child(player)
 	player.interact.connect(_on_interact)
+	# Les autres joueurs connectés dans le casino, à la taille des figurants de la salle.
+	Presences.entrer("smarves", "casino", self, player, PEOPLE_SCALE)
 	_shown = Game.credits
 	_refresh_locks(true)
 	# L'architecture ne bouge plus : ses milliers de pièces se fondent en quelques maillages par matériau.
@@ -2165,13 +2167,29 @@ func _poker_lineup(places: Dictionary) -> void:
 		if k != null:
 			node.position = _poker_chair(k)
 			node.rotation_degrees.y = rad_to_deg(TAU * k / 6.0) + 180.0
+	# Le nom de chaque joueur venu s'asseoir, par chaise de la salle.
+	var noms := {}
+	for i in places:
+		if places[i].get("figurant", "") == "joueur" and int(i) != 0:
+			noms[posmod(int(i) - 1, 6)] = str(places[i].get("nom", ""))
 	for k in 6:
 		var want: bool = at.get(k, "") == "joueur"
-		if want and not _poker_guests.has(k):
-			_poker_guests[k] = _person("character-male-b.glb" if k % 2 == 0 else "character-female-a.glb", _poker_chair(k), rad_to_deg(TAU * k / 6.0) + 180.0)
-		elif not want and _poker_guests.has(k):
+		var nom: String = noms.get(k, "")
+		if _poker_guests.has(k) and (not want or _poker_guests[k].get_meta("nom", "") != nom):
+			Presences.masquer(_poker_guests[k].get_meta("nom", ""), false)
 			_poker_guests[k].queue_free()
 			_poker_guests.erase(k)
+		if want and not _poker_guests.has(k):
+			var g := _person("character-male-b.glb" if k % 2 == 0 else "character-female-a.glb", _poker_chair(k), rad_to_deg(TAU * k / 6.0) + 180.0)
+			g.set_meta("nom", nom)
+			# Un joueur présent dans le casino (autoload Presences) s'assoit avec sa tenue, et sa silhouette
+			# qui marche s'efface tant qu'il est à la table.
+			var tenue: String = Presences.tenue_de(nom) if nom != "" else ""
+			if tenue != "" and g.get("critter") != null:
+				g.critter.set_look(Cast.player(tenue))
+			if nom != "":
+				Presences.masquer(nom)
+			_poker_guests[k] = g
 
 func _build_ambassadeurs() -> void:
 	_chandelier(Vector3(20.0, WALL_H - 0.3, -4.0), 1.2)

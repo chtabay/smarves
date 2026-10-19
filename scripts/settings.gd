@@ -10,6 +10,9 @@ var _panel: PanelContainer
 var _sliders := {}
 var _fullscreen: CheckButton
 var _device: OptionButton
+var _joueurs: CheckButton
+## Voir les autres joueurs connectés dans les lieux (autoload Presences) ; sans compte, rien ne s'ouvre.
+var voir_joueurs := true
 var _mouse_before := Input.MOUSE_MODE_VISIBLE
 
 
@@ -137,6 +140,13 @@ func _build() -> void:
 		toggle()
 		Bienvenue.ouvrir())
 	v.add_child(compte)
+	_joueurs = CheckButton.new()
+	_joueurs.text = "Voir les autres joueurs (avec un compte)"
+	_joueurs.button_pressed = true
+	_joueurs.toggled.connect(func(on: bool):
+		voir_joueurs = on
+		_save())
+	v.add_child(_joueurs)
 	_fullscreen = CheckButton.new()
 	_fullscreen.text = "Plein écran"
 	_fullscreen.toggled.connect(_set_fullscreen)
@@ -175,6 +185,7 @@ func _save() -> void:
 		cfg.set_value("son", k, _sliders[k].value)
 	cfg.set_value("ecran", "plein_ecran", _fullscreen.button_pressed)
 	cfg.set_value("son", "sortie", AudioServer.output_device)
+	cfg.set_value("multi", "voir_joueurs", voir_joueurs)
 	cfg.save(PATH)
 
 
@@ -193,6 +204,8 @@ func _load() -> void:
 		for i in _device.item_count:
 			if _device.get_item_text(i) == dev:
 				_device.select(i)
+	voir_joueurs = bool(cfg.get_value("multi", "voir_joueurs", true))
+	_joueurs.set_pressed_no_signal(voir_joueurs)
 	var fs: bool = cfg.get_value("ecran", "plein_ecran", false)
 	_fullscreen.set_pressed_no_signal(fs)
 	if fs:
