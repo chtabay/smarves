@@ -506,19 +506,30 @@ func _sols_materiaux() -> void:
 	gravier.vertex_color_use_as_albedo = true
 	gravier.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_mats.gravier = gravier
-	var dalles := ShaderMaterial.new()
-	dalles.shader = load("res://shaders/cobbles.gdshader")
-	# Des pavés autobloquants clairs, petits, aux joints à peine plus sombres.
-	dalles.set_shader_parameter("stone_a", Color(0.8, 0.77, 0.7))
-	dalles.set_shader_parameter("stone_b", Color(0.7, 0.67, 0.61))
-	dalles.set_shader_parameter("joint", Color(0.58, 0.55, 0.5))
-	dalles.set_shader_parameter("size", 0.13)
+	# Les trottoirs : un béton clair uni, à peine grenu, sans motif qui trahirait l'échelle.
+	var dalles := StandardMaterial3D.new()
+	dalles.albedo_color = Color(0.74, 0.72, 0.67)
+	dalles.albedo_texture = _grain(0.3, Color(0.86, 0.85, 0.82))
+	dalles.uv1_triplanar = true
+	dalles.uv1_scale = Vector3(0.6, 0.6, 0.6)
+	dalles.roughness = 0.95
+	dalles.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_mats.dalles = dalles
+	# La bordure : un ciment uni, un peu plus clair que le trottoir.
 	var bordure := StandardMaterial3D.new()
-	bordure.albedo_color = Color(0.8, 0.78, 0.73)
+	bordure.albedo_color = Color(0.8, 0.79, 0.75)
 	bordure.roughness = 0.8
 	bordure.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_mats.bordure = bordure
+	# Le sol piéton des places : un béton sablé chaud, posé à plat, cerné d'un filet de ciment.
+	var sable := StandardMaterial3D.new()
+	sable.albedo_color = Color(0.8, 0.75, 0.66)
+	sable.albedo_texture = _grain(0.4, Color(0.88, 0.86, 0.8))
+	sable.uv1_triplanar = true
+	sable.uv1_scale = Vector3(0.7, 0.7, 0.7)
+	sable.roughness = 1.0
+	sable.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_mats.sable = sable
 	var marque := StandardMaterial3D.new()
 	marque.albedo_color = Color(0.86, 0.86, 0.8)
 	marque.roughness = 0.7
@@ -724,8 +735,12 @@ func _zones_dessin() -> void:
 		mb.mesh = sb.commit()
 		mb.material_override = _mats.bordure
 		noeud.add_child(mb)
+		for pz in z.get("pietons", []):
+			_pieton(noeud, pz)
 		for a in z.get("arbres", []):
 			_arbre(noeud, Vector2(a[0], a[1]))
+		for m in z.get("mobilier", []):
+			_mobilier(noeud, m)
 		for pp in z.get("passages", []):
 			var c := Vector2(pp.c[0], pp.c[1])
 			var dir := Vector2(pp.dir[0], pp.dir[1]).normalized()
@@ -782,6 +797,95 @@ func _bande(sd: SurfaceTool, sb: SurfaceTool, ligne: PackedVector2Array, l: floa
 	_quad2(sb, g[0], d[0], db[0], gb[0])
 	var n := ligne.size() - 1
 	_quad2(sb, g[n], d[n], db[n], gb[n])
+
+
+## Un sol piéton d'une place : un polygone drapé trois centimètres au-dessus de l'enrobé, en béton
+## sablé (ou en gravier), cerné d'un petit filet de ciment : pas de vrai trottoir, juste une marche.
+const PIETON_H := 0.08
+
+
+func _pieton(parent: Node3D, pz: Dictionary) -> void:
+	var poly := PackedVector2Array()
+	for q in pz.p:
+		poly.append(Vector2(q[0], q[1]))
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_color(Color.WHITE)
+	_draper(st, poly, PIETON_H)
+	st.generate_normals()
+	var mi := MeshInstance3D.new()
+	mi.name = "Pieton"
+	mi.mesh = st.commit()
+	mi.material_override = _mats.gravier if str(pz.get("sol", "sable")) == "gravier" else _mats.sable
+	parent.add_child(mi)
+	if not bool(pz.get("bord", true)):
+		return
+	var sb := SurfaceTool.new()
+	sb.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for k in poly.size():
+		var a := poly[k]
+		var b := poly[(k + 1) % poly.size()]
+		var ya := hauteur(a.x, a.y)
+		var yb := hauteur(b.x, b.y)
+		_quad2(sb, Vector3(a.x, ya + 0.04, a.y), Vector3(a.x, ya + PIETON_H + 0.005, a.y), Vector3(b.x, yb + PIETON_H + 0.005, b.y), Vector3(b.x, yb + 0.04, b.y))
+	sb.generate_normals()
+	var mb := MeshInstance3D.new()
+	mb.name = "Filet"
+	mb.mesh = sb.commit()
+	mb.material_override = _mats.bordure
+	parent.add_child(mb)
+
+
+## Le mobilier d'une place, choisi pièce par pièce dans l'atelier (KayKit City) : `m` dit lequel,
+## `p` où, `rot` l'orientation en degrés. Les pièces qu'on heurte sont rendues solides.
+const KK := "res://assets/kaykit/"
+const MOBILIER := {
+	"banc": ["city/bench.gltf", 2.6, true],
+	"poubelle": ["city/trash_A.gltf", 2.2, true],
+	"buisson": ["city/bush.gltf", 2.5, true],
+	"borne_incendie": ["city/firehydrant.gltf", 2.2, true],
+	"lampadaire": ["city/streetlight.gltf", 2.2, true],
+	"tonneau": ["medieval_decoration/props/barrel.gltf", 2.4, true],
+	"voiture": ["city/car_sedan.gltf", 1.9, true],
+	"voiture_break": ["city/car_stationwagon.gltf", 1.9, true],
+	"voiture_citadine": ["city/car_hatchback.gltf", 1.9, true],
+}
+
+
+func _mobilier(parent: Node3D, m: Dictionary) -> void:
+	var fiche: Array = MOBILIER.get(str(m.m), [])
+	if fiche.is_empty():
+		push_warning("Mobilier inconnu : %s" % str(m.m))
+		return
+	var p := Vector2(m.p[0], m.p[1])
+	var n: Node3D = load(KK + str(fiche[0])).instantiate()
+	n.position = Vector3(p.x, hauteur(p.x, p.y) + float(m.get("y", PIETON_H)), p.y)
+	n.scale = Vector3.ONE * float(fiche[1])
+	n.rotation_degrees.y = float(m.get("rot", 0.0))
+	parent.add_child(n)
+	if bool(fiche[2]):
+		_solidifier(n)
+
+
+## Rend un modèle solide : une boîte à sa mesure, comme à Smarves.
+func _solidifier(n: Node3D) -> void:
+	var box := AABB()
+	var first := true
+	for mi in n.find_children("*", "MeshInstance3D", true, false):
+		var t: Transform3D = n.global_transform.affine_inverse() * (mi as MeshInstance3D).global_transform
+		var b: AABB = t * (mi as MeshInstance3D).get_aabb()
+		box = b if first else box.merge(b)
+		first = false
+	if first:
+		return
+	var corps := StaticBody3D.new()
+	var cs := CollisionShape3D.new()
+	var forme := BoxShape3D.new()
+	forme.size = box.size
+	cs.shape = forme
+	cs.position = box.get_center()
+	corps.add_child(cs)
+	n.add_child(corps)
 
 
 ## Un arbre de l'atelier (le chêne du Nature Kit), posé en `p`.
