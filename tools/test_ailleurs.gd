@@ -2,7 +2,8 @@ extends SceneTree
 ## Les communes « ailleurs » (socle 1.5) : godot --headless --path . -s tools/test_ailleurs.gd
 ## Le champ « ailleurs » et ses refus ; Casino Minuit (tools/paquet_essai/casino_minuit/), emballé ici,
 ## se greffe sans code INSEE ; on y vole depuis Poitiers-Biard, on y marche jusqu'à la galerie par le
-## grand escalier, la porte du Strip ouvre la carte, et le vol retour ramène à Smarves.
+## grand escalier, le stade de la Fortune s'ouvre à son seuil, habillé par Minuit, et son club entre au
+## championnat ; la porte du Strip ouvre la carte, et le vol retour ramène à Smarves.
 
 const SOURCE := "res://tools/paquet_essai/casino_minuit/"
 const TMP := "user://test_ailleurs/"
@@ -61,6 +62,56 @@ func _init() -> void:
 	await create_timer(6.0, true).timeout
 	p.auto_move = Vector3.ZERO
 	check(p.global_position.y > 5.6 and p.global_position.z < -24.5, "le grand escalier monte à la galerie (%.1f, %.1f, %.1f)" % [p.global_position.x, p.global_position.y, p.global_position.z])
+
+	# Le club : son terrain est au registre, rattaché à Poitiers(-Biard) sur la carte.
+	var terrain := {}
+	for e in root.get_node("Registre").de_commune("casino_minuit"):
+		if e.type == "terrain_foot":
+			terrain = e
+	check(not terrain.is_empty() and terrain.champs.get("club") == "Racing Club Minuit", "le Racing Club Minuit a son terrain au registre")
+	check(not terrain.is_empty() and terrain.centre == Vienne.centre(CarteVienne.POITIERS_INSEE), "son terrain est placé à Poitiers sur la carte")
+	var foot: Node = root.get_node("Football")
+	foot.actualiser()
+	var inscrit := false
+	for id in foot.clubs:
+		inscrit = inscrit or str(foot.clubs[id].get("commune", "")) == "casino_minuit"
+	check(inscrit or foot.en_attente().has("casino_minuit"), "il entre au championnat de la Vienne")
+
+	# Le stade de la Fortune : fermé sous son seuil, puis le stade du socle avec l'habillage de Minuit.
+	var game: Node = root.get_node("Game")
+	var gagne: int = game.won
+	game.won = 0
+	var porte: Node = s.find_child("stade", true, false)
+	check(porte != null, "la porte du stade de la Fortune est une interaction")
+	if porte != null:
+		p.interact.emit(porte)
+		await create_timer(0.3, true).timeout
+		check(current_scene == s, "sous son seuil, le stade reste fermé")
+		game.won = 5000
+		p.interact.emit(porte)
+		await create_timer(1.0, true).timeout
+		var st: Node = current_scene
+		check(st != null and st.scene_file_path == "res://scenes/stade.tscn", "au seuil, la porte ouvre le stade")
+		check(st != null and st.get_node_or_null("Habillage") != null, "le stade porte l'habillage de Minuit")
+		if st != null:
+			check(st.call("_nom_club") == "Racing Club Minuit", "c'est le stade du Racing Club Minuit")
+			var sortie_stade: Node = st.find_child("exit", true, false)
+			if sortie_stade == null:
+				for n in st.find_children("*", "Area3D", true, false):
+					if n.get_meta("interact", "") == "exit":
+						sortie_stade = n
+			if sortie_stade != null:
+				st.call("_on_interact", sortie_stade)
+			await create_timer(1.0, true).timeout
+			s = current_scene
+			check(s != null and s.scene_file_path == str(c.data.scene), "la sortie du stade ramène au casino")
+			if s != null and s.get("player") is CharacterBody3D:
+				p = s.player
+				check(p.global_position.distance_to(Vector3(12.6, 0.05, -17.0)) < 1.0, "devant la porte du stade (%.1f, %.1f)" % [p.global_position.x, p.global_position.z])
+	game.won = gagne
+	if s == null or not (s.get("player") is CharacterBody3D):
+		_fin()
+		return
 
 	# La porte du Strip : la carte s'ouvre sur Las Vegas.
 	var sortie: Node = s.find_child("sortie", true, false)

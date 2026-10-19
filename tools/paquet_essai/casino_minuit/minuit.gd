@@ -11,6 +11,9 @@ const ZONES := ["rotonde", "atrium", "escalier", "galerie"]
 const CRANS := [[4.0, -40.0, 50.0], [7.0, -55.0, 50.0], [11.0, -70.0, 50.0]]
 ## L'arrivée, juste derrière la porte-tambour, face au nord et à la fontaine de la Fortune.
 const ARRIVEE := Vector3(0, 0.05, 27.0)
+## Le retour du stade : devant la porte du couloir, dans l'allée est du grand escalier, tourné vers l'ouest.
+const RETOUR_STADE := Vector3(12.6, 0.05, -17.0)
+const STADE := "stade_fortune"
 
 var player: CharacterBody3D
 var camera: Camera3D
@@ -18,6 +21,7 @@ var camera: Camera3D
 var K
 var _t := 0.0
 var _invite: Label
+var _message: Label
 
 
 func _ready() -> void:
@@ -36,7 +40,7 @@ func _process(dt: float) -> void:
 	_t += dt
 	K.animer(dt, _t)
 	var f = player.focus_target if player else null
-	_invite.text = str(f.get_meta("invite", "")) + "  [E]" if f != null and f.has_meta("invite") else ""
+	_invite.text = str(f.get_meta("prompt", "")) + "  [E]" if f != null and f.has_meta("prompt") else ""
 
 
 func _ambiance() -> void:
@@ -88,6 +92,10 @@ func _joueur() -> void:
 	player.add_child(me)
 	player.avatar = me
 	player.global_position = ARRIVEE
+	if Game.return_point == STADE:
+		Game.return_point = ""
+		player.global_position = RETOUR_STADE
+		player.rotation.y = PI / 2.0
 	player.interact.connect(_interagir)
 	camera.make_current()
 	player.follow_camera = camera
@@ -104,6 +112,28 @@ func _interagir(cible: Node) -> void:
 	match str(cible.get_meta("interact", "")):
 		# Sortir sur le Strip, c'est repartir : la carte montre Las Vegas et le vol du retour.
 		"sortie": Carte.ouvrir()
+		"stade": _stade()
+
+
+## Le stade de la Fortune : la porte s'ouvre au seuil de son lieu (le total gagné au jeu), comme partout.
+func _stade() -> void:
+	var seuil := 0
+	var c: Commune = Communes.commune("casino_minuit")
+	for l in (c.lieux() if c else []):
+		if l.id == STADE:
+			seuil = int(l.seuil)
+	if Game.won < seuil:
+		_dire("Le stade de la Fortune ouvre à %s crédits gagnés au jeu." % Game.fmt(seuil))
+		return
+	Football.ouvrir_stade("casino_minuit")
+
+
+func _dire(t: String) -> void:
+	_message.text = t
+	_message.modulate.a = 1.0
+	var tw := create_tween()
+	tw.tween_interval(3.0)
+	tw.tween_property(_message, "modulate:a", 0.0, 0.6)
 
 
 func _interface() -> void:
@@ -130,3 +160,8 @@ func _interface() -> void:
 	_invite.offset_right = 300
 	_invite.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	ui.add_child(_invite)
+	_message = _invite.duplicate()
+	_message.offset_top = -140
+	_message.offset_bottom = -110
+	_message.add_theme_color_override("font_color", Color("#F3EAD7"))
+	ui.add_child(_message)

@@ -21,9 +21,11 @@ static func construire(K) -> void:
 	K.mur(13.9, -25.5, 13.9, -12, 5.4, -1, 0, [{"at": 8.5, "w": 6.0, "h": 3.6}], "pierre", 1.2, false)
 	K.cadre(14, -17, PI / 2.0, 6, 3.6)
 	K.seuil(14, -20, 14, -14)
-	K.texte("THÉÂTRE · PARIS SPORTIFS", 3.2, 0.34, 13.78, 4.1, -17, -PI / 2.0)
+	K.texte("STADE DE LA FORTUNE · PARIS SPORTIFS", 3.6, 0.34, 13.78, 4.1, -17, -PI / 2.0)
 	K.box("laque_noire", 0.06, 3.6, 6.0, 14.2, 1.8, -17)
 	K.solide(0.3, 3.6, 6.0, 14.3, 1.8, -17)
+	# Le couloir du stade de la Fortune, où joue le Racing Club Minuit : il s'ouvre au seuil de son lieu.
+	K.interaction("stade", "Le stade de la Fortune", 13.7, 1.3, -17, Vector3(1.0, 2.6, 5.5))
 	for sg in [-1.0, 1.0]:
 		var zs := [-14.2, -18.75, -23.3] if sg < 0 else [-13.0, -20.9, -24.4]
 		for z in zs:

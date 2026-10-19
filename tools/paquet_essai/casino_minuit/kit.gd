@@ -473,7 +473,7 @@ func interaction(id: String, invite: String, x: float, y: float, z: float, taill
 	a.name = id
 	a.position = Vector3(x, y, z)
 	a.set_meta("interact", id)
-	a.set_meta("invite", invite)
+	a.set_meta("prompt", invite)
 	var f := CollisionShape3D.new()
 	var b := BoxShape3D.new()
 	b.size = taille
