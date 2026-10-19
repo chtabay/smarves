@@ -42,6 +42,9 @@ var _aide: Label
 var _capture := ""
 var _suivre := true
 var _arrivee := Vector2.ZERO
+## Les trottoirs, par case d'une unité : [x, z, largeur] des points de leur axe (voir _trottoirs).
+var _bandes := {}
+const TROTTOIR_H := 0.12
 
 
 func _ready() -> void:
@@ -63,6 +66,8 @@ func _ready() -> void:
 	_terrain()
 	_eau()
 	_routes()
+	_sols()
+	_trottoirs()
 	_batiments()
 	_arbres()
 	_noms()
@@ -105,6 +110,23 @@ func hauteur(x: float, z: float) -> float:
 	if tx + tz <= 1.0:
 		return h00 + (h10 - h00) * tx + (h01 - h00) * tz
 	return h11 + (h01 - h11) * (1.0 - tx) + (h10 - h11) * (1.0 - tz)
+
+
+## Le niveau où l'on pose un pied, un socle ou un lampadaire : le terrain, plus le trottoir s'il y en a un.
+func sol(x: float, z: float) -> float:
+	return hauteur(x, z) + _trottoir_en(x, z)
+
+
+## La hauteur du trottoir en (x, z) : TROTTOIR_H sur un trottoir, 0 ailleurs.
+func _trottoir_en(x: float, z: float) -> float:
+	var cx := int(floor(x))
+	var cz := int(floor(z))
+	for i in range(cx - 1, cx + 2):
+		for j in range(cz - 1, cz + 2):
+			for t in _bandes.get(Vector2i(i, j), []):
+				if Vector2(x, z).distance_to(Vector2(t[0], t[1])) <= t[2] / 2.0 + 0.45:
+					return TROTTOIR_H
+	return 0.0
 
 
 func _mat(c: Color, rugueux := 0.9, couleurs_sommets := false) -> StandardMaterial3D:
@@ -153,9 +175,11 @@ func _terrain() -> void:
 	var v := PackedVector3Array()
 	var n := PackedVector3Array()
 	var uv := PackedVector2Array()
+	var uv2 := PackedVector2Array()
 	v.resize(_nx * _nz)
 	n.resize(_nx * _nz)
 	uv.resize(_nx * _nz)
+	uv2.resize(_nx * _nz)
 	for j in _nz:
 		for i in _nx:
 			var k := j * _nx + i
@@ -164,6 +188,7 @@ func _terrain() -> void:
 			var gz := _h[mini(j + 1, _nz - 1) * _nx + i] - _h[maxi(j - 1, 0) * _nx + i]
 			n[k] = Vector3(-gx, 2.0 * _pas, -gz).normalized()
 			uv[k] = Vector2(float(i) / (_nx - 1), float(j) / (_nz - 1))
+			uv2[k] = Vector2(v[k].x, v[k].z) / 10.0
 	var idx := PackedInt32Array()
 	for j in _nz - 1:
 		for i in _nx - 1:
@@ -174,11 +199,19 @@ func _terrain() -> void:
 	arr[Mesh.ARRAY_VERTEX] = v
 	arr[Mesh.ARRAY_NORMAL] = n
 	arr[Mesh.ARRAY_TEX_UV] = uv
+	arr[Mesh.ARRAY_TEX_UV2] = uv2
 	arr[Mesh.ARRAY_INDEX] = idx
 	var m := ArrayMesh.new()
 	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
 	var mat := StandardMaterial3D.new()
 	mat.albedo_texture = load(DOSSIER + "sol.png")
+	# La couverture peinte vue d'avion, et par-dessus, à l'échelle du pas, le grain de l'herbe et de
+	# la terre (un bruit en UV2, en coordonnées du monde) pour que le sol tienne de près.
+	mat.albedo_color = Color(1.0, 1.0, 0.98)
+	mat.detail_enabled = true
+	mat.detail_albedo = _grain(0.12, Color(0.74, 0.77, 0.68))
+	mat.detail_blend_mode = BaseMaterial3D.BLEND_MODE_MUL
+	mat.detail_uv_layer = BaseMaterial3D.DETAIL_UV_2
 	mat.roughness = 1.0
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	var mi := MeshInstance3D.new()
@@ -331,28 +364,78 @@ func _sous_un_pont(p: Vector2, ponts: Array) -> bool:
 
 # --- Les rues et les ponts -------------------------------------------------------------------------
 
-const TEINTES := {
-	"secondary": [Color(0.36, 0.36, 0.38), 0.075], "primary": [Color(0.36, 0.36, 0.38), 0.075],
-	"tertiary": [Color(0.4, 0.4, 0.41), 0.07], "residential": [Color(0.46, 0.45, 0.44), 0.065],
-	"unclassified": [Color(0.48, 0.47, 0.45), 0.065], "living_street": [Color(0.6, 0.56, 0.5), 0.06],
-	"road": [Color(0.48, 0.47, 0.45), 0.065], "service": [Color(0.55, 0.53, 0.5), 0.06],
-	"pedestrian": [Color(0.7, 0.64, 0.55), 0.06], "track": [Color(0.62, 0.55, 0.42), 0.05],
-	"footway": [Color(0.7, 0.64, 0.55), 0.055], "path": [Color(0.62, 0.55, 0.42), 0.05],
-	"cycleway": [Color(0.6, 0.55, 0.5), 0.055], "steps": [Color(0.7, 0.66, 0.6), 0.055],
+## Les revêtements : [matière, teinte (multiplie la matière), hauteur au-dessus du terrain].
+## Le bitume granuleux des rues et les dalles calcaires des trottoirs sont ceux de Smarves.
+const REVETEMENTS := {
+	"secondary": ["bitume", 0.88, 0.05], "primary": ["bitume", 0.88, 0.05], "tertiary": ["bitume", 0.94, 0.05],
+	"residential": ["bitume", 1.04, 0.05], "unclassified": ["bitume", 1.04, 0.05], "road": ["bitume", 1.04, 0.05],
+	"living_street": ["bitume", 1.14, 0.05], "service": ["bitume", 1.16, 0.045], "cycleway": ["bitume", 0.96, 0.045],
+	"pedestrian": ["gravier", 1.1, 0.045], "footway": ["gravier", 1.06, 0.04], "steps": ["gravier", 1.1, 0.04],
+	"track": ["gravier", 0.92, 0.04], "path": ["gravier", 0.9, 0.04],
 }
+## Les rues du bourg qui ont des trottoirs quand elles sont bâties.
+const AVEC_TROTTOIRS := ["secondary", "primary", "tertiary", "residential", "unclassified", "road", "living_street"]
+## Les routes marquées d'un pointillé au milieu.
+const AVEC_POINTILLES := ["secondary", "primary", "tertiary"]
 
 
-## Un ruban posé sur le relief, le long d'une ligne de points [x, z] ; rend le nombre de points.
-func _ruban(st: SurfaceTool, pts: Array, largeur: float, dessus: float, c: Color) -> int:
+func _sols_materiaux() -> void:
+	if _mats.has("bitume"):
+		return
+	var bitume := StandardMaterial3D.new()
+	bitume.albedo_color = Color(0.5, 0.49, 0.47)
+	bitume.albedo_texture = _grain(0.18, Color(0.6, 0.6, 0.62))
+	bitume.uv1_triplanar = true
+	bitume.uv1_scale = Vector3(0.35, 0.35, 0.35)
+	bitume.roughness = 0.85
+	bitume.vertex_color_use_as_albedo = true
+	bitume.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_mats.bitume = bitume
+	var gravier := StandardMaterial3D.new()
+	gravier.albedo_color = Color(0.66, 0.6, 0.48)
+	gravier.albedo_texture = _grain(0.25, Color(0.7, 0.68, 0.64))
+	gravier.uv1_triplanar = true
+	gravier.uv1_scale = Vector3(0.5, 0.5, 0.5)
+	gravier.roughness = 1.0
+	gravier.vertex_color_use_as_albedo = true
+	gravier.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_mats.gravier = gravier
+	var dalles := ShaderMaterial.new()
+	dalles.shader = load("res://shaders/cobbles.gdshader")
+	# Des pavés autobloquants clairs, petits, aux joints à peine plus sombres.
+	dalles.set_shader_parameter("stone_a", Color(0.8, 0.77, 0.7))
+	dalles.set_shader_parameter("stone_b", Color(0.7, 0.67, 0.61))
+	dalles.set_shader_parameter("joint", Color(0.58, 0.55, 0.5))
+	dalles.set_shader_parameter("size", 0.13)
+	_mats.dalles = dalles
+	var bordure := StandardMaterial3D.new()
+	bordure.albedo_color = Color(0.8, 0.78, 0.73)
+	bordure.roughness = 0.8
+	bordure.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_mats.bordure = bordure
+	var marque := StandardMaterial3D.new()
+	marque.albedo_color = Color(0.86, 0.86, 0.8)
+	marque.roughness = 0.7
+	_mats.marque = marque
+
+
+## La ligne densifiée d'une voie : un point tous les `pas` environ, les sommets d'origine compris.
+func _densifier(pts: Array, pas: float) -> PackedVector2Array:
 	var ligne := PackedVector2Array()
 	for k in pts.size():
 		var p := Vector2(pts[k][0], pts[k][1])
 		if k > 0:
 			var prec := ligne[ligne.size() - 1]
-			var pas := int(prec.distance_to(p) / 0.8)
-			for s in range(1, pas):
-				ligne.append(prec.lerp(p, float(s) / pas))
+			var n := int(prec.distance_to(p) / pas)
+			for s in range(1, n):
+				ligne.append(prec.lerp(p, float(s) / n))
 		ligne.append(p)
+	return ligne
+
+
+## Un ruban posé sur le relief, le long d'une ligne de points [x, z] ; rend le nombre de points.
+func _ruban(st: SurfaceTool, pts: Array, largeur: float, dessus: float, c: Color) -> int:
+	var ligne := _densifier(pts, 0.8)
 	if ligne.size() < 2:
 		return 0
 	st.set_color(c)
@@ -378,20 +461,284 @@ func _ruban(st: SurfaceTool, pts: Array, largeur: float, dessus: float, c: Color
 
 
 func _routes() -> void:
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	_sols_materiaux()
+	var sts := {}
 	for r in data.routes:
 		if r.get("pont", false):
 			_pont(r)
 			continue
-		var t: Array = TEINTES.get(r.k, TEINTES.residential)
-		_ruban(st, r.p, r.l, t[1], t[0])
+		var t: Array = REVETEMENTS.get(r.k, REVETEMENTS.residential)
+		if not sts.has(t[0]):
+			var st := SurfaceTool.new()
+			st.begin(Mesh.PRIMITIVE_TRIANGLES)
+			sts[t[0]] = st
+		_ruban(sts[t[0]], r.p, r.l, t[2], Color(t[1], t[1], t[1]))
+	for m in sts:
+		var st: SurfaceTool = sts[m]
+		st.generate_normals()
+		var mi := MeshInstance3D.new()
+		mi.name = "Rues" if m == "bitume" else "Chemins"
+		mi.mesh = st.commit()
+		mi.material_override = _mats[m]
+		add_child(mi)
+	_pointilles()
+
+
+## Le pointillé au milieu des routes qui en ont : un trait clair toutes les deux unités.
+func _pointilles() -> void:
+	var xfs: Array[Transform3D] = []
+	for r in data.routes:
+		if r.get("pont", false) or not r.k in AVEC_POINTILLES:
+			continue
+		var ligne := _densifier(r.p, 0.5)
+		var depuis := 1.0
+		for k in ligne.size() - 1:
+			var a := ligne[k]
+			var b := ligne[k + 1]
+			var l := a.distance_to(b)
+			depuis += l
+			if depuis < 2.0 or l < 0.01:
+				continue
+			depuis = 0.0
+			var m := (a + b) / 2.0
+			var dir := (b - a) / l
+			xfs.append(Transform3D(Basis(Vector3.UP, -atan2(dir.y, dir.x)), Vector3(m.x, hauteur(m.x, m.y) + 0.062, m.y)))
+	if xfs.is_empty():
+		return
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	var bm := BoxMesh.new()
+	bm.size = Vector3(0.6, 0.01, 0.05)
+	bm.material = _mats.marque
+	mm.mesh = bm
+	mm.instance_count = xfs.size()
+	for i in xfs.size():
+		mm.set_instance_transform(i, xfs[i])
+	var mi := MultiMeshInstance3D.new()
+	mi.name = "Pointilles"
+	mi.multimesh = mm
+	add_child(mi)
+
+
+# --- Les places et les cours ----------------------------------------------------------------------
+
+## Les sols revêtus de bourg.json (les places et parkings en enrobé, les cours en gravier), drapés
+## sur le relief : chaque polygone est découpé en cases d'une unité, posées chacune sur le terrain.
+func _sols() -> void:
+	_sols_materiaux()
+	var sts := {}
+	for z in data.get("sols", []):
+		var poly := PackedVector2Array()
+		for q in z.p:
+			poly.append(Vector2(q[0], q[1]))
+		if poly.size() < 3:
+			continue
+		var m: String = "gravier" if z.k == "cour" else "bitume"
+		var teinte := 1.0 if z.k == "cour" else 1.14
+		if not sts.has(m):
+			var st := SurfaceTool.new()
+			st.begin(Mesh.PRIMITIVE_TRIANGLES)
+			sts[m] = st
+		var st: SurfaceTool = sts[m]
+		st.set_color(Color(teinte, teinte, teinte))
+		var x0 := INF
+		var z0 := INF
+		var x1 := -INF
+		var z1 := -INF
+		for q in poly:
+			x0 = minf(x0, q.x)
+			z0 = minf(z0, q.y)
+			x1 = maxf(x1, q.x)
+			z1 = maxf(z1, q.y)
+		for i in range(int(floor(x0)), int(ceil(x1))):
+			for j in range(int(floor(z0)), int(ceil(z1))):
+				var case := PackedVector2Array([Vector2(i, j), Vector2(i + 1, j), Vector2(i + 1, j + 1), Vector2(i, j + 1)])
+				for morceau in Geometry2D.intersect_polygons(case, poly):
+					var tri := Geometry2D.triangulate_polygon(morceau)
+					for t in range(0, tri.size(), 3):
+						for c in [tri[t], tri[t + 2], tri[t + 1]]:
+							var q: Vector2 = morceau[c]
+							st.add_vertex(Vector3(q.x, hauteur(q.x, q.y) + 0.042, q.y))
+	for m in sts:
+		var st: SurfaceTool = sts[m]
+		st.generate_normals()
+		var mi := MeshInstance3D.new()
+		mi.name = "Places" if m == "bitume" else "Cours"
+		mi.mesh = st.commit()
+		mi.material_override = _mats[m]
+		add_child(mi)
+
+
+# --- Les trottoirs ---------------------------------------------------------------------------------
+
+## Les trottoirs du bourg : le long des rues bâties, de chaque côté où des maisons bordent la rue,
+## une bande de dalles calcaires surélevée avec sa bordure, large comme l'écart entre la chaussée et
+## les façades (une unité et demie au plus), interrompue aux carrefours. Les maisons s'y posent (sol()).
+func _trottoirs() -> void:
+	_sols_materiaux()
+	# Les bords des bâtiments, par case de deux unités.
+	var bords := {}
+	for b in data.batiments:
+		var poly: Array = b.p
+		for k in poly.size():
+			var a := Vector2(poly[k][0], poly[k][1])
+			var d := Vector2(poly[(k + 1) % poly.size()][0], poly[(k + 1) % poly.size()][1])
+			var n := maxi(1, int(a.distance_to(d) / 0.7))
+			for i in n:
+				var q := a.lerp(d, float(i) / n)
+				var cle := Vector2i(int(floor(q.x / 2.0)), int(floor(q.y / 2.0)))
+				if not bords.has(cle):
+					bords[cle] = PackedVector2Array()
+				bords[cle].append(q)
+	# Les axes de toutes les voies, par case de deux unités, pour couper aux carrefours.
+	var voies := {}
+	var lignes := []
+	for r in data.routes:
+		var ligne := _densifier(r.p, 0.8)
+		lignes.append(ligne)
+		if r.get("pont", false):
+			continue
+		for q in ligne:
+			var cle := Vector2i(int(floor(q.x / 2.0)), int(floor(q.y / 2.0)))
+			if not voies.has(cle):
+				voies[cle] = []
+			voies[cle].append([q, r.l, lignes.size() - 1])
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var sb := SurfaceTool.new()
+	sb.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for ri in data.routes.size():
+		var r: Dictionary = data.routes[ri]
+		if r.get("pont", false) or not r.k in AVEC_TROTTOIRS:
+			continue
+		var ligne: PackedVector2Array = lignes[ri]
+		if ligne.size() < 3:
+			continue
+		var demi: float = r.l / 2.0
+		for cote in [1.0, -1.0]:
+			# Pour chaque point de l'axe : la largeur du trottoir de ce côté, 0 s'il n'y en a pas.
+			var larg := PackedFloat32Array()
+			larg.resize(ligne.size())
+			var perps: Array[Vector2] = []
+			for k in ligne.size():
+				var avant := ligne[maxi(k - 1, 0)]
+				var apres := ligne[mini(k + 1, ligne.size() - 1)]
+				var dir := (apres - avant).normalized()
+				var perp: Vector2 = Vector2(-dir.y, dir.x) * cote
+				perps.append(perp)
+				var p := ligne[k]
+				var ecart := INF
+				var cx := int(floor(p.x / 2.0))
+				var cz := int(floor(p.y / 2.0))
+				for i in range(cx - 2, cx + 3):
+					for j in range(cz - 2, cz + 3):
+						for q in bords.get(Vector2i(i, j), PackedVector2Array()):
+							var v: Vector2 = q - p
+							var lat := v.dot(perp)
+							if absf(v.dot(dir)) <= 1.2 and lat >= demi - 0.3 and lat <= demi + 3.5:
+								ecart = minf(ecart, lat - demi)
+				if ecart == INF:
+					larg[k] = 0.0
+					continue
+				var w := clampf(ecart, 0.14, 1.4)
+				# Pas de trottoir dans l'emprise d'une autre voie (un carrefour, une impasse qui débouche).
+				var c: Vector2 = p + perp * (demi + w / 2.0)
+				for i in range(cx - 2, cx + 3):
+					for j in range(cz - 2, cz + 3):
+						for v in voies.get(Vector2i(i, j), []):
+							if v[2] != ri and c.distance_to(v[0]) < v[1] / 2.0 + w / 2.0 + 0.25:
+								w = 0.0
+				larg[k] = w
+			# On bouche les trous courts, on écarte les bouts trop courts, et la largeur est la plus
+			# petite des voisins pour que la bande se rétrécisse avant une maison qui avance.
+			var present := PackedByteArray()
+			present.resize(ligne.size())
+			for k in ligne.size():
+				present[k] = 1 if larg[k] > 0.0 else 0
+			var k := 0
+			while k < ligne.size():
+				if present[k] == 0:
+					var fin := k
+					while fin < ligne.size() and present[fin] == 0:
+						fin += 1
+					if k > 0 and fin < ligne.size() and fin - k <= 3:
+						for i in range(k, fin):
+							present[i] = 1
+							larg[i] = minf(larg[k - 1], larg[fin])
+					k = fin
+				else:
+					k += 1
+			k = 0
+			while k < ligne.size():
+				if present[k] == 1:
+					var fin := k
+					while fin < ligne.size() and present[fin] == 1:
+						fin += 1
+					if fin - k < 4:
+						for i in range(k, fin):
+							present[i] = 0
+					else:
+						var lisse := PackedFloat32Array()
+						for i in range(k, fin):
+							var w := larg[i]
+							for j in range(maxi(k, i - 2), mini(fin, i + 3)):
+								w = minf(w, larg[j])
+							lisse.append(w)
+						_trottoir(st, sb, ligne, perps, demi, lisse, k, fin)
+					k = fin
+				else:
+					k += 1
 	st.generate_normals()
 	var mi := MeshInstance3D.new()
-	mi.name = "Rues"
+	mi.name = "Trottoirs"
 	mi.mesh = st.commit()
-	mi.material_override = _mat(Color.WHITE, 0.95, true)
+	mi.material_override = _mats.dalles
 	add_child(mi)
+	sb.generate_normals()
+	var mb := MeshInstance3D.new()
+	mb.name = "Bordures"
+	mb.mesh = sb.commit()
+	mb.material_override = _mats.bordure
+	add_child(mb)
+
+
+## Une bande de trottoir, des points k0 à k1 (exclu) de l'axe : le dessus en pavés, la bordure
+## côté chaussée, la face extérieure et les deux bouts en pierre claire. Les faces sont dessinées
+## des deux côtés.
+func _trottoir(st: SurfaceTool, sb: SurfaceTool, ligne: PackedVector2Array, perps: Array[Vector2], demi: float, larg: PackedFloat32Array, k0: int, k1: int) -> void:
+	var dedans: Array[Vector3] = []
+	var dehors: Array[Vector3] = []
+	var bas_in: Array[Vector3] = []
+	var bas_out: Array[Vector3] = []
+	for k in range(k0, k1):
+		var w: float = larg[k - k0]
+		var pi: Vector2 = ligne[k] + perps[k] * (demi - 0.02)
+		var pe: Vector2 = ligne[k] + perps[k] * (demi + w)
+		var yi := hauteur(pi.x, pi.y)
+		var ye := hauteur(pe.x, pe.y)
+		dedans.append(Vector3(pi.x, yi + TROTTOIR_H, pi.y))
+		dehors.append(Vector3(pe.x, ye + TROTTOIR_H, pe.y))
+		bas_in.append(Vector3(pi.x, yi + 0.03, pi.y))
+		bas_out.append(Vector3(pe.x, ye - 0.08, pe.y))
+		var c: Vector2 = ligne[k] + perps[k] * (demi + w / 2.0)
+		var cle := Vector2i(int(floor(c.x)), int(floor(c.y)))
+		if not _bandes.has(cle):
+			_bandes[cle] = []
+		_bandes[cle].append([c.x, c.y, w])
+	for k in dedans.size() - 1:
+		_quad2(st, dedans[k], dehors[k], dehors[k + 1], dedans[k + 1])
+		_quad2(sb, bas_in[k], dedans[k], dedans[k + 1], bas_in[k + 1])
+		_quad2(sb, dehors[k], bas_out[k], bas_out[k + 1], dehors[k + 1])
+	_quad2(sb, dedans[0], dehors[0], bas_out[0], bas_in[0])
+	var n := dedans.size() - 1
+	_quad2(sb, dedans[n], dehors[n], bas_out[n], bas_in[n])
+
+
+## Un quadrilatère dessiné des deux côtés.
+func _quad2(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
+	for tri in [[a, b, c], [a, c, d], [a, c, b], [a, d, c]]:
+		for v in tri:
+			st.add_vertex(v)
 
 
 ## Un pont : un tablier droit d'une rive à l'autre, ses parapets et ses piles.
@@ -480,7 +827,7 @@ func _batiments() -> void:
 			continue
 		var b: Dictionary = data.batiments[i]
 		var rem: Dictionary = a_part.get(i, {})
-		var segments: Array = REMARQUABLES.murs(rem.id, b, hauteur) if not rem.is_empty() else []
+		var segments: Array = REMARQUABLES.murs(rem.id, b, sol) if not rem.is_empty() else []
 		if segments.is_empty():
 			_collision(b, murs)
 		else:
@@ -494,7 +841,7 @@ func _batiments() -> void:
 			noeud.set_meta("osm", rem.osm)
 			add_child(noeud)
 			var fr = FACADES.new(noeud, Polices.texte(), 86015 + i)
-			if not REMARQUABLES.construire(rem.id, fr, b, hauteur):
+			if not REMARQUABLES.construire(rem.id, fr, b, sol):
 				_maison(fr, b, rem)
 			fr.commit(_mats, _mats.glass, "Remarquable_" + str(rem.id))
 			continue
@@ -603,7 +950,7 @@ func _maison(f, b: Dictionary, rem: Dictionary) -> void:
 	var avant: Vector2 = c + v * (r[3] / 2.0)
 	# La maison se pose au niveau du sol devant sa porte ; en pente, un socle de pierre sombre descend
 	# jusqu'au bas de l'emprise, derrière.
-	var y_sol: float = maxf(b.sol, hauteur(avant.x + v.x * 0.6, avant.y + v.y * 0.6) - 0.04)
+	var y_sol: float = maxf(b.sol, sol(avant.x + v.x * 0.6, avant.y + v.y * 0.6) - 0.04)
 	var xf := Transform3D(Basis(Vector3.UP, atan2(v.x, v.y)), Vector3(avant.x, y_sol, avant.y))
 	if b.rempli >= 0.72 or annexe:
 		if y_sol - b.sol > 0.02:

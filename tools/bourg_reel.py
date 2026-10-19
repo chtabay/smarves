@@ -705,6 +705,14 @@ def main():
             o["absorbe"] = [[round(float(q[0]), 2), round(float(q[1]), 2)] for q in r["absorbe"]]
         remarquables.append(o)
     places = [{"nom": z["nom"], "x": u(centre(z["p"])[0]), "z": u(centre(z["p"])[1])} for z in zones if z["k"] == "place" and z.get("nom", "").startswith("Place")]
+    # Les sols revêtus que la scène drape en relief : les places et parkings (enrobé), les cours (gravier).
+    sols = []
+    for z in zones:
+        if z["k"] in ("place", "cour"):
+            o = {"k": z["k"], "p": [pt(q) for q in z["p"]]}
+            if z.get("nom"):
+                o["nom"] = z["nom"]
+            sols.append(o)
     data = {
         "format": 1,
         "commune": ident,
@@ -722,6 +730,7 @@ def main():
         "batiments": batiments,
         "arbres": arbres,
         "places": places,
+        "sols": sols,
         "remarquables": remarquables,
     }
     with open(os.path.join(sortie, "bourg.json"), "w", encoding="utf-8") as f:
