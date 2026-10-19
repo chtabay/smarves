@@ -9,6 +9,11 @@ extends RefCounted
 ## scripts/jeux/poker_multi.gd) : chaque table de l'original est une table du serveur, à six joueurs.
 ## Une table pleine renvoie à celle qui se remplit ; quand toutes le sont, la salle du poker (salle_poker.gd,
 ## au mur des tournois ou à toute table pleine) tient la liste d'attente. Sans compte, seul contre les habitués.
+##
+## Les panneaux s'ouvrent habillés comme au casino de Smarves (casino_interior.gd, _build_ui : laque sombre,
+## filet d'or, boutons en pastille), posés en bas de l'écran au-dessus de la salle assombrie, et la souris
+## est libérée tant qu'un panneau est ouvert : on mise et on joue au clic. Le thème est recopié ici, dans le
+## paquet, pour que Minuit s'habille de même sur un jeu installé qui ne l'aurait pas.
 
 const BASE := "res://communes/casino_minuit/"
 const POKER_MULTI := "res://scripts/jeux/poker_multi.gd"
@@ -20,9 +25,14 @@ var scene: Node3D
 var K
 var postes: Array = []
 var _calque: CanvasLayer
+## Sous le calque : la salle assombrie, et le centre où se pose le panneau.
+var _voile: ColorRect
+var _centre: CenterContainer
 var _panneau: Control
 ## Le poste où le joueur est assis (les PNJ réagissent à ses parties).
 var _poste := ""
+## Le mode de la souris avant le panneau : on le rend en se levant.
+var _souris := Input.MOUSE_MODE_CAPTURED
 ## Pour les essais : le poker à plusieurs sans compte ni réseau, la salle posée à la main.
 var essai_salle := {}
 
@@ -55,7 +65,64 @@ func poser() -> void:
 	_calque = CanvasLayer.new()
 	_calque.layer = 5
 	scene.add_child(_calque)
+	var racine := Control.new()
+	racine.theme = theme()
+	racine.set_anchors_preset(Control.PRESET_FULL_RECT)
+	racine.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_calque.add_child(racine)
+	_voile = ColorRect.new()
+	_voile.color = Color(0.05, 0.027, 0.035, 0.62)
+	_voile.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_voile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_voile.visible = false
+	racine.add_child(_voile)
+	_centre = CenterContainer.new()
+	_centre.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_centre.anchor_top = 0.36
+	_centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	racine.add_child(_centre)
 	_poser_salle()
+
+
+## Le thème des fenêtres du casino de Smarves (casino_interior.gd, _build_ui), à la manière d'Addict :
+## laque sombre, filet d'or, angles arrondis, ombre portée ; boutons en pastille de 48 px, au doigt aussi.
+static func theme() -> Theme:
+	var t := Theme.new()
+	t.default_font = Polices.texte()
+	t.default_font_size = 20
+	var or_ := Color(0.96, 0.8, 0.45)
+	var panneau := StyleBoxFlat.new()
+	panneau.bg_color = Color(0.06, 0.03, 0.035, 0.93)
+	panneau.border_color = Color(0.89, 0.71, 0.35, 0.55)
+	panneau.set_border_width_all(1)
+	panneau.set_corner_radius_all(16)
+	panneau.set_content_margin_all(22)
+	panneau.shadow_color = Color(0, 0, 0, 0.5)
+	panneau.shadow_size = 24
+	panneau.anti_aliasing = true
+	t.set_stylebox("panel", "PanelContainer", panneau)
+	for st in ["normal", "hover", "pressed", "disabled", "focus"]:
+		var b := StyleBoxFlat.new()
+		b.bg_color = {"normal": Color(0.14, 0.07, 0.04, 0.95), "hover": Color(0.28, 0.15, 0.06, 0.95),
+			"pressed": Color(0.38, 0.22, 0.08, 1.0), "disabled": Color(0.07, 0.06, 0.06, 0.8),
+			"focus": Color(0, 0, 0, 0)}[st]
+		b.border_color = Color(0.85, 0.62, 0.3, 0.25 if st == "disabled" else 0.8)
+		b.set_border_width_all(1)
+		b.set_corner_radius_all(24)
+		b.anti_aliasing = true
+		b.content_margin_left = 20
+		b.content_margin_right = 20
+		b.content_margin_top = 11
+		b.content_margin_bottom = 11
+		if st == "focus":
+			b.draw_center = false
+			b.border_color = Color(0, 0, 0, 0)
+		t.set_stylebox(st, "Button", b)
+	t.set_color("font_color", "Button", or_)
+	t.set_color("font_hover_color", "Button", Color(1, 0.92, 0.7))
+	t.set_color("font_disabled_color", "Button", Color(0.5, 0.47, 0.42))
+	t.set_color("font_color", "Label", Color(0.9, 0.86, 0.8))
+	return t
 
 
 ## La salle du poker s'ouvre devant le mur des tournois.
@@ -126,7 +193,6 @@ func _salle(table_id: String) -> Dictionary:
 func ouvrir_salle(table_id := "minuit:poker-1", v := {}) -> void:
 	if _panneau != null:
 		return
-	var joueur: Node3D = scene.player
 	var sp: PanelContainer = SALLE.new()
 	sp.table_ref = table_id
 	if not essai_salle.is_empty():
@@ -134,18 +200,14 @@ func ouvrir_salle(table_id := "minuit:poker-1", v := {}) -> void:
 		sp.vue = essai_salle if v.is_empty() else v
 	sp.closed.connect(func():
 		sp.queue_free()
-		_panneau = null
-		joueur.frozen = false)
+		_lever())
 	sp.asseoir.connect(func(id: String):
 		sp.queue_free()
-		_panneau = null
-		joueur.frozen = false
+		_lever()
 		for q in postes:
 			if SERVEUR.get(q.id, "") == id:
 				_asseoir(q, id, SALLE.nom(sp.vue, id)))
-	joueur.frozen = true
-	_calque.add_child(sp)
-	_panneau = sp
+	_poser(sp)
 
 
 func _asseoir(p: Dictionary, table_id := "", nom := "") -> void:
@@ -172,9 +234,12 @@ func _asseoir(p: Dictionary, table_id := "", nom := "") -> void:
 	var jeu: Dictionary = SalleJeu.JEUX[p.jeu]
 	var pn: Control = load(POKER_MULTI if table_id != "" else jeu.panneau).new()
 	if "game" in pn:
-		pn.game = self
+		# La machine à sous demande à la scène (un Node) de payer la mise : minuit.gd, spend().
+		pn.game = scene
 	if "title" in pn:
 		pn.title = "Casino Minuit : %s" % jeu.titre
+	if "subtitle" in pn:
+		pn.subtitle = "Casino Minuit  ·  la forêt des machines"
 	var avant := Game.won
 	if table_id != "":
 		# À plusieurs, le panneau tient lui-même les crédits (chaque mise, chaque gain) : on guette les seuils.
@@ -185,24 +250,46 @@ func _asseoir(p: Dictionary, table_id := "", nom := "") -> void:
 		pn.played.connect(_joue)
 	pn.closed.connect(func():
 		pn.queue_free()
-		_panneau = null
-		joueur.frozen = false
+		_lever()
 		_poste = ""
 		if pnj != null:
 			pnj.lever_joueur()
 		if table_id != "":
 			_seuils(avant))
-	joueur.frozen = true
-	_calque.add_child(pn)
-	_panneau = pn
+	_poser(pn)
 	_poste = p.id
 	if pnj != null and idx >= 0:
 		pnj.asseoir_joueur(p.id, idx)
 
 
-## La machine à sous demande à son hôte de payer la mise.
-func spend(amount: int) -> bool:
-	return Game.spend(amount)
+## Le panneau s'ouvre : le visiteur s'arrête, la salle s'assombrit, la souris est rendue pour jouer au clic.
+func _poser(p: Control) -> void:
+	scene.player.frozen = true
+	if _panneau == null:
+		_souris = Input.mouse_mode
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_voile.visible = true
+	_centre.add_child(p)
+	_panneau = p
+	p.resized.connect(_caler.bind(p))
+	_caler(p)
+
+
+## Le panneau se pose sous le premier tiers de l'écran, comme au casino ; un grand (la machine à sous)
+## remonte ce qu'il faut pour tenir en entier.
+func _caler(p: Control) -> void:
+	if not is_instance_valid(p):
+		return
+	var h := _centre.get_viewport_rect().size.y
+	_centre.anchor_top = clampf((h - p.get_combined_minimum_size().y - 24.0) / h, 0.0, 0.36)
+
+
+## Le panneau se ferme : la salle revient, et la souris comme elle était (reprise à la vue à pied).
+func _lever() -> void:
+	_panneau = null
+	_voile.visible = false
+	scene.player.frozen = false
+	Input.mouse_mode = _souris
 
 
 ## Le gain s'encaisse comme partout ; les lieux du casino qui ouvrent avec lui font signe.

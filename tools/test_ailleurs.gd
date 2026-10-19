@@ -140,11 +140,15 @@ func _init() -> void:
 	var bj: Node = s.find_child("table_bj-1", true, false)
 	check(bj != null and str(bj.get_meta("prompt", "")).contains("blackjack"), "la table de blackjack de la fosse invite à s'asseoir")
 	if bj != null:
+		var souris := Input.mouse_mode
 		p.interact.emit(bj)
 		await process_frame
 		var pn: Control = s.get("_tables").get("_panneau")
 		check(pn != null and p.frozen and str(pn.get_script().resource_path).ends_with("blackjack_panel.gd"),
 			"s'asseoir au blackjack ouvre le panneau du socle")
+		check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "la souris est libérée pour jouer au clic")
+		check(pn != null and pn.get_parent() is CenterContainer and pn.get_parent().get_parent().theme != null,
+			"le panneau porte le thème du casino de Smarves")
 		if pn != null:
 			var gagne_avant: int = root.get_node("Game").won
 			pn.played.emit(100, 250)
@@ -152,6 +156,25 @@ func _init() -> void:
 			pn.closed.emit()
 			await process_frame
 			check(not p.frozen and s.get("_tables").get("_panneau") == null, "se lever referme le jeu")
+			check(Input.mouse_mode == souris, "la souris revient comme avant la table")
+			# Les crédits roulent jusqu'à leur valeur.
+			await create_timer(1.5, true).timeout
+			check(str(s.get("_credits").text) == "%s crédits" % root.get_node("Game").fmt(root.get_node("Game").credits),
+				"le coin du compte montre les crédits : %s" % s.get("_credits").text)
+			check(str(s.get("_aide").text).contains("C : le carnet"), "le rappel des commandes nomme le carnet")
+	# La machine à sous demande à la scène de payer la mise : elle s'ouvre, et tire.
+	var slot: Node = s.find_child("table_slot-1", true, false)
+	if slot != null:
+		p.interact.emit(slot)
+		await process_frame
+		var sm: Control = s.get("_tables").get("_panneau")
+		check(sm != null and str(sm.get_script().resource_path).ends_with("slot_machine.gd") and sm.game == s,
+			"la machine à sous s'ouvre, payée par la scène")
+		if sm != null:
+			var credits_avant: int = root.get_node("Game").credits
+			check(s.spend(5) and root.get_node("Game").credits == credits_avant - 5, "la scène paie la mise de la machine")
+			sm.closed.emit()
+			await process_frame
 	# Le poker à plusieurs, sans réseau : une salle posée à la main (la vue de l'action « salle »).
 	var tb = s.get("_tables")
 	var salle := {"tables": [

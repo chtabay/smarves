@@ -75,6 +75,12 @@ var _zone_de := {}
 var _vue := ""
 var _invite: Label
 var _message: Label
+## Le coin du compte, comme au casino de Smarves : les crédits (qui roulent vers leur valeur), le gagné au jeu,
+## les dettes ; et le rappel des commandes en bas, selon la vue.
+var _credits: Label
+var _gagne: Label
+var _affiche := -1.0
+var _aide: Label
 
 
 func _ready() -> void:
@@ -108,6 +114,13 @@ func _process(dt: float) -> void:
 	K.animer(dt, _t)
 	_rendu.chaque_image(dt, player.global_position, -player.global_basis.z)
 	_cadrer()
+	_affiche = Game.credits if _affiche < 0.0 else lerpf(_affiche, Game.credits, 1.0 - exp(-10.0 * dt))
+	if absf(_affiche - Game.credits) < 0.5:
+		_affiche = Game.credits
+	_credits.text = "%s crédits" % Game.fmt(roundi(_affiche))
+	_gagne.text = "Gagné au jeu : %s" % Game.fmt(Game.won) + ("\nDettes : %s" % Game.fmt(Game.debt) if Game.debt > 0 else "")
+	# Sous un panneau de jeu, le rappel des commandes s'efface : le panneau a les siennes.
+	_aide.visible = _tables._panneau == null
 	var f = player.focus_target if player else null
 	_invite.text = str(f.get_meta("prompt", "")) + "  [E]" if f != null and f.has_meta("prompt") else ""
 	if _invite.text == "" and pnj != null:
@@ -248,6 +261,11 @@ func _fontaines(cible: Node) -> void:
 ## La cloche du chronométreur (arene-cloche : AR.bell('joueur')) : elle lance le round, le clôt, ou relance la soirée.
 func _cloche(_cible: Node) -> void:
 	K.places.pilotes.bell("joueur")
+
+
+## La machine à sous demande à son hôte de payer la mise (tables.gd la fait jouer).
+func spend(amount: int) -> bool:
+	return Game.spend(amount)
 
 
 func _taux() -> String:
@@ -469,14 +487,45 @@ func _dire(t: String) -> void:
 func _interface() -> void:
 	var ui := CanvasLayer.new()
 	add_child(ui)
-	var aide := Label.new()
-	aide.text = "Casino Minuit, Las Vegas  ·  Tab pour changer de vue  ·  E pour agir  ·  M pour la carte"
-	aide.add_theme_font_override("font", Polices.texte())
-	aide.add_theme_font_size_override("font_size", 16)
-	aide.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
-	aide.add_theme_constant_override("outline_size", 5)
-	aide.position = Vector2(24, 80)
-	ui.add_child(aide)
+	var racine := Control.new()
+	racine.theme = load(BASE + "tables.gd").theme()
+	racine.set_anchors_preset(Control.PRESET_FULL_RECT)
+	racine.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ui.add_child(racine)
+	# Le compte, en haut à gauche, sous les boutons du retour que le jeu pose dans le coin.
+	var compte := PanelContainer.new()
+	compte.position = Vector2(20, 74)
+	compte.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	racine.add_child(compte)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 0)
+	compte.add_child(v)
+	var titre := Label.new()
+	titre.text = "C A S I N O   M I N U I T   ·   L A S   V E G A S"
+	titre.add_theme_font_size_override("font_size", 13)
+	titre.add_theme_color_override("font_color", Color(0.75, 0.62, 0.45))
+	v.add_child(titre)
+	_credits = Label.new()
+	_credits.add_theme_font_size_override("font_size", 38)
+	_credits.add_theme_color_override("font_color", Color(0.96, 0.8, 0.45))
+	v.add_child(_credits)
+	_gagne = Label.new()
+	_gagne.add_theme_font_size_override("font_size", 16)
+	v.add_child(_gagne)
+	_aide = Label.new()
+	_aide.add_theme_font_size_override("font_size", 15)
+	_aide.add_theme_color_override("font_color", Color(0.75, 0.72, 0.68, 0.9))
+	_aide.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	_aide.add_theme_constant_override("outline_size", 4)
+	_aide.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+	_aide.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_aide.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_aide.offset_top = -44
+	_aide.offset_bottom = -20
+	_aide.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	racine.add_child(_aide)
+	_rappel(true)
+	Vue.basculee.connect(_rappel)
 	_invite = Label.new()
 	_invite.add_theme_font_override("font", Polices.texte())
 	_invite.add_theme_font_size_override("font_size", 20)
@@ -495,3 +544,10 @@ func _interface() -> void:
 	_message.offset_bottom = -110
 	_message.add_theme_color_override("font_color", Color("#F3EAD7"))
 	ui.add_child(_message)
+
+
+## Le rappel des commandes, comme au village : à pied, ou vu de dessus (la bascule du jeu, Tab).
+func _rappel(dessus: bool) -> void:
+	_aide.text = ("ZQSD : marcher   ·   Maj : courir   ·   Clic droit : tourner   ·   Molette : zoom   ·   E : agir, jouer   ·   Tab : vue à pied" if dessus
+		else "ZQSD : marcher   ·   Maj : courir   ·   Souris : regarder   ·   E : agir, jouer   ·   Tab : vue de dessus") \
+		+ "   ·   M : la carte   ·   C : le carnet   ·   Échap : réglages"
