@@ -125,6 +125,10 @@ func _ready() -> void:
 		elif arg == "--match":
 			_match = {"dom": _nom_club(), "ext": "Les Aigles de Chauvigny", "score": [98, 94], "quarts": [[24, 22], [27, 25], [21, 26], [26, 21]], "fini": true}
 	_gymnase = gymnase_de(commune)
+	# Entré sans match (par la liste des lieux, par le car) : celui du championnat (autoload Basket), s'il y en a un.
+	var basket := get_node_or_null("/root/Basket")
+	if _match.is_empty() and basket and basket.has_method("match_pour_salle"):
+		_match = basket.match_pour_salle(commune)
 	_serif = Polices.texte()
 	_environment()
 	_nuit()
@@ -262,7 +266,12 @@ func _nuit() -> void:
 ## Le parquet ciré, ses lignes, les raquettes et le rond central aux couleurs du club, le nom au milieu.
 func _parquet() -> void:
 	var bois := _wood_floor(Color(0.86, 0.64, 0.4))
+	# Le sol de tout le bâtiment, du fond de la salle au bout du parvis : rien où tomber.
+	_box(Vector3(120.0, 0.4, 180.0), Vector3(0, -0.3, 0), _std(Color(0.08, 0.08, 0.1), 0.9), true).name = "Sol"
 	_box(Vector3(BORD_X * 2.0, 0.2, BORD_Z * 2.0), Vector3(0, -0.1, 0), _std(Color(0.12, 0.12, 0.14), 0.6), true)
+	# Le vomitoire : un tapis aux couleurs du club, du hall au bord du parquet.
+	var dz := BORD_Z + RANGS_BAS * RANG + 0.4
+	_box(Vector3(VOMITOIRE * 2.0, 0.2, dz - BORD_Z), Vector3(0, -0.1, (dz + BORD_Z) / 2.0), _std(_c1().darkened(0.3), 0.8), true)
 	_box(Vector3(L + 4.0, 0.04, P + 4.0), Vector3(0, 0.02, 0), _std(_c1().darkened(0.2), 0.4))
 	_box(Vector3(L, 0.04, P), Vector3(0, 0.03, 0), bois)
 	var blanc := _std(Color(0.97, 0.97, 0.95), 0.5)
@@ -880,20 +889,23 @@ func charger_match(match: Dictionary) -> void:
 	if match.is_empty():
 		jouer_entrainement()
 		return
+	var dom := str(match.get("dom", _nom_club()))
+	var ext := str(match.get("ext", "Les visiteurs"))
+	var score: Array = match.get("score", [])
+	if score.size() < 2:
+		# Un match à venir : le club s'entraîne encore, le cube et la façade l'annoncent.
+		jouer_entrainement()
+		_match = match
+		_ecrire_cube("PROCHAIN MATCH", "%s — %s\n%s" % [_court_de(dom), _court_de(ext), str(match.get("quand", "SAMEDI 20 H")).to_upper()])
+		_defile_textes = ["%s  —  %s" % [_enseigne(dom), _enseigne(ext)], str(match.get("quand", "SAMEDI 20 H")).to_upper()]
+		return
 	_match = match
 	_remplir(0.92)
 	for c in _joueurs:
 		c.visible = false
 	_ballon.visible = false
-	var dom := str(match.get("dom", _nom_club()))
-	var ext := str(match.get("ext", "Les visiteurs"))
-	var score: Array = match.get("score", [])
-	if score.size() >= 2:
-		var periode := "FIN" if bool(match.get("fini", false)) else "Q%d" % maxi(1, (match.get("quarts", []) as Array).size())
-		afficher_score(dom, ext, int(score[0]), int(score[1]), periode, "")
-	else:
-		_ecrire_cube("PROCHAIN MATCH", "%s\n%s" % [_court_de(dom), str(match.get("quand", "SAMEDI 20 H"))])
-		_defile_textes = ["%s  —  %s" % [_enseigne(dom), _enseigne(ext)], str(match.get("quand", "SAMEDI 20 H")).to_upper()]
+	var periode := "FIN" if bool(match.get("fini", false)) else "Q%d" % maxi(1, (match.get("quarts", []) as Array).size())
+	afficher_score(dom, ext, int(score[0]), int(score[1]), periode, "")
 
 
 ## Le score sur le cube, la façade et le bandeau. periode : « Q1 »… « FIN » ; chrono : « 07:42 » ou « ».
@@ -958,7 +970,7 @@ func _process(delta: float) -> void:
 	if _defile_t <= 0.0 and not _defile_textes.is_empty():
 		_defile_t = 3.0
 		_defile.text = _defile_textes[int(t / 3.0) % _defile_textes.size()]
-	if _match.is_empty():
+	if _joueurs.size() > 0 and _joueurs[0].visible:
 		_entrainement(delta)
 	if _president and player:
 		var d := player.global_position - _president.global_position

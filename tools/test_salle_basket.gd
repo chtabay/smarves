@@ -86,7 +86,7 @@ func _init() -> void:
 	await process_frame
 	check(salle._ecran == null and not salle.player.frozen, "l'affiche se ferme")
 	salle.open_panneau()
-	check(salle._ecran != null and _textes(salle._ecran).any(func(t): return t.contains("samedi à 20 h")), "le panneau du club, à l'entrée")
+	check(salle._ecran != null and salle._ecran.get_script() != null and salle._ecran.get_script().resource_path.ends_with("basket_panneau.gd") and salle._ecran.commune == "smarves", "le panneau du club, à l'entrée : celui du championnat de basket")
 	salle._ecran.closed.emit()
 	await process_frame
 
@@ -99,7 +99,7 @@ func _init() -> void:
 	salle.afficher_fait("Trois points au buzzer !")
 	check(salle._bandeau_fait.text == "Trois points au buzzer !", "un fait de match passe dans le bandeau")
 	salle.charger_match({"dom": salle._nom_club(), "ext": "Les Aigles de Chauvigny", "quand": "samedi 20 h"})
-	check(salle._cube_titre[0].text == "PROCHAIN MATCH", "un match à venir : le cube l'annonce")
+	check(salle._cube_titre[0].text == "PROCHAIN MATCH" and salle._joueurs[0].visible, "un match à venir : le cube l'annonce, le club s'entraîne encore")
 	salle.jouer_entrainement()
 	check(salle._joueurs[0].visible and not salle._bandeau.visible, "retour à l'entraînement")
 
