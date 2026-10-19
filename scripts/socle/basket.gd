@@ -17,6 +17,9 @@ extends Node
 
 signal change
 
+## Le moteur de match, chargé par son chemin : un autoload ne doit pas dépendre du cache des class_name,
+## qu'un dossier .godot ancien n'a pas encore (le script ne se chargerait pas).
+const MOTEUR := preload("res://scripts/socle/basket_match.gd")
 const SERVEUR := "https://alvxrjftenialifyktyz.supabase.co/functions/v1/basket"
 const EPOQUE := {"year": 2026, "month": 10, "day": 24}
 const HEURE_MATCH := 20
@@ -307,7 +310,7 @@ func rencontre(s: int, n: int, g: int, j: int, dom: int, ext: int) -> Dictionary
 	if not _matchs.has(cle):
 		var c := cliche(id_cliche(s, j))
 		var graine := Hasard.graine("basket/%s/%s" % [cle, str(c.get("id", ""))])
-		_matchs[cle] = BasketMatch.jouer(equipe(s, n, g, dom, j), equipe(s, n, g, ext, j), graine)
+		_matchs[cle] = MOTEUR.jouer(equipe(s, n, g, dom, j), equipe(s, n, g, ext, j), graine)
 	return _matchs[cle]
 
 
