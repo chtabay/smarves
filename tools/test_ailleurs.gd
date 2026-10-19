@@ -76,6 +76,25 @@ func _init() -> void:
 	p.auto_move = Vector3.ZERO
 	check(p.global_position.y > 5.6 and p.global_position.z < -24.5, "le grand escalier monte à la galerie (%.1f, %.1f, %.1f)" % [p.global_position.x, p.global_position.y, p.global_position.z])
 
+	# Le lot B, l'ouest : ses salles sont bâties, peuplées, et la baie ouest de la galerie mène au jardin d'hiver.
+	var manquantes := []
+	for z in ["R-LOBBY", "R-SALON", "R-MACHINES", "R-POKER", "R-HL", "R-WC-O", "M-LOUNGE", "M-JARDIN", "M-WC"]:
+		if s.get_node_or_null(z) == null:
+			manquantes.append(z)
+	check(manquantes.is_empty(), "les salles de l'ouest sont bâties %s" % str(manquantes))
+	var places: Dictionary = s.K.places
+	check(places.has("poker") and places.has("lounge_bar") and places.has("jardin_tour"), "elles notent les places de leurs figurants")
+	var figurants: Node = s.get_node_or_null("Figurants")
+	check(figurants != null and figurants.get_child_count() > 120, "le lot B a ses figurants (%d en tout)" % (figurants.get_child_count() if figurants else 0))
+	p.global_position = Vector3(-16, 6.05, -19)
+	p.rotation.y = 0.0
+	p.velocity = Vector3.ZERO
+	await create_timer(0.3, true).timeout
+	p.auto_move = Vector3(-1, 0, 0)
+	await create_timer(3.0, true).timeout
+	p.auto_move = Vector3.ZERO
+	check(p.global_position.x < -21.0 and p.global_position.y > 5.6, "la baie ouest de la galerie ouvre sur le jardin d'hiver (%.1f, %.1f, %.1f)" % [p.global_position.x, p.global_position.y, p.global_position.z])
+
 	# Le club : son terrain est au registre, rattaché à Poitiers(-Biard) sur la carte.
 	var terrain := {}
 	for e in root.get_node("Registre").de_commune("casino_minuit"):

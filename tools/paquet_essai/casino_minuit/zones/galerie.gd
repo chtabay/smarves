@@ -3,7 +3,7 @@ extends RefCounted
 ## la nef. Dalles : nord [-18, 18] × [-30 ; -25,5] · ouest [-18, -14] × [-25,5 ; 12] · est [14, 18] × [-25,5 ; 12]
 ## · pont sud [-14, 14] × [9, 12]. Le vide sur la nef n'a pas de dalle. La zone bâtit aussi le plafond de la
 ## nef (y 13, caissons de 4 × 4 m) et les garde-corps. Les salles de la mezzanine (jardin d'hiver, lounge,
-## restaurant, boutiques) viendront avec les lots B et C : leurs baies sont fermées.
+## restaurant, boutiques) : le jardin et le lounge (lot B) s'ouvrent, ceux du lot C restent fermés.
 
 const Y := 6.0
 const H := 7.0
@@ -39,9 +39,11 @@ static func construire(K) -> void:
 	K.mur(-18, -29.9, 18, -29.9, H, 0, 1, [], "pierre_haute", 1.2, true, Y)
 	K.mur(-18, 11.9, 18, 11.9, H, 0, -1, [{"at": 18.0, "w": 6.0, "h": 4.0}], "pierre_haute", 1.2, true, Y)
 	# Les baies : arche à treillage du jardin d'hiver, travées du lounge, porte vitrée du restaurant, boutiques.
-	_ferme(K, -18.0, -19.0, 6.0, 4.2, -1.0)
+	# Le jardin d'hiver et le lounge (lot B) s'ouvrent à l'ouest ; à l'est, le restaurant et les boutiques
+	# (lot C) attendent derrière leur rideau.
+	K.seuil(-18, -22, -18, -16, Y)
 	K.texte("JARDIN D'HIVER", 2.6, 0.32, -17.76, Y + 4.75, -19, PI / 2.0)
-	_ferme(K, -18.0, -1.5, 15.0, 5.0, -1.0)
+	K.seuil(-18, -9, -18, 6, Y)
 	for z in [-4.0, 1.0]:
 		K.colonne(-18, z, 0.5, 5.0, false, true, Y)
 	K.texte("LOUNGE", 2.6, 0.5, -17.76, Y + 5.6, -1.5, PI / 2.0, "neon")

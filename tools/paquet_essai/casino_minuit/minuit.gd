@@ -1,12 +1,20 @@
 extends Node3D
 ## Casino Minuit, sur le Strip de Las Vegas : une commune « ailleurs » (socle 1.5), rejointe en avion
-## depuis Poitiers-Biard. Portage en GDScript du lot A du moteur web : la rotonde d'entrée, l'atrium,
-## le grand escalier et la galerie de la mezzanine, bâtis par le kit (kit.gd) zone par zone.
+## depuis Poitiers-Biard. Portage en GDScript des lots A et B du moteur web, bâtis par le kit (kit.gd) zone
+## par zone : la rotonde d'entrée, l'atrium, le grand escalier et la galerie de la mezzanine (lot A) ;
+## l'ouest (lot B) : le lobby de l'hôtel, le salon, les machines, le poker, les hautes limites, et à la
+## mezzanine le lounge et le jardin d'hiver.
 ## Comme toute commune, la scène expose `player` et `camera` : le jeu y ajoute la bascule de vue
 ## (Tab), les commandes tactiles et la carte. On entre à pied, par la porte-tambour de la rotonde.
 
 const BASE := "res://communes/casino_minuit/"
-const ZONES := ["rotonde", "atrium", "escalier", "galerie"]
+const ZONES := ["rotonde", "atrium", "escalier", "galerie",
+	"lobby", "salon", "machines", "poker", "hautes_limites", "wc_ouest", "lounge", "jardin", "wc_mezzanine"]
+## Le change : un jeton du Minuit vaut un crédit de Smarves. C'est un premier taux, que réglera plus tard
+## une doctrine économique commune aux villes ; la caisse viendra avec les tables (lot C).
+const TAUX_JETONS := 1.0
+## Le salon des hautes limites : son cordon s'ouvre au seuil de son lieu.
+const HAUTES_LIMITES := "hautes_limites"
 ## Les crans de la caméra de dessus, au plus près : sous les plafonds, on ne recule pas loin.
 const CRANS := [[4.0, -40.0, 50.0], [7.0, -55.0, 50.0], [11.0, -70.0, 50.0]]
 ## L'arrivée, juste derrière la porte-tambour, face au nord et à la fontaine de la Fortune.
@@ -29,6 +37,7 @@ func _ready() -> void:
 	K = load(BASE + "kit.gd").new(self)
 	for z in ZONES:
 		load(BASE + "zones/%s.gd" % z).construire(K)
+	_cordon()
 	load(BASE + "zones/figurants.gd").peupler(self)
 	_joueur()
 	_interface()
@@ -114,19 +123,42 @@ func _interagir(cible: Node) -> void:
 		# Sortir sur le Strip, c'est repartir : la carte montre Las Vegas et le vol du retour.
 		"sortie": Carte.ouvrir()
 		"stade": _stade()
+		"change": _dire("Au change, un jeton du Minuit vaut %s crédit. La caisse ouvrira avec les tables." % str(TAUX_JETONS).trim_suffix(".0"))
+		"hautes_limites": _dire("Le salon des hautes limites ouvre à %s crédits gagnés au jeu." % Game.fmt(_seuil(HAUTES_LIMITES)))
+
+
+## Le seuil d'un lieu de la commune (le total gagné au jeu qui l'ouvre).
+func _seuil(id: String) -> int:
+	var c: Commune = Communes.commune("casino_minuit")
+	for l in (c.lieux() if c else []):
+		if l.id == id:
+			return int(l.seuil)
+	return 0
 
 
 ## Le stade de la Fortune : la porte s'ouvre au seuil de son lieu (le total gagné au jeu), comme partout.
 func _stade() -> void:
-	var seuil := 0
-	var c: Commune = Communes.commune("casino_minuit")
-	for l in (c.lieux() if c else []):
-		if l.id == STADE:
-			seuil = int(l.seuil)
+	var seuil := _seuil(STADE)
 	if Game.won < seuil:
 		_dire("Le stade de la Fortune ouvre à %s crédits gagnés au jeu." % Game.fmt(seuil))
 		return
 	Football.ouvrir_stade("casino_minuit")
+
+
+## Le cordon de velours du seuil des hautes limites, au nord de l'atrium : tendu tant que le joueur n'a pas
+## gagné le seuil du lieu ; au-delà, les poteaux sont rangés contre le mur et le salon est ouvert.
+func _cordon() -> void:
+	K.zone_debut("CordonHL")
+	var ouvert := Game.won >= _seuil(HAUTES_LIMITES)
+	for x in ([-17.6, -17.25] if ouvert else [-17.35, -14.65]):
+		K.cyl("or", 0.17, 0.2, 0.04, x, 0.02, -11.3, 12)
+		K.cyl("or", 0.025, 0.025, 1.0, x, 0.52, -11.3, 8)
+		K.sph("or", 0.06, x, 1.05, -11.3)
+	if not ouvert:
+		K.beam("coussin", Vector3(-17.35, 0.9, -11.3), Vector3(-14.65, 0.9, -11.3), 0.05, 0.05)
+		K.obstacle(-17.5, -14.5, -11.5, -11.1)
+		K.interaction(HAUTES_LIMITES, "Le salon des hautes limites", -16, 1.0, -11.0, Vector3(3.0, 2.0, 0.8))
+	K.zone_fin()
 
 
 func _dire(t: String) -> void:

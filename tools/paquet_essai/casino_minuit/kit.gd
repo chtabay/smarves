@@ -26,6 +26,8 @@ var _mats := {}
 var _meshes := {}
 var _indexees := {}
 var _anim: Array = []
+## Les places que les zones laissent aux figurants (sièges, postes, comptoirs), par nom, en coordonnées du casino.
+var places := {}
 
 
 func _init(r: Node3D) -> void:
@@ -95,6 +97,12 @@ func mat(nom: String) -> Material:
 	if _mats.has(nom):
 		return _mats[nom]
 	var m: Material
+	# « lueur#RRGGBB » : une matière qui luit de cette couleur, vue des deux côtés (fleurs de verre, carpes).
+	if nom.begins_with("lueur#"):
+		var l := _lueur(Color(nom.substr(5)), 1.4)
+		l.cull_mode = BaseMaterial3D.CULL_DISABLED
+		_mats[nom] = l
+		return l
 	match nom:
 		"pierre": m = _marbre(Color("#CBBCA2"), Color("#B3A386"), 0.75, 0.3)
 		"pierre_haute": m = _marbre(Color("#8E8371"), Color("#7C715F"), 0.9, 0.3)
@@ -137,6 +145,55 @@ func mat(nom: String) -> Material:
 		"strip": m = _shader("strip")
 		"coupole": m = _shader("coupole")
 		"rosace": m = _shader("rosace")
+		# Le lot B (js/zones/b-0-commun.js) : ses étoffes, ses cuirs, son jardin, ses néons.
+		"bois_clair": m = _std(Color("#8A5A32"), 0.45, 0.05)
+		"velours": m = _std(Color("#5A0F1C"), 0.9, 0.0)
+		"capiton_rouge": m = _std(Color("#7A0E18"), 0.7, 0.0)
+		"moquette_b": m = _moquette(Color("#141A3A"), Color("#3A2A5E"))
+		"moquette_c": m = _moquette(Color("#1A1430"), Color("#6A5A2A"))
+		"moquette_d": m = _moquette(Color("#3A0C14"), Color("#B8893A"))
+		"moquette_e": m = _moquette(Color("#170A20"), Color("#7A2A50"))
+		"mosaique": m = _marbre(Color("#C8B38A"), Color("#7E2A22"), 0.5, 0.25)
+		"dallage": m = _marbre(Color("#C4B08C"), Color("#8E7C5E"), 0.6, 0.4)
+		"feutre_hl": m = _std(Color("#6E1423"), 0.95, 0.0)
+		"feutre_bleu": m = _std(Color("#1C2C6A"), 0.96, 0.0)
+		"housse": m = _std(Color("#3C4560"), 0.92, 0.0)
+		"cuir": m = _std(Color("#6A3A1F"), 0.5, 0.0)
+		"cuir_noir": m = _std(Color("#1C1618"), 0.42, 0.0)
+		"cuir_vert": m = _std(Color("#1F4A38"), 0.5, 0.0)
+		"velours_prune": m = _std(Color("#5A1E3C"), 0.9, 0.0)
+		"bleu_nuit": m = _std(Color("#1A2452"), 0.85, 0.0)
+		"vert_jardin": m = _std(Color("#1D4A30"), 0.9, 0.0)
+		"feuille", "feuille_sombre":
+			var f := _std(Color("#2F7A48") if nom == "feuille" else Color("#1D5232"), 0.7, 0.0)
+			f.cull_mode = BaseMaterial3D.CULL_DISABLED
+			f.emission_enabled = true
+			f.emission = Color("#0A2412")
+			m = f
+		"lotus": m = _lueur(Color("#FF8FB3"), 0.6)
+		"terre": m = _std(Color("#B5673C"), 0.8, 0.0)
+		"tronc": m = _std(Color("#5A4630"), 0.9, 0.0)
+		"porcelaine": m = _std(Color("#F3EAD7"), 0.22, 0.0)
+		"miroir": m = _std(Color("#D4DCDF"), 0.03, 1.0)
+		"faience": m = _std(Color("#EFE4CC"), 0.35, 0.0)
+		"ciel_nuit": m = _shader("ciel")
+		"treillis": m = _shader("treillis")
+		"flamme":
+			var f := StandardMaterial3D.new()
+			f.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			f.albedo_color = Color(1.0, 0.55, 0.15, 0.85)
+			f.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			f.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+			f.cull_mode = BaseMaterial3D.CULL_DISABLED
+			m = f
+		"neon_rose": m = _lueur(Color("#D2477E"), 3.0)
+		"neon_cyan": m = _lueur(Color("#2EAAB2"), 3.0)
+		"neon_ambre": m = _lueur(Color("#DDA03E"), 3.0)
+		"neon_rouge": m = _lueur(Color("#D23444"), 3.0)
+		"neon_vert": m = _lueur(Color("#3ECF84"), 3.0)
+		"ecran": m = _lueur(Color("#3A6AB8"), 1.6)
+		"ecran_rose": m = _lueur(Color("#B83A78"), 1.6)
+		"ecran_or": m = _lueur(Color("#C89A3A"), 1.6)
 		_:
 			push_error("Casino Minuit : matériau inconnu « %s »" % nom)
 			m = _std(Color.MAGENTA, 1.0, 0.0)
@@ -158,6 +215,15 @@ func _lueur(c: Color, energie: float) -> StandardMaterial3D:
 	m.emission = c
 	m.emission_energy_multiplier = energie
 	return m
+
+
+func _moquette(fond: Color, motif: Color) -> ShaderMaterial:
+	var sm := ShaderMaterial.new()
+	sm.shader = load("res://shaders/carpet.gdshader")
+	sm.set_shader_parameter("base_col", fond)
+	sm.set_shader_parameter("motif_col", motif)
+	sm.set_shader_parameter("scale", 1.0)
+	return sm
 
 
 func _marbre(fond: Color, veine: Color, poli: float, echelle := 0.6) -> ShaderMaterial:

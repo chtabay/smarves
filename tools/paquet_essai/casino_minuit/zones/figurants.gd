@@ -3,7 +3,8 @@ extends RefCounted
 ## tables fermées, vigiles aux portes, une hôtesse), des clients au bar, aux mange-debout, autour de la
 ## fontaine, accoudés à la galerie, et des promeneurs qui font le tour du casino par le grand escalier.
 ## Tout est posé ici, en coordonnées du lot A (voir les zones) ; le jeu web les pilotait par des besoins,
-## ici ils tiennent une place ou suivent un circuit.
+## ici ils tiennent une place ou suivent un circuit. Ceux du lot B (l'ouest) sont posés aux places que
+## leurs zones ont notées dans K.places.
 
 const PERSONNAGES := "res://communes/casino_minuit/personnages.gd"
 
@@ -83,7 +84,105 @@ static func peupler(racine: Node3D) -> Node3D:
 		n.add_child(c)
 		var circuit: Array = TOUR if k % 2 == 0 else retour
 		c.suivre(circuit, k * 3, 1.05 + 0.08 * (k % 4), 1.5 if k % 3 == 0 else 0.0)
+	var K = racine.get("K")
+	if K != null:
+		_lot_b(n, K.places, g)
 	return n
+
+
+## Les figurants du lot B, posés aux places que les zones ont notées (K.places, en coordonnées du monde) :
+## croupiers aux tables ouvertes, joueurs aux machines et aux tables, le barman et ses clients au lounge,
+## le pianiste et son public, des promeneurs au jardin d'hiver, le personnel du lobby et du change.
+static func _lot_b(n: Node3D, pl: Dictionary, g: int) -> void:
+	var P = load(PERSONNAGES)
+	# Le poker : un croupier par table ouverte, cinq joueurs sur huit.
+	for t in pl.get("poker", []):
+		g += 1
+		_tenir(n, "croupier", g, t.croupier, "idle")
+		for i in t.sieges.size():
+			if (i + g) % 8 < 5:
+				g += 1
+				_asseoir(n, g, t.sieges[i], "sit_talk" if g % 4 == 0 else "sit")
+	# Les hautes limites : blackjack, baccara, roulette, chacun son croupier et quelques joueurs.
+	var hl: Array = [pl.get("hl_bj"), pl.get("hl_roulette")]
+	hl.append_array(pl.get("hl_baccara", []))
+	for t in hl:
+		if t == null:
+			continue
+		g += 1
+		_tenir(n, "croupier", g, t.croupier, "arms" if g % 3 == 0 else "idle")
+		for i in t.sieges.size():
+			if (i + g) % 3 != 0:
+				g += 1
+				_asseoir(n, g, t.sieges[i], "sit")
+	# Les machines : un joueur sur quatre, quelques-uns sur les bancs ; la caissière au change.
+	var machines: Array = pl.get("machines", [])
+	for i in machines.size():
+		if (i * 7) % 4 == 1:
+			g += 1
+			_asseoir(n, g, machines[i], "sit")
+	for p in pl.get("machines_change", []):
+		g += 1
+		_tenir(n, "hotesse", g, p, "idle")
+	for p in pl.get("poker_pupitre", []):
+		g += 1
+		_tenir(n, "hotesse", g, p, "idle")
+	# Le lobby : les réceptionnistes derrière leur comptoir, le concierge, des clients dans les salons.
+	for p in pl.get("lobby_reception", []) + pl.get("lobby_concierge", []):
+		g += 1
+		_tenir(n, "hotesse" if g % 2 else "serveur", g, p, "idle")
+	# Les salons (lobby, salon, hautes limites, lounge, jardin) : une place sur trois occupée.
+	for cle in ["lobby_salons", "salon", "hl_salons", "lounge_salons", "jardin_salons", "machines_bancs", "poker_bancs", "jardin_bancs"]:
+		var places: Array = pl.get(cle, [])
+		for i in places.size():
+			if (i + cle.length()) % 3 == 0:
+				g += 1
+				_asseoir(n, g, places[i], ["sit", "sit_talk", "sit"][g % 3])
+	# Le lounge : le barman va et vient derrière le bar, des clients aux tabourets, le pianiste, le public.
+	var bar: Dictionary = pl.get("lounge_bar", {})
+	if bar.has("barman"):
+		g += 1
+		var b = _poser(n, "barman", g, bar.barman[0], "interact")
+		b.suivre(bar.barman, 0, 0.6, 5.0, "interact")
+		var tabourets: Array = bar.tabourets
+		for i in tabourets.size():
+			if i % 2 == 0:
+				g += 1
+				_asseoir(n, g, tabourets[i], "sit_talk" if g % 3 == 0 else "sit")
+	for p in pl.get("lounge_piano", []):
+		g += 1
+		_asseoir(n, g, p, "sit", "barman")
+	var public: Array = pl.get("lounge_jazz", [])
+	for i in public.size():
+		g += 1
+		_tenir(n, "client", g, public[i], ["idle", "clap", "drink"][i % 3])
+	# Un serveur fait la navette entre le bar du lounge et ses salons.
+	if bar.has("barman"):
+		g += 1
+		var s = P.figurant("serveur", g)
+		n.add_child(s)
+		s.suivre([Vector3(-34.2, 6, -3), Vector3(-26.6, 6, -5.1), Vector3(-26.6, 6, 5.6), Vector3(-34.2, 6, 4)], 0, 0.9, 2.0)
+	# Le jardin d'hiver : des promeneurs font le tour du bassin, à leur pas.
+	var tour: Array = pl.get("jardin_tour", [])
+	if not tour.is_empty():
+		for k in 4:
+			g += 1
+			var c = P.figurant("client", g)
+			n.add_child(c)
+			c.suivre(tour, k * 3, 0.8 + 0.1 * (k % 3), 2.5 if k % 2 == 0 else 0.0)
+
+
+## Un figurant debout à sa place [position, orientation].
+static func _tenir(n: Node3D, role: String, graine: int, place: Array, geste: String):
+	var f = _poser(n, role, graine, place[0], geste)
+	f.rotation.y = place[1]
+	return f
+
+
+## Un figurant assis à sa place [position du siège, orientation] : le bassin un peu sous l'assise.
+static func _asseoir(n: Node3D, graine: int, place: Array, geste: String, role := "client"):
+	var p: Vector3 = place[0]
+	return _tenir(n, role, graine, [p - Vector3(0, 0.43, 0), place[1]], geste)
 
 
 static func _poser(n: Node3D, role: String, graine: int, at: Vector3, geste: String):
