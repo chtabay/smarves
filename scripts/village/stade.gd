@@ -71,11 +71,23 @@ var _terrain := {}
 var _club := ""
 
 
-## Ouvre le stade d'une commune : la scène du socle, habillée de son terrain. La sortie ramène à sa scène.
+## Ouvre le stade d'une commune : la scène du socle, habillée de son terrain, ou la scène du stade que la
+## commune a bâtie (socle 1.8, champ « scene » du terrain : son script hérite de celui-ci). La sortie
+## ramène à sa scène.
 static func ouvrir(id: String) -> void:
 	prochaine_commune = id
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	(Engine.get_main_loop() as SceneTree).change_scene_to_file("res://scenes/stade.tscn")
+	(Engine.get_main_loop() as SceneTree).change_scene_to_file(scene_de(id))
+
+
+## La scène du stade d'une commune : celle de son terrain (champ « scene ») si elle existe, sinon celle du socle.
+static func scene_de(id: String) -> String:
+	for e in Registre.de_commune(id):
+		if e.type == "terrain_foot":
+			var sc := str(e.get("champs", {}).get("scene", ""))
+			if sc != "" and ResourceLoader.exists(sc):
+				return sc
+	return "res://scenes/stade.tscn"
 
 
 func _ready() -> void:

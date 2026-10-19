@@ -325,8 +325,8 @@ static func _voiturier(K, E) -> void:
 	E.enseigne(K, "VOITURIER", "#FFC24A", 1.6, 0.3, -9.6, 0.8, 34.21, 0, "bloc")
 	E.enseigne(K, "TAXI · AÉROPORT", "#FFE2B4", 1.6, 0.18, -9.6, 0.45, 34.21, 0, "bloc")
 	K.obstacle(-10.2, -9.0, 33.6, 34.2, 0.0, 1.2)
-	# Repartir : le voiturier appelle le taxi de l'aéroport (la carte et le vol du retour).
-	K.interaction("sortie", "Le voiturier : un taxi pour l'aéroport", -9.6, 1.1, 34.6, Vector3(2.4, 2.2, 1.6))
+	# Repartir : le voiturier appelle un taxi, pour l'aéroport (la carte et le vol du retour) ou le stade de la Fortune.
+	K.interaction("sortie", "Le voiturier : un taxi pour l'aéroport ou le stade", -9.6, 1.1, 34.6, Vector3(2.4, 2.2, 1.6))
 	K.places["e_voiturier"] = [[Vector3(-9.6, 0, 33.25), PI], [Vector3(-3.0, 0, 38.7), -PI / 2.0]]
 	K.places["e_portiers"] = [[Vector3(-3.9, 0, 32.6), PI], [Vector3(3.9, 0, 32.6), PI]]
 	K.places["e_cochere"] = [[Vector3(9.2, 0, 34.4), -PI / 2.0], [Vector3(10.3, 0, 34.4), PI / 2.0], [Vector3(3.2, 0, 34.6), -PI / 2.0], [Vector3(-2.6, 0, 35.2), PI / 2.0]]

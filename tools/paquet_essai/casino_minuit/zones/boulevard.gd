@@ -243,9 +243,9 @@ static func _abri(K, E, x: float, z: float, f: float, tag: String) -> void:
 	K.places[cle] = sieges
 	K.places[cle + "_attente"] = attente
 	if tag == "taxi":
-		# La station de taxis : on y repart à l'aéroport, comme au pupitre du voiturier.
+		# La station de taxis : on y part pour l'aéroport ou le stade, comme au pupitre du voiturier.
 		E.enseigne(K, "AÉROPORT · McCARRAN", "#FFE2B4", 3.4, 0.3, x, 2.38, z + s * 1.02, PI, "bloc")
-		var a: Area3D = K.interaction("taxi_aeroport", "Prendre un taxi pour l'aéroport", x - 1.0, 1.1, z + s * 1.3, Vector3(6.0, 2.2, 1.6))
+		var a: Area3D = K.interaction("taxi_aeroport", "Prendre un taxi : l'aéroport ou le stade", x - 1.0, 1.1, z + s * 1.3, Vector3(6.0, 2.2, 1.6))
 		a.set_meta("interact", "sortie")
 
 
