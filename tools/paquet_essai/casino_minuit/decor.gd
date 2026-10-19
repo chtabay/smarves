@@ -11,7 +11,8 @@ const DECOR := BASE + "decor/"
 const SOUS := {"R-ESCALIER-PALIER": "R-ESCALIER", "ESC-STAFF-B": "ESC-STAFF", "ESC-STAFF-H": "ESC-STAFF",
 	"M-ESC-STAFF": "ESC-STAFF", "F-SCENE": "F-CONCERT", "F-RING": "F-ARENE-SALLE"}
 ## Ce que le portage dessine lui-même et que le décor n'apporte pas : ses jets d'eau en arc (lot « jet »),
-## et, hors des lots, les matières de ses jets, halos, ciel, voitures, foules et faisceaux.
+## et, hors des lots, les matières de ses jets, halos, ciel, voitures, foules et faisceaux, et ses feux du
+## boulevard (les lentilles de l'original sont des lueurs, que l'export laisse de côté).
 const GARDE_LOTS := ["lot_jet"]
 const GARDE_SHADERS := ["jet.gdshader", "halo.gdshader", "nuit.gdshader", "vehicule.gdshader", "foule.gdshader", "faisceau.gdshader"]
 
@@ -26,6 +27,7 @@ var _objets := {}
 var _gyro: BaseMaterial3D
 var _roue := {"ang": 0.0, "vel": 0.0, "wait": 4.0}
 var _lot := -1
+var _ecrans
 
 
 func _init(s: Node3D, kit) -> void:
@@ -56,6 +58,9 @@ func charger() -> void:
 	for sous in refaits:
 		_retirer_refaits(sous)
 	K.chaque_image(animer)
+	# Les écrans que l'original redessine (jackpot, tournois du poker, paris) : ecrans.gd.
+	_ecrans = load(BASE + "ecrans.gd").new(scene, K)
+	_ecrans.charger()
 
 
 ## Les zones de l'original (rendu.json), celles dont le décor est exporté.
@@ -98,7 +103,8 @@ func _matieres(d: Node) -> void:
 ## Les maillages refaits par la zone du portage cèdent la place au décor ; ses textes peints aussi.
 func _retirer_refaits(sous: Node) -> void:
 	for c in sous.find_children("*", "GeometryInstance3D", true, false):
-		if str(c.get_path()).contains("/Decor_") or str(c.name) == "Halos" or str(c.name) in GARDE_LOTS:
+		if str(c.get_path()).contains("/Decor_") or str(c.name) == "Halos" or str(c.name) in GARDE_LOTS \
+				or str(c.name).begins_with("feux_"):
 			continue
 		if c is Label3D:
 			c.visible = false

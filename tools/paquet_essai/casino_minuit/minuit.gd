@@ -21,8 +21,8 @@ const ZONES := ["rotonde", "atrium", "escalier", "galerie",
 	"entretien", "vestiaire", "cuisine", "quai",
 	"strip", "facade", "fontaines", "boulevard", "enface", "arene", "concert"]
 ## Le change : un jeton du Minuit vaut un crédit de Smarves. C'est un premier taux, que réglera plus tard
-## une doctrine économique commune aux villes. La caisse l'affiche ; rien ne s'y échange tant que les tables
-## ne sont pas jouables.
+## une doctrine économique commune aux villes. La caisse l'affiche ; aux tables (tables.gd), on mise ses
+## crédits à ce taux.
 const TAUX_JETONS := 1.0
 ## Le salon des hautes limites : son cordon s'ouvre au seuil de son lieu.
 const HAUTES_LIMITES := "hautes_limites"
@@ -62,6 +62,7 @@ var camera: Camera3D
 var K
 var _rendu
 var _decor_
+var _tables
 var _t := 0.0
 ## Les groupes de nœuds que la vue montre ou cache selon où l'on est, et le dernier état appliqué.
 var _groupes := {}
@@ -84,6 +85,8 @@ func _ready() -> void:
 	_arene_porte()
 	_concert_portes()
 	_decor()
+	_tables = load(BASE + "tables.gd").new(self, K)
+	_tables.poser()
 	load(BASE + "zones/figurants.gd").peupler(self)
 	_eclairer()
 	_joueur()
@@ -173,10 +176,10 @@ func _interagir(cible: Node) -> void:
 		"sortie": Carte.ouvrir()
 		"stade": _stade()
 		"change": _dire("Au change, un jeton du Minuit vaut %s crédit. La caisse est à l'est, derrière la fosse aux tables." % _taux())
-		"caisse": _dire("À la caisse, 1 jeton = %s crédit de Smarves. Rien ne s'échange encore : les tables ne sont pas jouables." % _taux())
+		"caisse": _dire("À la caisse, 1 jeton = %s crédit de Smarves : aux tables et aux machines, on mise ses crédits." % _taux())
 		"hautes_limites": _dire("Le salon des hautes limites ouvre à %s crédits gagnés au jeu." % Game.fmt(_seuil(HAUTES_LIMITES)))
 		"club_minuit": _club()
-		"distributeur": _dire("Le distributeur affiche votre solde : %s crédits. Les retraits viendront avec les tables." % Game.fmt(Game.credits))
+		"distributeur": _dire("Le distributeur affiche votre solde : %s crédits." % Game.fmt(Game.credits))
 		"lucullus": _lieu(LUCULLUS, "Le Lucullus reçoit à dîner à partir de %s crédits gagnés au jeu.", "Le maître d'hôtel vous attend : la carte du Lucullus viendra plus tard.")
 		"boutiques": _lieu(BOUTIQUES, "Les boutiques de luxe reçoivent à partir de %s crédits gagnés au jeu.", "Les vitrines vous sont ouvertes ; les achats viendront plus tard.")
 		"theatre": _dire("Le Minuit Showroom fait relâche ce soir : la saison du théâtre viendra plus tard.")
@@ -186,7 +189,8 @@ func _interagir(cible: Node) -> void:
 		"cloche": _cloche(cible)
 		"coulisses": _lieu(COULISSES, "Les coulisses sont réservées au personnel : M. Vasseur, le chef de la sécurité, vous les ouvrira à %s crédits gagnés au jeu.", "M. Vasseur vous a fait badger : les coulisses vous sont ouvertes.")
 		"coffre": _dire("La porte du coffre ne s'ouvre qu'à deux, devant les caméras : elle reste close.")
-		"paris": _dire("Les paris suivent les matchs du dimanche, comme à Smarves. Les guichets ouvriront avec les tables.")
+		"paris": _dire("Les paris suivent les matchs du dimanche, comme à Smarves. Les guichets ouvriront plus tard.")
+		"table": _tables.ouvrir(cible)
 
 
 ## Le pupitre des fontaines : le prochain spectacle, qu'on peut lancer tout de suite.

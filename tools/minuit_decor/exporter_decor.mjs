@@ -8,9 +8,11 @@ const require = createRequire(import.meta.url);
 let pw; try { pw = require('playwright'); } catch (e) { pw = require('/opt/node-tools/node_modules/playwright'); }
 const { chromium } = pw;
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const SRC = '/mnt/project-files/casino-minuit/source', OUT = process.argv[2], ZONES = (process.argv[3]||'').split(','), PORT = 8766, VENDOR = path.join(HERE, 'vendor');
+const SRC = '/mnt/project-files/casino-minuit/source', OUT = process.argv[2], ZONES = (process.argv[3]||'').split(','), PORT = 8766, VENDOR = process.env.MINUIT_VENDOR || path.join(HERE, 'vendor');
 const MIME = { '.js': 'application/javascript', '.css': 'text/css', '.woff2': 'font/woff2' };
-const vendorFile = f => ({ status: 200, contentType: MIME[path.extname(f)] || 'application/octet-stream', body: fs.readFileSync(path.join(VENDOR, f)) });
+// Les polices sont demandées depuis la feuille de fonts.googleapis.com, donc d'une autre origine : sans cet
+// en-tête, le navigateur les refuse et dessine les textes avec des polices de remplacement.
+const vendorFile = f => ({ status: 200, contentType: MIME[path.extname(f)] || 'application/octet-stream', headers: { 'Access-Control-Allow-Origin': '*' }, body: fs.readFileSync(path.join(VENDOR, f)) });
 function findChromium() { const base = '/opt/pw-browsers'; for (const d of fs.readdirSync(base).filter(d => /^chromium-\d+$/.test(d)).sort().reverse()) { const p = path.join(base, d, 'chrome-linux', 'chrome'); if (fs.existsSync(p)) return p; } }
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
@@ -24,8 +26,9 @@ function findChromium() { const base = '/opt/pw-browsers'; for (const d of fs.re
     if (u.includes('loaders/GLTFLoader.js')) return route.fulfill(vendorFile('GLTFLoader.js'));
     if (u.includes('utils/SkeletonUtils.js')) return route.fulfill(vendorFile('SkeletonUtils.js'));
     if (u.includes('cannon.js/0.6.2/cannon.min.js')) return route.fulfill(vendorFile('cannon.min.js'));
-    if (u.startsWith('https://fonts.googleapis.com/')) return route.fulfill(vendorFile('fonts.css'));
+    // Les polices d'abord : leurs adresses passent aussi par fonts.googleapis.com, qui sert la feuille de style.
     const v = /\/__vendor\/(fonts\/f\d+\.woff2)$/.exec(u); if (v) return route.fulfill(vendorFile(v[1]));
+    if (u.startsWith('https://fonts.googleapis.com/')) return route.fulfill(vendorFile('fonts.css'));
     if (u.startsWith(`http://127.0.0.1:${PORT}/`)) return route.continue(); return route.abort(); });
   await page.addInitScript(() => { let s = 0x9e3779b9; Math.random = () => { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; return (s >>> 0) / 4294967296; }; });
   await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: 'load', timeout: 120000 });

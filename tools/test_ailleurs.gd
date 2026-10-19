@@ -132,6 +132,23 @@ func _init() -> void:
 		p.interact.emit(caisse)
 		await process_frame
 		check(str(s.get("_message").text).contains("1 jeton = 1 crédit"), "la caisse annonce le taux : %s" % s.get("_message").text)
+	# Les tables de l'original sont jouables avec les jeux du socle ; celles sous housse restent fermées.
+	check(s.find_child("table_poker-2", true, false) == null, "la table de poker sous housse n'est pas jouable")
+	var bj: Node = s.find_child("table_bj-1", true, false)
+	check(bj != null and str(bj.get_meta("prompt", "")).contains("blackjack"), "la table de blackjack de la fosse invite à s'asseoir")
+	if bj != null:
+		p.interact.emit(bj)
+		await process_frame
+		var pn: Control = s.get("_tables").get("_panneau")
+		check(pn != null and p.frozen and str(pn.get_script().resource_path).ends_with("blackjack_panel.gd"),
+			"s'asseoir au blackjack ouvre le panneau du socle")
+		if pn != null:
+			var gagne_avant: int = root.get_node("Game").won
+			pn.played.emit(100, 250)
+			check(root.get_node("Game").won == gagne_avant + 250, "un gain à la table compte au total gagné")
+			pn.closed.emit()
+			await process_frame
+			check(not p.frozen and s.get("_tables").get("_panneau") == null, "se lever referme le jeu")
 
 	# Le lot D, les coulisses : ses salles sont bâties et peuplées ; sous le seuil du lieu, ses portes restent
 	# closes ; au seuil, de la fosse on passe au couloir de service, et l'escalier du personnel descend à l'épine.

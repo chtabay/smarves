@@ -1,11 +1,18 @@
 # Règle l'import Godot du décor (à lancer après un premier --import, puis réimporter) :
-# textures sans perte avec mipmaps ; .glb sans tangentes, sans LOD, sans maillage d'ombre.
+# textures sans perte avec mipmaps (les pièces des écrans sans) ; .glb sans tangentes, sans LOD, sans maillage d'ombre.
 import sys, glob, re
 decor = sys.argv[1]
 for f in glob.glob(decor + '/tex/*.png.import'):
     t = open(f).read()
     t = re.sub(r'^compress/mode=\d', 'compress/mode=0', t, flags=re.M)
     t = re.sub(r'^mipmaps/generate=\w+', 'mipmaps/generate=true', t, flags=re.M)
+    t = re.sub(r'^detect_3d/compress_to=\d', 'detect_3d/compress_to=0', t, flags=re.M)
+    open(f, 'w').write(t)
+# Les pièces des écrans (decor/ecrans/) sont relues en image et recomposées : sans perte, sans mipmaps.
+for f in glob.glob(decor + '/ecrans/*.png.import'):
+    t = open(f).read()
+    t = re.sub(r'^compress/mode=\d', 'compress/mode=0', t, flags=re.M)
+    t = re.sub(r'^mipmaps/generate=\w+', 'mipmaps/generate=false', t, flags=re.M)
     t = re.sub(r'^detect_3d/compress_to=\d', 'detect_3d/compress_to=0', t, flags=re.M)
     open(f, 'w').write(t)
 for f in glob.glob(decor + '/*.glb.import'):
