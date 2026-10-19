@@ -20,7 +20,8 @@
 		"rabelais": "res://scenes/rabelais.tscn",
 		"moulin": "res://scenes/moulin.tscn",
 		"stade": "res://scenes/stade.tscn",
-		"bourse": "res://scenes/bourse.tscn"
+		"bourse": "res://scenes/bourse.tscn",
+		"gymnase": "res://scenes/salle_basket.tscn"
 	},
 	"lots": {"source": "Village.lots", "script": "res://scripts/village/village.gd"},
 	"lieux": [
@@ -30,7 +31,8 @@
 		{"id": "rabelais", "nom": "La salle François-Rabelais", "jeu": "le grand loto", "seuil": 8000, "hote": "M. Gaudin", "accord": "e"},
 		{"id": "stade", "nom": "Le stade municipal", "jeu": "le match de l'Étoile", "seuil": 3000, "hote": "Le président Chauvin"},
 		{"id": "moulin", "nom": "Le Moulin des Dames", "jeu": "le blackjack de l'arrière-salle", "seuil": 120000, "hote": "Le meunier"},
-		{"id": "bourse", "nom": "La charge de Mme Vasseur", "jeu": "la bourse à levier", "seuil": 7000, "hote": "Mme Vasseur", "accord": "e"}
+		{"id": "bourse", "nom": "La charge de Mme Vasseur", "jeu": "la bourse à levier", "seuil": 7000, "hote": "Mme Vasseur", "accord": "e"},
+		{"id": "gymnase", "nom": "Le Clain Garden", "jeu": "le basket du samedi soir", "seuil": 10000, "hote": "M. Lacombe"}
 	],
 	"structures": [
 		{"type": "terrain_foot", "id": "stade", "nom": "Le stade municipal", "club": "L'Étoile de Smarves", "court": "ESM", "couleurs": ["#1b3c8c", "#f2c94c"], "stade": "le stade municipal de Smarves"},
