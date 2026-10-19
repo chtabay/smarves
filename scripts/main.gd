@@ -770,7 +770,9 @@ func _build_ground() -> void:
 	for k in OUTSKIRTS.AREAS:
 		centers.append(OUTSKIRTS.AREAS[k].center)
 	for c in centers:
-		_solid_box(Vector3(22.0, 0.4, 16.0), c + Vector3(0, -0.2, 0))
+		# Tout le bois du socle (22,6 × 16,6), pas seulement son sol pavé : les rues voisines commencent
+		# au bord du bois, et 30 cm de vide entre les deux suffisaient à passer sous la carte.
+		_solid_box(Vector3(22.6, 0.4, 16.6), c + Vector3(0, -0.2, 0))
 		# Les bords, percés là où une rue mène au socle voisin (scripts/village/village.gd).
 		VILLAGE.plinth_walls(self, c)
 
