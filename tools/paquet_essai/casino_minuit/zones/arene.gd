@@ -19,10 +19,6 @@ const CORDE := 3.05
 const HALL := {"x0": -18.0, "x1": 18.0, "z0": 90.0, "z1": 104.0, "h": 6.0, "porte": 6.0, "portails": [-12.0, 12.0], "pw": 3.6, "ph": 3.3}
 const SAL := {"x0": -25.0, "x1": 25.0, "z0": 104.0, "z1": 149.5, "h": 16.0}
 const ECRAN := {"y": 11.6, "w": 5.2, "h": 2.9}
-## Le combat : douze rounds de 3 min, une minute de repos ; la cloche fait passer de l'un à l'autre.
-const ROUNDS := 12
-const ROUND := 180.0
-const REPOS := 60.0
 
 
 static func construire(K) -> void:
@@ -181,8 +177,8 @@ static func _hall(K, E, F) -> void:
 		duos.append([Vector3(m[0] - 0.7, 0, m[1]), -PI / 2.0])
 		duos.append([Vector3(m[0] + 0.7, 0, m[1]), PI / 2.0])
 	K.places["f_hall_duos"] = duos
-	var affiches := [[-9.5, 2.9, 90.32, 0.0, 3.2, 4.2, "KANE\ncontre\nMORALES"], [9.5, 2.9, 90.32, 0.0, 3.2, 4.2, "CE SOIR\n12 ROUNDS\nTITRE MONDIAL"],
-		[-17.78, 2.6, 100.6, PI / 2.0, 2.2, 3.0, "MINUIT\nFIGHT\nNIGHT"], [17.78, 2.6, 93.4, -PI / 2.0, 2.2, 3.0, "POIDS\nMOYENS"]]
+	var affiches := [[-9.5, 2.9, 90.32, 0.0, 3.2, 4.2, "NUIT DES\nCHAMPIONS\nDÍAZ · BELL"], [9.5, 2.9, 90.32, 0.0, 3.2, 4.2, "NUIT DES\nCHAMPIONS\nDÍAZ · BELL"],
+		[-17.78, 2.6, 100.6, PI / 2.0, 2.2, 3.0, "SOUS-CARTE\nMORENO · KOVAC"], [17.78, 2.6, 93.4, -PI / 2.0, 2.2, 3.0, "REVANCHE\nAU PRINTEMPS"]]
 	for i in affiches.size():
 		var a: Array = affiches[i]
 		var sx := sin(a[3])
@@ -367,7 +363,7 @@ static func _bord_ring(K, E, F, cx: float, cz: float) -> void:
 	K.box("bois_laque", 0.34, 0.42, 0.06, bx, 0.97, bz + 0.12)
 	K.sph("or", 0.14, bx, 1.04, bz + 0.03, 0.8)
 	K.places["f_juges"] = juges
-	K.interaction("cloche", "La cloche du chronométreur", bx, 1.0, bz - 0.4, Vector3(1.4, 1.6, 1.0))
+	K.places["f_cloche"] = K.interaction("cloche", "Sonner le round 1", bx, 1.0, bz - 0.4, Vector3(1.4, 1.6, 1.0))
 	# La presse : longue table, ordinateurs (écrans lumineux).
 	table.call(6.7, 125.6, 0.6, 11.0, 0.0)
 	var pz := 120.6
@@ -442,7 +438,7 @@ static func _gradins(K, E, F, cx: float, cz: float) -> void:
 		K.box("noir_satin", r[3] + 0.2, 1.0, 0.3, r[0], r[4], r[1], r[2])
 		E.ecran(K, r[0] + sin(r[2]) * 0.17, r[4], r[1] + cos(r[2]) * 0.17, r[3], 0.7, r[2], E.LED_BLEU, r[0] * 0.1)
 	# Les bannières des champions suspendues.
-	var noms := ["KANE", "MORALES", "OKAFOR", "DUVAL", "IBARRA", "SATO"]
+	var noms := ["M. DUVAL\n2016", "R. SANTOS\n2018", "K. OKAFOR\n2019", "L. VARGA\n2021", "J. MENDES\n2023", "A. NOVAK\n2025"]
 	var bn := [[-24.6, 112.0, PI / 2.0], [-24.6, 122.0, PI / 2.0], [-24.6, 132.0, PI / 2.0], [24.6, 112.0, -PI / 2.0], [24.6, 122.0, -PI / 2.0], [24.6, 132.0, -PI / 2.0]]
 	for i in bn.size():
 		var b: Array = bn[i]
@@ -481,7 +477,7 @@ static func _ecran(K, E, F, y: float, cx: float, cz: float, Hs: float) -> void:
 	for a in [0.0, PI / 2.0, PI, -PI / 2.0]:
 		var d := sw / 2.0 + 0.06
 		E.ecran(K, cx + sin(a) * d, sy, cz + cos(a) * d, sw, sh, a, E.LED_BLEU, a)
-		var l: Label3D = K.texte("ROUND 1\n3:00", sw * 0.8, 0.8, cx + sin(a) * (d + 0.02), sy, cz + cos(a) * (d + 0.02), a, "neon", Color("#FFF6E2"))
+		var l: Label3D = K.texte("LE COMBAT VA COMMENCER\n0:30", sw * 0.8, 0.8, cx + sin(a) * (d + 0.02), sy, cz + cos(a) * (d + 0.02), a, "neon", Color("#FFF6E2"))
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		textes.append(l)
 	K.box("noir_satin", sw + 0.1, sh + 0.3, sw + 0.1, cx, sy, cz)
@@ -517,8 +513,10 @@ static func _ecran(K, E, F, y: float, cx: float, cz: float, Hs: float) -> void:
 				var dir := (cible - p).normalized()
 				pivot.basis = Basis(Quaternion(Vector3.DOWN, dir))
 				faisceaux.append(mi)
-	# Le combat : la cloche lance le round, puis le chrono le mène jusqu'au repos.
-	var etat := {"round": 1, "en_cours": true, "reste": ROUND}
+	# Le combat suit le pilote de l'arène (pilotes.gd) : l'écran montre son état, les projecteurs et le public
+	# s'allument au round, la salle s'enflamme à la cloche.
+	var pil = K.places.pilotes
+	var AR: Dictionary = pil.arene
 	var foules := []
 	for nom in ["foule_gradins", "foule_ring"]:
 		var f := K.zone.get_node_or_null(nom) as MultiMeshInstance3D
@@ -526,31 +524,32 @@ static func _ecran(K, E, F, y: float, cx: float, cz: float, Hs: float) -> void:
 			var m: ShaderMaterial = (f.material_override as ShaderMaterial).duplicate()
 			f.material_override = m
 			foules.append(m)
-	K.chaque_image(func(dt: float, _t: float) -> void:
-		etat.reste -= dt
-		if etat.reste <= 0.0:
-			_cloche(etat)
-		var r: float = maxf(0.0, etat.reste)
-		var txt := "%s\n%d:%02d" % ["ROUND %d" % etat.round if etat.en_cours else "REPOS", int(r) / 60, int(r) % 60]
-		if (textes[0] as Label3D).text != txt:
+	var cloche: Area3D = K.places.get("f_cloche")
+	var vu := {"cle": "", "cheer": 0.0, "bell": 0.0, "bellT": AR.bellT}
+	K.chaque_image(func(dt: float, t: float) -> void:
+		var cle := "%s|%d|%d" % [AR.state, AR.round, AR.rev]
+		if cle != vu.cle:
+			vu.cle = cle
+			var lbl: String = "ROUND %d / %d" % [AR.round, AR.rounds] if AR.state == "round" else ("REPOS · ROUND %d À SUIVRE" % (AR.round + 1) if AR.state == "repos" else ("FIN DU COMBAT · DÉCISION DES JUGES" if AR.state == "fin" else "LE COMBAT VA COMMENCER"))
+			var txt := "%s\n%s" % [lbl, pil.horloge()]
 			for l in textes:
 				(l as Label3D).text = txt
+				(l as Label3D).modulate = Color("#FF3348") if AR.state == "round" and AR.chrono < 10.5 else Color("#FFF6E2")
+			if cloche:
+				cloche.set_meta("prompt", pil.invite_cloche())
+		if AR.bellT != vu.bellT:
+			vu.bellT = AR.bellT
+			vu.cheer = 1.0
+			vu.bell = 1.0
+		vu.cheer = maxf(0.0, vu.cheer - dt * 0.25)
+		vu.bell = maxf(0.0, vu.bell - dt * 1.6)
+		var fight: bool = AR.state == "round"
 		for m in foules:
-			(m as ShaderMaterial).set_shader_parameter("saut", 0.04 if etat.en_cours else 0.0)
-			(m as ShaderMaterial).set_shader_parameter("tempo", 1.6 if etat.en_cours else 0.6)
-		for mi in faisceaux:
-			(mi as MeshInstance3D).visible = etat.en_cours)
-	var a := K.zone.find_child("cloche", false, false) as Area3D
-	if a:
-		a.set_meta("etat", etat)
-
-
-## Un coup de cloche : la fin du round (le repos), ou la reprise au round suivant.
-static func _cloche(etat: Dictionary) -> void:
-	if etat.en_cours:
-		etat.en_cours = false
-		etat.reste = REPOS
-	else:
-		etat.round = 1 if etat.round >= ROUNDS else etat.round + 1
-		etat.en_cours = true
-		etat.reste = ROUND
+			(m as ShaderMaterial).set_shader_parameter("saut", vu.cheer * 0.35 + (0.08 if fight and AR.chrono < 10 else 0.0))
+			(m as ShaderMaterial).set_shader_parameter("tempo", 1.9)
+			(m as ShaderMaterial).set_shader_parameter("balance", 0.25 + vu.cheer)
+		var pause: bool = AR.state == "repos" or AR.state == "fin"
+		var fl: float = (vu.bell - 0.7) * 3.0 if vu.bell > 0.7 else 0.0
+		for i in faisceaux.size():
+			var br := (0.85 + 0.08 * sin(t * 0.7 + i) if fight else (0.55 if pause else 0.3)) + fl
+			((faisceaux[i] as MeshInstance3D).material_override as ShaderMaterial).set_shader_parameter("gain", 0.16 * br))

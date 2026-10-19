@@ -63,6 +63,10 @@ var K
 var _rendu
 var _decor_
 var _tables
+## Les gens du casino (pnj/pnj.gd, le moteur des PNJ de l'original).
+var pnj
+## Les ascenseurs (ascenseurs.gd), que les PNJ prennent aussi.
+var _ascenseurs
 var _t := 0.0
 ## Les groupes de nœuds que la vue montre ou cache selon où l'on est, et le dernier état appliqué.
 var _groupes := {}
@@ -82,6 +86,7 @@ var _aide: Label
 func _ready() -> void:
 	_ambiance()
 	K = load(BASE + "kit.gd").new(self)
+	K.places["pilotes"] = load(BASE + "zones/pilotes.gd").new()
 	for z in ZONES:
 		load(BASE + "zones/%s.gd" % z).construire(K)
 	_cordon()
@@ -93,9 +98,9 @@ func _ready() -> void:
 	_decor()
 	_tables = load(BASE + "tables.gd").new(self, K)
 	_tables.poser()
-	load(BASE + "zones/figurants.gd").peupler(self)
 	_eclairer()
 	_joueur()
+	_peupler()
 	_decouper()
 	_interface()
 	# On entre à pied : la vue de dessus reste à un Tab.
@@ -105,6 +110,7 @@ func _ready() -> void:
 
 func _process(dt: float) -> void:
 	_t += dt
+	K.places.pilotes.avancer()
 	K.animer(dt, _t)
 	_rendu.chaque_image(dt, player.global_position, -player.global_basis.z)
 	_cadrer()
@@ -117,6 +123,40 @@ func _process(dt: float) -> void:
 	_aide.visible = _tables._panneau == null
 	var f = player.focus_target if player else null
 	_invite.text = str(f.get_meta("prompt", "")) + "  [E]" if f != null and f.has_meta("prompt") else ""
+	if _invite.text == "" and pnj != null:
+		_invite.text = pnj.invite()
+
+
+## Les PNJ de l'original : ils vivent dans tout le casino ; les lieux encore fermés au joueur restent au
+## personnel (les clients n'y vont pas).
+func _peupler() -> void:
+	var fermes: Array = []
+	for id in [HAUTES_LIMITES, LUCULLUS, BOUTIQUES, ARENE, CONCERT]:
+		if Game.won < _seuil(id):
+			fermes.append(id)
+	pnj = load(BASE + "pnj/pnj.gd").new()
+	if not pnj.preparer(self, fermes):
+		pnj.free()
+		pnj = null
+	else:
+		_ascenseurs = load(BASE + "ascenseurs.gd").new(self, K, pnj)
+		_ascenseurs.poser()
+		add_child(pnj)
+	load(BASE + "zones/figurants.gd").peupler(self, pnj == null)
+
+
+## Les cabines, portes et voyants, à chaque pas des ascenseurs (pnj.update_elevators).
+func ascenseurs_animer(_elevators: Dictionary) -> void:
+	if _ascenseurs != null:
+		_ascenseurs.animer()
+
+
+## Une zone est-elle montrée (les PNJ d'une zone cachée ne sont ni affichés ni animés) ?
+func zone_montree(id: String) -> bool:
+	var nd := get_node_or_null(NodePath(_rendu.noeud(id)))
+	if nd is Node3D:
+		return (nd as Node3D).visible
+	return player != null and player.global_position.z <= 30.5
 
 
 ## Le décor de l'original (decor.gd) : il remplace les maillages que les zones du portage ont refaits.
@@ -204,6 +244,7 @@ func _interagir(cible: Node) -> void:
 		"coffre": _dire("La porte du coffre ne s'ouvre qu'à deux, devant les caméras : elle reste close.")
 		"paris": _dire("Les paris suivent les matchs du dimanche, comme à Smarves. Les guichets ouvriront plus tard.")
 		"table": _tables.ouvrir(cible)
+		"ascenseur_appel", "ascenseur_panneau": _ascenseurs.utiliser(cible)
 		"salle_poker": _tables.ouvrir_salle()
 
 
@@ -217,13 +258,9 @@ func _fontaines(cible: Node) -> void:
 	_dire("Les jets se lèvent : le spectacle des fontaines commence.")
 
 
-## La cloche du chronométreur : elle clôt le round, ou relance le combat.
-func _cloche(cible: Node) -> void:
-	var etat: Dictionary = cible.get_meta("etat", {})
-	if etat.is_empty():
-		return
-	load(BASE + "zones/arene.gd")._cloche(etat)
-	_dire("Ding ! Round %d." % etat.round if etat.en_cours else "Ding ! Fin du round : une minute de repos.")
+## La cloche du chronométreur (arene-cloche : AR.bell('joueur')) : elle lance le round, le clôt, ou relance la soirée.
+func _cloche(_cible: Node) -> void:
+	K.places.pilotes.bell("joueur")
 
 
 ## La machine à sous demande à son hôte de payer la mise (tables.gd la fait jouer).

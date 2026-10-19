@@ -88,7 +88,10 @@ func _init() -> void:
 	var places: Dictionary = s.K.places
 	check(places.has("poker") and places.has("lounge_bar") and places.has("jardin_tour"), "elles notent les places de leurs figurants")
 	var figurants: Node = s.get_node_or_null("Figurants")
-	check(figurants != null and figurants.get_child_count() > 120, "le lot B a ses figurants (%d en tout)" % (figurants.get_child_count() if figurants else 0))
+	# Le dedans est habité par les PNJ de l'original (pnj/pnj.gd ; leur vie : tools/test_minuit_vie.gd).
+	var pnj = s.get("pnj")
+	var gens: Array = pnj.all if pnj != null else []
+	check(gens.size() > 90, "les PNJ de l'original peuplent le casino (%d)" % gens.size())
 	p.global_position = Vector3(-16, 6.05, -19)
 	p.rotation.y = 0.0
 	p.velocity = Vector3.ZERO
@@ -107,10 +110,10 @@ func _init() -> void:
 	check(manquantes.is_empty(), "les salles de l'est sont bâties %s" % str(manquantes))
 	check(places.has("pit_bj") and places.has("cage_caissiers") and places.has("resto_dineurs") and places.has("boutiques_tour"), "elles notent les places de leurs figurants")
 	var est := 0
-	for f in (figurants.get_children() if figurants else []):
-		if f is Node3D and f.position.x > 18.5:
+	for n in gens:
+		if n.x > 18.5 and n.z < 28.0:
 			est += 1
-	check(est > 80, "le lot C a ses figurants (%d à l'est)" % est)
+	check(est > 15, "on en voit à l'est (%d)" % est)
 	p.global_position = Vector3(15.0, 0.05, -1.5)
 	p.rotation.y = 0.0
 	p.velocity = Vector3.ZERO
@@ -236,10 +239,10 @@ func _init() -> void:
 	check(manquantes.is_empty(), "les coulisses sont bâties %s" % str(manquantes))
 	check(places.has("d_secu") and places.has("d_comptage") and places.has("d_cuisine") and places.has("d_quai") and places.has("d_couloir_ronde"), "elles notent les places de leurs figurants")
 	var coulisses := 0
-	for f in (figurants.get_children() if figurants else []):
-		if f is Node3D and (f.position.y < -4.0 or (f.position.y < 1.0 and (f.position.x > 36.0 or (f.position.x > 27.0 and f.position.z > 21.2)))):
+	for n in gens:
+		if n.kind == "staff" and pnj.is_staff_zone(n.x, n.z, n.level):
 			coulisses += 1
-	check(coulisses > 30, "le lot D a ses figurants (%d aux coulisses)" % coulisses)
+	check(coulisses > 8, "le personnel travaille aux coulisses (%d)" % coulisses)
 	var game: Node = root.get_node("Game")
 	var gagne: int = game.won
 	game.won = 0
@@ -363,10 +366,17 @@ func _init() -> void:
 	check(places.has("e_promenade_casino") and places.has("e_fontaines") and places.has("e_file_arene") and places.has("f_gradins") and places.has("f_musiciens"), "elles notent les places de leurs figurants")
 	figurants = s.get_node_or_null("Figurants")
 	var groupes := {}
-	for g in ["Dehors", "Arene", "Concert"]:
-		var n: Node = figurants.get_node_or_null(g) if figurants else null
-		groupes[g] = n.get_child_count() if n else 0
-	check(groupes.Dehors > 40 and groupes.Arene > 40 and groupes.Concert > 30, "dehors, à l'arène et au concert, des figurants %s" % str(groupes))
+	var vie = s.pnj.vie if s.get("pnj") != null else null
+	if vie != null:
+		# les PNJ de l'original (pnj/vie.gd) : passants du Strip, public et artistes de l'arène et du concert
+		for g in ["strip", "arene", "concert"]:
+			groupes[g] = vie.venues[g].extras.size() if vie.venues.has(g) else 0
+		check(groupes.strip >= 18 and groupes.arene > 40 and groupes.concert > 30, "dehors, à l'arène et au concert, des PNJ %s" % str(groupes))
+	else:
+		for g in ["Dehors", "Arene", "Concert"]:
+			var n: Node = figurants.get_node_or_null(g) if figurants else null
+			groupes[g] = n.get_child_count() if n else 0
+		check(groupes.Dehors > 40 and groupes.Arene > 40 and groupes.Concert > 30, "dehors, à l'arène et au concert, des figurants %s" % str(groupes))
 	p.global_position = Vector3(1.5, 0.05, 27.0)
 	p.rotation.y = 0.0
 	p.velocity = Vector3.ZERO
@@ -434,9 +444,13 @@ func _init() -> void:
 	var cloche: Node = s.find_child("cloche", true, false)
 	check(cloche != null, "la cloche du chronométreur est une interaction")
 	if cloche != null:
+		# comme dans l'original (AR.bell('joueur')) : la cloche lance le round, sans message
+		var AR: Dictionary = s.K.places.pilotes.arene
+		var bt: float = AR.bellT
+		var etat0: String = AR.state
 		p.interact.emit(cloche)
 		await process_frame
-		check(str(s.get("_message").text).begins_with("Ding"), "elle sonne : %s" % s.get("_message").text)
+		check(AR.bellT != bt and AR.state != etat0, "elle sonne : %s → %s (round %d)" % [etat0, AR.state, AR.round])
 	game.won = gagne
 
 	# Repartir : de dehors, le voiturier de la porte-cochère et la station de taxis ouvrent la carte de Las Vegas.

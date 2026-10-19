@@ -8,7 +8,7 @@ extends RefCounted
 ##  F-CONCERT-SAS  le sas d'entrée [14 ; 22] × [-38 ; -30] sous le balcon : les portes du foyer au sud (x = 16,05
 ##                 et 19,95), deux sorties latérales vers la salle.
 ## Les vantaux du foyer sont posés par la scène (minuit.gd) : clos tant que le lieu n'est pas ouvert, ouverts
-## en grand au-delà. Le show tourne seul : des morceaux à leur tempo, l'entracte entre deux.
+## en grand au-delà. Le show suit le pilote du concert (pilotes.gd : le programme des Lyres, l'entracte).
 
 const LOT_E := "res://communes/casino_minuit/zones/lot_e.gd"
 const LOT_F := "res://communes/casino_minuit/zones/lot_f.gd"
@@ -27,11 +27,6 @@ const LED := {"x0": 11.0, "x1": 33.0, "y0": 0.45, "y1": 7.7, "z": -69.25}
 const SCENE := Vector2(22, -61)
 const MUSICIENS := {"chant": [22.0, -59.5, PI], "guitare": [16.4, -60.6, PI + 0.2], "basse": [27.6, -60.6, PI - 0.2],
 	"batterie": [22.0, -65.6, PI], "claviers": [31.4, -63.4, PI - 0.7]}
-## Le programme du soir : titre, tempo (battements par minute), couleurs.
-const MORCEAUX := [["NUIT BLANCHE", 124.0, "#FF4D8D", "#3DE0E0"], ["LE STRIP", 132.0, "#FFB347", "#4D7BFF"],
-	["MINUIT PILE", 96.0, "#B04DFF", "#FF3348"], ["DERNIÈRE MAIN", 70.0, "#FFD9A8", "#4D7BFF"]]
-const DUREE := 150.0
-const ENTRACTE := 20.0
 
 
 static func construire(K) -> void:
@@ -158,7 +153,7 @@ static func _scene(K, E, F, sy: float, zf: float) -> void:
 	K.box("noir_satin", lw + 0.4, lh + 0.4, 0.3, 22, ly, LED.z - 0.17)
 	K.box("noir_satin", lw + 0.6, LED.y0, 0.6, 22, sy + LED.y0 / 2.0, LED.z - 0.1)
 	E.ecran(K, 22, ly, LED.z, lw, lh, 0, E.LED_ROSE, 0.0)
-	var titre: Label3D = K.texte(MORCEAUX[0][0], lw * 0.8, 1.3, 22, ly, LED.z + 0.04, 0, "neon", Color("#FFF6E2"))
+	var titre: Label3D = K.texte((K.places.pilotes.concert.song.titre as String).to_upper(), lw * 0.8, 1.3, 22, ly, LED.z + 0.04, 0, "neon", Color("#FFF6E2"))
 	K.places["f_concert_titre"] = titre
 	# Les instruments : la batterie sur son praticable, les amplis, les claviers, les pieds de micro.
 	var b: Array = MUSICIENS.batterie
@@ -243,25 +238,18 @@ static func _ponts(K, E, F, sy: float) -> void:
 	var salle: OmniLight3D = K.lumiere(22, 9, -46, Color("#6A5AFF"), 1.0, 26.0)
 	# Le show.
 	var titre: Label3D = K.places.get("f_concert_titre")
-	var etat := {"morceau": 0, "debut": 0.0}
-	K.places["f_concert_etat"] = etat
+	var CO: Dictionary = K.places.pilotes.concert
 	K.chaque_image(func(_dt: float, t: float) -> void:
-		var tau: float = t - etat.debut
-		if tau > DUREE + ENTRACTE:
-			etat.morceau = (etat.morceau + 1) % MORCEAUX.size()
-			etat.debut = t
-			tau = 0.0
-		var M: Array = MORCEAUX[etat.morceau]
-		var joue := tau < DUREE
-		var bpm: float = M[1]
-		var bp := tau * bpm / 60.0
-		var ph := bp - floorf(bp)
+		var joue: bool = CO.state == "morceau"
+		var bpm: float = CO.bpm
+		var bp: float = CO.beatPos
+		var ph: float = CO.phase
 		var pouls := pow(1.0 - ph, 2.2)
-		var en := (0.6 + 0.4 * sin(tau * 0.07)) if joue else 0.05
-		var cA := Color(M[2])
-		var cB := Color(M[3])
-		var pat := int(bp / 32.0) % 4
-		var txt: String = M[0] if joue else "ENTRACTE"
+		var en: float = CO.energy if joue else 0.05
+		var cA := Color(CO.song.couleurs[0])
+		var cB := Color(CO.song.couleurs[1])
+		var pat := 4 if CO.song.style == "ballade" else int(floorf(bp / 4.0) / 8.0) % 4
+		var txt: String = (CO.song.titre as String).to_upper() if joue else "ENTRACTE"
 		if titre and titre.text != txt:
 			titre.text = txt
 		if titre:
@@ -273,9 +261,10 @@ static func _ponts(K, E, F, sy: float) -> void:
 			var cible := Vector3()
 			match pat:
 				0: cible = Vector3(22 + sin(t * 0.9 + k * 6) * 14, 0, -48 + cos(t * 0.6 + k * 4) * 6)
-				1: cible = Vector3(p.x + (p.x - 22) * 0.6 * pouls * en, sy, -52 - pouls * 4 if f[2] == 2 else -60.0)
+				1: cible = Vector3(p.x + (p.x - 22) * 0.6 * pouls * en, sy, -52 - pouls * en * 4 if f[2] == 2 else -60.0 + (-2.0 if f[2] else 1.0))
 				2: cible = Vector3(22 - (p.x - 22) * 1.3 + sin(t * 1.3) * 2, 0, -47 + (f[2] - 1) * 4)
-				_: cible = Vector3(p.x + sin(t * 2.1 + i * 1.7) * 5, 0, -50 + cos(t * 1.7 + i * 1.3) * 6)
+				3: cible = Vector3(p.x + sin(t * 2.1 + i * 1.7) * 5, 0, -50 + cos(t * 1.7 + i * 1.3) * 6)
+				_: cible = Vector3(22 + sin(t * 0.25 + i) * 5, sy, -60.5 + cos(t * 0.3 + i) * 1.5)
 			(f[0] as Node3D).basis = Basis(Quaternion(Vector3.DOWN, (cible - p).normalized()))
 			var c := cA if (int(bp / 2.0) + i) % 2 else cB
 			var br := en * (0.35 + 0.65 * (pouls if pat == 1 else 0.6 + 0.4 * pouls))

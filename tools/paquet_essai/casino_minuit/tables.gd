@@ -29,6 +29,8 @@ var _calque: CanvasLayer
 var _voile: ColorRect
 var _centre: CenterContainer
 var _panneau: Control
+## Le poste où le joueur est assis (les PNJ réagissent à ses parties).
+var _poste := ""
 ## Le mode de la souris avant le panneau : on le rend en se levant.
 var _souris := Input.MOUSE_MODE_CAPTURED
 ## Pour les essais : le poker à plusieurs sans compte ni réseau, la salle posée à la main.
@@ -215,6 +217,16 @@ func _asseoir(p: Dictionary, table_id := "", nom := "") -> void:
 		var d := Vector2(q.position.x, q.position.z).distance_to(Vector2(joueur.global_position.x, joueur.global_position.z))
 		if d < Vector2(place.position.x, place.position.z).distance_to(Vector2(joueur.global_position.x, joueur.global_position.z)):
 			place = q
+	# Les PNJ tiennent leurs places : on prend la plus proche qui reste libre.
+	var pnj = scene.get("pnj")
+	var idx := -2
+	if pnj != null:
+		idx = pnj.place_libre(p.id, joueur.global_position.x, joueur.global_position.z)
+		if idx == -1:
+			_dire("Toutes les places sont prises à cette table.")
+			return
+		if idx >= 0 and idx < p.places.size():
+			place = p.places[idx]
 	joueur.global_position = Vector3(place.position.x, joueur.global_position.y, place.position.z)
 	var vers := Vector3(p.centre.x, 0, p.centre.z) - Vector3(place.position.x, 0, place.position.z)
 	if vers.length() > 0.01:
@@ -239,9 +251,15 @@ func _asseoir(p: Dictionary, table_id := "", nom := "") -> void:
 	pn.closed.connect(func():
 		pn.queue_free()
 		_lever()
+		_poste = ""
+		if pnj != null:
+			pnj.lever_joueur()
 		if table_id != "":
 			_seuils(avant))
 	_poser(pn)
+	_poste = p.id
+	if pnj != null and idx >= 0:
+		pnj.asseoir_joueur(p.id, idx)
 
 
 ## Le panneau s'ouvre : le visiteur s'arrête, la salle s'assombrit, la souris est rendue pour jouer au clic.
@@ -279,6 +297,9 @@ func _joue(bet: int, payout: int) -> void:
 	Sfx.result(bet, payout)
 	var avant := Game.won
 	Game.cash_in(payout)
+	var pnj = scene.get("pnj")
+	if pnj != null and _poste != "":
+		pnj.evenement_jeu({"type": "result", "stationId": _poste, "amount": payout - bet})
 	if payout >= bet * 20:
 		scene._dire("Jackpot ! Toute la salle se retourne.")
 	_seuils(avant)

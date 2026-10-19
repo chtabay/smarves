@@ -89,7 +89,7 @@ static func figurant(role: String, graine: int) -> Node3D:
 	return faire(t[0], teintes)
 
 
-## Un figurant d'un modèle, aux teintes données ({matériau: couleur}).
+## Un figurant d'un modèle, aux teintes données ({matériau: couleur} ; « Skin* » : facteur de la peau).
 static func faire(modele: String, teintes := {}) -> Node3D:
 	var os: String = MODELES[modele]
 	var cle := os + ("-woman" if modele.begins_with("woman") or modele.ends_with("-woman") or modele == "dealer-woman-green" else "-man") if os == "human31" else os
@@ -109,6 +109,13 @@ static func faire(modele: String, teintes := {}) -> Node3D:
 				var t := (mat as BaseMaterial3D).duplicate() as BaseMaterial3D
 				t.albedo_color = Color(teintes[mat.resource_name])
 				t.albedo_texture = null
+				(mi as MeshInstance3D).set_surface_override_material(s, t)
+			elif mat and teintes.has("Skin*") and mat.resource_name.begins_with("Skin") and mat is BaseMaterial3D:
+				# la peau assombrie ou éclaircie d'un facteur, en linéaire (clientTint : skin)
+				var t := (mat as BaseMaterial3D).duplicate() as BaseMaterial3D
+				var k := float(teintes["Skin*"])
+				var c := t.albedo_color.srgb_to_linear()
+				t.albedo_color = Color(c.r * k, c.g * k, c.b * k, c.a).linear_to_srgb()
 				(mi as MeshInstance3D).set_surface_override_material(s, t)
 	var ap: AnimationPlayer = m.find_child("AnimationPlayer", false, false)
 	if ap == null:

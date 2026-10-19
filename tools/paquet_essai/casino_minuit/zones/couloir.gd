@@ -1,7 +1,7 @@
 extends RefCounted
 ## Lot D, zone B-COULOIR (js/zones/d-b-couloir.js) : l'épine de service du sous-sol (y = -5), [32, 36] ×
 ## [-16, 30], avec le palier de l'escalier du personnel [36, 40] × [-4, 0] au nord-est et celui de
-## l'ascenseur de service ASC-S [36, 40] × [22 ; 26,5] au sud-est (la cabine reste en décor, portes closes).
+## l'ascenseur de service ASC-S [36, 40] × [22 ; 26,5] au sud-est (sa cabine : ascenseurs.gd).
 ## Le long du mur ouest, les portes du comptage (S03), la grille du sas du coffre (S04), la surveillance (S07)
 ## et les vestiaires (S09), ouvertes ; au nord, les lanières du quai (S10). Bandes de guidage au sol, une
 ## couleur par destination ; chariots, armoires, extincteurs et caméras le long du mur est.
@@ -131,14 +131,13 @@ static func construire(K) -> void:
 	K.places["d_couloir_ronde"] = [Vector3(34.6, D.Y, 27.5), Vector3(34.6, D.Y, 0.0), Vector3(34.6, D.Y, -14.5), Vector3(34.6, D.Y, 0.0)]
 
 
-## Les portes closes de l'ascenseur de service ASC-S (mur z = 26,4, centrées x = 38), leur chambranle, le
-## bouton d'appel et l'indicateur d'étage : la cabine ne descend que pour les transports de fonds.
+## Le palier de l'ascenseur de service ASC-S (mur z = 26,4, porte centrée x = 38) : le chambranle, le bouton
+## d'appel et l'indicateur d'étage ; la cabine monte les transports de fonds (ascenseurs.gd).
 static func ascenseur(K, D, etage: String) -> void:
 	for s in [-1.0, 1.0]:
 		K.box("acier", 1.0, 2.42, 0.05, 38 + s * 0.5, 1.21, 26.32)
 		K.box("acier", 0.09, 2.5, 0.2, 38 + s * 1.065, 1.25, 26.3)
 	K.box("acier", 2.22, 0.09, 0.2, 38, 2.465, 26.3)
-	K.solide(2.04, 2.42, 0.2, 38, 1.21, 26.4)
 	D.bx(K, "grisF", 0.12, 0.24, 0.03, 39.3, 1.25, 26.29)
 	D.cy(K, "ledA", 0.03, 0.03, 0.02, 39.3, 1.3, 26.27, 10, PI / 2.0)
 	D.bx(K, "noir", 0.5, 0.2, 0.03, 38, 2.75, 26.29)
