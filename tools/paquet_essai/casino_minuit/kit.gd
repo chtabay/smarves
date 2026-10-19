@@ -16,6 +16,30 @@ const PAL := {
 	"ambre_chaud": Color("#FF8A2A"), "lumiere": Color("#FFD9A8"), "feutre": Color("#0D5C3F"),
 }
 
+## Les textures de la DA, prises dans le décor de l'original (decor/tex/) : mêmes pixels, rangées tête-bêche
+## comme le veut le glTF (les shaders da les relisent à l'endroit).
+const DA_TEX := {
+	"bois_clair": "33e6a7eab6c439f0",
+	"bois_laque": "8baffad2e5b9109d",
+	"caisson": "9be791e16c2f94d6",
+	"capiton": "71eeb0cd74eb0fa6",
+	"ciel_jour": "4c1c942dfeedebcc",
+	"dallage": "caa50c637539cc67",
+	"damier": "5796a0821b1410aa",
+	"eau": "a828a721c26a3e59",
+	"marbre_creme": "3674ae9da73096e6",
+	"marbre_noir": "c68ceb6d1e4fd50d",
+	"marbre_rouge": "7224e504e5d014ee",
+	"moquette_a": "d16417aaae39077a",
+	"moquette_b": "cf26ebd608637463",
+	"moquette_c": "6d0333e4bb6b873a",
+	"moquette_d": "87d598e70fb27d20",
+	"moquette_e": "94f721fe08277b10",
+	"mosaique": "8887d6b5b1834fdc",
+	"onyx": "753cc1013b0041ec",
+	"velours": "8d906cff494a1f8f",
+}
+
 ## La palette, pour les zones (K.pal.or).
 var pal: Dictionary = PAL
 var racine: Node3D
@@ -141,16 +165,18 @@ func mat(nom: String) -> Material:
 		# L'onyx rétroéclairé (DA.onyx) : la texture luit telle quelle, en dalles d'un mètre.
 		"onyx":
 			m = _shader("da_lueur")
-			m.set_shader_parameter("motif", load(BASE + "textures/onyx.png"))
+			m.set_shader_parameter("motif", tex_da("onyx"))
 			m.set_shader_parameter("dalle", Vector2(1, 1))
 			# Rétroéclairé, pas éblouissant : à pleine valeur, sous l'ACES de Godot, il brûle (vue de l'atrium).
 			m.set_shader_parameter("gain", 0.5)
 			lueurs.append([m, 0.5])
 		"eau":
 			m = _shader("eau_da")
-			m.set_shader_parameter("motif", load(BASE + "textures/eau.png"))
+			m.set_shader_parameter("motif", tex_da("eau"))
 			lueurs.append([m, 1.0])
 		"jet": m = _shader("jet")
+		# Les nappes d'eau (cascade, vasque, cheminée) : le même filet, à part des jets pour que le décor les remplace.
+		"nappe": m = _shader("jet")
 		"strip": m = _shader("strip")
 		"coupole": m = _shader("coupole")
 		"rosace": m = _shader("rosace")
@@ -173,7 +199,8 @@ func mat(nom: String) -> Material:
 		"ciel_jour":
 			var cj := StandardMaterial3D.new()
 			cj.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-			cj.albedo_texture = load(BASE + "textures/ciel_jour.png")
+			cj.albedo_texture = tex_da("ciel_jour")
+			cj.uv1_scale = Vector3(1, -1, 1)
 			cj.albedo_color = Color(0.24, 0.22, 0.34)
 			cj.cull_mode = BaseMaterial3D.CULL_DISABLED
 			cj.disable_fog = true
@@ -342,16 +369,24 @@ func compenser(expo: float) -> void:
 	var f := 0.9 / maxf(expo, 0.1)
 	for l in lueurs:
 		var m: Material = l[0]
-		if m is StandardMaterial3D:
+		if l.size() > 2:
+			# Une matière sans lumière du décor de l'original : sa couleur porte l'éclat (alpha inchangé).
+			var c: Color = l[1]
+			(m as BaseMaterial3D).albedo_color = Color(c.r * f, c.g * f, c.b * f, c.a)
+		elif m is StandardMaterial3D:
 			(m as StandardMaterial3D).emission_energy_multiplier = l[1] * f
 		else:
 			(m as ShaderMaterial).set_shader_parameter("gain", l[1] * f)
 
 
-## Une texture de la DA (textures/<nom>.png), posée en dalles de taille réelle par le shader da.
+static func tex_da(nom: String) -> Texture2D:
+	return load(BASE + "decor/tex/%s.png" % DA_TEX[nom])
+
+
+## Une texture de la DA (DA_TEX), posée en dalles de taille réelle par le shader da.
 func _da(nom: String, dalle: Vector2, rugosite: float, metal := 0.0, teinte := Color.WHITE) -> ShaderMaterial:
 	var m := _shader("da")
-	m.set_shader_parameter("motif", load(BASE + "textures/%s.png" % nom))
+	m.set_shader_parameter("motif", tex_da(nom))
 	m.set_shader_parameter("dalle", dalle)
 	m.set_shader_parameter("rugosite", rugosite)
 	m.set_shader_parameter("metal", metal)

@@ -9,5 +9,5 @@ varying vec3 wpos;
 void vertex() { wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
 void fragment() {
 	vec2 d = vec2(TIME * 0.02 + sin(TIME * 0.31) * 0.03, TIME * 0.013 + cos(TIME * 0.23) * 0.03);
-	ALBEDO = texture(motif, wpos.xz / 1.5 + d).rgb * teinte * gain;
+	ALBEDO = texture(motif, (wpos.xz / 1.5 + d) * vec2(1.0, -1.0)).rgb * teinte * gain;
 }

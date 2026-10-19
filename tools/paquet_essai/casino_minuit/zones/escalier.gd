@@ -128,7 +128,7 @@ static func construire(K) -> void:
 		K.box("or", 0.07, 5.55, 0.04, x, 3.225, -25.39)
 	var nappe := QuadMesh.new()
 	nappe.size = Vector2(11.9, 5.33)
-	K.put("jet", nappe, K.xf(0, 3.115, -25.33))
+	K.put("nappe", nappe, K.xf(0, 3.115, -25.33))
 
 	# --- la colonnade colossale prolongée et l'entablement de la nef ---
 	for sg in [-1.0, 1.0]:

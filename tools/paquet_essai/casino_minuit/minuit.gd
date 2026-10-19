@@ -82,6 +82,7 @@ func _ready() -> void:
 	_coulisses()
 	_arene_porte()
 	_concert_portes()
+	_decor()
 	load(BASE + "zones/figurants.gd").peupler(self)
 	_eclairer()
 	_joueur()
@@ -99,6 +100,87 @@ func _process(dt: float) -> void:
 	_cadrer()
 	var f = player.focus_target if player else null
 	_invite.text = str(f.get_meta("prompt", "")) + "  [E]" if f != null and f.has_meta("prompt") else ""
+
+
+## Le décor de l'original, zone par zone (decor/<zone>.glb) : exporté tel quel de la scène du moteur web
+## (decor/LISEZMOI.md), mêmes formes, mêmes textures, mêmes répétitions. Il remplace les maillages que les
+## zones du portage ont refaits ; elles gardent le reste (sols, murs qu'on ne traverse pas, interactions,
+## lumières, jets d'eau, figurants). Une zone de l'original sans zone du portage va sous la plus proche.
+const DECOR := BASE + "decor/"
+const DECOR_SOUS := {"R-ESCALIER-PALIER": "R-ESCALIER", "ESC-STAFF-B": "ESC-STAFF", "ESC-STAFF-H": "ESC-STAFF",
+	"M-ESC-STAFF": "ESC-STAFF", "F-SCENE": "F-CONCERT", "F-RING": "F-ARENE-SALLE"}
+## Ce que le portage anime lui-même et que le décor n'apporte pas : les jets d'eau en arc.
+const DECOR_GARDE := ["lot_jet"]
+## Les textures qui défilent dans l'original (marquées par l'export) : matériau, décalage de départ, genre, vitesse.
+var _defilent: Array = []
+
+
+func _decor() -> void:
+	var refaits := {}
+	for z in _zones_originales():
+		# Une zone de l'original sans rien à dessiner (le palier de l'escalier) n'a pas de .glb.
+		var sous := get_node_or_null(DECOR_SOUS.get(z, z))
+		if sous == null or not ResourceLoader.exists(DECOR + "zone-%s.glb" % z):
+			continue
+		var sc := load(DECOR + "zone-%s.glb" % z) as PackedScene
+		var d := sc.instantiate()
+		d.name = "Decor_" + z
+		sous.add_child(d)
+		# Le .glb porte la place de la zone dans le casino (la mezzanine à 6 m) : la zone du portage aussi.
+		d.global_transform = Transform3D.IDENTITY
+		refaits[sous] = true
+		for mi in d.find_children("*", "MeshInstance3D", true, false):
+			(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			var m: Mesh = (mi as MeshInstance3D).mesh
+			for i in m.get_surface_count():
+				var mat := m.surface_get_material(i) as BaseMaterial3D
+				# Les instances cuites portent leur couleur aux sommets (fleurs de verre, ampoules, palmiers).
+				if mat and m.surface_get_format(i) & Mesh.ARRAY_FORMAT_COLOR and not mat.vertex_color_use_as_albedo:
+					mat.vertex_color_use_as_albedo = true
+				if mat == null:
+					continue
+				var nom := mat.resource_name
+				# Les matières que le moteur web ne passe pas par l'exposition (toneMapped: false) : « nt| ».
+				if nom.begins_with("nt|"):
+					nom = nom.trim_prefix("nt|")
+					if not K.lueurs.any(func(l): return l[0] == mat):
+						if mat.shading_mode == BaseMaterial3D.SHADING_MODE_UNSHADED or not mat.emission_enabled:
+							K.lueurs.append([mat, mat.albedo_color, "albedo"])
+						else:
+							K.lueurs.append([mat, mat.emission_energy_multiplier])
+				# Les matières additives de l'original (nappe de la cascade, lueurs) : « add| » devant leur nom.
+				if nom.begins_with("add|"):
+					nom = nom.trim_prefix("add|")
+					mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+					mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+				if nom.begins_with("anim|") and not _defilent.any(func(e): return e[0] == mat):
+					var a := nom.split("|")
+					_defilent.append([mat, mat.uv1_offset, a[1], Vector2(float(a[2]), float(a[3]))])
+	# Les extérieurs de l'original sont d'un tenant (X-STRIP) : toutes les zones X- du portage lui cèdent.
+	if refaits.has(get_node_or_null("X-STRIP")):
+		for c in get_children():
+			if str(c.name).begins_with("X-"):
+				refaits[c] = true
+	for sous in refaits:
+		for c in (sous as Node).get_children():
+			if c is MeshInstance3D and str(c.name).begins_with("lot_") and not (str(c.name) in DECOR_GARDE):
+				c.queue_free()
+			elif c is Label3D:
+				c.visible = false
+	K.chaque_image(func(_dt: float, t: float):
+		for e in _defilent:
+			var v: Vector2 = e[3]
+			var o := Vector2(v.x * t, v.y * t)
+			if e[2] == "eau":
+				o += Vector2(sin(t * 0.31), cos(t * 0.23)) * 0.03
+			(e[0] as BaseMaterial3D).uv1_offset = e[1] + Vector3(o.x, -o.y, 0))
+
+
+## Les zones de l'original (rendu.json), celles dont le décor est exporté.
+func _zones_originales() -> Array:
+	var f := FileAccess.open(BASE + "donnees/rendu.json", FileAccess.READ)
+	var d: Dictionary = JSON.parse_string(f.get_as_text())
+	return d.zones.map(func(z): return z.id)
 
 
 ## L'ambiance (rendu.gd) : les profils de scène et de zone du moteur web, ses lampes au budget, ses halos.

@@ -29,7 +29,7 @@ void fragment() {
 	} else {
 		uv = vec2(lpos.x, -lpos.y) / dalle;
 	}
-	vec3 t = texture(motif, uv).rgb;
+	vec3 t = texture(motif, vec2(uv.x, -uv.y)).rgb;
 	vec3 moyenne = textureLod(motif, vec2(0.5), 12.0).rgb;
 	vec3 c = mix(moyenne, t, contraste) * teinte;
 	ALBEDO = c;

@@ -35,7 +35,7 @@ static func construire(K) -> void:
 	K.plan("eau", -39.76, -39.22, 14.15, 18.85, 0.435)
 	var nappe := QuadMesh.new()
 	nappe.size = Vector2(4.4, 3.7)
-	K.put("jet", nappe, K.xf(-39.64, 0.44 + 1.85, 16.5, 0, PI / 2.0))
+	K.put("nappe", nappe, K.xf(-39.64, 0.44 + 1.85, 16.5, 0, PI / 2.0))
 	K.obstacle(-39.8, -39.16, 14, 19)
 
 	# --- la cheminée (mur sud) : manteau de marbre rouge, foyer, trumeau à miroir, flammes vives ---
