@@ -365,8 +365,12 @@ func _lueur(c: Color, energie: float) -> StandardMaterial3D:
 
 ## Les matières qui luisent ne passent pas par l'exposition dans le moteur web (toneMapped: false) : leur éclat
 ## suit l'inverse de l'exposition courante, ramenée à celle du profil public (0,9).
-func compenser(expo: float) -> void:
-	var f := 0.9 / maxf(expo, 0.1)
+var expo := 0.9
+
+
+func compenser(e: float) -> void:
+	expo = e
+	var f := 0.9 / maxf(e, 0.1)
 	for l in lueurs:
 		var m: Material = l[0]
 		if l.size() > 2:

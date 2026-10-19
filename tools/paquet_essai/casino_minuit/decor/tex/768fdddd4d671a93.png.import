@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cwnj3l7qqyfl5"
-path="res://.godot/imported/d81291b29650fce6.png-b174ec42f791c6dcb595093f691a4f0f.ctex"
+uid="uid://b47a0pwgctl34"
+path="res://.godot/imported/768fdddd4d671a93.png-6624bd1752b0779b708434333ff7f1d7.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://tools/paquet_essai/casino_minuit/decor/tex/d81291b29650fce6.png"
-dest_files=["res://.godot/imported/d81291b29650fce6.png-b174ec42f791c6dcb595093f691a4f0f.ctex"]
+source_file="res://tools/paquet_essai/casino_minuit/decor/tex/768fdddd4d671a93.png"
+dest_files=["res://.godot/imported/768fdddd4d671a93.png-6624bd1752b0779b708434333ff7f1d7.ctex"]
 
 [params]
 

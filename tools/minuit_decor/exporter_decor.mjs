@@ -34,7 +34,9 @@ function findChromium() { const base = '/opt/pw-browsers'; for (const d of fs.re
   // Prépare la scène : ce que le portage anime lui-même sort ; les instances sont cuites en maillages ;
   // les textures qui défilent sont marquées (nom du matériau « anim|genre|vx|vy »).
   const bilan = await page.evaluate(() => {
-    const EXCLUS = /^(halos|jets|e-jets|f-crowd-.*|f-faisceaux|e-faisceaux|e-glows|e-led|ecran-led|door|camera-wall)$/;
+    const EXCLUS = /^(halos|jets|e-jets|f-crowd-.*|f-faisceaux|e-faisceaux|e-glows|e-led|ecran-led|door|camera-wall|e-vehicules-.*)$/;
+    // Les instances que minuit.gd anime (MultiMesh) : un groupe, un enfant par instance (« i<k> » ou « i<k>_<couleur linéaire> »).
+    const ANIMEES = /^(lustre-pendeloques|roulette-roues|carpes|totem-ampoules|marquise-chenillard|roulettes|flammes)$/;
     const sc = Casino.world.scene, n = { exclus: 0, cuits: 0, anim: 0 };
     const zones = sc.children.filter(o => /^zone-/.test(o.name));
     // textures animées connues (kit.js l. 1302-1304, a-escalier.js l. 117, b-salon.js, c-pit.js, kit.js l. 1561)
@@ -45,12 +47,21 @@ function findChromium() { const base = '/opt/pw-browsers'; for (const d of fs.re
       else if (/jet/.test(m.name)) anim.set(m, 'defile|0|-1.1');
       else if (m.name === 'lotB.flamme' || o.name === 'flammes') anim.set(m, 'defile|0.23|0');
       else if (o.name === 'escalators-tapis') anim.set(m, 'defile|0|-2.75');
+      else if (m.name === 'e.ampoules') anim.set(m, 'pas|-0.25|0|6');
+      else if (o.name === 'slot-deco-reels') anim.set(m, 'rouleaux|0|0');
+      else if (m.name === 'c.bandeau') anim.set(m, 'defile|0.035|0');
     }));
     for (const z of zones) {
       const morts = []; z.traverse(o => { if (o !== z && EXCLUS.test(o.name)) morts.push(o); });
       morts.forEach(o => { o.parent && o.parent.remove(o); n.exclus++; });
       const inst = []; z.traverse(o => { if (o.isInstancedMesh) inst.push(o); });
       for (const im of inst) {
+        if (ANIMEES.test(im.name)) {
+          const grp = new THREE.Group(), M = new THREE.Matrix4(), col = new THREE.Color();
+          grp.name = im.name; grp.position.copy(im.position); grp.quaternion.copy(im.quaternion); grp.scale.copy(im.scale);
+          for (let i = 0; i < im.count; i++) { const c = new THREE.Mesh(im.geometry, im.material); im.getMatrixAt(i, M); M.decompose(c.position, c.quaternion, c.scale);
+            c.name = 'i' + i; if (im.instanceColor) { im.getColorAt(i, col); c.name += '_' + [col.r, col.g, col.b].map(v => Math.round(Math.min(1, Math.max(0, v)) * 255).toString(16).padStart(2, '0')).join(''); } grp.add(c); }
+          im.parent.add(grp); im.parent.remove(im); n.animees = (n.animees || 0) + 1; continue; }
         const g0 = im.geometry.index ? im.geometry.toNonIndexed() : im.geometry, cnt = im.count, nv = g0.attributes.position.count;
         const P = new Float32Array(nv * 3 * cnt), N = g0.attributes.normal ? new Float32Array(nv * 3 * cnt) : null, U = g0.attributes.uv ? new Float32Array(nv * 2 * cnt) : null;
         const C = im.instanceColor ? new Float32Array(nv * 3 * cnt) : null, paint = g0.attributes.aPaint;

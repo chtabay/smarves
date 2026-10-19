@@ -8,6 +8,11 @@ quelle (Three.js, GLTFExporter) : mêmes formes, mêmes matériaux, mêmes textu
 - ce que le portage anime ou éclaire lui-même est laissé de côté (halos, jets, foules du concert et de
   l'arène, faisceaux, écrans à LED, portes) ;
 - les maillages instanciés sont cuits en maillages simples, la couleur d'instance passant aux sommets ;
-- les matériaux dont la texture défile sont renommés `anim|genre|vx|vy|nom` : minuit.gd les anime.
+- les matériaux dont la texture défile sont renommés `anim|genre|vx|vy|nom` (`anim|pas|vx|vy|cadence|nom` pour
+  celles qui avancent par crans) : decor.gd les anime ;
+- les instances que l'original anime une à une (pendeloques, roues de roulette, carpes, ampoules en chenillard,
+  flammes) sont exportées en groupe d'enfants `i<k>[_rrggbb]` : decor.gd en refait un MultiMesh et les anime
+  avec les formules de js/zones/*.js ; porte à tambour, roue des hautes limites, roue de la fortune, flammes
+  du salon et gyrophare sont animés par leur nom.
 
 Pour refaire l'export : `tools/minuit_decor/` (le script Playwright et le tri des textures).
