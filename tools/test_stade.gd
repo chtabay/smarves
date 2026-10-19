@@ -37,7 +37,7 @@ func _init() -> void:
 	foot.actualiser()
 
 	var smarves: Commune = Commune.smarves()
-	check(smarves.valide() and smarves.structures().size() == 1 and smarves.structures()[0].type == "terrain_foot", "Smarves déclare son terrain de football")
+	check(smarves.valide() and smarves.structures().size() == 2 and smarves.structures()[0].type == "terrain_foot", "Smarves déclare son terrain de football")
 	var e: Dictionary = registre.structure("smarves/stade")
 	check(not e.is_empty() and e.installee and e.champs.club == "L'Étoile de Smarves", "le stade municipal est au registre, installé")
 	check(foot.clubs.has("smarves") and foot.clubs.smarves.nom == "L'Étoile de Smarves" and foot.clubs.smarves.court == "ESM", "l'Étoile de Smarves est dans la pyramide : %s" % str(foot.place_de("smarves")))

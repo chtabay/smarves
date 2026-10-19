@@ -36,6 +36,15 @@ const TYPES := {
 		"unique": true,
 		"relie": "le championnat de la Vienne : la commune a un club, qui y entre à la saison suivante (tout de suite si personne n'a encore joué)",
 	},
+	# Socle 1.9. Le basket sur les résultats réels (autoload Basket) : un club de la commune, dans une
+	# pyramide de groupes de huit complétés par des figurants ; « nom » est le nom de la salle.
+	"gymnase": {
+		"nom": "le gymnase",
+		"champs": {"club": TYPE_STRING, "court": TYPE_STRING, "couleurs": TYPE_ARRAY},
+		"requis": ["club"],
+		"unique": true,
+		"relie": "le championnat de basket de la Vienne : la commune a un club, qui prend la place d'un club figurant dès la journée suivante",
+	},
 	# Socle 1.1 (« guichet » : 1.2). Une salle de jeu meublée et tenue par le socle (scripts/socle/salle_jeu.gd) : la commune
 	# nomme son tenancier et ses jeux, le socle pose les tables et fait tourner les jeux de Smarves.
 	"salle_jeu": {
@@ -108,7 +117,7 @@ static func verifier(liste: Variant) -> PackedStringArray:
 				erreurs.append("structure %s : champ inconnu « %s »" % [id, k])
 			elif typeof(s[k]) != attendu:
 				erreurs.append("structure %s : « %s » n'a pas le bon type" % [id, k])
-		if t == "terrain_foot" and s.has("couleurs") and typeof(s.couleurs) == TYPE_ARRAY:
+		if t in ["terrain_foot", "gymnase"] and s.has("couleurs") and typeof(s.couleurs) == TYPE_ARRAY:
 			if s.couleurs.size() != 2 or s.couleurs.any(func(c): return typeof(c) != TYPE_STRING or not Color.html_is_valid(c)):
 				erreurs.append("structure %s : « couleurs » donne deux couleurs (« #1b3c8c »)" % id)
 		if t == "terrain_foot" and typeof(s.get("habillage")) == TYPE_STRING:
