@@ -1,6 +1,8 @@
 extends PanelContainer
 ## Le poker des Ambassadeurs, d'après Addict : Texas Hold'em sans limite, blindes 25/50, six places,
 ## 2 000 au plus engagés par donne pour le joueur, la maison prend 5 % du pot après le flop (100 au plus).
+## Une commune peut donner d'autres tarifs à sa table (socle 1.7) : configurer_blindes(), avant que le
+## panneau entre dans la scène ; il faut au moins la grosse blinde pour s'asseoir.
 ## Les habitués ont chacun leur manière : le Commandant serré et agressif, Mme Duval paie pour voir,
 ## Teddy relance tout, la comtesse Orlov est patiente, Maître Garnier calcule.
 
@@ -15,9 +17,10 @@ signal changed
 
 const BARRE := preload("res://scripts/jeux/barre.gd")
 
-const SB := 25
-const BB := 50
-const CAP := 2000
+## Les tarifs de la table : les Ambassadeurs par défaut, ceux d'une commune par configurer_blindes().
+var SB := 25
+var BB := 50
+var CAP := 2000
 const SUITS := ["♠", "♥", "♦", "♣"]
 const RANKS := ["2", "3", "4", "5", "6", "7", "8", "9", "10", "V", "D", "R", "A"]
 const CATEGORIES := ["Hauteur", "Paire", "Deux paires", "Brelan", "Quinte", "Couleur", "Full", "Carré", "Quinte flush"]
@@ -78,7 +81,7 @@ func _build_panel() -> void:
 	t.add_theme_color_override("font_color", Color(0.96, 0.8, 0.45))
 	v.add_child(t)
 	var rule := Label.new()
-	rule.text = "Texas Hold'em sans limite  ·  blindes 25/50  ·  2 000 au plus par donne  ·  5 % de la maison après le flop"
+	rule.text = "Texas Hold'em sans limite  ·  blindes %s/%s  ·  %s au plus par donne  ·  5 %% de la maison après le flop" % [Game.fmt(SB), Game.fmt(BB), Game.fmt(CAP)]
 	rule.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	rule.add_theme_font_size_override("font_size", 14)
 	rule.add_theme_color_override("font_color", Color(0.72, 0.68, 0.62))
@@ -132,6 +135,20 @@ func _build_panel() -> void:
 
 
 ## La barre basse : ce qui vient de se passer, le pot et la main, puis les actions.
+## Les tarifs d'une table de commune (socle 1.7) : petite et grosse blinde, plafond engagé par donne.
+## À appeler avant que le panneau entre dans la scène. Rend false, sans rien changer, pour des tarifs
+## incohérents (une blinde nulle, la petite plus grosse que la grosse, un plafond sous la grosse).
+func configurer_blindes(petite: int, grosse: int, plafond: int) -> bool:
+	if petite <= 0 or grosse < petite or plafond < grosse:
+		push_warning("Poker : tarifs refusés (%d/%d, plafond %d)." % [petite, grosse, plafond])
+		return false
+	SB = petite
+	BB = grosse
+	CAP = plafond
+	_raise_to = BB * 2
+	return true
+
+
 func _build_bar() -> void:
 	BARRE.style(self)
 	var v := VBoxContainer.new()

@@ -173,6 +173,19 @@ Et par type : `gare` prend `quai` ; `arret_car` prend `abri` ; `terrain_foot` de
 godot --headless --path . -s tools/test_salle_jeu.gd
 ```
 
+**Les tarifs du poker d'une commune** (socle 1.7, `"socle_min": "1.7"`). Le poker du socle est celui des Ambassadeurs : blindes 25/50, 2 000 au plus engagés par donne. Une commune peut donner d'autres tarifs à sa table, sans écrire son propre poker, en appelant sur le panneau, avant de l'ajouter à la scène :
+
+- **au solo** (`scripts/poker_panel.gd`) : `configurer_blindes(petite, grosse, plafond)`. Il faut au moins la grosse blinde en crédits pour s'asseoir ;
+- **à plusieurs** (`scripts/jeux/poker_multi.gd`) : `configurer_table("<id>", petite, grosse, plafond)`. La table doit exister au serveur (la fonction casino du dépôt chtabay/addict, `SMARVES.tables` dans `supabase/functions/casino/smarves-poker.js`), qui seul fixe ses tarifs : un paquet ne peut pas les installer. Le serveur les renvoie dans chaque vue (`table` : `id`, `nom`, `blindes`, `plafond`) ; si ce ne sont pas exactement ceux annoncés, le panneau refuse de jouer, le dit, et se lève s'il était assis. Le tapis posé en s'asseyant ou en recavant va du plafond à 10 000 (au plafond même, s'il est plus haut). Rien n'est pris à l'entrée.
+
+Les deux rendent `false`, sans rien changer, pour des tarifs incohérents. La table du serveur aujourd'hui ouverte aux communes :
+
+| Table | Commune | Blindes | Plafond par donne | Tapis |
+|---|---|---|---|---|
+| `cloue:poker-cave` | Cloué, La Contrebande | 125/250 | 10 000 | 10 000 |
+
+Une autre table se demande dans le dépôt chtabay/addict. Le test est `tools/test_poker_multi.gd`.
+
 **Le commerce est une scène du socle** (socle 1.4 : `"socle_min": "1.4"`). Les trois commerces de Smarves ont leur pareil pour toute commune, selon le `genre` : `tenue` (on n'en porte qu'une, comme chez Raymonde), `vehicule` (on n'en conduit qu'un, comme au garage Fradin) ou `meuble` (il se pose chez soi, comme chez Ginette Boutin). La commune nomme son commerçant et ses articles ; `scenes/commerce.tscn` (`scripts/socle/commerce.gd`) bâtit la boutique, pose le commerçant derrière son comptoir, met six articles au plus en vitrine (une silhouette à la couleur de la tenue, le véhicule, le meuble) et ouvre le bon de commande du village (`scripts/shop_panel.gd`).
 
 ```json
