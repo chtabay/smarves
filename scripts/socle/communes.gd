@@ -46,6 +46,8 @@ var _seules := {}
 ## ligne) et les versions installées (installees.json). Un test le déplace.
 var dossier_greffes := GREFFES
 var _retour: CanvasLayer
+## La commune où l'on vient d'entrer (visiter), avant que sa scène ne remplace la précédente.
+var actuelle_apres := ""
 ## Les communes publiées que le joueur n'a pas encore vues dans son carnet (ids), et celles qu'il a
 ## vues : le carnet les marque « nouvelle », et le jeu en avertit au lancement.
 var nouvelles: Array = []
@@ -75,12 +77,24 @@ func origine() -> Commune:
 	return communes.get(ORIGINE)
 
 
-## La commune développée à ce code INSEE, ou null.
+## La commune développée à ce code INSEE, ou null (jamais une destination lointaine, qui n'en a pas).
 func par_insee(insee: String) -> Commune:
+	if insee == "":
+		return null
 	for id in communes:
 		if communes[id].insee == insee:
 			return communes[id]
 	return null
+
+
+## Les destinations lointaines installées (socle 1.5, champ « ailleurs ») : les vols au départ de
+## Poitiers-Biard, dans l'ordre d'inscription.
+func lointaines() -> Array:
+	var out := []
+	for id in ordre:
+		if communes[id].lointaine():
+			out.append(id)
+	return out
 
 
 ## La carte de la Vienne : chaque commune réelle à sa place (centre et contour en longitude, latitude),
@@ -411,11 +425,13 @@ func visiter(id: String) -> bool:
 	get_tree().paused = false
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	get_tree().change_scene_to_file(str(communes[id].data.scene))
+	actuelle_apres = id
 	_bouton_retour(true)
 	return true
 
 
 func revenir() -> void:
+	actuelle_apres = ""
 	_bouton_retour(false)
 	get_tree().paused = false
 	get_tree().change_scene_to_file(str(origine().data.scene))
@@ -429,7 +445,7 @@ func _bouton_retour(visible: bool) -> void:
 		rang.position = Vector2(20, 20)
 		rang.add_theme_constant_override("separation", 10)
 		_retour.add_child(rang)
-		for t in [["Revenir à Smarves", revenir], ["La carte  (M)", func(): Carte.ouvrir()]]:
+		for t in [["Revenir à Smarves", _rentrer], ["La carte  (M)", func(): Carte.ouvrir()]]:
 			var b := Button.new()
 			b.text = t[0]
 			b.add_theme_font_override("font", Polices.gras())
@@ -438,6 +454,18 @@ func _bouton_retour(visible: bool) -> void:
 			rang.add_child(b)
 		add_child(_retour)
 	_retour.visible = visible
+	# D'une destination lointaine, on rentre en avion (socle 1.5).
+	var loin := commune(actuelle_apres) if actuelle_apres != "" else null
+	(_retour.get_child(0).get_child(0) as Button).text = "Reprendre l'avion" if loin != null and loin.lointaine() else "Revenir à Smarves"
+
+
+## Le premier bouton du coin : rentrer à Smarves, en avion depuis une destination lointaine.
+func _rentrer() -> void:
+	var c := commune(actuelle())
+	if c != null and c.lointaine():
+		Carte.voler(ORIGINE)
+	else:
+		revenir()
 
 
 func _lire_copies() -> void:
@@ -471,7 +499,7 @@ func inscrire(c: Commune) -> bool:
 	if communes.has(c.id):
 		_refuser(c.chemin, "la commune « %s » est déjà inscrite" % c.id)
 		return false
-	if par_insee(c.insee) != null:
+	if not c.lointaine() and par_insee(c.insee) != null:
 		_refuser(c.chemin, "la commune INSEE %s est déjà développée par « %s »" % [c.insee, par_insee(c.insee).id])
 		return false
 	communes[c.id] = c

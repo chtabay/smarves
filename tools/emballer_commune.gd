@@ -69,7 +69,7 @@ func _init() -> void:
 		printerr("Le paquet dépasse 32 Mo : le portail le refusera.")
 		quit(1)
 		return
-	print("Accepté par le jeu : %s (%s), version %s. À déposer sur la page développeur." % [c.nom, c.insee, c.data.get("version", "?")])
+	print("Accepté par le jeu : %s (%s), version %s. À déposer sur la page développeur." % [c.nom, c.ville() + ", " + c.pays() if c.lointaine() else c.insee, c.data.get("version", "?")])
 	quit(0)
 
 

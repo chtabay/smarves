@@ -1,0 +1,18 @@
+{
+	"format": 1,
+	"id": "casino_minuit",
+	"nom": "Casino Minuit",
+	"auteur": "Claude",
+	"version": "0.1.0",
+	"socle_min": "1.5",
+	"ailleurs": {"ville": "Las Vegas", "pays": "États-Unis", "aeroport": "McCarran", "vol": "MN 1203 · via Paris-Charles-de-Gaulle"},
+	"description": "Un grand casino sur le Strip de Las Vegas, qu'on rejoint en avion depuis Poitiers-Biard. Première tranche : la rotonde d'entrée et sa fontaine de la Fortune, l'atrium et son bar, le grand escalier aux jets d'eau, la galerie de la mezzanine. Les tables et les salles ouvriront une à une.",
+	"scene": "res://communes/casino_minuit/commune.tscn",
+	"lieux": [
+		{"id": "roulette", "nom": "La Roulette du Minuit", "jeu": "pas encore", "seuil": 50000, "hote": "Mlle Varenne"},
+		{"id": "craps", "nom": "Le Craps", "jeu": "pas encore", "seuil": 80000, "hote": "M. Okafor"},
+		{"id": "club", "nom": "Le Club", "jeu": "pas encore", "seuil": 250000, "hote": "Mme Delacroix-Hale"},
+		{"id": "lucullus", "nom": "Le Lucullus", "jeu": "pas encore", "seuil": 120000, "hote": "M. Bastide"}
+	],
+	"banque": {"id": "caisse_du_minuit", "nom": "La Caisse du Minuit", "banquier": "M. Sterling", "preteur": "casino_minuit", "lieu": "roulette"}
+}

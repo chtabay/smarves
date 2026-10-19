@@ -10,6 +10,19 @@ La carte de la Vienne est un écran du jeu depuis le 18 octobre 2026 (section su
 
 **Toutes les communes sont sur la carte, seules les communes développées sont cliquables.** `Communes.carte()` rend les 265 communes ; `cliquable` n'est vrai que pour celles qui sont inscrites au registre avec ce code INSEE (aujourd'hui Smarves seule). Les autres restent des silhouettes. Poitiers reste un trou dans la brume, jamais développé (SUITE.md, section 5).
 
+### Les destinations lointaines (socle 1.5)
+
+**Une commune peut être ailleurs que dans la Vienne** : un grand casino de Las Vegas, une ville de bord de mer. Elle n'a pas de code INSEE et n'est pas dessinée sur la carte ; son manifeste porte le champ `ailleurs` et demande `"socle_min": "1.5"` :
+
+```json
+"ailleurs": {"ville": "Las Vegas", "pays": "États-Unis", "aeroport": "McCarran", "vol": "MN 1203 · via Paris-Charles-de-Gaulle"}
+```
+
+- **On y va en avion, depuis Poitiers-Biard.** La fiche de Poitiers sur la carte dit que l'aéroport a des vols et offre « Embarquer pour <ville> → » pour chaque destination installée. Le vol (`Carte.voler(id)`) est un écran de passage : « VOL POUR LAS VEGAS », la ligne Poitiers-Biard → l'aéroport (la ville à défaut) et le numéro de vol, un avion qui suit un arc d'or ; puis la scène de la commune.
+- **On en revient de même.** Dans une commune lointaine, le bouton du coin dit « Reprendre l'avion » au lieu de « Revenir à Smarves », et la carte, cadrée sur Poitiers, montre la fiche de la ville avec « Reprendre l'avion → » ; `Carte.voler()` ramène à Smarves.
+- **Ce que le socle vérifie** (`Commune.verifier_ailleurs`) : un objet, une ville, des textes, aucun champ inconnu, pas de code INSEE, et un socle 1.5 au moins. Deux communes lointaines n'entrent pas en conflit de code INSEE ; `Communes.lointaines()` les liste, `Commune.lointaine()`, `ville()`, `pays()`, `aeroport()` et `vol()` les lisent. Le test est `tools/test_ailleurs.gd`.
+- **Le premier exemple est Casino Minuit** (`tools/paquet_essai/casino_minuit/`), le casino de Guillaume porté du moteur web en GDScript : la rotonde d'entrée, l'atrium et son bar, le grand escalier, la galerie de la mezzanine. Les tables et les salles y sont pour l'instant fermées (lieux à seuil) ; le portail n'accepte pas encore les paquets lointains.
+
 ### L'écran de la carte
 
 L'autoload `Carte` (`scripts/carte.gd`) montre la carte en plein écran, dessinée par la même `CarteVienne` que la bienvenue, rendue navigable :
@@ -85,7 +98,8 @@ Un dossier `communes/<id>/` avec au moins un manifeste `commune.json` et la scè
 | `version` | non (oui pour publier) | trois nombres (`0.1.0`), à monter à chaque dépôt |
 | `description` | non | deux phrases, montrées dans le carnet du joueur ; « » par défaut |
 | `socle_min` | non | la version du socle demandée (aujourd'hui `1.0`) |
-| `insee` | oui | le code INSEE d'une commune actuelle de la Vienne (`86263` pour Smarves) : c'est lui qui place la commune sur la carte, à sa vraie place ; deux communes développées ne peuvent pas avoir le même |
+| `ailleurs` | non | socle 1.5 : une destination hors de la Vienne, rejointe en avion (section « Les destinations lointaines ») ; `{ville, pays, aeroport, vol}`, la ville seule obligatoire. Avec lui, `insee` est absent ou vide |
+| `insee` | oui (sauf `ailleurs`) | le code INSEE d'une commune actuelle de la Vienne (`86263` pour Smarves) : c'est lui qui place la commune sur la carte, à sa vraie place ; deux communes développées ne peuvent pas avoir le même |
 | `carte` | non | plus tard, la scène du petit socle posé sur la carte |
 | `scene` | oui | la scène de la commune ; elle doit exister au chargement |
 | `arrivee` | non | où l'on débarque : `lot` (la porte du village), `nom` (« La place de la Mairie », montré à l'arrivée et dans la fiche) et `par` (les communes d'où l'on vient, le car départemental) |
