@@ -62,10 +62,9 @@ func _ready() -> void:
 	Communes.installee.connect(func(id, ok, message):
 		if is_open():
 			_rafraichir(true)
-			if not ok:
-				_montrer(Communes.au_catalogue(id).get("insee", ""), message)
-			else:
-				_montrer(Communes.commune(id).insee))
+			# Une destination lointaine n'a pas de code INSEE : sa fiche est celle de Poitiers(-Biard).
+			var insee: String = Communes.au_catalogue(id).get("insee", "") if not ok else Communes.commune(id).insee
+			_montrer(insee if insee != "" else CarteVienne.POITIERS_INSEE, "" if ok else message))
 
 
 func is_open() -> bool:
@@ -496,7 +495,7 @@ func _fond() -> Texture2D:
 
 
 func _rafraichir(garder := true) -> void:
-	_carte.publiees = Communes.publiees().map(func(e): return e.insee)
+	_carte.publiees = Communes.publiees().map(func(e): return e.insee).filter(func(i): return i != "")
 	_carte.installees = Communes.installees().map(func(id): return Communes.commune(id).insee).filter(func(i): return i != "")
 	_carte.a_jour = {}
 	for id in Communes.installees():
@@ -558,7 +557,7 @@ func _montrer(insee: String, alerte := "") -> void:
 	elif insee == CarteVienne.POITIERS_INSEE:
 		etat = "Dans la brume"
 		texte = "On n'y va pas. C'est là que partent ceux qui ne croient pas au jeu."
-		if not Communes.lointaines().is_empty():
+		if not Communes.lointaines().is_empty() or Communes.publiees().any(func(x): return str(x.insee) == ""):
 			texte += "\n\nÀ sa lisière, l'aéroport de Poitiers-Biard a des vols pour plus loin que la Vienne."
 	elif c != null or not e.is_empty():
 		# L'état et ses mots sont ceux de la bienvenue et du carnet (Communes.etat, resume).
@@ -599,6 +598,14 @@ func _montrer(insee: String, alerte := "") -> void:
 				vols.add_theme_constant_override("separation", 10)
 				vols.add_child(_bouton("Embarquer pour %s  →" % Communes.commune(id).ville(), OR, Color(0.08, 0.06, 0.03), Color(0, 0, 0, 0), voler.bind(id), 16))
 				_fiche_box.add_child(vols)
+		# Les destinations publiées sur le portail, pas encore installées : on les installe d'ici.
+		for x in Communes.publiees():
+			if str(x.insee) == "" and x.has("ailleurs") and Communes.commune(x.id) == null:
+				var vol := HBoxContainer.new()
+				vol.add_theme_constant_override("separation", 10)
+				vol.add_child(_mot("Vol pour %s" % str(x.ailleurs.ville), 15, TEXTE))
+				_geste(x.id, vol)
+				_fiche_box.add_child(vol)
 	if actions.get_child_count() > 0:
 		_fiche_box.add_child(_vide(2))
 		_fiche_box.add_child(actions)

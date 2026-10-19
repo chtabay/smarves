@@ -48,6 +48,26 @@ func _init() -> void:
 	abime.insee = "79191"
 	Portail.ecrire(TMP + "srv/catalogue.json", JSON.stringify({"format": 1, "communes": [entree, faux, abime]}))
 
+	# Une destination lointaine (Casino Minuit, socle 1.5) : sans code INSEE, gardée si elle a son
+	# « ailleurs » et sa ville ; sans « ailleurs », une entrée hors de la Vienne reste ignorée.
+	var loin := entree.duplicate()
+	loin.id = "casino_minuit"
+	loin.insee = ""
+	loin.ailleurs = {"ville": "Las Vegas", "pays": "États-Unis"}
+	var sans := entree.duplicate()
+	sans.id = "sans_ailleurs"
+	sans.insee = ""
+	var vide := loin.duplicate(true)
+	vide.id = "sans_ville"
+	vide.ailleurs = {"pays": "Chine"}
+	var lues := Portail.entrees(JSON.stringify({"format": 1, "communes": [entree, abime, loin, sans, vide]}))
+	check(lues.map(func(e): return e.id) == [ID, "casino_minuit"], "une destination lointaine est gardée, pas une entrée sans « ailleurs » ni sans ville : %s" % str(lues.map(func(e): return e.id)))
+	check(lues.size() == 2 and lues[1].insee == "" and lues[1].get("ailleurs", {}).get("ville") == "Las Vegas", "elle garde son « ailleurs »")
+	var avant: Array = communes.catalogue
+	communes.catalogue = lues
+	check(communes.carte().filter(func(e): return e.publiee).map(func(e): return e.insee) == ["86290"], "sur la carte de la Vienne, elle n'allume aucune commune")
+	communes.catalogue = avant
+
 	var srv := OS.create_process("python3", ["-m", "http.server", str(PORT), "--bind", "127.0.0.1", "--directory", ProjectSettings.globalize_path(TMP + "srv")])
 	check(srv > 0, "le portail local démarre")
 	await create_timer(1.5).timeout

@@ -18,8 +18,8 @@ static func adresse() -> String:
 	return ADRESSE
 
 
-## Les entrées utilisables d'un catalogue lu (texte JSON) : une commune réelle de la Vienne, un id
-## valide, une adresse de paquet en https (ou locale, pour les essais), une taille sous le plafond
+## Les entrées utilisables d'un catalogue lu (texte JSON) : une commune réelle de la Vienne (ou une
+## destination lointaine, sans code INSEE, avec son « ailleurs » et au moins sa ville), un id valide, une adresse de paquet en https (ou locale, pour les essais), une taille sous le plafond
 ## et une empreinte sha256. Le reste est ignoré sans bruit : un catalogue abîmé ne doit pas
 ## empêcher de jouer.
 static func entrees(texte: String) -> Array:
@@ -33,15 +33,21 @@ static func entrees(texte: String) -> Array:
 		var id := str(e.get("id", ""))
 		var paquet := str(e.get("paquet", ""))
 		var local := paquet.begins_with("http://127.0.0.1:") or paquet.begins_with("http://localhost:")
-		if Vienne.commune(str(e.get("insee", ""))).is_empty() or not id.is_valid_identifier() or id != id.to_lower() \
+		var insee := str(e.get("insee", ""))
+		var ailleurs = e.get("ailleurs")
+		var loin: bool = insee == "" and ailleurs is Dictionary and ailleurs.get("ville") is String and str(ailleurs.ville) != ""
+		if (Vienne.commune(insee).is_empty() and not loin) or not id.is_valid_identifier() or id != id.to_lower() \
 				or id == "smarves" or not (paquet.begins_with("https://") or local) \
 				or int(e.get("taille", 0)) <= 0 or int(e.get("taille", 0)) > TAILLE_MAX \
 				or str(e.get("sha256", "")).length() != 64:
 			continue
-		out.append({"insee": str(e.insee), "id": id, "nom": str(e.get("nom", id)), "auteur": str(e.get("auteur", "")),
+		var entree := {"insee": insee, "id": id, "nom": str(e.get("nom", id)), "auteur": str(e.get("auteur", "")),
 			"version": str(e.get("version", "")), "description": str(e.get("description", "")), "paquet": paquet,
 			"taille": int(e.taille), "sha256": str(e.sha256).to_lower(), "publie_le": str(e.get("publie_le", "")),
-			"structures": Structures.nettoyer(e.get("structures"))})
+			"structures": Structures.nettoyer(e.get("structures"))}
+		if loin:
+			entree.ailleurs = ailleurs
+		out.append(entree)
 	return out
 
 

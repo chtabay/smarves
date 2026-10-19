@@ -103,7 +103,8 @@ func lointaines() -> Array:
 func carte() -> Array:
 	var publiees := {}
 	for e in catalogue:
-		publiees[e.insee] = true
+		if e.insee != "":
+			publiees[e.insee] = true
 	var out := []
 	for v in Vienne.communes():
 		var c := par_insee(str(v.insee))
