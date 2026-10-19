@@ -2,9 +2,10 @@ extends Node
 ## Le football de la Vienne (autoload « Football ») : une pyramide de divisions à huit clubs au plus, à la
 ## Hattrick, qui lit les terrains du registre des structures (docs/SUITE.md, section 6). Toute commune
 ## qui déclare un terrain (« terrain_foot ») a un club, qui entre dans la division la plus basse à la
-## saison suivante. Seuls les clubs inscrits jouent : pas de club fictif pour remplir (demande de
-## Guillaume du 18 octobre 2026), deux clubs suffisent pour commencer, et un club seul attend le
-## deuxième. Le premier de chaque groupe monte, les deux derniers descendent dans les deux groupes fils.
+## saison suivante, ou tout de suite tant qu'aucun match n'a été joué (un club seul n'attend pas la fin
+## d'une saison vide : le championnat part à la journée qui vient). Seuls les clubs inscrits jouent :
+## pas de club fictif pour remplir (demande de Guillaume du 18 octobre 2026), deux clubs suffisent pour
+## commencer. Le premier de chaque groupe monte, les deux derniers descendent dans les deux groupes fils.
 ## Le championnat vit sur le calendrier réel : un match le dimanche à 15 h, quatorze journées puis une
 ## semaine de trêve et une de mercato, trois saisons par an. Un résultat ne dépend que d'une graine
 ## (saison, journée, clubs) et des consignes prises avant le coup d'envoi : tout le monde calcule le
@@ -224,7 +225,8 @@ func periode() -> String:
 
 ## Met la pyramide au jour du calendrier : chaque saison finie est close (montées, descentes), et les
 ## terrains nouveaux du registre reçoivent leur club à la saison suivante, tant qu'elle n'a pas
-## commencé. À appeler à l'ouverture et quand le registre change ; sans effet si rien n'a bougé.
+## commencé, ou tout de suite si personne n'a encore joué (aucun groupe à deux clubs). À appeler à
+## l'ouverture et quand le registre change ; sans effet si rien n'a bougé.
 func actualiser() -> void:
 	var bouge := false
 	if niveaux.is_empty():
@@ -234,7 +236,7 @@ func actualiser() -> void:
 	while saison < cible:
 		clore_saison()
 		bouge = true
-	if journee_jouee() == 0 and _accueillir():
+	if (journee_jouee() == 0 or not _a_joue()) and _accueillir():
 		bouge = true
 	if bouge:
 		sauver()
@@ -306,6 +308,8 @@ func _accueillir() -> bool:
 		if clubs.has(e.commune):
 			continue
 		_club_du_registre(e)
+		# Arrivé en cours de saison (vide jusque-là) : ses matchs commencent à la journée qui vient.
+		clubs[e.commune].depuis = journee_jouee() + 1
 		var place := _place_libre()
 		if place < 0:
 			niveaux.append([])
@@ -319,6 +323,15 @@ func _accueillir() -> bool:
 			for g in niveaux[n]:
 				g.sort()
 	return bouge
+
+
+## Un match a-t-il pu se jouer cette saison : un groupe à deux clubs au moins.
+func _a_joue() -> bool:
+	for n in niveaux.size():
+		for g in niveaux[n]:
+			if g.size() >= 2:
+				return true
+	return false
 
 
 ## Le premier groupe du dernier niveau qui n'est pas plein, ou -1.
@@ -369,7 +382,7 @@ func _club_du_registre(e: Dictionary) -> void:
 		court = court.left(3)
 	var couleurs: Array = champs.get("couleurs", COULEURS[Hasard.graine(e.commune) % COULEURS.size()])
 	clubs[e.commune] = {"nom": nom, "court": court, "couleurs": couleurs, "commune": e.commune, "insee": e.insee,
-		"stade": str(champs.get("stade", e.nom)), "fondation": saison}
+		"stade": str(champs.get("stade", e.nom)), "fondation": saison, "depuis": 1}
 
 
 ## Les terrains du registre qui attendent la prochaine saison pour avoir leur club : [commune].
@@ -444,11 +457,20 @@ func journee(s: int, n: int, g: int, j: int, joues := -1) -> Array:
 	var cal := calendrier(s, niveaux[n][g], n, g)
 	var out := []
 	for m in cal[j - 1]:
+		# Un club entré en cours de saison n'a pas de match avant sa journée d'arrivée.
+		if j < _depuis(m.dom, s) or j < _depuis(m.ext, s):
+			continue
 		var r := {"dom": m.dom, "ext": m.ext, "score": []}
 		if j <= joues:
 			r.score = resultat(s, j, m.dom, m.ext)
 		out.append(r)
 	return out
+
+
+## La première journée d'un club la saison s : celle de son arrivée s'il est entré cette saison-là, sinon 1.
+func _depuis(club: String, s: int) -> int:
+	var c: Dictionary = clubs.get(club, {})
+	return int(c.get("depuis", 1)) if int(c.get("fondation", 1)) == s else 1
 
 
 ## Le classement du groupe (n, g) de la saison s après « joues » journées : [{club, j, g, n, p, bp, bc,
