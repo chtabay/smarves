@@ -63,6 +63,8 @@ var K
 var _rendu
 var _decor_
 var _tables
+## Les gens du casino (pnj/pnj.gd, le moteur des PNJ de l'original).
+var pnj
 var _t := 0.0
 ## Les groupes de nœuds que la vue montre ou cache selon où l'on est, et le dernier état appliqué.
 var _groupes := {}
@@ -87,9 +89,9 @@ func _ready() -> void:
 	_decor()
 	_tables = load(BASE + "tables.gd").new(self, K)
 	_tables.poser()
-	load(BASE + "zones/figurants.gd").peupler(self)
 	_eclairer()
 	_joueur()
+	_peupler()
 	_decouper()
 	_interface()
 	# On entre à pied : la vue de dessus reste à un Tab.
@@ -104,6 +106,32 @@ func _process(dt: float) -> void:
 	_cadrer()
 	var f = player.focus_target if player else null
 	_invite.text = str(f.get_meta("prompt", "")) + "  [E]" if f != null and f.has_meta("prompt") else ""
+	if _invite.text == "" and pnj != null:
+		_invite.text = pnj.invite()
+
+
+## Les PNJ de l'original : ils vivent dans tout le casino ; les lieux encore fermés au joueur restent au
+## personnel (les clients n'y vont pas).
+func _peupler() -> void:
+	var fermes: Array = []
+	for id in [HAUTES_LIMITES, LUCULLUS, BOUTIQUES, ARENE, CONCERT]:
+		if Game.won < _seuil(id):
+			fermes.append(id)
+	pnj = load(BASE + "pnj/pnj.gd").new()
+	if not pnj.preparer(self, fermes):
+		pnj.free()
+		pnj = null
+	else:
+		add_child(pnj)
+	load(BASE + "zones/figurants.gd").peupler(self, pnj == null)
+
+
+## Une zone est-elle montrée (les PNJ d'une zone cachée ne sont ni affichés ni animés) ?
+func zone_montree(id: String) -> bool:
+	var nd := get_node_or_null(NodePath(_rendu.noeud(id)))
+	if nd is Node3D:
+		return (nd as Node3D).visible
+	return player != null and player.global_position.z <= 30.5
 
 
 ## Le décor de l'original (decor.gd) : il remplace les maillages que les zones du portage ont refaits.

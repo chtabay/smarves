@@ -43,7 +43,12 @@ var _of := PackedFloat64Array()
 var _hash := {}
 
 
-func charger(chemin: String) -> bool:
+var zones_closes: Array = []
+
+
+## zones_closes : les lieux fermés par un seuil du joueur, tenus pour des zones du personnel (les clients n'y vont
+## pas, le personnel si).
+func charger(chemin: String, closes := []) -> bool:
 	var f := FileAccess.open(chemin, FileAccess.READ)
 	if f == null:
 		push_error("[pnj] monde introuvable : " + chemin)
@@ -52,7 +57,17 @@ func charger(chemin: String) -> bool:
 	if not d is Dictionary:
 		push_error("[pnj] monde illisible : " + chemin)
 		return false
+	return _depuis(d, closes)
+
+
+## Un second monde sur les mêmes données (le fil des chemins : le cache de libre() s'écrit pendant les requêtes).
+func donnees_de(autre) -> bool:
+	return _depuis(autre.donnees.duplicate(true), autre.zones_closes)
+
+
+func _depuis(d: Dictionary, closes: Array) -> bool:
 	donnees = d
+	zones_closes = closes.duplicate()
 	for k in d.links:
 		liaisons.append(k)
 		liaison_par_id[k.id] = k
@@ -768,6 +783,8 @@ func est_personnel(x: float, z: float, level: float) -> bool:
 
 func _zones_du_personnel() -> void:
 	var sz := zone_personnel
+	for id in zones_closes:
+		sz[id] = 1
 	for zn in zones:
 		if zn.scene == "coulisses":
 			sz[zn.id] = 1

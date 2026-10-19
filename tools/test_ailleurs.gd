@@ -88,7 +88,10 @@ func _init() -> void:
 	var places: Dictionary = s.K.places
 	check(places.has("poker") and places.has("lounge_bar") and places.has("jardin_tour"), "elles notent les places de leurs figurants")
 	var figurants: Node = s.get_node_or_null("Figurants")
-	check(figurants != null and figurants.get_child_count() > 120, "le lot B a ses figurants (%d en tout)" % (figurants.get_child_count() if figurants else 0))
+	# Le dedans est habité par les PNJ de l'original (pnj/pnj.gd ; leur vie : tools/test_minuit_vie.gd).
+	var pnj = s.get("pnj")
+	var gens: Array = pnj.all if pnj != null else []
+	check(gens.size() > 90, "les PNJ de l'original peuplent le casino (%d)" % gens.size())
 	p.global_position = Vector3(-16, 6.05, -19)
 	p.rotation.y = 0.0
 	p.velocity = Vector3.ZERO
@@ -107,10 +110,10 @@ func _init() -> void:
 	check(manquantes.is_empty(), "les salles de l'est sont bâties %s" % str(manquantes))
 	check(places.has("pit_bj") and places.has("cage_caissiers") and places.has("resto_dineurs") and places.has("boutiques_tour"), "elles notent les places de leurs figurants")
 	var est := 0
-	for f in (figurants.get_children() if figurants else []):
-		if f is Node3D and f.position.x > 18.5:
+	for n in gens:
+		if n.x > 18.5 and n.z < 28.0:
 			est += 1
-	check(est > 80, "le lot C a ses figurants (%d à l'est)" % est)
+	check(est > 15, "on en voit à l'est (%d)" % est)
 	p.global_position = Vector3(15.0, 0.05, -1.5)
 	p.rotation.y = 0.0
 	p.velocity = Vector3.ZERO
@@ -213,10 +216,10 @@ func _init() -> void:
 	check(manquantes.is_empty(), "les coulisses sont bâties %s" % str(manquantes))
 	check(places.has("d_secu") and places.has("d_comptage") and places.has("d_cuisine") and places.has("d_quai") and places.has("d_couloir_ronde"), "elles notent les places de leurs figurants")
 	var coulisses := 0
-	for f in (figurants.get_children() if figurants else []):
-		if f is Node3D and (f.position.y < -4.0 or (f.position.y < 1.0 and (f.position.x > 36.0 or (f.position.x > 27.0 and f.position.z > 21.2)))):
+	for n in gens:
+		if n.kind == "staff" and pnj.is_staff_zone(n.x, n.z, n.level):
 			coulisses += 1
-	check(coulisses > 30, "le lot D a ses figurants (%d aux coulisses)" % coulisses)
+	check(coulisses > 8, "le personnel travaille aux coulisses (%d)" % coulisses)
 	var game: Node = root.get_node("Game")
 	var gagne: int = game.won
 	game.won = 0
