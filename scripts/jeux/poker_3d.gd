@@ -228,6 +228,20 @@ func _reveal() -> void:
 		if i == 0 or panel.seats[i].folded:
 			continue
 		_shown_hand[i] = POKER.CATEGORIES[POKER.evaluate(panel.seats[i].cards + panel.board)[0]].to_lower()
+		# Au poker à plusieurs, les cartes des autres ont été servies de dos sans leur valeur (le serveur
+		# ne la donne qu'à l'abattage) : elles prennent ici leur vraie figure avant de se retourner.
+		var cards: Array = panel.seats[i].cards
+		for j in mini(_hole[i].size(), cards.size()):
+			var old: Node3D = _hole[i][j]
+			var c: Dictionary = cards[j]
+			if old.get_meta("c", {}) == c:
+				continue
+			var fresh := KIT.card((int(c.r) + 1) % 13, int(c.s))
+			fresh.transform = old.transform
+			fresh.set_meta("c", c)
+			add_child(fresh)
+			old.queue_free()
+			_hole[i][j] = fresh
 		# Les cartes montrées s'avancent vers le centre et grandissent : lisibles depuis sa place.
 		var k := 0
 		for card: Node3D in _hole[i]:
