@@ -53,6 +53,19 @@ func _init() -> void:
 	await create_timer(0.6, true).timeout
 	check(p.is_on_floor() and absf(p.global_position.y) < 0.2, "l'arrivée est au sol de la rotonde (y %.2f)" % p.global_position.y)
 
+	# Le carnet du socle s'ouvre ici comme partout (touche C), et se referme.
+	var carnet: Node = root.get_node("Carnet")
+	var touche := InputEventKey.new()
+	touche.keycode = KEY_C
+	touche.pressed = true
+	Input.parse_input_event(touche)
+	await process_frame
+	await process_frame
+	check(carnet.is_open(), "le carnet s'ouvre dans Casino Minuit")
+	if carnet.is_open():
+		carnet.toggle()
+		await process_frame
+
 	# Par la volée ouest du grand escalier, jusqu'à la galerie (y 6).
 	p.global_position = Vector3(-9, 0.05, -11.0)
 	p.rotation.y = 0.0
@@ -76,6 +89,11 @@ func _init() -> void:
 	for id in foot.clubs:
 		inscrit = inscrit or str(foot.clubs[id].get("commune", "")) == "casino_minuit"
 	check(inscrit or foot.en_attente().has("casino_minuit"), "il entre au championnat de la Vienne")
+	# Une obligation du club de Minuit compte au carnet, avec celles de l'Étoile (le carnet les prend toutes).
+	var avant: Dictionary = foot.obligations_locales.duplicate(true)
+	foot.obligations_locales["casino_minuit"] = [1]
+	check(root.get_node("Carnet").call("_obligations").has("casino_minuit"), "une obligation du Racing Club Minuit compte au carnet")
+	foot.obligations_locales = avant
 
 	# Le stade de la Fortune : fermé sous son seuil, puis le stade du socle avec l'habillage de Minuit.
 	var game: Node = root.get_node("Game")
