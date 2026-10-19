@@ -852,6 +852,8 @@ func _spawn_player() -> void:
 		# Face à la terrasse du café, où Josiane attend.
 		_put_player(Vector3(-2.6, 0.05, -0.2), PI / 2.0)
 	set_fps(true)
+	# Les autres joueurs connectés sur la place (autoload Presences), à la taille de son habitant.
+	Presences.entrer("smarves", "place", self, player, 1.0)
 
 
 func _put_player(at: Vector3, yaw: float) -> void:
