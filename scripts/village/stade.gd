@@ -94,6 +94,7 @@ func _ready() -> void:
 	_pelouse()
 	_tribune()
 	_tableau_affichage()
+	_habillage()
 	_le_president()
 	_build_ui()
 	_bandeau_du_direct()
@@ -109,7 +110,8 @@ func _ready() -> void:
 
 
 func _place_name() -> String:
-	return "Le stade municipal"
+	var n := _nom_stade()
+	return n.left(1).to_upper() + n.substr(1) if n != "le stade" else "Le stade municipal"
 
 
 # --- Le terrain -----------------------------------------------------------------------------------
@@ -280,6 +282,20 @@ func _tribune() -> void:
 	_label3d("LE SIÈGE DU CLUB", Vector3(0, 2.25, 1.14), 36, Color(0.95, 0.85, 0.6)).position += locaux.position
 	_lamp(locaux.position + Vector3(0, 2.3, 1.6), Color(1.0, 0.85, 0.6), 1.1, 6.0)
 	_interactive(locaux, "locaux", "E : entrer au siège du club", Vector3(3.6, 2.6, 2.2), Vector3(0, 1.3, 1.6))
+
+
+## L'habillage de la commune (socle 1.6, champ « habillage » du terrain) : sa scène, posée autour de la
+## pelouse ; la pelouse, la tribune, le tableau et le match restent ceux du socle. La scène lit le club
+## par son parent (le stade : _nom_club(), _couleurs()…) si elle en a besoin.
+func _habillage() -> void:
+	var chemin := str(_terrain.get("champs", {}).get("habillage", ""))
+	if chemin == "" or not ResourceLoader.exists(chemin):
+		return
+	var scene := load(chemin) as PackedScene
+	if scene:
+		var n := scene.instantiate()
+		n.name = "Habillage"
+		add_child(n)
 
 
 ## Le tableau d'affichage, derrière la touche sud, face à la tribune.

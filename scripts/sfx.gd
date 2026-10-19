@@ -1,6 +1,8 @@
 extends Node
 ## Le son de Smarves (autoload « Sfx ») : bruitages de jeu tirés des packs Kenney, et ambiances
 ## synthétisées à la volée (murmure de la foule, grillons de la place, musique de salon du casino).
+## En ville, une boucle acid jazz légère par-dessus (assets/audio/musique/ville.ogg, faite par
+## tools/musique_ville.py), sur le bus Ambiance, assez bas pour laisser les bruitages devant.
 
 const GROUPS := {
 	"chips": ["casino/chip-lay-1", "casino/chip-lay-2", "casino/chip-lay-3", "casino/chips-stack-1", "casino/chips-stack-3"],
@@ -16,12 +18,16 @@ const GROUPS := {
 	"big_win": ["jingles/jingles_SAX03", "jingles/jingles_SAX07", "jingles/jingles_SAX10", "jingles/jingles_SAX15"],
 }
 const RATE := 22050.0
+const MUSIQUE_VILLE := "res://assets/audio/musique/ville.ogg"
+const MUSIQUE_DB := -15.0
 
 var ambience := ""
 var _streams := {}
 var _players: Array[AudioStreamPlayer] = []
 var _gen: AudioStreamGenerator
 var _gen_player: AudioStreamPlayer
+var _musique: AudioStreamPlayer
+var _fondu: Tween
 var _playback: AudioStreamGeneratorPlayback
 var _t := 0.0
 var _noise := 0.0
@@ -60,6 +66,11 @@ func _ready() -> void:
 	_gen_player.volume_db = 0.0
 	_gen_player.bus = "Ambiance"
 	add_child(_gen_player)
+	_musique = AudioStreamPlayer.new()
+	_musique.stream = load(MUSIQUE_VILLE)
+	_musique.bus = "Ambiance"
+	_musique.volume_db = -60.0
+	add_child(_musique)
 
 
 func play(group: String, volume_db := 0.0, pitch := 1.0) -> void:
@@ -88,7 +99,8 @@ func result(bet: int, payout: int) -> void:
 
 
 ## Les ambiances sont calculées une fois, en boucles de seize secondes : plus de crépitements ni de bips.
-## Village : un murmure lointain et le vent. Casino : la rumeur de la salle et un piano-bar très bas.
+## Village : un murmure lointain, quelques rafales de vent, et la musique de la ville. Casino : la rumeur
+## de la salle et un piano-bar très bas.
 func set_ambience(kind: String) -> void:
 	if kind == ambience and _gen_player.playing:
 		return
@@ -97,6 +109,28 @@ func set_ambience(kind: String) -> void:
 		_loops[kind] = _render_loop(kind)
 	_gen_player.stream = _loops[kind]
 	_gen_player.play()
+	_musique_ville(kind == "village")
+
+
+## La musique de la ville entre et sort en fondu ; elle reprend là où on l'avait laissée.
+func _musique_ville(jouer: bool) -> void:
+	if _musique.stream == null:
+		return
+	if _fondu:
+		_fondu.kill()
+	_fondu = create_tween()
+	if jouer:
+		if not _musique.playing:
+			_musique.play(_musique_pos)
+		_fondu.tween_property(_musique, "volume_db", MUSIQUE_DB, 2.5)
+	elif _musique.playing:
+		_fondu.tween_property(_musique, "volume_db", -60.0, 1.2)
+		_fondu.tween_callback(func():
+			_musique_pos = _musique.get_playback_position()
+			_musique.stop())
+
+
+var _musique_pos := 0.0
 
 
 var _loops := {}
@@ -126,7 +160,9 @@ func _render_loop(kind: String) -> AudioStreamWAV:
 		var swell := 0.6 + 0.4 * sin(TAU * t / seconds) * sin(TAU * 3.0 * t / seconds)
 		var v := 0.0
 		if kind == "village":
-			v = lp2 * 1.6 * swell + lp3 * 3.0
+			# Le vent ne souffle plus en continu : un fond très bas, et une rafale par boucle.
+			var rafale := pow(0.5 + 0.5 * sin(TAU * t / seconds - 1.2), 4.0)
+			v = lp2 * (0.35 + 1.1 * rafale) * swell + lp3 * 1.0
 		else:
 			var bar := int(t / 4.0) % CHORDS.size()
 			var local := fmod(t, 4.0)
@@ -160,3 +196,10 @@ func _process(delta: float) -> void:
 		if _clink_timer <= 0.0:
 			_clink_timer = randf_range(1.5, 5.0)
 			play(["chips", "card", "chips_win", "dice"].pick_random(), randf_range(-30.0, -22.0))
+
+
+func _exit_tree() -> void:
+	if _fondu:
+		_fondu.kill()
+	_musique.stop()
+	_musique.stream = null

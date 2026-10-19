@@ -17,14 +17,23 @@ extends "res://scripts/poker_panel.gd"
 ## L'encart : à droite de l'écran, qui est à la table, avec quoi devant lui et son dernier geste dans la
 ## donne, le donneur et celui qui parle ; en tête, ses crédits, le pot et le plafond d'une donne. Il se
 ## replie d'un clic en une ligne, et vient replié sur un écran étroit (téléphone).
+##
+## Les tarifs (socle 1.7) : le serveur est seul maître des blindes et du plafond de chaque table, et les
+## renvoie dans chaque vue (`table` : id, nom, blindes, plafond). Une commune qui a une table à elle
+## l'annonce par configurer_table("cloue:poker-cave", 125, 250, 10000) avant que le panneau entre dans
+## la scène ; si le serveur ne confirme pas exactement cette table et ces tarifs, le panneau refuse de
+## jouer, le dit, et se lève s'il était assis. Sans configurer_table, il attend la table du serveur aux
+## tarifs des Ambassadeurs, et une vue qui ne dit pas sa table (un serveur d'avant) passe.
 
 ## Les habitués du serveur, par place, et leur figurant dans la salle (casino_interior.gd).
 const FIGURANTS := {"Le Commandant": "le-commandant", "Mme Duval": "mme-duval", "Teddy": "teddy",
 	"La comtesse Orlov": "comtesse-orlov", "Maître Garnier": "maitre-garnier"}
 const SRV_RANKS := ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"]
 const SRV_SUITS := ["♠", "♥", "♦", "♣"]
-## Le tapis que la table montre pour soi : ses crédits, jusqu'à 10 000.
+## Le tapis que la table montre pour soi : ses crédits, jusqu'à 10 000 (ou au plafond de la table, s'il
+## est plus haut).
 const CAVE_MAX := 10000
+const TABLE_DEFAUT := "poker:ambassadeurs"
 const RELIRE := 0.8
 
 ## Qui est à quelle chaise de la salle, pour les figurants : {place à l'écran: {nom, figurant}}.
@@ -47,13 +56,22 @@ var _lineup_key := ""
 var _dispo := -1
 ## Pour les essais : une vue du serveur posée à la main, sans réseau.
 var hors_ligne := false
+## La table du serveur (SMARVES.tables) : vide, le Poker des Ambassadeurs ; un paquet de commune y met
+## l'une des siennes (« minuit:poker-1 ») et son titre.
+var table_id := ""
+## La table et les tarifs annoncés par configurer_table() : le serveur doit les confirmer. Vide : pas
+## d'annonce, la table du serveur aux tarifs par défaut.
+var attendu := {}
+## Le serveur n'a pas confirmé la table ou ses tarifs : on ne joue pas.
+var refusee := false
 var _encart: PanelContainer
 var _encart_texte: RichTextLabel
 var _encart_ouvert := true
 
 
 func _ready() -> void:
-	title = "Poker des Ambassadeurs · à plusieurs"
+	if table_id == "":
+		title = "Poker des Ambassadeurs · à plusieurs"
 	super()
 	for i in range(1, 6):
 		seats[i] = {"name": "", "ai": true, "stack": 0}
@@ -76,7 +94,7 @@ func _appeler(action: String, args := {}) -> void:
 	if _busy or hors_ligne:
 		return
 	_busy = true
-	var r: Dictionary = await Compte.casino(action, args)
+	var r: Dictionary = await Compte.casino(action, avec_table(args))
 	_busy = false
 	if not is_inside_tree():
 		return
@@ -97,6 +115,63 @@ func _appeler(action: String, args := {}) -> void:
 	appliquer(r.corps, action)
 
 
+## Une table de commune à ses tarifs (socle 1.7) : son identifiant chez le serveur, petite et grosse
+## blinde, plafond par donne. À appeler avant que le panneau entre dans la scène. Rend false, sans rien
+## changer, pour un identifiant vide ou des tarifs incohérents.
+func configurer_table(id: String, petite: int, grosse: int, plafond: int) -> bool:
+	if id.strip_edges() == "" or not configurer_blindes(petite, grosse, plafond):
+		return false
+	table_id = id
+	attendu = {"id": id, "blindes": [petite, grosse], "plafond": plafond}
+	return true
+
+
+## La table et les tarifs que le serveur doit renvoyer.
+func tarif_attendu() -> Dictionary:
+	if not attendu.is_empty():
+		return attendu
+	return {"id": table_id if table_id != "" else TABLE_DEFAUT, "blindes": [SB, BB], "plafond": CAP}
+
+
+## Le serveur confirme-t-il la table et ses tarifs ? Une vue sans `table` (un serveur d'avant) ne passe
+## que si la commune n'a rien annoncé.
+func tarif_confirme(v: Dictionary) -> bool:
+	var t = v.get("table")
+	if not t is Dictionary:
+		return attendu.is_empty()
+	var a := tarif_attendu()
+	var b = t.get("blindes")
+	return str(t.get("id", "")) == a.id and b is Array and b.size() == 2 \
+		and int(b[0]) == int(a.blindes[0]) and int(b[1]) == int(a.blindes[1]) and int(t.get("plafond", -1)) == int(a.plafond)
+
+
+## La table n'est pas celle qu'on attend : on ne joue pas, on le dit, et on se lève si l'on était assis.
+func _refuser(v: Dictionary) -> void:
+	refusee = true
+	_waiting_player = false
+	if _minuteur:
+		_minuteur.stop()
+	var a := tarif_attendu()
+	_log.text = "Le casino ne confirme pas cette table (%s, blindes %s/%s, %s par donne) : on n'y joue pas." % [a.id,
+		Game.fmt(int(a.blindes[0])), Game.fmt(int(a.blindes[1])), Game.fmt(int(a.plafond))]
+	if v.get("seat") != null and not hors_ligne:
+		(func():
+			while _busy:
+				await get_tree().process_frame
+			_busy = true
+			await Compte.casino("partir", avec_table({}))
+			_busy = false).call_deferred()
+	seated = false
+	_render()
+
+
+## Les arguments d'une demande, avec la table quand ce n'est pas celle des Ambassadeurs.
+func avec_table(args: Dictionary) -> Dictionary:
+	if table_id != "":
+		args["table"] = table_id
+	return args
+
+
 func _info_text(t: String) -> void:
 	if _info:
 		_info.text = t
@@ -106,6 +181,10 @@ func _info_text(t: String) -> void:
 
 ## Le joueur était déjà assis (une autre fenêtre, ou il revient) : le jeu le sait par la vue.
 func appliquer(v: Dictionary, action := "voir") -> void:
+	if refusee or not tarif_confirme(v):
+		if not refusee:
+			_refuser(v)
+		return
 	srv = v
 	var rendu := int(v.get("rendu", 0))
 	if rendu > 0:
@@ -358,12 +437,14 @@ func _raconter_attente(pk: Dictionary) -> void:
 # --- Les gestes ------------------------------------------------------------------------------------
 
 func cave() -> int:
-	return mini(Game.credits, CAVE_MAX)
+	return mini(Game.credits, maxi(CAVE_MAX, CAP))
 
 
 ## « Nouvelle donne » devient « S'asseoir » ou « Recaver » : les donnes partent seules au serveur.
 ## Ni l'un ni l'autre ne prend de crédits : la table ne fait que lire ce qu'on a.
 func _new_hand() -> void:
+	if refusee:
+		return
 	var c := cave()
 	if c < CAP:
 		_log.text = "Il faut au moins %s crédits pour être servi." % Game.fmt(CAP)
@@ -378,7 +459,7 @@ func _appeler_assis(action: String, c: int) -> void:
 	while _busy:
 		await get_tree().process_frame
 	_busy = true
-	var r: Dictionary = await Compte.casino(action, {"cave": c})
+	var r: Dictionary = await Compte.casino(action, avec_table({"cave": c}))
 	_busy = false
 	if not is_inside_tree():
 		return

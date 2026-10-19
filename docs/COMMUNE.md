@@ -10,6 +10,20 @@ La carte de la Vienne est un écran du jeu depuis le 18 octobre 2026 (section su
 
 **Toutes les communes sont sur la carte, seules les communes développées sont cliquables.** `Communes.carte()` rend les 265 communes ; `cliquable` n'est vrai que pour celles qui sont inscrites au registre avec ce code INSEE (aujourd'hui Smarves seule). Les autres restent des silhouettes. Poitiers reste un trou dans la brume, jamais développé (SUITE.md, section 5).
 
+### Les destinations lointaines (socle 1.5)
+
+**Une commune peut être ailleurs que dans la Vienne** : un grand casino de Las Vegas, une ville de bord de mer. Elle n'a pas de code INSEE et n'est pas dessinée sur la carte ; son manifeste porte le champ `ailleurs` et demande `"socle_min": "1.5"` :
+
+```json
+"ailleurs": {"ville": "Las Vegas", "pays": "États-Unis", "aeroport": "McCarran", "vol": "MN 1203 · via Paris-Charles-de-Gaulle"}
+```
+
+- **On y va en avion, depuis Poitiers-Biard.** La fiche de Poitiers sur la carte dit que l'aéroport a des vols et offre « Embarquer pour <ville> → » pour chaque destination installée. Le vol (`Carte.voler(id)`) est un écran de passage : « VOL POUR LAS VEGAS », la ligne Poitiers-Biard → l'aéroport (la ville à défaut) et le numéro de vol, un avion qui suit un arc d'or ; puis la scène de la commune.
+- **On en revient de même.** Dans une commune lointaine, le bouton du coin dit « Reprendre l'avion » au lieu de « Revenir à Smarves », et la carte, cadrée sur Poitiers, montre la fiche de la ville avec « Reprendre l'avion → » ; `Carte.voler()` ramène à Smarves.
+- **Ce que le socle vérifie** (`Commune.verifier_ailleurs`) : un objet, une ville, des textes, aucun champ inconnu, pas de code INSEE, et un socle 1.5 au moins. Deux communes lointaines n'entrent pas en conflit de code INSEE ; `Communes.lointaines()` les liste, `Commune.lointaine()`, `ville()`, `pays()`, `aeroport()` et `vol()` les lisent. Le test est `tools/test_ailleurs.gd`.
+- **Son club joue dans la Vienne.** Une commune lointaine qui déclare un terrain a son club au championnat comme les autres ; au registre, son centre est celui de Poitiers, d'où partent ses vols. Le Racing Club Minuit (rouge laque et or) joue ainsi l'Étoile de Smarves.
+- **Le premier exemple est Casino Minuit** (`tools/paquet_essai/casino_minuit/`), le casino de Guillaume porté du moteur web en GDScript : la rotonde d'entrée, l'atrium et son bar, le grand escalier, la galerie de la mezzanine. Les tables et les salles y sont pour l'instant fermées (lieux à seuil) ; le couloir du stade, dans l'allée est du grand escalier, s'ouvre à 3 000 gagnés. Le portail n'accepte pas encore les paquets lointains.
+
 ### L'écran de la carte
 
 L'autoload `Carte` (`scripts/carte.gd`) montre la carte en plein écran, dessinée par la même `CarteVienne` que la bienvenue, rendue navigable :
@@ -85,7 +99,8 @@ Un dossier `communes/<id>/` avec au moins un manifeste `commune.json` et la scè
 | `version` | non (oui pour publier) | trois nombres (`0.1.0`), à monter à chaque dépôt |
 | `description` | non | deux phrases, montrées dans le carnet du joueur ; « » par défaut |
 | `socle_min` | non | la version du socle demandée (aujourd'hui `1.0`) |
-| `insee` | oui | le code INSEE d'une commune actuelle de la Vienne (`86263` pour Smarves) : c'est lui qui place la commune sur la carte, à sa vraie place ; deux communes développées ne peuvent pas avoir le même |
+| `ailleurs` | non | socle 1.5 : une destination hors de la Vienne, rejointe en avion (section « Les destinations lointaines ») ; `{ville, pays, aeroport, vol}`, la ville seule obligatoire. Avec lui, `insee` est absent ou vide |
+| `insee` | oui (sauf `ailleurs`) | le code INSEE d'une commune actuelle de la Vienne (`86263` pour Smarves) : c'est lui qui place la commune sur la carte, à sa vraie place ; deux communes développées ne peuvent pas avoir le même |
 | `carte` | non | plus tard, la scène du petit socle posé sur la carte |
 | `scene` | oui | la scène de la commune ; elle doit exister au chargement |
 | `arrivee` | non | où l'on débarque : `lot` (la porte du village), `nom` (« La place de la Mairie », montré à l'arrivée et dans la fiche) et `par` (les communes d'où l'on vient, le car départemental) |
@@ -131,7 +146,7 @@ Une **structure** est quelque chose qu'une commune possède et qui compte pour l
 
 Et par type : `gare` prend `quai` ; `arret_car` prend `abri` ; `terrain_foot` demande `club` (le nom du club) et prend `court` (le sigle), `couleurs` (deux couleurs, `#rrggbb`) et `stade` ; `salle_jeu` demande `jeux` et prend `tenancier`, `graine`, `decor`, `repliques`, `enseigne` et `guichet` (plus bas) ; `commerce` demande `genre` et `articles` et prend `tenancier`, `graine`, `repliques` et `enseigne` (plus bas). Une seule structure de chaque type par commune, sauf les salles de jeu et les commerces : une commune peut en avoir plusieurs.
 
-**Le stade est une scène du socle.** Une commune qui déclare un terrain n'a pas de stade à construire : `scenes/stade.tscn` (`scripts/village/stade.gd`) est le même pour toutes, habillé de la structure. Il y lit **le nom du club** (`club`, sur la tribune et dans la bouche du commentateur), **le sigle** (`court`, au tableau d'affichage), **les couleurs** (`couleurs` : la première teint la tribune, les bancs, les toits, les casquettes et les maillots des supporters, la seconde les bas des joueurs), **le nom du stade** (`nom` de la structure, sur l'arche et la tribune : « Le stade des Prés » s'écrit « STADE DES PRÉS »), et **la porte du retour** (`lot`, sinon l'`id` de la structure : `Game.return_point` à la sortie). **Le président** est l'hôte (`hote`) du lieu du manifeste qui porte le terrain, celui dont l'`id` est le même que celui de la structure ou que son `lot` ; sans lieu, c'est « Le président ». La commune ouvre son stade depuis sa scène par `Football.ouvrir_stade("<id de la commune>")` (la porte de son terrain, le nœud `noeud`) ; la sortie du stade ramène à sa scène. Tant que le club attend la saison prochaine, on y regarde le match de la division suivie et le président n'a rien à décider. Un champ inconnu, un type inconnu, un champ du mauvais type ou un terrain sans club rendent le manifeste invalide : la commune n'est pas inscrite, et le portail refuse le paquet pour la même raison. Un type ajouté plus tard fera monter la version du socle ; un paquet qui s'en sert le demande par `socle_min`. Le championnat ne compte que les clubs inscrits : avec un seul terrain au registre, il n'y a pas de match, le club s'entraîne et le tableau dit qu'on attend un deuxième club ; deux terrains suffisent.
+**Le stade est une scène du socle.** Une commune qui déclare un terrain n'a pas de stade à construire : `scenes/stade.tscn` (`scripts/village/stade.gd`) est le même pour toutes, habillé de la structure. Il y lit **le nom du club** (`club`, sur la tribune et dans la bouche du commentateur), **le sigle** (`court`, au tableau d'affichage), **les couleurs** (`couleurs` : la première teint la tribune, les bancs, les toits, les casquettes et les maillots des supporters, la seconde les bas des joueurs), **le nom du stade** (`nom` de la structure, sur l'arche et la tribune : « Le stade des Prés » s'écrit « STADE DES PRÉS »), et **la porte du retour** (`lot`, sinon l'`id` de la structure : `Game.return_point` à la sortie). **L'habillage** (socle 1.6, `"socle_min": "1.6"`) : le champ `habillage` du terrain nomme une scène de la commune (`res://communes/<id>/….tscn`), que le stade pose autour de la pelouse (nœud `Habillage`) ; la pelouse, la tribune du club, le tableau d'affichage, le président et le match restent ceux du socle. La scène lit le club par son parent si elle en a besoin. Casino Minuit s'en sert pour le stade de la Fortune (`tools/paquet_essai/casino_minuit/stade/`) : le Strip la nuit tout autour, deux virages de velours sous des marquises dorées, l'enseigne au néon et la roue de la Fortune. **Le président** est l'hôte (`hote`) du lieu du manifeste qui porte le terrain, celui dont l'`id` est le même que celui de la structure ou que son `lot` ; sans lieu, c'est « Le président ». La commune ouvre son stade depuis sa scène par `Football.ouvrir_stade("<id de la commune>")` (la porte de son terrain, le nœud `noeud`) ; la sortie du stade ramène à sa scène. Tant que le club attend la saison prochaine, on y regarde le match de la division suivie et le président n'a rien à décider. Un champ inconnu, un type inconnu, un champ du mauvais type ou un terrain sans club rendent le manifeste invalide : la commune n'est pas inscrite, et le portail refuse le paquet pour la même raison. Un type ajouté plus tard fera monter la version du socle ; un paquet qui s'en sert le demande par `socle_min`. Le championnat ne compte que les clubs inscrits : avec un seul terrain au registre, il n'y a pas de match, le club s'entraîne et le tableau dit qu'on attend un deuxième club ; deux terrains suffisent.
 
 **La salle de jeu est une scène du socle** (socle 1.1 : un paquet qui en déclare une met `"socle_min": "1.1"`). La commune ne construit ni la pièce ni les jeux : `scenes/salle_jeu.tscn` (`scripts/socle/salle_jeu.gd`) bâtit la salle, pose une table ou une machine par jeu en rangs de trois depuis le comptoir, et fait tourner les jeux de Smarves, les mêmes panneaux qu'au casino, avec la même bourse et le même total gagné.
 
@@ -157,6 +172,19 @@ Et par type : `gare` prend `quai` ; `arret_car` prend `abri` ; `terrain_foot` de
 ```sh
 godot --headless --path . -s tools/test_salle_jeu.gd
 ```
+
+**Les tarifs du poker d'une commune** (socle 1.7, `"socle_min": "1.7"`). Le poker du socle est celui des Ambassadeurs : blindes 25/50, 2 000 au plus engagés par donne. Une commune peut donner d'autres tarifs à sa table, sans écrire son propre poker, en appelant sur le panneau, avant de l'ajouter à la scène :
+
+- **au solo** (`scripts/poker_panel.gd`) : `configurer_blindes(petite, grosse, plafond)`. Il faut au moins la grosse blinde en crédits pour s'asseoir ;
+- **à plusieurs** (`scripts/jeux/poker_multi.gd`) : `configurer_table("<id>", petite, grosse, plafond)`. La table doit exister au serveur (la fonction casino du dépôt chtabay/addict, `SMARVES.tables` dans `supabase/functions/casino/smarves-poker.js`), qui seul fixe ses tarifs : un paquet ne peut pas les installer. Le serveur les renvoie dans chaque vue (`table` : `id`, `nom`, `blindes`, `plafond`) ; si ce ne sont pas exactement ceux annoncés, le panneau refuse de jouer, le dit, et se lève s'il était assis. Le tapis posé en s'asseyant ou en recavant va du plafond à 10 000 (au plafond même, s'il est plus haut). Rien n'est pris à l'entrée.
+
+Les deux rendent `false`, sans rien changer, pour des tarifs incohérents. La table du serveur aujourd'hui ouverte aux communes :
+
+| Table | Commune | Blindes | Plafond par donne | Tapis |
+|---|---|---|---|---|
+| `cloue:poker-cave` | Cloué, La Contrebande | 125/250 | 10 000 | 10 000 |
+
+Une autre table se demande dans le dépôt chtabay/addict. Le test est `tools/test_poker_multi.gd`.
 
 **Le commerce est une scène du socle** (socle 1.4 : `"socle_min": "1.4"`). Les trois commerces de Smarves ont leur pareil pour toute commune, selon le `genre` : `tenue` (on n'en porte qu'une, comme chez Raymonde), `vehicule` (on n'en conduit qu'un, comme au garage Fradin) ou `meuble` (il se pose chez soi, comme chez Ginette Boutin). La commune nomme son commerçant et ses articles ; `scenes/commerce.tscn` (`scripts/socle/commerce.gd`) bâtit la boutique, pose le commerçant derrière son comptoir, met six articles au plus en vitrine (une silhouette à la couleur de la tenue, le véhicule, le meuble) et ouvre le bon de commande du village (`scripts/shop_panel.gd`).
 
@@ -262,7 +290,7 @@ Une commune se publie sur **le portail des développeurs**, la page `/developpeu
    ```sh
    godot --headless --path . -s tools/emballer_commune.gd -- <id>
    ```
-   L'outil écrit `build/<id>.pck` et le fait passer par les refus du jeu (`Communes.charger_pack`, montage, chargement de la scène). `--depuis=res://…/` emballe un autre dossier sous `communes/<id>/` (c'est ainsi qu'est fait le paquet d'essai, `tools/paquet_essai/`).
+   L'outil écrit `build/<id>.pck` et le fait passer par les refus du jeu (`Communes.charger_pack`, montage, chargement de la scène). `--depuis=res://…/` emballe un autre dossier sous `communes/<id>/` (c'est ainsi qu'est fait le paquet d'essai, `tools/paquet_essai/`). Un dossier hors du projet, le dépôt d'une commune (`--depuis=/chemin/vers/vegas`), est d'abord recopié sous `build/sources/<id>/`, sans `.git`, `tests/` ni `.md`, puis importé par le moteur avant d'être emballé.
 3. **Déposer** le `.pck` sur la page : il part directement du navigateur vers le stockage, puis le serveur le relit et affiche **le rapport de validation**, une ligne par règle. Un paquet valide est « prêt » ; **publier** le met au catalogue (une seule version publiée par commune, la nouvelle remplace l'ancienne), **dépublier** l'en retire. Chaque dépôt garde sa ligne : c'est l'historique des versions.
 
 **Une version par dépôt.** Chaque dépôt doit porter une version plus grande que la dernière déposée pour cette commune (`0.1.0`, puis `0.1.1` ou `0.2.0`) : avant d'envoyer le fichier, la page lit dans le pack sa taille, son nombre de fichiers et sa version, les affiche, et refuse tout de suite un pack dont la version est inférieure ou égale à la dernière déposée (un vieux `.pck` oublié dans `build/` ne passe pas). Un dépôt refusé ne consomme pas sa version. Chez le joueur, **une mise à jour s'ouvre au lancement suivant** : la nouvelle version s'installe à côté et prend la place de l'ancienne au prochain démarrage du jeu.

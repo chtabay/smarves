@@ -29,7 +29,8 @@ const TYPES := {
 	},
 	"terrain_foot": {
 		"nom": "le terrain de football",
-		"champs": {"club": TYPE_STRING, "court": TYPE_STRING, "couleurs": TYPE_ARRAY, "stade": TYPE_STRING},
+		# « habillage » (socle 1.6) : une scène de la commune posée dans le stade du socle, autour de la pelouse.
+		"champs": {"club": TYPE_STRING, "court": TYPE_STRING, "couleurs": TYPE_ARRAY, "stade": TYPE_STRING, "habillage": TYPE_STRING},
 		"requis": ["club"],
 		"unique": true,
 		"relie": "le championnat de la Vienne : la commune a un club, qui y entre à la saison suivante (tout de suite si personne n'a encore joué)",
@@ -109,6 +110,10 @@ static func verifier(liste: Variant) -> PackedStringArray:
 		if t == "terrain_foot" and s.has("couleurs") and typeof(s.couleurs) == TYPE_ARRAY:
 			if s.couleurs.size() != 2 or s.couleurs.any(func(c): return typeof(c) != TYPE_STRING or not Color.html_is_valid(c)):
 				erreurs.append("structure %s : « couleurs » donne deux couleurs (« #1b3c8c »)" % id)
+		if t == "terrain_foot" and typeof(s.get("habillage")) == TYPE_STRING:
+			var h: String = s.habillage
+			if not h.begins_with("res://communes/") or not h.ends_with(".tscn"):
+				erreurs.append("structure %s : « habillage » est une scène de la commune (res://communes/<id>/….tscn)" % id)
 		if t == "salle_jeu":
 			if typeof(s.get("jeux")) == TYPE_ARRAY:
 				for j in s.jeux:

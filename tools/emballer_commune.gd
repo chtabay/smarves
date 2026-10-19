@@ -1,7 +1,9 @@
 extends SceneTree
 ## Emballe une commune en paquet pour le portail des développeurs, et le fait passer par les mêmes
 ## refus que le jeu : godot --headless --path . -s tools/emballer_commune.gd -- <id>
-##   --depuis=res://chemin/  le dossier source (par défaut res://communes/<id>/)
+##   --depuis=res://chemin/  le dossier source (par défaut res://communes/<id>/) ; un dossier hors du
+##                           projet (--depuis=/chemin/vers/vegas, le dépôt d'une commune) est d'abord
+##                           recopié sous res://build/sources/<id>/ et importé, sans .git, tests/ ni .md
 ##   --sortie=chemin.pck     où écrire le paquet (par défaut build/<id>.pck)
 ## Tout est rangé sous res://communes/<id>/ dans le paquet. Une ressource importée (image, son,
 ## modèle) part sous sa forme importée (.godot/imported/), avec son fichier .import ; l'original ne
@@ -28,6 +30,11 @@ func _init() -> void:
 		depuis = "res://communes/%s/" % id
 	if not depuis.ends_with("/"):
 		depuis += "/"
+	if not depuis.begins_with("res://"):
+		depuis = _recopier(depuis, id)
+		if depuis == "":
+			quit(1)
+			return
 	if sortie == "":
 		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://build/"))
 		sortie = ProjectSettings.globalize_path("res://build/%s.pck" % id)
@@ -69,7 +76,7 @@ func _init() -> void:
 		printerr("Le paquet dépasse 32 Mo : le portail le refusera.")
 		quit(1)
 		return
-	print("Accepté par le jeu : %s (%s), version %s. À déposer sur la page développeur." % [c.nom, c.insee, c.data.get("version", "?")])
+	print("Accepté par le jeu : %s (%s), version %s. À déposer sur la page développeur." % [c.nom, c.ville() + ", " + c.pays() if c.lointaine() else c.insee, c.data.get("version", "?")])
 	quit(0)
 
 
@@ -90,3 +97,43 @@ func _parcourir(dossier: String, racine: String, cible: String, out: Dictionary)
 			out[dans_le_paquet] = chemin
 	for sub in d.get_directories():
 		_parcourir(dossier + sub + "/", racine, cible, out)
+
+
+## Recopie le dossier d'un dépôt hors du projet sous res://build/sources/<id>/ (sans ce qui ne part pas
+## dans un paquet), puis fait importer ses ressources par le moteur : « » si le dossier n'existe pas.
+func _recopier(dehors: String, id: String) -> String:
+	if not DirAccess.dir_exists_absolute(dehors):
+		printerr("Pas de dossier %s" % dehors)
+		return ""
+	var dedans := "res://build/sources/%s/" % id
+	_vider(ProjectSettings.globalize_path(dedans))
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dedans))
+	_copier(dehors, ProjectSettings.globalize_path(dedans))
+	var sortie := []
+	var code := OS.execute(OS.get_executable_path(), ["--headless", "--path", ProjectSettings.globalize_path("res://"), "--import"], sortie, true)
+	if code != 0:
+		printerr("L'import des ressources a échoué (%d)" % code)
+		return ""
+	return dedans
+
+
+func _copier(de: String, vers: String) -> void:
+	var d := DirAccess.open(de)
+	for f in d.get_files():
+		if not f.ends_with(".md"):
+			DirAccess.copy_absolute(de + f, vers + f)
+	for sous in d.get_directories():
+		if not sous.begins_with(".") and sous != "tests":
+			DirAccess.make_dir_recursive_absolute(vers + sous)
+			_copier(de + sous + "/", vers + sous + "/")
+
+
+func _vider(dossier: String) -> void:
+	var d := DirAccess.open(dossier)
+	if d == null:
+		return
+	for f in d.get_files():
+		DirAccess.remove_absolute(dossier + f)
+	for sous in d.get_directories():
+		_vider(dossier + sous + "/")
+		DirAccess.remove_absolute(dossier + sous)
