@@ -56,6 +56,10 @@ const CAUSERIE := preload("res://scripts/socle/foot_causerie.gd")
 const MERCATO := preload("res://scripts/socle/foot_mercato.gd")
 const OBLIGATIONS := preload("res://scripts/socle/foot_obligations.gd")
 const LOCAUX := preload("res://scripts/socle/foot_locaux.gd")
+const PANNEAU := preload("res://scripts/socle/foot_panneau.gd")
+## L'intérieur du siège, hors les murs du stade : on y entre par la porte du siège, on en sort par la sienne.
+var _siege_interieur := Vector3.ZERO
+var _siege_porte := Vector3.ZERO
 const BUREAU := "res://scripts/socle/bureau.gd"
 var _president: Node3D
 var _causerie: PanelContainer
@@ -67,11 +71,23 @@ var _terrain := {}
 var _club := ""
 
 
-## Ouvre le stade d'une commune : la scène du socle, habillée de son terrain. La sortie ramène à sa scène.
+## Ouvre le stade d'une commune : la scène du socle, habillée de son terrain, ou la scène du stade que la
+## commune a bâtie (socle 1.8, champ « scene » du terrain : son script hérite de celui-ci). La sortie
+## ramène à sa scène.
 static func ouvrir(id: String) -> void:
 	prochaine_commune = id
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	(Engine.get_main_loop() as SceneTree).change_scene_to_file("res://scenes/stade.tscn")
+	(Engine.get_main_loop() as SceneTree).change_scene_to_file(scene_de(id))
+
+
+## La scène du stade d'une commune : celle de son terrain (champ « scene ») si elle existe, sinon celle du socle.
+static func scene_de(id: String) -> String:
+	for e in Registre.de_commune(id):
+		if e.type == "terrain_foot":
+			var sc := str(e.get("champs", {}).get("scene", ""))
+			if sc != "" and ResourceLoader.exists(sc):
+				return sc
+	return "res://scenes/stade.tscn"
 
 
 func _ready() -> void:
@@ -93,6 +109,8 @@ func _ready() -> void:
 	_nuit()
 	_pelouse()
 	_tribune()
+	_entree()
+	_siege()
 	_tableau_affichage()
 	_habillage()
 	_le_president()
@@ -246,18 +264,8 @@ func _tribune() -> void:
 			add_child(c)
 			c.debug_anim("sit")
 			_supporters.append(c)
-	# Derrière la tribune : la grille, l'arche de l'entrée, et la sortie sur la route du Bois.
-	var pierre := _std(Color(0.9, 0.86, 0.76), 0.9)
-	for s in [-1.0, 1.0]:
-		_box(Vector3(0.24, 1.8, 0.24), Vector3(-tw / 2.0 - 1.0 + s * 0.75, 0.9, tz + 1.0), pierre)
-	_box(Vector3(1.8, 0.3, 0.1), Vector3(-tw / 2.0 - 1.0, 1.85, tz + 1.0), bleu)
-	_label3d(_enseigne(_nom_stade()), Vector3(-tw / 2.0 - 1.0, 1.85, tz + 1.07), 40, Color(1.0, 0.9, 0.55))
-	var sortie := Node3D.new()
-	sortie.position = Vector3(-tw / 2.0 - 1.0, 0, tz + 1.0)
-	add_child(sortie)
-	_interactive(sortie, "exit", "E : sortir sur la route du Bois" if commune == Communes.ORIGINE else "E : sortir du stade", Vector3(2.2, 2.2, 2.0), Vector3(0, 1.1, 0))
-	_lamp(Vector3(-tw / 2.0 - 1.0, 2.4, tz + 1.6), Color(1.0, 0.75, 0.45), 1.5, 7.0)
 	# Un muret ferme le reste, et la buvette dans l'angle.
+	var pierre := _std(Color(0.9, 0.86, 0.76), 0.9)
 	_box(Vector3(W, 1.2, 0.3), Vector3(0, 0.6, -D / 2.0 + 0.2), pierre, true)
 	_box(Vector3(0.3, 1.2, D), Vector3(-W / 2.0 + 0.2, 0.6, 0), pierre, true)
 	_box(Vector3(0.3, 1.2, D), Vector3(W / 2.0 - 0.2, 0.6, 0), pierre, true)
@@ -282,6 +290,137 @@ func _tribune() -> void:
 	_label3d("LE SIÈGE DU CLUB", Vector3(0, 2.25, 1.14), 36, Color(0.95, 0.85, 0.6)).position += locaux.position
 	_lamp(locaux.position + Vector3(0, 2.3, 1.6), Color(1.0, 0.85, 0.6), 1.1, 6.0)
 	_interactive(locaux, "locaux", "E : entrer au siège du club", Vector3(3.6, 2.6, 2.2), Vector3(0, 1.3, 1.6))
+	_siege_porte = locaux.position + Vector3(0.4, 0, 2.4)
+
+
+## L'entrée du stade, à part de la tribune pour qu'un stade qui la surcharge garde ou refasse la sienne :
+## le portail (la sortie, dite et éclairée), la grille jusqu'au muret, le gravier, et le panneau du club.
+func _entree() -> void:
+	var bois := _std(Color(0.55, 0.36, 0.22), 0.7)
+	var bleu := _std(_couleur(), 0.6)
+	var tz := -P / 2.0 - 4.0
+	var tw := 22.0
+	# Derrière la tribune : la grille, et le portail de l'entrée, par où l'on sort sur la route du Bois.
+	# Deux piliers, un fronton éclairé qui dit SORTIE, les deux vantaux ouverts, et le gravier qui y mène.
+	var pierre := _std(Color(0.9, 0.86, 0.76), 0.9)
+	var fer := _std(Color(0.18, 0.2, 0.22), 0.5, 0.6)
+	var gx := -tw / 2.0 - 1.0
+	var gz := tz + 1.0
+	for s in [-1.0, 1.0]:
+		_box(Vector3(0.4, 2.8, 0.4), Vector3(gx + s * 1.3, 1.4, gz), pierre, true)
+		_box(Vector3(0.5, 0.12, 0.5), Vector3(gx + s * 1.3, 2.86, gz), pierre)
+		# Les vantaux, ouverts vers l'intérieur du stade.
+		var vantail := _box(Vector3(0.06, 1.9, 1.15), Vector3(gx + s * 1.1, 0.95, gz + 0.62), fer)
+		vantail.rotation.y = s * 0.35
+		for k in 5:
+			_box(Vector3(0.06, 0.06, 1.15), Vector3(gx + s * 1.1, 0.25 + k * 0.4, gz + 0.62), fer).rotation.y = s * 0.35
+	_box(Vector3(3.2, 0.5, 0.2), Vector3(gx, 3.0, gz), bleu)
+	_label3d("SORTIE  ·  ROUTE DU BOIS" if commune == Communes.ORIGINE else "SORTIE", Vector3(gx, 3.0, gz + 0.12), 40, Color(1.0, 0.9, 0.55))
+	_label3d(_enseigne(_nom_stade()), Vector3(gx, 3.0, gz - 0.12), 36, Color(1.0, 0.9, 0.55), PI)
+	_lamp(Vector3(gx, 3.3, gz + 0.8), Color(1.0, 0.75, 0.45), 2.2, 9.0)
+	_lamp(Vector3(gx, 3.3, gz - 0.8), Color(1.0, 0.75, 0.45), 1.6, 7.0)
+	# La grille, du portail au muret ouest et le long de la tribune : la seule ouverture, c'est le portail.
+	for px in [gx - 2.4, gx - 4.0, gx - 5.6, gx - 7.2]:
+		_box(Vector3(0.08, 1.9, 0.08), Vector3(px, 0.95, gz), fer)
+	_box(Vector3(gx - 1.6 - (-W / 2.0 + 0.4), 0.05, 0.05), Vector3((gx - 1.6 + (-W / 2.0 + 0.4)) / 2.0, 1.85, gz), fer)
+	_box(Vector3(gx - 1.6 - (-W / 2.0 + 0.4), 0.05, 0.05), Vector3((gx - 1.6 + (-W / 2.0 + 0.4)) / 2.0, 1.0, gz), fer)
+	# Le gravier, du portail au bord de la pelouse.
+	var bord := -P / 2.0 - 3.2
+	_box(Vector3(2.6, 0.02, bord - gz), Vector3(gx, 0.015, (gz + bord) / 2.0), _std(Color(0.62, 0.58, 0.5), 1.0))
+	var sortie := Node3D.new()
+	sortie.position = Vector3(gx, 0, gz)
+	add_child(sortie)
+	_interactive(sortie, "exit", "E : sortir sur la route du Bois" if commune == Communes.ORIGINE else "E : sortir du stade", Vector3(2.6, 2.6, 2.4), Vector3(0, 1.2, 0))
+	# Le panneau du club, juste passé le portail : l'essentiel du club et le registre des obligations,
+	# pour qui entre, qu'il dirige le club ou non (demande de Guillaume du 19 octobre 2026).
+	var panneau := Node3D.new()
+	panneau.position = Vector3(gx + 3.6, 0, gz + 0.3)
+	add_child(panneau)
+	for s in [-1.0, 1.0]:
+		_box(Vector3(0.1, 2.3, 0.1), Vector3(s * 0.95, 1.15, 0), bois, false, panneau)
+	_box(Vector3(2.1, 1.3, 0.08), Vector3(0, 1.75, 0), _std(Color(0.16, 0.22, 0.2), 0.9), true, panneau)
+	_box(Vector3(2.2, 0.1, 0.5), Vector3(0, 2.45, 0.1), bleu, false, panneau)
+	_label3d("LE PANNEAU DU CLUB", Vector3(0, 2.15, 0.06), 30, Color(1.0, 0.9, 0.55)).position += panneau.position
+	_label3d(_enseigne(_nom_club()), Vector3(0, 1.75, 0.06), 34, Color(0.95, 0.95, 0.9)).position += panneau.position
+	_label3d("Classement  ·  Prochain match  ·  Les obligations", Vector3(0, 1.4, 0.06), 20, Color(0.75, 0.8, 0.78)).position += panneau.position
+	_lamp(panneau.position + Vector3(0, 2.6, 0.9), Color(1.0, 0.85, 0.6), 1.0, 5.0)
+	_interactive(panneau, "panneau", "E : lire le panneau du club", Vector3(2.4, 2.4, 1.6), Vector3(0, 1.2, 0.8))
+
+## L'intérieur du siège (demande de Guillaume du 19 octobre 2026 : « le bureau du stade possède un intérieur
+## où on peut faire la gestion ») : une pièce hors les murs du stade, où la porte du siège mène. Le bureau
+## du président, sa chaise, l'étagère aux coupes, la fenêtre sur la nuit ; E au bureau ouvre la page de
+## gestion (open_locaux), la porte ramène devant le siège.
+func _siege() -> void:
+	var tz := -P / 2.0 - 4.0
+	_siege_interieur = Vector3(-W / 2.0 - 10.0, 0, tz - 1.0)
+	var piece := Node3D.new()
+	piece.name = "Siege"
+	piece.position = _siege_interieur
+	add_child(piece)
+	var mur := _std(Color(0.88, 0.84, 0.72), 0.9)
+	var parquet := _std(Color(0.5, 0.34, 0.2), 0.7)
+	var bois := _std(Color(0.42, 0.28, 0.16), 0.6)
+	var bleu := _std(_couleur(), 0.6)
+	var lx := 7.0
+	var lz := 5.0
+	var h := 2.8
+	_box(Vector3(lx, 0.2, lz), Vector3(0, -0.1, 0), parquet, true, piece)
+	_box(Vector3(lx, 0.1, lz), Vector3(0, h + 0.05, 0), _std(Color(0.95, 0.93, 0.88), 0.9), false, piece)
+	_box(Vector3(lx, h, 0.2), Vector3(0, h / 2.0, -lz / 2.0), mur, true, piece)
+	_box(Vector3(lx, h, 0.2), Vector3(0, h / 2.0, lz / 2.0), mur, true, piece)
+	_box(Vector3(0.2, h, lz), Vector3(-lx / 2.0, h / 2.0, 0), mur, true, piece)
+	_box(Vector3(0.2, h, lz), Vector3(lx / 2.0, h / 2.0, 0), mur, true, piece)
+	# La fenêtre sur la nuit, côté ouest, et la porte au sud.
+	_box(Vector3(0.06, 1.2, 1.8), Vector3(-lx / 2.0 + 0.12, 1.6, 0), _std(Color(0.3, 0.42, 0.6), 0.2), false, piece)
+	var porte := Node3D.new()
+	porte.position = Vector3(1.6, 0, lz / 2.0 - 0.12)
+	piece.add_child(porte)
+	_box(Vector3(1.0, 2.1, 0.08), Vector3(0, 1.05, 0), bois, false, porte)
+	_box(Vector3(0.08, 0.08, 0.08), Vector3(0.38, 1.0, -0.06), _std(Color(0.85, 0.75, 0.4), 0.3, 0.8), false, porte)
+	_interactive(porte, "sortir_siege", "E : ressortir au stade", Vector3(1.4, 2.2, 1.2), Vector3(0, 1.1, -0.5))
+	# Le bureau du président, face à la porte : la table, la chaise, la lampe, le fanion du club.
+	var bureau := Node3D.new()
+	bureau.position = Vector3(0, 0, -lz / 2.0 + 1.4)
+	piece.add_child(bureau)
+	_box(Vector3(2.2, 0.08, 1.0), Vector3(0, 0.78, 0), bois, true, bureau)
+	for s in [-1.0, 1.0]:
+		_box(Vector3(0.5, 0.74, 0.9), Vector3(s * 0.8, 0.37, 0), bois, false, bureau)
+	_box(Vector3(0.5, 0.06, 0.5), Vector3(0, 0.5, -0.8), bois, false, bureau)
+	_box(Vector3(0.5, 0.6, 0.06), Vector3(0, 0.8, -1.05), bois, false, bureau)
+	_box(Vector3(0.4, 0.04, 0.3), Vector3(-0.6, 0.84, 0), _std(Color(0.9, 0.9, 0.86), 0.9), false, bureau)
+	_box(Vector3(0.3, 0.28, 0.3), Vector3(0.7, 0.98, -0.2), _std(Color(0.96, 0.9, 0.7), 0.5), false, bureau)
+	_label3d("LE BUREAU", Vector3(0, 2.1, -1.3), 30, Color(1.0, 0.9, 0.55)).position += piece.position + bureau.position
+	_interactive(bureau, "bureau", "E : s'asseoir au bureau, la gestion du club", Vector3(2.6, 2.0, 2.0), Vector3(0, 1.0, 0.9))
+	# L'étagère aux coupes, le tableau du club, le fanion.
+	var etagere := Node3D.new()
+	etagere.position = Vector3(lx / 2.0 - 0.35, 0, -0.6)
+	piece.add_child(etagere)
+	for k in 3:
+		_box(Vector3(0.4, 0.04, 2.2), Vector3(0, 0.8 + k * 0.6, 0), bois, false, etagere)
+	for k in 5:
+		_cyl(0.07, 0.3, Vector3(0, 0.98 + (k % 3) * 0.6, -0.8 + k * 0.4), _std(Color(0.9, 0.78, 0.4), 0.3, 0.9), etagere)
+	_box(Vector3(0.06, 0.9, 1.6), Vector3(-lx / 2.0 + 0.14, 1.7, -lz / 2.0 + 1.4), bleu, false, piece)
+	_label3d(_enseigne(_nom_club()), Vector3(-lx / 2.0 + 0.2, 1.7, -lz / 2.0 + 1.4), 30, Color(0.98, 0.95, 0.85), PI / 2.0).position += piece.position
+	_box(Vector3(1.4, 0.9, 0.06), Vector3(-1.8, 1.8, -lz / 2.0 + 0.14), _std(Color(0.2, 0.26, 0.24), 0.9), false, piece)
+	_label3d("%s\n%s" % [_enseigne(_nom_club()), _enseigne(_nom_stade())], Vector3(-1.8, 1.8, -lz / 2.0 + 0.18), 22, Color(0.95, 0.95, 0.9)).position += piece.position
+	_lamp(piece.position + Vector3(0, h - 0.3, 0), Color(1.0, 0.86, 0.62), 2.0, 8.0)
+
+
+## On entre au siège : l'habitant passe dans la pièce, face au bureau.
+func _entrer_siege() -> void:
+	if _sans_club():
+		return
+	player.position = _siege_interieur + Vector3(1.6, 0, 1.2)
+	player.rotation.y = 0.0
+	player.velocity = Vector3.ZERO
+	_dire("Le siège du club. Au bureau, la gestion : l'effectif, la tactique, le championnat.")
+
+
+## On ressort du siège : devant sa porte, face à la pelouse.
+func _sortir_siege() -> void:
+	player.position = _siege_porte
+	player.rotation.y = PI
+	player.velocity = Vector3.ZERO
 
 
 ## L'habillage de la commune (socle 1.6, champ « habillage » du terrain) : sa scène, posée autour de la
@@ -423,6 +562,23 @@ var _game: Control:
 
 func open_game() -> void:
 	open_locaux()
+
+
+## Le panneau du club, à l'entrée : l'essentiel du club, ses porteurs d'obligations, et le registre.
+func open_panneau() -> void:
+	if _causerie != null:
+		return
+	var p: PanelContainer = PANNEAU.new()
+	p.club = _club
+	p.closed.connect(func():
+		p.queue_free()
+		_causerie = null
+		player.frozen = false
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
+	player.frozen = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_panel_layer.add_child(p)
+	_causerie = p
 
 
 ## Le registre des obligations du club, le même qu'à l'étude de Maître Garnier.
@@ -1092,7 +1248,13 @@ func _on_interact(target: Node) -> void:
 		"president":
 			open_causerie()
 		"locaux":
+			_entrer_siege()
+		"bureau":
 			open_locaux()
+		"sortir_siege":
+			_sortir_siege()
+		"panneau":
+			open_panneau()
 		"feuille":
 			open_feuille()
 		"buvette":

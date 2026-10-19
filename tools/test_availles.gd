@@ -120,6 +120,34 @@ func _init() -> void:
 		p.velocity = Vector3.ZERO
 		await _attendre(1.0)
 		check(p.global_position.y > float(data.niveau_eau) + 1.0 and p.is_on_floor(), "au milieu du pont, l'habitant tient au-dessus de l'eau (y %.2f, eau %.2f)" % [p.global_position.y, data.niveau_eau])
+		# Et il y monte depuis chaque rive : la culée raccorde le tablier au sol, sans marche.
+		vue.basculer(s)  # à pied : la marche suit le corps, pas la caméra
+		for sens in [[a, b, "de la rive droite"], [b, a, "de la rive gauche"]]:
+			var d3: Vector2 = (sens[1] - sens[0]).normalized()
+			var rive: Vector2 = sens[0] - d3 * 2.5
+			p.global_position = Vector3(rive.x, s.hauteur(rive.x, rive.y) + 0.3, rive.y)
+			p.velocity = Vector3.ZERO
+			p.rotation.y = atan2(-d3.x, -d3.y)
+			await _attendre(0.5)
+			p.auto_move = Vector3(0, 0, -1)
+			await _attendre(5.0)
+			p.auto_move = Vector3.ZERO
+			var avance: float = (Vector2(p.global_position.x, p.global_position.z) - rive).dot(d3)
+			check(avance > 5.0 and p.global_position.y > float(data.niveau_eau) + 1.0, "l'habitant monte sur le pont %s (%.1f unités, y %.2f)" % [sens[2], avance, p.global_position.y])
+		vue.basculer(s)
+
+	# Le stade municipal, rive gauche : le nœud de la structure, et son entrée qui ouvre le stade du socle.
+	var terrain := s.find_child("Stade", false, false)
+	check(terrain != null and terrain.find_child("Pelouse", false, false) != null, "le terrain de football est dessiné, nœud « Stade » de la structure terrain_foot")
+	var entree: Node = terrain.find_child("Entree", false, false) if terrain else null
+	check(entree is Area3D and entree.get_meta("interact") == "stade" and entree.has_meta("prompt"), "l'entrée du stade est une zone à E, avec son invite")
+	check(root.get_node("Registre").structure("availles_limouzine/stade").get("noeud", "") == "Stade", "le registre connaît le nœud du terrain")
+	if entree:
+		s._interagir(entree)
+		await process_frame
+		await process_frame
+		await process_frame
+		check(current_scene != null and current_scene.scene_file_path.ends_with("stade.tscn"), "E sur l'entrée ouvre le stade du socle (%s)" % (current_scene.scene_file_path if current_scene else "rien"))
 	print("\n%d échec(s)" % fails)
 	quit(1 if fails > 0 else 0)
 

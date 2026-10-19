@@ -3,9 +3,9 @@ extends SceneTree
 ## Le champ « ailleurs » et ses refus ; Casino Minuit (tools/paquet_essai/casino_minuit/), emballé ici,
 ## se greffe sans code INSEE ; on y vole depuis Poitiers-Biard, on y marche jusqu'à la galerie par le
 ## grand escalier, les coulisses restent closes sous leur seuil puis mènent au sous-sol par l'escalier du
-## personnel, le stade de la Fortune s'ouvre à son seuil, habillé par Minuit, et son club entre au
-## championnat ; on sort à pied sur le Strip (lot E), l'arène et la salle de concert (lot F) restent closes
-## sous leur seuil puis s'ouvrent ; le voiturier et la station de taxis ouvrent la carte, et le vol retour ramène
+## personnel, le taxi de la porte-cochère mène à son seuil au stade de la Fortune que Minuit a bâti et en ramène, et son
+## club entre au championnat ; on sort à pied sur le Strip (lot E), l'arène et la salle de concert (lot F) restent closes
+## sous leur seuil puis s'ouvrent ; le voiturier et la station de taxis ouvrent la carte par le taxi de l'aéroport, et le vol retour ramène
 ## à Smarves.
 
 const SOURCE := "res://tools/paquet_essai/casino_minuit/"
@@ -326,36 +326,80 @@ func _init() -> void:
 	check(root.get_node("Carnet").call("_obligations").has("casino_minuit"), "une obligation du Racing Club Minuit compte au carnet")
 	foot.obligations_locales = avant
 
-	# Le stade de la Fortune : fermé sous son seuil, puis le stade du socle avec l'habillage de Minuit.
+	# Le stade de la Fortune : on y va en taxi depuis la porte-cochère (les portes du casino le disent) ; fermé sous
+	# son seuil, puis le stade que Minuit a bâti (socle 1.8), d'où le taxi ramène au casino.
 	gagne = game.won
 	game.won = 0
 	var porte: Node = s.find_child("stade", true, false)
-	check(porte != null, "la porte du stade de la Fortune est une interaction")
+	check(porte != null, "les portes du stade de la Fortune sont des interactions")
 	if porte != null:
 		p.interact.emit(porte)
-		await create_timer(0.3, true).timeout
-		check(current_scene == s, "sous son seuil, le stade reste fermé")
+		await process_frame
+		check(str(s.get("_message").text).contains("taxi"), "elles disent d'y aller en taxi : %s" % s.get("_message").text)
+	var voiturier: Node = s.find_child("sortie", true, false)
+	check(voiturier != null, "le voiturier appelle un taxi")
+	if voiturier != null:
+		p.interact.emit(voiturier)
+		await process_frame
+		var panneau: Node = s.get_node_or_null("Taxi")
+		check(panneau != null and panneau.get("_choix").size() == 2 and p.frozen, "le taxi propose deux courses, le visiteur attend")
+		if panneau != null:
+			panneau.call("choisir", 1)
+			await create_timer(0.3, true).timeout
+			check(current_scene == s and not p.frozen and str(s.get("_message").text).contains("3"), "sous son seuil, le stade reste fermé : %s" % s.get("_message").text)
 		game.won = 5000
-		p.interact.emit(porte)
-		await create_timer(1.0, true).timeout
+		p.interact.emit(voiturier)
+		await process_frame
+		panneau = s.get_node_or_null("Taxi")
+		if panneau != null:
+			panneau.call("choisir", 1)
+		await create_timer(1.5, true).timeout
 		var st: Node = current_scene
-		check(st != null and st.scene_file_path == "res://scenes/stade.tscn", "au seuil, la porte ouvre le stade")
-		check(st != null and st.get_node_or_null("Habillage") != null, "le stade porte l'habillage de Minuit")
-		if st != null:
+		check(st != null and st.scene_file_path == "res://communes/casino_minuit/stade/fortune.tscn", "au seuil, le taxi mène au stade de la Fortune (%s)" % (st.scene_file_path if st else "rien"))
+		if st != null and st.has_method("_nom_club"):
 			check(st.call("_nom_club") == "Racing Club Minuit", "c'est le stade du Racing Club Minuit")
-			var sortie_stade: Node = st.find_child("exit", true, false)
-			if sortie_stade == null:
-				for n in st.find_children("*", "Area3D", true, false):
-					if n.get_meta("interact", "") == "exit":
-						sortie_stade = n
-			if sortie_stade != null:
-				st.call("_on_interact", sortie_stade)
-			await create_timer(1.0, true).timeout
+			check(communes.actuelle() == "casino_minuit", "au stade, on est encore à Casino Minuit : %s" % communes.actuelle())
+			manquantes = []
+			for z in ["FORTUNE-BOL", "FORTUNE-HALL", "FORTUNE-PISCINE", "FORTUNE-LOUNGE", "FORTUNE-PENTHOUSE", "FORTUNE-ROUE-CASES", "FORTUNE-PARVIS", "FORTUNE-STRIP"]:
+				if st.get_node_or_null(z) == null:
+					manquantes.append(z)
+			check(manquantes.is_empty(), "le bol, le hall, la piscine, le lounge, le penthouse, la roue et le parvis sont bâtis %s" % str(manquantes))
+			check(st.places.bas.size() > 1000 and st.places.haut.size() > 1000, "les deux étages ont leurs places (%d en bas, %d en haut)" % [st.places.bas.size(), st.places.haut.size()])
+			var sp: CharacterBody3D = st.player
+			check(sp.global_position.distance_to(Vector3(0, 0.05, -83.5)) < 1.5, "le taxi dépose sur le parvis (%.1f, %.1f, %.1f)" % [sp.global_position.x, sp.global_position.y, sp.global_position.z])
+			# Le tapis rouge, entre les fontaines, mène à la porte de verre, puis l'escalier du hall à la promenade.
+			sp.global_position = Vector3(0, 0.05, -60.0)
+			sp.velocity = Vector3.ZERO
+			# Le visiteur regarde le stade (lacet PI) : avancer, c'est -z dans son repère.
+			sp.auto_move = Vector3(0, 0, -1)
+			await create_timer(6.0, true).timeout
+			check(sp.global_position.z > -42.0 and absf(sp.global_position.y) < 0.3, "le tapis rouge mène au stade (%.1f, %.1f, %.1f)" % [sp.global_position.x, sp.global_position.y, sp.global_position.z])
+			sp.global_position = Vector3(0, 0.05, -34.0)
+			sp.velocity = Vector3.ZERO
+			await create_timer(3.6, true).timeout
+			sp.auto_move = Vector3.ZERO
+			check(sp.global_position.y > 4.0, "l'escalier du hall monte à la promenade (%.1f, %.1f, %.1f)" % [sp.global_position.x, sp.global_position.y, sp.global_position.z])
+			check(st.find_child("panneau", true, false) != null and st.find_child("feuille", true, false) != null, "le hall a le panneau du club et la feuille du dernier match")
+			var asc: Node = st.find_child("ascenseur", true, false)
+			if asc != null:
+				st.call("_on_interact", asc)
+				await create_timer(0.3, true).timeout
+				check(sp.global_position.y > 16.0, "l'ascenseur de verre monte au penthouse du président (%.1f)" % sp.global_position.y)
+			var taxi_st: Node = st.find_child("taxi", true, false)
+			check(taxi_st != null, "la station du parvis appelle un taxi")
+			if taxi_st != null:
+				st.call("_on_interact", taxi_st)
+				await process_frame
+				var pt: Node = st.get_node_or_null("Taxi")
+				check(pt != null and pt.get("_choix").size() == 2, "au stade, le taxi va au casino ou à l'aéroport")
+				if pt != null:
+					pt.call("choisir", 0)
+			await create_timer(1.5, true).timeout
 			s = current_scene
-			check(s != null and s.scene_file_path == str(c.data.scene), "la sortie du stade ramène au casino")
+			check(s != null and s.scene_file_path == str(c.data.scene), "le taxi du stade ramène au casino")
 			if s != null and s.get("player") is CharacterBody3D:
 				p = s.player
-				check(p.global_position.distance_to(Vector3(12.6, 0.05, -17.0)) < 1.0, "devant la porte du stade (%.1f, %.1f)" % [p.global_position.x, p.global_position.z])
+				check(p.global_position.distance_to(Vector3(-1.2, 0.05, 34.8)) < 1.0, "sous la porte-cochère (%.1f, %.1f)" % [p.global_position.x, p.global_position.z])
 	game.won = gagne
 	if s == null or not (s.get("player") is CharacterBody3D):
 		_fin()
@@ -470,6 +514,10 @@ func _init() -> void:
 	for borne in [taxi, sortie]:
 		if borne != null:
 			p.interact.emit(borne)
+			await process_frame
+			var course: Node = s.get_node_or_null("Taxi")
+			if course != null:
+				course.call("choisir", 0)
 			await process_frame
 			check(carte.is_open(), "« %s » ouvre la carte" % borne.get_meta("prompt", ""))
 			carte.fermer()

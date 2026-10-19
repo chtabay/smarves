@@ -1,6 +1,6 @@
 {
 	"format": 1,
-	"note": "Les zones travaillées à la main d'après l'orthophoto (IGN), en unités du bourg : une emprise nivelée et revêtue d'enrobé où les rues d'OpenStreetMap s'effacent, puis les trottoirs, arbres, passages piétons et places de stationnement tels qu'on les voit du ciel.",
+	"note": "Les zones travaillées à la main d'après l'orthophoto (IGN), en unités du bourg : une emprise nivelée et revêtue d'enrobé où les rues d'OpenStreetMap s'effacent, puis ses sols piétons (béton sablé ou gravier, cernés d'un filet de ciment, sans vrai trottoir), ses arbres, son mobilier choisi pièce par pièce, ses passages piétons et ses places de stationnement tels qu'on les voit du ciel.",
 	"zones": [
 		{
 			"id": "place_mairie",
@@ -109,89 +109,7 @@
 			],
 			"nivelle": true,
 			"teinte": 0.96,
-			"trottoirs": [
-				{
-					"ligne": [
-						[
-							34.4,
-							49.5
-						],
-						[
-							36.4,
-							45.8
-						],
-						[
-							39.9,
-							41.9
-						],
-						[
-							42.1,
-							43.6
-						],
-						[
-							44.9,
-							43.55
-						],
-						[
-							48.0,
-							46.4
-						]
-					],
-					"l": 0.9
-				},
-				{
-					"ligne": [
-						[
-							57.7,
-							36.2
-						],
-						[
-							50.1,
-							43.8
-						]
-					],
-					"l": 1.0
-				},
-				{
-					"ligne": [
-						[
-							35.0,
-							36.2
-						],
-						[
-							41.6,
-							36.7
-						]
-					],
-					"l": 1.0
-				},
-				{
-					"ligne": [
-						[
-							40.8,
-							41.3
-						],
-						[
-							43.4,
-							41.2
-						]
-					],
-					"l": 1.0
-				},
-				{
-					"ligne": [
-						[
-							36.0,
-							37.5
-						],
-						[
-							35.6,
-							43.5
-						]
-					],
-					"l": 0.9
-				}
-			],
+			"trottoirs": [],
 			"arbres": [
 				[
 					42.0,
@@ -206,8 +124,8 @@
 					38.3
 				],
 				[
-					37.0,
-					37.6
+					33.0,
+					41.6
 				]
 			],
 			"passages": [
@@ -239,12 +157,12 @@
 			"stationnements": [
 				{
 					"a": [
-						48.6,
-						41.9
+						48.25,
+						41.55
 					],
 					"b": [
-						54.3,
-						36.6
+						53.95,
+						36.25
 					],
 					"cote": 1,
 					"prof": 2.0,
@@ -262,6 +180,265 @@
 					"cote": -1,
 					"prof": 2.0,
 					"n": 4
+				}
+			],
+			"pietons": [
+				{
+					"nom": "l'îlot de l'arbre",
+					"p": [
+						[
+							40.0,
+							40.6
+						],
+						[
+							43.8,
+							40.4
+						],
+						[
+							44.3,
+							41.5
+						],
+						[
+							43.5,
+							42.6
+						],
+						[
+							40.3,
+							42.8
+						],
+						[
+							39.5,
+							41.8
+						]
+					]
+				},
+				{
+					"nom": "devant les maisons du nord",
+					"p": [
+						[
+							34.8,
+							36.0
+						],
+						[
+							36.6,
+							38.6
+						],
+						[
+							42.6,
+							34.0
+						],
+						[
+							41.0,
+							32.6
+						]
+					]
+				},
+				{
+					"nom": "le parvis de la mairie",
+					"p": [
+						[
+							58.2,
+							36.5
+						],
+						[
+							50.5,
+							44.3
+						],
+						[
+							49.5,
+							43.3
+						],
+						[
+							57.2,
+							35.5
+						]
+					]
+				},
+				{
+					"nom": "le long des façades du sud",
+					"p": [
+						[
+							34.9,
+							49.8
+						],
+						[
+							36.8,
+							46.1
+						],
+						[
+							40.2,
+							42.3
+						],
+						[
+							41.8,
+							44.1
+						],
+						[
+							44.9,
+							44.1
+						],
+						[
+							47.6,
+							46.8
+						],
+						[
+							48.4,
+							46.0
+						],
+						[
+							44.9,
+							43.0
+						],
+						[
+							42.6,
+							43.3
+						],
+						[
+							39.5,
+							41.5
+						],
+						[
+							35.9,
+							45.5
+						],
+						[
+							33.9,
+							49.3
+						]
+					]
+				},
+				{
+					"nom": "le parking de l'ouest",
+					"sol": "gravier",
+					"bord": false,
+					"p": [
+						[
+							29.6,
+							36.4
+						],
+						[
+							33.4,
+							35.7
+						],
+						[
+							36.0,
+							38.0
+						],
+						[
+							36.2,
+							43.3
+						],
+						[
+							33.0,
+							44.2
+						],
+						[
+							29.3,
+							43.0
+						],
+						[
+							28.3,
+							39.6
+						]
+					]
+				}
+			],
+			"mobilier": [
+				{
+					"m": "banc",
+					"p": [
+						41.0,
+						41.9
+					],
+					"rot": 180
+				},
+				{
+					"m": "banc",
+					"p": [
+						43.0,
+						40.8
+					],
+					"rot": 0
+				},
+				{
+					"m": "poubelle",
+					"p": [
+						43.9,
+						41.9
+					]
+				},
+				{
+					"m": "buisson",
+					"p": [
+						40.0,
+						40.9
+					]
+				},
+				{
+					"m": "buisson",
+					"p": [
+						43.6,
+						42.4
+					]
+				},
+				{
+					"m": "buisson",
+					"p": [
+						52.3,
+						42.9
+					]
+				},
+				{
+					"m": "buisson",
+					"p": [
+						56.6,
+						38.6
+					]
+				},
+				{
+					"m": "voiture",
+					"p": [
+						50.1,
+						41.0
+					],
+					"rot": -137,
+					"y": 0.05
+				},
+				{
+					"m": "voiture_citadine",
+					"p": [
+						52.0,
+						39.2
+					],
+					"rot": -137,
+					"y": 0.05
+				},
+				{
+					"m": "voiture_break",
+					"p": [
+						52.1,
+						36.3
+					],
+					"rot": 43,
+					"y": 0.05
+				},
+				{
+					"m": "voiture",
+					"p": [
+						31.0,
+						41.0
+					],
+					"rot": 90,
+					"y": 0.05
+				},
+				{
+					"m": "voiture_citadine",
+					"p": [
+						34.6,
+						40.2
+					],
+					"rot": -90,
+					"y": 0.05
 				}
 			]
 		}

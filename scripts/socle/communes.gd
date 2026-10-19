@@ -121,6 +121,10 @@ func actuelle() -> String:
 	for id in ordre:
 		if id != ORIGINE and str(communes[id].data.get("scene", "")) == chemin:
 			return id
+	# Une autre scène de son dossier (le stade d'une commune, socle 1.8) : on est encore chez elle.
+	for id in ordre:
+		if id != ORIGINE and chemin.begins_with("res://communes/%s/" % id):
+			return id
 	return ORIGINE
 
 

@@ -52,8 +52,9 @@ const CORDONS := [
 const CRANS := [[4.0, -40.0, 50.0], [7.0, -55.0, 50.0], [11.0, -70.0, 50.0]]
 ## L'arrivée, juste derrière la porte-tambour, face au nord et à la fontaine de la Fortune.
 const ARRIVEE := Vector3(0, 0.05, 27.0)
-## Le retour du stade : devant la porte du couloir, dans l'allée est du grand escalier, tourné vers l'ouest.
-const RETOUR_STADE := Vector3(12.6, 0.05, -17.0)
+## Le retour du stade : le taxi vous dépose sous la porte-cochère, devant la porte-tambour, face au casino.
+const RETOUR_STADE := Vector3(-1.2, 0.05, 34.8)
+const TAXI := BASE + "stade/taxi.gd"
 const STADE := "stade_fortune"
 
 var player: CharacterBody3D
@@ -209,7 +210,7 @@ func _joueur() -> void:
 	if Game.return_point == STADE:
 		Game.return_point = ""
 		player.global_position = RETOUR_STADE
-		player.rotation.y = PI / 2.0
+		player.rotation.y = 0.0
 	player.interact.connect(_interagir)
 	camera.make_current()
 	player.follow_camera = camera
@@ -224,10 +225,11 @@ func _joueur() -> void:
 
 func _interagir(cible: Node) -> void:
 	match str(cible.get_meta("interact", "")):
-		# Le voiturier de la porte-cochère ou la station de taxis : repartir, c'est la carte de Las Vegas et
-		# le vol du retour.
-		"sortie": Carte.ouvrir()
-		"stade": _stade()
+		# Le voiturier de la porte-cochère ou la station de taxis : le taxi va à l'aéroport (la carte et le vol
+		# du retour) ou au stade de la Fortune.
+		"sortie": _taxi()
+		# Les portes du stade, dans le casino : le stade est sur le Strip, on y va en taxi.
+		"stade": _dire("Le stade de la Fortune est sur le Strip : le voiturier de la porte-cochère vous y conduit en taxi.")
 		"change": _dire("Au change, un jeton du Minuit vaut %s crédit. La caisse est à l'est, derrière la fosse aux tables." % _taux())
 		"caisse": _dire("À la caisse, 1 jeton = %s crédit de Smarves : aux tables et aux machines, on mise ses crédits." % _taux())
 		"hautes_limites": _dire("Le salon des hautes limites ouvre à %s crédits gagnés au jeu." % Game.fmt(_seuil(HAUTES_LIMITES)))
@@ -296,7 +298,14 @@ func _seuil(id: String) -> int:
 	return 0
 
 
-## Le stade de la Fortune : la porte s'ouvre au seuil de son lieu (le total gagné au jeu), comme partout.
+## Le taxi de la porte-cochère : l'aéroport, ou le stade de la Fortune.
+func _taxi() -> void:
+	load(TAXI).ouvrir(self, player, "Où va-t-on ?", [
+		["L'aéroport McCarran", "Le vol MN 1203, pour Poitiers-Biard", func(): Carte.ouvrir()],
+		["Le stade de la Fortune", "Le Racing Club Minuit, au bout du Strip", _stade]])
+
+
+## Le stade de la Fortune : le taxi vous y conduit au seuil de son lieu (le total gagné au jeu), comme partout.
 func _stade() -> void:
 	var seuil := _seuil(STADE)
 	if Game.won < seuil:

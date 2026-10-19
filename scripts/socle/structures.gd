@@ -30,7 +30,8 @@ const TYPES := {
 	"terrain_foot": {
 		"nom": "le terrain de football",
 		# « habillage » (socle 1.6) : une scène de la commune posée dans le stade du socle, autour de la pelouse.
-		"champs": {"club": TYPE_STRING, "court": TYPE_STRING, "couleurs": TYPE_ARRAY, "stade": TYPE_STRING, "habillage": TYPE_STRING},
+		# « scene » (socle 1.8) : le stade de la commune tout entier, une scène dont le script hérite du stade du socle.
+		"champs": {"club": TYPE_STRING, "court": TYPE_STRING, "couleurs": TYPE_ARRAY, "stade": TYPE_STRING, "habillage": TYPE_STRING, "scene": TYPE_STRING},
 		"requis": ["club"],
 		"unique": true,
 		"relie": "le championnat de la Vienne : la commune a un club, qui y entre à la saison suivante (tout de suite si personne n'a encore joué)",
@@ -114,6 +115,10 @@ static func verifier(liste: Variant) -> PackedStringArray:
 			var h: String = s.habillage
 			if not h.begins_with("res://communes/") or not h.ends_with(".tscn"):
 				erreurs.append("structure %s : « habillage » est une scène de la commune (res://communes/<id>/….tscn)" % id)
+		if t == "terrain_foot" and typeof(s.get("scene")) == TYPE_STRING:
+			var sc: String = s.scene
+			if not sc.begins_with("res://communes/") or not sc.ends_with(".tscn"):
+				erreurs.append("structure %s : « scene » est une scène de la commune (res://communes/<id>/….tscn)" % id)
 		if t == "salle_jeu":
 			if typeof(s.get("jeux")) == TYPE_ARRAY:
 				for j in s.jeux:

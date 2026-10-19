@@ -38,6 +38,7 @@ var _z0 := 0.0
 var _pas := 1.0
 var _mats := {}
 var _ici: Label
+var _invite: Label
 var _aide: Label
 var _capture := ""
 var _suivre := true
@@ -75,6 +76,7 @@ func _ready() -> void:
 	_sols()
 	_trottoirs()
 	_zones_dessin()
+	_stade()
 	_batiments()
 	_arbres()
 	_noms()
@@ -506,19 +508,30 @@ func _sols_materiaux() -> void:
 	gravier.vertex_color_use_as_albedo = true
 	gravier.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_mats.gravier = gravier
-	var dalles := ShaderMaterial.new()
-	dalles.shader = load("res://shaders/cobbles.gdshader")
-	# Des pavés autobloquants clairs, petits, aux joints à peine plus sombres.
-	dalles.set_shader_parameter("stone_a", Color(0.8, 0.77, 0.7))
-	dalles.set_shader_parameter("stone_b", Color(0.7, 0.67, 0.61))
-	dalles.set_shader_parameter("joint", Color(0.58, 0.55, 0.5))
-	dalles.set_shader_parameter("size", 0.13)
+	# Les trottoirs : un béton clair uni, à peine grenu, sans motif qui trahirait l'échelle.
+	var dalles := StandardMaterial3D.new()
+	dalles.albedo_color = Color(0.74, 0.72, 0.67)
+	dalles.albedo_texture = _grain(0.3, Color(0.86, 0.85, 0.82))
+	dalles.uv1_triplanar = true
+	dalles.uv1_scale = Vector3(0.6, 0.6, 0.6)
+	dalles.roughness = 0.95
+	dalles.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_mats.dalles = dalles
+	# La bordure : un ciment uni, un peu plus clair que le trottoir.
 	var bordure := StandardMaterial3D.new()
-	bordure.albedo_color = Color(0.8, 0.78, 0.73)
+	bordure.albedo_color = Color(0.8, 0.79, 0.75)
 	bordure.roughness = 0.8
 	bordure.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_mats.bordure = bordure
+	# Le sol piéton des places : un béton sablé chaud, posé à plat, cerné d'un filet de ciment.
+	var sable := StandardMaterial3D.new()
+	sable.albedo_color = Color(0.8, 0.75, 0.66)
+	sable.albedo_texture = _grain(0.4, Color(0.88, 0.86, 0.8))
+	sable.uv1_triplanar = true
+	sable.uv1_scale = Vector3(0.7, 0.7, 0.7)
+	sable.roughness = 1.0
+	sable.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_mats.sable = sable
 	var marque := StandardMaterial3D.new()
 	marque.albedo_color = Color(0.86, 0.86, 0.8)
 	marque.roughness = 0.7
@@ -724,8 +737,12 @@ func _zones_dessin() -> void:
 		mb.mesh = sb.commit()
 		mb.material_override = _mats.bordure
 		noeud.add_child(mb)
+		for pz in z.get("pietons", []):
+			_pieton(noeud, pz)
 		for a in z.get("arbres", []):
 			_arbre(noeud, Vector2(a[0], a[1]))
+		for m in z.get("mobilier", []):
+			_mobilier(noeud, m)
 		for pp in z.get("passages", []):
 			var c := Vector2(pp.c[0], pp.c[1])
 			var dir := Vector2(pp.dir[0], pp.dir[1]).normalized()
@@ -782,6 +799,95 @@ func _bande(sd: SurfaceTool, sb: SurfaceTool, ligne: PackedVector2Array, l: floa
 	_quad2(sb, g[0], d[0], db[0], gb[0])
 	var n := ligne.size() - 1
 	_quad2(sb, g[n], d[n], db[n], gb[n])
+
+
+## Un sol piéton d'une place : un polygone drapé trois centimètres au-dessus de l'enrobé, en béton
+## sablé (ou en gravier), cerné d'un petit filet de ciment : pas de vrai trottoir, juste une marche.
+const PIETON_H := 0.08
+
+
+func _pieton(parent: Node3D, pz: Dictionary) -> void:
+	var poly := PackedVector2Array()
+	for q in pz.p:
+		poly.append(Vector2(q[0], q[1]))
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_color(Color.WHITE)
+	_draper(st, poly, PIETON_H)
+	st.generate_normals()
+	var mi := MeshInstance3D.new()
+	mi.name = "Pieton"
+	mi.mesh = st.commit()
+	mi.material_override = _mats.gravier if str(pz.get("sol", "sable")) == "gravier" else _mats.sable
+	parent.add_child(mi)
+	if not bool(pz.get("bord", true)):
+		return
+	var sb := SurfaceTool.new()
+	sb.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for k in poly.size():
+		var a := poly[k]
+		var b := poly[(k + 1) % poly.size()]
+		var ya := hauteur(a.x, a.y)
+		var yb := hauteur(b.x, b.y)
+		_quad2(sb, Vector3(a.x, ya + 0.04, a.y), Vector3(a.x, ya + PIETON_H + 0.005, a.y), Vector3(b.x, yb + PIETON_H + 0.005, b.y), Vector3(b.x, yb + 0.04, b.y))
+	sb.generate_normals()
+	var mb := MeshInstance3D.new()
+	mb.name = "Filet"
+	mb.mesh = sb.commit()
+	mb.material_override = _mats.bordure
+	parent.add_child(mb)
+
+
+## Le mobilier d'une place, choisi pièce par pièce dans l'atelier (KayKit City) : `m` dit lequel,
+## `p` où, `rot` l'orientation en degrés. Les pièces qu'on heurte sont rendues solides.
+const KK := "res://assets/kaykit/"
+const MOBILIER := {
+	"banc": ["city/bench.gltf", 2.6, true],
+	"poubelle": ["city/trash_A.gltf", 2.2, true],
+	"buisson": ["city/bush.gltf", 2.5, true],
+	"borne_incendie": ["city/firehydrant.gltf", 2.2, true],
+	"lampadaire": ["city/streetlight.gltf", 2.2, true],
+	"tonneau": ["medieval_decoration/props/barrel.gltf", 2.4, true],
+	"voiture": ["city/car_sedan.gltf", 1.9, true],
+	"voiture_break": ["city/car_stationwagon.gltf", 1.9, true],
+	"voiture_citadine": ["city/car_hatchback.gltf", 1.9, true],
+}
+
+
+func _mobilier(parent: Node3D, m: Dictionary) -> void:
+	var fiche: Array = MOBILIER.get(str(m.m), [])
+	if fiche.is_empty():
+		push_warning("Mobilier inconnu : %s" % str(m.m))
+		return
+	var p := Vector2(m.p[0], m.p[1])
+	var n: Node3D = load(KK + str(fiche[0])).instantiate()
+	n.position = Vector3(p.x, hauteur(p.x, p.y) + float(m.get("y", PIETON_H)), p.y)
+	n.scale = Vector3.ONE * float(fiche[1])
+	n.rotation_degrees.y = float(m.get("rot", 0.0))
+	parent.add_child(n)
+	if bool(fiche[2]):
+		_solidifier(n)
+
+
+## Rend un modèle solide : une boîte à sa mesure, comme à Smarves.
+func _solidifier(n: Node3D) -> void:
+	var box := AABB()
+	var first := true
+	for mi in n.find_children("*", "MeshInstance3D", true, false):
+		var t: Transform3D = n.global_transform.affine_inverse() * (mi as MeshInstance3D).global_transform
+		var b: AABB = t * (mi as MeshInstance3D).get_aabb()
+		box = b if first else box.merge(b)
+		first = false
+	if first:
+		return
+	var corps := StaticBody3D.new()
+	var cs := CollisionShape3D.new()
+	var forme := BoxShape3D.new()
+	forme.size = box.size
+	cs.shape = forme
+	cs.position = box.get_center()
+	corps.add_child(cs)
+	n.add_child(corps)
 
 
 ## Un arbre de l'atelier (le chêne du Nature Kit), posé en `p`.
@@ -1016,6 +1122,28 @@ func _pont(r: Dictionary) -> void:
 					continue
 				var pile := _boite(Vector3(1.0, yp - niveau + 1.5, r.l + 0.3), pierre, n)
 				pile.transform = Transform3D(tr.basis.orthonormalized(), Vector3(p.x, (yp + niveau - 1.5) / 2.0 - 0.1, p.y))
+	# Les culées : une rampe de chaque côté, du tablier au sol de la rive. Le tablier dépasse la rive
+	# de 15 à 30 cm, une marche que l'habitant ne franchissait pas : le pont était coupé des deux bouts.
+	for bout in [[0, 1, y0], [r.p.size() - 1, r.p.size() - 2, y1]]:
+		var e := Vector2(r.p[bout[0]][0], r.p[bout[0]][1])
+		var dehors := (e - Vector2(r.p[bout[1]][0], r.p[bout[1]][1])).normalized()
+		var long := 3.0
+		var g := e + dehors * long
+		var yh: float = bout[2] + 0.075
+		var yg := hauteur(g.x, g.y) + 0.06
+		var m := (e + g) / 2.0
+		var trb := Transform3D(Basis(Vector3.UP, -atan2(dehors.y, dehors.x)), Vector3(m.x, (yh + yg) / 2.0, m.y))
+		trb.basis = trb.basis * Basis(Vector3.BACK, atan2(yg - yh, long))
+		var rampe := _boite(Vector3(long + 0.2, 0.25, r.l), pierre, n)
+		rampe.transform = trb.translated_local(Vector3(0, -0.125, 0))
+		var chaussee := _boite(Vector3(long + 0.2, 0.02, r.l * 0.86), Color(0.38, 0.38, 0.4), n)
+		chaussee.transform = trb
+		var cr := CollisionShape3D.new()
+		var br := BoxShape3D.new()
+		br.size = Vector3(long + 0.2, 0.25, r.l)
+		cr.shape = br
+		cr.transform = rampe.transform
+		corps.add_child(cr)
 
 
 func _boite(taille: Vector3, c: Color, parent: Node) -> MeshInstance3D:
@@ -1026,6 +1154,129 @@ func _boite(taille: Vector3, c: Color, parent: Node) -> MeshInstance3D:
 	mi.material_override = _mat(c)
 	parent.add_child(mi)
 	return mi
+
+
+# --- Le stade municipal ----------------------------------------------------------------------------
+
+## Le stade municipal, rive gauche, au bout du chemin de Chez Bouchet après le pont : la pelouse, ses
+## lignes, ses deux buts, et l'entrée, nœud « Stade » de la structure « terrain_foot » du manifeste,
+## qui ouvre le stade du socle (Football.ouvrir_stade). Le vrai terrain déborde du cadre du bourg vers
+## l'est : le nôtre est serré d'un tiers vers le chemin, dans le même axe.
+const STADE_C := Vector2(176.5, -63.0)
+const STADE_AXE := Vector2(0.66, -0.75)
+const STADE_L := 13.5
+const STADE_P := 8.0
+const STADE_ENTREE := Vector2(174.5, -44.5)
+const BLANC := Color(0.95, 0.95, 0.92)
+
+
+func _stade() -> void:
+	var n := Node3D.new()
+	n.name = "Stade"
+	add_child(n)
+	var u := STADE_AXE.normalized()
+	var v := Vector2(-u.y, u.x)
+	var coins := PackedVector2Array([STADE_C - u * STADE_L - v * STADE_P, STADE_C + u * STADE_L - v * STADE_P,
+		STADE_C + u * STADE_L + v * STADE_P, STADE_C - u * STADE_L + v * STADE_P])
+	var herbe := SurfaceTool.new()
+	herbe.begin(Mesh.PRIMITIVE_TRIANGLES)
+	herbe.set_color(Color.WHITE)
+	_draper(herbe, coins, 0.03)
+	herbe.generate_normals()
+	var mh := MeshInstance3D.new()
+	mh.name = "Pelouse"
+	mh.mesh = herbe.commit()
+	mh.material_override = _mat(Color(0.33, 0.52, 0.24))
+	n.add_child(mh)
+	# Les lignes : le tour, la médiane, le rond central, les surfaces de but et de réparation.
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for k in 4:
+		_ligne_sol(st, coins[k], coins[(k + 1) % 4])
+	_ligne_sol(st, STADE_C - v * STADE_P, STADE_C + v * STADE_P)
+	var rond := PackedVector2Array()
+	for k in 25:
+		rond.append(STADE_C + Vector2(cos(k * TAU / 24.0), sin(k * TAU / 24.0)) * 3.8)
+	for k in 24:
+		_ligne_sol(st, rond[k], rond[k + 1])
+	for s in [-1.0, 1.0]:
+		var ligne: Vector2 = STADE_C + u * STADE_L * s
+		for surface in [[2.3, 3.8], [6.9, 8.4]]:
+			var fond: Vector2 = ligne - u * surface[0] * s
+			_ligne_sol(st, ligne - v * surface[1], fond - v * surface[1])
+			_ligne_sol(st, fond - v * surface[1], fond + v * surface[1])
+			_ligne_sol(st, fond + v * surface[1], ligne + v * surface[1])
+		_but(n, ligne, u * s, v)
+	st.generate_normals()
+	var ml := MeshInstance3D.new()
+	ml.name = "Lignes"
+	ml.mesh = st.commit()
+	ml.material_override = _mat(BLANC)
+	n.add_child(ml)
+	# L'entrée, côté chemin : deux poteaux blancs, l'enseigne, et la zone où E ouvre le stade.
+	var he := hauteur(STADE_ENTREE.x, STADE_ENTREE.y)
+	for s in [-1.0, 1.0]:
+		var poteau := _boite(Vector3(0.14, 1.3, 0.14), BLANC, n)
+		poteau.position = Vector3(STADE_ENTREE.x + v.x * 1.6 * s, he + 0.65, STADE_ENTREE.y + v.y * 1.6 * s)
+	var barre := _boite(Vector3(3.3, 0.1, 0.1), BLANC, n)
+	barre.transform = Transform3D(Basis(Vector3.UP, -atan2(v.y, v.x)), Vector3(STADE_ENTREE.x, he + 1.25, STADE_ENTREE.y))
+	var e := _enseigne(Vector3(STADE_ENTREE.x, he + 1.6, STADE_ENTREE.y), "Stade municipal", OR, 0.0045)
+	e.reparent(n)
+	var a := Area3D.new()
+	a.name = "Entree"
+	a.position = Vector3(STADE_ENTREE.x, he + 1.0, STADE_ENTREE.y)
+	a.set_meta("interact", "stade")
+	a.set_meta("prompt", "E : entrer au stade municipal")
+	var cs := CollisionShape3D.new()
+	var bs := BoxShape3D.new()
+	bs.size = Vector3(3.6, 2.0, 3.6)
+	cs.shape = bs
+	a.add_child(cs)
+	n.add_child(a)
+
+
+## Un point est-il sur la pelouse (avec une marge d'une unité et demie) ?
+func _sur_la_pelouse(p: Vector2) -> bool:
+	var u := STADE_AXE.normalized()
+	var v := Vector2(-u.y, u.x)
+	var d := p - STADE_C
+	return absf(d.dot(u)) < STADE_L + 1.5 and absf(d.dot(v)) < STADE_P + 1.5
+
+
+## Un but : deux poteaux et la barre, blancs, sur la ligne, ouvert vers le terrain.
+func _but(parent: Node3D, ligne: Vector2, dehors: Vector2, v: Vector2) -> void:
+	for s in [-1.0, 1.0]:
+		var p: Vector2 = ligne + v * 1.52 * s
+		var poteau := _boite(Vector3(0.08, 1.0, 0.08), BLANC, parent)
+		poteau.position = Vector3(p.x, hauteur(p.x, p.y) + 0.5, p.y)
+	var barre := _boite(Vector3(3.12, 0.08, 0.08), BLANC, parent)
+	barre.transform = Transform3D(Basis(Vector3.UP, -atan2(v.y, v.x)), Vector3(ligne.x, hauteur(ligne.x, ligne.y) + 1.0, ligne.y))
+	var filet := _boite(Vector3(3.12, 0.02, 0.9), Color(0.9, 0.9, 0.9, 0.5), parent)
+	filet.transform = Transform3D(Basis(Vector3.UP, -atan2(v.y, v.x)), Vector3(ligne.x - dehors.x * 0.45, hauteur(ligne.x, ligne.y) + 1.0, ligne.y - dehors.y * 0.45))
+
+
+## Une ligne blanche posée sur le relief, de a à b, par pas d'une unité.
+func _ligne_sol(st: SurfaceTool, a: Vector2, b: Vector2) -> void:
+	var l := a.distance_to(b)
+	var dir := (b - a) / maxf(l, 0.001)
+	var perp := Vector2(-dir.y, dir.x) * 0.07
+	var pas := maxi(int(ceil(l)), 1)
+	for k in pas:
+		var p: Vector2 = a + dir * (l * k / pas)
+		var q: Vector2 = a + dir * (l * (k + 1) / pas)
+		_quad2(st, _sol3(p + perp, 0.05), _sol3(p - perp, 0.05), _sol3(q - perp, 0.05), _sol3(q + perp, 0.05))
+
+
+func _sol3(p: Vector2, dessus: float) -> Vector3:
+	return Vector3(p.x, hauteur(p.x, p.y) + dessus, p.y)
+
+
+## E sur l'entrée du stade : le stade du socle, habillé du club de la commune.
+func _interagir(cible: Node) -> void:
+	if str(cible.get_meta("interact", "")) == "stade":
+		var foot := get_node_or_null("/root/Football")
+		if foot != null and foot.has_method("ouvrir_stade"):
+			foot.ouvrir_stade("availles_limouzine")
 
 
 # --- Les bâtiments ---------------------------------------------------------------------------------
@@ -1278,6 +1529,8 @@ func _arbres() -> void:
 		places.append([])
 	for k in data.arbres.size():
 		var a: Array = data.arbres[k]
+		if _sur_la_pelouse(Vector2(a[0], a[1])):
+			continue
 		places[(k * 7 + int(absf(a[0]) * 3.0)) % modeles.size()].append(a)
 	for m in modeles.size():
 		if places[m].is_empty():
@@ -1396,6 +1649,13 @@ func _joueur() -> void:
 	player.avatar = me
 	player.global_position = Vector3(_arrivee.x, hauteur(_arrivee.x, _arrivee.y) + 0.05, _arrivee.y)
 	player.rotation.y = deg_to_rad(-30.0)
+	var jeu := get_node_or_null("/root/Game")
+	if jeu != null and str(jeu.get("return_point")) == "stade":
+		# On ressort du stade : devant son entrée, dos au terrain.
+		jeu.set("return_point", "")
+		player.global_position = Vector3(STADE_ENTREE.x, hauteur(STADE_ENTREE.x, STADE_ENTREE.y) + 0.05, STADE_ENTREE.y + 2.2)
+		player.rotation.y = deg_to_rad(180.0)
+	player.interact.connect(_interagir)
 	camera.make_current()
 	player.follow_camera = camera
 	camera.au_dela.connect(func(): Carte.ouvrir())
@@ -1434,6 +1694,16 @@ func _interface() -> void:
 	sources.anchor_bottom = 1.0
 	sources.position = Vector2(24, -34)
 	ui.add_child(sources)
+	_invite = _ligne("", 18)
+	_invite.anchor_left = 0.5
+	_invite.anchor_right = 0.5
+	_invite.anchor_top = 1.0
+	_invite.anchor_bottom = 1.0
+	_invite.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_invite.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_invite.position = Vector2(-400, -124)
+	_invite.size = Vector2(800, 30)
+	ui.add_child(_invite)
 	_ici = _ligne("", 24)
 	_ici.anchor_left = 0.5
 	_ici.anchor_right = 0.5
@@ -1470,6 +1740,8 @@ func _process(_delta: float) -> void:
 			d = dr
 			best = r.nom
 	_ici.text = best
+	var cible: Node = player.focus_target
+	_invite.text = str(cible.get_meta("prompt", "")) if cible != null and cible.has_meta("prompt") else ""
 	# Tombé hors du bourg (au-delà du socle) : on revient sur la place.
 	if player.global_position.y < -10.0:
 		player.global_position = Vector3(_arrivee.x, hauteur(_arrivee.x, _arrivee.y) + 0.5, _arrivee.y)
