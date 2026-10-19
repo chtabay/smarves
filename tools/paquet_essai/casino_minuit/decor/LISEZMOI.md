@@ -15,4 +15,8 @@ quelle (Three.js, GLTFExporter) : mêmes formes, mêmes matériaux, mêmes textu
   avec les formules de js/zones/*.js ; porte à tambour, roue des hautes limites, roue de la fortune, flammes
   du salon et gyrophare sont animés par leur nom.
 
+`ecrans/` tient les pièces des écrans que l'original redessine en direct (jackpot, tournois du poker, paris),
+recomposées par ecrans.gd et ecrans_paris.gd ; `polices/` les polices de l'original qu'elles emploient
+(licence dans `polices/LISEZMOI.md`).
+
 Pour refaire l'export : `tools/minuit_decor/` (le script Playwright et le tri des textures).

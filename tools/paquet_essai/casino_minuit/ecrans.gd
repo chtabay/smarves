@@ -7,11 +7,11 @@ extends RefCounted
 const BASE := "res://communes/casino_minuit/"
 const ECRANS := BASE + "decor/ecrans/"
 ## La texture du décor qui porte l'afficheur du jackpot (son nombre au moment de l'export).
-const TEX_JACKPOT := "768fdddd4d671a93.png"
+const TEX_JACKPOT := "7cc4363233162793.png"
 ## Celle du mur des tournois du poker (son état de départ).
-const TEX_POKER := "cbaba59237ddeed7.png"
+const TEX_POKER := "208030ace7240af4.png"
 ## Celles des deux écrans du mur des paris (leur image à l'instant 0).
-const TEX_PARIS := {"A": "4e1d86dae14a3034.png", "B": "19b2ce460dd351df.png"}
+const TEX_PARIS := {"A": "0dc3b62b4657f012.png", "B": "7f35b7f588180eff.png"}
 
 var scene: Node3D
 var K
