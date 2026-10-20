@@ -206,6 +206,19 @@ func aller(insee: String) -> void:
 		Carnet.show_slip("%s ne s'ouvre pas : %s" % [c.nom, Communes.refus[-1][1] if not Communes.refus.is_empty() else "scène introuvable"])
 
 
+## Le car descend à la salle de basket de la commune : la carte s'efface, la salle s'ouvre.
+func descendre_salle(id: String) -> void:
+	if _en_route:
+		return
+	_en_route = true
+	var t := create_tween()
+	t.tween_property(_voile, "color:a", 1.0, 0.45)
+	await t.finished
+	_cacher()
+	get_tree().paused = false
+	SalleBasket.ouvrir(id)
+
+
 func _installer(id: String) -> void:
 	Communes.installer(id)
 	_rafraichir(true)
@@ -586,6 +599,16 @@ func _montrer(insee: String, alerte := "") -> void:
 	actions.add_theme_constant_override("separation", 10)
 	if ici:
 		actions.add_child(_bouton("Revenir au village" if insee == CarteVienne.ORIGINE_INSEE else "Revenir à %s" % v.nom, OR if insee == CarteVienne.ORIGINE_INSEE else EAU, Color(0.08, 0.06, 0.03), Color(0, 0, 0, 0), fermer, 16))
+		# L'arrêt de la salle de basket de la commune (scripts/village/salle_basket.gd), derrière son seuil.
+		var ic := Communes.commune(Communes.actuelle())
+		var id_ici: String = ic.id if ic else Communes.ORIGINE
+		if _mode == "car" and SalleBasket.desservie(id_ici):
+			var salle := SalleBasket.lieu_de(id_ici)
+			var nom_salle := str(salle.get("name", "la salle de basket"))
+			if SalleBasket.ouverte(id_ici):
+				actions.add_child(_bouton("Descendre au %s  →" % nom_salle.trim_prefix("Le ") if nom_salle.begins_with("Le ") else "Descendre à %s  →" % nom_salle, EAU, Color(0.04, 0.1, 0.1), Color(0, 0, 0, 0), descendre_salle.bind(id_ici), 16))
+			else:
+				_fiche_box.add_child(_mot("%s : le car s'y arrêtera à %s crédits gagnés." % [nom_salle, Game.fmt(SalleBasket.seuil_de(id_ici))], 15, DOUX, null, true))
 	elif c != null:
 		actions.add_child(_bouton("Monter dans le car  →" if _mode == "car" else "Prendre la route  →" if _mode == "route" else (("Jouer à Smarves  →" if _titre else "Rentrer à Smarves  →") if c.id == Communes.ORIGINE else "Y aller  →"), OR if c.id == Communes.ORIGINE else EAU, Color(0.04, 0.1, 0.1), Color(0, 0, 0, 0), aller.bind(insee), 16))
 		_geste(c.id, actions)

@@ -843,6 +843,10 @@ func _spawn_player() -> void:
 	if Game.return_point == "casino":
 		Game.return_point = ""
 		_put_player(Vector3(6.4, 0.05, -2.4), PI)
+	elif Game.return_point == "car":
+		# Retour en car (de la salle de basket) : à l'arrêt de la place, dos à l'abribus.
+		Game.return_point = ""
+		_put_player(get_node("Village").ARRET[0] + Vector3(0, 0.05, 1.4), PI)
 	elif get_node("Village").has_door(Game.return_point):
 		# Retour d'une boutique du village : devant sa porte.
 		var door: Array = get_node("Village").door_spawn(Game.return_point)

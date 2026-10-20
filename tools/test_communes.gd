@@ -11,7 +11,7 @@ const TMP := "user://test_communes/"
 const PLACES_AVANT := [
 	["cafe", 0, "Josiane"], ["casino", 0, "Monsieur Armand"], ["banque", 0, "M. Brunet"],
 	["rabelais", 8000, "M. Gaudin"], ["stade", 3000, "Le président Chauvin"], ["moulin", 120000, "Le meunier"],
-	["bourse", 7000, "Mme Vasseur"],
+	["bourse", 7000, "Mme Vasseur"], ["gymnase", 10000, "M. Lacombe"],
 ]
 const LOCKS_AVANT := [["ambassadeurs", 500], ["salon", 5000], ["loggia", 2000], ["musique", 10000], ["fetes", 25000], ["particuliers", 50000]]
 
@@ -51,7 +51,7 @@ func _smarves(c: Commune) -> void:
 			"lieu %s : seuil %d, %s" % [a[0], a[1], a[2]])
 	check(places[3].get("accord", "") == "e" and not places[5].has("accord") and not places[0].has("accord"), "les accords (ouverte) suivent")
 	# On ne joue plus dehors : chaque lieu de jeu a sa salle.
-	for id in ["cafe", "casino", "rabelais", "moulin", "stade", "bourse"]:
+	for id in ["cafe", "casino", "rabelais", "moulin", "stade", "bourse", "gymnase"]:
 		check(c.interieur(id) != "" and ResourceLoader.exists(c.interieur(id)), "le jeu de %s se joue dans sa salle" % id)
 	var locks: Array = load("res://scripts/casino_interior.gd").LOCKS
 	check(locks.size() == LOCKS_AVANT.size(), "%d salles fermées au casino" % locks.size())

@@ -173,7 +173,10 @@ func _village() -> void:
 				break
 		await _wait(3.0)
 		main = get_tree().current_scene
-		var back: bool = main.scene_file_path == "res://scenes/main.tscn" and main.player.global_position.distance_to(main.get_node("Village").door_spawn(id)[0]) < 0.5
+		# Un lieu sans porte au village (la salle de basket, où l'on va en car) ramène à l'arrêt du car.
+		var village: Node = main.get_node("Village")
+		var devant: Vector3 = village.door_spawn(id)[0] if village.has_door(id) else village.ARRET[0] + Vector3(0, 0.05, 1.4)
+		var back: bool = main.scene_file_path == "res://scenes/main.tscn" and main.player.global_position.distance_to(devant) < 0.5
 		report.append(("ok " if back else "ÉCHEC ") + "village : %s, et l'on ressort devant sa porte" % place.name)
 	for a in ["bois", "moulin", "passelourdin"]:
 		main.travel(a)
