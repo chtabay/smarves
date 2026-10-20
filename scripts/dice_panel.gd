@@ -11,6 +11,7 @@ signal bets_changed(bets: Dictionary)
 signal settled(values: Array, wins: Dictionary)
 
 const BARRE := preload("res://scripts/jeux/barre.gd")
+const REGLES := preload("res://scripts/jeux/regles.gd")
 
 const CHIPS := [10, 25, 100, 500]
 const FACES := ["⚀", "⚁", "⚂", "⚃", "⚄", "⚅"]
@@ -96,6 +97,7 @@ func _ready() -> void:
 	roll.text = "Secouer le gobelet  (Espace)"
 	roll.pressed.connect(_roll)
 	controls.add_child(roll)
+	controls.add_child(REGLES.bouton(self, "des", false))
 	var leave := Button.new()
 	leave.text = "Quitter (Échap)"
 	leave.pressed.connect(_leave)
@@ -144,6 +146,7 @@ func _build_bar() -> void:
 	var roll := BARRE.main_button("  Lancer les dés  (Espace)  ")
 	roll.pressed.connect(_roll)
 	h.add_child(roll)
+	h.add_child(REGLES.bouton(self, "des"))
 	var leave := BARRE.pill("Quitter  (Échap)")
 	leave.pressed.connect(_leave)
 	h.add_child(leave)

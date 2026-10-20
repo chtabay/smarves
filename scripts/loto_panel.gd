@@ -5,6 +5,7 @@ extends PanelContainer
 signal played(bet: int, payout: int)
 signal closed
 
+const REGLES := preload("res://scripts/jeux/regles.gd")
 const BETS := [10, 50, 100, 500]
 const PAYS := {2: 1, 3: 4, 4: 20, 5: 120}
 
@@ -76,6 +77,7 @@ func _ready() -> void:
 	go.text = "Tirer les boules  (Espace)"
 	go.pressed.connect(_draw_balls)
 	controls.add_child(go)
+	controls.add_child(REGLES.bouton(self, "loto", false))
 	var leave := Button.new()
 	leave.text = "Quitter (Échap)"
 	leave.pressed.connect(func(): closed.emit())

@@ -18,6 +18,7 @@ const STRIP_WEIGHTS := {"7": 1, "★": 2, "♣": 3, "♥": 4, "♦": 5, "♠": 6
 const BETS := [1, 5, 10, 25, 100]
 const CELL := 96.0
 const BARRE := preload("res://scripts/jeux/barre.gd")
+const REGLES := preload("res://scripts/jeux/regles.gd")
 
 var game: Node
 var title := "La Smarvoise"
@@ -79,6 +80,7 @@ func _build_bar() -> void:
 	_spin_button = BARRE.main_button("  Tirer le bras  (Espace)  ")
 	_spin_button.pressed.connect(spin)
 	h.add_child(_spin_button)
+	h.add_child(REGLES.bouton(self, "machine"))
 	var leave := BARRE.pill("Quitter  (Échap)")
 	leave.pressed.connect(func(): closed.emit())
 	h.add_child(leave)
@@ -170,6 +172,7 @@ func _build() -> void:
 	pays.add_theme_color_override("font_color", Color(0.65, 0.62, 0.58))
 	v.add_child(pays)
 
+	v.add_child(REGLES.bouton(self, "machine", false))
 	var leave := Button.new()
 	leave.text = "Quitter la machine  (Échap)"
 	leave.pressed.connect(func(): closed.emit())

@@ -11,6 +11,7 @@ signal hole_revealed(card: Dictionary)
 
 const BETS := [5, 10, 25, 100, 500]
 const BARRE := preload("res://scripts/jeux/barre.gd")
+const REGLES := preload("res://scripts/jeux/regles.gd")
 const SUITS := ["♠", "♥", "♦", "♣"]
 const RANKS := ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "V", "D", "R"]
 
@@ -92,6 +93,7 @@ func _ready() -> void:
 	_hit = _button(controls, "Carte", _on_hit)
 	_stand = _button(controls, "Rester", _on_stand)
 	_double = _button(controls, "Doubler", _on_double)
+	controls.add_child(REGLES.bouton(self, "blackjack", false))
 	_button(controls, "Quitter (Échap)", func(): closed.emit())
 	_change_bet(0)
 	_set_buttons()
@@ -128,6 +130,7 @@ func _build_bar() -> void:
 	_double = BARRE.pill("Doubler  (D)")
 	_double.pressed.connect(_on_double)
 	h.add_child(_double)
+	h.add_child(REGLES.bouton(self, "blackjack"))
 	var leave := BARRE.pill("Quitter  (Échap)")
 	leave.pressed.connect(func(): closed.emit())
 	h.add_child(leave)
