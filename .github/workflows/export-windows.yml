@@ -85,7 +85,7 @@ jobs:
     needs: export
     if: github.event_name != 'schedule'
     runs-on: windows-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     defaults:
       run:
         shell: pwsh
@@ -124,14 +124,21 @@ jobs:
 
       # Chaque attente est bornée : un essai qui se fige échoue avec son journal au lieu d'annuler le
       # job sans trace (plusieurs constructions annulées au bout du délai le 18 octobre 2026).
+      # L'essai installe sans le Restart Manager de Windows (/NOCLOSEAPPLICATIONS). Avec lui, la
+      # réinstallation qui suit le lancement du jeu figeait le runner entier environ une fois sur six
+      # (19-20 octobre 2026 : plus de journal ni de réseau, job annulé au délai) ; sans doute un service
+      # de Windows qui tenait encore Smarves.exe et que le Restart Manager arrêtait de force. Mesuré sur
+      # des runners : 7 blocages sur 40 avec, 0 sur 40 sans. L'essai ferme le jeu lui-même avant de
+      # réinstaller ; l'installateur publié garde CloseApplications pour les joueurs.
       - name: Essayer l'installateur
         timeout-minutes: 8
         run: |
+          $options = "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/NOCLOSEAPPLICATIONS", "/NORESTARTAPPLICATIONS"
           $dossier = Join-Path $env:LOCALAPPDATA "Programs\Smarves"
           $menu = Join-Path ([Environment]::GetFolderPath("Programs")) "Smarves.lnk"
           $bureau = Join-Path ([Environment]::GetFolderPath("Desktop")) "Smarves.lnk"
           "Installation…"
-          $p = Start-Process build\Smarves-installateur.exe -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=installation.log" -PassThru
+          $p = Start-Process build\Smarves-installateur.exe -ArgumentList ($options + "/LOG=installation.log") -PassThru
           if (-not $p.WaitForExit(180000)) { $p.Kill(); Get-Content installation.log; throw "L'installation ne s'est pas terminée en trois minutes" }
           if ($p.ExitCode -ne 0) { Get-Content installation.log; throw "Installation : code $($p.ExitCode)" }
           foreach ($f in @("$dossier\Smarves.exe", "$dossier\unins000.exe", $menu, $bureau)) {
@@ -156,7 +163,7 @@ jobs:
 
           # Réinstaller par-dessus (mise à jour), puis désinstaller.
           "Réinstallation…"
-          $p = Start-Process build\Smarves-installateur.exe -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=reinstallation.log" -PassThru
+          $p = Start-Process build\Smarves-installateur.exe -ArgumentList ($options + "/LOG=reinstallation.log") -PassThru
           if (-not $p.WaitForExit(180000)) { $p.Kill(); Get-Content reinstallation.log -Tail 30; throw "La réinstallation ne s'est pas terminée en trois minutes" }
           if ($p.ExitCode -ne 0) { Get-Content reinstallation.log -Tail 30; throw "Réinstallation : code $($p.ExitCode)" }
           "Désinstallation…"
