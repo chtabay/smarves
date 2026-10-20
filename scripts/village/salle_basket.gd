@@ -4,13 +4,14 @@ extends "res://scripts/shop_interior.gd"
 ## gymnase municipal (demande de Guillaume du 19 octobre 2026 : « une salle type NBA, sur le modèle du
 ## stade de football de Casino Minuit »). Smarves l'a d'abord : le Clain Garden, où l'on descend du car.
 ## La fiche est au dossier du projet, basket/salle/fiche-salle.md.
-## Le parvis (l'arrêt du car, le tapis rouge, les projecteurs, la statue de Big Héron, la façade de diodes),
-## le hall (la boutique, la buvette, les trophées), la salle (le parquet, deux étages de gradins, l'anneau de
-## diodes, le cube d'écrans, les bannières), et le bureau du club au pied des gradins nord.
+## Le parvis (l'arrêt du car, le tapis rouge, les projecteurs, la statue de Big Héron, la façade de diodes) et
+## le parking ; le grand hall (la verrière, le grand escalier, le Ballon d'or, le mur des légendes, le tableau
+## des parts du club) ; la coursive et ses échoppes derrière les gradins ; la salle (le parquet, deux étages de
+## gradins, l'anneau de diodes, le cube d'écrans, les bannières) ; le bureau du président, où l'on gère l'équipe.
 ## Le club, son sigle, ses couleurs et le nom de la salle viennent de la structure « gymnase » de la commune
 ## (fil « Basket sur les résultats réels ») ; le président, du lieu du manifeste de même id. Le match vient de
 ## ce même fil : ouvrir(commune, match) ou charger_match(match) ; sans match, le club s'entraîne.
-## Capture : godot --path . res://scenes/salle_basket.tscn -- --capture=sortie.png [--at=x,z,lacet,tangage] [--won=…] [--commune=id] [--match]
+## Capture : godot --path . res://scenes/salle_basket.tscn -- --capture=sortie.png [--at=x,z,lacet,tangage[,y]] [--won=…] [--commune=id] [--match] [--bureau]
 
 ## Le terrain (x : longueur, z : largeur), aux mesures de la FIBA, et le bord de parquet autour.
 const L := 28.0
@@ -26,10 +27,19 @@ const MARCHE_HAUT := 0.55
 const HAUT_Y := 8.6
 ## Le vomitoire sud, par où l'on entre du hall dans la salle : sa demi-largeur.
 const VOMITOIRE := 2.6
-## Le hall et le parvis, au sud de la salle (z croissant).
-const HALL_Z := 23.0
-const FACADE_Z := 37.0
-const ARRET_Z := 64.0
+## L'enceinte de la salle (le mur du fond des gradins du haut), le grand hall devant elle, sa façade, le
+## parvis et l'arrêt du car, au sud (z croissant) ; le parking à l'est du parvis.
+const ENCEINTE_X := BORD_X + RANGS_BAS * RANG + 2.4 + RANGS_HAUT * RANG + 1.0
+const ENCEINTE_Z := BORD_Z + RANGS_BAS * RANG + 2.4 + RANGS_HAUT * RANG + 1.0
+const HALL_X := 32.0
+const HALL_Y := 22.0
+const FACADE_Z := 58.0
+const ARRET_Z := 88.0
+## Les passages de l'enceinte, du grand hall à la coursive : [milieu en x, demi-largeur], et leur hauteur.
+const PASSAGES := [[0.0, 6.0], [-21.0, 3.0], [21.0, 3.0]]
+const PASSAGE_Y := 7.0
+## La pièce du bureau du président, hors les murs : on y entre par la porte du couloir des vestiaires.
+const BUREAU_POS := Vector3(0, 0, -150)
 const TOIT_Y := 27.0
 const ECHELLE_JOUEUR := 3.0
 ## Le club et la salle de secours, tant que la commune n'a pas de structure « gymnase ».
@@ -40,6 +50,7 @@ const COULEURS_SECOURS := ["#14213d", "#d4a93a"]
 ## Les écrans du club, du fil basket : ouverts dès qu'ils existent.
 const PANNEAU_BASKET := "res://scripts/socle/basket_panneau.gd"
 const BUREAU_BASKET := "res://scripts/socle/basket_bureau.gd"
+const PARTS_BASKET := "res://scripts/socle/basket_parts.gd"
 
 ## La commune et son match, posés par ouvrir() avant le changement de scène.
 static var prochaine_commune := ""
@@ -69,6 +80,8 @@ var _faisceaux: Array = []
 var _president: Node3D
 var _ecran: Control
 var _anneau: StandardMaterial3D
+## L'écran de la pièce du président, qui répète le cube.
+var _ecran_loge: Label3D
 
 
 ## Ouvre la salle d'une commune. match : celui que le fil basket veut voir (vide : l'entraînement).
@@ -139,8 +152,11 @@ func _ready() -> void:
 	_cube_ecrans()
 	_bancs()
 	_bureau_du_club()
-	_hall()
+	_bureau_du_president()
+	_coursive()
+	_grand_hall()
 	_facade_et_parvis()
+	_parking()
 	_heron_geant()
 	_vivants()
 	_build_ui()
@@ -267,7 +283,7 @@ func _nuit() -> void:
 func _parquet() -> void:
 	var bois := _wood_floor(Color(0.86, 0.64, 0.4))
 	# Le sol de tout le bâtiment, du fond de la salle au bout du parvis : rien où tomber.
-	_box(Vector3(120.0, 0.4, 180.0), Vector3(0, -0.3, 0), _std(Color(0.08, 0.08, 0.1), 0.9), true).name = "Sol"
+	_box(Vector3(170.0, 0.4, 250.0), Vector3(0, -0.3, 25.0), _std(Color(0.08, 0.08, 0.1), 0.9), true).name = "Sol"
 	_box(Vector3(BORD_X * 2.0, 0.2, BORD_Z * 2.0), Vector3(0, -0.1, 0), _std(Color(0.12, 0.12, 0.14), 0.6), true)
 	# Le vomitoire : un tapis aux couleurs du club, du hall au bord du parquet.
 	var dz := BORD_Z + RANGS_BAS * RANG + 0.4
@@ -366,9 +382,6 @@ func _gradins() -> void:
 			var h := (HAUT_Y + (i - RANGS_BAS) * MARCHE_HAUT) if haut else (0.3 + i * MARCHE)
 			var bas := (HAUT_Y - 0.4) if haut else 0.0
 			_rang(cote, d, h, bas, beton, siege_haut if haut else siege)
-	# Le mur du fond du bas, au sud, entre la salle et le hall, et la dalle du haut qui couvre le hall.
-	var dz := BORD_Z + RANGS_BAS * RANG
-	_box(Vector3(BORD_X * 2.0 + 2.0 * dz, 8.2, 0.4), Vector3(0, 4.1, dz + 0.2), beton, true).name = "MurDuHall"
 	# Les bandeaux de l'anneau : une rampe de diodes sur le devant du haut, tout autour.
 	_anneau = _neon(_c2(), 2.2)
 	var ry := HAUT_Y - 0.9
@@ -451,13 +464,27 @@ func _foule_assise() -> void:
 
 ## Le toit : la charpente noire, les bannières des maillots retirés, la passerelle des projecteurs.
 func _toit() -> void:
-	var ex := BORD_X + RANGS_BAS * RANG + 2.4 + RANGS_HAUT * RANG + 1.0
-	var ez := BORD_Z + RANGS_BAS * RANG + 2.4 + RANGS_HAUT * RANG + 1.0
+	var ex := ENCEINTE_X
+	var ez := ENCEINTE_Z
 	var noir := _std(Color(0.05, 0.05, 0.07), 0.9)
 	_box(Vector3(ex * 2.0, 0.4, ez * 2.0), Vector3(0, TOIT_Y, 0), noir)
+	_box(Vector3(ex * 2.0, TOIT_Y, 0.5), Vector3(0, TOIT_Y / 2.0, -ez), noir, true)
 	for s: float in [-1.0, 1.0]:
-		_box(Vector3(ex * 2.0, TOIT_Y, 0.5), Vector3(0, TOIT_Y / 2.0, s * ez), noir, true)
 		_box(Vector3(0.5, TOIT_Y, ez * 2.0), Vector3(s * ex, TOIT_Y / 2.0, 0), noir, true)
+	# Au sud, l'enceinte s'ouvre sur le grand hall par trois passages : le mur entre eux, et au-dessus.
+	var bords := [-ex]
+	for p in PASSAGES:
+		bords.append(float(p[0]) - float(p[1]))
+		bords.append(float(p[0]) + float(p[1]))
+	bords.append(ex)
+	bords.sort()
+	for i in range(0, bords.size(), 2):
+		var a: float = bords[i]
+		var b: float = bords[i + 1]
+		if b - a > 0.01:
+			_box(Vector3(b - a, PASSAGE_Y, 0.5), Vector3((a + b) / 2.0, PASSAGE_Y / 2.0, ez), noir, true)
+	var mur := _box(Vector3(ex * 2.0, TOIT_Y - PASSAGE_Y, 0.5), Vector3(0, (TOIT_Y + PASSAGE_Y) / 2.0, ez), noir, true)
+	mur.name = "Enceinte"
 	var acier := _std(Color(0.25, 0.26, 0.3), 0.5, 0.6)
 	for k in range(-4, 5):
 		_box(Vector3(0.3, 0.9, ez * 2.0), Vector3(k * ex / 4.5, TOIT_Y - 0.7, 0), acier)
@@ -527,8 +554,8 @@ func _bancs() -> void:
 			_box(Vector3(0.6, 0.45 + rangee * 0.25, 0.6), Vector3(x, 0.225 + rangee * 0.125, P / 2.0 + 1.6 + rangee * 0.9), cuir, true)
 
 
-## Le bureau du club, au pied des gradins nord : la porte du couloir des vestiaires, et le président devant.
-## E à la porte ouvre le bureau du club (scripts/socle/basket_bureau.gd, du fil basket) ; au président, il parle.
+## La porte du couloir des vestiaires, au pied des gradins nord, et le président devant : E à la porte mène au
+## bureau du président (_bureau_du_president) ; au président, il parle.
 func _bureau_du_club() -> void:
 	var z := -BORD_Z + 0.05
 	var x := 10.0
@@ -542,7 +569,7 @@ func _bureau_du_club() -> void:
 	var l := _label3d("VESTIAIRES  ·  BUREAU DU CLUB", Vector3(x, 2.6, z + 0.1), 34, _c1().darkened(0.5))
 	l.name = "EnseigneBureau"
 	_lamp(Vector3(x, 2.4, z + 1.2), Color(1.0, 0.85, 0.6), 1.2, 6.0)
-	_interactive(porte, "bureau", "E : entrer au bureau du club", Vector3(2.6, 2.6, 1.8), Vector3(0, 1.3, 0.9))
+	_interactive(porte, "porte_bureau", "E : entrer au bureau du président", Vector3(2.6, 2.6, 1.8), Vector3(0, 1.3, 0.9))
 	_president = CRITTER.new()
 	_president.randomize_look(311)
 	_president.look["top_color"] = "#1a1a1e"
@@ -550,6 +577,182 @@ func _bureau_du_club() -> void:
 	_president.position = Vector3(x - 2.6, 0, z + 1.0)
 	add_child(_president)
 	_interactive(_president, "president", "E : parler %s" % _a(_nom_president()), Vector3(0.8, 1.0, 0.8), Vector3(0, 0.4, 0))
+
+
+## Le bureau du président, hors les murs de la salle : on y entre par la porte du couloir des vestiaires.
+## Le grand bureau (E : la gestion de l'équipe, scripts/socle/basket_bureau.gd), le tableau tactique (le
+## panneau du club : classement, match, effectif), la table du conseil (les parts et leurs porteurs), le mur
+## d'écrans qui répète le cube, l'étagère aux coupes, la baie sur la nuit, et la porte qui ramène au parquet.
+func _bureau_du_president() -> void:
+	var piece := Node3D.new()
+	piece.position = BUREAU_POS
+	piece.name = "BureauDuPresident"
+	add_child(piece)
+	var w := 14.0
+	var d := 10.0
+	var h := 4.2
+	var moquette := _std(_c1().darkened(0.45), 0.95)
+	_box(Vector3(w, 0.2, d), Vector3(0, -0.1, 0), moquette, true, piece)
+	_box(Vector3(w, 0.2, d), Vector3(0, h + 0.1, 0), _std(Color(0.1, 0.09, 0.08), 0.8), false, piece)
+	var boiserie := _std(Color(0.28, 0.17, 0.1), 0.5)
+	var or_ := _std(_c2(), 0.3, 0.8)
+	_box(Vector3(w, h, 0.3), Vector3(0, h / 2.0, -d / 2.0), boiserie, true, piece)
+	_box(Vector3(w, h, 0.3), Vector3(0, h / 2.0, d / 2.0), boiserie, true, piece)
+	_box(Vector3(0.3, h, d), Vector3(w / 2.0, h / 2.0, 0), boiserie, true, piece)
+	_box(Vector3(0.3, h, d), Vector3(-w / 2.0, h / 2.0, 0), boiserie, true, piece)
+	_box(Vector3(w, 0.12, 0.1), Vector3(0, 1.0, d / 2.0 - 0.2), or_, false, piece)
+	_box(Vector3(w, 0.12, 0.1), Vector3(0, 1.0, -d / 2.0 + 0.2), or_, false, piece)
+	# La baie, à l'est : la nuit sur le Clain, et les projecteurs du parvis au loin.
+	var baie := _std(Color(0.05, 0.08, 0.16), 0.1)
+	baie.emission_enabled = true
+	baie.emission = Color(0.04, 0.07, 0.15)
+	_box(Vector3(0.05, 2.6, 7.0), Vector3(w / 2.0 - 0.2, 2.2, 0), baie, false, piece)
+	for k in 6:
+		_box(Vector3(0.06, 0.04 + (k % 3) * 0.02, 0.04), Vector3(w / 2.0 - 0.24, 1.2 + (k % 2) * 0.3, -3.0 + k * 1.2), _neon(Color(1.0, 0.85, 0.5), 3.0), false, piece)
+	# Le grand bureau du président, son fauteuil, et le drapeau du club derrière.
+	var bureau := Node3D.new()
+	bureau.position = Vector3(0, 0, -2.6)
+	bureau.name = "GrandBureau"
+	piece.add_child(bureau)
+	_box(Vector3(3.4, 0.1, 1.4), Vector3(0, 0.82, 0), _std(Color(0.2, 0.11, 0.06), 0.3), true, bureau)
+	for s: float in [-1.0, 1.0]:
+		_box(Vector3(0.9, 0.8, 1.3), Vector3(s * 1.2, 0.4, 0), _std(Color(0.18, 0.1, 0.05), 0.4), true, bureau)
+	_box(Vector3(0.5, 0.35, 0.03), Vector3(0.6, 1.05, -0.2), _neon(Color(0.4, 0.6, 0.9), 0.8), false, bureau)
+	_box(Vector3(0.8, 1.3, 0.8), Vector3(0, 0.65, -1.2), _std(Color(0.08, 0.08, 0.09), 0.4), false, bureau)
+	_box(Vector3(2.2, 1.6, 0.04), Vector3(0, 2.6, -2.2), _std(_c1(), 0.8), false, bureau)
+	var drapeau := Label3D.new()
+	drapeau.text = _court()
+	drapeau.font = _serif
+	drapeau.font_size = 160
+	drapeau.pixel_size = 0.005
+	drapeau.modulate = _c2()
+	drapeau.outline_size = 0
+	drapeau.position = Vector3(0, 2.6, -2.17)
+	bureau.add_child(drapeau)
+	_interactive(bureau, "bureau", "E : s'asseoir au bureau, gérer l'équipe", Vector3(3.6, 2.0, 2.4), Vector3(0, 1.0, 1.2))
+	# Le tableau tactique, à l'ouest : un parquet dessiné, des pions.
+	var tableau := Node3D.new()
+	tableau.position = Vector3(-w / 2.0 + 0.3, 0, -1.0)
+	tableau.rotation.y = PI / 2.0
+	tableau.name = "TableauTactique"
+	piece.add_child(tableau)
+	_box(Vector3(3.2, 1.9, 0.06), Vector3(0, 2.0, 0), _std(Color(0.12, 0.22, 0.17), 0.8), false, tableau)
+	_box(Vector3(3.0, 1.7, 0.02), Vector3(0, 2.0, 0.04), _std(Color(0.8, 0.6, 0.38), 0.6), false, tableau)
+	for k in 5:
+		_cyl(0.07, 0.03, Vector3(-1.0 + k * 0.45, 1.6 + (k % 2) * 0.5, 0.07), _std(_c1(), 0.5), tableau).rotation.x = PI / 2.0
+	var tt := Label3D.new()
+	tt.text = "LE TABLEAU TACTIQUE"
+	tt.font = _serif
+	tt.font_size = 34
+	tt.pixel_size = 0.004
+	tt.modulate = _c2()
+	tt.outline_size = 0
+	tt.position = Vector3(0, 3.15, 0.05)
+	tableau.add_child(tt)
+	_interactive(tableau, "tactique", "E : le tableau tactique (l'effectif, le classement)", Vector3(3.4, 2.4, 2.0), Vector3(0, 1.2, 1.0))
+	# La table du conseil, au sud : les porteurs de parts s'y réunissent.
+	var conseil := Node3D.new()
+	conseil.position = Vector3(-2.5, 0, 2.2)
+	conseil.name = "TableDuConseil"
+	piece.add_child(conseil)
+	_box(Vector3(4.0, 0.08, 1.6), Vector3(0, 0.78, 0), _std(Color(0.06, 0.06, 0.07), 0.2, 0.2), true, conseil)
+	_box(Vector3(3.6, 0.74, 0.3), Vector3(0, 0.37, 0), _std(Color(0.05, 0.05, 0.06), 0.4), false, conseil)
+	for k in 6:
+		var cz := -1.1 if k < 3 else 1.1
+		_box(Vector3(0.55, 1.0, 0.55), Vector3(-1.3 + (k % 3) * 1.3, 0.5, cz), _std(Color(0.12, 0.1, 0.1), 0.5), false, conseil)
+	_interactive(conseil, "conseil", "E : la table du conseil (les parts du club)", Vector3(4.4, 2.0, 3.2), Vector3(0, 1.0, 0))
+	# Le mur d'écrans, au-dessus de la porte du sud : le score du cube, en direct.
+	_box(Vector3(4.4, 2.0, 0.08), Vector3(3.5, 2.8, d / 2.0 - 0.25), _neon(Color(0.06, 0.08, 0.15), 0.8), false, piece)
+	_ecran_loge = Label3D.new()
+	_ecran_loge.font = _serif
+	_ecran_loge.font_size = 90
+	_ecran_loge.pixel_size = 0.005
+	_ecran_loge.modulate = Color(1, 1, 1)
+	_ecran_loge.outline_size = 0
+	_ecran_loge.position = Vector3(3.5, 2.8, d / 2.0 - 0.32)
+	_ecran_loge.rotation.y = PI
+	_ecran_loge.name = "EcranDeLaLoge"
+	piece.add_child(_ecran_loge)
+	# L'étagère aux coupes, contre le mur ouest, près de la baie.
+	_box(Vector3(2.4, 0.06, 0.5), Vector3(4.0, 1.6, -d / 2.0 + 0.4), boiserie, false, piece)
+	_box(Vector3(2.4, 0.06, 0.5), Vector3(4.0, 2.4, -d / 2.0 + 0.4), boiserie, false, piece)
+	for k in 3:
+		_cyl(0.1, 0.5, Vector3(3.2 + k * 0.8, 1.88, -d / 2.0 + 0.4), or_, piece, 0.16)
+	# La porte, au sud-ouest : elle ramène au parquet, devant la porte des vestiaires.
+	var porte := Node3D.new()
+	porte.position = Vector3(-4.5, 0, d / 2.0 - 0.2)
+	porte.name = "PorteDuBureau"
+	piece.add_child(porte)
+	_box(Vector3(1.3, 2.3, 0.08), Vector3(0, 1.15, 0), _std(Color(0.4, 0.25, 0.14), 0.5), false, porte)
+	_box(Vector3(1.6, 0.3, 0.1), Vector3(0, 2.55, -0.02), _neon(_c2(), 1.2), false, porte)
+	_interactive(porte, "sortir_bureau", "E : redescendre au parquet", Vector3(1.8, 2.4, 1.6), Vector3(0, 1.2, -0.8))
+	for p in [Vector3(-3.5, 3.8, 0), Vector3(3.0, 3.8, -1.5), Vector3(0, 3.8, 2.5)]:
+		_lamp(BUREAU_POS + p, Color(1.0, 0.82, 0.58), 1.4, 8.0)
+	var titre := _label3d("LE BUREAU DU PRÉSIDENT  ·  %s" % _enseigne(_nom_president()), BUREAU_POS + Vector3(0, 3.6, -d / 2.0 + 0.2), 40, _c2())
+	titre.name = "TitreDuBureau"
+
+
+## On entre au bureau du président : l'habitant passe dans la pièce, face au grand bureau.
+func entrer_bureau() -> void:
+	player.global_position = BUREAU_POS + Vector3(-4.5, 0, 3.6)
+	player.rotation.y = 0.0
+
+
+## On ressort du bureau : devant la porte des vestiaires, face au parquet.
+func sortir_bureau() -> void:
+	player.global_position = Vector3(10.0, 0, -BORD_Z + 2.2)
+	player.rotation.y = PI
+
+
+## Le parking du Garden, à l'est du parvis : l'asphalte, les places tracées, les voitures des supporters,
+## les candélabres, la barrière et sa guérite, et le grand « P » bleu.
+func _parking() -> void:
+	var x0 := 48.0
+	var x1 := 84.0
+	var z0 := FACADE_Z + 2.0
+	var z1 := ARRET_Z + 14.0
+	var parking := Node3D.new()
+	parking.name = "Parking"
+	add_child(parking)
+	_box(Vector3(x1 - x0, 0.1, z1 - z0), Vector3((x0 + x1) / 2.0, 0.0, (z0 + z1) / 2.0), _std(Color(0.13, 0.13, 0.14), 0.95), false, parking)
+	var blanc := _std(Color(0.9, 0.9, 0.85), 0.6)
+	var couleurs := [Color(0.7, 0.1, 0.1), Color(0.9, 0.9, 0.92), Color(0.1, 0.1, 0.12), Color(0.2, 0.3, 0.6), Color(0.5, 0.52, 0.55), Color(0.85, 0.7, 0.2), _c1()]
+	var h := Hasard.depuis(31)
+	var voitures := 0
+	for rangee in 4:
+		var z := z0 + 6.0 + rangee * 10.0
+		_box(Vector3(x1 - x0 - 4.0, 0.02, 0.12), Vector3((x0 + x1) / 2.0, 0.06, z), blanc, false, parking)
+		for k in 12:
+			var x := x0 + 3.0 + k * 2.8
+			for c: float in [-1.0, 1.0]:
+				_box(Vector3(0.12, 0.02, 4.6), Vector3(x - 1.4, 0.06, z + c * 2.5), blanc, false, parking)
+				if h.suivant() < 0.6:
+					var teinte: Color = couleurs[h.entier(0, couleurs.size() - 1)]
+					var caisse := _std(teinte, 0.35, 0.4)
+					var v := Node3D.new()
+					v.position = Vector3(x, 0, z + c * 2.5)
+					parking.add_child(v)
+					_box(Vector3(1.8, 0.75, 4.2), Vector3(0, 0.6, 0), caisse, true, v)
+					_box(Vector3(1.6, 0.6, 2.2), Vector3(0, 1.25, 0.2 * c), _std(Color(0.08, 0.1, 0.13), 0.1, 0.3), false, v)
+					voitures += 1
+	parking.set_meta("voitures", voitures)
+	# Les candélabres.
+	var fut := _std(Color(0.2, 0.21, 0.23), 0.5, 0.5)
+	for k in 8:
+		var p := Vector3(x0 + 6.0 + (k % 4) * 9.0, 0, z0 + 11.0 + (k / 4) * 20.0)
+		_cyl(0.12, 8.0, p + Vector3(0, 4.0, 0), fut, parking)
+		_box(Vector3(1.6, 0.2, 0.5), p + Vector3(0, 8.0, 0), fut, false, parking)
+		_lamp(p + Vector3(0, 7.6, 0), Color(1.0, 0.88, 0.7), 3.0, 16.0)
+	# Le grand « P », la barrière et la guérite, à l'entrée du parking, côté parvis.
+	var pz := ARRET_Z + 6.0
+	_cyl(0.15, 6.0, Vector3(x0 - 1.0, 3.0, pz), fut, parking)
+	_box(Vector3(2.4, 2.4, 0.2), Vector3(x0 - 1.0, 6.4, pz), _neon(Color(0.1, 0.35, 0.85), 1.4), false, parking)
+	var lp := _label3d("P", Vector3(x0 - 1.0, 6.4, pz + 0.12), 400, Color(1, 1, 1))
+	lp.pixel_size = 0.006
+	_label3d("PARKING DU GARDEN", Vector3(x0 - 1.0, 4.9, pz + 0.12), 50, Color(1, 1, 1))
+	_box(Vector3(1.6, 2.4, 1.6), Vector3(x0 + 1.5, 1.2, pz - 3.0), _std(Color(0.85, 0.85, 0.82), 0.6), true, parking)
+	_box(Vector3(4.5, 0.12, 0.12), Vector3(x0 + 4.6, 1.0, pz - 3.0), _std(Color(0.9, 0.15, 0.12), 0.5), false, parking)
+	_lamp(Vector3(x0 + 1.5, 2.8, pz - 2.0), Color(1.0, 0.9, 0.7), 1.0, 5.0)
 
 
 static func _a(nom: String) -> String:
@@ -560,72 +763,221 @@ static func _a(nom: String) -> String:
 	return "à " + nom
 
 
-# --- Le hall --------------------------------------------------------------------------------------
+# --- La coursive et le grand hall -----------------------------------------------------------------
 
-## Le hall, sous les gradins du haut : marbre noir veiné d'or, la boutique, la buvette, les trophées.
-func _hall() -> void:
-	var dz := BORD_Z + RANGS_BAS * RANG + 0.4
-	var hw := 22.0
+## La coursive, derrière les gradins du bas et sous ceux du haut, tout autour de la salle : le sol de marbre
+## au sud, et les échoppes adossées à l'enceinte, qui regardent les gradins.
+const ECHOPPES := [
+	# [nom, x, z, orientation (degrés), couleur de l'enseigne, réplique]
+	["LA BOUTIQUE OFFICIELLE", -31.0, 35.0, 180.0, "club", "« Le maillot du club, cent vingt crédits. Le flocage est offert si on gagne samedi. »"],
+	["HOT-DOGS DU CLAIN", -11.0, 35.0, 180.0, "#d8432a", "« Un hot-dog, moutarde de Dijon, oignons du Clain. »"],
+	["LA PIZZA DU GARDEN", 11.0, 35.0, 180.0, "#2e8b57", "« Une part de quatre-fromages : chèvre du Poitou, comté, bleu, mozzarella. »"],
+	["LE BAR DES HÉRONS", 31.0, 35.0, 180.0, "club", "« La bière du Clain, à la pression. On rend la consigne du gobelet à la sortie. »"],
+	["GLACES DU CLAIN", -24.0, -35.0, 0.0, "#e58fb1", "« Vanille de Madagascar ou angélique de Niort. Une boule, deux boules ? »"],
+	["SOUVENIRS DU GARDEN", -8.0, -35.0, 0.0, "club", "« La figurine de Big Héron, la casquette, le ballon dédicacé. »"],
+	["LA BRASSERIE DU GARDEN", 8.0, -35.0, 0.0, "#c8873a", "« Le farci poitevin du chef, avec vue sur le parquet entre deux quarts-temps. »"],
+	["LE CLUB DES SUPPORTERS", 24.0, -35.0, 0.0, "club", "« Carte de membre, tambour et écharpe. On chante debout tout le match. »"],
+	["POPCORN & NACHOS", 41.5, -14.0, -90.0, "#e9b929", "« Popcorn sucré ou salé. Les nachos, c'est avec du cheddar fondu. »"],
+	["MAILLOTS & FLOCAGE", 41.5, 14.0, -90.0, "club", "« Votre nom et votre numéro au dos, en dix minutes. »"],
+	["LA CAVE DE LA VIENNE", -41.5, -14.0, 90.0, "#7b2d3b", "« Un haut-poitou blanc, pour les loges. »"],
+	["LE STAND DE TIRS", -41.5, 14.0, 90.0, "#3a7bd5", "« Trois ballons, un crédit. Le panier du milieu fait gagner une casquette. »"],
+]
+
+
+func _coursive() -> void:
+	var dz := BORD_Z + RANGS_BAS * RANG
+	var marbre := _marbre()
+	# Le sol de marbre de la coursive sud, de l'arrière des gradins à l'enceinte, et le tapis du vomitoire.
+	var coursive := _box(Vector3(ENCEINTE_X * 2.0, 0.2, ENCEINTE_Z - dz), Vector3(0, -0.1, (ENCEINTE_Z + dz) / 2.0), marbre, true)
+	coursive.name = "Coursive"
+	var or_ := _std(_c2(), 0.3, 0.8)
+	# Le passage du vomitoire, éclairé, avec son linteau : « LA SALLE ».
+	_box(Vector3(VOMITOIRE * 2.0 + 0.6, 0.6, 0.5), Vector3(0, 4.3, dz + 0.4), or_)
+	_label3d("LA SALLE", Vector3(0, 4.3, dz + 0.67), 60, Color(0.08, 0.06, 0.03))
+	_lamp(Vector3(0, 4.0, dz + 2.0), Color(1.0, 0.85, 0.6), 2.0, 9.0)
+	# Les lampes de la coursive, tout le tour.
+	for p in [Vector3(-20, 6.5, 30), Vector3(20, 6.5, 30), Vector3(-20, 6.5, -30), Vector3(20, 6.5, -30), Vector3(37, 6.5, 0), Vector3(-37, 6.5, 0)]:
+		_lamp(p, Color(1.0, 0.84, 0.6), 2.0, 16.0)
+	for i in ECHOPPES.size():
+		_echoppe(ECHOPPES[i], i)
+
+
+## Une échoppe : son comptoir, son enseigne lumineuse, son vendeur, et ce qu'il dit quand on s'approche.
+func _echoppe(e: Array, i: int) -> void:
+	var n := Node3D.new()
+	n.position = Vector3(e[1], 0, e[2])
+	n.rotation_degrees.y = e[3]
+	n.name = "Echoppe%d" % i
+	add_child(n)
+	var teinte: Color = _c1() if e[4] == "club" else Color.from_string(e[4], _c1())
+	var sombre := _std(Color(0.07, 0.07, 0.08), 0.5)
+	# Le fond (contre l'enceinte), les deux joues, le comptoir et l'enseigne.
+	_box(Vector3(7.0, 4.2, 0.3), Vector3(0, 2.1, -1.6), sombre, true, n)
+	for s: float in [-1.0, 1.0]:
+		_box(Vector3(0.3, 4.2, 3.2), Vector3(s * 3.5, 2.1, 0), sombre, true, n)
+	_box(Vector3(6.4, 1.05, 0.8), Vector3(0, 0.525, 0.9), _std(teinte.darkened(0.3), 0.5), true, n)
+	_box(Vector3(6.6, 0.08, 0.9), Vector3(0, 1.08, 0.9), _std(_c2(), 0.3, 0.8), false, n)
+	_box(Vector3(7.0, 1.0, 0.2), Vector3(0, 4.7, 1.4), _neon(teinte, 1.5), false, n)
+	var enseigne := Label3D.new()
+	enseigne.text = e[0]
+	enseigne.font = _serif
+	enseigne.font_size = 56
+	enseigne.pixel_size = 0.005
+	enseigne.modulate = Color(1, 0.97, 0.88) if e[4] != "club" else _c2()
+	enseigne.outline_size = 0
+	enseigne.position = Vector3(0, 4.7, 1.52)
+	n.add_child(enseigne)
+	# L'étalage : des maillots, des bouteilles ou des boîtes, aux couleurs de l'échoppe.
+	for k in 5:
+		_box(Vector3(0.7, 0.8, 0.1), Vector3(-2.4 + k * 1.2, 2.7, -1.42), _std(teinte if k % 2 == 0 else _c2(), 0.7), false, n)
+	var vendeur := CRITTER.new()
+	vendeur.randomize_look(1200 + i)
+	vendeur.look["top_color"] = teinte.to_html(false)
+	vendeur.scale = Vector3.ONE * PEOPLE_SCALE
+	vendeur.position = Vector3(0, 0, -0.4)
+	n.add_child(vendeur)
+	var a := _interactive(n, "echoppe", "E : %s" % e[0].capitalize(), Vector3(6.6, 2.6, 2.0), Vector3(0, 1.3, 1.9))
+	a.set_meta("replique", e[5])
+
+
+func _marbre() -> StandardMaterial3D:
 	var marbre := _std(Color(0.06, 0.06, 0.07), 0.15, 0.2)
 	marbre.albedo_texture = _noise(0.05, Vector2(1, 3), Color(0.5, 0.45, 0.3))
 	marbre.uv1_triplanar = true
 	marbre.uv1_scale = Vector3(0.15, 0.15, 0.15)
-	_box(Vector3(hw * 2.0, 0.2, FACADE_Z - dz), Vector3(0, -0.1, (FACADE_Z + dz) / 2.0), marbre, true)
-	var plafond := _std(Color(0.08, 0.07, 0.06), 0.6)
-	_box(Vector3(hw * 2.0, 0.3, FACADE_Z - dz), Vector3(0, 7.4, (FACADE_Z + dz) / 2.0), plafond)
+	return marbre
+
+
+## Le grand hall, entre l'enceinte et la façade : vingt-deux mètres sous une verrière, des colonnes noires
+## baguées d'or, le grand escalier qui monte de part et d'autre au balcon des loges, le lustre de ballons d'or
+## et le Ballon d'or suspendu dessous, le mur des légendes, l'écran géant, les trophées, le panneau du club
+## et, à l'entrée, le tableau des parts du club.
+func _grand_hall() -> void:
+	var z0 := ENCEINTE_Z
+	var z1 := FACADE_Z
+	var zm := (z0 + z1) / 2.0
+	var lz := z1 - z0
+	var hall := Node3D.new()
+	hall.name = "GrandHall"
+	add_child(hall)
+	_box(Vector3(HALL_X * 2.0, 0.2, lz), Vector3(0, -0.1, zm), _marbre(), true)
+	# Une rosace au sol : le sigle du club dans un cercle d'or.
+	_anneau_sol(Vector3(0, 0.01, zm + 2.0), 4.0, _std(_c2(), 0.3, 0.8))
+	var sigle := _label3d(_court(), Vector3(0, 0.02, zm + 2.0), 300, _c2())
+	sigle.rotation_degrees.x = -90
+	sigle.pixel_size = 0.008
+	var mur := _std(Color(0.09, 0.08, 0.08), 0.6)
 	var or_ := _std(_c2(), 0.3, 0.8)
-	_box(Vector3(hw * 2.0, 0.12, 0.12), Vector3(0, 7.2, dz + 0.3), or_)
 	for s: float in [-1.0, 1.0]:
-		_box(Vector3(0.4, 7.4, FACADE_Z - dz), Vector3(s * hw, 3.7, (FACADE_Z + dz) / 2.0), _std(Color(0.1, 0.09, 0.08), 0.6), true)
-	# Le passage du vomitoire, éclairé, avec son linteau : « LA SALLE ».
-	_box(Vector3(VOMITOIRE * 2.0 + 0.6, 0.6, 0.5), Vector3(0, 4.3, dz), or_)
-	_label3d("LA SALLE", Vector3(0, 4.3, dz + 0.27), 60, Color(0.08, 0.06, 0.03), 180)
-	_label3d("LA SALLE", Vector3(0, 4.3, dz + 0.27), 60, Color(0.08, 0.06, 0.03))
-	_lamp(Vector3(0, 4.0, dz + 1.5), Color(1.0, 0.85, 0.6), 2.0, 9.0)
-	# Les lustres en ballons d'or empilés.
-	for x: float in [-11.0, 0.0, 11.0]:
-		var c := Vector3(x, 6.2, (FACADE_Z + dz) / 2.0)
-		for k in 3:
-			var b := _cyl(0.35, 0.7, c + Vector3(0, -k * 0.55, 0), _neon(Color(1.0, 0.75, 0.35), 1.6))
-			b.mesh = SphereMesh.new()
-			(b.mesh as SphereMesh).radius = 0.32
-			(b.mesh as SphereMesh).height = 0.64
-		_lamp(c + Vector3(0, -1.6, 0), Color(1.0, 0.82, 0.55), 2.2, 12.0)
-	# La boutique du club, à l'ouest : un comptoir, deux portants de maillots aux couleurs du club.
-	var boutique := Node3D.new()
-	boutique.position = Vector3(-15.0, 0, dz + 4.5)
-	add_child(boutique)
-	_box(Vector3(5.0, 1.0, 1.0), Vector3(0, 0.5, 0), _std(Color(0.1, 0.1, 0.12), 0.4), true, boutique)
-	_box(Vector3(5.2, 0.08, 1.1), Vector3(0, 1.04, 0), or_, false, boutique)
-	_box(Vector3(6.0, 1.0, 0.1), Vector3(0, 4.8, -1.8), _neon(_c1(), 1.4), false, boutique)
-	_label3d("LA BOUTIQUE DU CLUB", boutique.position + Vector3(0, 4.8, -1.72), 60, _c2())
-	for k in 6:
-		var maillot := _box(Vector3(0.7, 0.85, 0.08), Vector3(-2.0 + k * 0.8, 2.6, -1.7), _std(_c1() if k % 2 == 0 else _c2(), 0.7), false, boutique)
-		maillot.name = "Maillot%d" % k
-		_label3d(str([1, 7, 23, 33, 9, 11][k]), boutique.position + Vector3(-2.0 + k * 0.8, 2.6, -1.64), 60, _c2() if k % 2 == 0 else _c1())
-	_interactive(boutique, "boutique", "E : la boutique du club", Vector3(5.4, 2.4, 2.0), Vector3(0, 1.2, 1.2))
-	# La buvette, à l'est : hot-dogs et bière du Clain.
-	var buvette := Node3D.new()
-	buvette.position = Vector3(15.0, 0, dz + 4.5)
-	add_child(buvette)
-	_box(Vector3(5.0, 1.0, 1.0), Vector3(0, 0.5, 0), _std(Color(0.1, 0.1, 0.12), 0.4), true, buvette)
-	_box(Vector3(5.2, 0.08, 1.1), Vector3(0, 1.04, 0), or_, false, buvette)
-	_box(Vector3(6.0, 1.0, 0.1), Vector3(0, 4.8, -1.8), _neon(Color(0.9, 0.25, 0.15), 1.6), false, buvette)
-	_label3d("HOT-DOGS  ·  BIÈRE DU CLAIN", buvette.position + Vector3(0, 4.8, -1.72), 54, Color(1, 0.95, 0.8))
-	_interactive(buvette, "buvette", "E : un hot-dog à la buvette", Vector3(5.4, 2.4, 2.0), Vector3(0, 1.2, 1.2))
-	# La vitrine des trophées, au milieu du hall, face aux portes.
+		_box(Vector3(0.6, HALL_Y, lz), Vector3(s * HALL_X, HALL_Y / 2.0, zm), mur, true)
+	# La verrière : des vitres bleutées entre des arcs d'acier.
+	var verre := _std(Color(0.5, 0.65, 0.85, 0.18), 0.05)
+	verre.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_box(Vector3(HALL_X * 2.0, 0.1, lz), Vector3(0, HALL_Y, zm), verre)
+	var acier := _std(Color(0.22, 0.23, 0.26), 0.4, 0.7)
+	for k in 7:
+		_box(Vector3(HALL_X * 2.0, 0.4, 0.3), Vector3(0, HALL_Y - 0.2, z0 + (k + 0.5) * lz / 7.0), acier)
+	_box(Vector3(0.3, 0.4, lz), Vector3(0, HALL_Y - 0.2, zm), acier)
+	# Les colonnes : du marbre noir, une bague d'or en bas, au milieu et en haut.
+	for s: float in [-1.0, 1.0]:
+		for k in 4:
+			var c := Vector3(s * (HALL_X - 5.0), 0, z0 + 3.5 + k * (lz - 6.0) / 3.0)
+			_cyl(0.9, HALL_Y, c + Vector3(0, HALL_Y / 2.0, 0), _std(Color(0.04, 0.04, 0.05), 0.2, 0.2), hall)
+			for y: float in [0.4, HALL_Y / 2.0, HALL_Y - 0.6]:
+				_cyl(1.0, 0.35, c + Vector3(0, y, 0), or_, hall)
+			_box(Vector3(1.8, HALL_Y, 1.8), c + Vector3(0, HALL_Y / 2.0, 0), mur, true).visible = false
+	# Le balcon des loges, contre l'enceinte, et les deux volées du grand escalier qui y montent.
+	var balcon_y := PASSAGE_Y + 0.6
+	_box(Vector3(HALL_X * 2.0 - 1.2, 0.5, 4.0), Vector3(0, balcon_y, z0 + 2.2), _marbre())
+	_box(Vector3(HALL_X * 2.0 - 1.2, 1.0, 0.12), Vector3(0, balcon_y + 0.75, z0 + 4.15), or_)
+	for s: float in [-1.0, 1.0]:
+		var marches := 20
+		for k in marches:
+			var h := (k + 1) * balcon_y / marches
+			var marche := _box(Vector3(4.0, h, 0.6), Vector3(s * 15.0, h / 2.0, z0 + 4.2 + (marches - k) * 0.6), _marbre(), true)
+			marche.name = "Marche%d" % k if s < 0 else marche.name
+		_box(Vector3(0.12, 1.0, marches * 0.6), Vector3(s * 13.0, balcon_y / 2.0 + 1.0, z0 + 4.2 + marches * 0.3), or_).rotation.x = -atan2(balcon_y, marches * 0.6)
+	# L'écran géant au-dessus du balcon : le nom de la salle et l'invitation.
+	_box(Vector3(26.0, 7.0, 0.3), Vector3(0, 14.5, z0 + 0.5), _neon(_c1().darkened(0.2), 0.9))
+	_box(Vector3(26.6, 7.6, 0.2), Vector3(0, 14.5, z0 + 0.35), or_)
+	var bienvenue := _label3d("BIENVENUE AU\n%s" % _enseigne(_nom_salle()), Vector3(0, 14.5, z0 + 0.7), 260, _c2())
+	bienvenue.pixel_size = 0.008
+	bienvenue.name = "EcranDuHall"
+	# Le lustre : trois couronnes de ballons d'or, et le Ballon d'or suspendu dessous.
+	var centre := Vector3(0, 15.0, zm + 2.0)
+	for r in 3:
+		var n := 10 + r * 6
+		for k in n:
+			var a := TAU * k / n
+			_sphere(0.35, centre + Vector3(cos(a) * (2.0 + r * 1.6), -r * 1.1, sin(a) * (2.0 + r * 1.6)), _neon(Color(1.0, 0.78, 0.38), 1.4), hall)
+	var ballon := _sphere(1.6, centre + Vector3(0, -5.5, 0), _std(_c2(), 0.25, 0.9), hall)
+	ballon.name = "BallonDOr"
+	for k in 2:
+		var bande := MeshInstance3D.new()
+		var t := TorusMesh.new()
+		t.inner_radius = 1.6
+		t.outer_radius = 1.66
+		bande.mesh = t
+		bande.material_override = _std(Color(0.1, 0.08, 0.05), 0.5)
+		bande.position = ballon.position
+		bande.rotation = Vector3(PI / 2.0, k * PI / 2.0, 0)
+		hall.add_child(bande)
+	_box(Vector3(0.04, 4.0, 0.04), centre + Vector3(0, -2.6, 0), acier, false, hall)
+	_lamp(centre + Vector3(0, -2.0, 0), Color(1.0, 0.82, 0.55), 4.0, 26.0)
+	_lamp(Vector3(0, 6.0, z1 - 6.0), Color(1.0, 0.85, 0.6), 2.5, 18.0)
+	# Le mur des légendes, à l'ouest : les grands joueurs du club, dans des cadres d'or.
+	var legendes := ["LE FONDATEUR", "LE CAPITAINE", "LE DUNKEUR", "LE PIVOT", "LE MENEUR", "L'ENTRAÎNEUR"]
+	for k in legendes.size():
+		var z := z0 + 7.0 + k * 2.4
+		_box(Vector3(0.1, 2.6, 2.0), Vector3(-HALL_X + 0.4, 3.2, z), or_)
+		_box(Vector3(0.1, 2.3, 1.7), Vector3(-HALL_X + 0.46, 3.2, z), _std(_c1().lerp(Color(0.5, 0.5, 0.5), 0.2 + 0.1 * (k % 3)), 0.7))
+		var l := _label3d(legendes[k], Vector3(-HALL_X + 0.55, 1.6, z), 30, _c2(), 90)
+		l.name = "Legende%d" % k
+	_label3d("LE MUR DES LÉGENDES", Vector3(-HALL_X + 0.55, 5.2, z0 + 13.0), 60, _c2(), 90)
+	_lamp(Vector3(-HALL_X + 3.0, 5.5, z0 + 13.0), Color(1.0, 0.88, 0.7), 1.5, 9.0)
+	# Les trophées, à l'est, dans leur vitrine.
 	var vitrine := Node3D.new()
-	vitrine.position = Vector3(-6.5, 0, dz + 7.0)
+	vitrine.position = Vector3(HALL_X - 2.5, 0, z0 + 12.0)
+	vitrine.rotation.y = -PI / 2.0
 	add_child(vitrine)
-	_box(Vector3(2.4, 0.9, 1.0), Vector3(0, 0.45, 0), _std(Color(0.08, 0.08, 0.09), 0.4), true, vitrine)
+	_box(Vector3(5.0, 0.9, 1.2), Vector3(0, 0.45, 0), _std(Color(0.08, 0.08, 0.09), 0.4), true, vitrine)
 	var vitre := _std(Color(0.8, 0.9, 1.0, 0.18), 0.05)
 	vitre.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	_box(Vector3(2.4, 1.4, 1.0), Vector3(0, 1.6, 0), vitre, false, vitrine)
-	for k in 3:
-		_cyl(0.12, 0.6 + k * 0.15, Vector3(-0.7 + k * 0.7, 1.2 + k * 0.075, 0), or_, vitrine, 0.2)
-	_label3d("LES TROPHÉES", vitrine.position + Vector3(0, 2.5, 0.0), 40, _c2())
-	_lamp(vitrine.position + Vector3(0, 2.8, 0.8), Color(1.0, 0.9, 0.7), 1.2, 4.0)
-	_interactive(vitrine, "trophees", "E : regarder les trophées", Vector3(2.8, 2.4, 2.0), Vector3(0, 1.2, 0.9))
+	_box(Vector3(5.0, 1.6, 1.2), Vector3(0, 1.7, 0), vitre, false, vitrine)
+	for k in 5:
+		_cyl(0.12, 0.6 + (k % 3) * 0.15, Vector3(-1.8 + k * 0.9, 1.25, 0), or_, vitrine, 0.22)
+	var lt := _label3d("LES TROPHÉES", Vector3(0, 2.9, 0), 50, _c2())
+	remove_child(lt)
+	vitrine.add_child(lt)
+	_lamp(vitrine.position + Vector3(-1.0, 3.2, 0), Color(1.0, 0.9, 0.7), 1.4, 5.0)
+	_interactive(vitrine, "trophees", "E : regarder les trophées", Vector3(5.4, 2.4, 2.4), Vector3(0, 1.2, 1.2))
+	_panneau_du_club()
+	_tableau_des_parts()
+
+
+## Le tableau des parts du club, à l'entrée du grand hall, à gauche des portes : qui possède le club, et les
+## parts à acheter (l'écran du fil basket, scripts/socle/basket_parts.gd).
+func _tableau_des_parts() -> void:
+	var t := Node3D.new()
+	t.position = Vector3(-10.0, 0, FACADE_Z - 4.0)
+	t.name = "TableauDesParts"
+	add_child(t)
+	var or_ := _std(_c2(), 0.3, 0.8)
+	_box(Vector3(5.0, 3.4, 0.3), Vector3(0, 2.6, 0), _std(Color(0.05, 0.05, 0.06), 0.4), true, t)
+	_box(Vector3(5.3, 3.7, 0.2), Vector3(0, 2.6, -0.08), or_, false, t)
+	_box(Vector3(4.6, 2.2, 0.05), Vector3(0, 2.4, 0.17), _neon(_c1().darkened(0.3), 0.8), false, t)
+	for l in [["LES PARTS DU CLUB", 3.9, 44, _c2()], [_enseigne(_nom_club()), 3.1, 40, Color(1, 1, 1)], ["Les actionnaires  ·  Acheter des parts", 2.2, 26, Color(0.85, 0.87, 0.95)]]:
+		var lab := Label3D.new()
+		lab.text = l[0]
+		lab.font = _serif
+		lab.font_size = l[2]
+		lab.pixel_size = 0.005
+		lab.modulate = l[3]
+		lab.outline_size = 0
+		lab.position = Vector3(0, l[1], 0.2)
+		t.add_child(lab)
+	_lamp(t.position + Vector3(0, 4.6, 1.4), Color(1.0, 0.88, 0.65), 1.6, 6.0)
+	_interactive(t, "parts", "E : les parts du club", Vector3(5.2, 3.0, 2.0), Vector3(0, 1.5, 1.2))
 
 
 # --- Dehors ---------------------------------------------------------------------------------------
@@ -641,9 +993,9 @@ func _facade_et_parvis() -> void:
 	peau.uv1_triplanar = true
 	peau.uv1_scale = Vector3(0.5, 0.5, 0.5)
 	for s: float in [-1.0, 1.0]:
-		var w := largeur / 2.0 - 3.2
-		_box(Vector3(w, hauteur, 0.6), Vector3(s * (3.2 + w / 2.0), hauteur / 2.0, FACADE_Z), peau, true)
-	_box(Vector3(6.4, hauteur - 5.0, 0.6), Vector3(0, 5.0 + (hauteur - 5.0) / 2.0, FACADE_Z), peau)
+		var w := largeur / 2.0 - 5.0
+		_box(Vector3(w, hauteur, 0.6), Vector3(s * (5.0 + w / 2.0), hauteur / 2.0, FACADE_Z), peau, true)
+	_box(Vector3(10.0, hauteur - 5.0, 0.6), Vector3(0, 5.0 + (hauteur - 5.0) / 2.0, FACADE_Z), peau)
 	var or_ := _std(_c2(), 0.3, 0.8)
 	for y: float in [5.0, 12.0, hauteur]:
 		_box(Vector3(largeur, 0.45, 0.9), Vector3(0, y, FACADE_Z + 0.2), _neon(_c2(), 1.8))
@@ -657,8 +1009,11 @@ func _facade_et_parvis() -> void:
 	var vitre := _neon(Color(1.0, 0.85, 0.6), 0.8)
 	vitre.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	vitre.albedo_color.a = 0.35
-	for k in 4:
-		_box(Vector3(1.4, 4.4, 0.06), Vector3(-2.4 + k * 1.6, 2.2, FACADE_Z + 0.32), vitre)
+	# Ouvertes : on voit le hall à travers, et on passe.
+	for s: float in [-1.0, 1.0]:
+		for k in 3:
+			var porte := _box(Vector3(1.5, 4.4, 0.06), Vector3(s * (5.2 + k * 0.2), 2.2, FACADE_Z + 0.6 + k * 0.5), vitre)
+			porte.rotation.y = s * 1.3
 	_lamp(Vector3(0, 4.5, FACADE_Z + 2.5), Color(1.0, 0.85, 0.6), 3.0, 12.0)
 	# Le parvis : l'asphalte, le tapis rouge de l'arrêt aux portes, les bordures dorées.
 	var parvis_l := ARRET_Z + 8.0 - FACADE_Z
@@ -712,11 +1067,10 @@ func _facade_et_parvis() -> void:
 	_arret_du_car()
 
 
-## Le panneau du club, juste avant les portes, comme au stade : le club, son classement, son prochain match.
+## Le panneau du club, passé les portes, à droite, comme au stade : le club, son classement, son prochain match.
 func _panneau_du_club() -> void:
 	var panneau := Node3D.new()
-	panneau.position = Vector3(-5.0, 0, FACADE_Z + 6.0)
-	panneau.rotation.y = deg_to_rad(20.0)
+	panneau.position = Vector3(10.0, 0, FACADE_Z - 4.0)
 	panneau.name = "PanneauDuClub"
 	add_child(panneau)
 	var or_ := _std(_c2(), 0.3, 0.8)
@@ -946,6 +1300,8 @@ func _ecrire_cube(titre: String, texte: String) -> void:
 		l.text = titre
 	for l in _cube:
 		l.text = texte
+	if _ecran_loge:
+		_ecran_loge.text = "%s\n%s" % [titre, texte]
 
 
 ## Une part des places prises : la foule se montre ou se cache, place par place, toujours les mêmes.
@@ -1069,14 +1425,18 @@ func _on_interact(target: Node) -> void:
 			].pick_random()])
 			if _president.has_method("gesture"):
 				_president.gesture("talk")
+		"porte_bureau":
+			entrer_bureau()
+		"sortir_bureau":
+			sortir_bureau()
 		"bureau":
 			open_bureau()
-		"panneau":
+		"panneau", "tactique":
 			open_panneau()
-		"boutique":
-			_dire("« Le maillot de %s, cent vingt crédits. Le flocage est offert si on gagne samedi. »" % _nom_club())
-		"buvette":
-			_dire(["« Un hot-dog, moutarde de Dijon, oignons du Clain. »", "« La bière du Clain, à la pression. On rend la consigne du gobelet à la sortie. »"].pick_random())
+		"parts", "conseil":
+			open_parts()
+		"echoppe":
+			_dire(str(target.get_meta("replique", "")))
 		"trophees":
 			_dire("La vitrine attend ses trophées : le premier sera celui du championnat de la Vienne.")
 
@@ -1117,6 +1477,10 @@ func _ouvrir_ecran(chemin: String, titre: String, sinon: String) -> void:
 
 func open_bureau() -> void:
 	_ouvrir_ecran(BUREAU_BASKET, "Le bureau du club", "%s : « Le bureau est encore en travaux. Le championnat de basket commence bientôt, et on y fera tout ici : l'effectif, le mercato, les comptes. »" % _nom_president())
+
+
+func open_parts() -> void:
+	_ouvrir_ecran(PARTS_BASKET, "Les parts du club", "Le club met ses parts en vente pour la première saison, de 500 à 7 500 crédits. Le plus gros porteur dirige le club, et chaque journée verse un dividende selon le classement.")
 
 
 func open_panneau() -> void:
@@ -1184,6 +1548,8 @@ func _maybe_capture() -> void:
 				player.camera.rotation.x = deg_to_rad(v[3])
 		elif arg.begins_with("--won="):
 			Game.won = int(arg.trim_prefix("--won="))
+		elif arg == "--bureau":
+			entrer_bureau()
 	if path == "":
 		return
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE

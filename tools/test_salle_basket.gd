@@ -75,16 +75,47 @@ func _init() -> void:
 	check(salle._joueurs.size() == 5 and salle._ballon.visible, "sans match, cinq joueurs s'entraînent")
 	var clairsemee: int = salle._foule.get_meta("prises")
 	check(clairsemee > 0 and clairsemee < salle._places.size() / 4, "à l'entraînement, la salle est clairsemée : %d" % clairsemee)
-	for n in ["StatueBigHeron", "ArretDuCar", "PanneauDuClub", "BureauDuClub", "EnseigneFacade", "MurDuHall", "Foule", "RondCentral"]:
+	for n in ["StatueBigHeron", "ArretDuCar", "PanneauDuClub", "BureauDuClub", "EnseigneFacade", "Enceinte", "Foule", "RondCentral",
+			"GrandHall", "Coursive", "TableauDesParts", "BureauDuPresident", "Parking"]:
 		check(salle.get_node_or_null(n) != null, "la salle a son élément %s" % n)
+	check(salle.find_children("Echoppe*", "Node3D", false, false).size() >= 12, "la coursive a ses échoppes derrière les gradins")
+	check(salle.get_node("Parking").get_meta("voitures") > 20, "des voitures au parking : %d" % salle.get_node("Parking").get_meta("voitures"))
+	# On passe à pied de l'arrêt du car au parquet : rien de solide sur le chemin (portes, enceinte, vomitoire).
+	await physics_frame
+	var espace: PhysicsDirectSpaceState3D = salle.get_world_3d().direct_space_state
+	for y: float in [0.5, 1.5]:
+		var q := PhysicsRayQueryParameters3D.create(Vector3(0, y, salle.ARRET_Z - 4.0), Vector3(0, y, 0.0))
+		q.exclude = [salle.player.get_rid()]
+		var touche := espace.intersect_ray(q)
+		check(touche.is_empty(), "à %.1f m de haut, le chemin de l'arrêt au parquet est libre%s" % [y, "" if touche.is_empty() else " (bloqué à %s par %s)" % [str(touche.position), touche.collider.name]])
+	# Les passages latéraux de l'enceinte mènent du grand hall à la coursive.
+	for x: float in [-21.0, 21.0]:
+		var q := PhysicsRayQueryParameters3D.create(Vector3(x, 1.0, salle.ENCEINTE_Z + 6.0), Vector3(x, 1.0, salle.ENCEINTE_Z - 3.0))
+		check(espace.intersect_ray(q).is_empty(), "le passage de l'enceinte à x = %d est ouvert" % int(x))
 	check(salle.player.position.z > 60.0, "on arrive à l'arrêt du car, sur le parvis")
 
-	# Le bureau et le panneau du club : le président le dit tant que le fil basket ne les a pas faits.
-	salle.open_bureau()
-	check(salle._ecran != null and _textes(salle._ecran).any(func(t): return t.contains("M. Lacombe")), "le bureau du club : une affiche où le président répond, en attendant le bureau du fil basket")
-	salle._game.closed.emit()
+	# La porte des vestiaires mène au bureau du président ; sa porte ramène au parquet.
+	var porte: Node = null
+	for a in salle.find_children("*", "Area3D", true, false):
+		if a.get_meta("interact", "") == "porte_bureau":
+			porte = a
+	salle._on_interact(porte)
+	check(salle.player.global_position.distance_to(salle.BUREAU_POS) < 8.0, "la porte des vestiaires mène au bureau du président")
+	check(salle._ecran_loge.text.contains(salle._court()), "le mur d'écrans du bureau répète le cube : %s" % salle._ecran_loge.text.replace("\n", " / "))
+	var genres := salle.find_children("*", "Area3D", true, false).map(func(a): return a.get_meta("interact", ""))
+	check("bureau" in genres and "tactique" in genres and "conseil" in genres and "parts" in genres, "le grand bureau, le tableau tactique, la table du conseil, le tableau des parts")
+	salle.open_parts()
+	check(salle._ecran != null and salle._ecran.get_script() != null and salle._ecran.get_script().resource_path.ends_with("basket_parts.gd") and salle._ecran.commune == "smarves", "les parts du club s'ouvrent : l'écran des parts du fil basket")
+	salle._ecran.closed.emit()
 	await process_frame
-	check(salle._ecran == null and not salle.player.frozen, "l'affiche se ferme")
+	salle.sortir_bureau()
+	check(salle.player.global_position.z > -12.0 and salle.player.global_position.z < 0.0, "on redescend au parquet, devant la porte")
+	# Le bureau et le panneau du club : les écrans du fil basket.
+	salle.open_bureau()
+	check(salle._ecran != null and salle._ecran.get_script() != null and salle._ecran.get_script().resource_path.ends_with("basket_bureau.gd") and salle._ecran.commune == "smarves", "le bureau du club : celui du fil basket")
+	salle._ecran.closed.emit()
+	await process_frame
+	check(salle._ecran == null and not salle.player.frozen, "le bureau se ferme")
 	salle.open_panneau()
 	check(salle._ecran != null and salle._ecran.get_script() != null and salle._ecran.get_script().resource_path.ends_with("basket_panneau.gd") and salle._ecran.commune == "smarves", "le panneau du club, à l'entrée : celui du championnat de basket")
 	salle._ecran.closed.emit()
