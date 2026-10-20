@@ -489,7 +489,15 @@ func _cube_ecrans() -> void:
 		var score := _label3d("", Vector3(0, y - 0.25, 0) + dir * 3.88, 200, Color(1, 1, 1), rad_to_deg(a))
 		score.line_spacing = -20
 		_cube.append(score)
-	_cyl(4.4, 0.5, Vector3(0, y - 2.5, 0), _neon(_c2(), 3.0), self, 4.4)
+	# L'anneau lumineux sous le cube : une fine couronne, pas un soleil.
+	var couronne := MeshInstance3D.new()
+	var tore := TorusMesh.new()
+	tore.inner_radius = 4.1
+	tore.outer_radius = 4.3
+	couronne.mesh = tore
+	couronne.material_override = _neon(_c2(), 1.2)
+	couronne.position = Vector3(0, y - 2.3, 0)
+	add_child(couronne)
 	_cyl(3.2, 1.2, Vector3(0, y + 2.9, 0), noir)
 	for k in 4:
 		var a := k * PI / 2.0 + PI / 4.0
@@ -627,9 +635,9 @@ func _hall() -> void:
 func _facade_et_parvis() -> void:
 	var largeur := 90.0
 	var hauteur := 24.0
-	var peau := _neon(_c1().darkened(0.25), 1.3)
-	peau.albedo_texture = _noise(0.25, Vector2.ONE, Color(0.4, 0.4, 0.45))
-	peau.emission_texture = peau.albedo_texture
+	# La peau de diodes : le bleu du club, sombre, piqué de points qui scintillent à peine.
+	var peau := _neon(_c1().darkened(0.35), 0.35)
+	peau.albedo_texture = _noise(0.25, Vector2.ONE, Color(0.25, 0.25, 0.3))
 	peau.uv1_triplanar = true
 	peau.uv1_scale = Vector3(0.5, 0.5, 0.5)
 	for s: float in [-1.0, 1.0]:
