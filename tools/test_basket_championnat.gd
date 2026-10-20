@@ -62,6 +62,19 @@ func _init() -> void:
 			figurants.append(basket.fiche(qui).nom)
 	check(figurants.size() == 7 and figurants.all(func(n): return n != ""), "sept figurants de la Vienne : %s" % ", ".join(figurants))
 
+	# Avant le premier coup d'envoi, un second club arrive : il prend les mêmes places qu'un appareil qui
+	# découvrirait les deux d'un coup (ordre des id), et la pyramide se refait à l'identique.
+	inscrits.append(gymnase("casino_minuit", "Les Noctambules"))
+	basket.actualiser()
+	var un_par_un := JSON.stringify(basket.niveaux)
+	basket.effacer()
+	basket.actualiser()
+	check(JSON.stringify(basket.niveaux) == un_par_un and basket.place_de("casino_minuit")[1] == basket.place_de("smarves")[1],
+		"un second club avant la saison : même groupe, mêmes places, qu'on le découvre après ou en même temps")
+	inscrits.pop_back()
+	basket.effacer()
+	basket.actualiser()
+
 	# Le cliché arrive : les effectifs se tirent, dix par place, un joueur à un seul club du groupe.
 	# Le cliché de la veille de la première journée : c'est lui, et lui seul, qui sert au tirage.
 	var premier: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(CLICHE))

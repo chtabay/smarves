@@ -190,16 +190,34 @@ func _groupe_de_figurants(n: int, g: int) -> Array:
 
 
 ## Les gymnases nouveaux prennent chacun la place du premier figurant du niveau le plus bas, à la journée
-## qui vient ; quand le bas n'a plus de figurant, un niveau s'ouvre dessous.
+## qui vient ; quand le bas n'a plus de figurant, un niveau s'ouvre dessous. Avant le premier coup d'envoi
+## d'une saison, les nouveaux de la saison se replacent tous ensemble, dans l'ordre de leur id : un appareil
+## qui les découvre un par un et un autre qui les découvre d'un coup les mettent aux mêmes places.
 func _accueillir() -> bool:
-	var bouge := false
 	var nouveaux: Array = _gymnases().filter(func(e): return not clubs.has(e.commune))
-	nouveaux.sort_custom(func(a, b): return str(a.commune) < str(b.commune))
+	if nouveaux.is_empty():
+		return false
+	var a_placer: Array = []
 	for e in nouveaux:
 		var champs: Dictionary = e.get("champs", {})
 		clubs[e.commune] = {"nom": str(champs.get("club", e.nom)), "court": str(champs.get("court", "")),
 			"couleurs": champs.get("couleurs", COULEURS[Hasard.graine(e.commune) % COULEURS.size()]),
 			"commune": e.commune, "salle": str(e.nom), "fondation": saison}
+		a_placer.append(str(e.commune))
+	var depuis := journee_jouee()
+	if depuis == 0:
+		for niv in niveaux:
+			for grp in niv:
+				for place in grp:
+					var qui := str(place[-1][1])
+					if place.size() > 1 and int(clubs.get(qui, {}).get("fondation", -1)) == saison and not a_placer.has(qui):
+						a_placer.append(qui)
+						place.pop_back()
+		# Les niveaux du bas qui n'ont plus que des figurants se referment : ils se rouvriront s'il le faut.
+		while niveaux.size() > 1 and niveaux[-1].all(func(grp): return grp.all(func(place): return str(place[-1][1]).begins_with("fig/"))):
+			niveaux.pop_back()
+	a_placer.sort()
+	for qui in a_placer:
 		var place := _place_de_figurant()
 		if place.is_empty():
 			var n := niveaux.size()
@@ -207,9 +225,8 @@ func _accueillir() -> bool:
 			for g in 1 << n:
 				niveaux[n].append(_groupe_de_figurants(n, g))
 			place = _place_de_figurant()
-		niveaux[place[0]][place[1]][place[2]].append([journee_jouee(), e.commune])
-		bouge = true
-	return bouge
+		niveaux[place[0]][place[1]][place[2]].append([depuis, qui])
+	return true
 
 
 func _place_de_figurant() -> Array:
