@@ -55,6 +55,9 @@ var table3d: Node
 ## La place qui doit parler (-1 : personne).
 var turn := -1
 var _info: Label
+## Le rappel des cartes, en petit sous le récit : sa main et le tableau, aux couleurs des quatre enseignes.
+var _rappel: HBoxContainer
+var _rappel_cle := ""
 
 
 func _ready() -> void:
@@ -160,6 +163,10 @@ func _build_bar() -> void:
 	_log.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_log.add_theme_font_override("font", BARRE.KIT.serif())
 	v.add_child(_log)
+	_rappel = HBoxContainer.new()
+	_rappel.add_theme_constant_override("separation", 4)
+	_rappel.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_child(_rappel)
 	_info = BARRE.label("", 20, BARRE.MUTED)
 	_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(_info)
@@ -593,7 +600,75 @@ func _render(show_all := false) -> void:
 	_buttons["call"].text = "Suivre %d" % (current_bet - seats[0].get("bet", 0)) if current_bet > seats[0].get("bet", 0) else "Parler"
 
 
+## Les quatre enseignes chacune à sa couleur (pique noir, cœur rouge, carreau bleu, trèfle vert) : une
+## couleur à cinq cartes se voit d'un coup d'œil.
+const COULEURS_ENSEIGNES := [Color(0.1, 0.1, 0.12), Color(0.78, 0.1, 0.13), Color(0.08, 0.36, 0.78), Color(0.1, 0.5, 0.22)]
+
+
+## Ses deux cartes pour le rappel, ou rien : pas de donne, ou couché.
+func mes_cartes() -> Array:
+	if not in_hand or seats[0].get("folded", false) or not seats[0].has("cards"):
+		return []
+	return seats[0].cards
+
+
+## Le rappel : « Main » et ses deux cartes, « Table » et les cinq places du tableau (vides tant qu'elles
+## ne sont pas retournées). Rebâti seulement quand les cartes changent.
+func _render_rappel() -> void:
+	if _rappel == null:
+		return
+	var main := mes_cartes()
+	var cle := "%s|%s|%s" % [in_hand, main, board]
+	if cle == _rappel_cle:
+		return
+	_rappel_cle = cle
+	for c in _rappel.get_children():
+		c.queue_free()
+	_rappel.visible = not main.is_empty() or not board.is_empty()
+	if not _rappel.visible:
+		return
+	if not main.is_empty():
+		_rappel.add_child(BARRE.label("Main ", 20, BARRE.MUTED))
+		for c in main:
+			_rappel.add_child(_mini_carte(c))
+		var ecart := Control.new()
+		ecart.custom_minimum_size = Vector2(22, 0)
+		_rappel.add_child(ecart)
+	_rappel.add_child(BARRE.label("Table ", 20, BARRE.MUTED))
+	for i in 5:
+		_rappel.add_child(_mini_carte(board[i] if i < board.size() else {}))
+
+
+## Une petite carte : fond ivoire, la valeur et l'enseigne à la couleur de l'enseigne ; vide, un simple
+## cadre doré.
+func _mini_carte(c: Dictionary) -> PanelContainer:
+	var p := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.set_corner_radius_all(5)
+	sb.set_border_width_all(1)
+	sb.content_margin_left = 5
+	sb.content_margin_right = 5
+	sb.anti_aliasing = true
+	var l := Label.new()
+	l.custom_minimum_size = Vector2(34, 30)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.add_theme_font_size_override("font_size", 20)
+	if c.is_empty():
+		sb.bg_color = Color(0, 0, 0, 0)
+		sb.border_color = Color(BARRE.GOLD, 0.3)
+	else:
+		sb.bg_color = Color(0.97, 0.95, 0.9)
+		sb.border_color = Color(BARRE.GOLD, 0.7)
+		l.text = _card_text(c)
+		l.add_theme_color_override("font_color", COULEURS_ENSEIGNES[int(c.s)])
+	p.add_theme_stylebox_override("panel", sb)
+	p.add_child(l)
+	return p
+
+
 func _render_bar() -> void:
+	_render_rappel()
 	var to_call: int = maxi(0, current_bet - seats[0].get("bet", 0))
 	var parts: Array[String] = ["Pot : %s" % Game.fmt(pot)]
 	if in_hand and not seats[0].get("folded", false):
