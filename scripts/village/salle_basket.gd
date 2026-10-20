@@ -159,6 +159,8 @@ func _ready() -> void:
 	_parking()
 	_heron_geant()
 	_vivants()
+	if fusionner_decor:
+		_fusionner_decor()
 	_build_ui()
 	_bandeau_du_direct()
 	player = PLAYER.new()
@@ -172,6 +174,73 @@ func _ready() -> void:
 	else:
 		charger_match(_match)
 	_maybe_capture()
+
+
+# --- La fusion du décor ---------------------------------------------------------------------------
+
+## Le décor est fait de plus d'un millier de briques (gradins, colonnes, échoppes, voitures) : dessinées
+## une à une, elles coûtent un appel de dessin chacune. Une fois la salle bâtie, les briques immobiles
+## sont fondues en un maillage par matériau et par quartier de 24 m (chacun garde ses lumières proches et
+## sort de l'écran quand on lui tourne le dos) ; leurs nœuds restent (noms, collisions, interactions), vides.
+## Ce qui bouge n'est pas fondu : les figurants, les projecteurs qui balaient, le ballon, les nœuds du
+## groupe « mobile » (une salle dérivée y met ses pièces animées) et ce qui est caché.
+var fusionner_decor := true
+
+
+func _fusionner_decor() -> void:
+	var mobiles: Array = _faisceaux + _joueurs + _danseuses + [_heron, _president, _ballon]
+	var groupes := {}
+	var vers_salle := global_transform.affine_inverse()
+	for mi: MeshInstance3D in find_children("*", "MeshInstance3D", true, false):
+		if not (mi.mesh is PrimitiveMesh) or mi.material_override == null or not mi.is_visible_in_tree():
+			continue
+		if mi.mesh.get_surface_count() != 1 or _bouge(mi, mobiles):
+			continue
+		var mat: Material = _materiau_commun(mi.material_override)
+		var p := mi.global_position
+		var cle := [mat, floori(p.x / 24.0), floori(p.z / 24.0)]
+		if not groupes.has(cle):
+			groupes[cle] = []
+		groupes[cle].append(mi)
+	var n := 0
+	for cle: Array in groupes:
+		var mat: Material = cle[0]
+		var briques: Array = groupes[cle]
+		if briques.size() < 2:
+			continue
+		var st := SurfaceTool.new()
+		for mi: MeshInstance3D in briques:
+			st.append_from(mi.mesh, 0, vers_salle * mi.global_transform)
+			mi.mesh = null
+		var fusion := MeshInstance3D.new()
+		fusion.mesh = st.commit()
+		fusion.material_override = mat
+		fusion.name = "Decor%d" % n
+		add_child(fusion)
+		n += 1
+
+
+func _bouge(n: Node, mobiles: Array) -> bool:
+	while n and n != self:
+		if n in mobiles or n.is_in_group("mobile") or n is CRITTER:
+			return true
+		n = n.get_parent()
+	return false
+
+
+## Deux matériaux unis de même couleur, rugosité et métal se valent : le premier vu sert aux deux. Ceux
+## qui ont une texture, une lueur ou de la transparence restent eux-mêmes (on en anime certains).
+var _materiaux_unis := {}
+
+func _materiau_commun(m: Material) -> Material:
+	var s := m as StandardMaterial3D
+	if s == null or s.albedo_texture or s.emission_enabled or s.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED \
+			or s.vertex_color_use_as_albedo or s.shading_mode != BaseMaterial3D.SHADING_MODE_PER_PIXEL or s.cull_mode != BaseMaterial3D.CULL_BACK:
+		return m
+	var cle := "%s|%.3f|%.3f" % [s.albedo_color.to_html(), s.roughness, s.metallic]
+	if not _materiaux_unis.has(cle):
+		_materiaux_unis[cle] = s
+	return _materiaux_unis[cle]
 
 
 func _place_name() -> String:
@@ -249,6 +318,7 @@ func _nuit() -> void:
 			env.ambient_light_energy = 0.55
 			env.sdfgi_enabled = false
 			env.ssil_enabled = false
+			env.ssao_enabled = false
 			env.glow_intensity = 0.7
 			env.glow_bloom = 0.05
 	var lune := DirectionalLight3D.new()
@@ -436,9 +506,13 @@ func _rang(cote: String, d: float, h: float, bas: float, beton: Material, siege:
 
 ## La foule : une silhouette par place prise, en un seul maillage multiple (des milliers sans peser).
 func _foule_assise() -> void:
+	# Un spectateur vu de loin : une capsule de quelques dizaines de triangles (celle par défaut en a 3 500,
+	# soit plus de 30 millions pour la salle comble), sans ombre.
 	var corps := CapsuleMesh.new()
 	corps.radius = 0.2
 	corps.height = 0.85
+	corps.radial_segments = 6
+	corps.rings = 1
 	var mat := StandardMaterial3D.new()
 	mat.vertex_color_use_as_albedo = true
 	mat.roughness = 0.8
@@ -458,6 +532,7 @@ func _foule_assise() -> void:
 		mm.set_instance_color(i, c.darkened(h.suivant() * 0.3))
 	_foule = MultiMeshInstance3D.new()
 	_foule.multimesh = mm
+	_foule.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_foule.name = "Foule"
 	add_child(_foule)
 
@@ -840,11 +915,17 @@ func _echoppe(e: Array, i: int) -> void:
 	a.set_meta("replique", e[5])
 
 
+## Un seul marbre pour toute la salle : sa texture de bruit se calcule une fois, pas à chaque marche.
+var _marbre_partage: StandardMaterial3D
+
 func _marbre() -> StandardMaterial3D:
+	if _marbre_partage:
+		return _marbre_partage
 	var marbre := _std(Color(0.06, 0.06, 0.07), 0.15, 0.2)
 	marbre.albedo_texture = _noise(0.05, Vector2(1, 3), Color(0.5, 0.45, 0.3))
 	marbre.uv1_triplanar = true
 	marbre.uv1_scale = Vector3(0.15, 0.15, 0.15)
+	_marbre_partage = marbre
 	return marbre
 
 
@@ -1180,6 +1261,8 @@ func _sphere(r: float, pos: Vector3, mat: Material, parent: Node = self) -> Mesh
 	var s := SphereMesh.new()
 	s.radius = r
 	s.height = r * 2.0
+	s.radial_segments = 24
+	s.rings = 12
 	mi.mesh = s
 	mi.material_override = mat
 	mi.position = pos
