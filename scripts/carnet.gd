@@ -7,6 +7,8 @@ extends CanvasLayer
 ## Les onglets, de gauche à droite :
 ## - « Mon compte », tenu par le socle : ce qui suit le joueur d'une commune à l'autre (crédits, dettes
 ##   par banque, biens, obligations, bourse, fortune nette), la semaine et les engagements en cours ;
+## - « Mes cartes » : le classeur où tout ce qui s'achète devient une carte à collectionner, les parts
+##   des clubs comprises (scripts/carnet_cartes.gd) ;
 ## - un onglet par commune : la commune d'origine d'abord, dont la page vient du jeu (le champ
 ##   « page_carnet » de son manifeste), puis chaque commune qui tient des compteurs au carnet
 ##   (docs/COMMUNE.md, « Le carnet du joueur ») : ils se lisent de partout, et ne bougent que quand
@@ -50,6 +52,9 @@ var _sheet_mode := "plan"
 var _onglet := "compte"
 ## La page de la commune d'origine (son manifeste, « page_carnet ») : un nœud qui remplit les deux pages.
 var _page_origine: Node
+## Les deux pages ouvertes, et le classeur de cartes qui prend leur place sous l'onglet « Mes cartes ».
+var _spread: HBoxContainer
+var _album: Control
 
 
 func _ready() -> void:
@@ -104,7 +109,9 @@ func page_origine() -> Node:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_C:
+	if _root.visible and not _sheet.visible and _onglet == "cartes" and _album.saisir(event):
+		get_viewport().set_input_as_handled()
+	elif event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_C:
 		if Settings.is_open() or Bienvenue.is_open() or get_tree().current_scene == null or get_tree().current_scene.name == "Titre":
 			return
 		toggle()
@@ -125,6 +132,8 @@ func toggle() -> void:
 	if _root.visible:
 		_root.visible = false
 		_sheet.visible = false
+		if _album.zoom_ouvert():
+			_album.fermer_zoom()
 		Input.mouse_mode = _mouse_before
 		get_tree().paused = _paused_before
 		if _pending_slip != "":
@@ -144,7 +153,7 @@ func toggle() -> void:
 
 ## Les onglets du cahier, dans l'ordre : [[clé, nom]].
 func onglets() -> Array:
-	var out := [["compte", "Mon compte"]]
+	var out := [["compte", "Mon compte"], ["cartes", "Mes cartes"]]
 	var o: Commune = Communes.origine()
 	if _page_origine != null and o != null:
 		out.append([o.id, o.nom])
@@ -171,6 +180,8 @@ func _communes_au_carnet() -> Array:
 
 
 func ouvrir_onglet(cle: String) -> void:
+	if cle != _onglet and _album.zoom_ouvert():
+		_album.fermer_zoom()
 	_onglet = cle
 	_amenage = ""
 	_refresh()
@@ -218,7 +229,7 @@ func _fill_onglets() -> void:
 	var vide := Control.new()
 	vide.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_onglets.add_child(vide)
-	var aide := _text(_onglets, "C ou Échap : fermer  ·  ← → : tourner les pages", 15, Color(0.86, 0.8, 0.72))
+	var aide := _text(_onglets, "C ou Échap : fermer  ·  ← → : tourner les pages%s" % ("  ·  ↑ ↓ : familles" if _onglet == "cartes" else ""), 15, Color(0.86, 0.8, 0.72))
 	aide.autowrap_mode = TextServer.AUTOWRAP_OFF
 	aide.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 
@@ -276,8 +287,14 @@ func _build() -> void:
 	var spread := HBoxContainer.new()
 	spread.add_theme_constant_override("separation", 0)
 	col.add_child(spread)
+	_spread = spread
 	_left = _page(spread, false)
 	_right = _page(spread, true)
+	_album = preload("res://scripts/carnet_cartes.gd").new()
+	_album.carnet = self
+	_album.name = "Cartes"
+	_album.visible = false
+	col.add_child(_album)
 	# La feuille dépliée, une grande feuille quadrillée collée dans la couverture.
 	_sheet = Page.new()
 	_sheet.custom_minimum_size = Vector2(1148, 728)
@@ -381,9 +398,13 @@ func _refresh() -> void:
 		_fill_sheet()
 		return
 	_fill_onglets()
+	_spread.visible = _onglet != "cartes"
+	_album.visible = _onglet == "cartes"
 	match _onglet:
 		"compte":
 			_fill_compte()
+		"cartes":
+			_album.remplir()
 		"vienne":
 			_fill_vienne()
 		_:

@@ -43,39 +43,23 @@ func _fill_biens(page: VBoxContainer) -> void:
 	c._gap(page, 6)
 	if Biens.owned.is_empty():
 		c._text(page, "Rien encore. Maître Garnier a des parts de la Smarvoise à 200, et Josiane dit que c'est le placement du siècle.", 18, c.INK_LIGHT)
-	var paid_by := {}
-	for r in Biens.last_recette:
-		paid_by[r[0]] = r[1]
-	for it in Biens.catalogue():
-		var n := Biens.count(it.id)
-		if n <= 0:
-			continue
-		var name: String = it.name if n == 1 else "%s  × %d" % [it.name, n]
-		if it.kind == "tenue":
-			name += "  (portée)" if Biens.worn == it.id else ""
-		elif it.kind == "vehicule":
-			name += "  (au garage de la place)" if Biens.driven == it.id else ""
-		c._text(page, name, 19, c.INK, true)
-		var detail := ""
-		if Biens.is_habite(it.id):
-			detail = "habitée, ne verse pas de rente"
-		elif it.rente > 0:
-			detail = "rente annoncée %s" % Game.fmt(it.rente * n)
-			if paid_by.has(it.name):
-				detail += " · dernière recette %s" % Game.fmt(paid_by[it.name])
-		var ch := 0
-		if it.kind in ["part", "maison"]:
-			ch = it.charge * n
-		elif Biens.worn == it.id or Biens.driven == it.id:
-			ch = it.charge
-		if ch > 0:
-			detail += (" · " if detail != "" else "") + "charges %s" % Game.fmt(ch)
-		if detail != "":
-			c._text(page, detail, 16, c.INK_LIGHT)
-		if it.kind == "tenue" and Biens.worn != it.id:
-			c._link(page, "→ la porter", Biens.wear.bind(it.id))
-		elif it.kind == "vehicule" and Biens.driven != it.id:
-			c._link(page, "→ la prendre", Biens.wear.bind(it.id))
+	else:
+		# Le détail est au classeur, une carte par bien ; ici, ce qu'ils font ensemble.
+		var n := 0
+		for id in Biens.owned:
+			if Biens.count(id) > 0:
+				n += 1
+		c._text(page, "%d %s au classeur, estimés %s à la revente." % [n, "carte" if n == 1 else "cartes", Game.fmt(Biens.value())], 18, c.INK)
+		var bas := func(t: String) -> String: return t.left(1).to_lower() + t.substr(1)
+		var porte := []
+		if Biens.worn != "":
+			porte.append("vous portez %s" % bas.call(Biens.name_of(Biens.worn)))
+		if Biens.driven != "":
+			porte.append("au garage de la place, %s" % bas.call(Biens.name_of(Biens.driven)))
+		if not porte.is_empty():
+			var t := "; ".join(porte)
+			c._text(page, t.left(1).to_upper() + t.substr(1) + ".", 16, c.INK_LIGHT)
+	c._link(page, "→ ouvrir mes cartes", c.ouvrir_onglet.bind("cartes"))
 
 
 ## « Mon logement » : où l'on dort, et pour chaque maison les deux colonnes, louée ou habitée.

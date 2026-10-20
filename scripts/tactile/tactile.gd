@@ -266,6 +266,11 @@ func _fit_carnet() -> void:
 			continue
 		var s := minf(1.0, minf((size.x - 16.0) / c.size.x, (size.y - 16.0) / c.size.y))
 		c.pivot_offset = c.size / 2.0
+		# Plus haute que l'écran, la couverture pousse son conteneur et se pose en haut : le pivot la ramène
+		# au milieu de l'écran une fois rapetissée.
+		if s < 1.0:
+			var haut := (c.get_parent() as Control).global_position + c.position
+			c.pivot_offset = ((size - c.size * s) / 2.0 - haut) / (1.0 - s)
 		c.scale = Vector2(s, s)
 
 
