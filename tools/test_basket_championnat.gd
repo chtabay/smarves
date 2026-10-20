@@ -63,7 +63,10 @@ func _init() -> void:
 	check(figurants.size() == 7 and figurants.all(func(n): return n != ""), "sept figurants de la Vienne : %s" % ", ".join(figurants))
 
 	# Le cliché arrive : les effectifs se tirent, dix par place, un joueur à un seul club du groupe.
-	basket.garder(JSON.parse_string(FileAccess.get_file_as_string(CLICHE)))
+	# Le cliché de la veille de la première journée : c'est lui, et lui seul, qui sert au tirage.
+	var premier: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(CLICHE))
+	premier.id = basket.id_cliche(1, 1)
+	basket.garder(premier)
 	var codes := {}
 	var dix := true
 	for p in 8:
@@ -83,7 +86,7 @@ func _init() -> void:
 		pour += l.pour
 		contre += l.contre
 	check(juste and pour == contre, "cinq journées au classement, autant de points marqués qu'encaissés")
-	basket._matchs.clear()
+	basket._oublier()
 	check(JSON.stringify(basket.classement(1, 0, 0)) == JSON.stringify(c1), "le même classement recalculé de zéro")
 	var m: Dictionary = basket.rencontre(1, 0, 0, 1, basket.rencontres(1)[0][0], basket.rencontres(1)[0][1])
 	check(m.score[0] > 40 and m.score[1] > 40, "un vrai score de basket : %s" % str(m.score))
@@ -129,7 +132,7 @@ func _init() -> void:
 
 	# Un joueur que le cliché ne connaît pas est indisponible.
 	basket.effectifs["0/0/0"][0] = "inconnu"
-	basket._matchs.clear()
+	basket._oublier()
 	var e0: Dictionary = basket.equipe(1, 0, 0, 0, 6)
 	check(not e0.joueurs[0].dispo and e0.joueurs[1].note > 0, "un joueur absent du cliché ne joue pas")
 
