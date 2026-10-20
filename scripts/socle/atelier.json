@@ -13,7 +13,7 @@
 		"restaurant": {"dossier": "res://assets/kaykit/restaurant/", "nom": "Le café et le restaurant", "licence": "CC0, KayKit (Restaurant Bits)", "hauteur": 0.0,
 			"usage": "tables rondes, chaises, comptoirs, cuisine (fourneaux, frigos, hottes), caisses de légumes, assiettes et plats, murs, portes et fenêtres de salle"},
 		"arcade": {"dossier": "res://assets/kenney/arcade/", "nom": "Les machines", "licence": "CC0, Kenney (Mini Arcade)", "hauteur": 0.0,
-			"usage": "machine à sous (gambling-machine), roue de loterie (prize-wheel), pince (claw-machine), en décor"},
+			"usage": "machine à sous (gambling-machine), roue de loterie (prize-wheel), pince (claw-machine), en décor ; une machine ou une table qui se joue, c'est Tables (scripts/socle/tables.gd), les tables du casino de Smarves"},
 		"marche": {"dossier": "res://assets/kenney/market/", "nom": "Le marché", "licence": "CC0, Kenney (Mini Market)", "hauteur": 0.0,
 			"usage": "présentoir à pain"},
 		"salon": {"dossier": "res://assets/kenney/furniture/", "nom": "Le salon", "licence": "CC0, Kenney (Furniture Kit)", "hauteur": 0.0,

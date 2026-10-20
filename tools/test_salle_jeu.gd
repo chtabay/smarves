@@ -2,7 +2,8 @@ extends SceneTree
 ## Vérifie la salle de jeu du socle sans affichage : godot --headless --path . -s tools/test_salle_jeu.gd
 ## Le vocabulaire accepte une « salle_jeu » et refuse un jeu ou un décor inconnus ; une commune en pack
 ## (tools/fixtures/salle_jeu/) inscrit ses deux salles au registre ; le tripot s'ouvre, pose une table
-## par jeu, chaque jeu ouvre son panneau et un gain s'encaisse ; le cercle reste fermé tant que le lieu
+## par jeu (celles du casino de Smarves, scripts/socle/tables.gd), on s'y assoit, chaque jeu ouvre son
+## panneau et un gain s'encaisse ; le cercle reste fermé tant que le lieu
 ## du même id n'a pas atteint son seuil ; la porte ramène dans la commune. Son notaire met ses adresses au
 ## catalogue sous « essai_salle/<id> », financées par sa banque, et son étude ouvre son registre.
 
@@ -70,14 +71,24 @@ func _init() -> void:
 			tables.append(str(a.get_meta("jeu")))
 	check(tables.size() == 10, "une table ou une machine par jeu : %s" % ", ".join(tables))
 	check(s._salle.host == "Mme Rivière" and s._salle.name == "Le tripot de la gare", "la tenancière et le nom viennent du manifeste")
+	var tables3d: GDScript = load("res://scripts/socle/tables.gd")
+	for j in tables:
+		if tables3d.a_une_table(j):
+			var t: Node = s._tables3d.get(j, null)
+			check(t != null and t.get_script().resource_path == tables3d.MODELES[j], "le jeu « %s » a la table du casino (%s)" % [j, tables3d.MODELES[j].get_file()])
+	check(s._panel_layer.get_parent().theme != null, "les panneaux sont habillés comme au casino")
 	for j in tables:
 		s._jeu_ouvert = j
 		s.open_game()
 		await process_frame
 		check(s._game != null and s._game.has_signal("played"), "le jeu « %s » ouvre son panneau" % j)
+		if tables3d.a_une_table(j) and s._game:
+			check(s._assis == s._tables3d[j] and s._assis.active and s._game.get_parent() == s._panel_layer.get_parent(),
+				"  on s'assoit à la table, le panneau en barre basse")
 		if s._game:
 			s._game.closed.emit()
 			await process_frame
+			check(s._assis == null, "  on se relève en refermant")
 	var guichets := s.find_children("*", "Area3D", true, false).filter(func(a): return a.get_meta("interact", "") == "guichet")
 	check(guichets.size() == 1, "le tripot a le guichet de la banque de la commune")
 	if guichets.size() == 1:

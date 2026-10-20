@@ -25,9 +25,10 @@ const JEUX := {
 ## Les décors : la pièce et ses matières. « cafe » : carrelage et papier peint ; « salle » : parquet et
 ## murs clairs, une salle des fêtes ; « cave » : dalles et pierre, une arrière-salle.
 const DECORS := ["cafe", "salle", "cave"]
-## La grille des tables : trois par rang, une case de 3,4 sur 3 chacune.
+## La grille des tables : trois par rang, une case de 4,2 sur 4 chacune (la table du casino et la place
+## du joueur devant elle).
 const COLONNES := 3
-const CASE := Vector2(3.4, 3.0)
+const CASE := Vector2(4.2, 4.0)
 const REPLIQUES := ["« Installez-vous. Ici, la chance n'a pas de préférence. »",
 	"« On mise, on perd, on remise. C'est ce qui fait tourner la maison. »",
 	"« Les gens d'ici disent que la table porte bonheur le jeudi. On est jeudi tous les jours. »"]
@@ -39,6 +40,11 @@ static var _prochaine: Array = []
 var commune := ""
 var structure: Dictionary = {}
 var _jeu_ouvert := ""
+## Les tables 3D de la salle, par jeu (la première de chaque jeu) ; celle où l'on vient de demander à
+## jouer, et celle où le joueur est assis.
+var _tables3d := {}
+var _table_choisie: Node3D
+var _assis: Node3D
 
 
 ## Ouvre la salle de jeu « id » de la commune. Rend false sans rien faire si la structure n'existe pas,
@@ -108,6 +114,9 @@ func _ready() -> void:
 	W = maxf(8.0, colonnes * CASE.x + 1.6)
 	D = rangs * CASE.y + 4.6
 	H = 3.6 if decor == "salle" else 3.1
+	if "roue" in jeux:
+		# La grande roue du casino monte à trois mètres.
+		H = maxf(H, 4.2)
 	_environment()
 	match decor:
 		"salle":
@@ -129,6 +138,8 @@ func _ready() -> void:
 		if a.get_meta("interact", "") == "exit":
 			a.set_meta("prompt", _salle.sortie)
 	_build_ui()
+	# Les panneaux s'habillent comme au casino de Smarves.
+	_panel_layer.get_parent().theme = Tables.theme()
 	player = PLAYER.new()
 	player.position = Vector3(0, 0, D / 2.0 - 1.2)
 	add_child(player)
@@ -175,7 +186,9 @@ func _guichet() -> void:
 	_interactive(banquier, "guichet", "E : voir %s" % str(b.get("banquier", "le banquier")), Vector3(1.6, 2.0, 1.8), Vector3(0.6, 1.0, 0))
 
 
-## Une table ou une machine par jeu, en rangs de trois depuis le comptoir, chacune sous sa lampe.
+## Une table ou une machine par jeu, en rangs de trois depuis le comptoir, chacune sous sa lampe : les
+## tables 3D du casino de Smarves (Tables, scripts/socle/tables.gd), la place du joueur face au comptoir.
+## Le loto et les courses, qui n'ont pas de table au casino, gardent une table de café.
 func _tables(jeux: Array) -> void:
 	var feutre := _std(Color(0.05, 0.3, 0.16), 0.95)
 	var bois := _std(Color(0.28, 0.17, 0.09), 0.6)
@@ -191,10 +204,23 @@ func _tables(jeux: Array) -> void:
 		var spot := Node3D.new()
 		spot.position = p
 		add_child(spot)
-		if jeu == "machine":
-			var m := _place(KA + "gambling-machine.glb", p, 2.3, 0.0)
-			_solid(m)
-			_lamp(p + Vector3(0, 1.8, 0.6), Color(1.0, 0.45, 0.75), 0.6, 2.5)
+		var e := Vector2(1.7, 0.9)
+		var t := Tables.table(jeu)
+		if t:
+			# La lampe de la salle éclaire la table (plus bas) : celle de la table, un projecteur, ne passe pas
+			# partout (le rendu web et mobile en compte peu par objet).
+			e = Tables.EMPRISE[jeu]
+			t.with_lamp = false
+			spot.add_child(t)
+			spot.set_meta("table3d", t)
+			_tables3d[jeu] = _tables3d.get(jeu, t)
+			_solid_box_at(Vector3(e.x, 3.0 if jeu == "roue" else 1.0, e.y), p + Vector3(0, 1.5 if jeu == "roue" else 0.5, 0))
+			if jeu in ["blackjack", "roulette", "baccara", "des", "poker"]:
+				# Pas de chaise au milieu : c'est la place du joueur, d'où la caméra regarde le tapis.
+				for dx in [-0.9, 0.9]:
+					_place(KK + "furniture/chair_A_wood.gltf", p + Vector3(dx, 0, e.y / 2.0 + 0.45), 0.8, 180.0)
+			if jeu != "machine" and jeu != "roue":
+				_regular(p + Vector3(0.55, 0, -e.y / 2.0 - 0.45), 0.0, 60 + i)
 		else:
 			_box(Vector3(1.9, 0.06, 1.1), p + Vector3(0, 0.78, 0), feutre)
 			_box(Vector3(2.0, 0.06, 1.2), p + Vector3(0, 0.73, 0), bois)
@@ -202,10 +228,16 @@ func _tables(jeux: Array) -> void:
 			for dx in [-0.5, 0.5]:
 				_place(KK + "furniture/chair_A_wood.gltf", p + Vector3(dx, 0, 0.85), 0.8, 180.0)
 			_regular(p + Vector3(0.55, 0, -0.85), 0.0, 60 + i)
+		if jeu == "machine":
+			_lamp(p + Vector3(0, 1.8, 0.6), Color(1.0, 0.45, 0.75), 0.6, 2.5)
+		elif t == null:
 			_lamp(p + Vector3(0, 1.9, 0), Color(1.0, 0.8, 0.5), 1.4, 3.5, i == 0)
+		else:
+			_lamp(p + Vector3(0, 2.2, 0.2), Color(1.0, 0.82, 0.55), 1.8, 4.0, i == 0)
 		# L'enseigne de la table, suspendue au-dessus : on lit le jeu en entrant.
-		_label3d(str(JEUX[jeu].titre), p + Vector3(0, 2.15, 0), 40, Color(1.0, 0.85, 0.6)).shaded = false
-		var a := _interactive(spot, "jeu", "E : %s" % JEUX[jeu].invite, Vector3(2.0, 1.6, 1.8), Vector3(0, 0.8, 0.3))
+		var haut: float = {"machine": 2.55, "roue": H - 0.35}.get(jeu, 2.15)
+		_label3d(str(JEUX[jeu].titre), p + Vector3(0, haut, 0), 40, Color(1.0, 0.85, 0.6)).shaded = false
+		var a := _interactive(spot, "jeu", "E : %s" % JEUX[jeu].invite, Vector3(maxf(e.x, 1.2) + 0.6, 1.8, e.y + 1.6), Vector3(0, 0.9, 0.5))
 		a.set_meta("jeu", jeu)
 
 
@@ -215,6 +247,7 @@ func _on_interact(target: Node) -> void:
 			_sortir()
 		"jeu":
 			_jeu_ouvert = str(target.get_meta("jeu", "machine"))
+			_table_choisie = target.get_parent().get_meta("table3d", null)
 			open_game()
 		"guichet":
 			_ouvrir_panneau(load("res://scripts/loan_panel.gd").de_commune(commune))
@@ -239,20 +272,31 @@ func open_game() -> void:
 	if "title" in p:
 		p.title = "%s : %s" % [_salle.name, JEUX.get(_jeu_ouvert, JEUX.machine).titre]
 	p.played.connect(_on_played)
-	_ouvrir_panneau(p)
+	var t: Node3D = _table_choisie if _table_choisie else _tables3d.get(_jeu_ouvert, null)
+	_table_choisie = null
+	_ouvrir_panneau(p, t)
 
 
-func _ouvrir_panneau(p: PanelContainer) -> void:
+## Ouvre un panneau ; avec une table 3D, comme au casino : on s'y assoit, la caméra glisse jusqu'à la
+## place et le panneau devient la barre basse (Tables.asseoir). Sans table, il s'ouvre au milieu.
+func _ouvrir_panneau(p: PanelContainer, t: Node3D = null) -> void:
 	if _game != null:
 		return
 	p.closed.connect(func():
+		if _assis:
+			Tables.lever(_assis)
+			_assis = null
 		p.queue_free()
 		_game = null
 		player.frozen = false
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
 	player.frozen = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	_panel_layer.add_child(p)
+	if t:
+		_assis = t
+		Tables.asseoir(t, p, player.camera, _panel_layer.get_parent())
+	else:
+		_panel_layer.add_child(p)
 	_game = p
 
 

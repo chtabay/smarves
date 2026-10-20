@@ -34,7 +34,7 @@ func _init() -> void:
 	check(Structures.verifier([{"type": "gymnase", "id": "gymnase", "nom": "La salle", "club": "Les Hérons", "court": "HER", "couleurs": ["#14213d", "#d4a93a"]}]).is_empty(), "un gymnase bien déclaré passe")
 	check(not Structures.verifier([{"type": "gymnase", "id": "gymnase", "nom": "La salle"}]).is_empty(), "un gymnase sans club est refusé")
 	check(not Structures.verifier([{"type": "gymnase", "id": "gymnase", "nom": "La salle", "club": "X", "couleurs": ["bleu"]}]).is_empty(), "des couleurs illisibles sont refusées")
-	check(Commune.SOCLE == "1.9", "le socle 1.9 connaît le gymnase")
+	check(Commune.SOCLE.naturalnocasecmp_to("1.9") >= 0, "le socle (%s) connaît le gymnase, venu en 1.9" % Commune.SOCLE)
 
 	# Le calendrier : chaque place joue chaque autre deux fois, une fois chez elle, une fois par journée.
 	var vus := {}

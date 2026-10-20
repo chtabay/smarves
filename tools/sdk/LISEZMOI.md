@@ -50,6 +50,10 @@ caméra, que l'habitant se pose au sol et qu'il marche.
     craps, baccara, poker, dés, roue, courses) ;
   - `gare` et `arret_car`.
   Voir `docs/COMMUNE.md`, « Les structures ».
+- **Les tables du casino** (classe `Tables`, `scripts/socle/tables.gd`) : les tables 3D du casino de
+  Smarves et leurs panneaux, dernière version, pour une salle de jeu bâtie à la main. Ne fabriquez
+  pas de table avec les modèles de l'atelier et ne recopiez pas les panneaux : voir `docs/COMMUNE.md`,
+  « Les tables du casino ».
 - **Le vrai bourg** : `python3 -I tools/bourg_reel.py <id>` tire d'OpenStreetMap et de l'IGN les
   rues, les bâtiments, l'eau et le relief.
 - **Un exemple complet** : Availles-Limouzine (`tools/paquet_essai/availles_limouzine/`), bâtie dans

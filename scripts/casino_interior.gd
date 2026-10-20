@@ -810,43 +810,10 @@ Dette au Crédit Smarvois : %s" % Game.fmt(Game.debt) if Game.debt > 0 else "")
 
 
 func _build_ui() -> void:
-	var theme := Theme.new()
-	theme.default_font = serif
-	theme.default_font_size = 20
+	# Les fenêtres à la manière d'Addict : laque sombre, filet d'or, angles arrondis, ombre portée ; le même
+	# habillage que les communes reçoivent du socle (scripts/socle/tables.gd).
+	var theme := Tables.theme()
 	var gold_col := Color(0.96, 0.8, 0.45)
-	# Les fenêtres à la manière d'Addict : laque sombre, filet d'or, angles arrondis, ombre portée.
-	var panel := StyleBoxFlat.new()
-	panel.bg_color = Color(0.06, 0.03, 0.035, 0.93)
-	panel.border_color = Color(0.89, 0.71, 0.35, 0.55)
-	panel.set_border_width_all(1)
-	panel.set_corner_radius_all(16)
-	panel.set_content_margin_all(22)
-	panel.shadow_color = Color(0, 0, 0, 0.5)
-	panel.shadow_size = 24
-	panel.anti_aliasing = true
-	theme.set_stylebox("panel", "PanelContainer", panel)
-	for st in ["normal", "hover", "pressed", "disabled", "focus"]:
-		var b := StyleBoxFlat.new()
-		b.bg_color = {"normal": Color(0.14, 0.07, 0.04, 0.95), "hover": Color(0.28, 0.15, 0.06, 0.95),
-			"pressed": Color(0.38, 0.22, 0.08, 1.0), "disabled": Color(0.07, 0.06, 0.06, 0.8),
-			"focus": Color(0, 0, 0, 0)}[st]
-		b.border_color = Color(0.85, 0.62, 0.3, 0.25 if st == "disabled" else 0.8)
-		b.set_border_width_all(1)
-		# En pastille, 48 px de haut au moins : au doigt aussi.
-		b.set_corner_radius_all(24)
-		b.anti_aliasing = true
-		b.content_margin_left = 20
-		b.content_margin_right = 20
-		b.content_margin_top = 11
-		b.content_margin_bottom = 11
-		if st == "focus":
-			b.draw_center = false
-			b.border_color = Color(0, 0, 0, 0)
-		theme.set_stylebox(st, "Button", b)
-	theme.set_color("font_color", "Button", gold_col)
-	theme.set_color("font_hover_color", "Button", Color(1, 0.92, 0.7))
-	theme.set_color("font_disabled_color", "Button", Color(0.5, 0.47, 0.42))
-	theme.set_color("font_color", "Label", Color(0.9, 0.86, 0.8))
 
 	var layer := CanvasLayer.new()
 	add_child(layer)

@@ -32,7 +32,10 @@ rangé sous res://communes/<id>/ : un manifeste commune.json, une scène qui exp
 « camera ». Commence par « contrat » pour les règles, « atelier » pour ce que le jeu prête (modèles,
 maisons, figurants, meubles, sons, matières : rien à embarquer), « nouvelle_commune » pour partir du
 kit, puis « verifier_manifeste », « tester_commune » et « emballer_commune » avant de déposer le paquet
-sur le portail des développeurs. Une version par dépôt, toujours plus haute ; 32 Mo au plus."""
+sur le portail des développeurs. Une version par dépôt, toujours plus haute ; 32 Mo au plus.
+Une table de jeu ne se fabrique pas avec les modèles de l'atelier : la structure « salle_jeu » pose les
+tables du casino de Smarves, et une salle bâtie à la main les prend par la classe Tables
+(scripts/socle/tables.gd, socle 1.10) ; « contrat Les structures », paragraphe « Les tables du casino », donne les appels."""
 
 
 # --- Lire le dépôt ---------------------------------------------------------------------------------
@@ -177,7 +180,8 @@ def atelier(rubrique="", famille="", cherche=""):
     resume = {k: v for k, v in cat.items() if k not in ("modeles",)}
     resume["modeles"] = {f: "%d modèles, %s" % (len(_modeles(f)), v.get("usage", "")) for f, v in cat["modeles"].items()}
     return ("L'atelier du socle (scripts/socle/atelier.json, API dans scripts/socle/atelier.gd, classe Atelier). "
-            "Tout est déjà dans le jeu : rien à mettre dans le paquet.\n" + json.dumps(resume, ensure_ascii=False, indent=1))
+            "Tout est déjà dans le jeu : rien à mettre dans le paquet. Les tables de jeu n'y sont pas : ce sont "
+            "celles du casino, par la classe Tables (contrat « Les structures », paragraphe « Les tables du casino »).\n" + json.dumps(resume, ensure_ascii=False, indent=1))
 
 
 def verifier_manifeste(id="", dossier="", texte=""):

@@ -150,7 +150,7 @@ Et par type : `gare` prend `quai` ; `arret_car` prend `abri` ; `terrain_foot` de
 
 **Le gymnase** (socle 1.9, `"socle_min": "1.9"`) : le basket de la Vienne sur les résultats réels (autoload `Basket`, `scripts/socle/basket.gd`). Une commune qui déclare un gymnase a un club de basket, dont les joueurs sont de vrais joueurs de l'Euroleague et de l'EuroCup, notés chaque vendredi soir par le serveur. Les champs : `club` (le nom du club, obligatoire), `court` (le sigle), `couleurs` (deux couleurs, `#rrggbb`) ; le `nom` de la structure est le nom de la salle. Les groupes ont toujours huit clubs : les places libres sont tenues par des clubs figurants (des villages de la Vienne), et un club nouveau prend la place d'un figurant dès la journée suivante, avec ses points et son calendrier ; quand le niveau du bas est plein, un niveau s'ouvre dessous. On joue le samedi à 20 h, quatorze journées par saison. La salle est une scène du socle, la même pour toutes les communes ; la commune l'ouvre par `Basket.ouvrir_salle("<id de la commune>")`.
 
-**La salle de jeu est une scène du socle** (socle 1.1 : un paquet qui en déclare une met `"socle_min": "1.1"`). La commune ne construit ni la pièce ni les jeux : `scenes/salle_jeu.tscn` (`scripts/socle/salle_jeu.gd`) bâtit la salle, pose une table ou une machine par jeu en rangs de trois depuis le comptoir, et fait tourner les jeux de Smarves, les mêmes panneaux qu'au casino, avec la même bourse et le même total gagné.
+**La salle de jeu est une scène du socle** (socle 1.1 : un paquet qui en déclare une met `"socle_min": "1.1"`). La commune ne construit ni la pièce ni les jeux : `scenes/salle_jeu.tscn` (`scripts/socle/salle_jeu.gd`) bâtit la salle, pose une table ou une machine par jeu en rangs de trois depuis le comptoir, et fait tourner les jeux de Smarves, avec la même bourse et le même total gagné. Les tables sont **celles du casino de Smarves**, dernière version (plus bas, « Les tables du casino ») : on s'y assoit, la caméra glisse jusqu'à la place et le panneau du jeu devient la barre basse, habillé comme au casino. Le loto et les courses, qui n'ont pas de table au casino, gardent une table de café et leur panneau au milieu de l'écran. Un paquet n'a rien à reconstruire pour en profiter : la salle est au socle, chez le joueur.
 
 ```json
 {"type": "salle_jeu", "id": "tripot", "nom": "Le tripot de la gare", "noeud": "PorteTripot", "lot": "place",
@@ -187,6 +187,34 @@ Les deux rendent `false`, sans rien changer, pour des tarifs incohérents. La ta
 | `cloue:poker-cave` | Cloué, La Contrebande | 125/250 | 10 000 | 10 000 |
 
 Une autre table se demande dans le dépôt chtabay/addict. Le test est `tools/test_poker_multi.gd`.
+
+**Les tables du casino** (socle 1.10, `"socle_min": "1.10"`). Une commune qui bâtit sa propre salle de jeu, au lieu de la salle du socle, prend les tables du casino de Smarves par la classe **`Tables`** ([`scripts/socle/tables.gd`](../scripts/socle/tables.gd)) : ce sont les fichiers du casino lui-même, pas une copie, et quand le casino change ses tables, toutes les communes les ont au jeu suivant. **Ne fabriquez pas de table de jeu** avec les modèles de l'atelier (la machine Kenney de la famille `arcade` et la `table_jeu` de la brocante sont du décor), **et ne recopiez ni les panneaux ni leur thème** dans votre paquet : ils vieilliraient avec lui.
+
+| L'appel | Ce qu'il fait |
+|---|---|
+| `Tables.table(jeu, titre = "")` | la table 3D du casino pour ce jeu : `machine` (la machine à vrais tambours), `blackjack` (le sabot), `roulette` (le cylindre), `craps`, `baccara`, `poker`, `des` (le Grand Hasard), `roue` ; `null` pour `loto` et `courses`, qui n'ont pas de table. La place du joueur est du côté +z ; `titre` s'écrit au fronton de la machine ou du baccara. Elle pose sa lampe, un projecteur ; le rendu web et mobile compte peu de lumières par objet : mieux vaut `with_lamp = false` avant de l'ajouter à la scène et une lampe ponctuelle de la salle au-dessus du tapis, comme dans la salle du socle |
+| `Tables.EMPRISE[jeu]` | son emprise au sol (largeur en x, profondeur en z), pour la collision et la mise en place |
+| `Tables.panneau(jeu, titre = "")` | le panneau du jeu, celui du casino ; il émet `played(mise, gain)` à chaque coup (à la commune d'encaisser : `Game.cash_in(gain)`) et `closed` quand on se lève. Pour un poker à d'autres tarifs, `configurer_blindes` s'appelle sur ce panneau (plus haut) |
+| `Tables.asseoir(table, panneau, camera, calque)` | le geste du casino : le panneau se lie à la table (cartes, bille, dés et jetons partent sur le tapis), la caméra glisse du regard du joueur (`player.camera`) jusqu'à sa place, le panneau devient la barre basse du `calque` (un `Control` plein écran) et la souris est libérée |
+| `Tables.lever(table)` | se lever : la caméra revient au regard du joueur ; le panneau est à libérer par la commune |
+| `Tables.theme()` | l'habillage des fenêtres du casino (laque sombre, filet d'or, boutons en pastille) : à poser sur le `calque`, et sur tout panneau ouvert hors d'une table |
+
+```gdscript
+var t := Tables.table("roulette")
+t.position = $PosteRoulette.position
+add_child(t)
+calque.theme = Tables.theme()
+# … quand le joueur demande à jouer :
+var p := Tables.panneau("roulette", "La roulette de la cave")
+p.played.connect(func(_mise, gain): Game.cash_in(gain))
+p.closed.connect(func():
+	Tables.lever(t)
+	p.queue_free()
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
+Tables.asseoir(t, p, player.camera, calque)
+```
+
+La salle de jeu du socle s'en sert pour toutes ses tables, et le casino de Smarves pour l'habillage de ses fenêtres. `tools/test_salle_jeu.gd` vérifie que chaque jeu de la salle d'essai pose la table du casino, qu'on s'y assoit et qu'on s'en relève.
 
 **Le commerce est une scène du socle** (socle 1.4 : `"socle_min": "1.4"`). Les trois commerces de Smarves ont leur pareil pour toute commune, selon le `genre` : `tenue` (on n'en porte qu'une, comme chez Raymonde), `vehicule` (on n'en conduit qu'un, comme au garage Fradin) ou `meuble` (il se pose chez soi, comme chez Ginette Boutin). La commune nomme son commerçant et ses articles ; `scenes/commerce.tscn` (`scripts/socle/commerce.gd`) bâtit la boutique, pose le commerçant derrière son comptoir, met six articles au plus en vitrine (une silhouette à la couleur de la tenue, le véhicule, le meuble) et ouvre le bon de commande du village (`scripts/shop_panel.gd`).
 
@@ -326,7 +354,7 @@ Le modèle du kit vit dans Smarves, [`tools/kit/`](../tools/kit/) (les mêmes fi
 
 Un développeur n'a pas besoin du dépôt de Smarves, qui peut redevenir privé : **le SDK** est un projet Godot autonome, publié avec chaque version du jeu (`smarves-sdk.zip`, à côté de l'installateur dans la Release). Décision de Guillaume du 18 octobre 2026 : le socle y est **lisible**, mais le village de Smarves n'y est pas.
 
-- **Ce qu'il contient** : le socle en clair (`scripts/socle/`, les dix jeux et leurs panneaux, le stade, la salle de jeu, les façades, les figurants, l'habitant et sa caméra, la carte de la Vienne), les modèles, sons, matières et polices qu'ils utilisent, le kit de départ (`tools/kit/`), les outils (`test_commune`, `emballer_commune`, `bourg_reel.py`, le serveur MCP et son `.mcp.json`), l'exemple complet d'Availles-Limouzine et ce document.
+- **Ce qu'il contient** : le socle en clair (`scripts/socle/`, les dix jeux et leurs panneaux, les tables 3D du casino (`scripts/jeux/`), le stade, la salle de jeu, les façades, les figurants, l'habitant et sa caméra, la carte de la Vienne), les modèles, sons, matières et polices qu'ils utilisent, le kit de départ (`tools/kit/`), les outils (`test_commune`, `emballer_commune`, `bourg_reel.py`, le serveur MCP et son `.mcp.json`), l'exemple complet d'Availles-Limouzine et ce document.
 - **Ce qu'il ne contient pas** : la place, le casino, les intérieurs, les quartiers et les lieux cachés de Smarves. Le manifeste de Smarves y est réduit à ce que le socle lit d'une commune d'origine ; un **lanceur** (`scenes/main.tscn` du SDK) tient la place du village : il inscrit les communes posées dans `res://communes/<id>/` et ouvre celle qu'on choisit, comme chez un joueur.
 - **Comment il est fait** : [`tools/sdk/construire_sdk.py`](../tools/sdk/construire_sdk.py) part des autoloads et des points d'entrée d'une commune, suit les liens (`res://…`, `preload`, classes nommées, dossiers de modèles) et s'arrête aux fichiers du village (`COUPE`) ; ceux que le socle nomme quand même sont remplacés par un bouchon (`tools/sdk/bouchons/`). Un lien dur vers le village sans bouchon arrête la construction. [`tools/sdk/test_sdk.sh`](../tools/sdk/test_sdk.sh) déballe le zip hors du dépôt et y passe le kit, l'atelier, la salle de jeu, Availles-Limouzine, le lanceur et le serveur MCP ; la construction de main le fait avant de publier.
 
@@ -353,6 +381,7 @@ Le catalogue est [`scripts/socle/atelier.json`](../scripts/socle/atelier.json), 
 | Matières | les shaders : calcaire, tuiles, vitre éclairée, pavés, eau, tapis, damas, marbre, feutre, ciel de nuit | `Atelier.matiere("cobbles")` |
 | Polices | les trois polices du jeu | `Polices.texte()`, `Polices.gras()`, `Polices.titre()` |
 | Scènes | le stade du socle (structure `terrain_foot`), la salle de jeu (structure `salle_jeu`) et le commerce (structure `commerce`), section « Les structures » ; l'habitant et la caméra, dans la scène du kit | `Football.ouvrir_stade(commune)`, `SalleJeu.ouvrir(commune, id)`, `Commerce.ouvrir(commune, id)` |
+| Tables de jeu | les tables 3D du casino de Smarves et leurs panneaux, dernière version (socle 1.10, « Les tables du casino ») ; les machines `arcade` et la `table_jeu` de la brocante ne sont que du décor | `Tables.table("blackjack")`, `Tables.panneau("blackjack")`, `Tables.asseoir(…)` |
 
 Les personnages nommés de Smarves (Josiane, M. Brunet…) restent à Smarves : une commune a ses propres habitants, l'atelier ne lui prête que des figurants.
 
