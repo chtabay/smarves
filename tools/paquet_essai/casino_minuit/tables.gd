@@ -93,10 +93,11 @@ func poser() -> void:
 
 ## La table du casino de Smarves sur le poste : le tapis, les jetons, les cartes et le cylindre de l'original
 ## (le nœud du poste dans son décor) s'effacent, et le dessus de la table (plateau, bandeau, sabot, rack)
-## est creusé dans les maillages fixes de la zone (_creuser) ; la caisse reste dessous, et les tabourets
-## où s'assoient les habitués. Le tapis du casino se pose à la hauteur de celui de l'original ; la place
-## du joueur (le +z de la table) regarde les places de l'original. La table ronde du poker, à six comme
-## les tables du serveur, est un peu réduite pour laisser leurs chaises aux habitués de l'ovale d'origine.
+## est creusé dans les maillages fixes de la zone (_creuser), caisse comprise : la table du casino tient
+## sur ses propres pieds, à sa hauteur, et seuls restent les tabourets où s'assoient les habitués. Elle
+## prend l'axe de l'original, la place du joueur (le +z de la table) du côté de ses places. La table ronde
+## du poker, à six comme les tables du serveur, est un peu réduite pour laisser leurs chaises aux habitués
+## de l'ovale d'origine.
 ## Les cylindres de l'original (les instances « roulettes » et « roulette-roues ») s'effacent avec leurs tables.
 func _poser_table(p: Dictionary) -> void:
 	var decor: Node = scene.find_child("Decor_" + str(p.zone), true, false)
@@ -110,12 +111,15 @@ func _poser_table(p: Dictionary) -> void:
 	var vers := Vector3.ZERO
 	for q in p.places:
 		vers += Vector3(q.position.x, 0, q.position.z) - Vector3(c.x, 0, c.z)
-	if vers.length() < 0.3 and not p.places.is_empty():
-		vers = Vector3(p.places[0].position.x - c.x, 0, p.places[0].position.z - c.z)
+	# Dans l'axe de l'original (sa longueur sur le x du poste), tournée vers ses places ; quand elles
+	# l'entourent (la roulette, joueurs des deux côtés et au bout), le cylindre va au bout sans joueurs.
+	var lacet := float(p.rotation)
+	var b0 := Basis(Vector3.UP, lacet)
+	if b0.z.dot(vers) * 2.0 + b0.x.dot(vers) < 0.0:
+		lacet += PI
 	var machine: bool = p.jeu == "machine"
 	var echelle := 0.85 if p.jeu == "poker" else 1.0
-	var dessus: float = 0.0 if machine or p.jeu == "roue" else float(p.centre.y) - float(t.felt_y) * echelle
-	t.global_transform = Transform3D(Basis(Vector3.UP, atan2(vers.x, vers.z)).scaled(Vector3.ONE * echelle), c + Vector3(0, dessus, 0))
+	t.global_transform = Transform3D(Basis(Vector3.UP, lacet).scaled(Vector3.ONE * echelle), c)
 	if p.jeu == "roulette" and decor:
 		for nom in ["roulettes", "roulette-roues"]:
 			var g: Node3D = decor.find_child(nom, true, false)
@@ -126,8 +130,7 @@ func _poser_table(p: Dictionary) -> void:
 		# La boîte à creuser, dans le repère du poste de l'original (sa rotation, sa taille).
 		var b := Transform3D(Basis(Vector3.UP, float(p.rotation)), Vector3(c.x, 0, c.z)).affine_inverse()
 		var marge := 0.05 if machine else 0.12
-		var bas: float = 0.02 if machine or p.jeu == "roue" else float(p.centre.y) - 0.12
-		_a_creuser.append([decor, b, Vector3(float(p.taille[0]) / 2.0 + marge, 0, float(p.taille[1]) / 2.0 + marge), bas, 3.2])
+		_a_creuser.append([decor, b, Vector3(float(p.taille[0]) / 2.0 + marge, 0, float(p.taille[1]) / 2.0 + marge), 0.02, 3.2])
 
 
 ## Les boîtes à creuser : [décor de la zone, repère du poste, demi-taille, bas, haut].
