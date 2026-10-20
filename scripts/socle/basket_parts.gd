@@ -49,6 +49,9 @@ func remplir(col: VBoxContainer) -> void:
 			_mot(h, "tenue par %s" % str(p.nom), DOUX, 15)
 	_filet(col)
 	_etat = _mot(col, _message if _message != "" else _etat_texte(), DOUX, 15)
+	# Les cartes des parts du club, comme au classeur du carnet (demande de Guillaume du 20 octobre).
+	_bouton(col, "Voir les cartes des parts", func():
+		preload("res://scripts/carnet_cartes.gd").ouvrir_club(self, "basket", commune), "VoirCartes")
 	_fermer(col)
 
 

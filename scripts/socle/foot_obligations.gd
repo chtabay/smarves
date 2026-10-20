@@ -36,6 +36,7 @@ func remplir(colonne: VBoxContainer) -> void:
 	_ligne_etat = _mot(_etat_texte(), 15, DOUX, null, true)
 	colonne.add_child(_ligne_etat)
 	var bas := _pied(colonne)
+	bas.add_child(_bouton_cartes())
 	bas.add_child(_bouton("Refermer le registre  (Échap)", func(): closed.emit()))
 
 
@@ -71,6 +72,15 @@ func _rangee(rang: int, miennes: Array, facteur: float) -> Control:
 	else:
 		h.add_child(_mot("tenue par %s" % str(p.nom), 15, DOUX))
 	return h
+
+
+## Les cartes des parts du club, comme au classeur du carnet (demande de Guillaume du 20 octobre).
+func _bouton_cartes() -> Button:
+	var b := _bouton("Voir les cartes des parts", func():
+		preload("res://scripts/carnet_cartes.gd").ouvrir_club(self, "football", club))
+	b.name = "VoirCartes"
+	b.disabled = not foot().clubs.has(club)
+	return b
 
 
 ## Après un acte au registre : la fenêtre se refait, et dit ce qui a coincé s'il y a lieu.

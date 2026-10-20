@@ -46,6 +46,7 @@ func remplir(colonne: VBoxContainer) -> void:
 	_ligne_etat = _mot(_etat_texte(), 15, DOUX, null, true)
 	colonne.add_child(_ligne_etat)
 	var bas := _pied(colonne)
+	bas.add_child(_bouton_cartes())
 	bas.add_child(_bouton("Quitter le panneau  (Échap)", func(): closed.emit()))
 
 

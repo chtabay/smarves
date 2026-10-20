@@ -1,8 +1,9 @@
 extends SceneTree
 ## Vérifie le classeur de cartes du carnet sans affichage : godot --headless --path . -s tools/test_cartes.gd
-## Un sous-onglet par village, seulement les cartes possédées, rangées par genre ; le topo complet des
-## parts d'un club de football et d'un club de basket (à soi, en vente, à d'autres joueurs) ; la carte en
-## grand, ses flèches et ses gestes.
+## Les villages empilés, chacun avec ses trois rubriques : les biens possédés, rangés par genre ; les clubs
+## dont on tient une obligation et les établissements dont on tient une part, avec leur topo complet (à soi,
+## en vente, à d'autres joueurs) ; la carte en grand, ses flèches et ses gestes ; les cartes rappelées dans
+## les onglets de village ; les cartes d'un seul club, à son entrée.
 
 var fails := 0
 
@@ -47,14 +48,13 @@ func _init() -> void:
 	check(cartes.all(func(c): return c.etat == "moi"), "toutes à soi : ni carte en vente ni carte fermée pour les biens")
 	check(cartes[0].genre_id == "maison" and cartes[1].genre_id == "tenue", "chaque carte a son genre : maison, garde-robe")
 
-	# Les établissements : le topo complet de leurs parts, dans leur catégorie.
+	# Les établissements : seulement ceux dont on tient une part, avec le topo complet.
 	var etabs: Array = album.etablissements("smarves")
 	var noms: Array = etabs.map(func(e): return e.id)
-	check(noms == ["smarvoise", "cotes"], "les établissements ouverts : le café et le moulin, pas encore le comité ni le casino (%s)" % str(noms))
-	var sm: Array = etabs[0].cartes
+	check(noms == ["smarvoise"], "seulement les établissements dont on tient une part : la Smarvoise, pas le moulin (%s)" % str(noms))
+	var sm: Array = etabs[0].cartes if not etabs.is_empty() else []
 	check(sm.size() == 5 and sm.map(func(c): return c.etat) == ["moi", "moi", "libre", "libre", "libre"], "la Smarvoise : cinq parts, deux à soi, trois en vente")
-	check(sm[2].prix == biens.next_price("smarvoise") and sm[4].prix == biens.price_of("smarvoise", 4), "chaque part en vente a son prix")
-	check(etabs[1].cartes.all(func(c): return c.etat == "libre"), "le moulin : rien à soi, tout en vente")
+	check(sm.size() == 5 and sm[2].prix == biens.next_price("smarvoise") and sm[4].prix == biens.price_of("smarvoise", 4), "chaque part en vente a son prix")
 
 	# Le topo complet des parts de l'Étoile : neuf cartes, à soi, en vente, aux autres.
 	foot.forcer_porteurs("vous:3+6,Lucien:9+1,Mathilde:5", "smarves")
@@ -75,15 +75,19 @@ func _init() -> void:
 	check(bc.size() == 1 and (bc[0].cartes[0].couleurs[0] as Color).is_equal_approx(Color("#7a1e2c")), "aux couleurs du club")
 	check(album.cartes("essai_basket").is_empty(), "pas de bien là-bas : seulement les parts du club")
 
-	# Le classeur s'ouvre sur le village d'origine.
+	# Le classeur : les villages empilés, chacun avec ses trois rubriques.
 	carnet.toggle()
 	carnet.ouvrir_onglet("cartes")
 	await process_frame
+	await process_frame
 	check(album.visible and not carnet.get("_spread").visible, "l'onglet « Mes cartes » remplace les deux pages par le classeur")
-	check(album.village == "smarves" and _cartes(album).size() == 3 + 9 + 9, "à Smarves : trois biens, neuf parts d'établissement et les neuf parts de l'Étoile (%d)" % _cartes(album).size())
+	check(album.find_child("Village_smarves", true, false) != null and album.find_child("Village_essai_basket", true, false) != null, "les deux villages, l'un sous l'autre")
+	check(_cartes(album).size() == 3 + 9 + 5 + 9, "trois biens, l'Étoile, la Smarvoise à Smarves, puis le club de basket (%d)" % _cartes(album).size())
+	check(_textes(album).count("Mes biens") == 2 and _textes(album).count("Mes clubs sportifs") == 2 and _textes(album).count("Mes établissements") == 2, "trois rubriques par village")
+	check(album.village == "smarves", "on commence en haut, à Smarves")
 	album.saisir(_touche(KEY_DOWN))
 	await process_frame
-	check(album.village == "essai_basket" and _cartes(album).size() == 9, "↓ passe au village suivant : les neuf parts du club de basket")
+	check(album.village == "essai_basket" and carnet.get("_album").get("_defile").scroll_vertical > 0, "↓ saute au village suivant")
 	album.choisir_village("smarves")
 	await process_frame
 	(_cartes(album)[0] as Control).choisie.emit()
@@ -93,7 +97,7 @@ func _init() -> void:
 	check(album.get("_index") == 1, "→ passe à la suivante")
 	album.saisir(_touche(KEY_LEFT))
 	album.saisir(_touche(KEY_LEFT))
-	check(album.get("_index") == 20, "← depuis la première revient à la dernière")
+	check(album.get("_index") == 25, "← depuis la première revient à la dernière")
 	album.saisir(_touche(KEY_ESCAPE))
 	check(not album.zoom_ouvert(), "Échap repose la carte")
 	# Une tenue qu'on n'a pas sur soi se porte depuis sa carte.
@@ -105,9 +109,41 @@ func _init() -> void:
 	if porter != null:
 		porter.pressed.emit()
 		check(biens.worn == "dimanche", "et il est porté")
+	album.fermer_zoom()
+
+	# Les onglets de village rappellent les cartes qu'on y tient.
+	check(carnet.onglets().any(func(o): return o[0] == "essai_basket"), "un village où l'on tient des cartes a son onglet")
+	carnet.ouvrir_onglet("smarves")
+	await process_frame
+	var vig := _vignettes(carnet)
+	check(vig.size() == 6 and _textes(carnet).has("+ 1 autre"), "à Smarves, les cartes qu'on tient, en petit : six, puis « + 1 autre » (%d)" % vig.size())
+	check(_textes(carnet).any(func(t): return t.contains("Maître Garnier, à l'étude")), "et le chemin de l'étude pour acheter autre chose")
+	carnet.ouvrir_onglet("essai_basket")
+	await process_frame
+	vig = _vignettes(carnet)
+	check(vig.size() == 1, "au village du club de basket, son obligation (%d)" % vig.size())
+	if not vig.is_empty():
+		(vig[0] as Control).choisie.emit()
+		await process_frame
+		await process_frame
+		check(carnet.get("_onglet") == "cartes" and album.zoom_ouvert() and str(album.get("_affichees")[album.get("_index")].id) == "basket:essai_basket:4", "un clic sur une vignette ouvre le classeur sur la carte")
+		album.fermer_zoom()
 	carnet.ouvrir_onglet("compte")
 	check(not album.zoom_ouvert() and not album.visible, "changer d'onglet range la carte et le classeur")
 	carnet.toggle()
+
+	# À l'entrée du club : les cartes de ce club seulement.
+	var hote := Control.new()
+	var parent := Control.new()
+	root.add_child(parent)
+	parent.add_child(hote)
+	var vitrine: Control = album.ouvrir_club(hote, "football", "smarves")
+	await process_frame
+	check(_cartes(vitrine).size() == 9, "à l'entrée de l'Étoile, ses neuf obligations en cartes (%d)" % _cartes(vitrine).size())
+	vitrine._input(_touche(KEY_ESCAPE))
+	await process_frame
+	check(not is_instance_valid(vitrine) or vitrine.is_queued_for_deletion(), "Échap les repose")
+	parent.queue_free()
 
 	basket.clubs.erase("essai_basket")
 	basket.bureau.obligations = []
@@ -118,6 +154,14 @@ func _init() -> void:
 
 func _cartes(album: Node) -> Array:
 	return album.find_children("Carte_*", "", true, false).filter(func(c): return not c.is_queued_for_deletion() and c.get("fixe") == false)
+
+
+func _vignettes(carnet: Node) -> Array:
+	return carnet.find_children("Vignette_*", "", true, false).filter(func(c): return not c.is_queued_for_deletion() and c.is_visible_in_tree())
+
+
+func _textes(n: Node) -> Array:
+	return n.find_children("*", "Label", true, false).filter(func(l): return not l.is_queued_for_deletion()).map(func(l): return l.text)
 
 
 func _touche(code: Key) -> InputEvent:
