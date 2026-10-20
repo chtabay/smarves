@@ -738,11 +738,11 @@ func _parking() -> void:
 	parking.set_meta("voitures", voitures)
 	# Les candélabres.
 	var fut := _std(Color(0.2, 0.21, 0.23), 0.5, 0.5)
-	for k in 4:
-		var p := Vector3(x0 + 6.0 + k * 9.0, 0, (z0 + z1) / 2.0 - 2.0)
+	for k in 8:
+		var p := Vector3(x0 + 6.0 + (k % 4) * 9.0, 0, z0 + 11.0 + (k / 4) * 20.0)
 		_cyl(0.12, 8.0, p + Vector3(0, 4.0, 0), fut, parking)
 		_box(Vector3(1.6, 0.2, 0.5), p + Vector3(0, 8.0, 0), fut, false, parking)
-		_lamp(p + Vector3(0, 7.6, 0), Color(1.0, 0.88, 0.7), 2.2, 18.0)
+		_lamp(p + Vector3(0, 7.6, 0), Color(1.0, 0.88, 0.7), 3.0, 16.0)
 	# Le grand « P », la barrière et la guérite, à l'entrée du parking, côté parvis.
 	var pz := ARRET_Z + 6.0
 	_cyl(0.15, 6.0, Vector3(x0 - 1.0, 3.0, pz), fut, parking)
