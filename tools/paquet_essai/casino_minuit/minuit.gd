@@ -517,7 +517,7 @@ func _interface() -> void:
 	var ui := CanvasLayer.new()
 	add_child(ui)
 	var racine := Control.new()
-	racine.theme = load(BASE + "tables.gd").theme()
+	racine.theme = Tables.theme()
 	racine.set_anchors_preset(Control.PRESET_FULL_RECT)
 	racine.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui.add_child(racine)

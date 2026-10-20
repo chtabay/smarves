@@ -147,8 +147,11 @@ func _init() -> void:
 		check(pn != null and p.frozen and str(pn.get_script().resource_path).ends_with("blackjack_panel.gd"),
 			"s'asseoir au blackjack ouvre le panneau du socle")
 		check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "la souris est libérée pour jouer au clic")
-		check(pn != null and pn.get_parent() is CenterContainer and pn.get_parent().get_parent().theme != null,
-			"le panneau porte le thème du casino de Smarves")
+		var t3d: Node = s.get("_tables").tables3d.get("bj-1")
+		check(t3d != null and t3d.get_script().resource_path.ends_with("blackjack_3d.gd") and s.get("_tables").get("_assis") == t3d and t3d.active,
+			"on s'assoit à la table de blackjack du casino de Smarves")
+		check(pn != null and pn.get_parent().theme != null and pn.get("embedded") == true,
+			"le panneau devient la barre basse, au thème du casino de Smarves")
 		if pn != null:
 			var gagne_avant: int = root.get_node("Game").won
 			pn.played.emit(100, 250)
@@ -156,6 +159,7 @@ func _init() -> void:
 			pn.closed.emit()
 			await process_frame
 			check(not p.frozen and s.get("_tables").get("_panneau") == null, "se lever referme le jeu")
+			check(s.get("_tables").get("_assis") == null, "  et l'on quitte la table")
 			check(Input.mouse_mode == souris, "la souris revient comme avant la table")
 			# Les crédits roulent jusqu'à leur valeur.
 			await create_timer(1.5, true).timeout
@@ -342,7 +346,7 @@ func _init() -> void:
 		p.interact.emit(voiturier)
 		await process_frame
 		var panneau: Node = s.get_node_or_null("Taxi")
-		check(panneau != null and panneau.get("_choix").size() == 2 and p.frozen, "le taxi propose deux courses, le visiteur attend")
+		check(panneau != null and panneau.get("_choix").size() == 3 and p.frozen, "le taxi propose trois courses (aéroport, stade, Dôme), le visiteur attend")
 		if panneau != null:
 			panneau.call("choisir", 1)
 			await create_timer(0.3, true).timeout
