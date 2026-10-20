@@ -110,6 +110,9 @@ func _init() -> void:
 	s._sortir()
 	await process_frame
 	await process_frame
+	# Une commune en paquet s'ouvre derrière l'écran de chargement (socle 1.11).
+	while root.get_node("Chargement").actif():
+		await process_frame
 	check(current_scene != null and current_scene.scene_file_path == "res://communes/essai_salle/commune.tscn" and game.return_point == "place",
 		"la porte ramène dans la commune, devant la porte de la salle")
 	await _etude(game)
@@ -148,6 +151,9 @@ func _etude(game: Node) -> void:
 		s._sortir()
 		await process_frame
 		await process_frame
+		# Une commune en paquet s'ouvre derrière l'écran de chargement (socle 1.11).
+		while root.get_node("Chargement").actif():
+			await process_frame
 		check(current_scene != null and current_scene.scene_file_path == "res://communes/essai_salle/commune.tscn" and game.return_point == "place", "la porte de l'étude ramène dans la commune")
 	biens.sell("essai_salle/buffet")
 
@@ -184,6 +190,9 @@ func _commerces(game: Node) -> void:
 		s._sortir()
 		await process_frame
 		await process_frame
+		# Une commune en paquet s'ouvre derrière l'écran de chargement (socle 1.11).
+		while root.get_node("Chargement").actif():
+			await process_frame
 		check(game.return_point == "place", "la porte de la boutique ramène devant elle")
 	biens.sell("essai_salle/veste_chef")
 	var fautes: PackedStringArray = structures.verifier([

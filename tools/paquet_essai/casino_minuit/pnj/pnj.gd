@@ -251,16 +251,23 @@ var RE_CLIENT_TPL := _re("^dealer-|real-swat|real-worker|man-suit")
 # ==================================================================================================
 
 ## La scène de la commune (minuit.gd) : le joueur, la caméra, les zones montrées. `fermes` : les lieux à seuil fermés.
-func preparer(s: Node3D, fermes: Array = []) -> bool:
+## monde : un monde déjà lu (pnj/monde.gd, chargé avec les zones de ces lieux fermés, dans un fil par
+## minuit.gd) et monde_ok, ce que sa lecture a rendu ; sans lui, le monde se lit ici.
+func preparer(s: Node3D, fermes: Array = [], monde = null, monde_ok := true) -> bool:
 	scene = s
 	name = "PNJ"
-	M = load(BASE + "pnj/monde.gd").new()
-	var zc: Array = []
-	for l in fermes:
-		zc.append_array(LIEUX_FERMES.get(l, []))
 	lieux_fermes = fermes.duplicate()
-	if not M.charger(BASE + "donnees/pnj_monde.json", zc):
-		return false
+	if monde != null:
+		M = monde
+		if not monde_ok:
+			return false
+	else:
+		M = load(BASE + "pnj/monde.gd").new()
+		var zc: Array = []
+		for l in fermes:
+			zc.append_array(LIEUX_FERMES.get(l, []))
+		if not M.charger(BASE + "donnees/pnj_monde.json", zc):
+			return false
 	CORPS = load(BASE + "pnj/corps.gd")
 	for t in M.donnees.templates:
 		templates[t.name] = t
@@ -5330,10 +5337,12 @@ var _fil_serie := 0
 func _fil_demarrer() -> void:
 	if synchrone:
 		return
+	# Le monde du fil se lit dans le fil même, depuis le fichier (et pas en copiant M, qui coûtait près
+	# d'une seconde à l'arrivée) : les mêmes données, les mêmes lieux fermés. Les chemins demandés avant
+	# qu'il soit prêt attendent dans la file.
 	_fil_monde = load(BASE + "pnj/monde.gd").new()
-	_fil_monde.donnees_de(M)
 	_fil = Thread.new()
-	_fil.start(_fil_boucle)
+	_fil.start(_fil_boucle.bind(M.zones_closes.duplicate()))
 
 
 func _fil_arreter() -> void:
@@ -5364,7 +5373,8 @@ func _fil_demande(v: Dictionary, from: Dictionary, to: Dictionary, ok: bool, urg
 	_fil_sem.post()
 
 
-func _fil_boucle() -> void:
+func _fil_boucle(closes: Array) -> void:
+	_fil_monde.charger(BASE + "donnees/pnj_monde.json", closes)
 	while true:
 		_fil_sem.wait()
 		_fil_mutex.lock()

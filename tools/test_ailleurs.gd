@@ -46,6 +46,9 @@ func _init() -> void:
 	carte.duree_vol = 0.2
 	carte.voler("casino_minuit")
 	await create_timer(1.6, true).timeout
+	# Le casino se bâtit derrière l'écran de chargement (socle 1.11) : on attend qu'il s'efface.
+	while root.get_node("Chargement").actif():
+		await process_frame
 	var s: Node = current_scene
 	check(s != null and s.scene_file_path == str(c.data.scene), "le vol pose à Casino Minuit")
 	check(communes.actuelle() == "casino_minuit", "on y est : %s" % communes.actuelle())
@@ -421,6 +424,8 @@ func _init() -> void:
 				if pt != null:
 					pt.call("choisir", 0)
 			await create_timer(1.5, true).timeout
+			while root.get_node("Chargement").actif():
+				await process_frame
 			s = current_scene
 			check(s != null and s.scene_file_path == str(c.data.scene), "le taxi du stade ramène au casino")
 			if s != null and s.get("player") is CharacterBody3D:

@@ -39,6 +39,8 @@ func _init() -> void:
 	carte.duree_vol = 0.2
 	carte.voler("casino_minuit")
 	await create_timer(2.0, true).timeout
+	while root.get_node("Chargement").actif():
+		await process_frame
 	var s: Node = current_scene
 	var p: CharacterBody3D = s.player
 	if at.size() >= 3:

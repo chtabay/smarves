@@ -35,6 +35,9 @@ func _init() -> void:
 	carte.duree_vol = 0.2
 	carte.voler("casino_minuit")
 	await create_timer(1.6, true).timeout
+	# Le casino se bâtit derrière l'écran de chargement (socle 1.11) : on attend qu'il s'efface.
+	while root.get_node("Chargement").actif():
+		await process_frame
 	var s: Node = current_scene
 	var pnj = s.get("pnj") if s != null else null
 	check(pnj != null, "le casino a ses PNJ")

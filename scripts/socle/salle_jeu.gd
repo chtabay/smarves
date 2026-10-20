@@ -260,7 +260,7 @@ func _sortir() -> void:
 	Game.return_point = str(structure.get("lot", "")) if str(structure.get("lot", "")) != "" else str(structure.get("id", ""))
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	var c: Commune = Communes.commune(commune)
-	get_tree().change_scene_to_file(str(c.data.scene) if c else "res://scenes/main.tscn")
+	Chargement.changer(str(c.data.scene) if c else "res://scenes/main.tscn")
 
 
 func open_game() -> void:

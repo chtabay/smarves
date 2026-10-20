@@ -49,9 +49,12 @@ func _init(s: Node3D, kit) -> void:
 ## Une zone d'interaction par poste ouvert, au-dessus de son tapis (ou devant sa machine).
 func poser() -> void:
 	postes = JSON.parse_string(FileAccess.get_file_as_string(BASE + "donnees/tables.json"))
-	for p in postes:
+	for i in postes.size():
+		var p: Dictionary = postes[i]
 		if p.fermee or p.places.is_empty():
 			continue
+		# Sous l'écran de chargement, une table à la fois : l'écran s'anime entre deux.
+		await scene._etape("On dresse les tables…", 0.45 + 0.15 * i / postes.size())
 		var c: Dictionary = p.centre
 		var a := Area3D.new()
 		a.name = "table_" + str(p.id)
