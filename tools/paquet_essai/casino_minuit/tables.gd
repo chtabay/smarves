@@ -10,10 +10,11 @@ extends RefCounted
 ## Une table pleine renvoie à celle qui se remplit ; quand toutes le sont, la salle du poker (salle_poker.gd,
 ## au mur des tournois ou à toute table pleine) tient la liste d'attente. Sans compte, seul contre les habitués.
 ##
-## Les panneaux s'ouvrent habillés comme au casino de Smarves (casino_interior.gd, _build_ui : laque sombre,
-## filet d'or, boutons en pastille), posés en bas de l'écran au-dessus de la salle assombrie, et la souris
-## est libérée tant qu'un panneau est ouvert : on mise et on joue au clic. Le thème est recopié ici, dans le
-## paquet, pour que Minuit s'habille de même sur un jeu installé qui ne l'aurait pas.
+## Les tables sont celles du casino de Smarves, dernière version (Tables, scripts/socle/tables.gd, socle
+## 1.10) : posées sur les postes de l'original, dont le tapis, les jetons et le cylindre cèdent la place.
+## On s'y assoit comme au casino : la caméra glisse jusqu'à la place et le panneau devient la barre basse,
+## habillé du thème du socle (Tables.theme()), la souris libérée tant qu'on joue. Les panneaux sans table
+## (la salle du poker) s'ouvrent en bas de l'écran, au-dessus de la salle assombrie.
 
 const BASE := "res://communes/casino_minuit/"
 const POKER_MULTI := "res://scripts/jeux/poker_multi.gd"
@@ -31,6 +32,9 @@ var _centre: CenterContainer
 var _panneau: Control
 ## Le poste où le joueur est assis (les PNJ réagissent à ses parties).
 var _poste := ""
+## Les tables du casino posées sur les postes (id du poste -> table), et celle où le joueur est assis.
+var tables3d := {}
+var _assis: Node3D
 ## Le mode de la souris avant le panneau : on le rend en se levant.
 var _souris := Input.MOUSE_MODE_CAPTURED
 ## Pour les essais : le poker à plusieurs sans compte ni réseau, la salle posée à la main.
@@ -62,11 +66,14 @@ func poser() -> void:
 		f.shape = b
 		a.add_child(f)
 		scene.add_child(a)
+		if Tables.a_une_table(p.jeu):
+			_poser_table(p)
+	_creuser()
 	_calque = CanvasLayer.new()
 	_calque.layer = 5
 	scene.add_child(_calque)
 	var racine := Control.new()
-	racine.theme = theme()
+	racine.theme = Tables.theme()
 	racine.set_anchors_preset(Control.PRESET_FULL_RECT)
 	racine.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_calque.add_child(racine)
@@ -84,45 +91,99 @@ func poser() -> void:
 	_poser_salle()
 
 
-## Le thème des fenêtres du casino de Smarves (casino_interior.gd, _build_ui), à la manière d'Addict :
-## laque sombre, filet d'or, angles arrondis, ombre portée ; boutons en pastille de 48 px, au doigt aussi.
-static func theme() -> Theme:
-	var t := Theme.new()
-	t.default_font = Polices.texte()
-	t.default_font_size = 20
-	var or_ := Color(0.96, 0.8, 0.45)
-	var panneau := StyleBoxFlat.new()
-	panneau.bg_color = Color(0.06, 0.03, 0.035, 0.93)
-	panneau.border_color = Color(0.89, 0.71, 0.35, 0.55)
-	panneau.set_border_width_all(1)
-	panneau.set_corner_radius_all(16)
-	panneau.set_content_margin_all(22)
-	panneau.shadow_color = Color(0, 0, 0, 0.5)
-	panneau.shadow_size = 24
-	panneau.anti_aliasing = true
-	t.set_stylebox("panel", "PanelContainer", panneau)
-	for st in ["normal", "hover", "pressed", "disabled", "focus"]:
-		var b := StyleBoxFlat.new()
-		b.bg_color = {"normal": Color(0.14, 0.07, 0.04, 0.95), "hover": Color(0.28, 0.15, 0.06, 0.95),
-			"pressed": Color(0.38, 0.22, 0.08, 1.0), "disabled": Color(0.07, 0.06, 0.06, 0.8),
-			"focus": Color(0, 0, 0, 0)}[st]
-		b.border_color = Color(0.85, 0.62, 0.3, 0.25 if st == "disabled" else 0.8)
-		b.set_border_width_all(1)
-		b.set_corner_radius_all(24)
-		b.anti_aliasing = true
-		b.content_margin_left = 20
-		b.content_margin_right = 20
-		b.content_margin_top = 11
-		b.content_margin_bottom = 11
-		if st == "focus":
-			b.draw_center = false
-			b.border_color = Color(0, 0, 0, 0)
-		t.set_stylebox(st, "Button", b)
-	t.set_color("font_color", "Button", or_)
-	t.set_color("font_hover_color", "Button", Color(1, 0.92, 0.7))
-	t.set_color("font_disabled_color", "Button", Color(0.5, 0.47, 0.42))
-	t.set_color("font_color", "Label", Color(0.9, 0.86, 0.8))
-	return t
+## La table du casino de Smarves sur le poste : le tapis, les jetons, les cartes et le cylindre de l'original
+## (le nœud du poste dans son décor) s'effacent, et le dessus de la table (plateau, bandeau, sabot, rack)
+## est creusé dans les maillages fixes de la zone (_creuser) ; la caisse reste dessous, et les tabourets
+## où s'assoient les habitués. Le tapis du casino se pose à la hauteur de celui de l'original ; la place
+## du joueur (le +z de la table) regarde les places de l'original. La table ronde du poker, à six comme
+## les tables du serveur, est un peu réduite pour laisser leurs chaises aux habitués de l'ovale d'origine.
+## Les cylindres de l'original (les instances « roulettes » et « roulette-roues ») s'effacent avec leurs tables.
+func _poser_table(p: Dictionary) -> void:
+	var decor: Node = scene.find_child("Decor_" + str(p.zone), true, false)
+	var poste: Node3D = decor.find_child(str(p.id), true, false) if decor else null
+	if poste:
+		poste.visible = false
+	var t := Tables.table(p.jeu, "MINUIT" if p.jeu in ["machine", "baccara"] else "")
+	t.with_lamp = false
+	(decor.get_parent() if decor else scene).add_child(t)
+	var c := Vector3(p.centre.x, p.position.y, p.centre.z)
+	var vers := Vector3.ZERO
+	for q in p.places:
+		vers += Vector3(q.position.x, 0, q.position.z) - Vector3(c.x, 0, c.z)
+	if vers.length() < 0.3 and not p.places.is_empty():
+		vers = Vector3(p.places[0].position.x - c.x, 0, p.places[0].position.z - c.z)
+	var machine: bool = p.jeu == "machine"
+	var echelle := 0.85 if p.jeu == "poker" else 1.0
+	var dessus: float = 0.0 if machine or p.jeu == "roue" else float(p.centre.y) - float(t.felt_y) * echelle
+	t.global_transform = Transform3D(Basis(Vector3.UP, atan2(vers.x, vers.z)).scaled(Vector3.ONE * echelle), c + Vector3(0, dessus, 0))
+	if p.jeu == "roulette" and decor:
+		for nom in ["roulettes", "roulette-roues"]:
+			var g: Node3D = decor.find_child(nom, true, false)
+			if g:
+				g.visible = false
+	tables3d[p.id] = t
+	if decor:
+		# La boîte à creuser, dans le repère du poste de l'original (sa rotation, sa taille).
+		var b := Transform3D(Basis(Vector3.UP, float(p.rotation)), Vector3(c.x, 0, c.z)).affine_inverse()
+		var marge := 0.05 if machine else 0.12
+		var bas: float = 0.02 if machine or p.jeu == "roue" else float(p.centre.y) - 0.12
+		_a_creuser.append([decor, b, Vector3(float(p.taille[0]) / 2.0 + marge, 0, float(p.taille[1]) / 2.0 + marge), bas, 3.2])
+
+
+## Les boîtes à creuser : [décor de la zone, repère du poste, demi-taille, bas, haut].
+var _a_creuser: Array = []
+
+
+## Ôte des maillages fixes du décor (les « static » cuits à l'export) les triangles tout entiers dans la
+## boîte d'un poste : le dessus de la table de l'original, sous la table du casino.
+func _creuser() -> void:
+	var par_decor := {}
+	for e in _a_creuser:
+		if not par_decor.has(e[0]):
+			par_decor[e[0]] = []
+		par_decor[e[0]].append(e)
+	for decor in par_decor:
+		for mi in (decor as Node).find_children("*", "MeshInstance3D", true, false):
+			if not (str(mi.name).begins_with("static") or str(mi.name).begins_with("props")) or mi.mesh == null:
+				continue
+			_creuser_maillage(mi, par_decor[decor])
+
+
+func _creuser_maillage(mi: MeshInstance3D, boites: Array) -> void:
+	var src: Mesh = mi.mesh
+	var vers_monde: Transform3D = mi.global_transform
+	var neuf := ArrayMesh.new()
+	var touche := false
+	for s in src.get_surface_count():
+		var a: Array = src.surface_get_arrays(s)
+		var pos: PackedVector3Array = a[Mesh.ARRAY_VERTEX]
+		var idx: PackedInt32Array = a[Mesh.ARRAY_INDEX] if a[Mesh.ARRAY_INDEX] != null else PackedInt32Array(range(pos.size()))
+		# Chaque sommet : dans quelle boîte il tombe (-1 : aucune).
+		var dans := PackedInt32Array()
+		dans.resize(pos.size())
+		for i in pos.size():
+			dans[i] = -1
+			var w := vers_monde * pos[i]
+			for k in boites.size():
+				var e: Array = boites[k]
+				var l: Vector3 = e[1] * w
+				if absf(l.x) <= e[2].x and absf(l.z) <= e[2].z and w.y >= e[3] and w.y <= e[4]:
+					dans[i] = k
+					break
+		var garde := PackedInt32Array()
+		for t in range(0, idx.size(), 3):
+			var k := dans[idx[t]]
+			if k >= 0 and dans[idx[t + 1]] == k and dans[idx[t + 2]] == k:
+				touche = true
+				continue
+			garde.append_array([idx[t], idx[t + 1], idx[t + 2]])
+		if garde.is_empty():
+			garde = PackedInt32Array([0, 0, 0])
+		a[Mesh.ARRAY_INDEX] = garde
+		neuf.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, a)
+		neuf.surface_set_material(s, src.surface_get_material(s))
+	if touche:
+		mi.mesh = neuf
 
 
 ## La salle du poker s'ouvre devant le mur des tournois.
@@ -256,7 +317,10 @@ func _asseoir(p: Dictionary, table_id := "", nom := "") -> void:
 			pnj.lever_joueur()
 		if table_id != "":
 			_seuils(avant))
-	_poser(pn)
+	if tables3d.has(p.id):
+		_asseoir_table(tables3d[p.id], pn)
+	else:
+		_poser(pn)
 	_poste = p.id
 	if pnj != null and idx >= 0:
 		pnj.asseoir_joueur(p.id, idx)
@@ -275,6 +339,17 @@ func _poser(p: Control) -> void:
 	_caler(p)
 
 
+## S'asseoir à la table du casino, comme à Smarves : la caméra (celle de la vue à pied ou de dessus)
+## glisse jusqu'à la place, le panneau devient la barre basse, la souris est libérée.
+func _asseoir_table(t: Node3D, p: Control) -> void:
+	scene.player.frozen = true
+	if _panneau == null:
+		_souris = Input.mouse_mode
+	Tables.asseoir(t, p, scene.get_viewport().get_camera_3d(), _centre.get_parent())
+	_panneau = p
+	_assis = t
+
+
 ## Le panneau se pose sous le premier tiers de l'écran, comme au casino ; un grand (la machine à sous)
 ## remonte ce qu'il faut pour tenir en entier.
 func _caler(p: Control) -> void:
@@ -286,6 +361,9 @@ func _caler(p: Control) -> void:
 
 ## Le panneau se ferme : la salle revient, et la souris comme elle était (reprise à la vue à pied).
 func _lever() -> void:
+	if _assis:
+		Tables.lever(_assis)
+		_assis = null
 	_panneau = null
 	_voile.visible = false
 	scene.player.frozen = false
