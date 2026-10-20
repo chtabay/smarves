@@ -78,6 +78,12 @@ func _init() -> void:
 	for n in ["StatueBigHeron", "ArretDuCar", "PanneauDuClub", "BureauDuClub", "EnseigneFacade", "Enceinte", "Foule", "RondCentral",
 			"GrandHall", "Coursive", "TableauDesParts", "BureauDuPresident", "Parking"]:
 		check(salle.get_node_or_null(n) != null, "la salle a son élément %s" % n)
+	# La vitesse : la foule reste légère et le décor immobile est fondu (64 millions de triangles par image avant).
+	var mm: MultiMesh = salle._foule.multimesh
+	var tri_foule: int = mm.mesh.get_faces().size() / 3 * mm.instance_count
+	check(tri_foule < 1500000, "la foule reste légère : %d triangles" % tri_foule)
+	var dessines := salle.find_children("*", "MeshInstance3D", true, false).filter(func(m): return m.mesh != null and m.is_visible_in_tree()).size()
+	check(dessines < 500, "le décor immobile est fondu : %d maillages à dessiner" % dessines)
 	check(salle.find_children("Echoppe*", "Node3D", false, false).size() >= 12, "la coursive a ses échoppes derrière les gradins")
 	check(salle.get_node("Parking").get_meta("voitures") > 20, "des voitures au parking : %d" % salle.get_node("Parking").get_meta("voitures"))
 	# On passe à pied de l'arrêt du car au parquet : rien de solide sur le chemin (portes, enceinte, vomitoire).
