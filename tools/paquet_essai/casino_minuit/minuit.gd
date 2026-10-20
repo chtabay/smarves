@@ -56,6 +56,9 @@ const ARRIVEE := Vector3(0, 0.05, 27.0)
 const RETOUR_STADE := Vector3(-1.2, 0.05, 34.8)
 const TAXI := BASE + "stade/taxi.gd"
 const STADE := "stade_fortune"
+## Le Dôme de Minuit, la salle de basket des Noctambules (basket/dome.gd), qu'on rejoint aussi en taxi.
+const DOME := "dome"
+const SALLE_DOME := BASE + "basket/dome.tscn"
 
 var player: CharacterBody3D
 var camera: Camera3D
@@ -209,7 +212,7 @@ func _joueur() -> void:
 	player.add_child(me)
 	player.avatar = me
 	player.global_position = ARRIVEE
-	if Game.return_point == STADE:
+	if Game.return_point in [STADE, DOME]:
 		Game.return_point = ""
 		player.global_position = RETOUR_STADE
 		player.rotation.y = 0.0
@@ -300,11 +303,26 @@ func _seuil(id: String) -> int:
 	return 0
 
 
-## Le taxi de la porte-cochère : l'aéroport, ou le stade de la Fortune.
+## Le taxi de la porte-cochère : l'aéroport, le stade de la Fortune ou le Dôme de Minuit.
 func _taxi() -> void:
 	load(TAXI).ouvrir(self, player, "Où va-t-on ?", [
 		["L'aéroport McCarran", "Le vol MN 1203, pour Poitiers-Biard", func(): Carte.ouvrir()],
-		["Le stade de la Fortune", "Le Racing Club Minuit, au bout du Strip", _stade]])
+		["Le stade de la Fortune", "Le Racing Club Minuit, au bout du Strip", _stade],
+		["Le Dôme de Minuit", "Les Noctambules de Minuit, le basket du samedi soir", _dome]])
+
+
+## Le Dôme de Minuit : la salle de basket du socle habillée par le paquet (basket/dome.gd), au seuil de son
+## lieu ; elle prend le match du championnat de basket (autoload Basket) pour casino_minuit.
+func _dome() -> void:
+	var seuil := _seuil(DOME)
+	if Game.won < seuil:
+		_dire("Le Dôme de Minuit ouvre à %s crédits gagnés au jeu." % Game.fmt(seuil))
+		return
+	var salle = load("res://scripts/village/salle_basket.gd")
+	salle.prochaine_commune = "casino_minuit"
+	salle.prochain_match = {}
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	get_tree().change_scene_to_file(SALLE_DOME)
 
 
 ## Le stade de la Fortune : le taxi vous y conduit au seuil de son lieu (le total gagné au jeu), comme partout.
