@@ -169,7 +169,7 @@ func _process(delta: float) -> void:
 ## Les deux cartes d'une place : côte à côte devant le joueur, un peu de biais devant les autres.
 func _hole_spot(i: int, k: int) -> Vector3:
 	if i == 0:
-		return _at(0, 0.62, -0.085 + k * 0.17) + Vector3(0, 0.001 + k * 0.0006, 0)
+		return _at(0, 0.5, -0.085 + k * 0.17) + Vector3(0, 0.001 + k * 0.0006, 0)
 	return _at(i, 1.1, -0.04 + k * 0.08) + Vector3(0, 0.001 + k * 0.0006, 0)
 
 
