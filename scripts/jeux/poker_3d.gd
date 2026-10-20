@@ -361,9 +361,11 @@ func _refresh() -> void:
 				state = "  ·  couché"
 			elif panel.in_hand and int(s.get("bet", 0)) > 0:
 				state = "  ·  mise %s" % Game.fmt(int(s.bet))
-			# À la table à plusieurs, les habitués jouent la bourse de la maison : pas de tapis à montrer.
-			var bank := "habitué" if s.get("human", true) == false else Game.fmt(int(s.stack))
-			l.text = "%s\n%s%s" % [s.name, bank, state]
+			# À la table à plusieurs, les habitués jouent la bourse de la maison : leur nom suffit.
+			if s.get("human", true) == false:
+				l.text = "%s%s" % [s.name, ("\n" + state.trim_prefix("  ·  ")) if state != "" else ""]
+			else:
+				l.text = "%s\n%s%s" % [s.name, Game.fmt(int(s.stack)), state]
 		var lit: bool = panel.turn == i
 		l.modulate = Color(1.0, 0.85, 0.45) if lit else (Color(0.6, 0.58, 0.55) if s.get("folded", false) and panel.in_hand else Color(0.96, 0.93, 0.86))
 	if panel.in_hand:

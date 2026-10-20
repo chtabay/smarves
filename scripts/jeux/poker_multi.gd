@@ -574,7 +574,8 @@ func encart_lignes() -> Array[String]:
 			continue
 		var p = joueurs.get(i)
 		var nom := "Vous" if i == 0 else str(s.name)
-		var avoir := Game.fmt(Game.credits) if i == 0 else ("habitué" if not s.get("human", false) else Game.fmt(int(s.get("stack", 0))))
+		# Les habitués jouent la bourse de la maison : leur nom suffit, sans tapis à montrer.
+		var avoir := Game.fmt(Game.credits) if i == 0 else (Game.fmt(int(s.get("stack", 0))) if s.get("human", false) else "")
 		var geste := ""
 		if dans_donne and p is Dictionary:
 			if p.get("button", false):
@@ -583,7 +584,9 @@ func encart_lignes() -> Array[String]:
 		elif dans_donne:
 			geste = "ne joue pas"
 		var parle: bool = dans_donne and p is Dictionary and p.get("turn", false)
-		var l := "%s%s  —  %s" % ["▶ " if parle else "    ", nom, avoir]
+		var l := "%s%s" % ["▶ " if parle else "    ", nom]
+		if avoir != "":
+			l += "  —  " + avoir
 		if geste != "":
 			l += "   ·   " + geste
 		if parle:
@@ -623,7 +626,13 @@ func _render_encart() -> void:
 		return
 	_encart_texte.text = "\n".join(encart_lignes())
 
+## Debout, on regarde la table : pas de main à rappeler (les cartes de la place 0 sont alors fausses).
+func mes_cartes() -> Array:
+	return super() if seated else []
+
+
 func _render_bar() -> void:
+	_render_rappel()
 	var to_call := int(round(float(_options.get("toCall", 0))))
 	var parts: Array[String] = []
 	if in_hand:
