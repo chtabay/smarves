@@ -13,7 +13,7 @@ const PLACES_AVANT := [
 	["rabelais", 8000, "M. Gaudin"], ["stade", 3000, "Le président Chauvin"], ["moulin", 120000, "Le meunier"],
 	["bourse", 7000, "Mme Vasseur"], ["gymnase", 10000, "M. Lacombe"],
 ]
-const LOCKS_AVANT := [["ambassadeurs", 500], ["salon", 5000], ["loggia", 2000], ["musique", 10000], ["fetes", 25000], ["particuliers", 50000]]
+const LOCKS_AVANT := [["ambassadeurs", 500], ["salon", 5000], ["loggia", 2000], ["musique", 10000], ["fetes", 25000], ["particuliers", 50000], ["cercle", 1000]]
 
 var fails := 0
 

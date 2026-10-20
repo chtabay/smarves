@@ -104,6 +104,11 @@ func _ready() -> void:
 	player = PLAYER.new()
 	player.position = Vector3(0, 0, 20.5)
 	player.rotation.y = 0.0
+	if Game.return_point == "cercle":
+		# Retour du Cercle Philidor : devant sa porte, au fond du Fumoir.
+		Game.return_point = ""
+		player.position = Vector3(-12.4, UP, 4.0)
+		player.rotation.y = -PI / 2.0
 	add_child(player)
 	player.interact.connect(_on_interact)
 	# Les autres joueurs connectés dans le casino, à la taille des figurants de la salle.
@@ -451,6 +456,8 @@ func _on_interact(target: Node) -> void:
 	_table = null
 	var kind: String = str(target.get_meta("interact"))
 	match kind:
+		"cercle":
+			Cercle.ouvrir("smarves", "res://scenes/casino.tscn", "cercle")
 		"exit":
 			Game.return_point = "casino"
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -2247,7 +2254,8 @@ func _build_upper() -> void:
 	# Les murs de l'étage.
 	_wall(Vector3(-14, 0, 6), Vector3(14, 0, 6), [[5.2, 1.8, 2.6], [22.8, 1.8, 2.6]], 4.5, UP)
 	_wall(Vector3(-14, 0, -14), Vector3(14, 0, -14), [], 4.5, UP, -1)
-	_wall(Vector3(-14, 0, -14), Vector3(-14, 0, 6), [], 4.5, UP, 1)
+	# La porte du Cercle Philidor (à 18 m du coin nord) : le mur lui laisse sa baie et son chambranle.
+	_wall(Vector3(-14, 0, -14), Vector3(-14, 0, 6), [[18.0, 1.5, 2.6]], 4.5, UP, 1)
 	_wall(Vector3(14, 0, -14), Vector3(14, 0, 6), [[3.5, 1.8, 2.6], [9.5, 1.8, 2.6], [16.0, 1.8, 2.6]], 4.5, UP)
 	_wall(Vector3(-7, 0, -14), Vector3(-7, 0, 6), [[12.0, 3.0, 3.0]], 4.5, UP)
 	_wall(Vector3(7, 0, -2), Vector3(7, 0, 6), [[4.0, 2.2, 2.8]], 4.5, UP)
@@ -2292,6 +2300,7 @@ func _build_upper() -> void:
 	smoke.material = fm
 	add_child(smoke)
 	_label("Bar du Fumoir", Vector3(-7.15, UP + 3.4, 2.0), 90.0, 56)
+	_porte_du_cercle()
 
 	# Restaurant Le Lustre : nappes blanches, couverts, bougies, dîneurs.
 	var cloth := _std(Color(0.96, 0.95, 0.92), 0.8)
@@ -2327,6 +2336,20 @@ func _build_upper() -> void:
 	_barrier("loggia", Vector3(7.0, UP, 2.0), 90.0, 2.2)
 	_barrier("loggia", Vector3(8.8, UP, 6.3), 0.0, 1.8)
 	_build_salons()
+
+
+## La porte capitonnée du Cercle Philidor, au fond du Fumoir (mur ouest) : les tables d'échecs, une
+## salle à part (scripts/socle/cercle.gd), derrière son cordon et son seuil.
+func _porte_du_cercle() -> void:
+	var porte := _node(Vector3(-14.0, UP, 4.0))
+	porte.rotation_degrees.y = 90.0
+	_box(Vector3(1.5, 2.6, 0.12), Vector3(0, 1.3, 0), dark_wood, false, porte)
+	_box(Vector3(1.2, 2.3, 0.06), Vector3(0, 1.2, 0.07), velvet, false, porte)
+	for x in [-0.3, 0.3]:
+		_box(Vector3(0.04, 0.04, 0.05), Vector3(x, 1.15, 0.12), gold, false, porte)
+	_label("Cercle Philidor · Échecs", Vector3(0, 3.15, 0.25), 0.0, 40, Color(1.0, 0.85, 0.5), porte)
+	_interactive(porte, "cercle", "E : entrer au Cercle Philidor", Vector3(1.6, 2.4, 1.2), Vector3(0, 1.2, 0.6))
+	_barrier("cercle", Vector3(-13.2, UP, 4.0), 90.0, 2.0)
 
 
 # --- Les salons de l'étage, au-dessus des Ambassadeurs ------------------------------------

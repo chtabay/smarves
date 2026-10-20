@@ -1,0 +1,113 @@
+{
+ "table": {
+  "id": "cercle:echecs-lacroix",
+  "nom": "La table de Madame Lacroix",
+  "jeu": "echecs",
+  "robot": {
+   "id": "lacroix",
+   "nom": "Madame Lacroix",
+   "qui": "ancienne championne de la Vienne",
+   "force": "Expert",
+   "paie": 5
+  }
+ },
+ "phase": "partie",
+ "moi": 0,
+ "seq": 12,
+ "places": [
+  {
+   "nom": "Guillaume",
+   "moi": true,
+   "robot": false,
+   "couleur": "blancs",
+   "ok": true
+  },
+  {
+   "nom": "Madame Lacroix",
+   "moi": false,
+   "robot": true,
+   "couleur": "noirs",
+   "ok": true
+  }
+ ],
+ "reglage": {
+  "cadence": "5+0",
+  "mise": 100,
+  "mises": [
+   0,
+   50,
+   100,
+   250,
+   500,
+   1000
+  ],
+  "paie": 5,
+  "cadences": {
+   "3+2": "3 min + 2 s",
+   "5+0": "5 min",
+   "10+0": "10 min",
+   "15+10": "15 min + 10 s"
+  }
+ },
+ "partie": {
+  "plateau": "RNBQK..RPPPP.PPP.....N....B.P.......p.....n..n..pppp.pppr.bqkb.r",
+  "trait": "blancs",
+  "echec": false,
+  "coups": [
+   "e2e4",
+   "e7e5",
+   "g1f3",
+   "b8c6",
+   "f1c4",
+   "g8f6"
+  ],
+  "demi": 6,
+  "legaux": [
+   "b1c3",
+   "b1a3",
+   "d1e2",
+   "e1f1",
+   "e1e2",
+   "e1g1",
+   "h1g1",
+   "h1f1",
+   "a2a3",
+   "a2a4",
+   "b2b3",
+   "b2b4",
+   "c2c3",
+   "d2d3",
+   "d2d4",
+   "g2g3",
+   "g2g4",
+   "h2h3",
+   "h2h4",
+   "f3g5",
+   "f3h4",
+   "f3g1",
+   "f3d4",
+   "f3e5",
+   "c4d5",
+   "c4e6",
+   "c4f7",
+   "c4d3",
+   "c4e2",
+   "c4f1",
+   "c4b5",
+   "c4a6",
+   "c4b3"
+  ],
+  "pendule": {
+   "blancs": 271000,
+   "noirs": 288000,
+   "court": "blancs",
+   "ajout": 0
+  },
+  "nulle": null,
+  "fin": null,
+  "id": 3,
+  "mise": 100,
+  "paie": 5,
+  "du": null
+ }
+}

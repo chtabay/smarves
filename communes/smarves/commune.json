@@ -45,7 +45,8 @@
 			{"id": "loggia", "nom": "La Loggia", "seuil": 2000, "hote": "Le chef de partie"},
 			{"id": "musique", "nom": "Le Salon de musique", "seuil": 10000, "hote": "Le pianiste"},
 			{"id": "fetes", "nom": "La Salle des fêtes", "seuil": 25000, "sur": "staked", "hote": "Le maître de cérémonie"},
-			{"id": "particuliers", "nom": "Les Salons particuliers", "seuil": 50000, "hote": "Monsieur Castel"}
+			{"id": "particuliers", "nom": "Les Salons particuliers", "seuil": 50000, "hote": "Monsieur Castel"},
+			{"id": "cercle", "nom": "Le Cercle Philidor", "seuil": 1000, "hote": "Monsieur Vautrin"}
 		]
 	},
 	"personnages": {
