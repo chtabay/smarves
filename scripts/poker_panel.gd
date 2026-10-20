@@ -55,7 +55,7 @@ var table3d: Node
 ## La place qui doit parler (-1 : personne).
 var turn := -1
 var _info: Label
-## Le rappel des cartes, en petit sous le récit : sa main et le tableau, aux couleurs des quatre enseignes.
+## Le rappel des cartes, en petit sous le récit, à côté du pot : sa main et le tableau.
 var _rappel: HBoxContainer
 var _rappel_cle := ""
 
@@ -163,13 +163,18 @@ func _build_bar() -> void:
 	_log.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_log.add_theme_font_override("font", BARRE.KIT.serif())
 	v.add_child(_log)
+	# Les cartes et le pot sur une seule ligne, côte à côte : la barre reste aussi basse qu'avant le
+	# rappel et laisse voir les cartes posées sur la table.
+	var ligne := HBoxContainer.new()
+	ligne.add_theme_constant_override("separation", 22)
+	ligne.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_child(ligne)
 	_rappel = HBoxContainer.new()
 	_rappel.add_theme_constant_override("separation", 4)
-	_rappel.alignment = BoxContainer.ALIGNMENT_CENTER
-	v.add_child(_rappel)
+	ligne.add_child(_rappel)
 	_info = BARRE.label("", 20, BARRE.MUTED)
 	_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(_info)
+	ligne.add_child(_info)
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 10)
 	h.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -600,9 +605,8 @@ func _render(show_all := false) -> void:
 	_buttons["call"].text = "Suivre %d" % (current_bet - seats[0].get("bet", 0)) if current_bet > seats[0].get("bet", 0) else "Parler"
 
 
-## Les quatre enseignes chacune à sa couleur (pique noir, cœur rouge, carreau bleu, trèfle vert) : une
-## couleur à cinq cartes se voit d'un coup d'œil.
-const COULEURS_ENSEIGNES := [Color(0.1, 0.1, 0.12), Color(0.78, 0.1, 0.13), Color(0.08, 0.36, 0.78), Color(0.1, 0.5, 0.22)]
+## Les couleurs du jeu de cartes : pique et trèfle noirs, cœur et carreau rouges.
+const COULEURS_ENSEIGNES := [Color(0.1, 0.1, 0.12), Color(0.78, 0.1, 0.13), Color(0.78, 0.1, 0.13), Color(0.1, 0.1, 0.12)]
 
 
 ## Ses deux cartes pour le rappel, ou rien : pas de donne, ou couché.
@@ -650,7 +654,7 @@ func _mini_carte(c: Dictionary) -> PanelContainer:
 	sb.content_margin_right = 5
 	sb.anti_aliasing = true
 	var l := Label.new()
-	l.custom_minimum_size = Vector2(34, 30)
+	l.custom_minimum_size = Vector2(32, 26)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	l.add_theme_font_size_override("font_size", 20)
