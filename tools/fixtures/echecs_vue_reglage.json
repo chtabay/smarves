@@ -1,0 +1,5 @@
+{"table":{"id":"cercle:echecs-1","nom":"Table 1","jeu":"echecs","robot":null},
+ "phase":"reglage","moi":1,"seq":4,
+ "places":[{"nom":"Paulette","moi":false,"robot":false,"couleur":"blancs","ok":true},{"nom":"Guillaume","moi":true,"robot":false,"couleur":"noirs","ok":false}],
+ "reglage":{"cadence":"5+0","mise":250,"mises":[0,50,100,250,500,1000],"paie":2,"cadences":{"3+2":"3 min + 2 s","5+0":"5 min","10+0":"10 min","15+10":"15 min + 10 s"}},
+ "partie":null}

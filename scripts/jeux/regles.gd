@@ -16,6 +16,7 @@ const NOMS := {
 	"machine": "La machine à sous", "blackjack": "Blackjack", "roulette": "Roulette européenne",
 	"craps": "Craps", "baccara": "Baccara", "poker": "Poker", "des": "Le Grand Hasard",
 	"roue": "La roue de la fortune", "boule": "La Boule", "loto": "Le loto", "courses": "Les paris",
+	"echecs": "Les échecs",
 }
 
 
@@ -136,6 +137,17 @@ static func texte(jeu: String, p: Object = null) -> String:
 			return _bloc([
 				["Le tirage", "Cochez jusqu'à 5 numéros sur 30, choisissez la mise, puis lancez le tirage (Espace) : 10 numéros sortent. Le gain dépend des numéros trouvés."],
 				[[["2 numéros", "mise rendue"], ["3 numéros", "4 fois la mise"], ["4 numéros", "20 fois"], ["5 numéros", "120 fois"]]],
+			])
+		"echecs":
+			return _bloc([
+				["Le but", "Mettre le roi adverse en échec et mat : il est attaqué et ne peut plus s'échapper. Les blancs jouent le premier coup, puis chacun joue à son tour."],
+				["Jouer un coup", "Cliquez une pièce, puis sa case d'arrivée, ou faites-la glisser. Les points gris montrent les cases permises, le cercle gris une prise. Le dernier coup est surligné en jaune, le roi en échec en rouge."],
+				["Les règles complètes", "Le roque, la prise en passant et la promotion (on choisit la pièce sur la case d'arrivée) sont permis. La partie est nulle sur un pat, une triple répétition, cinquante coups sans prise ni pion poussé, ou s'il ne reste pas de quoi mater."],
+				["La pendule", "Chacun a son temps, cinq minutes par défaut ; le sien court quand on a le trait. Qui n'a plus de temps perd, sauf si l'adversaire n'a plus de quoi mater : la partie est alors nulle."],
+				["Contre un robot ou un joueur", "Au fond du Cercle, un robot attend à chaque table, de Novice à Expert : on s'assied en face pour jouer seul contre lui. Les tables de devant sont vides : on y joue contre un autre joueur, qui vient s'asseoir en face. Les deux fixent la cadence, les couleurs et la mise, et la partie commence quand chacun a accepté. On peut proposer la nulle, abandonner, puis demander la revanche, couleurs inversées."],
+				["Les mises", "On joue pour l'honneur ou pour une mise de 50 à 1 000 crédits, posée au début. Une nulle rend la mise. Se lever pendant la partie, c'est abandonner."],
+				[[["Victoire contre Pierrot (Novice)", "1,2 fois la mise"], ["Contre Basile (Débutant)", "1,5 fois"], ["Contre Madame Ferrand (Amateur)", "2 fois"],
+					["Contre le docteur Ostrowski (Confirmé)", "3 fois"], ["Contre Madame Lacroix (Expert)", "5 fois"], ["Contre un joueur", "les deux mises"]]],
 			])
 		"courses":
 			return _bloc([

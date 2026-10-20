@@ -199,6 +199,14 @@ Une autre table se demande dans le dépôt chtabay/addict. Le test est `tools/te
 | `Tables.lever(table)` | se lever : la caméra revient au regard du joueur ; le panneau est à libérer par la commune |
 | `Tables.theme()` | l'habillage des fenêtres du casino (laque sombre, filet d'or, boutons en pastille) : à poser sur le `calque`, et sur tout panneau ouvert hors d'une table |
 
+**Les échecs du Cercle** (socle 1.13, `"socle_min": "1.13"` ; la brique `echecs@1`, classe **`Plateaux`**, [`scripts/plateaux/plateaux.gd`](../scripts/plateaux/plateaux.gd)). Les échecs du casino de Smarves, pour une commune qui en veut : le panneau de la partie (l'échiquier à la manière de chess.com, les pendules, les réglages de cadence, de couleurs et de mise, la feuille de partie et le bouton « Règles »), la table 3D qui montre la position, et la salle toute faite, le Cercle Philidor. Tout se joue sur le serveur (fonction casino du dépôt chtabay/addict, `smarves-plateaux.js`) : il vérifie les coups, fait jouer les robots, tient la pendule et dit ce que chaque mise retire ou rend ; le panneau l'applique aux crédits du joueur une seule fois par partie. Une table du serveur a un robot installé (on joue seul contre lui, de Novice à Expert, son niveau mesuré contre Stockfish), ou elle est vide et attend deux joueurs réels, qui fixent ensemble la cadence (5 minutes proposées), les couleurs et la mise. Une commune qui veut ses propres tables les fait ajouter au serveur, comme pour le poker, puis les nomme par leur identifiant.
+
+| L'appel | Ce qu'il fait |
+|---|---|
+| `Plateaux.panneau(table, titre = "")` | le panneau d'une table du serveur (`cercle:echecs-1`, `cercle:echecs-lacroix`…) ; il s'assied en entrant dans la scène, se lève et émet `closed` quand on le quitte (se lever en partie, c'est abandonner) |
+| `Plateaux.table()` | la table 3D (guéridon, échiquier, pièces tournées) ; `montrer(plateau)` y pose une position du serveur |
+| `Plateaux.cercle(casino, scène, point)` | ouvre le Cercle de ce casino ; sa porte ramène à `scène`, au point `point` (`Game.return_point`) |
+
 ```gdscript
 var t := Tables.table("roulette")
 t.position = $PosteRoulette.position
