@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://yuol5l52pnf2"
-path="res://.godot/imported/man-longsleeves.glb-0150f0a43f903309141b0222b67b849b.scn"
+uid="uid://br2nimjqa6814"
+path="res://.godot/imported/real-punk-woman.glb-6b2c637b2bc3646781429baaa447b45b.scn"
 
 [deps]
 
-source_file="res://tools/paquet_essai/casino_minuit/personnages/man-longsleeves.glb"
-dest_files=["res://.godot/imported/man-longsleeves.glb-0150f0a43f903309141b0222b67b849b.scn"]
+source_file="res://assets/quaternius/personnages/real-punk-woman.glb"
+dest_files=["res://.godot/imported/real-punk-woman.glb-6b2c637b2bc3646781429baaa447b45b.scn"]
 
 [params]
 

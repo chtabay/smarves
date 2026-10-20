@@ -10,7 +10,6 @@ extends "res://scripts/village/stade.gd"
 
 const BASE := "res://communes/casino_minuit/"
 const KIT := BASE + "kit.gd"
-const PERSONNAGES := BASE + "personnages.gd"
 const BATIMENT := BASE + "stade/batiment.gd"
 const ROUE := BASE + "stade/roue.gd"
 const PARVIS := BASE + "stade/parvis.gd"
@@ -228,7 +227,7 @@ func _tableau_affichage() -> void:
 ## M. Castellane, le président, dans son penthouse suspendu sous la roue, derrière son bureau : on monte le voir
 ## par l'ascenseur de verre de la promenade.
 func _le_president() -> void:
-	var P = load(PERSONNAGES)
+	var P = Atelier.personnages()
 	var c: Node3D = P.faire("dealer-businessman", {"Suit": "#0E0C10", "Tie": "#B3121F", "White": "#F3EAD7"})
 	c.position = Vector3(-1.5, 16.5, -24.1)
 	add_child(c)
@@ -248,7 +247,7 @@ func _le_president() -> void:
 
 ## Le voiturier de la station, et le barman de la piscine : les seuls qui restent quand le stade est désert.
 func _figurants() -> void:
-	var P = load(PERSONNAGES)
+	var P = Atelier.personnages()
 	var v: Node3D = P.figurant("voiturier", 3)
 	v.position = Vector3(-1.8, 0, -88.8)
 	add_child(v)

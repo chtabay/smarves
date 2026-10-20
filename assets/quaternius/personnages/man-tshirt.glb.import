@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://bp7j4hbyl86po"
-path="res://.godot/imported/woman-dress.glb-4c0919114892997337c8277b4f3d739c.scn"
+uid="uid://cd0y0pkm2lonr"
+path="res://.godot/imported/man-tshirt.glb-1241e7b5718bed0f736d5462ead1968f.scn"
 
 [deps]
 
-source_file="res://tools/paquet_essai/casino_minuit/personnages/woman-dress.glb"
-dest_files=["res://.godot/imported/woman-dress.glb-4c0919114892997337c8277b4f3d739c.scn"]
+source_file="res://assets/quaternius/personnages/man-tshirt.glb"
+dest_files=["res://.godot/imported/man-tshirt.glb-1241e7b5718bed0f736d5462ead1968f.scn"]
 
 [params]
 

@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://5lfjhh00hqnv"
-path="res://.godot/imported/woman-casual.glb-8f20dc6e419c2bb2bf3f40109dcb7a22.scn"
+uid="uid://dtlpuwyik0jnt"
+path="res://.godot/imported/human31-extra.glb-489567b43a69a7fc7e5a72a9c413739a.scn"
 
 [deps]
 
-source_file="res://tools/paquet_essai/casino_minuit/personnages/woman-casual.glb"
-dest_files=["res://.godot/imported/woman-casual.glb-8f20dc6e419c2bb2bf3f40109dcb7a22.scn"]
+source_file="res://assets/quaternius/personnages/human31-extra.glb"
+dest_files=["res://.godot/imported/human31-extra.glb-489567b43a69a7fc7e5a72a9c413739a.scn"]
 
 [params]
 

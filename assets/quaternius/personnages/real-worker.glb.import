@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://cd0y0pkm2lonr"
-path="res://.godot/imported/man-tshirt.glb-dd6d890f3b6d59e99c5c7b60ab4bd3d8.scn"
+uid="uid://bu1dlcat6jau2"
+path="res://.godot/imported/real-worker.glb-bacb50b0f3780dc606071b837037cae5.scn"
 
 [deps]
 
-source_file="res://tools/paquet_essai/casino_minuit/personnages/man-tshirt.glb"
-dest_files=["res://.godot/imported/man-tshirt.glb-dd6d890f3b6d59e99c5c7b60ab4bd3d8.scn"]
+source_file="res://assets/quaternius/personnages/real-worker.glb"
+dest_files=["res://.godot/imported/real-worker.glb-bacb50b0f3780dc606071b837037cae5.scn"]
 
 [params]
 

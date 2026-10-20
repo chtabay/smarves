@@ -58,7 +58,6 @@ const TAXI := BASE + "stade/taxi.gd"
 const STADE := "stade_fortune"
 ## Le Dôme de Minuit, la salle de basket des Noctambules (basket/dome.gd), qu'on rejoint aussi en taxi.
 const DOME := "dome"
-const SALLE_DOME := BASE + "basket/dome.tscn"
 
 var player: CharacterBody3D
 var camera: Camera3D
@@ -374,11 +373,8 @@ func _dome() -> void:
 	if Game.won < seuil:
 		_dire("Le Dôme de Minuit ouvre à %s crédits gagnés au jeu." % Game.fmt(seuil))
 		return
-	var salle = load("res://scripts/village/salle_basket.gd")
-	salle.prochaine_commune = "casino_minuit"
-	salle.prochain_match = {}
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	Chargement.changer(SALLE_DOME)
+	# Le gymnase du manifeste nomme le Dôme (champ « scene », socle 1.12) : la salle du socle l'ouvre.
+	SalleBasket.ouvrir("casino_minuit")
 
 
 ## Le stade de la Fortune : le taxi vous y conduit au seuil de son lieu (le total gagné au jeu), comme partout.

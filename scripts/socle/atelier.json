@@ -37,6 +37,19 @@
 		"poses": {"idle": "debout", "sit": "assis (terrasse, banc)", "walk": "en promenade sur route (deux points ou plus)"},
 		"tenues": {"village": "les couleurs du Poitou (bleu de travail, brique, moutarde)", "soiree": "tenue de soirée, comme les clients du casino"}
 	},
+	"personnages": {
+		"script": "res://scripts/socle/personnages.gd",
+		"dossier": "res://assets/quaternius/personnages/",
+		"licence": "CC0, Quaternius (Ultimate Modular Men/Women, Ultimate Animated Characters)",
+		"usage": "des personnages 3D animés, plus réalistes que les figurants en ligne claire : clients, croupiers, barmen, vigiles, serveurs, hôtesses, portiers, voituriers, cuisiniers, livreurs, musiciens… Venus de Casino Minuit. Atelier.personnage(rôle, graine) en habille un pour son rôle ; Atelier.personnage_modele(modèle, teintes) pose un modèle précis.",
+		"roles": ["client", "croupier", "barman", "vigile", "serveur", "hotesse", "cuisinier", "plongeur", "agent", "compteur", "livreur",
+			"employe", "portier", "voiturier", "arbitre", "boxeur_rouge", "boxeur_bleu", "musicien", "technicien"],
+		"modeles": ["man-suit", "man-longsleeves", "man-tshirt", "man-blond", "woman-casual", "woman-dress", "woman-tanktop", "woman-punk",
+			"dealer-businessman", "dealer-woman-green", "real-swat", "real-worker", "real-casual-man", "real-casual-woman", "real-hoodie-man",
+			"real-punk-man", "real-punk-woman"],
+		"gestes": {"idle": "debout", "walk": "marche", "sit": "assis", "clap": "applaudit", "talk": "parle", "drink": "boit", "phone": "téléphone",
+			"wave": "salue", "lean": "accoudé", "arms": "bras croisés", "yes": "acquiesce", "sit_talk": "parle assis", "interact": "manipule"}
+	},
 	"meubles": {
 		"script": "res://scripts/meubles.gd",
 		"usage": "les meubles de la brocante de Ginette Boutin, à l'échelle d'un intérieur, pied au sol, face vers +Z",

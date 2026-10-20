@@ -38,9 +38,11 @@ const TYPES := {
 	},
 	# Socle 1.9. Le basket sur les résultats réels (autoload Basket) : un club de la commune, dans une
 	# pyramide de groupes de huit complétés par des figurants ; « nom » est le nom de la salle.
+	# « scene » et « habillage » (socle 1.12) : comme pour le terrain, la salle de la commune tout entière (son
+	# script hérite de scripts/village/salle_basket.gd), ou une scène posée dans la salle du socle.
 	"gymnase": {
 		"nom": "le gymnase",
-		"champs": {"club": TYPE_STRING, "court": TYPE_STRING, "couleurs": TYPE_ARRAY},
+		"champs": {"club": TYPE_STRING, "court": TYPE_STRING, "couleurs": TYPE_ARRAY, "habillage": TYPE_STRING, "scene": TYPE_STRING},
 		"requis": ["club"],
 		"unique": true,
 		"relie": "le championnat de basket de la Vienne : la commune a un club, qui prend la place d'un club figurant dès la journée suivante",
@@ -120,18 +122,19 @@ static func verifier(liste: Variant) -> PackedStringArray:
 		if t in ["terrain_foot", "gymnase"] and s.has("couleurs") and typeof(s.couleurs) == TYPE_ARRAY:
 			if s.couleurs.size() != 2 or s.couleurs.any(func(c): return typeof(c) != TYPE_STRING or not Color.html_is_valid(c)):
 				erreurs.append("structure %s : « couleurs » donne deux couleurs (« #1b3c8c »)" % id)
-		if t == "terrain_foot" and typeof(s.get("habillage")) == TYPE_STRING:
+		if t in ["terrain_foot", "gymnase"] and typeof(s.get("habillage")) == TYPE_STRING:
 			var h: String = s.habillage
 			if not h.begins_with("res://communes/") or not h.ends_with(".tscn"):
 				erreurs.append("structure %s : « habillage » est une scène de la commune (res://communes/<id>/….tscn)" % id)
-		if t == "terrain_foot" and typeof(s.get("scene")) == TYPE_STRING:
+		if t in ["terrain_foot", "gymnase"] and typeof(s.get("scene")) == TYPE_STRING:
 			var sc: String = s.scene
 			if not sc.begins_with("res://communes/") or not sc.ends_with(".tscn"):
 				erreurs.append("structure %s : « scene » est une scène de la commune (res://communes/<id>/….tscn)" % id)
 		if t == "salle_jeu":
 			if typeof(s.get("jeux")) == TYPE_ARRAY:
 				for j in s.jeux:
-					if not str(j) in JEUX:
+					# « <commune>:<nom> » (socle 1.12) : un jeu que la commune inscrit elle-même (Tables.inscrire).
+					if not str(j) in JEUX and not _jeu_de_commune(str(j)):
 						erreurs.append("structure %s : jeu inconnu « %s »" % [id, str(j)])
 			if s.has("decor") and typeof(s.decor) == TYPE_STRING and not s.decor in DECORS:
 				erreurs.append("structure %s : décor inconnu « %s »" % [id, s.decor])
@@ -144,6 +147,12 @@ static func verifier(liste: Variant) -> PackedStringArray:
 
 ## Les structures valides d'une liste, une par une : celles d'une entrée de catalogue, où une faute
 ## ne doit rien empêcher (le portail les a déjà vérifiées ; c'est une ceinture).
+## « cloue:bonneteau » : le nom d'un jeu qu'une commune inscrit (Tables.inscrire), « <commune>:<nom> ».
+static func _jeu_de_commune(j: String) -> bool:
+	var m := j.split(":")
+	return m.size() == 2 and m[0].is_valid_identifier() and m[1].is_valid_identifier() and j == j.to_lower()
+
+
 static func nettoyer(liste: Variant) -> Array:
 	var out := []
 	if typeof(liste) != TYPE_ARRAY:

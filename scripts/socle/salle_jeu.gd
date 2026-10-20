@@ -195,7 +195,7 @@ func _tables(jeux: Array) -> void:
 	var n := jeux.size()
 	for i in n:
 		var jeu := str(jeux[i])
-		if not JEUX.has(jeu):
+		if Tables.fiche(jeu).is_empty():
 			continue
 		var rang := i / COLONNES
 		var dans_le_rang := mini(n - rang * COLONNES, COLONNES)
@@ -209,7 +209,7 @@ func _tables(jeux: Array) -> void:
 		if t:
 			# La lampe de la salle éclaire la table (plus bas) : celle de la table, un projecteur, ne passe pas
 			# partout (le rendu web et mobile en compte peu par objet).
-			e = Tables.EMPRISE[jeu]
+			e = Tables.emprise(jeu)
 			t.with_lamp = false
 			spot.add_child(t)
 			spot.set_meta("table3d", t)
@@ -236,8 +236,8 @@ func _tables(jeux: Array) -> void:
 			_lamp(p + Vector3(0, 2.2, 0.2), Color(1.0, 0.82, 0.55), 1.8, 4.0, i == 0)
 		# L'enseigne de la table, suspendue au-dessus : on lit le jeu en entrant.
 		var haut: float = {"machine": 2.55, "roue": H - 0.35}.get(jeu, 2.15)
-		_label3d(str(JEUX[jeu].titre), p + Vector3(0, haut, 0), 40, Color(1.0, 0.85, 0.6)).shaded = false
-		var a := _interactive(spot, "jeu", "E : %s" % JEUX[jeu].invite, Vector3(maxf(e.x, 1.2) + 0.6, 1.8, e.y + 1.6), Vector3(0, 0.9, 0.5))
+		_label3d(str(Tables.fiche(jeu).titre), p + Vector3(0, haut, 0), 40, Color(1.0, 0.85, 0.6)).shaded = false
+		var a := _interactive(spot, "jeu", "E : %s" % Tables.fiche(jeu).invite, Vector3(maxf(e.x, 1.2) + 0.6, 1.8, e.y + 1.6), Vector3(0, 0.9, 0.5))
 		a.set_meta("jeu", jeu)
 
 
@@ -266,11 +266,14 @@ func _sortir() -> void:
 func open_game() -> void:
 	if _game != null:
 		return
-	var p: PanelContainer = load(JEUX.get(_jeu_ouvert, JEUX.machine).panneau).new()
+	var f := Tables.fiche(_jeu_ouvert)
+	if f.is_empty():
+		f = JEUX.machine
+	var p: PanelContainer = load(f.panneau).new()
 	if "game" in p:
 		p.game = self
 	if "title" in p:
-		p.title = "%s : %s" % [_salle.name, JEUX.get(_jeu_ouvert, JEUX.machine).titre]
+		p.title = "%s : %s" % [_salle.name, f.titre]
 	p.played.connect(_on_played)
 	var t: Node3D = _table_choisie if _table_choisie else _tables3d.get(_jeu_ouvert, null)
 	_table_choisie = null

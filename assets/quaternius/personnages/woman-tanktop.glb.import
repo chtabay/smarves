@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://dvlhm07xr4hvb"
-path="res://.godot/imported/dealer-woman-green.glb-ce770874a4206700843274ad79e15cd8.scn"
+uid="uid://cr4e4iceqbhc2"
+path="res://.godot/imported/woman-tanktop.glb-49281499f3bea2728d1d3abafa8c9844.scn"
 
 [deps]
 
-source_file="res://tools/paquet_essai/casino_minuit/personnages/dealer-woman-green.glb"
-dest_files=["res://.godot/imported/dealer-woman-green.glb-ce770874a4206700843274ad79e15cd8.scn"]
+source_file="res://assets/quaternius/personnages/woman-tanktop.glb"
+dest_files=["res://.godot/imported/woman-tanktop.glb-49281499f3bea2728d1d3abafa8c9844.scn"]
 
 [params]
 

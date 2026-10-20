@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://dtlpuwyik0jnt"
-path="res://.godot/imported/human31-extra.glb-befb39684835e7a16b7fca365bcb98c4.scn"
+uid="uid://yuol5l52pnf2"
+path="res://.godot/imported/man-longsleeves.glb-b0cfad856b887d70bd892cdf9e363aad.scn"
 
 [deps]
 
-source_file="res://tools/paquet_essai/casino_minuit/personnages/human31-extra.glb"
-dest_files=["res://.godot/imported/human31-extra.glb-befb39684835e7a16b7fca365bcb98c4.scn"]
+source_file="res://assets/quaternius/personnages/man-longsleeves.glb"
+dest_files=["res://.godot/imported/man-longsleeves.glb-b0cfad856b887d70bd892cdf9e363aad.scn"]
 
 [params]
 
