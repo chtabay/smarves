@@ -13,6 +13,7 @@ signal bets_changed(bets: Dictionary)
 signal settled(result: String, wins: Dictionary)
 
 const BARRE := preload("res://scripts/jeux/barre.gd")
+const REGLES := preload("res://scripts/jeux/regles.gd")
 
 const CHIPS := [10, 20, 100, 500]
 const ROUE_COUNTS := {"1": 24, "2": 15, "5": 7, "10": 4, "20": 2, "Joker": 1, "Étoile": 1}
@@ -102,6 +103,7 @@ func _ready() -> void:
 	spin_b.text = "Lancer  (Espace)"
 	spin_b.pressed.connect(_spin)
 	controls.add_child(spin_b)
+	controls.add_child(REGLES.bouton(self, "roue", false))
 	var leave := Button.new()
 	leave.text = "Quitter (Échap)"
 	leave.pressed.connect(_leave)
@@ -152,6 +154,7 @@ func _build_bar() -> void:
 	var go := BARRE.main_button("  Lancer la roue  (Espace)  " if mode == "roue" else "  Lancer la boule  (Espace)  ")
 	go.pressed.connect(_spin)
 	h.add_child(go)
+	h.add_child(REGLES.bouton(self, "roue"))
 	var leave := BARRE.pill("Quitter  (Échap)")
 	leave.pressed.connect(_leave)
 	h.add_child(leave)

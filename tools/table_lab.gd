@@ -2,6 +2,7 @@ extends Node3D
 ## Banc d'essai des tables 3D, sans charger tout le casino : une table, la lumière du casino, la
 ## barre de jeu, un coup joué tout seul et des captures à des instants donnés.
 ##   godot --path . res://tools/table_lab.tscn -- --game=roulette --capture=sortie.png --shots=1,4,8 [--croupier]
+## --regles ouvre la fenêtre des règles du jeu au bout de 2 s, par-dessus le coup en cours.
 
 const ROULETTE := preload("res://scripts/roulette_panel.gd")
 const ROULETTE_3D := preload("res://scripts/jeux/roulette_3d.gd")
@@ -22,6 +23,7 @@ const BOULE_3D := preload("res://scripts/jeux/boule_3d.gd")
 const POKER := preload("res://scripts/poker_panel.gd")
 const POKER_3D := preload("res://scripts/jeux/poker_3d.gd")
 const VILLAGER := preload("res://scripts/villager.gd")
+const REGLES := preload("res://scripts/jeux/regles.gd")
 
 var game := "roulette"
 var path := ""
@@ -51,6 +53,10 @@ func _ready() -> void:
 	add_child(eye)
 	eye.look_at_from_position(Vector3(0, 1.7, 3.2), Vector3(0, 0.8, 0))
 	eye.make_current()
+	if "--regles" in OS.get_cmdline_user_args():
+		get_tree().create_timer(2.0).timeout.connect(func():
+			var jeu: String = {"slot": "machine", "hasard": "des", "banco": "baccara", "boule": "roue"}.get(game, game)
+			REGLES.ouvrir(ui.get_child(0), jeu))
 	match game:
 		"roulette":
 			var t := ROULETTE_3D.new()

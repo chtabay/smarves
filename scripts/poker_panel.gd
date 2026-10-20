@@ -16,6 +16,7 @@ signal showdown(winners: Array, show_all: bool, amount: int)
 signal changed
 
 const BARRE := preload("res://scripts/jeux/barre.gd")
+const REGLES := preload("res://scripts/jeux/regles.gd")
 
 ## Les tarifs de la table : les Ambassadeurs par défaut, ceux d'une commune par configurer_blindes().
 var SB := 25
@@ -131,6 +132,7 @@ func _build_panel() -> void:
 	controls.add_child(_raise_label)
 	_buttons["more"] = _button(controls, "+", func(): _adjust_raise(1))
 	_buttons["raise"] = _button(controls, "Relancer", _on_raise)
+	controls.add_child(REGLES.bouton(self, "poker", false))
 	_button(controls, "Quitter (Échap)", _leave)
 
 
@@ -181,6 +183,7 @@ func _build_bar() -> void:
 		_buttons[k[0]].pressed.connect(k[2])
 		h.add_child(_buttons[k[0]])
 	h.add_child(BARRE.separator())
+	h.add_child(REGLES.bouton(self, "poker"))
 	var leave := BARRE.pill("Quitter  (Échap)")
 	leave.pressed.connect(_leave)
 	h.add_child(leave)

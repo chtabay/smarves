@@ -11,6 +11,7 @@ signal bets_changed(bets: Dictionary)
 signal settled(wins: Dictionary, player: int, banker: int)
 
 const BARRE := preload("res://scripts/jeux/barre.gd")
+const REGLES := preload("res://scripts/jeux/regles.gd")
 
 const CHIPS := [100, 500, 1000, 5000]
 const SUITS := ["♠", "♥", "♦", "♣"]
@@ -98,6 +99,7 @@ func _ready() -> void:
 	deal.text = "Les cartes  (Espace)"
 	deal.pressed.connect(_deal)
 	controls.add_child(deal)
+	controls.add_child(REGLES.bouton(self, "baccara", false))
 	var leave := Button.new()
 	leave.text = "Quitter (Échap)"
 	leave.pressed.connect(_leave)
@@ -135,6 +137,7 @@ func _build_bar() -> void:
 	var deal := BARRE.main_button("  Les cartes  (Espace)  ")
 	deal.pressed.connect(_deal)
 	h.add_child(deal)
+	h.add_child(REGLES.bouton(self, "baccara"))
 	var leave := BARRE.pill("Quitter  (Échap)")
 	leave.pressed.connect(_leave)
 	h.add_child(leave)
