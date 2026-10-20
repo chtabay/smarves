@@ -28,6 +28,8 @@ const SEMAINES_PAR_SAISON := 16
 const TAILLE := 8
 const DESCENDENT := 2
 const EFFECTIF := 10
+## Au tirage du début de saison, les joueurs pris en haut du classement des notes ; les autres au milieu.
+const ETOILES := 2
 const FICHIER := "basket.json"
 const NOMS_FIGURANTS := ["Basket-club %s", "Union basket %s", "Avenir basket %s", "Étoile basket %s",
 	"Cercle basket %s", "Entente basket %s", "Espérance basket %s", "Jeunesse basket %s"]
@@ -35,6 +37,13 @@ const COULEURS := [["#14213d", "#d4a93a"], ["#7a1e2c", "#f4f1ea"], ["#0f5c4d", "
 	["#3d2c5c", "#f0c987"], ["#b4471f", "#1d1d1d"], ["#1d1d1d", "#e85d04"], ["#2d6a4f", "#ffffff"]]
 ## La commune de référence pour choisir les figurants les plus proches : Smarves, la même pour tous.
 const ORIGINE_INSEE := "86263"
+## L'argent du club : la masse salariale par journée qu'aucun club ne dépasse, la recette d'une journée
+## (×0,7 à ×1,4 selon le classement), les neuf obligations (comme au football) et leur reprise.
+const PLAFOND := 900
+const RECETTE := 3000
+const OBLIGATIONS := [500, 1000, 1500, 2250, 3000, 4000, 5000, 6250, 7500]
+const TOTAL := 31000
+const RACHAT := 0.8
 
 ## Les clubs inscrits (un gymnase au registre) : id de la commune -> {nom, court, couleurs, commune, salle}.
 var clubs := {}
@@ -52,6 +61,20 @@ var cliches := {}
 var _horloge := Callable()
 var source_gymnases := Callable()
 var _matchs := {}
+var _marches := {}
+## Le bureau lu au serveur (smarves_basket_bureau) : obligations [{club, rang, par, moi}], encheres [{saison,
+## journee, groupe, joueur, club, montant, par, moi, quand}], liberations [{saison, journee, club, joueur}],
+## consignes [{saison, journee, club, consigne}].
+var bureau := {"obligations": [], "encheres": [], "liberations": [], "consignes": []}
+## Les obligations prises (true) ou rendues (false) ici que le serveur ne sait pas encore : club -> {rang: bool}.
+var a_declarer := {}
+## Les mises retenues sur les crédits, par lot « saison/journée/niveau/groupe/joueur ».
+var retenues := {}
+## La dernière journée dont le dividende est versé, club -> {s, j} ; et tout ce qui a été versé.
+var dividendes := {}
+var dividendes_total := 0
+## Remplaçable par les tests : l'appel au serveur, (fonction, corps) -> {code, corps}.
+var appel := Callable()
 
 
 func _ready() -> void:
@@ -61,6 +84,7 @@ func _ready() -> void:
 	Registre.change.connect(actualiser)
 	actualiser()
 	telecharger.call_deferred()
+	lire.call_deferred()
 
 
 # ---------------------------------------------------------------- le calendrier
@@ -139,7 +163,7 @@ func actualiser() -> void:
 	if _tirer_effectifs():
 		bouge = true
 	if bouge:
-		_matchs.clear()
+		_oublier()
 		sauver()
 		change.emit()
 
@@ -239,9 +263,11 @@ func place_de(club: String) -> Array:
 
 ## Les effectifs de la saison, tirés au serpent dans chaque groupe à partir du cliché de sa première
 ## journée : chaque groupe a son propre vivier, si bien qu'un joueur réel n'est qu'à un club par groupe.
-## Rien à tirer tant qu'aucun cliché n'est gardé.
+## Chaque club reçoit deux joueurs du haut du classement des notes et huit du milieu : sa masse salariale
+## tient sous le plafond (PLAFOND), et le marché garde de bons joueurs libres. Rien à tirer tant que ce
+## cliché-là n'est pas gardé (un autre donnerait d'autres effectifs que chez les voisins).
 func _tirer_effectifs() -> bool:
-	var c := cliche(id_cliche(saison, 1))
+	var c: Dictionary = cliches.get(id_cliche(saison, 1), {})
 	if c.is_empty():
 		return false
 	var bouge := false
@@ -250,21 +276,26 @@ func _tirer_effectifs() -> bool:
 		var na: int = c.joueurs[a].note
 		var nb: int = c.joueurs[b].note
 		return na > nb if na != nb else a < b)
+	var haut := tous.slice(0, TAILLE * ETOILES * 2)
+	var milieu_debut := int(tous.size() * 0.3)
+	var milieu := tous.slice(milieu_debut, milieu_debut + TAILLE * (EFFECTIF - ETOILES) * 2)
 	for n in niveaux.size():
 		for g in niveaux[n].size():
 			if effectifs.has("%d/%d/0" % [n, g]):
 				continue
-			# Le vivier du groupe, mélangé par sa graine, puis trié par note : deux groupes n'ont pas les
-			# mêmes joueurs aux mêmes places, mais chacun tire équitablement.
+			# Le vivier du groupe, mélangé par sa graine : deux groupes n'ont pas les mêmes joueurs aux mêmes
+			# places, mais chacun tire équitablement.
 			var h := Hasard.depuis(Hasard.graine("basket/effectifs/%d/%d/%d" % [saison, n, g]))
 			var ordre := h.melanger(range(TAILLE))
-			var vivier := tous.slice(0, TAILLE * EFFECTIF * 2)
 			for p in TAILLE:
 				effectifs["%d/%d/%d" % [n, g, p]] = []
 			for r in EFFECTIF:
+				var vivier: Array = haut if r < ETOILES else milieu
+				var tour: int = r if r < ETOILES else r - ETOILES
 				for k in TAILLE:
 					var p: int = ordre[k if r % 2 == 0 else TAILLE - 1 - k]
-					effectifs["%d/%d/%d" % [n, g, p]].append(vivier[(r * TAILLE + k) * 2 + (h.entier(0, 1))])
+					var i: int = mini((tour * TAILLE + k) * 2 + h.entier(0, 1), vivier.size() - 1)
+					effectifs["%d/%d/%d" % [n, g, p]].append(vivier[i])
 			bouge = true
 	return bouge
 
@@ -274,7 +305,8 @@ func _tirer_effectifs() -> bool:
 func equipe(s: int, n: int, g: int, p: int, j: int) -> Dictionary:
 	var c := cliche(id_cliche(s, j))
 	var joueurs: Array = []
-	for code in effectifs.get("%d/%d/%d" % [n, g, p], []):
+	for e in effectif(s, n, g, p, j):
+		var code: String = e.code
 		var f: Dictionary = c.get("joueurs", {}).get(code, {})
 		if f.is_empty():
 			joueurs.append({"code": code, "nom": code, "note": 1, "profil": [1, 1, 1, 1, 1], "dispo": false})
@@ -282,7 +314,7 @@ func equipe(s: int, n: int, g: int, p: int, j: int) -> Dictionary:
 			joueurs.append({"code": code, "nom": f.nom, "note": int(f.note), "profil": f.profil, "dispo": bool(f.dispo),
 				"club": f.club, "forme": int(f.get("forme", 0)), "derniere": f.get("derniere", {})})
 	var qui := titulaire(n, g, p, j)
-	return {"nom": fiche(qui).nom, "club": qui, "joueurs": joueurs, "consigne": "titulaires"}
+	return {"nom": fiche(qui).nom, "club": qui, "joueurs": joueurs, "consigne": consigne_de(s, j, qui)}
 
 
 # ---------------------------------------------------------------- le calendrier et les résultats
@@ -373,6 +405,551 @@ func clore_saison() -> void:
 				groupe.append([[0, club]])
 			niveaux[n][g] = groupe
 	effectifs = {}
+	_oublier()
+
+
+# ---------------------------------------------------------------- le marché des vrais joueurs
+
+## Le salaire d'un joueur par journée, d'après sa note au moment où le club le prend, et fixé pour la saison :
+## il croît vite avec la note (une étoile à 85 coûte trois fois un joueur moyen à 55).
+static func salaire_de(note: int) -> int:
+	return maxi(10, int(round(pow(float(note), 3.0) / 40000.0)) * 10)
+
+
+## Le prix de départ d'un joueur libre au marché : huit journées de son salaire.
+static func prix_de(note: int) -> int:
+	return maxi(50, salaire_de(note) * 8)
+
+
+## Le surplus minimum sur une offre : 2 %, au moins 10 crédits, à la dizaine supérieure (le même calcul
+## que le serveur, en entiers).
+static func pas(x: int) -> int:
+	return maxi(10, ((x + 499) / 500) * 10)
+
+
+## La clôture des enchères qui servent à la journée j : le jeudi d'avant à 22 h, avant le cliché du vendredi.
+static func cloture(s: int, j: int) -> int:
+	return coup_envoi(s, j) - 46 * 3600
+
+
+## La journée dont le marché est ouvert (la prochaine clôture), ou 0 quand la saison n'en a plus. La
+## journée 1 n'en a pas : les effectifs se tirent avec le cliché de la veille.
+func journee_du_marche() -> int:
+	for j in range(2, JOURNEES + 1):
+		if maintenant() < cloture(saison, j):
+			return j
+	return 0
+
+
+## Les effectifs d'un groupe à la journée j, marché compris : {effectifs: [[{code, salaire, depuis}] × 8],
+## liberes: [[{code, salaire}] × 8], ventes: [{code, club, place, montant, par, moi}]}. Le tirage de la
+## saison, puis, avant chaque journée close, les joueurs libérés et les enchères : la plus grosse enchère
+## d'abord, et pour chacune la meilleure offre d'un club du groupe qui a encore une place et la masse
+## salariale pour le salaire. Les mêmes offres donnent les mêmes effectifs chez tout le monde.
+func marche_du_groupe(s: int, n: int, g: int, j: int) -> Dictionary:
+	var cle := "%d/%d/%d/%d" % [s, n, g, j]
+	if _marches.has(cle):
+		return _marches[cle]
+	var m: Dictionary
+	if j <= 1 or s != saison:
+		m = {"effectifs": [], "liberes": [], "ventes": []}
+		var c: Dictionary = cliches.get(id_cliche(s, 1), {})
+		for p in TAILLE:
+			var e: Array = []
+			for code in effectifs.get("%d/%d/%d" % [n, g, p], []) if s == saison else []:
+				e.append({"code": code, "salaire": salaire_de(int(c.get("joueurs", {}).get(code, {}).get("note", 1))), "depuis": 1})
+			m.effectifs.append(e)
+			m.liberes.append([])
+	else:
+		var avant: Dictionary = marche_du_groupe(s, n, g, j - 1)
+		m = {"effectifs": [], "liberes": [], "ventes": []}
+		for p in TAILLE:
+			m.effectifs.append((avant.effectifs[p] as Array).duplicate(true))
+			m.liberes.append((avant.liberes[p] as Array).duplicate(true))
+		if maintenant() >= cloture(s, j):
+			_clore_marche(m, s, n, g, j)
+	_marches[cle] = m
+	return m
+
+
+func _clore_marche(m: Dictionary, s: int, n: int, g: int, j: int) -> void:
+	var place_du := {}
+	for p in TAILLE:
+		place_du[titulaire(n, g, p, j)] = p
+	for l in bureau.liberations:
+		if int(l.saison) != s or int(l.journee) != j or not place_du.has(str(l.club)):
+			continue
+		var p: int = place_du[str(l.club)]
+		for e in m.effectifs[p]:
+			if e.code == str(l.joueur):
+				m.effectifs[p].erase(e)
+				m.liberes[p].append({"code": e.code, "salaire": int(e.salaire)})
+				break
+	var pris := {}
+	for p in TAILLE:
+		for e in m.effectifs[p]:
+			pris[e.code] = true
+	var groupe := "%d-%d" % [n, g]
+	var lots := {}
+	for o in bureau.encheres:
+		if int(o.saison) == s and int(o.journee) == j and str(o.groupe) == groupe and not pris.has(str(o.joueur)):
+			if not lots.has(str(o.joueur)):
+				lots[str(o.joueur)] = []
+			lots[str(o.joueur)].append(o)
+	var ordre: Array = lots.keys()
+	for code in ordre:
+		lots[code].sort_custom(func(a, b): return int(a.montant) > int(b.montant) if int(a.montant) != int(b.montant) else str(a.quand) < str(b.quand))
+	ordre.sort_custom(func(a, b):
+		var ma: int = lots[a][0].montant
+		var mb: int = lots[b][0].montant
+		return ma > mb if ma != mb else a < b)
+	var vente := cliche(id_cliche(s, j - 1))
+	for code in ordre:
+		var note := int(vente.get("joueurs", {}).get(code, {}).get("note", 0))
+		if note <= 0:
+			continue
+		var salaire := salaire_de(note)
+		for o in lots[code]:
+			if int(o.montant) < prix_de(note):
+				break
+			if not place_du.has(str(o.club)) or str(o.club).begins_with("fig/"):
+				continue
+			var p: int = place_du[str(o.club)]
+			if (m.effectifs[p] as Array).size() >= EFFECTIF or _masse(m, p) + salaire > PLAFOND:
+				continue
+			m.effectifs[p].append({"code": code, "salaire": salaire, "depuis": j})
+			m.ventes.append({"code": code, "club": str(o.club), "place": p, "montant": int(o.montant), "par": str(o.get("par", "")), "moi": bool(o.get("moi", false))})
+			break
+
+
+static func _masse(m: Dictionary, p: int) -> int:
+	var t := 0
+	for e in m.effectifs[p]:
+		t += int(e.salaire)
+	for e in m.liberes[p]:
+		t += int(e.salaire) / 2
+	return t
+
+
+## L'effectif d'une place à la journée j : [{code, salaire, depuis}].
+func effectif(s: int, n: int, g: int, p: int, j: int) -> Array:
+	return marche_du_groupe(s, n, g, j).effectifs[p]
+
+
+## Ce qu'un club paie par journée à la journée j : ses joueurs, et la moitié du salaire de ceux qu'il a libérés.
+func masse_salariale(club: String, j := -1) -> int:
+	var ici := place_de(club)
+	if ici.is_empty():
+		return 0
+	if j < 0:
+		j = maxi(1, journee_jouee())
+	return _masse(marche_du_groupe(saison, ici[0], ici[1], j), ici[2])
+
+
+## Les joueurs libres du groupe d'un club pour le marché ouvert : [{code, nom, club, comp, poste, note, forme,
+## prix, salaire, offre, meneur, moi}], les meilleures notes d'abord. « offre » est la meilleure offre posée.
+func joueurs_libres(club: String) -> Array:
+	var ici := place_de(club)
+	var j := journee_du_marche()
+	if ici.is_empty() or j == 0:
+		return []
+	var m := marche_du_groupe(saison, ici[0], ici[1], j - 1)
+	var pris := {}
+	for p in TAILLE:
+		for e in m.effectifs[p]:
+			pris[e.code] = true
+	var c := cliche(id_cliche(saison, j - 1))
+	var out: Array = []
+	for code in c.get("joueurs", {}):
+		if pris.has(code):
+			continue
+		var f: Dictionary = c.joueurs[code]
+		var lot := offres_du_lot(saison, j, ici[0], ici[1], code)
+		var tete: Dictionary = lot[0] if not lot.is_empty() else {}
+		out.append({"code": code, "nom": f.nom, "club": f.club, "comp": f.get("comp", ""), "poste": f.get("poste", ""),
+			"note": int(f.note), "forme": int(f.get("forme", 0)), "derniere": f.get("derniere", {}), "prix": prix_de(int(f.note)),
+			"salaire": salaire_de(int(f.note)), "offre": int(tete.get("montant", 0)), "meneur": str(tete.get("club", "")), "moi": bool(tete.get("moi", false))})
+	out.sort_custom(func(a, b): return a.note > b.note if a.note != b.note else a.code < b.code)
+	return out
+
+
+## Les offres posées sur un joueur pour la journée j dans un groupe, la meilleure d'abord.
+func offres_du_lot(s: int, j: int, n: int, g: int, code: String) -> Array:
+	var groupe := "%d-%d" % [n, g]
+	var out: Array = bureau.encheres.filter(func(o): return int(o.saison) == s and int(o.journee) == j and str(o.groupe) == groupe and str(o.joueur) == code)
+	out.sort_custom(func(a, b): return int(a.montant) > int(b.montant) if int(a.montant) != int(b.montant) else str(a.quand) < str(b.quand))
+	return out
+
+
+## La consigne d'un club pour la journée j : celle posée pour j, sinon la dernière d'avant dans la saison,
+## sinon « titulaires ».
+func consigne_de(s: int, j: int, club: String) -> String:
+	var meilleure := 0
+	var quoi := "titulaires"
+	for c in bureau.consignes:
+		if int(c.saison) == s and str(c.club) == club and int(c.journee) <= j and int(c.journee) > meilleure:
+			meilleure = int(c.journee)
+			quoi = str(c.consigne)
+	return quoi
+
+
+# ---------------------------------------------------------------- les obligations du club
+
+## La valeur d'une obligation, par son rang (1 à 9) ; les neuf font TOTAL.
+static func valeur(rang: int) -> int:
+	return int(OBLIGATIONS[clampi(rang, 1, OBLIGATIONS.size()) - 1])
+
+
+## Qui tient une obligation : {nom, moi}, ou {} si elle est libre. Ce qu'on vient de faire ici compte avant
+## que le serveur le sache.
+func porteur(club: String, rang: int) -> Dictionary:
+	var attente = (a_declarer.get(club, {}) as Dictionary).get(str(rang))
+	if attente != null:
+		return {"nom": "vous", "moi": true} if bool(attente) else {}
+	for o in bureau.obligations:
+		if str(o.club) == club and int(o.rang) == rang:
+			return {"nom": "vous" if bool(o.get("moi", false)) else str(o.get("par", "")), "moi": bool(o.get("moi", false))}
+	return {}
+
+
+func mes_obligations(club: String) -> Array:
+	var out: Array = []
+	for r in range(OBLIGATIONS.size(), 0, -1):
+		if bool(porteur(club, r).get("moi", false)):
+			out.append(r)
+	return out
+
+
+## Les porteurs d'un club, la plus grosse somme d'abord : [{nom, investi, rangs, moi}]. À égalité, soi d'abord.
+func actionnaires(club: String) -> Array:
+	var par_nom := {}
+	for r in range(1, OBLIGATIONS.size() + 1):
+		var p := porteur(club, r)
+		if p.is_empty():
+			continue
+		if not par_nom.has(p.nom):
+			par_nom[p.nom] = {"nom": p.nom, "investi": 0, "rangs": [], "moi": bool(p.moi)}
+		par_nom[p.nom].investi += valeur(r)
+		par_nom[p.nom].rangs.append(r)
+	var out: Array = par_nom.values()
+	out.sort_custom(func(x, y): return x.investi > y.investi if x.investi != y.investi else (x.moi and not y.moi))
+	return out
+
+
+func investi(club: String) -> int:
+	var t := 0
+	for r in mes_obligations(club):
+		t += valeur(r)
+	return t
+
+
+## Qui dirige le club (le mercato, la consigne) : sans porteur, tout le monde ; sinon la plus grosse somme
+## investie, et chacun à égalité. Le serveur en juge de même (basket.dirige).
+func peut_decider(club: String) -> bool:
+	var a := actionnaires(club)
+	return a.is_empty() or investi(club) >= int(a[0].investi)
+
+
+func phrase_actionnaires(club: String) -> String:
+	var a := actionnaires(club)
+	if a.is_empty():
+		return "Personne ne tient d'obligation du club : le bureau est ouvert à tous."
+	var morceaux: Array = []
+	for x in a:
+		morceaux.append("%s %s" % ["vous" if x.moi else x.nom, Game.fmt(int(x.investi))])
+	var qui := "c'est vous qui dirigez le club" if peut_decider(club) else "c'est %s qui dirige le club" % a[0].nom
+	return "Au capital : %s crédits ; %s." % [", ".join(morceaux), qui]
+
+
+## Ce que le classement fait à la recette : ×1,4 en tête, ×0,7 en queue, ×1 tant que rien n'est joué.
+func recette_facteur(club: String, j := -1) -> float:
+	var ici := place_de(club)
+	if j < 0:
+		j = journee_jouee()
+	if ici.is_empty() or j <= 0:
+		return 1.0
+	var cl := classement(saison, ici[0], ici[1], j)
+	for i in cl.size():
+		if cl[i].club == club:
+			return 0.7 + 0.7 * float(TAILLE - 1 - i) / float(TAILLE - 1)
+	return 1.0
+
+
+## Le dividende d'une obligation pour la journée j : la recette du club (RECETTE, selon le classement), moins
+## ses salaires, partagée au prorata de la valeur de l'obligation sur les neuf.
+func dividende(club: String, rang: int, j: int) -> int:
+	var benefice := RECETTE * recette_facteur(club, j) - masse_salariale(club, j)
+	return int(round(maxf(0.0, benefice) * valeur(rang) / float(TOTAL)))
+
+
+## Prend une obligation libre, de ses crédits : {ok: true} ou {ok: false, raison} « club », « prise »,
+## « credits ». Elle vaut tout de suite ici et part au serveur, qui a le dernier mot.
+func prendre(club: String, rang: int) -> Dictionary:
+	if not clubs.has(club) or rang < 1 or rang > OBLIGATIONS.size():
+		return {"ok": false, "raison": "club"}
+	if not porteur(club, rang).is_empty():
+		return {"ok": false, "raison": "prise"}
+	if Game.credits < valeur(rang):
+		return {"ok": false, "raison": "credits"}
+	Game.credits -= valeur(rang)
+	Game.changed.emit()
+	if not dividendes.has(club):
+		dividendes[club] = {"s": saison, "j": journee_jouee()}
+	_declarer(club, rang, true)
+	return {"ok": true}
+
+
+## Rend une obligation, reprise à RACHAT de sa valeur : {ok: true, montant} ou {ok: false, raison: « absente »}.
+func rendre(club: String, rang: int) -> Dictionary:
+	if not mes_obligations(club).has(rang):
+		return {"ok": false, "raison": "absente"}
+	var montant := int(round(valeur(rang) * RACHAT))
+	Game.credits += montant
+	Game.changed.emit()
+	_declarer(club, rang, false)
+	return {"ok": true, "montant": montant}
+
+
+func _declarer(club: String, rang: int, prise: bool) -> void:
+	if not a_declarer.has(club):
+		a_declarer[club] = {}
+	a_declarer[club][str(rang)] = prise
+	sauver()
+	change.emit()
+	envoyer()
+
+
+## Les dividendes que les journées jouées depuis le dernier versement doivent aux obligations d'ici :
+## [{club, j, montant}].
+func dividendes_dus() -> Array:
+	var out: Array = []
+	for club in clubs:
+		var rangs := mes_obligations(club)
+		if rangs.is_empty():
+			continue
+		var marque: Dictionary = dividendes.get(club, {"s": saison, "j": journee_jouee()})
+		var depuis: int = int(marque.j) if int(marque.s) == saison else 0
+		for j in range(depuis + 1, journee_jouee() + 1):
+			var t := 0
+			for r in rangs:
+				t += dividende(club, r, j)
+			out.append({"club": club, "j": j, "montant": t})
+	return out
+
+
+func verser_dividendes() -> int:
+	var t := 0
+	for d in dividendes_dus():
+		t += int(d.montant)
+		dividendes[d.club] = {"s": saison, "j": int(d.j)}
+	if t > 0:
+		Game.credits += t
+		dividendes_total += t
+		Game.changed.emit()
+	sauver()
+	return t
+
+
+# ---------------------------------------------------------------- les actes du bureau
+
+## Ce qui empêche le bureau d'agir pour un club, ou « » : « compte » (pas connecté), « parts » (un autre
+## dirige), « club » (pas au championnat).
+func refus_bureau(club: String) -> String:
+	if place_de(club).is_empty() or not clubs.has(club):
+		return "club"
+	if not connecte():
+		return "compte"
+	if not peut_decider(club):
+		return "parts"
+	return ""
+
+
+## Enchérit sur un joueur libre pour la journée du marché : {ok: true} ou {ok: false, raison} « compte »,
+## « parts », « club », « ferme », « pris », « bas », « credits », « reseau ».
+func encherir(club: String, code: String, montant: int) -> Dictionary:
+	var raison := refus_bureau(club)
+	var j := journee_du_marche()
+	if raison == "" and j == 0:
+		raison = "ferme"
+	var libre: Array = joueurs_libres(club).filter(func(x): return x.code == code) if raison == "" else []
+	if raison == "" and libre.is_empty():
+		raison = "pris"
+	if raison == "":
+		var mini_ := maxi(int(libre[0].prix), int(libre[0].offre) + pas(int(libre[0].offre)) if int(libre[0].offre) > 0 else 0)
+		if montant < mini_:
+			raison = "bas"
+	var ici := place_de(club)
+	var lot := "%d/%d/%d/%d/%s" % [saison, j, ici[0] if not ici.is_empty() else 0, ici[1] if not ici.is_empty() else 0, code]
+	if raison == "" and Game.credits + int(retenues.get(lot, 0)) < montant:
+		raison = "credits"
+	if raison != "":
+		return {"ok": false, "raison": raison}
+	var r: Dictionary = await _appeler("smarves_basket_encherir", {"p_saison": saison, "p_journee": j, "p_groupe": "%d-%d" % [ici[0], ici[1]],
+		"p_joueur": code, "p_club": club, "p_montant": montant})
+	if r.code != 200 or not r.corps is Dictionary:
+		return {"ok": false, "raison": "reseau"}
+	if not bool(r.corps.get("ok", false)):
+		lire()
+		return {"ok": false, "raison": str(r.corps.get("raison", "compte"))}
+	bureau.encheres.append({"saison": saison, "journee": j, "groupe": "%d-%d" % [ici[0], ici[1]], "joueur": code, "club": club,
+		"montant": montant, "par": "vous", "moi": true, "quand": str(r.corps.get("quand", "9999"))})
+	Game.credits -= montant - int(retenues.get(lot, 0))
+	retenues[lot] = montant
+	Game.changed.emit()
+	_oublier()
+	sauver()
+	change.emit()
+	return {"ok": true}
+
+
+## Libère un joueur de l'effectif à la prochaine clôture : il compte encore pour la moitié de son salaire
+## jusqu'à la fin de la saison. {ok: true} ou {ok: false, raison} « compte », « parts », « club », « ferme »,
+## « absent », « reseau ».
+func liberer(club: String, code: String) -> Dictionary:
+	var raison := refus_bureau(club)
+	var j := journee_du_marche()
+	if raison == "" and j == 0:
+		raison = "ferme"
+	if raison == "":
+		var ici := place_de(club)
+		if not effectif(saison, ici[0], ici[1], ici[2], j - 1).any(func(e): return e.code == code):
+			raison = "absent"
+	if raison != "":
+		return {"ok": false, "raison": raison}
+	var r: Dictionary = await _appeler("smarves_basket_liberer", {"p_saison": saison, "p_journee": j, "p_club": club, "p_joueur": code})
+	if r.code != 200 or not r.corps is Dictionary:
+		return {"ok": false, "raison": "reseau"}
+	if not bool(r.corps.get("ok", false)):
+		lire()
+		return {"ok": false, "raison": str(r.corps.get("raison", "compte"))}
+	bureau.liberations.append({"saison": saison, "journee": j, "club": club, "joueur": code})
+	_oublier()
+	sauver()
+	change.emit()
+	return {"ok": true}
+
+
+## Les joueurs que le club libère à la prochaine clôture.
+func liberations_prevues(club: String) -> Array:
+	var j := journee_du_marche()
+	return bureau.liberations.filter(func(l): return int(l.saison) == saison and int(l.journee) == j and str(l.club) == club).map(func(l): return str(l.joueur))
+
+
+## Pose la consigne du prochain match (« titulaires » ou « rotation ») : {ok: true} ou {ok: false, raison}.
+func poser_consigne(club: String, consigne: String) -> Dictionary:
+	var raison := refus_bureau(club)
+	var j := mini(journee_jouee() + 1, JOURNEES)
+	if raison == "" and (not consigne in ["titulaires", "rotation"] or maintenant() >= coup_envoi(saison, j)):
+		raison = "ferme"
+	if raison != "":
+		return {"ok": false, "raison": raison}
+	var r: Dictionary = await _appeler("smarves_basket_consigne", {"p_saison": saison, "p_journee": j, "p_club": club, "p_consigne": consigne})
+	if r.code != 200 or not r.corps is Dictionary:
+		return {"ok": false, "raison": "reseau"}
+	if not bool(r.corps.get("ok", false)):
+		return {"ok": false, "raison": str(r.corps.get("raison", "compte"))}
+	bureau.consignes = bureau.consignes.filter(func(c): return not (int(c.saison) == saison and int(c.journee) == j and str(c.club) == club))
+	bureau.consignes.append({"saison": saison, "journee": j, "club": club, "consigne": consigne})
+	_oublier()
+	sauver()
+	change.emit()
+	return {"ok": true}
+
+
+# ---------------------------------------------------------------- le serveur du bureau
+
+func _compte() -> Node:
+	return get_node_or_null("/root/Compte")
+
+
+func connecte() -> bool:
+	if appel.is_valid():
+		return true
+	var c := _compte()
+	return c != null and c.connecte()
+
+
+func _appeler(fonction: String, corps: Dictionary) -> Dictionary:
+	if appel.is_valid():
+		return await appel.call(fonction, corps)
+	var c := _compte()
+	if c == null:
+		return {"code": 0, "corps": null}
+	return await c.appeler(fonction, corps)
+
+
+## Relit le bureau au serveur (public : les obligations, les offres, les libérations, les consignes de tous
+## les clubs), puis déclare les obligations d'ici qu'il ne sait pas encore.
+func lire() -> void:
+	if not appel.is_valid() and (get_tree().get_script() != null or "--capture" in " ".join(OS.get_cmdline_user_args()) or _compte() == null):
+		return
+	var r: Dictionary = await _appeler("smarves_basket_bureau", {"p_saison": saison})
+	if r.code == 200 and r.corps is Dictionary:
+		appliquer(r.corps)
+		envoyer()
+
+
+## L'état lu au serveur remplace ce qu'on en savait ; puis les mises se règlent.
+func appliquer(corps: Dictionary) -> void:
+	for k in ["obligations", "encheres", "liberations", "consignes"]:
+		bureau[k] = (corps.get(k, []) as Array).filter(func(x): return x is Dictionary)
+	_oublier()
+	_regler()
+	sauver()
+	change.emit()
+
+
+## Dit au serveur les obligations prises et rendues ici. Une prise qu'il refuse (un autre l'a eue avant)
+## est remboursée.
+func envoyer() -> void:
+	if not connecte() or (not appel.is_valid() and get_tree().get_script() != null):
+		return
+	for club in a_declarer.keys():
+		for rang in (a_declarer[club] as Dictionary).keys():
+			var prise: bool = a_declarer[club][rang]
+			var r: Dictionary = await _appeler("smarves_basket_obligation_prendre" if prise else "smarves_basket_obligation_rendre", {"p_club": club, "p_rang": int(rang)})
+			if r.code != 200 or not r.corps is Dictionary or r.corps.has("erreur"):
+				continue
+			if prise and not bool(r.corps.get("ok", false)) and str(r.corps.get("raison", "")) == "prise":
+				Game.credits += valeur(int(rang))
+				Game.changed.emit()
+			bureau.obligations = bureau.obligations.filter(func(o): return not (str(o.club) == club and int(o.rang) == int(rang) and bool(o.get("moi", false))))
+			if prise and bool(r.corps.get("ok", false)):
+				bureau.obligations.append({"club": club, "rang": int(rang), "par": "vous", "moi": true})
+			a_declarer[club].erase(rang)
+			if a_declarer[club].is_empty():
+				a_declarer.erase(club)
+	sauver()
+	change.emit()
+
+
+## Les mises retenues se règlent : rendue quand une meilleure offre passe devant ou que le joueur va
+## ailleurs à la clôture ; gardée (le joueur est payé) quand on l'emporte.
+func _regler() -> void:
+	for lot in retenues.keys():
+		var morceaux: PackedStringArray = lot.split("/")
+		var s := int(morceaux[0])
+		var j := int(morceaux[1])
+		var n := int(morceaux[2])
+		var g := int(morceaux[3])
+		var code := morceaux[4]
+		var montant := int(retenues[lot])
+		var offres := offres_du_lot(s, j, n, g, code)
+		var en_tete: bool = not offres.is_empty() and bool(offres[0].get("moi", false)) and int(offres[0].montant) == montant
+		if s != saison or maintenant() >= cloture(s, j):
+			var gagne: bool = s == saison and n < niveaux.size() and g < niveaux[n].size() and \
+				(marche_du_groupe(s, n, g, j).ventes as Array).any(func(v): return v.code == code and bool(v.moi) and int(v.montant) == montant)
+			if not gagne:
+				Game.credits += montant
+			retenues.erase(lot)
+		elif not en_tete:
+			Game.credits += montant
+			retenues.erase(lot)
+	Game.changed.emit()
+
+
+func _oublier() -> void:
+	_marches.clear()
 	_matchs.clear()
 
 
@@ -421,20 +998,36 @@ func ouvrir_salle(commune: String) -> void:
 
 # ---------------------------------------------------------------- les clichés et la sauvegarde
 
-## Va chercher au serveur les clichés qui manquent, du premier de la saison au dernier publié.
+## Va chercher au serveur les clichés qui manquent : le dernier publié, puis ceux des vendredis de la
+## saison qui ne sont pas gardés (le tirage, les matchs et le marché veulent chacun le leur exactement).
 func telecharger() -> void:
+	var dernier := await _lire_cliche("dernier")
+	if dernier.is_empty():
+		return
+	for j in range(1, JOURNEES + 1):
+		var id := id_cliche(saison, j)
+		if id >= str(dernier.id):
+			break
+		if not cliches.has(id):
+			await _lire_cliche(id)
+
+
+func _lire_cliche(id: String) -> Dictionary:
 	var http := HTTPRequest.new()
 	add_child(http)
-	if http.request(SERVEUR + "?cliche=dernier") != OK:
+	if http.request(SERVEUR + "?cliche=" + id) != OK:
 		http.queue_free()
-		return
+		return {}
 	var r: Array = await http.request_completed
 	http.queue_free()
 	if r[0] != HTTPRequest.RESULT_SUCCESS or r[1] != 200:
-		return
+		return {}
 	var c = JSON.parse_string((r[3] as PackedByteArray).get_string_from_utf8())
-	if c is Dictionary and c.has("id") and c.has("joueurs") and not cliches.has(c.id):
+	if not (c is Dictionary and c.has("id") and c.has("joueurs")):
+		return {}
+	if not cliches.has(str(c.id)):
 		garder(c)
+	return c
 
 
 ## Garde un cliché sur l'appareil, et remet la pyramide au jour.
@@ -442,7 +1035,7 @@ func garder(c: Dictionary) -> void:
 	cliches[str(c.id)] = c
 	if dossier != "":
 		Portail.ecrire(dossier.path_join("basket/%s.json" % c.id), JSON.stringify(c))
-	_matchs.clear()
+	_oublier()
 	actualiser()
 	change.emit()
 
@@ -457,6 +1050,11 @@ func charger() -> void:
 		clubs = lu.get("clubs", {})
 		effectifs = lu.get("effectifs", {})
 		historique = lu.get("historique", [])
+		bureau = lu.get("bureau", bureau)
+		a_declarer = lu.get("a_declarer", {})
+		retenues = lu.get("retenues", {})
+		dividendes = lu.get("dividendes", {})
+		dividendes_total = int(lu.get("dividendes_total", 0))
 	var d := DirAccess.open(dossier.path_join("basket"))
 	if d:
 		for f in d.get_files():
@@ -469,7 +1067,8 @@ func sauver() -> void:
 	if dossier == "":
 		return
 	Portail.ecrire(dossier.path_join(FICHIER), JSON.stringify({"saison": saison, "niveaux": niveaux, "clubs": clubs,
-		"effectifs": effectifs, "historique": historique}))
+		"effectifs": effectifs, "historique": historique, "bureau": bureau, "a_declarer": a_declarer, "retenues": retenues,
+		"dividendes": dividendes, "dividendes_total": dividendes_total}))
 
 
 func effacer() -> void:
@@ -479,4 +1078,9 @@ func effacer() -> void:
 	effectifs = {}
 	historique = []
 	cliches = {}
-	_matchs.clear()
+	bureau = {"obligations": [], "encheres": [], "liberations": [], "consignes": []}
+	a_declarer = {}
+	retenues = {}
+	dividendes = {}
+	dividendes_total = 0
+	_oublier()
