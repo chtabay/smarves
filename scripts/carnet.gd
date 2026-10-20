@@ -176,6 +176,10 @@ func _communes_au_carnet() -> Array:
 	for id in Game.carnet:
 		if not out.has(id) and not (o != null and id == o.id and _page_origine != null) and not _compteurs(id).is_empty():
 			out.append(id)
+	# Un village où l'on tient des cartes a sa page, même sans compteurs (Casino Minuit).
+	for x in _album.villages():
+		if not out.has(x.id) and not (o != null and x.id == o.id and _page_origine != null):
+			out.append(x.id)
 	return out
 
 
@@ -588,6 +592,8 @@ func _fill_commune(id: String) -> void:
 		page = _right
 	else:
 		_gap(page)
+	_fill_reussites(page, id, valeurs)
+	_fill_mes_cartes(page, id)
 	var e := Communes.au_catalogue(id)
 	if str(e.get("description", "")) != "":
 		_text(page, str(e.description), 17, INK_LIGHT)
@@ -596,6 +602,56 @@ func _fill_commune(id: String) -> void:
 		_link(page, "→ y aller", _visiter.bind(id))
 	elif c == null:
 		_text(page, "Elle n'est plus installée : sa page attend votre retour.", 16, PENCIL)
+
+
+## Les réussites d'une commune : ses compteurs qui se cochent (genre « case »), une fois cochés, en
+## tampons à l'encre rouge. Rien si aucun n'est coché.
+func _fill_reussites(page: VBoxContainer, id: String, valeurs: Dictionary) -> void:
+	var faites := _compteurs(id).filter(func(d): return str(d.get("genre", "")) == "case" and valeurs.get(str(d.id)) == true)
+	if faites.is_empty():
+		return
+	_title(page, "Mes réussites")
+	var flot := HFlowContainer.new()
+	flot.add_theme_constant_override("h_separation", 8)
+	flot.add_theme_constant_override("v_separation", 8)
+	page.add_child(flot)
+	for d in faites:
+		var tampon := PanelContainer.new()
+		tampon.name = "Reussite_" + str(d.id)
+		var st := StyleBoxFlat.new()
+		st.bg_color = Color(0.65, 0.15, 0.15, 0.06)
+		st.border_color = RED_INK
+		st.set_border_width_all(2)
+		st.set_corner_radius_all(14)
+		st.content_margin_left = 12
+		st.content_margin_right = 12
+		st.content_margin_top = 3
+		st.content_margin_bottom = 3
+		tampon.add_theme_stylebox_override("panel", st)
+		var l := Label.new()
+		l.text = "✓ " + str(d.libelle)
+		l.add_theme_font_override("font", _hand_bold)
+		l.add_theme_font_size_override("font_size", 15)
+		l.add_theme_color_override("font_color", RED_INK)
+		tampon.add_child(l)
+		flot.add_child(tampon)
+	_gap(page, 6)
+
+
+## Les cartes qu'on tient dans une commune, en petit, et où acheter autre chose : chez son notaire.
+func _fill_mes_cartes(page: VBoxContainer, id: String) -> void:
+	_title(page, "Mes cartes ici")
+	if _album.vignettes(page, id) == 0:
+		_text(page, "Aucune carte ici pour l'instant.", 17, INK_LIGHT)
+	var notaire := "Pour acheter autre chose, le notaire de %s, sur place." % _nom_commune(id)
+	if Communes.origine() != null and id == Communes.origine().id:
+		notaire = "Pour acheter autre chose, Maître Garnier, à l'étude."
+	_text(page, notaire, 16, PENCIL)
+	_link(page, "→ ouvrir mes cartes", func():
+		ouvrir_onglet("cartes")
+		await get_tree().process_frame
+		_album.choisir_village(id))
+	_gap(page)
 
 
 # --- La Vienne --------------------------------------------------------------------------------

@@ -1,20 +1,25 @@
 extends Control
 ## Le classeur de cartes du carnet (onglet « Mes cartes ») : ce qu'on possède, en cartes à collectionner
-## façon titre de propriété du Monopoly, collées sur le papier quadrillé du carnet. Un sous-onglet par
-## village : la commune d'origine d'abord, puis chaque commune où l'on tient un bien ou des parts de club.
+## façon titre de propriété du Monopoly, collées sur le papier quadrillé du carnet. Les villages s'empilent
+## de haut en bas : la commune d'origine d'abord, puis chaque commune (Casino Minuit, à Las Vegas, en est
+## une) où l'on tient un bien ou des parts de club. Demande de Guillaume du 20 octobre.
 ##
-## Sous chaque village, « Mes biens » : seulement les cartes qu'on possède, rangées par genre (les maisons,
-## les murs, la garde-robe, le garage, la brocante, les souvenirs), chaque genre de sa couleur. La bordure dit
-## le rang du bien, du bronze au prestige, selon son prix ; les cartes de prestige ont un reflet qui passe.
+## Chaque village a trois rubriques :
+## - « Mes biens » : seulement les cartes qu'on possède, rangées par genre (les maisons, les murs, la
+##   garde-robe, le garage, la brocante, les souvenirs), chaque genre de sa couleur. La bordure dit le
+##   rang du bien, du bronze au prestige, selon son prix ; les cartes de prestige ont un reflet qui passe.
+## - « Mes clubs sportifs » : chaque club dont on tient au moins une obligation, avec le topo complet de
+##   ses neuf obligations, à soi, en vente, ou tenues par un autre joueur (son nom dessus).
+## - « Mes établissements » : chaque établissement dont on tient au moins une part (le café, le moulin,
+##   la salle des fêtes du comité…), avec le topo complet de ses parts, à soi ou en vente.
+## Une rubrique vide dit où aller pour l'acheter : rien ne s'achète ici, et seuls les gestes sans prix
+## (porter, conduire, habiter, louer) se font depuis le classeur.
 ##
-## Les parts d'établissement ont le topo complet, chacune dans sa catégorie. « Les établissements » : les
-## parts que vend le notaire (le café, le moulin, le fournil, le comité des fêtes, le casino), une carte
-## par part, à soi ou en vente. « Les clubs » : les neuf obligations de chaque club en neuf cartes, à soi,
-## en vente, ou tenues par un autre joueur (son nom dessus). Rien ne s'achète ici : la carte dit où aller, et seuls les gestes sans prix (porter, conduire, habiter, louer)
-## se font depuis le classeur.
+## À l'entrée des clubs, le même classeur montre les cartes d'un seul club (seul_club).
 ##
-## Navigation : ↑ ↓ passent d'un village à l'autre, un clic montre une carte en grand avec sa fiche,
-## ← → passent à la voisine, Échap la repose.
+## Navigation : la molette ou le doigt font défiler, ↑ ↓ sautent d'un village à l'autre, comme les noms
+## de village de la tête ; un clic montre une carte en grand avec sa fiche, ← → passent à la voisine,
+## Échap la repose.
 
 signal ferme_zoom
 
@@ -49,9 +54,16 @@ const NOTAIRE := preload("res://scripts/socle/notaire.gd")
 
 ## Le carnet, qui tient le classeur.
 var carnet = null
-## Le village ouvert (« » : la commune d'origine).
+## Le village qu'on regarde, en haut de la page (« » : la commune d'origine).
 var village := ""
+## Un seul club, à l'entrée du club : {sport, club}. Vide : le classeur entier.
+var seul_club := {}
+var _titre: Label
 var _villages_box: HBoxContainer
+## Le titre de chaque village dans la page, pour y sauter : {id: Control}.
+var _ancres := {}
+## Les noms de village de la tête : {id: Button}.
+var _boutons_village := {}
 var _resume: Label
 var _defile: ScrollContainer
 var _page: VBoxContainer
@@ -82,17 +94,20 @@ func _ready() -> void:
 	var tete := HBoxContainer.new()
 	tete.add_theme_constant_override("separation", 18)
 	col.add_child(tete)
-	_mot(tete, "Mes cartes", 26, INK, _gras).size_flags_vertical = Control.SIZE_SHRINK_END
+	_titre = _mot(tete, "Mes cartes", 26, INK, _gras)
+	_titre.size_flags_vertical = Control.SIZE_SHRINK_END
 	_villages_box = HBoxContainer.new()
 	_villages_box.add_theme_constant_override("separation", 6)
-	_villages_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_villages_box.size_flags_vertical = Control.SIZE_SHRINK_END
 	tete.add_child(_villages_box)
 	_resume = _mot(tete, "", 16, PENCIL)
+	_resume.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_resume.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_resume.size_flags_vertical = Control.SIZE_SHRINK_END
 	_defile = ScrollContainer.new()
 	_defile.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_defile.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_defile.get_v_scroll_bar().value_changed.connect(func(_v): _suivre_defilement())
 	col.add_child(_defile)
 	_page = VBoxContainer.new()
 	_page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -264,9 +279,8 @@ static func _rang(prix: int) -> int:
 	return 0
 
 
-## Les établissements d'un village dont le notaire vend des parts, avec le topo complet : une carte par
-## part, à soi ou en vente. Ceux dont le seuil n'est pas atteint n'y sont pas encore, sauf si l'on en tient.
-## [{id, nom, cartes}] ; une carte : {id, kind « part_etab », bien, nom, genre, prix, rente, charge, standing,
+## Les établissements d'un village dont on tient au moins une part, avec le topo complet : une carte par
+## part, à soi ou en vente. [{id, nom, n, max, cartes}] ; une carte : {id, kind « part_etab », bien, nom, genre, prix, rente, charge, standing,
 ## etat (« moi », « libre »), rang, de, phrase}.
 func etablissements(v: String) -> Array:
 	var o: Commune = Communes.origine()
@@ -275,7 +289,7 @@ func etablissements(v: String) -> Array:
 		if it.kind != "part" or _village_de(it) != v:
 			continue
 		var n := Biens.count(it.id)
-		if n <= 0 and Game.won < int(it.gate):
+		if n <= 0:
 			continue
 		var lieu := _genre(it, o).trim_prefix("Part · ")
 		var parts: Array = []
@@ -337,70 +351,164 @@ static func _couleur(v) -> Color:
 # --- La page d'un village -----------------------------------------------------------------------
 
 func remplir() -> void:
-	var vs := villages()
-	if village == "" or not vs.any(func(x): return x.id == village):
-		village = str(vs[0].id) if not vs.is_empty() else ""
 	for c in _villages_box.get_children() + _page.get_children():
 		c.get_parent().remove_child(c)
 		c.queue_free()
-	for x in vs:
-		_onglet_village(x, cartes(x.id).size())
-	var liste := cartes(village)
-	var estimation := 0
-	for c in liste:
-		for i in (int(c.n) if c.kind != "souvenir" else 0):
-			estimation += int(round(Biens.price_of(str(c.id), i) * Biens.RESALE))
-	_resume.text = "%d %s  ·  estimées %s" % [liste.size(), "carte" if liste.size() == 1 else "cartes", Game.fmt(estimation)]
 	_affichees = []
-	if liste.is_empty() and village == _origine():
-		_mot(_page, "Pas encore de bien à %s." % _nom_commune(village), 18, INK_LIGHT)
-		var t := _mot(_page, "Raymonde a des costumes, Roger Fradin une Mobylette, Maître Garnier des maisons. Chaque achat vient se coller ici.", 16, PENCIL)
-		t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	# Les biens tiennent ensemble, rangés par genre : la couleur du bandeau dit le genre.
-	var flot: HFlowContainer = null
-	if not liste.is_empty():
-		_categorie("Mes biens")
-		flot = _flot()
-	for c in liste:
-		_ajouter(flot, c)
-	# Les parts d'établissement : le topo complet, une carte par part.
-	var etabs := etablissements(village)
-	if not etabs.is_empty():
-		_categorie("Les établissements")
-		for e in etabs:
-			_titre_section(str(e.nom), "%d à vous · %d en vente" % [int(e.n), int(e.max) - int(e.n)], _couleur_genre("part"))
-			flot = _flot()
-			for c in e.cartes:
-				_ajouter(flot, c)
-	# Les clubs : le topo complet, une carte par obligation.
-	var cl := clubs(village)
-	if not cl.is_empty():
-		_categorie("Les clubs")
-	for club in cl:
-		var mien := (club.cartes as Array).filter(func(x): return x.qui == "moi").size()
-		var autres := (club.cartes as Array).filter(func(x): return x.qui == "autre").size()
-		var libres := (club.cartes as Array).size() - mien - autres
-		_titre_section(str(club.nom), "%d à vous · %d à d'autres joueurs · %d en vente" % [mien, autres, libres], club.cartes[0].couleurs[0])
-		var p := _mot(_page, str(club.phrase), 16, INK_LIGHT)
-		p.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		flot = _flot()
-		for c in club.cartes:
-			_ajouter(flot, c)
+	_ancres = {}
+	_boutons_village = {}
+	if not seul_club.is_empty():
+		_remplir_club()
+	else:
+		var vs := villages()
+		if village == "" or not vs.any(func(x): return x.id == village):
+			village = str(vs[0].id) if not vs.is_empty() else ""
+		_titre.text = "Mes cartes"
+		_villages_box.visible = vs.size() > 1
+		for x in vs:
+			if vs.size() > 1:
+				_onglet_village(x)
+			_village(x)
+		var miennes := _affichees.filter(func(c): return c.etat == "moi")
+		_resume.text = "%d %s  ·  estimées %s" % [miennes.size(), "carte" if miennes.size() == 1 else "cartes", Game.fmt(_estimation(miennes))]
 	if _zoom.visible and _affichees.is_empty():
 		fermer_zoom()
 	elif _zoom.visible:
 		montrer(clampi(_index, 0, _affichees.size() - 1))
 
 
-func _onglet_village(x: Dictionary, n: int) -> void:
-	var actif: bool = x.id == village
+## Ce que valent à la revente les cartes qu'on tient : le prix de reprise des biens et des parts, le
+## rachat des obligations.
+func _estimation(liste: Array) -> int:
+	var total := 0
+	for c in liste:
+		match str(c.kind):
+			"souvenir":
+				pass
+			"part_etab":
+				total += int(round(int(c.prix) * Biens.RESALE))
+			"obligation":
+				total += int(round(int(c.valeur) * (Football if c.sport == "football" else Basket).RACHAT))
+			_:
+				for i in int(c.n):
+					total += int(round(Biens.price_of(str(c.id), i) * Biens.RESALE))
+	return total
+
+
+## Un village : son titre, puis ses trois rubriques. Une rubrique vide dit où aller.
+func _village(x: Dictionary) -> void:
+	var id := str(x.id)
+	var origine := id == _origine()
+	_tete_village(x)
+	# Mes biens, ensemble, rangés par genre : la couleur du bandeau dit le genre.
+	_categorie("Mes biens")
+	var liste := cartes(id)
+	if liste.is_empty():
+		_vide("Pas encore de bien ici. " + ("Raymonde a des costumes, Roger Fradin une Mobylette, Maître Garnier des maisons : chaque achat vient se coller ici." if origine \
+			else "Le notaire de %s, sur place, a les adresses à vendre." % str(x.nom)))
+	else:
+		var flot := _flot()
+		for c in liste:
+			_ajouter(flot, c)
+	# Mes clubs sportifs : ceux dont on tient une obligation, avec le topo complet.
+	_categorie("Mes clubs sportifs")
+	var tous := clubs(id)
+	var miens := tous.filter(func(cl): return (cl.cartes as Array).any(func(c): return c.qui == "moi"))
+	if miens.is_empty():
+		var ou := []
+		for cl in tous:
+			ou.append("%s, %s" % [str(cl.nom), "à l'étude du notaire ou dans les locaux du club" if cl.sport == "football" else "au tableau des parts, à l'entrée de la salle"])
+		_vide("Aucune obligation de club. " + ("Elles se prennent : " + " ; ".join(ou) + "." if not ou.is_empty() else "Il n'y a pas encore de club au championnat ici."))
+	for club in miens:
+		var mien := (club.cartes as Array).filter(func(c): return c.qui == "moi").size()
+		var autres := (club.cartes as Array).filter(func(c): return c.qui == "autre").size()
+		var libres := (club.cartes as Array).size() - mien - autres
+		_titre_section(str(club.nom), "%d à vous · %d à d'autres joueurs · %d en vente" % [mien, autres, libres], club.cartes[0].couleurs[0])
+		var p := _mot(_page, str(club.phrase), 16, INK_LIGHT)
+		p.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		var flot := _flot()
+		for c in club.cartes:
+			_ajouter(flot, c)
+	# Mes établissements : ceux dont on tient une part, avec le topo complet.
+	_categorie("Mes établissements")
+	var etabs := etablissements(id)
+	if etabs.is_empty():
+		_vide("Aucune part d'établissement. " + ("Maître Garnier, à l'étude, vend des parts du café, du moulin et des autres maisons du village." if origine \
+			else "Le notaire de %s les vend sur place." % str(x.nom)))
+	for e in etabs:
+		_titre_section(str(e.nom), "%d à vous · %d en vente" % [int(e.n), int(e.max) - int(e.n)], _couleur_genre("part"))
+		var flot := _flot()
+		for c in e.cartes:
+			_ajouter(flot, c)
+
+
+## À l'entrée d'un club : ses neuf obligations, rien d'autre.
+func _remplir_club() -> void:
+	var moteur: Node = Football if seul_club.sport == "football" else Basket
+	_villages_box.visible = false
+	if not moteur.clubs.has(str(seul_club.club)):
+		_titre.text = "Les parts du club"
+		_resume.text = ""
+		_vide("Le club n'est pas encore au championnat.")
+		return
+	var club := _club(str(seul_club.sport), moteur, str(seul_club.club))
+	_titre.text = str(club.nom)
+	var mien := (club.cartes as Array).filter(func(c): return c.qui == "moi").size()
+	var autres := (club.cartes as Array).filter(func(c): return c.qui == "autre").size()
+	_resume.text = "%d à vous · %d à d'autres joueurs · %d en vente" % [mien, autres, (club.cartes as Array).size() - mien - autres]
+	var p := _mot(_page, str(club.phrase), 16, INK_LIGHT)
+	p.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var flot := _flot()
+	for c in club.cartes:
+		_ajouter(flot, c)
+
+
+## Le titre d'un village, en grand, souligné deux fois : on y saute depuis la tête.
+func _tete_village(x: Dictionary) -> void:
+	var bloc := VBoxContainer.new()
+	bloc.name = "Village_" + str(x.id)
+	bloc.add_theme_constant_override("separation", 2)
+	_page.add_child(bloc)
+	_ancres[str(x.id)] = bloc
+	if _ancres.size() > 1:
+		var haut := Control.new()
+		haut.custom_minimum_size.y = 18
+		bloc.add_child(haut)
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 12)
+	bloc.add_child(h)
+	_mot(h, str(x.nom), 32, INK, _gras)
+	var c: Commune = Communes.commune(str(x.id))
+	if c != null and c.lointaine():
+		_mot(h, "%s%s" % [c.ville(), ", " + c.pays() if c.pays() != "" else ""], 17, PENCIL).size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	for e in [3, 1]:
+		var souligne := ColorRect.new()
+		souligne.color = MARGIN_RED
+		souligne.custom_minimum_size = Vector2(0, e)
+		bloc.add_child(souligne)
+
+
+## Une ligne au crayon, là où une rubrique n'a pas de carte.
+func _vide(t: String) -> void:
+	var l := _mot(_page, t, 16, PENCIL)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+
+
+func _onglet_village(x: Dictionary) -> void:
 	var b := Button.new()
-	b.name = "Village_" + str(x.id)
-	b.text = "%s  %d" % [x.nom, n]
+	b.name = "Aller_" + str(x.id)
+	b.text = str(x.nom)
 	b.focus_mode = Control.FOCUS_NONE
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	b.add_theme_font_override("font", _gras if actif else _texte)
 	b.add_theme_font_size_override("font_size", 18)
+	b.pressed.connect(choisir_village.bind(str(x.id)))
+	_villages_box.add_child(b)
+	_boutons_village[str(x.id)] = b
+	_style_village(b, str(x.id) == village)
+
+
+func _style_village(b: Button, actif: bool) -> void:
+	b.add_theme_font_override("font", _gras if actif else _texte)
 	for k in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 		b.add_theme_color_override(k, INK if actif or k == "font_hover_color" else INK_LIGHT)
 	for k in ["normal", "hover", "pressed", "focus"]:
@@ -413,22 +521,33 @@ func _onglet_village(x: Dictionary, n: int) -> void:
 		st.border_width_bottom = 3 if actif else 0
 		st.border_color = MARGIN_RED
 		b.add_theme_stylebox_override(k, st)
-	b.pressed.connect(choisir_village.bind(str(x.id)))
-	_villages_box.add_child(b)
 
 
-## Une catégorie de parts, soulignée à l'encre rouge comme un titre de cahier.
+## Le nom de village de la tête suit la page : c'est celui dont le titre est passé en haut.
+func _suivre_defilement() -> void:
+	var haut := _defile.scroll_vertical + 24
+	var vu := village
+	for id in _ancres:
+		if (_ancres[id] as Control).position.y <= haut:
+			vu = id
+	if vu != village:
+		village = vu
+		for id in _boutons_village:
+			_style_village(_boutons_village[id], id == village)
+
+
+## Une rubrique d'un village, soulignée à l'encre rouge comme un titre de cahier.
 func _categorie(t: String) -> void:
 	var bloc := VBoxContainer.new()
 	bloc.add_theme_constant_override("separation", 2)
 	_page.add_child(bloc)
 	var haut := Control.new()
-	haut.custom_minimum_size.y = 6
+	haut.custom_minimum_size.y = 4
 	bloc.add_child(haut)
-	_mot(bloc, t, 24, INK, _gras)
+	_mot(bloc, t, 22, INK_LIGHT, _gras)
 	var souligne := ColorRect.new()
-	souligne.color = MARGIN_RED
-	souligne.custom_minimum_size = Vector2(0, 2)
+	souligne.color = Color(0.55, 0.68, 0.85, 0.7)
+	souligne.custom_minimum_size = Vector2(0, 1)
 	bloc.add_child(souligne)
 
 
@@ -441,7 +560,7 @@ func _titre_section(t: String, compte: String, couleur: Color) -> void:
 	pastille.custom_minimum_size = Vector2(14, 14)
 	pastille.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	tete.add_child(pastille)
-	_mot(tete, t, 21, INK, _gras)
+	_mot(tete, t, 19, INK, _gras)
 	_mot(tete, compte, 16, PENCIL).size_flags_vertical = Control.SIZE_SHRINK_CENTER
 
 
@@ -468,19 +587,67 @@ func _ajouter(flot: HFlowContainer, c: Dictionary) -> void:
 	_affichees.append(c)
 
 
+## Les cartes qu'on tient dans un village, en petit, pour les pages du carnet : biens, obligations de
+## club et parts d'établissement à soi. Un clic ouvre le classeur sur la carte. Au plus `au_plus`
+## vignettes, puis « + n autres ». Rend le nombre de cartes.
+func vignettes(parent: Control, v: String, k := 0.42, au_plus := 14) -> int:
+	var liste: Array = cartes(v)
+	for cl in clubs(v):
+		liste.append_array((cl.cartes as Array).filter(func(c): return c.qui == "moi"))
+	for e in etablissements(v):
+		liste.append_array((e.cartes as Array).filter(func(c): return c.etat == "moi"))
+	if liste.is_empty():
+		return 0
+	var flot := HFlowContainer.new()
+	flot.name = "Vignettes"
+	flot.add_theme_constant_override("h_separation", 8)
+	flot.add_theme_constant_override("v_separation", 8)
+	parent.add_child(flot)
+	for c in liste.slice(0, au_plus):
+		var vue := CarteVue.new()
+		vue.classeur = self
+		vue.donnees = c
+		vue.couleur = c.couleur
+		vue.k = k
+		vue.name = "Vignette_" + str(c.id).replace("/", "_").replace(":", "_")
+		vue.choisie.connect(func():
+			if carnet != null:
+				carnet.ouvrir_onglet("cartes")
+			aller(v, str(c.id)))
+		flot.add_child(vue)
+	if liste.size() > au_plus:
+		var reste := _mot(flot, "+ %d autre%s" % [liste.size() - au_plus, "s" if liste.size() - au_plus > 1 else ""], 15, PENCIL)
+		reste.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return liste.size()
+
+
+## Fait défiler la page jusqu'au titre d'un village.
 func choisir_village(id: String) -> void:
+	if not _ancres.has(id):
+		return
 	village = id
-	_index = -1
-	remplir()
-	_defile.scroll_vertical = 0
+	_defile.scroll_vertical = int((_ancres[id] as Control).position.y)
+	for k in _boutons_village:
+		_style_village(_boutons_village[k], k == village)
 
 
-## Passe au village suivant (1) ou précédent (-1), en bouclant.
+## Saute au village suivant (1) ou précédent (-1), en bouclant.
 func tourner_village(sens: int) -> void:
-	var ids: Array = villages().map(func(x): return x.id)
+	var ids: Array = _ancres.keys()
 	if ids.is_empty():
 		return
 	choisir_village(ids[posmod(ids.find(village) + sens, ids.size())])
+
+
+## Ouvre le classeur sur une carte : son village en haut, la carte en grand (depuis l'onglet d'un village).
+func aller(v: String, id: String) -> void:
+	for i in _affichees.size():
+		if str(_affichees[i].id) == id:
+			montrer(i)
+			break
+	# La page vient d'être remplie : on saute au village une fois qu'elle est posée.
+	await get_tree().process_frame
+	choisir_village(v)
 
 
 ## Les touches du classeur, avant celles du carnet : vrai si elle est prise.
@@ -495,7 +662,7 @@ func saisir(event: InputEvent) -> bool:
 			montrer(posmod(_index + (1 if event.keycode == KEY_RIGHT else -1), _affichees.size()))
 			return true
 		return false
-	if event.keycode in [KEY_UP, KEY_DOWN] and not event.echo:
+	if event.keycode in [KEY_UP, KEY_DOWN] and not event.echo and _ancres.size() > 1:
 		tourner_village(1 if event.keycode == KEY_DOWN else -1)
 		return true
 	return false
@@ -749,6 +916,80 @@ func _quitter(aller: Callable) -> void:
 	if carnet != null and carnet.is_open():
 		carnet.toggle()
 	aller.call()
+
+
+# --- À l'entrée d'un club ---------------------------------------------------------------------
+
+## Montre, par-dessus l'écran d'où on l'ouvre (le panneau du stade, le tableau des parts de la salle), les
+## cartes des parts d'un seul club, comme au classeur. Échap ou « Refermer » la reposent. Rend la vitrine.
+static func ouvrir_club(depuis: Control, sport: String, club: String) -> Control:
+	var v := Vitrine.new()
+	v.album = load("res://scripts/carnet_cartes.gd").new()
+	v.album.seul_club = {"sport": sport, "club": club}
+	depuis.get_parent().add_child(v)
+	return v
+
+
+class Vitrine extends Control:
+	## Le classeur, réglé sur un seul club avant d'entrer dans l'arbre.
+	var album: Control
+
+	func _ready() -> void:
+		name = "CartesDuClub"
+		process_mode = Node.PROCESS_MODE_ALWAYS
+		set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		mouse_filter = Control.MOUSE_FILTER_STOP
+		var voile := ColorRect.new()
+		voile.color = Color(0, 0, 0, 0.6)
+		voile.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		add_child(voile)
+		var centre := CenterContainer.new()
+		centre.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		add_child(centre)
+		var col := VBoxContainer.new()
+		col.add_theme_constant_override("separation", 8)
+		centre.add_child(col)
+		album.custom_minimum_size = Vector2(1120, 600)
+		# Sur un téléphone, le classeur se réduit pour tenir dans l'écran.
+		var ecran := get_viewport().get_visible_rect().size
+		var k := minf(1.0, minf((ecran.x - 32.0) / 1120.0, (ecran.y - 90.0) / 600.0))
+		var tenue := Control.new()
+		tenue.custom_minimum_size = Vector2(1120, 600) * k
+		col.add_child(tenue)
+		album.scale = Vector2(k, k)
+		tenue.add_child(album)
+		album.size = Vector2(1120, 600)
+		album.remplir()
+		var fermer := Button.new()
+		fermer.name = "Refermer"
+		fermer.text = "Refermer les cartes  (Échap)"
+		fermer.size_flags_horizontal = Control.SIZE_SHRINK_END
+		fermer.custom_minimum_size.y = 48
+		fermer.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		fermer.add_theme_font_override("font", Polices.gras())
+		fermer.add_theme_font_size_override("font_size", 18)
+		for e in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+			fermer.add_theme_color_override(e, INK if e != "font_hover_color" else RED_INK)
+		for e in ["normal", "hover", "pressed", "focus"]:
+			var st := StyleBoxFlat.new()
+			st.bg_color = PAPER if e != "hover" else PAPER.darkened(0.05)
+			st.set_corner_radius_all(4)
+			st.content_margin_left = 18
+			st.content_margin_right = 18
+			st.border_color = MARGIN_RED
+			st.border_width_left = 3
+			fermer.add_theme_stylebox_override(e, st)
+		fermer.pressed.connect(queue_free)
+		col.add_child(fermer)
+
+	func _input(event: InputEvent) -> void:
+		if album == null or not is_visible_in_tree():
+			return
+		if album.saisir(event):
+			get_viewport().set_input_as_handled()
+		elif event.is_action_pressed("ui_cancel"):
+			get_viewport().set_input_as_handled()
+			queue_free()
 
 
 # --- Les dessins --------------------------------------------------------------------------------

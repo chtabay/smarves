@@ -37,19 +37,16 @@ func feuille(box: VBoxContainer, mode: String) -> bool:
 	return true
 
 
+## « Mes cartes ici » : les cartes qu'on tient au village, en petit (un clic ouvre le classeur dessus),
+## ce qu'on porte et ce qu'on conduit, et le chemin de l'étude pour acheter autre chose.
 func _fill_biens(page: VBoxContainer) -> void:
 	var c = carnet
-	c._title(page, "Mes biens")
-	c._gap(page, 6)
-	if Biens.owned.is_empty():
+	c._title(page, "Mes cartes ici")
+	c._gap(page, 4)
+	var o: Commune = Communes.origine()
+	if c._album.vignettes(page, o.id if o != null else "", 0.42, 6) == 0:
 		c._text(page, "Rien encore. Maître Garnier a des parts de la Smarvoise à 200, et Josiane dit que c'est le placement du siècle.", 18, c.INK_LIGHT)
 	else:
-		# Le détail est au classeur, une carte par bien ; ici, ce qu'ils font ensemble.
-		var n := 0
-		for id in Biens.owned:
-			if Biens.count(id) > 0:
-				n += 1
-		c._text(page, "%d %s au classeur, estimés %s à la revente." % [n, "carte" if n == 1 else "cartes", Game.fmt(Biens.value())], 18, c.INK)
 		var bas := func(t: String) -> String: return t.left(1).to_lower() + t.substr(1)
 		var porte := []
 		if Biens.worn != "":
@@ -59,6 +56,9 @@ func _fill_biens(page: VBoxContainer) -> void:
 		if not porte.is_empty():
 			var t := "; ".join(porte)
 			c._text(page, t.left(1).to_upper() + t.substr(1) + ".", 16, c.INK_LIGHT)
+	c._text(page, "Pour acheter autre chose, Maître Garnier, à l'étude.", 16, c.PENCIL)
+	if Biens.SELLERS.has("notaire"):
+		c._link(page, "→ aller chez le notaire", go_to.bind("notaire"))
 	c._link(page, "→ ouvrir mes cartes", c.ouvrir_onglet.bind("cartes"))
 
 
