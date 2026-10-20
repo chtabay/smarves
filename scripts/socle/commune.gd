@@ -8,7 +8,7 @@ extends RefCounted
 ## Le format de manifeste que ce socle sait lire.
 const FORMAT := 1
 ## La version du socle, comparée au champ « socle_min » des manifestes.
-const SOCLE := "1.9"
+const SOCLE := "1.10"
 ## Les compteurs du carnet (champ « carnet ») : leurs genres et leurs bornes.
 const CARNET_GENRES := ["nombre", "credits", "texte", "case"]
 const CARNET_COMPTEURS_MAX := 24
