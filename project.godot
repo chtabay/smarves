@@ -40,6 +40,7 @@ Bienvenue="*res://scripts/bienvenue.gd"
 Tactile="*res://scripts/tactile/tactile.gd"
 Vue="*res://scripts/socle/vue.gd"
 Carte="*res://scripts/carte.gd"
+Chargement="*res://scripts/socle/chargement.gd"
 
 [display]
 

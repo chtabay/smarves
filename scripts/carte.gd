@@ -292,6 +292,9 @@ func voler(id := Communes.ORIGINE) -> void:
 	if loin == null or not loin.lointaine():
 		return
 	var aller := arrivee.lointaine()
+	# Le paquet de la destination se lit pendant le vol (Chargement), l'écran du vol reste fluide.
+	if arrivee.id != Communes.ORIGINE:
+		Chargement.precharger(arrivee.id)
 	_vol_titre.text = ("VOL POUR %s" % loin.ville() if aller else "VOL RETOUR").to_upper()
 	_vol_ligne.text = ("Poitiers-Biard  →  %s" % loin.aeroport()) if aller else ("%s  →  Poitiers-Biard" % loin.aeroport())
 	if loin.vol() != "":

@@ -197,7 +197,7 @@ func _au_casino() -> void:
 	Game.return_point = RETOUR
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	var c: Commune = Communes.commune(COMMUNE)
-	get_tree().change_scene_to_file(str(c.data.scene) if c else "res://scenes/main.tscn")
+	Chargement.changer(str(c.data.scene) if c else "res://scenes/main.tscn")
 
 
 func _au_stade() -> void:

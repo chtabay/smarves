@@ -107,6 +107,8 @@ func _init() -> void:
 	check(communes.visiter(ID), "on y entre")
 	await process_frame
 	await process_frame
+	while root.get_node("Chargement").actif():
+		await process_frame
 	var scene := current_scene
 	check(scene != null and scene.name == "Commune" and (scene.get_node("Panneau") as Label3D).text == "La Villedieu-du-Clain", "sa scène s'ouvre depuis le paquet, sans erreur")
 	check(communes._retour.visible, "le bouton « Revenir à Smarves » est posé")

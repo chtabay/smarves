@@ -1532,7 +1532,7 @@ func reprendre_le_car() -> void:
 		get_tree().change_scene_to_file("res://scenes/main.tscn")
 	else:
 		Game.return_point = "car"
-		get_tree().change_scene_to_file(str(Communes.commune(commune).data.scene))
+		Chargement.changer(str(Communes.commune(commune).data.scene))
 
 
 ## Les écrans du club, faits par le fil basket : la salle les ouvre dès qu'ils existent. En attendant, une

@@ -429,7 +429,8 @@ func visiter(id: String) -> bool:
 		return false
 	get_tree().paused = false
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	get_tree().change_scene_to_file(str(communes[id].data.scene))
+	# Derrière l'écran de chargement, qui montre où en est la lecture du paquet et la scène qui se bâtit.
+	Chargement.entrer(id, str(communes[id].data.scene))
 	actuelle_apres = id
 	_bouton_retour(true)
 	return true

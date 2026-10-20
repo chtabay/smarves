@@ -303,6 +303,26 @@ Le socle tire la fiche du prix : rente annoncée 10 % du prix par recette (8 % p
 - **Un pack contient du code**, et Godot ne sait pas isoler un script : un mod a les mêmes droits que le jeu. Les communes greffées sont des mods de confiance, installés à la main.
 - Les captures (`--capture=`) et les outils de test ne chargent aucune greffe : ils partent du jeu seul.
 
+**L'écran de chargement** (socle 1.11, autoload `Chargement`, [`scripts/socle/chargement.gd`](../scripts/socle/chargement.gd)). On entre dans une commune en pack derrière un écran animé (une roue de roulette, des ampoules qui défilent autour du nom de la commune) qui montre la progression. Pour un vol, le socle lit les ressources du pack (modèles, textures, scripts, shaders) dans des fils à part dès le décollage, pendant que l'avion vole ; à l'atterrissage la scène s'ouvre sans attendre la fin de cette lecture ; puis l'écran laisse quelques images au moteur (shaders, textures) avant de s'effacer. Une commune n'a rien à faire pour en profiter. Si sa scène est longue à bâtir, elle peut dire où elle en est et se bâtir sur plusieurs images (`"socle_min": "1.11"`) :
+
+```gdscript
+var chargement := 0.0        # de 0 à 1 : l'écran reste là tant qu'il n'est pas à 1
+var chargement_etape := ""   # la phrase sous la barre (« On dresse les tables… »)
+
+func _ready() -> void:
+	var par_etapes := Chargement.actif()   # faux dans un test ou une capture : tout d'un bloc
+	set_process(false)
+	_batir_la_rue()
+	chargement = 0.5
+	if par_etapes:
+		await get_tree().process_frame     # l'écran s'anime pendant une image
+	_batir_le_casino()
+	chargement = 1.0
+	set_process(true)
+```
+
+Une porte qui ramène dans une scène de commune passe par `Chargement.changer(chemin)` plutôt que `change_scene_to_file` : derrière l'écran pour une commune en pack, d'un coup sinon. Le journal du jeu note les durées de chaque temps (`[chargement] …`).
+
 Le mécanisme est éprouvé par `tools/test_communes.gd`, qui emballe la commune d'essai de [`tools/commune_essai/`](../tools/commune_essai/) en pack avec `PCKPacker`, l'inscrit sans la monter, l'ouvre, charge sa scène depuis le pack, puis vérifie qu'un pack qui voudrait remplacer `scripts/game_state.gd`, un pack avec du code natif, un pack abîmé et un dossier dont le manifeste ment sur son id sont refusés :
 
 ```sh
@@ -484,7 +504,7 @@ godot --headless --path . -s tools/test_portail.gd
 | `catalogue`, `catalogue_etat`, `lire_catalogue()`, `catalogue_lu` | les communes publiées sur le portail, lues au lancement (voir « Publier sa commune ») |
 | `publiees()`, `installees()`, `au_catalogue(id)` | les deux listes pour la carte, et une entrée du catalogue (avec ses `structures`) |
 | `installer(id)`, `installee`, `en_cours`, `installations` | installer une commune publiée ; versions installées |
-| `visiter(id)`, `revenir()` | entrer dans une commune greffée, et revenir à Smarves |
+| `visiter(id)`, `revenir()` | entrer dans une commune greffée (derrière l'écran de chargement, `Chargement`), et revenir à Smarves |
 
 ### `Commune` (classe, `scripts/socle/commune.gd`)
 

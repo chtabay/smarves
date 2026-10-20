@@ -62,6 +62,13 @@ const SALLE_DOME := BASE + "basket/dome.tscn"
 
 var player: CharacterBody3D
 var camera: Camera3D
+## Où en est le casino qui se bâtit (de 0 à 1) et sa phrase : l'écran de chargement du socle les montre.
+var chargement := 0.0
+var chargement_etape := ""
+var _par_etapes := false
+var _monde
+var _monde_fil: Thread
+var _rendu_main := 0
 
 var K
 var _rendu
@@ -88,30 +95,78 @@ var _aide: Label
 
 
 func _ready() -> void:
+	# Derrière l'écran de chargement du socle (1.11), le casino se bâtit sur plusieurs images et dit où il
+	# en est (chargement, chargement_etape) ; sans écran (tests, captures), d'un bloc, comme avant.
+	_par_etapes = Chargement.actif()
+	set_process(false)
+	_preparer_monde()
 	_ambiance()
 	K = load(BASE + "kit.gd").new(self)
 	# Les rendez-vous du stade de la Fortune (l'entraînement du mercredi, le dimanche du RCM) à l'agenda.
 	load(BASE + "stade/semaine.gd").inscrire()
 	K.places["pilotes"] = load(BASE + "zones/pilotes.gd").new()
-	for z in ZONES:
-		load(BASE + "zones/%s.gd" % z).construire(K)
+	for i in ZONES.size():
+		await _etape("On bâtit le casino…" if i < 21 else "On bâtit les coulisses…" if i < 33 else "On éclaire le Strip…", 0.3 * i / ZONES.size())
+		load(BASE + "zones/%s.gd" % ZONES[i]).construire(K)
 	_cordon()
 	for c in CORDONS:
 		_cordon_lieu(c[0], c[1], c[2], c[3])
 	_coulisses()
 	_arene_porte()
 	_concert_portes()
+	await _etape("On pose le décor…", 0.3)
 	_decor()
+	await _etape("On dresse les tables…", 0.45)
 	_tables = load(BASE + "tables.gd").new(self, K)
-	_tables.poser()
+	await _tables.poser()
 	_eclairer()
 	_joueur()
-	_peupler()
+	await _etape("Les clients arrivent…", 0.6)
+	await _peupler()
 	_decouper()
 	_interface()
+	chargement = 1.0
+	set_process(true)
 	# On entre à pied : la vue de dessus reste à un Tab.
 	if get_tree().current_scene == self:
 		Vue.basculer.call_deferred(self)
+
+
+## Les lieux encore fermés au joueur : ils restent au personnel (les clients n'y vont pas).
+func _fermes() -> Array:
+	var fermes: Array = []
+	for id in [HAUTES_LIMITES, LUCULLUS, BOUTIQUES, ARENE, CONCERT]:
+		if Game.won < _seuil(id):
+			fermes.append(id)
+	return fermes
+
+
+## Le monde des PNJ (pnj/monde.gd : les chemins, les zones, les obstacles) se lit dans un fil à part dès
+## l'arrivée : près d'une seconde de calcul qui ne fige plus l'écran. _peupler() l'attend.
+func _preparer_monde() -> void:
+	var zc: Array = []
+	var lieux: Dictionary = load(BASE + "pnj/pnj.gd").LIEUX_FERMES
+	for l in _fermes():
+		zc.append_array(lieux.get(l, []))
+	_monde = load(BASE + "pnj/monde.gd").new()
+	_monde_fil = Thread.new()
+	_monde_fil.start(_monde.charger.bind(BASE + "donnees/pnj_monde.json", zc))
+
+
+func _exit_tree() -> void:
+	if _monde_fil != null:
+		_monde_fil.wait_to_finish()
+		_monde_fil = null
+
+
+## Une étape du chargement : la part faite (0 à 1) et sa phrase, pour l'écran du socle ; sous l'écran,
+## on rend la main au moteur le temps d'une image, qu'il anime l'écran.
+func _etape(phrase: String, part: float) -> void:
+	chargement = part
+	chargement_etape = phrase
+	if _par_etapes and Time.get_ticks_msec() - _rendu_main > 30:
+		await get_tree().process_frame
+		_rendu_main = Time.get_ticks_msec()
 
 
 func _process(dt: float) -> void:
@@ -136,18 +191,19 @@ func _process(dt: float) -> void:
 ## Les PNJ de l'original : ils vivent dans tout le casino ; les lieux encore fermés au joueur restent au
 ## personnel (les clients n'y vont pas).
 func _peupler() -> void:
-	var fermes: Array = []
-	for id in [HAUTES_LIMITES, LUCULLUS, BOUTIQUES, ARENE, CONCERT]:
-		if Game.won < _seuil(id):
-			fermes.append(id)
 	pnj = load(BASE + "pnj/pnj.gd").new()
-	if not pnj.preparer(self, fermes):
+	# Le monde des PNJ (leurs chemins, leurs zones) s'est préparé dans un fil pendant que le casino se bâtissait.
+	var monde_ok: bool = _monde_fil.wait_to_finish()
+	_monde_fil = null
+	if not pnj.preparer(self, _fermes(), _monde, monde_ok):
 		pnj.free()
 		pnj = null
 	else:
+		await _etape("Le personnel prend son service…", 0.75)
 		_ascenseurs = load(BASE + "ascenseurs.gd").new(self, K, pnj)
 		_ascenseurs.poser()
 		add_child(pnj)
+	await _etape("Les habitués s'installent…", 0.88)
 	load(BASE + "zones/figurants.gd").peupler(self, pnj == null)
 
 
@@ -322,7 +378,7 @@ func _dome() -> void:
 	salle.prochaine_commune = "casino_minuit"
 	salle.prochain_match = {}
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	get_tree().change_scene_to_file(SALLE_DOME)
+	Chargement.changer(SALLE_DOME)
 
 
 ## Le stade de la Fortune : le taxi vous y conduit au seuil de son lieu (le total gagné au jeu), comme partout.

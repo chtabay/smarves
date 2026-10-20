@@ -1244,7 +1244,7 @@ func _on_interact(target: Node) -> void:
 			Game.return_point = _lot()
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 			var c: Commune = Communes.commune(commune)
-			get_tree().change_scene_to_file(str(c.data.scene) if c else "res://scenes/main.tscn")
+			Chargement.changer(str(c.data.scene) if c else "res://scenes/main.tscn")
 		"president":
 			open_causerie()
 		"locaux":
