@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://cr1a0haskmh0c"
-path="res://.godot/imported/real-hoodie-man.glb-7a51f04b9f82c6dbccb2845afd6c781a.scn"
+uid="uid://hgu8noesh8c7"
+path="res://.godot/imported/man-suit.glb-c4d702137fee66604b1eb42672c6bc19.scn"
 
 [deps]
 
-source_file="res://tools/paquet_essai/casino_minuit/personnages/real-hoodie-man.glb"
-dest_files=["res://.godot/imported/real-hoodie-man.glb-7a51f04b9f82c6dbccb2845afd6c781a.scn"]
+source_file="res://assets/quaternius/personnages/man-suit.glb"
+dest_files=["res://.godot/imported/man-suit.glb-c4d702137fee66604b1eb42672c6bc19.scn"]
 
 [params]
 

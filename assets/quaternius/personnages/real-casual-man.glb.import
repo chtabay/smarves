@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://cr4e4iceqbhc2"
-path="res://.godot/imported/woman-tanktop.glb-d6fefd1a10aa44bf7e25c7704c0eb6cf.scn"
+uid="uid://1l8tvp3epdf5"
+path="res://.godot/imported/real-casual-man.glb-0a3fe54ee2b336f4a7902fec7c7c9386.scn"
 
 [deps]
 
-source_file="res://tools/paquet_essai/casino_minuit/personnages/woman-tanktop.glb"
-dest_files=["res://.godot/imported/woman-tanktop.glb-d6fefd1a10aa44bf7e25c7704c0eb6cf.scn"]
+source_file="res://assets/quaternius/personnages/real-casual-man.glb"
+dest_files=["res://.godot/imported/real-casual-man.glb-0a3fe54ee2b336f4a7902fec7c7c9386.scn"]
 
 [params]
 

@@ -12,6 +12,7 @@ const CATALOGUE := "res://scripts/socle/atelier.json"
 const FACADES := preload("res://scripts/village/facades.gd")
 const MEUBLES := preload("res://scripts/meubles.gd")
 const VILLAGER := preload("res://scripts/villager.gd")
+const PERSONNAGES := preload("res://scripts/socle/personnages.gd")
 
 static var _catalogue: Dictionary = {}
 
@@ -145,6 +146,32 @@ static func figurant(graine := 0, pose := "idle", tenue := "village", route: Arr
 	v.tenue = tenue
 	v.route = route
 	return v
+
+
+## Un personnage 3D habillé pour son rôle (atelier.json, « personnages ») : « client », « croupier »,
+## « barman », « vigile », « serveur », « portier »… La graine fixe sa tenue et ses teintes. Le nœud
+## renvoyé joue ses gestes (jouer(« idle »), « walk », « sit », « talk », « drink »…), se tourne
+## (regarder) et marche sur une route (suivre). Il regarde vers -z, comme look_at.
+static func personnage(role: String, graine := 0) -> Node3D:
+	if not PERSONNAGES.TENUES.has(role):
+		push_warning("Atelier : rôle inconnu « %s »" % role)
+		return null
+	return PERSONNAGES.figurant(role, graine)
+
+
+## Un personnage 3D d'un modèle précis (« man-suit », « dealer-woman-green »…), aux teintes données
+## ({nom du matériau: couleur}).
+static func personnage_modele(modele: String, teintes := {}) -> Node3D:
+	if not PERSONNAGES.MODELES.has(modele):
+		push_warning("Atelier : personnage inconnu « %s »" % modele)
+		return null
+	return PERSONNAGES.faire(modele, teintes)
+
+
+## Le module des personnages lui-même, pour qui veut ses tables (TENUES, MODELES, GESTES) : une commune
+## qui compose ses propres foules, comme Casino Minuit.
+static func personnages() -> GDScript:
+	return PERSONNAGES
 
 
 ## Un meuble de la brocante (atelier.json, « meubles ») : à l'échelle d'un intérieur, face vers +Z.

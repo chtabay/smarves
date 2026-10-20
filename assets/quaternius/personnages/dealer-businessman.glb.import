@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://c1hv64ucqvrp0"
-path="res://.godot/imported/real62-extra.glb-a56a690865bd3ba2d3584b9a5960ad64.scn"
+uid="uid://4qrjnclu168g"
+path="res://.godot/imported/dealer-businessman.glb-2d7e6368cde6375a01da26668ab85680.scn"
 
 [deps]
 
-source_file="res://tools/paquet_essai/casino_minuit/personnages/real62-extra.glb"
-dest_files=["res://.godot/imported/real62-extra.glb-a56a690865bd3ba2d3584b9a5960ad64.scn"]
+source_file="res://assets/quaternius/personnages/dealer-businessman.glb"
+dest_files=["res://.godot/imported/dealer-businessman.glb-2d7e6368cde6375a01da26668ab85680.scn"]
 
 [params]
 

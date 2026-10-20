@@ -169,6 +169,9 @@ def atelier(rubrique="", famille="", cherche=""):
         meubles = [m for m in cat["meubles"]["ids"] if cle in _normal(m)]
         if meubles:
             out["meubles"] = meubles
+        personnages = [m for m in cat["personnages"]["roles"] + cat["personnages"]["modeles"] if cle in _normal(m)]
+        if personnages:
+            out["personnages"] = personnages
         return json.dumps({"cherche": cherche, "trouve": out}, ensure_ascii=False, indent=1)
     if rubrique:
         if rubrique not in cat:
@@ -298,7 +301,7 @@ OUTILS = {
     "atelier": (atelier, "Ce que le jeu prête aux communes sans rien embarquer : modèles 3D par famille, maisons "
                 "à façades, figurants, meubles, sons, matières, polices, scènes du socle (le stade). Donne aussi "
                 "l'appel GDScript (classe Atelier). Sans argument : le résumé.",
-                {"rubrique": {"type": "string", "description": "modeles, maisons, figurants, meubles, sons, matieres, polices ou scenes"},
+                {"rubrique": {"type": "string", "description": "modeles, maisons, figurants, personnages, meubles, sons, matieres, polices ou scenes"},
                  "famille": {"type": "string", "description": "une famille de modèles (nature, ville, voitures, mobilier, restaurant…) : la liste de ses modèles"},
                  "cherche": {"type": "string", "description": "un mot à chercher dans les noms (« tree », « bench », « car »)"}}, []),
     "verifier_manifeste": (verifier_manifeste, "Vérifie vite un commune.json (champs obligatoires, id, INSEE, scène, "

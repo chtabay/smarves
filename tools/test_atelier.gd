@@ -2,7 +2,8 @@ extends SceneTree
 ## Vérifie l'atelier du socle sans affichage : godot --headless --path . -s tools/test_atelier.gd
 ## Chaque nom du catalogue (scripts/socle/atelier.json) mène à quelque chose : chaque famille a des
 ## modèles et le premier se pose pied au sol à la hauteur demandée, chaque meuble se construit, chaque
-## matière a son shader, chaque son a son groupe, chaque tenue habille un figurant, une rue se bâtit.
+## matière a son shader, chaque son a son groupe, chaque tenue habille un figurant, chaque rôle habille un
+## personnage, une rue se bâtit.
 ## C'est la promesse faite aux communes : un nom du catalogue ne casse pas sans qu'on le voie ici.
 
 const SFX := preload("res://scripts/sfx.gd")
@@ -59,6 +60,29 @@ func _init() -> void:
 		scene.add_child(v)
 		await process_frame
 		check(v.get_child_count() > 0, "un figurant en tenue « %s » est habillé" % tenue)
+
+	# Les personnages 3D : chaque rôle et chaque modèle du catalogue se pose, et ce sont ceux du module.
+	var P: GDScript = Atelier.personnages()
+	check(cat.personnages.roles.size() == P.TENUES.size(), "le catalogue nomme les %d rôles des personnages" % P.TENUES.size())
+	check(cat.personnages.modeles.size() == P.MODELES.size(), "le catalogue nomme les %d modèles des personnages" % P.MODELES.size())
+	for role in cat.personnages.roles:
+		var p: Node3D = Atelier.personnage(role, 3)
+		check(p != null and p.get_child_count() > 0, "un personnage « %s » est habillé" % role)
+		if p:
+			scene.add_child(p)
+	for m in cat.personnages.modeles:
+		var p: Node3D = Atelier.personnage_modele(m)
+		check(p != null and p.get_child_count() > 0, "le personnage « %s » se pose" % m)
+		if p:
+			scene.add_child(p)
+	await process_frame
+	for g in cat.personnages.gestes:
+		var croupier: Node3D = Atelier.personnage("croupier", 1)
+		scene.add_child(croupier)
+		check(croupier.joueur.has_animation(str(croupier.gestes[g])), "le croupier sait le geste « %s »" % g)
+		var client: Node3D = Atelier.personnage("client", 2)
+		scene.add_child(client)
+		check(client.joueur.has_animation(str(client.gestes[g])), "un client sait le geste « %s »" % g)
 
 	var rue := Node3D.new()
 	scene.add_child(rue)

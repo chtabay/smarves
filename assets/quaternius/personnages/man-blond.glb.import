@@ -4,12 +4,12 @@ importer="scene"
 importer_version=1
 type="PackedScene"
 uid="uid://dpf77odnp6ucu"
-path="res://.godot/imported/man-blond.glb-e2274b2d27013009d7fc091d38452423.scn"
+path="res://.godot/imported/man-blond.glb-5116b491c65cbf91e36ab03eaf79dccc.scn"
 
 [deps]
 
-source_file="res://tools/paquet_essai/casino_minuit/personnages/man-blond.glb"
-dest_files=["res://.godot/imported/man-blond.glb-e2274b2d27013009d7fc091d38452423.scn"]
+source_file="res://assets/quaternius/personnages/man-blond.glb"
+dest_files=["res://.godot/imported/man-blond.glb-5116b491c65cbf91e36ab03eaf79dccc.scn"]
 
 [params]
 

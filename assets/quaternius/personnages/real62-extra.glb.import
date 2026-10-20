@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://c0i2juhfexxcl"
-path="res://.godot/imported/real-casual-woman.glb-2735037c00a75a0c11242b36f7754faa.scn"
+uid="uid://c1hv64ucqvrp0"
+path="res://.godot/imported/real62-extra.glb-25734bdbfe8806ca6ee4a0c18c28d64b.scn"
 
 [deps]
 
-source_file="res://tools/paquet_essai/casino_minuit/personnages/real-casual-woman.glb"
-dest_files=["res://.godot/imported/real-casual-woman.glb-2735037c00a75a0c11242b36f7754faa.scn"]
+source_file="res://assets/quaternius/personnages/real62-extra.glb"
+dest_files=["res://.godot/imported/real62-extra.glb-25734bdbfe8806ca6ee4a0c18c28d64b.scn"]
 
 [params]
 

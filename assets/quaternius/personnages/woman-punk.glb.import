@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://bvo83n5wxffgh"
-path="res://.godot/imported/real-punk-man.glb-13f3d8a3a2464e0e7c07950b6b7aed86.scn"
+uid="uid://ejsygrhiomof"
+path="res://.godot/imported/woman-punk.glb-90776753e7950f9ae949c1f7d5afbde2.scn"
 
 [deps]
 
-source_file="res://tools/paquet_essai/casino_minuit/personnages/real-punk-man.glb"
-dest_files=["res://.godot/imported/real-punk-man.glb-13f3d8a3a2464e0e7c07950b6b7aed86.scn"]
+source_file="res://assets/quaternius/personnages/woman-punk.glb"
+dest_files=["res://.godot/imported/woman-punk.glb-90776753e7950f9ae949c1f7d5afbde2.scn"]
 
 [params]
 

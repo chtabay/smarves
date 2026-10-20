@@ -1,12 +1,15 @@
 extends RefCounted
-## Les figurants de Casino Minuit, sur le modèle du jeu web (js/npc.js, assets/manifest.json) : les
-## personnages Quaternius (CC0) du jeu, habillés par rôle de teintes par matériau, avec leurs clips et ceux
-## des fichiers d'animations « extra », reciblés sur leur squelette. Deux familles d'ossature :
+## Les personnages 3D du socle, venus de Casino Minuit (et avant lui du jeu web, js/npc.js,
+## assets/manifest.json) : les personnages Quaternius (CC0), habillés par rôle de teintes par matériau,
+## avec leurs clips et ceux des fichiers d'animations « extra », reciblés sur leur squelette. Deux
+## familles d'ossature :
 ## - human31 (man-*, woman-*) : onze clips embarqués, plus human31-extra (parler, boire, s'accouder…) ;
 ## - character62 (croupiers, real-*) : les clips des deux croupiers, plus real62-extra.
 ## Les modèles regardent vers +z ; un figurant regarde vers -z, comme un nœud Godot (look_at).
+## Les communes y accèdent par l'atelier (Atelier.personnage, Atelier.personnage_modele) : les modèles
+## sont dans le jeu, pas dans leur paquet.
 
-const DOSSIER := "res://communes/casino_minuit/personnages/"
+const DOSSIER := "res://assets/quaternius/personnages/"
 ## L'échelle qui met chaque ossature à sa taille en mètres (manifest.rigs.*.scaleToMeters).
 const ECHELLE := {"human31": 0.3641, "character62": 0.9722}
 
@@ -75,6 +78,7 @@ static var _scenes := {}
 ## Un figurant du rôle donné ; graine choisit sa tenue (et ses teintes, pour un client).
 static func figurant(role: String, graine: int) -> Node3D:
 	var h := RandomNumberGenerator.new()
+	# « minuit/ » : la graine d'origine, gardée pour que les figurants de Casino Minuit ne changent pas.
 	h.seed = hash("minuit/%s/%d" % [role, graine])
 	var tenues: Array = TENUES[role]
 	var t: Array = tenues[h.randi() % tenues.size()]

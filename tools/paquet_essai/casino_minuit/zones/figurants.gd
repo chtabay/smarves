@@ -8,7 +8,6 @@ extends RefCounted
 ## (lot E) et des salles du lot F sont rangés sous leurs nœuds (« Dehors », « Arene », « Concert »), que la
 ## scène montre et arrête selon où l'on est.
 
-const PERSONNAGES := "res://communes/casino_minuit/personnages.gd"
 
 ## Le tour du casino : la rotonde, l'est de l'atrium, la volée est, la galerie (nord, est, pont sud, ouest),
 ## la volée ouest, l'ouest de l'atrium, et retour à la fontaine.
@@ -25,7 +24,7 @@ const TOUR := [
 ## dedans : les figurants de tout le casino (lots A à F) ; faux quand les PNJ de l'original (pnj/pnj.gd, pnj/vie.gd)
 ## l'habitent : aucun figurant alors.
 static func peupler(racine: Node3D, dedans := true) -> Node3D:
-	var P = load(PERSONNAGES)
+	var P = Atelier.personnages()
 	var n := Node3D.new()
 	n.name = "Figurants"
 	racine.add_child(n)
@@ -106,7 +105,7 @@ static func peupler(racine: Node3D, dedans := true) -> Node3D:
 ## croupiers aux tables ouvertes, joueurs aux machines et aux tables, le barman et ses clients au lounge,
 ## le pianiste et son public, des promeneurs au jardin d'hiver, le personnel du lobby et du change.
 static func _lot_b(n: Node3D, pl: Dictionary, g: int) -> void:
-	var P = load(PERSONNAGES)
+	var P = Atelier.personnages()
 	# Le poker : un croupier par table ouverte, cinq joueurs sur huit.
 	for t in pl.get("poker", []):
 		g += 1
@@ -198,7 +197,7 @@ static func _asseoir(n: Node3D, graine: int, place: Array, geste: String, role :
 
 
 static func _poser(n: Node3D, role: String, graine: int, at: Vector3, geste: String):
-	var f = load(PERSONNAGES).figurant(role, graine)
+	var f = Atelier.personnages().figurant(role, graine)
 	f.position = at
 	n.add_child(f)
 	f.jouer(geste)
@@ -210,7 +209,7 @@ static func _poser(n: Node3D, role: String, graine: int, at: Vector3, geste: Str
 ## club, les parieurs devant le mur d'écrans, les dîneurs, serveurs et cuisiniers du Lucullus, les flâneurs et
 ## les vendeurs des boutiques, le public du foyer.
 static func _lot_c(n: Node3D, pl: Dictionary, g: int) -> void:
-	var P = load(PERSONNAGES)
+	var P = Atelier.personnages()
 	# La fosse : un croupier par table, les joueurs sur un tabouret sur deux ou trois.
 	for t in pl.get("pit_bj", []) + pl.get("pit_roulettes", []):
 		g += 1
@@ -355,7 +354,7 @@ static func _lot_c(n: Node3D, pl: Dictionary, g: int) -> void:
 ## l'arrière-caisse, les cuisiniers, le chef et le plongeur, les livreurs au quai, les employés aux vestiaires,
 ## en pause et au couloir de service ; le rondier de l'épine, le croupier qui va prendre son service.
 static func _lot_d(n: Node3D, pl: Dictionary, g: int) -> void:
-	var P = load(PERSONNAGES)
+	var P = Atelier.personnages()
 	var assis := [["agent", "d_secu"], ["agent", "d_gardes_assis"], ["compteur", "d_comptage"], ["compteur", "d_arriere"],
 		["employe", "d_vestiaire_assis"], ["employe", "d_pause"], ["employe", "d_service_assis"], ["agent", "d_sas_banc"],
 		["agent", "d_entretien_agent"], ["client", "d_interpelle"]]
@@ -412,7 +411,7 @@ static func _groupe(n: Node3D, nom: String) -> Node3D:
 ## fontaines, l'attente aux abribus et à la station de taxis, la file de l'arène et son videur, les badauds devant
 ## l'écran géant, le vendeur de hot-dogs et ses clients, quelques-uns sur les bancs.
 static func _lot_e(n: Node3D, pl: Dictionary, g: int) -> void:
-	var P = load(PERSONNAGES)
+	var P = Atelier.personnages()
 	var d := _groupe(n, "Dehors")
 	for cle in ["e_promenade_casino", "e_promenade_enface"]:
 		var tour: Array = pl.get(cle, [])

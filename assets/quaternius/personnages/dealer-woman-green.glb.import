@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://bcrbma5wurmeg"
-path="res://.godot/imported/real-swat.glb-4a95fa1d70d65565fb1128def9c1ec99.scn"
+uid="uid://dvlhm07xr4hvb"
+path="res://.godot/imported/dealer-woman-green.glb-1ea3920bf8ae124afded39e0bfdebc90.scn"
 
 [deps]
 
-source_file="res://tools/paquet_essai/casino_minuit/personnages/real-swat.glb"
-dest_files=["res://.godot/imported/real-swat.glb-4a95fa1d70d65565fb1128def9c1ec99.scn"]
+source_file="res://assets/quaternius/personnages/dealer-woman-green.glb"
+dest_files=["res://.godot/imported/dealer-woman-green.glb-1ea3920bf8ae124afded39e0bfdebc90.scn"]
 
 [params]
 

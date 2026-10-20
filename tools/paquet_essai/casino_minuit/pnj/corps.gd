@@ -6,7 +6,6 @@ extends RefCounted
 ## par-dessus le clip (applyBone). Un PNJ non affiché ne fait tourner aucun lecteur : la simulation ne dépend
 ## jamais de l'état d'une animation.
 
-const PERSONNAGES := "res://communes/casino_minuit/personnages.gd"
 
 const FALLBACKS := {"clap": ["yes", "interact"], "leanRail": ["idle"], "foldArms": ["idle"], "cower": ["idle"], "carry": ["walk"], "run": ["walk"], "railCall": ["wave", "interact"], "phone": ["talk", "idle"],
 	"eat": ["interact"], "drink": ["eat", "interact"], "talk": ["interact", "idle"], "sitTalk": ["talk"], "hit": ["hitChest", "idle"], "hitChest": ["hit"], "knockback": ["hit", "hitChest"], "punch": ["punchJab"], "punchJab": ["punch"], "punchCross": ["punch"],
@@ -103,7 +102,7 @@ class Corps:
 
 	func _init(gab: Dictionary, teintes: Dictionary) -> void:
 		g = gab
-		root = load(PERSONNAGES).faire(g.name, teintes)
+		root = Atelier.personnages().faire(g.name, teintes)
 		root.set_process(false)
 		inner = root.get_child(0)
 		var src: AnimationPlayer = root.joueur

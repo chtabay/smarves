@@ -84,12 +84,22 @@ var _anneau: StandardMaterial3D
 var _ecran_loge: Label3D
 
 
-## Ouvre la salle d'une commune. match : celui que le fil basket veut voir (vide : l'entraînement).
+## Ouvre la salle d'une commune. match : celui que le fil basket veut voir (vide : l'entraînement). La salle
+## est celle que la commune a bâtie si son gymnase en nomme une (socle 1.12, champ « scene » : son script
+## hérite de celui-ci), celle du socle sinon ; une scène en paquet s'ouvre derrière l'écran de chargement.
 static func ouvrir(id: String, match := {}) -> void:
 	prochaine_commune = id
 	prochain_match = match
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	(Engine.get_main_loop() as SceneTree).change_scene_to_file("res://scenes/salle_basket.tscn")
+	Chargement.changer(scene_de(id))
+
+
+## La scène de la salle d'une commune : celle de son gymnase (champ « scene ») si elle existe, sinon celle du socle.
+static func scene_de(id: String) -> String:
+	var sc := str(gymnase_de(id).get("champs", {}).get("scene", ""))
+	if sc != "" and ResourceLoader.exists(sc):
+		return sc
+	return "res://scenes/salle_basket.tscn"
 
 
 ## La structure « gymnase » d'une commune au registre ({} : aucune).
@@ -158,6 +168,7 @@ func _ready() -> void:
 	_facade_et_parvis()
 	_parking()
 	_heron_geant()
+	_habillage()
 	_vivants()
 	if fusionner_decor:
 		_fusionner_decor()
@@ -174,6 +185,21 @@ func _ready() -> void:
 	else:
 		charger_match(_match)
 	_maybe_capture()
+
+
+## L'habillage de la commune (socle 1.12, champ « habillage » du gymnase) : sa scène, posée dans la salle
+## du socle (nœud « Habillage ») ; le parquet, les gradins, le cube et le match restent ceux du socle. La
+## scène lit le club par son parent (la salle : _nom_club(), _couleurs()…) si elle en a besoin. Ses pièces
+## immobiles sont fondues avec le décor ; celles qui bougent vont dans le groupe « mobile ».
+func _habillage() -> void:
+	var chemin := str(_champs().get("habillage", ""))
+	if chemin == "" or not ResourceLoader.exists(chemin):
+		return
+	var scene := load(chemin) as PackedScene
+	if scene:
+		var n := scene.instantiate()
+		n.name = "Habillage"
+		add_child(n)
 
 
 # --- La fusion du décor ---------------------------------------------------------------------------
