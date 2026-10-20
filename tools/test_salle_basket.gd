@@ -105,17 +105,17 @@ func _init() -> void:
 	var genres := salle.find_children("*", "Area3D", true, false).map(func(a): return a.get_meta("interact", ""))
 	check("bureau" in genres and "tactique" in genres and "conseil" in genres and "parts" in genres, "le grand bureau, le tableau tactique, la table du conseil, le tableau des parts")
 	salle.open_parts()
-	check(salle._ecran != null, "les parts du club s'ouvrent (l'affiche, en attendant l'écran du fil basket)")
+	check(salle._ecran != null and salle._ecran.get_script() != null and salle._ecran.get_script().resource_path.ends_with("basket_parts.gd") and salle._ecran.commune == "smarves", "les parts du club s'ouvrent : l'écran des parts du fil basket")
 	salle._ecran.closed.emit()
 	await process_frame
 	salle.sortir_bureau()
 	check(salle.player.global_position.z > -12.0 and salle.player.global_position.z < 0.0, "on redescend au parquet, devant la porte")
-	# Le bureau et le panneau du club : le président le dit tant que le fil basket ne les a pas faits.
+	# Le bureau et le panneau du club : les écrans du fil basket.
 	salle.open_bureau()
-	check(salle._ecran != null and _textes(salle._ecran).any(func(t): return t.contains("M. Lacombe")), "le bureau du club : une affiche où le président répond, en attendant le bureau du fil basket")
-	salle._game.closed.emit()
+	check(salle._ecran != null and salle._ecran.get_script() != null and salle._ecran.get_script().resource_path.ends_with("basket_bureau.gd") and salle._ecran.commune == "smarves", "le bureau du club : celui du fil basket")
+	salle._ecran.closed.emit()
 	await process_frame
-	check(salle._ecran == null and not salle.player.frozen, "l'affiche se ferme")
+	check(salle._ecran == null and not salle.player.frozen, "le bureau se ferme")
 	salle.open_panneau()
 	check(salle._ecran != null and salle._ecran.get_script() != null and salle._ecran.get_script().resource_path.ends_with("basket_panneau.gd") and salle._ecran.commune == "smarves", "le panneau du club, à l'entrée : celui du championnat de basket")
 	salle._ecran.closed.emit()
