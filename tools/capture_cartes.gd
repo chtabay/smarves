@@ -2,7 +2,7 @@ extends SceneTree
 ## Captures du classeur de cartes du carnet (onglet « Mes cartes »), sur la place, avec quelques biens,
 ## des obligations de l'Étoile tenues par vous et par deux autres joueurs, et le club de basket :
 ## godot --path . -s tools/capture_cartes.gd -- --sortie=<dossier/> [--base=600]
-## (toutes.png, place.png, clubs.png, zoom-part.png, zoom-club.png, miennes.png ; --base=600 imite un
+## (village.png, etablissements.png, clubs.png, zoom-club.png, zoom-part.png ; --base=600 imite un
 ## téléphone, comme Tactile.)
 
 func _initialize() -> void:
@@ -46,22 +46,20 @@ func _lancer() -> void:
 	carnet.toggle()
 	carnet.ouvrir_onglet("cartes")
 	var album: Node = carnet.get("_album")
-	await _photo(sortie + "toutes.png")
-	album.choisir_famille("q:place")
-	await _photo(sortie + "place.png")
-	album.choisir_famille("clubs")
+	await _photo(sortie + "village.png")
+	var defile: ScrollContainer = album.get("_defile")
+	defile.scroll_vertical = 560
+	await _photo(sortie + "etablissements.png")
+	defile.scroll_vertical = 100000
 	await _photo(sortie + "clubs.png")
-	album.montrer(0)
+	var n: int = album.get("_affichees").size()
+	album.montrer(n - 4)
 	await _photo(sortie + "zoom-club.png")
 	album.fermer_zoom()
-	album.choisir_famille("parts")
-	album.montrer(3)
+	var i: int = album.get("_affichees").map(func(c): return c.id).find("part:smarvoise:4")
+	album.montrer(i)
 	await _photo(sortie + "zoom-part.png")
 	album.fermer_zoom()
-	album.choisir_famille("")
-	album.miennes = true
-	album.remplir()
-	await _photo(sortie + "miennes.png")
 	foot.effacer()
 	quit()
 

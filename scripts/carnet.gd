@@ -7,8 +7,8 @@ extends CanvasLayer
 ## Les onglets, de gauche à droite :
 ## - « Mon compte », tenu par le socle : ce qui suit le joueur d'une commune à l'autre (crédits, dettes
 ##   par banque, biens, obligations, bourse, fortune nette), la semaine et les engagements en cours ;
-## - « Mes cartes » : le classeur où tout ce qui s'achète devient une carte à collectionner, les parts
-##   des clubs comprises (scripts/carnet_cartes.gd) ;
+## - « Mes cartes » : le classeur des cartes possédées, un sous-onglet par village, avec le topo complet
+##   des parts de club (scripts/carnet_cartes.gd) ;
 ## - un onglet par commune : la commune d'origine d'abord, dont la page vient du jeu (le champ
 ##   « page_carnet » de son manifeste), puis chaque commune qui tient des compteurs au carnet
 ##   (docs/COMMUNE.md, « Le carnet du joueur ») : ils se lisent de partout, et ne bougent que quand
@@ -229,7 +229,7 @@ func _fill_onglets() -> void:
 	var vide := Control.new()
 	vide.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_onglets.add_child(vide)
-	var aide := _text(_onglets, "C ou Échap : fermer  ·  ← → : tourner les pages%s" % ("  ·  ↑ ↓ : familles" if _onglet == "cartes" else ""), 15, Color(0.86, 0.8, 0.72))
+	var aide := _text(_onglets, "C ou Échap : fermer  ·  ← → : tourner les pages%s" % ("  ·  ↑ ↓ : villages" if _onglet == "cartes" else ""), 15, Color(0.86, 0.8, 0.72))
 	aide.autowrap_mode = TextServer.AUTOWRAP_OFF
 	aide.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 
