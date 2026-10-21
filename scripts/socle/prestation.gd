@@ -320,7 +320,9 @@ func _capture_prestation() -> void:
 		say((_salle.lines as Array)[0])
 		ouvrir_panneau()
 		for e in essais:
-			if _game.has_method("essayer"):
+			if e.begins_with("visage:"):
+				_game.choisir_visage(int(e.trim_prefix("visage:")))
+			elif _game.has_method("essayer"):
 				_game.essayer(e, 1)
 	await get_tree().create_timer(4.0).timeout
 	await RenderingServer.frame_post_draw

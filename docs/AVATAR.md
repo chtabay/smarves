@@ -10,7 +10,7 @@ Le joueur se fait retoucher en ville, et chaque retouche se paie. La tenue reste
 | Gisèle Coiffure | la façade rose de la place | aucun | coupe, couleur des cheveux, moustache ou barbe |
 | La Pizzeria du Clain, chez Tonio | côté sud de la place | aucun | on prend des crans de corpulence |
 | Smarves Forme, chez Jojo | l'ancien local vacant de la route du Bois | 1 000 gagnés | on en perd |
-| Le cabinet du docteur Maupas | au-dessus de la pharmacie, route du Bois | 3 000 gagnés | sexe, teint, nez, taille |
+| Le cabinet du docteur Maupas | au-dessus de la pharmacie, route du Bois | 3 000 gagnés | un autre visage, choisi dans son album |
 
 Tout commerce de tenues d'une commune (structure `commerce`, genre `tenue`) a la même cabine d'essayage dans sa vitrine, sans rien déclarer.
 
@@ -20,7 +20,7 @@ On essaie gratuitement : l'aperçu montre le joueur tel qu'il sortira, et l'on n
 
 - **Couture** : couleur du haut 80, couleur du bas 60, chapeau 120, col 60, lunettes 90, coupe du haut (veste, gilet, pull, chemise, marinière, smoking, robe) 250, bas (pantalon ou jupe) 150.
 - **Coiffure** : coupe 60, couleur 90, moustache ou barbe 40.
-- **Chirurgie** : nez 1 500, teint 2 500, taille 4 000, sexe 6 000.
+- **Chirurgie** : 3 000 l'opération, quel que soit le visage choisi.
 - **Salle de sport** : la séance d'haltères 200 (un cran de moins), la semaine de stage 500 (deux), le coach particulier 1 200 (trois).
 - **Restaurant** : la pizza du jour 40 (un cran de plus), le menu complet 110 (deux), le festin du samedi 260 (trois).
 
@@ -28,7 +28,8 @@ Perdre coûte plus cher que prendre, comme dans la vie. La corpulence a huit cra
 
 ## Ce qu'on choisit
 
-- **Le corps** : homme ou femme (une femme a du rouge aux lèvres et pas de moustache, et garde la tenue qu'elle a achetée : Raymonde lui fait une robe ou une jupe si elle veut), huit teints, cinq nez, trois tailles, huit crans de corpulence.
+- **Le visage** : on ne règle pas les traits un par un, on choisit dans l'album du docteur Maupas un des seize visages tout faits, huit d'homme et huit de femme, qui fixent le sexe, le teint et le nez (le jeune premier, le baroudeur, le jazzman, la femme fatale, la comtesse, la diva…). Une femme a du rouge aux lèvres et pas de moustache, et garde la tenue qu'elle a achetée : Raymonde lui fait une robe ou une jupe si elle veut.
+- **Le corps** : huit crans de corpulence.
 - **La tête** : douze coupes, onze couleurs, cinq façons de porter la moustache.
 - **Les vêtements** : sept coupes de haut, pantalon ou jupe, quatorze couleurs de tissu, huit chapeaux, cinq cols, quatre paires de lunettes. Chaque réglage peut rester « comme la tenue ». Les retouches du haut et du bas tombent quand on change de tenue ; le chapeau, le col et les lunettes restent.
 
