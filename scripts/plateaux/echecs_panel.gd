@@ -72,10 +72,18 @@ func _ready() -> void:
 	echiquier.coup.connect(_jouer)
 	gauche.add_child(echiquier)
 	_bas = _carte_joueur(gauche)
+	# La colonne des réglages défile dans la hauteur de l'échiquier : sur un téléphone couché, les
+	# réglages et la mise ne poussent plus le bouton « Accepter » hors de l'écran.
+	var defile := ScrollContainer.new()
+	defile.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	defile.custom_minimum_size = Vector2(0, vp.y * 0.3) if etroit else Vector2(clampf(vp.x * 0.24, 260, 380), cote_plateau + 80)
+	defile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_corps.add_child(defile)
 	_cote = VBoxContainer.new()
 	_cote.add_theme_constant_override("separation", 10)
-	_cote.custom_minimum_size.x = 0 if etroit else clampf(vp.x * 0.24, 260, 380)
-	_corps.add_child(_cote)
+	_cote.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_cote.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	defile.add_child(_cote)
 	var titre := BARRE.label(title if title != "" else "Échecs", 24, BARRE.GOLD)
 	titre.add_theme_font_override("font", Polices.gras())
 	_cote.add_child(titre)
@@ -369,6 +377,15 @@ func _rendre_reglage(phase: String) -> void:
 	if phase != "reglage":
 		return
 	var r: Dictionary = vue.get("reglage", {})
+	# Le bouton d'abord, en haut de la colonne : il reste visible, quelle que soit la hauteur de l'écran
+	# et ce qui s'affiche en bas (les annonces du jeu).
+	var places: Array = vue.get("places", [])
+	var moi := int(vue.get("moi", -1))
+	var j_ai_accepte: bool = moi >= 0 and places[moi] is Dictionary and places[moi].get("ok", false)
+	var accepter := BARRE.main_button("Accepté, on attend l'autre" if j_ai_accepte else "Accepter et jouer")
+	accepter.disabled = j_ai_accepte
+	accepter.pressed.connect(func(): _appeler("plateau.accepter", {"solde": Game.credits}))
+	_reglage.add_child(accepter)
 	_reglage.add_child(BARRE.label("Cadence", 20, BARRE.MUTED))
 	var cads := HFlowContainer.new()
 	cads.add_theme_constant_override("h_separation", 6)
@@ -413,13 +430,6 @@ func _rendre_reglage(phase: String) -> void:
 		else:
 			gain.text = "Chacun mise %s : le gagnant prend les deux mises, une nulle les rend." % Game.fmt(mise)
 		_reglage.add_child(gain)
-	var places: Array = vue.get("places", [])
-	var moi := int(vue.get("moi", -1))
-	var j_ai_accepte: bool = moi >= 0 and places[moi] is Dictionary and places[moi].get("ok", false)
-	var accepter := BARRE.main_button("Accepté, on attend l'autre" if j_ai_accepte else "Accepter et jouer")
-	accepter.disabled = j_ai_accepte
-	accepter.pressed.connect(func(): _appeler("plateau.accepter", {"solde": Game.credits}))
-	_reglage.add_child(accepter)
 
 
 func _rendre_gestes(phase: String, pt) -> void:
