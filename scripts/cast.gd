@@ -141,6 +141,22 @@ const NAMED := {
 	"docteur": {"species": "humain", "fur": PEAU[1], "hair": "degarni", "hair_color": "#d8d4cc", "nose": "long", "build": {"leg": 1.04, "width": 0.94},
 		"top": "gilet", "top_color": "#5a5a64", "top2": BLANC,
 		"legs": "pantalon", "legs_color": "#3a3b44", "neck": "noeud", "neck_color": BORDEAUX, "face": ["demi_lune", "moustache"], "moustache": "#eeeaf0", "prop_r": "cartes", "shoes": "#141318"},
+	# Les maisons où l'on se fait retoucher (Avatar, docs/AVATAR.md). Gisèle, coiffeuse de la place : blouse rose,
+	# brushing blond platine. Le docteur Maupas, chirurgien au-dessus de la pharmacie :
+	# blouse blanche, miroir frontal, nœud papillon. Jojo, de Smarves Forme : maillot rayé, moustache de lutteur.
+	# Tonio, de la Pizzeria du Clain : tablier, toque, un grand sourire.
+	"gisele": {"species": "humain", "fur": PEAU[5], "hair": "brushing", "hair_color": "#ecd9a0", "nose": "retrousse", "build": {"leg": 1.04, "width": 0.94},
+		"top": "robe", "top_color": "#e58aa8", "skirt_len": 0.6, "sleeves": "courtes", "apron": true, "apron_color": "#fbf8f0",
+		"neck": "collier", "lip": "#c0322e", "shoes": "#a3172b"},
+	"maupas": {"species": "humain", "fur": PEAU[0], "hair": "gomina", "hair_color": "#3a2e28", "nose": "busque", "build": {"leg": 1.08, "width": 0.92},
+		"top": "trench", "top_color": "#f4f4f0", "top2": BLANC, "legs": "pantalon", "legs_color": "#3a3b44",
+		"neck": "noeud", "neck_color": "#1d2a55", "face": ["lunettes"], "frame": "#2a2224", "hat": "visiere", "hat_color": "#d8dce0", "shoes": NOIR},
+	"jojo": {"species": "humain", "fur": PEAU[3], "hair": "court", "hair_color": "#2a2420", "nose": "patate", "build": {"width": 1.18, "belly": 0.95, "arm": 1.08},
+		"top": "mariniere", "top_color": "#b8402e", "top2": BLANC, "sleeves": "courtes", "legs": "pantalon", "legs_color": "#2f4a80",
+		"face": ["moustache"], "moustache": "#2a2420", "shoes": BLANC},
+	"tonio": {"species": "humain", "fur": PEAU[3], "hair": "court", "hair_color": "#16141a", "nose": "rond", "build": {"belly": 1.3, "width": 1.1},
+		"top": "chemise", "top_color": BLANC, "sleeves": "courtes", "legs": "pantalon", "legs_color": "#3a3b44",
+		"apron": true, "apron_color": "#fbf8f0", "hat": "toque", "hat_color": BLANC, "face": ["moustache"], "moustache": "#16141a", "shoes": "#2a2220"},
 }
 
 ## Qui parle → quelle fiche.
@@ -167,8 +183,20 @@ const PLAYER_OUTFITS := {
 
 ## La fiche du joueur dans une tenue.
 ## outfit : une clé de PLAYER_OUTFITS, ou la tenue portée (Biens.worn) ; « » ou inconnue = le costume bleu nuit.
+## Le mot d'une présence (« smoking__a… », Avatar.mot) habille aussi le corps retouché de l'autre joueur.
 static func player(outfit := "costume") -> Dictionary:
+	if outfit.contains(Avatar.SEPARATEUR):
+		var m := Avatar.lire_mot(outfit)
+		return Avatar.appliquer(player(m[0]), m[1])
 	return NAMED.joueur.merged(PLAYER_OUTFITS.get(outfit, {}), true)
+
+
+## La fiche du joueur qu'on dirige : sa tenue et ses retouches (Biens.avatar).
+static func moi() -> Dictionary:
+	var biens: Node = (Engine.get_main_loop() as SceneTree).root.get_node_or_null("Biens") if Engine.get_main_loop() is SceneTree else null
+	if biens == null:
+		return player()
+	return Avatar.fiche(str(biens.worn), biens.avatar)
 
 
 ## Tout ce qu'il faut pour habiller et animer un habitant : {look, idle, sit, role, fidgets}.
@@ -178,7 +206,7 @@ static func resolve(id: String, speaker: String, accessory: String, seed_value: 
 	rng.seed = seed_value
 	var key := ""
 	if id == "joueur":
-		return {"look": player(), "idle": "idle", "sit": "sit", "role": "public", "fidgets": []}
+		return {"look": moi(), "idle": "idle", "sit": "sit", "role": "public", "fidgets": []}
 	if BY_SPEAKER.has(speaker):
 		key = BY_SPEAKER[speaker]
 	elif BY_MODEL.has(id):

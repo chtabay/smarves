@@ -87,6 +87,13 @@ func _ready() -> void:
 	rule.color = Color(0.45, 0.32, 0.18, 0.6)
 	rule.custom_minimum_size.y = 2
 	v.add_child(rule)
+	if seller == "couture" or (seller == "commerce" and str(_commerce().get("genre", "")) == "tenue"):
+		# Chez tout couturier, la cabine d'essayage : on retouche la tenue qu'on porte (Avatar).
+		var cabine := _button("La cabine d'essayage : retoucher la tenue, un chapeau, des lunettes…", _ouvrir_cabine)
+		cabine.name = "Cabine"
+		cabine.custom_minimum_size.y = 44
+		cabine.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		v.add_child(cabine)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -389,6 +396,20 @@ func _buy(id: String, financed: bool) -> void:
 		Sfx.play("chips", -6.0)
 		spoke.emit((FINANCED if _banque().is_empty() else "« %s finance, c'est signé. »" % str(_banque().get("nom", "La banque"))) if financed else (_mercis() as Array).pick_random())
 	_refresh()
+
+
+## La cabine d'essayage, par-dessus la vitrine ; elle y revient en se fermant.
+func _ouvrir_cabine() -> void:
+	var s := _commerce()
+	var p := Prestation.panneau("couture", {"nom": "La cabine d'essayage",
+		"tenancier": str(s.get("tenancier", "")) if seller == "commerce" else "Raymonde"})
+	p.spoke.connect(func(t: String): spoke.emit(t))
+	p.closed.connect(func():
+		p.queue_free()
+		visible = true
+		_refresh())
+	visible = false
+	get_parent().add_child(p)
 
 
 ## Le registre des obligations du club, par-dessus l'étude ; il revient à la fiche en se fermant.

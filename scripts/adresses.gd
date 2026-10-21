@@ -37,7 +37,7 @@ const NOMMEES := {
 	"bibliotheque": ["Les murs de la bibliothèque municipale", "public", "Le conseil municipal", "« La commune reste locataire. Elle paie tard, mais elle paie, et elle prête des livres. »", 15000],
 	"garage": ["Les murs du garage Fradin", "murs", "Roger Fradin", "« L'atelier, la fosse, la pompe. Je garde la clé, vous gardez le loyer. »", 9000],
 	"pharmacie": ["Les murs de la pharmacie", "murs", "Le pharmacien", "« Une officine ne ferme jamais tout à fait. Le loyer non plus. »", 8500],
-	"lot_bois": ["Le local de la route du Bois", "murs", "Maître Garnier", "« Vacant. Un commerce viendra, le loyer avec lui ; en attendant, c'est la commune qui l'occupe. »", 4500],
+	"lot_bois": ["Les murs de Smarves Forme", "murs", "Jojo", "« Je soulève de la fonte, pas des loyers. Prenez les murs, je garde les haltères. »", 4500],
 	"ecole": ["Les murs de l'école publique", "public", "Le conseil municipal", "« L'école reste l'école. La commune vous verse son loyer, et vous lui devez le respect. »", 25000],
 	"stade": ["Le stade municipal", "etoile", "", "", 0],
 }
@@ -85,7 +85,7 @@ const PHRASES_PAVILLON := [
 
 ## Le nom court d'une façade sans enseigne, pour le plan.
 const COURTS := {"notaire": "Étude Garnier", "garage": "Garage Fradin", "ecole": "École", "lot_reserve": "Vasseur & Cie",
-	"lot_bois": "Local vacant", "stade": "Stade municipal", "poste": "La Poste", "bibliotheque": "Bibliothèque"}
+	"lot_bois": "Smarves Forme", "stade": "Stade municipal", "poste": "La Poste", "bibliotheque": "Bibliothèque"}
 
 static var _toutes: Array = []
 static var _par_id := {}

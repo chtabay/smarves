@@ -814,9 +814,9 @@ var _worn := ""
 
 
 func _on_biens_changed() -> void:
-	if player and is_instance_valid(player.avatar) and Biens.worn != _worn:
-		_worn = Biens.worn
-		player.avatar.set_look(Cast.player(Biens.worn))
+	if player and is_instance_valid(player.avatar) and Biens.apparence() != _worn:
+		_worn = Biens.apparence()
+		player.avatar.set_look(Cast.moi())
 
 
 func _spawn_player() -> void:
@@ -830,9 +830,9 @@ func _spawn_player() -> void:
 	player.interact.connect(_on_player_interact)
 	# L'habitant qu'on dirige en vue de dessus, en costume.
 	var me := VILLAGER.CRITTER.new()
-	# La tenue achetée chez Raymonde l'habille (Biens.worn).
-	me.look = Cast.player(Biens.worn)
-	_worn = Biens.worn
+	# La tenue achetée chez Raymonde l'habille (Biens.worn), retouchée en ville (Biens.avatar).
+	me.look = Cast.moi()
+	_worn = Biens.apparence()
 	# Méthode et non lambda : la connexion à l'autoload tombe avec la scène.
 	Biens.changed.connect(_on_biens_changed)
 	me.walk_speed = 1.0

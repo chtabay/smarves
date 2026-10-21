@@ -92,7 +92,7 @@ const BOIS_SOUTH := [
 	{"id": "pharmacie", "roof_sign": "PHARMACIE", "w": 3.0, "floors": 1, "shop": {"name": "Pharmacie", "sub": "Herboristerie · Orthopédie", "color": Color(0.92, 0.94, 0.9), "ink": Color(0.1, 0.45, 0.25), "glow": Color(0.85, 1.0, 0.9), "door": "left"}},
 	{"w": 2.2, "floors": 1, "door": "center", "roof_kind": "pignon"},
 	{"kind": "vide", "w": 0.0, "to": BOIS.ROND_X + BOIS.RING_R + 0.4},
-	{"id": "lot_bois", "w": 3.2, "floors": 1, "closed": true, "shop": {"name": "Prochainement", "sub": "Un nouveau commerce", "color": Color(0.2, 0.28, 0.36), "ink": Color(0.95, 0.85, 0.55)}},
+	{"id": "lot_bois", "w": 3.2, "floors": 1, "shop": {"name": "Smarves Forme", "sub": "Culture physique · Haltères", "color": Color(0.16, 0.26, 0.48), "ink": Color(1.0, 0.86, 0.3), "awning": [Color(0.2, 0.34, 0.62), Color(0.97, 0.95, 0.9)], "glow": Color(0.95, 0.9, 0.75)}},
 	{"kind": "pavillon", "w": 4.0},
 	{"kind": "pavillon", "w": 4.0},
 	{"kind": "jardin", "w": 2.4},
@@ -131,15 +131,15 @@ const PROMPTS := {
 	"poste": "La poste — fermée à cette heure",
 	"boucherie": "Boucherie Texier — fermée pour l'instant",
 	"lot_reserve": "Local réservé — un nouveau commerce s'installe bientôt",
-	"coiffure": "Gisèle Coiffure — sur rendez-vous",
-	"pizzeria": "Pizzeria du Clain — complet ce soir",
+	"coiffure": "E : entrer chez Gisèle Coiffure",
+	"pizzeria": "E : dîner à la Pizzeria du Clain",
 	"epicerie": "L'Épicerie du Bourg — fermée pour l'instant",
 	"fleurs": "Fleurs Odette — fermé pour l'instant",
 	"brocante": "E : entrer à la brocante de Mme Boutin",
 	"bibliotheque": "Bibliothèque municipale — ouverte mardi et samedi",
 	"garage": "E : entrer au garage Fradin",
-	"pharmacie": "Pharmacie — la croix verte veille, la porte est close",
-	"lot_bois": "Local réservé — un nouveau commerce s'installe bientôt",
+	"pharmacie": "E : monter au cabinet du docteur Maupas, chirurgie esthétique",
+	"lot_bois": "E : entrer à Smarves Forme, culture physique",
 	"ecole": "École publique — fermée le samedi soir",
 	"stade": "E : entrer au stade municipal",
 }
@@ -788,6 +788,11 @@ func _door_area(id: String, at: Vector3, rot: float) -> void:
 	elif id == "stade":
 		# Le stade est un lieu du manifeste, derrière son seuil : la scène principale en tient la porte.
 		a.set_meta("action", func(): main._enter("stade"))
+	elif PRESTATIONS.has(id):
+		a.set_meta("action", enter_prestation.bind(PRESTATIONS[id]))
+		var seuil := int(Prestation.SMARVES[PRESTATIONS[id]].seuil)
+		if Game.won < seuil:
+			a.set_meta("prompt", "%s — ouvre quand vous aurez gagné %s crédits au jeu" % [Prestation.SMARVES[PRESTATIONS[id]].nom, Game.fmt(seuil)])
 	add_child(a)
 	lots[id]["area"] = a
 
@@ -873,6 +878,16 @@ func _charge() -> void:
 
 ## Les portes qui mènent chez un vendeur du fil « Gestion » (autoload Biens, Biens.SELLERS).
 const SELLER_DOORS := ["notaire", "couture", "garage", "brocante"]
+## Les portes des maisons où l'on se fait retoucher (Prestation.SMARVES, docs/AVATAR.md) : porte → maison.
+const PRESTATIONS := {"coiffure": "coiffure", "pharmacie": "chirurgie", "lot_bois": "sport", "pizzeria": "restaurant"}
+
+
+func enter_prestation(id: String) -> void:
+	var m: Dictionary = Prestation.SMARVES[id]
+	if Game.won < int(m.seuil):
+		main._announce("%s ouvre quand vous aurez gagné %s crédits au jeu." % [m.nom, Game.fmt(int(m.seuil))])
+		return
+	Prestation.smarves(id)
 
 
 func enter_seller(id: String) -> void:

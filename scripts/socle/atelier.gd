@@ -182,6 +182,31 @@ static func meuble(id: String) -> Node3D:
 	return MEUBLES.build(id)
 
 
+# --- L'allure du joueur --------------------------------------------------------------------------
+
+## Les métiers qui retouchent le joueur (docs/AVATAR.md) : « couture », « coiffure », « chirurgie »,
+## « sport », « restaurant ».
+static func metiers() -> PackedStringArray:
+	return PackedStringArray(Avatar.METIERS.keys())
+
+
+## Ouvre la boutique du socle pour un métier (une pièce meublée selon le métier, le prestataire au fond) ;
+## la porte ramène devant options.lot, dans la commune options.commune. Voir Prestation.ouvrir.
+static func ouvrir_prestation(metier: String, options := {}) -> bool:
+	return Prestation.ouvrir(metier, options)
+
+
+## Le panneau d'un métier seul, à poser dans sa propre pièce ; il émet spoke(texte) et closed.
+static func prestation(metier: String, options := {}) -> PanelContainer:
+	return Prestation.panneau(metier, options)
+
+
+## La fiche (Cast) du joueur qu'on dirige, tenue et retouches comprises : pour un habitant de la commune
+## habillé comme lui (critter.gd, look).
+static func allure_du_joueur() -> Dictionary:
+	return Cast.moi()
+
+
 # --- Les sons, les matières ------------------------------------------------------------------------
 
 ## Un bruitage du jeu (atelier.json, « sons ») : « chips », « card », « dice », « win »…
