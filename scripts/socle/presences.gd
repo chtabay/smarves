@@ -145,9 +145,9 @@ func _inscrire() -> void:
 		_battement = BATTEMENT
 
 
+## La tenue et les retouches (Avatar.mot) : un mot [a-z0-9_]{0,40}, comme le veut la base.
 func _tenue() -> String:
-	var t: String = str(Biens.worn)
-	return t if t.length() <= 40 and t.is_valid_ascii_identifier() and t == t.to_lower() else ""
+	return str(Biens.apparence())
 
 
 ## Une vue de la base : {canal, moi, cadence, presents}, ou {sorti: true}.

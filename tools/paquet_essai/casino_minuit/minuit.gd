@@ -259,7 +259,7 @@ func _joueur() -> void:
 	# Le champ du moteur web : 68° à la verticale.
 	player.camera.fov = 68.0
 	var me: Node3D = load("res://scripts/critter.gd").new()
-	me.look = Cast.player(Biens.worn)
+	me.look = Cast.moi()
 	me.walk_speed = 2.4
 	me.run_speed = 4.4
 	me.scale = Vector3.ONE * 2.4

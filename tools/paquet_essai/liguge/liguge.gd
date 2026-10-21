@@ -73,7 +73,7 @@ func _joueur() -> void:
 	player.reach = 2.4
 	add_child(player)
 	var me: Node3D = load("res://scripts/critter.gd").new()
-	me.look = Cast.player(Biens.worn)
+	me.look = Cast.moi()
 	me.walk_speed = 1.0
 	me.run_speed = 1.9
 	me.rotation.y = PI

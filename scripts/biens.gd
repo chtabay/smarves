@@ -189,6 +189,8 @@ var owned := {}
 ## La tenue portée et le véhicule conduit (« » : aucun).
 var worn := ""
 var driven := ""
+## L'allure retouchée en ville, par-dessus la tenue (Avatar) : {champ: indice}, seulement ce qui change.
+var avatar := {}
 ## Les logements possédés, par id du catalogue : {lot, habite, interieur, meubles {emplacement: id}, facade}.
 ## Les meubles achetés sont comptés dans owned comme les autres biens ; ici, seulement où ils sont posés.
 var logements := {}
@@ -677,7 +679,7 @@ func buy(id: String, financed := false, preteur := "") -> bool:
 	var it := item(id)
 	# La dernière tenue achetée se porte, le dernier véhicule se conduit.
 	if it.kind == "tenue":
-		worn = id
+		_changer_tenue(id)
 	elif it.kind == "vehicule":
 		driven = id
 	elif it.kind == "maison" and not logements.has(id):
@@ -707,7 +709,7 @@ func sell(id: String) -> int:
 		# Revendue par le joueur, la maison part vide : les meubles restent à lui, décrochés.
 		_drop_logement(id)
 		if worn == id:
-			worn = _best_owned("tenue")
+			_changer_tenue(_best_owned("tenue"))
 		if driven == id:
 			driven = _best_owned("vehicule")
 	_busy = true
@@ -732,10 +734,48 @@ func wear(id: String) -> void:
 				if sortir(home, id):
 					break
 		if item(id).kind == "tenue":
-			worn = id
+			_changer_tenue(id)
 		elif item(id).kind == "vehicule":
 			driven = id
 		changed.emit()
+
+
+## Une autre tenue : les retouches des vêtements (coupe, couleurs) tombent avec l'ancienne ; le chapeau,
+## le col et les lunettes restent.
+func _changer_tenue(id: String) -> void:
+	if id != worn:
+		for champ in Avatar.VETEMENTS:
+			avatar.erase(champ)
+	worn = id
+
+
+# --- L'allure (Avatar) -------------------------------------------------------------------------
+
+## Le mot que voient les autres joueurs : la tenue et les retouches (Avatar.mot).
+func apparence() -> String:
+	return Avatar.mot(worn, avatar)
+
+
+## Paie une retouche : les nouveaux réglages remplacent les anciens. Rend false sans rien changer si les
+## crédits manquent.
+func relooker(reglages: Dictionary, prix: int) -> bool:
+	if prix > Game.credits:
+		return false
+	_busy = true
+	Game.credits -= maxi(prix, 0)
+	_busy = false
+	total_spent += maxi(prix, 0)
+	avatar = Avatar.nettoyer(reglages)
+	Game.changed.emit()
+	changed.emit()
+	return true
+
+
+## Prend ou perd des crans de corpulence (le restaurant, la salle de sport), bornés de -3 à +4.
+func corpulence(crans: int, prix: int) -> bool:
+	var r := avatar.duplicate()
+	r.poids = clampi(Avatar.valeur(avatar, "poids") + crans, Avatar.POIDS_MIN, Avatar.POIDS_MAX)
+	return relooker(r, prix)
 
 
 func _best_owned(kind: String) -> String:
@@ -853,7 +893,7 @@ func _maybe_reprise() -> String:
 		owned.erase(best)
 		_drop_logement(best)
 		if worn == best:
-			worn = _best_owned("tenue")
+			_changer_tenue(_best_owned("tenue"))
 		if driven == best:
 			driven = _best_owned("vehicule")
 	Game.debt = maxi(0, Game.debt - amount)
@@ -882,7 +922,7 @@ func _save() -> void:
 	f.store_string(JSON.stringify({"owned": owned, "worn": worn, "driven": driven, "bets": _bets, "period_staked": _period_staked,
 		"tournees": tournees, "reprises": reprises, "recettes": recettes, "since_reprise": _since_reprise,
 		"total_rentes": total_rentes, "total_charges": total_charges, "total_spent": total_spent,
-		"logements": logements, "trouvailles": trouvailles}))
+		"logements": logements, "trouvailles": trouvailles, "avatar": avatar}))
 
 
 func _load() -> void:
@@ -927,6 +967,7 @@ func _load() -> void:
 		trouvailles = t
 	worn = str(data.get("worn", ""))
 	driven = str(data.get("driven", ""))
+	avatar = Avatar.nettoyer(data.get("avatar", {}))
 	if count(worn) <= 0:
 		worn = ""
 	if count(driven) <= 0:
@@ -968,6 +1009,7 @@ func _vider() -> void:
 	trouvailles = []
 	worn = ""
 	driven = ""
+	avatar = {}
 	tournees = 0
 	reprises = 0
 	recettes = 0
