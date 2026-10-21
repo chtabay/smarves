@@ -110,6 +110,11 @@ func _init() -> void:
 		if Avatar.METIERS[metier].has("visages"):
 			p.choisir_visage(5)
 			check(Avatar.visage(p._essai) == 5 and p.prix_essai() == 3000, "« chirurgie » : un visage de l'album coûte 3 000")
+			p.changer_visage(1)
+			check(Avatar.visage(p._essai) == 6, "« chirurgie » : la flèche passe au visage suivant")
+			p.choisir_visage(Avatar.VISAGES.size() - 1)
+			p.changer_visage(1)
+			check(Avatar.visage(p._essai) == 0, "« chirurgie » : et l'album tourne en boucle")
 			p.choisir_visage(Avatar.visage(B.avatar))
 			check(p.prix_essai() == 0, "« chirurgie » : reprendre le sien ne coûte rien")
 		elif Avatar.METIERS[metier].has("champs"):

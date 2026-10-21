@@ -2,7 +2,7 @@ extends PanelContainer
 ## Le panneau d'une prestation (Avatar) : à gauche le joueur tel qu'il sortira, qui tourne sur lui-même ;
 ## à droite ce qu'on retouche ici. Chez le couturier et la coiffeuse, on essaie champ par champ (◀ ▶),
 ## chaque changement a son prix, et l'on paie le tout d'un coup ; chez le chirurgien, on choisit un visage
-## dans son album, à prix fixe ; à la salle de sport et au
+## dans son album d'une flèche à l'autre, à prix fixe ; à la salle de sport et au
 ## restaurant, on commande une formule, qui se paie et se voit tout de suite.
 ## Ouvert par Prestation.panneau(métier, options) (scripts/socle/prestation.gd) ou par la vitrine d'un
 ## commerce de tenues (scripts/shop_panel.gd).
@@ -125,6 +125,12 @@ func _album() -> bool:
 func choisir_visage(i: int) -> void:
 	_essai = Avatar.avec_visage(_essai, i)
 	_rafraichir()
+
+
+## Le visage d'avant ou d'après dans l'album, en boucle.
+func changer_visage(d: int) -> void:
+	var n := Avatar.VISAGES.size()
+	choisir_visage(posmod(maxi(Avatar.visage(_essai), 0) + d, n))
 
 
 func _tarif() -> float:
@@ -259,32 +265,17 @@ func _ligne(champ: String) -> void:
 	prix.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 
 
-## Les visages de l'album, sur deux colonnes ; celui qu'on essaie est enfoncé, celui qu'on a est marqué.
+## Le visage : on passe d'un visage de l'album à l'autre, rien d'autre à lire.
 func _album_visages() -> void:
-	var prix := Avatar.prix(metier, {}, {"sexe": 1}, _tarif())
-	_label(_liste, "Choisissez un visage dans l'album du docteur : %s crédits l'opération, quel que soit le visage." % Game.fmt(prix), 16, INK_LIGHT)
-	var grille := GridContainer.new()
-	grille.name = "Album"
-	grille.columns = 2
-	grille.add_theme_constant_override("h_separation", 8)
-	grille.add_theme_constant_override("v_separation", 6)
-	grille.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_liste.add_child(grille)
-	var essai := Avatar.visage(_essai)
-	var actuel := Avatar.visage(Biens.avatar)
-	for i in Avatar.VISAGES.size():
-		var v: Array = Avatar.VISAGES[i]
-		var t := "%s  ·  %s" % [v[0], Avatar.PEAUX[v[2]][1]]
-		if i == actuel:
-			t += "  (le vôtre)"
-		var b := _button(t, choisir_visage.bind(i))
-		b.toggle_mode = true
-		b.set_pressed_no_signal(i == essai)
-		b.add_theme_color_override("font_pressed_color", Color(0.4, 0.1, 0.05))
-		b.custom_minimum_size = Vector2(0, 40)
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		grille.add_child(b)
+	var row := HBoxContainer.new()
+	row.name = "Album"
+	row.add_theme_constant_override("separation", 8)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_liste.add_child(row)
+	for d in [-1, 1]:
+		var b := _button("◀" if d < 0 else "▶", changer_visage.bind(d))
+		b.custom_minimum_size = Vector2(96, 56)
+		row.add_child(b)
 
 
 func _formule(f: Dictionary, poids: int) -> void:
