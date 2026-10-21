@@ -5,7 +5,7 @@ extends RefCounted
 ## - chez un couturier (Raymonde, et tout commerce de tenues d'une commune) : la coupe et la couleur du haut
 ##   et du bas, le chapeau, ce qu'on porte au cou, les lunettes ;
 ## - chez la coiffeuse (Gisèle) : la coupe, la couleur des cheveux, la moustache ou la barbe ;
-## - chez le chirurgien (le docteur Maupas) : le sexe, le teint, le nez, la taille ;
+## - chez le chirurgien (le docteur Maupas) : un autre visage, choisi dans son album (VISAGES) ;
 ## - à la salle de sport (Smarves Forme) : on perd des crans de corpulence ;
 ## - au restaurant (la Pizzeria du Clain) : on en prend.
 ##
@@ -75,7 +75,7 @@ const METIERS := {
 	"couture": {"nom": "La cabine d'essayage", "champs": {"couleur_haut": 80, "couleur_bas": 60, "haut": 250, "bas": 150,
 		"chapeau": 120, "cou": 60, "lunettes": 90}},
 	"coiffure": {"nom": "Le fauteuil de la coiffeuse", "champs": {"coupe": 60, "cheveux": 90, "pilosite": 40}},
-	"chirurgie": {"nom": "Le cabinet du chirurgien", "champs": {"nez": 1500, "peau": 2500, "taille": 4000, "sexe": 6000}},
+	"chirurgie": {"nom": "Le cabinet du chirurgien", "visages": 3000},
 	"sport": {"nom": "La salle de sport", "formules": [
 		{"id": "seance", "nom": "La séance d'haltères", "prix": 200, "poids": -1, "dit": "« Une heure de fonte, et le pantalon flotte déjà. »"},
 		{"id": "stage", "nom": "La semaine de stage", "prix": 500, "poids": -2, "dit": "« Footing au bord du Clain à six heures. Vous me remercierez. »"},
@@ -91,6 +91,17 @@ const LIBELLES := {"sexe": "Le sexe", "peau": "Le teint", "nez": "Le nez", "tail
 	"coupe": "La coupe", "cheveux": "La couleur des cheveux", "pilosite": "La moustache, la barbe",
 	"haut": "Le haut", "couleur_haut": "La couleur du haut", "bas": "Le bas", "couleur_bas": "La couleur du bas",
 	"chapeau": "Le chapeau", "cou": "Au cou", "lunettes": "Les lunettes"}
+
+## L'album du chirurgien : des visages tout faits, [nom, sexe, teint, nez] (indices de SEXES, PEAUX, NEZ).
+## On n'y règle pas les traits un par un : on choisit un visage, et l'on en change d'un coup. Le premier
+## est celui du joueur d'origine.
+const VISAGES := [
+	["Le jeune premier", 0, 0, 0], ["Le notable", 0, 1, 3], ["Le joli cœur", 0, 2, 4], ["Le baroudeur", 0, 4, 2],
+	["Le bon vivant", 0, 3, 1], ["Le dandy", 0, 5, 2], ["Le marin", 0, 6, 0], ["Le jazzman", 0, 7, 3],
+	["L'ingénue", 1, 5, 4], ["La meneuse de revue", 1, 1, 0], ["La femme fatale", 1, 2, 3], ["La sportive", 1, 4, 0],
+	["La comtesse", 1, 0, 2], ["La chanteuse de cabaret", 1, 6, 4], ["La diva", 1, 7, 0], ["La bonne copine", 1, 3, 1]]
+## Les traits qu'un visage fixe.
+const TRAITS := ["sexe", "peau", "nez"]
 
 ## Les champs de vêtements, qu'un changement de tenue remet comme la tenue (les accessoires restent).
 const VETEMENTS := ["haut", "couleur_haut", "bas", "couleur_bas"]
@@ -306,10 +317,39 @@ static func lire_mot(m: String) -> Array:
 	return [m.left(i), decoder(m.substr(i + SEPARATEUR.length()))]
 
 
+## Le visage d'un réglage : son indice dans VISAGES, ou -1 s'il n'est pas de l'album (un ancien réglage).
+static func visage(reglages: Dictionary) -> int:
+	for i in VISAGES.size():
+		if valeur(reglages, "sexe") == VISAGES[i][1] and valeur(reglages, "peau") == VISAGES[i][2] and valeur(reglages, "nez") == VISAGES[i][3]:
+			return i
+	return -1
+
+
+## Les réglages avec un autre visage : le sexe, le teint et le nez de l'album ; une femme perd la
+## moustache, et la coupe suit si elle n'allait qu'à l'autre sexe.
+static func avec_visage(reglages: Dictionary, i: int) -> Dictionary:
+	var r := reglages.duplicate()
+	var v: Array = VISAGES[clampi(i, 0, VISAGES.size() - 1)]
+	r.sexe = v[1]
+	r.peau = v[2]
+	r.nez = v[3]
+	var femme := int(v[1]) == 1
+	if femme:
+		r.pilosite = 0
+	r.coupe = coupe_pour(valeur(r, "coupe"), femme)
+	return nettoyer(r)
+
+
 # --- Les prix --------------------------------------------------------------------------------------
 
 ## Ce que coûtent des changements chez un métier : la somme des prix des champs qui changent, au tarif.
 static func prix(metier: String, avant: Dictionary, apres: Dictionary, tarif := 1.0) -> int:
+	if METIERS.get(metier, {}).has("visages"):
+		var p := int(METIERS[metier].visages)
+		for t in TRAITS:
+			if valeur(avant, t) != valeur(apres, t):
+				return int(round(p * tarif / 5.0)) * 5 if tarif != 1.0 else p
+		return 0
 	var champs: Dictionary = METIERS.get(metier, {}).get("champs", {})
 	var total := 0
 	for champ in champs:

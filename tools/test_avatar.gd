@@ -64,7 +64,16 @@ func _init() -> void:
 	# Les prix : seuls les champs changés comptent, au tarif.
 	check(Avatar.prix("coiffure", {}, {"coupe": 3, "cheveux": 2}) == 150, "coupe et couleur chez Gisèle : 150")
 	check(Avatar.prix("coiffure", {}, {"coupe": 3, "peau": 2}) == 60, "le teint ne se paie pas chez la coiffeuse")
-	check(Avatar.prix("chirurgie", {}, {"sexe": 1}, 1.5) == 9000, "le sexe chez un chirurgien plus cher de moitié : 9 000")
+	check(Avatar.prix("chirurgie", {}, Avatar.avec_visage({}, 10), 1.5) == 4500, "un autre visage chez un chirurgien plus cher de moitié : 4 500")
+	check(Avatar.prix("chirurgie", {}, {"coupe": 3}) == 0, "la coupe ne se paie pas chez le chirurgien")
+	check(Avatar.visage({}) == 0, "le joueur d'origine a le premier visage de l'album")
+	var fatale := Avatar.avec_visage({"pilosite": 2, "coupe": 1}, 10)
+	check(Avatar.visage(fatale) == 10 and Avatar.valeur(fatale, "pilosite") == 0 and Avatar.valeur(fatale, "coupe") >= 6,
+		"la femme fatale : son sexe, son teint, son nez ; plus de barbe, une coupe qui lui va")
+	var vus := {}
+	for v in Avatar.VISAGES:
+		vus["%d/%d/%d" % [v[1], v[2], v[3]]] = true
+	check(vus.size() == Avatar.VISAGES.size(), "les %d visages de l'album sont tous différents" % Avatar.VISAGES.size())
 
 	# Payer, et ce que ça fait aux biens.
 	var credits: int = G.credits
@@ -98,7 +107,12 @@ func _init() -> void:
 		root.add_child(p)
 		await process_frame
 		check(p.get_child_count() > 0, "le panneau « %s » se construit" % metier)
-		if Avatar.METIERS[metier].has("champs"):
+		if Avatar.METIERS[metier].has("visages"):
+			p.choisir_visage(5)
+			check(Avatar.visage(p._essai) == 5 and p.prix_essai() == 3000, "« chirurgie » : un visage de l'album coûte 3 000")
+			p.choisir_visage(Avatar.visage(B.avatar))
+			check(p.prix_essai() == 0, "« chirurgie » : reprendre le sien ne coûte rien")
+		elif Avatar.METIERS[metier].has("champs"):
 			var champ: String = p.champs()[0]
 			var avant := Avatar.valeur(B.avatar, champ)
 			p.essayer(champ, 1)
