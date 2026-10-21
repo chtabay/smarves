@@ -28,7 +28,7 @@ Perdre coûte plus cher que prendre, comme dans la vie. La corpulence a huit cra
 
 ## Ce qu'on choisit
 
-- **Le visage** : on ne règle pas les traits un par un, on choisit dans l'album du docteur Maupas un des seize visages tout faits, huit d'homme et huit de femme, qui fixent le sexe, le teint et le nez (le jeune premier, le baroudeur, le jazzman, la femme fatale, la comtesse, la diva…). Une femme a du rouge aux lèvres et pas de moustache, et garde la tenue qu'elle a achetée : Raymonde lui fait une robe ou une jupe si elle veut.
+- **Le visage** : on ne règle pas les traits un par un, on choisit dans l'album du docteur Maupas un des seize visages tout faits, huit d'homme et huit de femme, qui fixent le sexe, le teint et le nez. Le panneau ne montre que deux flèches : on fait défiler les visages sur l'aperçu, sans nom ni description, et l'on paie celui qu'on garde. Une femme a du rouge aux lèvres et pas de moustache, et garde la tenue qu'elle a achetée : Raymonde lui fait une robe ou une jupe si elle veut.
 - **Le corps** : huit crans de corpulence.
 - **La tête** : douze coupes, onze couleurs, cinq façons de porter la moustache.
 - **Les vêtements** : sept coupes de haut, pantalon ou jupe, quatorze couleurs de tissu, huit chapeaux, cinq cols, quatre paires de lunettes. Chaque réglage peut rester « comme la tenue ». Les retouches du haut et du bas tombent quand on change de tenue ; le chapeau, le col et les lunettes restent.
