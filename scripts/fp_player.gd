@@ -10,6 +10,10 @@ var eye := 1.6
 var body_height := 1.7
 var radius := 0.3
 var reach := 2.6
+## La plus haute marche qu'on enjambe sans y penser : un trottoir, un seuil, un raccord de décor.
+## Négative, elle suit la taille (un cinquième de la hauteur du corps passé un peu) : 0,37 m pour un
+## homme au casino, 0,15 pour un Smarvois. Une estrade, un mur, un rebord restent infranchissables.
+var step_height := -1.0
 
 var camera: Camera3D
 var frozen := false
@@ -38,6 +42,8 @@ func _ready() -> void:
 	camera.near = 0.02 if eye < 1.0 else 0.05
 	floor_snap_length = 0.3 * eye
 	floor_max_angle = deg_to_rad(50.0)
+	if step_height < 0.0:
+		step_height = 0.22 * body_height
 	add_child(camera)
 	camera.make_current()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -92,8 +98,41 @@ func _physics_process(delta: float) -> void:
 	var run := 1.8 if Input.is_key_pressed(KEY_SHIFT) else 1.0
 	velocity.x = dir.x * speed * run
 	velocity.z = dir.z * speed * run
+	_step_up(delta)
 	move_and_slide()
 	_update_focus()
+
+
+## Enjamber une petite marche : quand on bute au sol contre un obstacle raide, on essaie la même
+## avancée un cran plus haut. Si la place est libre au-dessus et qu'on retombe sur un sol, on y
+## monte d'un coup ; sinon c'est un mur, et move_and_slide fait comme avant.
+func _step_up(delta: float) -> void:
+	if frozen or step_height <= 0.0 or not is_on_floor():
+		return
+	var flat := Vector3(velocity.x, 0.0, velocity.z)
+	if flat.length() < 0.01:
+		return
+	var xf := global_transform
+	# Assez loin pour que le bas de la capsule passe le nez de la marche et s'y pose.
+	var ahead := flat.normalized() * maxf(flat.length() * delta, radius * 0.4)
+	var hit := KinematicCollision3D.new()
+	if not test_move(xf, ahead, hit) or hit.get_normal().y > cos(floor_max_angle):
+		return
+	var up := Vector3.UP * step_height
+	if test_move(xf, up):
+		return
+	var high := xf.translated(up)
+	if test_move(high, ahead):
+		return
+	high = high.translated(ahead)
+	var land := KinematicCollision3D.new()
+	if not test_move(high, -up, land) or land.get_normal().y < cos(floor_max_angle):
+		return
+	var rise := high.origin.y + land.get_travel().y - xf.origin.y
+	if rise < 0.01:
+		return
+	global_position = high.origin + land.get_travel()
+	velocity.y = 0.0
 
 
 func _update_focus() -> void:
