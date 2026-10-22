@@ -4,7 +4,7 @@
 	"nom": "__NOM__",
 	"auteur": "",
 	"version": "0.1.0",
-	"socle_min": "1.0",
+	"socle_min": "1.12",
 	"insee": "__INSEE__",
 	"population": 0,
 	"description": "",

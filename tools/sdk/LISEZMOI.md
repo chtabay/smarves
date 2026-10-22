@@ -48,8 +48,15 @@ caméra, que l'habitant se pose au sol et qu'il marche.
   - `terrain_foot` : le stade, un club dans le championnat de la Vienne ;
   - `salle_jeu` : une salle avec son tenancier et ses tables (machine, loto, blackjack, roulette,
     craps, baccara, poker, dés, roue, courses) ;
+  - `gymnase` : la salle de basket, un club sur les résultats réels de l'Euroleague et de l'EuroCup ;
+  - `commerce` : une boutique de tenues, de véhicules ou de meubles ;
   - `gare` et `arret_car`.
   Voir `docs/COMMUNE.md`, « Les structures ».
+- **La bibliothèque commune** (`bibliotheque/`, classe `Bibliotheque`) : des décors entiers prêts à
+  servir, branchés par leurs ancres. Un stade s'écrit `"modele": "stade-de-campagne@1"` (socle 1.13),
+  une salle de basket `"modele": "salle-de-quartier@1"` (socle 1.14), et les dix-neuf matières de
+  Casino Minuit se prennent par `Bibliotheque.matiere("matieres-de-minuit@1", "marbre_noir")`
+  (socle 1.17). Voir `docs/BIBLIOTHEQUE.md`.
 - **Les tables du casino** (classe `Tables`, `scripts/socle/tables.gd`) : les tables 3D du casino de
   Smarves et leurs panneaux, dernière version, pour une salle de jeu bâtie à la main. Ne fabriquez
   pas de table avec les modèles de l'atelier et ne recopiez pas les panneaux : voir `docs/COMMUNE.md`,
@@ -78,11 +85,16 @@ Déposez `build/<id>.pck` sur le portail des développeurs. Les règles du dép�
 - une version par dépôt, toujours plus haute ;
 - une mise à jour s'ouvre chez le joueur au lancement suivant ;
 - 32 Mo au plus par paquet ;
-- tout sous `res://communes/<id>/`, sans GDExtension.
+- tout sous `res://communes/<id>/`, sans GDExtension ;
+- léger : l'emballeur passe les grandes textures en WebP et dit ce qui pèse encore ;
+- dans les seuils : l'emballeur bâtit chaque lieu et le mesure (triangles, lampes, textures…), dit ce
+  qui dépasse et range la mesure dans le paquet, que le portail affiche (`docs/LENTEUR.md`, « Le
+  budget par lieu »). `tools/budget_lieu.gd -- --pck=build/<id>.pck` mesure un paquet sans l'emballer.
 
 ## Ce que contient le SDK
 
 Le SDK est construit par `tools/sdk/construire_sdk.py` dans le dépôt de Smarves, à chaque version
 du jeu. Sa version (date et commit) est dans `sdk.json`. Prenez le SDK le plus récent, celui du jeu de vos
-joueurs ; une commune qui se sert d'un type de structure récent le déclare par `socle_min`. Les
+joueurs ; une commune qui se sert d'un type de structure récent le déclare par `socle_min` (le kit de
+départ demande `1.12`, pour `Cast.moi()`). Les
 licences des modèles et des sons sont dans `assets/LICENCES.md`.

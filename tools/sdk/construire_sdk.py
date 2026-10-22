@@ -35,6 +35,8 @@ ENTREES = [
     "tools/test_bibliotheque.gd",
     # Les règles des paquets (socle 1.15) : l'emballeur les applique, leur test les vérifie.
     "tools/regles_paquet.gd", "tools/test_regles_paquet.gd",
+    # Le budget par lieu (socle 1.16) : l'emballeur mesure, budget_lieu.gd mesure un paquet sans l'emballer.
+    "tools/budget_lieu.gd",
     "scripts/socle/etude.gd", "scenes/etude.tscn",
     "scripts/socle/commerce.gd", "scripts/socle/articles.gd", "scenes/commerce.tscn",
     "scenes/stade.tscn", "communes/vienne.json",
@@ -50,7 +52,7 @@ ENTREES = [
 ## Copiés tels quels, sans suivre leurs liens (outils hors Godot, documentation).
 TELS_QUELS = [
     "tools/bourg_reel.py", "tools/mcp/kit_communes.py", "tools/mcp/test_kit_communes.py",
-    "docs/COMMUNE.md", "assets/LICENCES.md", "icon.svg", ".editorconfig", ".gitattributes",
+    "docs/COMMUNE.md", "docs/BIBLIOTHEQUE.md", "docs/LENTEUR.md", "docs/AVATAR.md", "assets/LICENCES.md", "icon.svg", ".editorconfig", ".gitattributes",
 ]
 ## Le village de Smarves : ce qui ne part pas. Les liens qui y mènent s'arrêtent là.
 COUPE = {
