@@ -10,7 +10,9 @@ de la Vienne pour Smarves, sans avoir besoin du dépôt du jeu. Il contient le s
 Le village de Smarves lui-même (sa place, son casino, ses intérieurs) n'y est pas. Le lanceur du SDK
 tient sa place.
 
-Le contrat entre le jeu et une commune est dans `docs/COMMUNE.md`.
+Le contrat entre le jeu et une commune est dans `docs/COMMUNE.md`. Ce qui fait un lieu réussi, et la
+méthode pour y arriver (intentions, trois scènes fortes, continuité habitée, palette, animation et
+vie, critique indépendante), est dans `docs/CONCEPTION.md` : à lire avant de construire.
 
 ## 1. Ouvrir le SDK
 
@@ -41,6 +43,9 @@ caméra, que l'habitant se pose au sol et qu'il marche.
 
 ## 3. Construire avec le socle
 
+Avant le premier modèle, une page d'intentions (`communes/<id>/INTENTIONS.md`, que l'emballeur
+laisse hors du paquet) : `docs/CONCEPTION.md`, « Avant de construire ».
+
 - **L'atelier** (`scripts/socle/atelier.json`, classe `Atelier`) : modèles 3D, maisons à façades,
   figurants, meubles, sons, matières. Ils sont déjà dans le jeu chez le joueur : rien ne part dans
   votre paquet.
@@ -70,7 +75,7 @@ caméra, que l'habitant se pose au sol et qu'il marche.
 ## 4. Avec Claude
 
 Le serveur MCP du kit (`tools/mcp/kit_communes.py`, Python sans dépendance) donne à Claude les
-règles, l'atelier, la création d'une commune, la vérification du manifeste, le test et l'emballage.
+règles, la méthode de conception, l'atelier, la création d'une commune, la vérification du manifeste, le test et l'emballage.
 - **Claude Code** : ouvrez `claude` dans ce dossier. Le fichier `.mcp.json` le fait proposer tout seul.
 - **L'application Claude** : voir `docs/COMMUNE.md`, « Le Claude du développeur ».
 

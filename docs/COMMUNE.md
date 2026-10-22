@@ -2,6 +2,8 @@
 
 Smarves est la première commune d'une carte de la Vienne où d'autres viendront se greffer (le cadrage est dans [`SUITE.md`](SUITE.md), section 5). Cette page dit ce qu'une commune doit fournir et ce que le socle lui expose. Le partage suit la bible ([`BIBLE.md`](BIBLE.md), en tête) : le ton, l'époque, la règle des lieux et des seuils, l'économie en crédits et le vocabulaire sont au socle ; la géographie, les lieux, les personnages, la banque et son banquier appartiennent à la commune.
 
+**Ce que le jeu accepte n'est pas ce qui fait un beau lieu.** La méthode de conception (la note d'intentions, les trois scènes fortes, la continuité habitée entre elles, la palette chiffrée, l'animation et la vie, les passes d'approfondissement et la critique indépendante) est dans [`CONCEPTION.md`](CONCEPTION.md). Elle n'est vérifiée ni par l'emballeur ni par le portail ; elle est ce qu'on attend d'une commune.
+
 La carte de la Vienne est un écran du jeu depuis le 18 octobre 2026 (section suivante), éprouvé par une commune d'essai, Ligugé, livrée en paquet séparé ; une commune publiée sur le portail se trouve aussi dans la bienvenue et le carnet (section « Publier sa commune »).
 
 ## La carte de la Vienne
@@ -386,7 +388,7 @@ Le modèle du kit vit dans Smarves, [`tools/kit/`](../tools/kit/) (les mêmes fi
 
 Un développeur n'a pas besoin du dépôt de Smarves, qui peut redevenir privé : **le SDK** est un projet Godot autonome, publié avec chaque version du jeu (`smarves-sdk.zip`, à côté de l'installateur dans la Release). Décision de Guillaume du 18 octobre 2026 : le socle y est **lisible**, mais le village de Smarves n'y est pas.
 
-- **Ce qu'il contient** : le socle en clair (`scripts/socle/`, les dix jeux et leurs panneaux, les tables 3D du casino (`scripts/jeux/`), le stade, la salle de jeu, les façades, les figurants, l'habitant et sa caméra, la carte de la Vienne), les modèles, sons, matières et polices qu'ils utilisent, le kit de départ (`tools/kit/`), les outils (`test_commune`, `emballer_commune`, `bourg_reel.py`, le serveur MCP et son `.mcp.json`), l'exemple complet d'Availles-Limouzine et ce document.
+- **Ce qu'il contient** : le socle en clair (`scripts/socle/`, les dix jeux et leurs panneaux, les tables 3D du casino (`scripts/jeux/`), le stade, la salle de jeu, les façades, les figurants, l'habitant et sa caméra, la carte de la Vienne), les modèles, sons, matières et polices qu'ils utilisent, le kit de départ (`tools/kit/`), les outils (`test_commune`, `emballer_commune`, `bourg_reel.py`, le serveur MCP et son `.mcp.json`), l'exemple complet d'Availles-Limouzine, ce document et la méthode de conception (`CONCEPTION.md`).
 - **Ce qu'il ne contient pas** : la place, le casino, les intérieurs, les quartiers et les lieux cachés de Smarves. Le manifeste de Smarves y est réduit à ce que le socle lit d'une commune d'origine ; un **lanceur** (`scenes/main.tscn` du SDK) tient la place du village : il inscrit les communes posées dans `res://communes/<id>/` et ouvre celle qu'on choisit, comme chez un joueur.
 - **Comment il est fait** : [`tools/sdk/construire_sdk.py`](../tools/sdk/construire_sdk.py) part des autoloads et des points d'entrée d'une commune, suit les liens (`res://…`, `preload`, classes nommées, dossiers de modèles) et s'arrête aux fichiers du village (`COUPE`) ; ceux que le socle nomme quand même sont remplacés par un bouchon (`tools/sdk/bouchons/`). Un lien dur vers le village sans bouchon arrête la construction. [`tools/sdk/test_sdk.sh`](../tools/sdk/test_sdk.sh) déballe le zip hors du dépôt et y passe le kit, l'atelier, la salle de jeu, Availles-Limouzine, le lanceur et le serveur MCP ; la construction de main le fait avant de publier.
 
@@ -431,6 +433,7 @@ Le kit est aussi un **serveur MCP**, [`tools/mcp/kit_communes.py`](../tools/mcp/
 | Outil | Ce qu'il fait |
 |---|---|
 | `contrat` | les sections de ce document (le manifeste, les structures, le paquet, la publication) |
+| `conception` | les sections de [`CONCEPTION.md`](CONCEPTION.md), la méthode de conception d'un lieu (intentions, trois scènes, continuité, palette, animation, critique) |
 | `atelier` | le catalogue de l'atelier, une famille de modèles, ou une recherche par nom (« bench ») |
 | `nouvelle_commune` | une commune depuis le kit, par son seul code INSEE (nom et population viennent de `communes/vienne.json`) |
 | `verifier_manifeste` | les refus rapides d'un `commune.json` et ce que le portail affichera vide |

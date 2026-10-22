@@ -46,13 +46,21 @@ check(r["result"]["serverInfo"]["name"] == "kit-communes", "le serveur se prése
 check("tools" in r["result"]["capabilities"], "  et annonce des outils")
 demande("notifications/initialized", notification=True)
 noms = [t["name"] for t in demande("tools/list")["result"]["tools"]]
-check(set(noms) >= {"contrat", "atelier", "verifier_manifeste", "nouvelle_commune", "tester_commune", "emballer_commune", "bourg_reel"},
+check(set(noms) >= {"contrat", "conception", "atelier", "verifier_manifeste", "nouvelle_commune", "tester_commune", "emballer_commune", "bourg_reel"},
       "les outils sont listés : " + ", ".join(noms))
 
 t, e = outil("contrat")
 check(not e and "Les structures" in t, "contrat liste les sections")
 t, e = outil("contrat", section="structures")
 check(not e and "terrain_foot" in t, "contrat donne la section des structures")
+t, e = outil("conception")
+check(not e and "surprend" in t and "L'animation et la vie" in t, "conception donne l'introduction et les sections")
+t, e = outil("conception", section="animation")
+check(not e and "suivre(" in t and "scripts actifs" in t, "conception donne la section de l'animation")
+t, e = outil("conception", section="tout")
+check(not e and "## Les pièges déjà rencontrés" in t, "conception donne la méthode entière")
+t, e = outil("conception", section="licornes")
+check(e, "une section inconnue de la conception est une erreur")
 t, e = outil("atelier")
 check(not e and "maisons" in t and "figurants" in t, "atelier donne le résumé")
 t, e = outil("atelier", famille="nature", cherche="tree")
