@@ -98,7 +98,7 @@ Un dossier `communes/<id>/` avec au moins un manifeste `commune.json` et la scè
 | `auteur` | non | qui a fait la commune, tel qu'il s'affiche dans sa fiche (carte, carnet) ; « » par défaut |
 | `version` | non (oui pour publier) | trois nombres (`0.1.0`), à monter à chaque dépôt |
 | `description` | non | deux phrases, montrées dans le carnet du joueur ; « » par défaut |
-| `socle_min` | non | la version du socle demandée (aujourd'hui `1.0`) |
+| `socle_min` | non | la version du socle demandée (`1.0` par défaut ; le socle est aujourd'hui en `1.17`). Le kit de départ demande `1.12`, la version où `Cast.moi()` est arrivé : un jeu plus ancien refuse la commune proprement au lieu de planter |
 | `ailleurs` | non | socle 1.5 : une destination hors de la Vienne, rejointe en avion (section « Les destinations lointaines ») ; `{ville, pays, aeroport, vol}`, la ville seule obligatoire. Avec lui, `insee` est absent ou vide |
 | `insee` | oui (sauf `ailleurs`) | le code INSEE d'une commune actuelle de la Vienne (`86263` pour Smarves) : c'est lui qui place la commune sur la carte, à sa vraie place ; deux communes développées ne peuvent pas avoir le même |
 | `carte` | non | plus tard, la scène du petit socle posé sur la carte |
@@ -348,7 +348,7 @@ Une commune se publie sur **le portail des développeurs**, la page `/developpeu
 ### Le geste
 
 1. Sur la page, choisir sa commune parmi les 265 de la Vienne (Smarves et Poitiers exceptées) et **télécharger le kit de départ** : une commune minimale que le jeu accepte telle quelle, où l'on marche déjà (section « Le kit de départ »), et son mode d'emploi `LISEZMOI.md`.
-2. Poser le dossier du kit dans `communes/` d'un clone de Smarves, construire la commune, puis l'emballer :
+2. Poser le dossier du kit dans `communes/` du SDK des communes (section « Le SDK des communes »), construire la commune, puis l'emballer :
    ```sh
    godot --headless --path . -s tools/emballer_commune.gd -- <id>
    ```
@@ -361,9 +361,9 @@ Une commune est **tenue** par l'auteur de son premier paquet valide : lui seul y
 
 ### Le kit de départ
 
-Le kit est un `.zip` à poser à la racine d'un clone de Smarves. Il contient :
+Le kit est un `.zip` à poser à la racine du SDK des communes. Il contient :
 
-- `communes/<id>/commune.json` : le manifeste prérempli (`id`, `nom`, `insee`, `auteur`, `population`, `arrivee` avec son nom, `licence` et `sources` vides, un lieu et une banque « à écrire ») ;
+- `communes/<id>/commune.json` : le manifeste prérempli (`id`, `nom`, `insee`, `auteur`, `population`, `socle_min` à `1.12`, `arrivee` avec son nom, `licence` et `sources` vides, un lieu et une banque « à écrire ») ;
 - `communes/<id>/commune.tscn` et `commune.gd` : **la scène de départ**, qui marche telle quelle. Une lumière et un ciel, un sol avec sa collision, le panneau de la commune, une petite place bâtie avec l'atelier du socle (deux maisons à façades du Poitou dont un café, deux arbres d'automne, un banc, trois habitants qui bavardent ou s'assoient : section suivante) et un repère `Arrivee`. Le script crée l'habitant de Smarves (`fp_player.gd`) et la caméra à crans du village (`orbit_camera.gd`) et les expose sous les noms que le jeu attend, **`player` et `camera`** : c'est ce qui donne sans une ligne de code la bascule de vue (Tab, autoload `Vue`), les commandes tactiles (`Tactile`) et la carte de la Vienne en dézoomant ;
 - `LISEZMOI.md` : le mode d'emploi, de l'installation de Godot au dépôt.
 
