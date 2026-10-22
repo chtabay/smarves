@@ -252,6 +252,11 @@ static func _arbre(mm: MultiMeshInstance3D) -> bool:
 		return false
 	if mm.has_meta("lointain_imposteur") or mm.visibility_range_end > 0.0 or mm.visibility_range_begin > 0.0 or not mm.visible:
 		return false
+	# Un multimaillage qu'un script tient (une foule qui se lève, des instances comptées, des données par
+	# instance pour un shader) n'est pas une plantation : on n'y touche pas. Les capsules non plus : ce sont
+	# les gens des foules.
+	if m.visible_instance_count >= 0 or m.use_custom_data or m.mesh is CapsuleMesh or mm.get_script() != null:
+		return false
 	if m.mesh.get_surface_count() == 0 or (m.mesh is ArrayMesh and _a_des_os(m.mesh)):
 		return false
 	var a := m.mesh.get_aabb()

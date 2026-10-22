@@ -257,25 +257,36 @@ func _init() -> void:
 	var buisson := MultiMeshInstance3D.new()
 	buisson.multimesh = MultiMesh.new()
 	buisson.multimesh.transform_format = MultiMesh.TRANSFORM_3D
-	buisson.multimesh.mesh = SphereMesh.new()
+	var boule := ArrayMesh.new()
+	boule.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, SphereMesh.new().get_mesh_arrays())
+	buisson.multimesh.mesh = boule
 	buisson.multimesh.instance_count = 3
+	var foule := MultiMeshInstance3D.new()
+	foule.multimesh = MultiMesh.new()
+	foule.multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	foule.multimesh.mesh = boule
+	foule.multimesh.instance_count = 100
+	foule.multimesh.visible_instance_count = 0
 	var haie := MultiMeshInstance3D.new()
 	haie.multimesh = MultiMesh.new()
 	haie.multimesh.transform_format = MultiMesh.TRANSFORM_3D
-	haie.multimesh.mesh = BoxMesh.new()
-	haie.multimesh.mesh.size = Vector3(10, 1.5, 1)
-	haie.multimesh.mesh.subdivide_width = 20
+	var boite := BoxMesh.new()
+	boite.size = Vector3(10, 1.5, 1)
+	boite.subdivide_width = 20
+	haie.multimesh.mesh = ArrayMesh.new()
+	haie.multimesh.mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, boite.get_mesh_arrays())
 	haie.multimesh.instance_count = 2
 	var feuille := MultiMeshInstance3D.new()
 	feuille.multimesh = MultiMesh.new()
 	feuille.multimesh.transform_format = MultiMesh.TRANSFORM_3D
 	feuille.multimesh.mesh = QuadMesh.new()
 	feuille.multimesh.instance_count = 50
-	for x in [buisson, haie, feuille]:
+	for x in [buisson, haie, feuille, foule]:
 		bois.add_child(x)
 	bois.set_meta("sans_lointain", true)
 	root.add_child(bois)
 	_verifier(Lointain._arbre(buisson) and not Lointain._arbre(haie) and not Lointain._arbre(feuille), "un buisson rond est pris pour les imposteurs, pas une haie ni une feuille")
+	_verifier(not Lointain._arbre(foule), "un multimaillage tenu par un script (instances comptées) n'est pas pris")
 	_verifier(Lointain.imposteurs(bois) == 0 and buisson.visible, "sans rendu, les arbres restent tels quels")
 	Lointain._decouper(buisson, QuadMesh.new())
 	var morceaux := bois.get_children().filter(func(m): return m != buisson and m.has_meta("lointain_imposteur"))
