@@ -1,0 +1,8 @@
+{
+	"genre": "matieres",
+	"nom": "Les matières des essais",
+	"description": "Un carrelage de huit pixels, pour le test de la bibliothèque.",
+	"auteur": "Le kit des communes",
+	"licence": "CC0",
+	"matieres": "matieres.json"
+}
