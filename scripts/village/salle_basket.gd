@@ -38,8 +38,17 @@ const ARRET_Z := 88.0
 ## Les passages de l'enceinte, du grand hall à la coursive : [milieu en x, demi-largeur], et leur hauteur.
 const PASSAGES := [[0.0, 6.0], [-21.0, 3.0], [21.0, 3.0]]
 const PASSAGE_Y := 7.0
-## La pièce du bureau du président, hors les murs : on y entre par la porte du couloir des vestiaires.
-const BUREAU_POS := Vector3(0, 0, -150)
+## La loge du président, où est le bureau du club : une boîte de verre au milieu des gradins du haut, côté
+## sud, face au parquet (reprise du 22 octobre 2026, fiche basket/salle/fiche-reprise.md). Sa demi-largeur, le
+## dessus de son plancher (celui du balcon du hall, d'où l'on y entre par une porte de l'enceinte), sa vitre
+## et le centre de son plancher.
+const LOGE_X := 7.0
+const LOGE_Y := PASSAGE_Y + 0.85
+const LOGE_VITRE := BORD_Z + RANGS_BAS * RANG + 2.4
+const BUREAU_POS := Vector3(0, LOGE_Y, (LOGE_VITRE + ENCEINTE_Z - 0.25) / 2.0)
+## La porte de la loge dans l'enceinte : sa demi-largeur et sa hauteur.
+const PORTE_LOGE := 1.3
+const PORTE_LOGE_Y := 2.4
 const TOIT_Y := 27.0
 const ECHELLE_JOUEUR := 3.0
 ## Le club et la salle de secours, tant que la commune n'a pas de structure « gymnase ».
@@ -51,6 +60,9 @@ const COULEURS_SECOURS := ["#14213d", "#d4a93a"]
 const PANNEAU_BASKET := "res://scripts/socle/basket_panneau.gd"
 const BUREAU_BASKET := "res://scripts/socle/basket_bureau.gd"
 const PARTS_BASKET := "res://scripts/socle/basket_parts.gd"
+## L'accueil du club : qui dirige, ce qu'il reste à faire pour diriger, et les trois écrans. On l'ouvre de
+## partout (le bouton « Le club », la touche B) et au comptoir de l'accueil du hall.
+const CLUB_BASKET := "res://scripts/socle/basket_club.gd"
 
 ## La commune et son match, posés par ouvrir() avant le changement de scène.
 static var prochaine_commune := ""
@@ -81,6 +93,8 @@ var _danseuses: Array = []
 var _faisceaux: Array = []
 var _president: Node3D
 var _ecran: Control
+## Le bouton « Le club », caché tant qu'un écran du club est ouvert.
+var _bouton_club: Button
 var _anneau: StandardMaterial3D
 ## L'écran de la pièce du président, qui répète le cube.
 var _ecran_loge: Label3D
@@ -555,19 +569,20 @@ func _rang(cote: String, d: float, h: float, bas: float, beton: Material, siege:
 			var s := -1.0 if cote == "n" else 1.0
 			var z := s * (BORD_Z + d + RANG / 2.0)
 			var lx := BORD_X + d + RANG
-			if cote == "s" and bas == 0.0:
-				# Le vomitoire coupe le bas en deux.
+			if cote == "s":
+				# Le vomitoire coupe le bas en deux, la loge du président le haut.
+				var trou := VOMITOIRE if bas == 0.0 else LOGE_X
 				for k: float in [-1.0, 1.0]:
-					var w := lx - VOMITOIRE
-					_box(Vector3(w, hz, RANG), Vector3(k * (VOMITOIRE + w / 2.0), bas + hz / 2.0, z), beton, true)
-					_box(Vector3(w, 0.12, RANG * 0.5), Vector3(k * (VOMITOIRE + w / 2.0), h + 0.06, z - s * RANG * 0.15), siege)
+					var w := lx - trou
+					_box(Vector3(w, hz, RANG), Vector3(k * (trou + w / 2.0), bas + hz / 2.0, z), beton, true)
+					_box(Vector3(w, 0.12, RANG * 0.5), Vector3(k * (trou + w / 2.0), h + 0.06, z - s * RANG * 0.15), siege)
 			else:
 				_box(Vector3(lx * 2.0, hz, RANG), Vector3(0, bas + hz / 2.0, z), beton, true)
 				_box(Vector3(lx * 2.0, 0.12, RANG * 0.5), Vector3(0, h + 0.06, z - s * RANG * 0.15), siege)
 			var n := int(lx * 2.0 / 0.6)
 			for k in n:
 				var x := -lx + (k + 0.5) * lx * 2.0 / n
-				if cote == "s" and bas == 0.0 and absf(x) < VOMITOIRE:
+				if cote == "s" and absf(x) < (VOMITOIRE if bas == 0.0 else LOGE_X):
 					continue
 				_places.append(Transform3D(Basis(Vector3.UP, 0.0 if s < 0.0 else PI), Vector3(x, h + 0.12, z)))
 		"e", "o":
@@ -638,8 +653,14 @@ func _toit() -> void:
 		var b: float = bords[i + 1]
 		if b - a > 0.01:
 			_box(Vector3(b - a, PASSAGE_Y, 0.5), Vector3((a + b) / 2.0, PASSAGE_Y / 2.0, ez), noir, true)
-	var mur := _box(Vector3(ex * 2.0, TOIT_Y - PASSAGE_Y, 0.5), Vector3(0, (TOIT_Y + PASSAGE_Y) / 2.0, ez), noir, true)
+	# Au-dessus des passages, le mur, percé au milieu de la porte de la loge, au niveau du balcon du hall.
+	var mur := _box(Vector3(ex * 2.0, LOGE_Y - PASSAGE_Y, 0.5), Vector3(0, (LOGE_Y + PASSAGE_Y) / 2.0, ez), noir, true)
 	mur.name = "Enceinte"
+	for k: float in [-1.0, 1.0]:
+		var w := ex - PORTE_LOGE
+		_box(Vector3(w, TOIT_Y - LOGE_Y, 0.5), Vector3(k * (PORTE_LOGE + w / 2.0), (TOIT_Y + LOGE_Y) / 2.0, ez), noir, true)
+	var haut_porte := LOGE_Y + PORTE_LOGE_Y
+	_box(Vector3(PORTE_LOGE * 2.0, TOIT_Y - haut_porte, 0.5), Vector3(0, (TOIT_Y + haut_porte) / 2.0, ez), noir, true)
 	var acier := _std(Color(0.25, 0.26, 0.3), 0.5, 0.6)
 	for k in range(-4, 5):
 		_box(Vector3(0.3, 0.9, ez * 2.0), Vector3(k * ex / 4.5, TOIT_Y - 0.7, 0), acier)
@@ -715,8 +736,8 @@ func _bancs() -> void:
 			_box(Vector3(0.6, 0.45 + rangee * 0.25, 0.6), Vector3(x, 0.225 + rangee * 0.125, P / 2.0 + 1.6 + rangee * 0.9), cuir, true)
 
 
-## La porte du couloir des vestiaires, au pied des gradins nord, et le président devant : E à la porte mène au
-## bureau du président (_bureau_du_president) ; au président, il parle.
+## La porte du couloir des vestiaires, au pied des gradins nord : son ascenseur monte à la loge du président
+## (_bureau_du_president), le chemin court depuis le parquet. Le président attend dans sa loge.
 func _bureau_du_club() -> void:
 	var z := -BORD_Z + 0.05
 	var x := 10.0
@@ -727,11 +748,10 @@ func _bureau_du_club() -> void:
 	_box(Vector3(3.0, 2.8, 0.1), Vector3(0, 1.4, -0.05), _std(Color(0.04, 0.04, 0.05), 0.5), false, porte)
 	_box(Vector3(1.4, 2.3, 0.06), Vector3(0, 1.15, 0.02), _std(Color(0.55, 0.36, 0.2), 0.5), false, porte)
 	_box(Vector3(3.0, 0.4, 0.08), Vector3(0, 2.6, 0.05), _neon(_c2(), 1.8), false, porte)
-	var l := _label3d("VESTIAIRES  ·  BUREAU DU CLUB", Vector3(x, 2.6, z + 0.1), 34, _c1().darkened(0.5))
+	var l := _label3d("VESTIAIRES  ·  ASCENSEUR DE LA LOGE", Vector3(x, 2.6, z + 0.1), 30, _c1().darkened(0.5))
 	l.name = "EnseigneBureau"
 	_lamp(Vector3(x, 2.4, z + 1.2), Color(1.0, 0.85, 0.6), 1.2, 6.0)
-	_interactive(porte, "porte_bureau", "E : entrer au bureau du président", Vector3(2.6, 2.6, 1.8), Vector3(0, 1.3, 0.9))
-	_poser_president(Vector3(x - 2.6, 0, z + 1.0), 0.0)
+	_interactive(porte, "porte_bureau", "E : monter à la loge du président (le bureau du club)", Vector3(2.6, 2.6, 1.8), Vector3(0, 1.3, 0.9))
 
 
 ## Le président à cette place, tourné de ce lacet ; il suit ensuite le visiteur des yeux (_process).
@@ -746,60 +766,61 @@ func _poser_president(pos: Vector3, lacet: float) -> void:
 	_interactive(_president, "president", "E : parler %s" % _a(_nom_president()), Vector3(0.8, 1.0, 0.8), Vector3(0, 0.4, 0))
 
 
-## Le bureau du président, hors les murs de la salle : on y entre par la porte du couloir des vestiaires.
-## Le grand bureau (E : la gestion de l'équipe, scripts/socle/basket_bureau.gd), le tableau tactique (le
-## panneau du club : classement, match, effectif), la table du conseil (les parts et leurs porteurs), le mur
-## d'écrans qui répète le cube, l'étagère aux coupes, la baie sur la nuit, et la porte qui ramène au parquet.
+## La loge du président, le bureau du club : une boîte de verre au milieu des gradins du haut, côté sud,
+## face au parquet. On y entre de plain-pied par la porte du balcon du hall (en haut du grand escalier), ou
+## par l'ascenseur des vestiaires. Derrière la vitre, toute la salle. Le grand bureau (E : la gestion de
+## l'équipe, scripts/socle/basket_bureau.gd) dos à la vitre, le président à côté ; le tableau tactique (le
+## panneau du club) ; la table du conseil (les parts) ; le mur d'écrans qui répète le cube ; les coupes ;
+## l'ascenseur qui redescend au parquet. Au-dessus de la loge, son écran, face au parquet.
 func _bureau_du_president() -> void:
 	var piece := Node3D.new()
 	piece.position = BUREAU_POS
 	piece.name = "BureauDuPresident"
 	add_child(piece)
-	var w := 14.0
-	var d := 10.0
+	var w := LOGE_X * 2.0
+	var d := ENCEINTE_Z - 0.25 - LOGE_VITRE
 	var h := 4.2
 	var moquette := _std(_c1().darkened(0.45), 0.95)
-	_box(Vector3(w, 0.2, d), Vector3(0, -0.1, 0), moquette, true, piece)
+	_box(Vector3(w, 0.5, d), Vector3(0, -0.25, 0), moquette, true, piece)
 	_box(Vector3(w, 0.2, d), Vector3(0, h + 0.1, 0), _std(Color(0.1, 0.09, 0.08), 0.8), false, piece)
 	var boiserie := _std(Color(0.28, 0.17, 0.1), 0.5)
 	var or_ := _std(_c2(), 0.3, 0.8)
-	_box(Vector3(w, h, 0.3), Vector3(0, h / 2.0, -d / 2.0), boiserie, true, piece)
-	_box(Vector3(w, h, 0.3), Vector3(0, h / 2.0, d / 2.0), boiserie, true, piece)
-	_box(Vector3(0.3, h, d), Vector3(w / 2.0, h / 2.0, 0), boiserie, true, piece)
-	_box(Vector3(0.3, h, d), Vector3(-w / 2.0, h / 2.0, 0), boiserie, true, piece)
-	_box(Vector3(w, 0.12, 0.1), Vector3(0, 1.0, d / 2.0 - 0.2), or_, false, piece)
-	_box(Vector3(w, 0.12, 0.1), Vector3(0, 1.0, -d / 2.0 + 0.2), or_, false, piece)
-	# La baie, à l'est : la nuit sur le Clain, et les projecteurs du parvis au loin.
-	var baie := _std(Color(0.05, 0.08, 0.16), 0.1)
-	baie.emission_enabled = true
-	baie.emission = Color(0.04, 0.07, 0.15)
-	_box(Vector3(0.05, 2.6, 7.0), Vector3(w / 2.0 - 0.2, 2.2, 0), baie, false, piece)
-	for k in 6:
-		_box(Vector3(0.06, 0.04 + (k % 3) * 0.02, 0.04), Vector3(w / 2.0 - 0.24, 1.2 + (k % 2) * 0.3, -3.0 + k * 1.2), _neon(Color(1.0, 0.85, 0.5), 3.0), false, piece)
-	# Le grand bureau du président, son fauteuil, et le drapeau du club derrière.
+	for k: float in [-1.0, 1.0]:
+		_box(Vector3(0.3, h, d), Vector3(k * w / 2.0, h / 2.0, 0), boiserie, true, piece)
+		# Le fond, de part et d'autre de la porte : des boiseries sur l'enceinte.
+		_box(Vector3(w / 2.0 - PORTE_LOGE, h, 0.08), Vector3(k * (PORTE_LOGE + (w / 2.0 - PORTE_LOGE) / 2.0), h / 2.0, d / 2.0 - 0.04), boiserie, false, piece)
+	_box(Vector3(PORTE_LOGE * 2.0, h - PORTE_LOGE_Y, 0.08), Vector3(0, (h + PORTE_LOGE_Y) / 2.0, d / 2.0 - 0.04), boiserie, false, piece)
+	# La vitre sur la salle, du sol au plafond, et sa lisse d'or.
+	var vitre := _std(Color(0.7, 0.8, 0.95, 0.12), 0.05)
+	vitre.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_box(Vector3(w, h, 0.06), Vector3(0, h / 2.0, -d / 2.0), vitre, true, piece).name = "VitreDeLaLoge"
+	_box(Vector3(w, 0.08, 0.1), Vector3(0, 1.0, -d / 2.0 + 0.1), or_, false, piece)
+	for k in 5:
+		_box(Vector3(0.08, h, 0.12), Vector3(-w / 2.0 + k * w / 4.0, h / 2.0, -d / 2.0), _std(Color(0.08, 0.08, 0.09), 0.4, 0.6), false, piece)
+	# Le grand bureau du président, dos à la vitre : le visiteur qui entre voit le président et la salle derrière.
 	var bureau := Node3D.new()
-	bureau.position = Vector3(0, 0, -2.6)
+	bureau.position = Vector3(0, 0, -d / 2.0 + 2.4)
 	bureau.name = "GrandBureau"
 	piece.add_child(bureau)
 	_box(Vector3(3.4, 0.1, 1.4), Vector3(0, 0.82, 0), _std(Color(0.2, 0.11, 0.06), 0.3), true, bureau)
-	for s: float in [-1.0, 1.0]:
-		_box(Vector3(0.9, 0.8, 1.3), Vector3(s * 1.2, 0.4, 0), _std(Color(0.18, 0.1, 0.05), 0.4), true, bureau)
+	for k: float in [-1.0, 1.0]:
+		_box(Vector3(0.9, 0.8, 1.3), Vector3(k * 1.2, 0.4, 0), _std(Color(0.18, 0.1, 0.05), 0.4), true, bureau)
 	_box(Vector3(0.5, 0.35, 0.03), Vector3(0.6, 1.05, -0.2), _neon(Color(0.4, 0.6, 0.9), 0.8), false, bureau)
-	_box(Vector3(0.8, 1.3, 0.8), Vector3(0, 0.65, -1.2), _std(Color(0.08, 0.08, 0.09), 0.4), false, bureau)
-	_box(Vector3(2.2, 1.6, 0.04), Vector3(0, 2.6, -2.2), _std(_c1(), 0.8), false, bureau)
-	var drapeau := Label3D.new()
-	drapeau.text = _court()
-	drapeau.font = _serif
-	drapeau.font_size = 160
-	drapeau.pixel_size = 0.005
-	drapeau.modulate = _c2()
-	drapeau.outline_size = 0
-	drapeau.position = Vector3(0, 2.6, -2.17)
-	bureau.add_child(drapeau)
+	_box(Vector3(0.8, 1.3, 0.8), Vector3(0, 0.65, -1.1), _std(Color(0.08, 0.08, 0.09), 0.4), false, bureau)
+	var plaque := Label3D.new()
+	plaque.text = "%s  ·  LE PRÉSIDENT" % _court()
+	plaque.font = _serif
+	plaque.font_size = 40
+	plaque.pixel_size = 0.004
+	plaque.modulate = _c2()
+	plaque.outline_size = 0
+	plaque.position = Vector3(0, 0.55, 0.67)
+	bureau.add_child(plaque)
 	_interactive(bureau, "bureau", "E : s'asseoir au bureau, gérer l'équipe", Vector3(3.6, 2.0, 2.4), Vector3(0, 1.0, 1.2))
+	_poser_president(BUREAU_POS + Vector3(2.4, 0, -d / 2.0 + 2.6), 0.0)
 	# Le tableau tactique, à l'ouest : un parquet dessiné, des pions.
 	var tableau := Node3D.new()
-	tableau.position = Vector3(-w / 2.0 + 0.3, 0, -1.0)
+	tableau.position = Vector3(-w / 2.0 + 0.3, 0, 0.2)
 	tableau.rotation.y = PI / 2.0
 	tableau.name = "TableauTactique"
 	piece.add_child(tableau)
@@ -816,10 +837,11 @@ func _bureau_du_president() -> void:
 	tt.outline_size = 0
 	tt.position = Vector3(0, 3.15, 0.05)
 	tableau.add_child(tt)
-	_interactive(tableau, "tactique", "E : le tableau tactique (l'effectif, le classement)", Vector3(3.4, 2.4, 2.0), Vector3(0, 1.2, 1.0))
-	# La table du conseil, au sud : les porteurs de parts s'y réunissent.
+	_interactive(tableau, "tactique", "E : le tableau tactique (le classement, l'effectif)", Vector3(3.4, 2.4, 2.0), Vector3(0, 1.2, 1.0))
+	# La table du conseil, à l'est : les porteurs de parts s'y réunissent.
 	var conseil := Node3D.new()
-	conseil.position = Vector3(-2.5, 0, 2.2)
+	conseil.position = Vector3(3.6, 0, 1.0)
+	conseil.rotation.y = PI / 2.0
 	conseil.name = "TableDuConseil"
 	piece.add_child(conseil)
 	_box(Vector3(4.0, 0.08, 1.6), Vector3(0, 0.78, 0), _std(Color(0.06, 0.06, 0.07), 0.2, 0.2), true, conseil)
@@ -828,44 +850,61 @@ func _bureau_du_president() -> void:
 		var cz := -1.1 if k < 3 else 1.1
 		_box(Vector3(0.55, 1.0, 0.55), Vector3(-1.3 + (k % 3) * 1.3, 0.5, cz), _std(Color(0.12, 0.1, 0.1), 0.5), false, conseil)
 	_interactive(conseil, "conseil", "E : la table du conseil (les parts du club)", Vector3(4.4, 2.0, 3.2), Vector3(0, 1.0, 0))
-	# Le mur d'écrans, au-dessus de la porte du sud : le score du cube, en direct.
-	_box(Vector3(4.4, 2.0, 0.08), Vector3(3.5, 2.8, d / 2.0 - 0.25), _neon(Color(0.06, 0.08, 0.15), 0.8), false, piece)
+	# Le mur d'écrans, au fond, à gauche de la porte : le score du cube, en direct.
+	_box(Vector3(3.6, 1.8, 0.08), Vector3(-3.6, 2.5, d / 2.0 - 0.12), _neon(Color(0.06, 0.08, 0.15), 0.8), false, piece)
 	_ecran_loge = Label3D.new()
 	_ecran_loge.font = _serif
-	_ecran_loge.font_size = 90
+	_ecran_loge.font_size = 80
 	_ecran_loge.pixel_size = 0.005
 	_ecran_loge.modulate = Color(1, 1, 1)
 	_ecran_loge.outline_size = 0
-	_ecran_loge.position = Vector3(3.5, 2.8, d / 2.0 - 0.32)
+	_ecran_loge.position = Vector3(-3.6, 2.5, d / 2.0 - 0.18)
 	_ecran_loge.rotation.y = PI
 	_ecran_loge.name = "EcranDeLaLoge"
 	piece.add_child(_ecran_loge)
-	# L'étagère aux coupes, contre le mur ouest, près de la baie.
-	_box(Vector3(2.4, 0.06, 0.5), Vector3(4.0, 1.6, -d / 2.0 + 0.4), boiserie, false, piece)
-	_box(Vector3(2.4, 0.06, 0.5), Vector3(4.0, 2.4, -d / 2.0 + 0.4), boiserie, false, piece)
+	# L'étagère aux coupes, au fond, à droite de la porte.
+	_box(Vector3(2.4, 0.06, 0.5), Vector3(3.6, 1.6, d / 2.0 - 0.3), boiserie, false, piece)
+	_box(Vector3(2.4, 0.06, 0.5), Vector3(3.6, 2.4, d / 2.0 - 0.3), boiserie, false, piece)
 	for k in 3:
-		_cyl(0.1, 0.5, Vector3(3.2 + k * 0.8, 1.88, -d / 2.0 + 0.4), or_, piece, 0.16)
-	# La porte, au sud-ouest : elle ramène au parquet, devant la porte des vestiaires.
-	var porte := Node3D.new()
-	porte.position = Vector3(-4.5, 0, d / 2.0 - 0.2)
-	porte.name = "PorteDuBureau"
-	piece.add_child(porte)
-	_box(Vector3(1.3, 2.3, 0.08), Vector3(0, 1.15, 0), _std(Color(0.4, 0.25, 0.14), 0.5), false, porte)
-	_box(Vector3(1.6, 0.3, 0.1), Vector3(0, 2.55, -0.02), _neon(_c2(), 1.2), false, porte)
-	_interactive(porte, "sortir_bureau", "E : redescendre au parquet", Vector3(1.8, 2.4, 1.6), Vector3(0, 1.2, -0.8))
-	for p in [Vector3(-3.5, 3.8, 0), Vector3(3.0, 3.8, -1.5), Vector3(0, 3.8, 2.5)]:
-		_lamp(BUREAU_POS + p, Color(1.0, 0.82, 0.58), 1.4, 8.0)
-	var titre := _label3d("LE BUREAU DU PRÉSIDENT  ·  %s" % _enseigne(_nom_president()), BUREAU_POS + Vector3(0, 3.6, -d / 2.0 + 0.2), 40, _c2())
+		_cyl(0.1, 0.5, Vector3(2.8 + k * 0.8, 1.88, d / 2.0 - 0.3), or_, piece, 0.16)
+	# L'ascenseur des vestiaires, contre le mur ouest, au fond : il redescend au parquet.
+	var ascenseur := Node3D.new()
+	ascenseur.position = Vector3(-w / 2.0 + 0.2, 0, d / 2.0 - 1.6)
+	ascenseur.rotation.y = PI / 2.0
+	ascenseur.name = "PorteDuBureau"
+	piece.add_child(ascenseur)
+	_box(Vector3(1.3, 2.3, 0.08), Vector3(0, 1.15, 0), _std(Color(0.5, 0.5, 0.52), 0.3, 0.8), false, ascenseur)
+	_box(Vector3(1.6, 0.3, 0.1), Vector3(0, 2.55, 0.02), _neon(_c2(), 1.2), false, ascenseur)
+	var la := Label3D.new()
+	la.text = "ASCENSEUR  ·  PARQUET"
+	la.font = _serif
+	la.font_size = 26
+	la.pixel_size = 0.004
+	la.modulate = _c1().darkened(0.5)
+	la.outline_size = 0
+	la.position = Vector3(0, 2.55, 0.08)
+	ascenseur.add_child(la)
+	_interactive(ascenseur, "sortir_bureau", "E : redescendre au parquet (l'ascenseur des vestiaires)", Vector3(1.8, 2.4, 1.6), Vector3(0, 1.2, 0.8))
+	for p in [Vector3(-3.5, 3.8, 1.0), Vector3(3.0, 3.8, -1.0), Vector3(0, 3.8, 3.5)]:
+		_lamp(BUREAU_POS + p, Color(1.0, 0.82, 0.58), 1.2, 7.0)
+	var titre := _label3d("LE BUREAU DU PRÉSIDENT  ·  %s" % _enseigne(_nom_president()), BUREAU_POS + Vector3(0, 3.5, d / 2.0 - 0.12), 34, _c2(), 180)
 	titre.name = "TitreDuBureau"
+	# Au-dessus de la loge, son écran, face au parquet : il la signale de toute la salle.
+	var ecran_y := h + 0.2
+	_box(Vector3(w, 3.2, d), Vector3(0, ecran_y + 1.6, 0), _std(Color(0.05, 0.05, 0.07), 0.9), true, piece)
+	_box(Vector3(w - 0.4, 2.6, 0.08), Vector3(0, ecran_y + 1.6, -d / 2.0 - 0.05), _neon(_c1().darkened(0.2), 0.9), false, piece)
+	var fronton := _label3d("LA LOGE DU PRÉSIDENT\n%s" % _enseigne(_nom_club()), BUREAU_POS + Vector3(0, ecran_y + 1.6, -d / 2.0 - 0.1), 220, _c2(), 180)
+	fronton.name = "EcranDeLaLogeSalle"
 
 
-## On entre au bureau du président : l'habitant passe dans la pièce, face au grand bureau.
+## On entre dans la loge du président : l'habitant passe la porte, face au grand bureau et à la salle.
 func entrer_bureau() -> void:
-	player.global_position = BUREAU_POS + Vector3(-4.5, 0, 3.6)
+	var d := ENCEINTE_Z - 0.25 - LOGE_VITRE
+	player.global_position = BUREAU_POS + Vector3(0, 0.05, d / 2.0 - 1.4)
 	player.rotation.y = 0.0
 
 
-## On ressort du bureau : devant la porte des vestiaires, face au parquet.
+## On redescend par l'ascenseur des vestiaires : devant leur porte, face au parquet.
 func sortir_bureau() -> void:
 	player.global_position = Vector3(10.0, 0, -BORD_Z + 2.2)
 	player.rotation.y = PI
@@ -1061,8 +1100,10 @@ func _grand_hall() -> void:
 			_box(Vector3(1.8, HALL_Y, 1.8), c + Vector3(0, HALL_Y / 2.0, 0), mur, true).visible = false
 	# Le balcon des loges, contre l'enceinte, et les deux volées du grand escalier qui y montent.
 	var balcon_y := PASSAGE_Y + 0.6
-	_box(Vector3(HALL_X * 2.0 - 1.2, 0.5, 4.0), Vector3(0, balcon_y, z0 + 2.2), _marbre())
-	_box(Vector3(HALL_X * 2.0 - 1.2, 1.0, 0.12), Vector3(0, balcon_y + 0.75, z0 + 4.15), or_)
+	_box(Vector3(HALL_X * 2.0 - 1.2, 0.5, 4.0), Vector3(0, balcon_y, z0 + 2.2), _marbre(), true).name = "BalconDesLoges"
+	# La lisse, ouverte en haut des deux volées.
+	for seg: Array in [[-HALL_X + 0.6, -17.0], [-13.0, 13.0], [17.0, HALL_X - 0.6]]:
+		_box(Vector3(seg[1] - seg[0], 1.0, 0.12), Vector3((seg[0] + seg[1]) / 2.0, balcon_y + 0.75, z0 + 4.15), or_, true)
 	for s: float in [-1.0, 1.0]:
 		var marches := 20
 		for k in marches:
@@ -1124,8 +1165,46 @@ func _grand_hall() -> void:
 	vitrine.add_child(lt)
 	_lamp(vitrine.position + Vector3(-1.0, 3.2, 0), Color(1.0, 0.9, 0.7), 1.4, 5.0)
 	_interactive(vitrine, "trophees", "E : regarder les trophées", Vector3(5.4, 2.4, 2.4), Vector3(0, 1.2, 1.2))
+	# Sur la lisse du balcon, face aux portes : où monter pour gérer le club. La porte de la loge s'éclaire.
+	var fleche := _label3d("▲  LA LOGE DU PRÉSIDENT  ·  LE BUREAU DU CLUB  ▲", Vector3(0, balcon_y + 0.75, z0 + 4.25), 90, Color(0.08, 0.06, 0.03))
+	fleche.name = "LisseDeLaLoge"
+	_box(Vector3(PORTE_LOGE * 2.0 + 0.6, 0.3, 0.1), Vector3(0, LOGE_Y + PORTE_LOGE_Y + 0.15, z0 + 0.3), _neon(_c2(), 2.0))
+	_lamp(Vector3(0, LOGE_Y + 2.0, z0 + 2.4), Color(1.0, 0.85, 0.6), 1.6, 6.0)
+	_accueil_du_club(Vector3(-8.0, 0, z0 + 7.0))
 	_panneau_du_club()
 	_tableau_des_parts()
+
+
+## L'accueil du club, dans le grand hall, au pied du balcon : un comptoir aux couleurs du club et Inès, qui
+## renseigne. E : l'accueil du club (qui dirige, les étapes pour diriger, les trois écrans).
+func _accueil_du_club(pos: Vector3) -> void:
+	var a := Node3D.new()
+	a.position = pos
+	a.name = "AccueilDuClub"
+	add_child(a)
+	var or_ := _std(_c2(), 0.3, 0.8)
+	_box(Vector3(4.4, 1.1, 0.9), Vector3(0, 0.55, 0), _std(_c1().darkened(0.2), 0.4), true, a)
+	_box(Vector3(4.6, 0.08, 1.0), Vector3(0, 1.14, 0), or_, false, a)
+	_box(Vector3(4.4, 0.3, 0.05), Vector3(0, 0.75, 0.47), _neon(_c2(), 1.4), false, a)
+	_box(Vector3(0.6, 0.4, 0.04), Vector3(1.2, 1.38, -0.1), _neon(Color(0.4, 0.6, 0.9), 0.8), false, a)
+	var l := Label3D.new()
+	l.text = "ACCUEIL DU CLUB"
+	l.font = _serif
+	l.font_size = 64
+	l.pixel_size = 0.005
+	l.modulate = _c2()
+	l.outline_size = 0
+	l.position = Vector3(0, 2.9, -0.6)
+	a.add_child(l)
+	_box(Vector3(3.6, 0.9, 0.08), Vector3(0, 2.9, -0.7), _std(Color(0.05, 0.05, 0.06), 0.5), false, a)
+	var ines := CRITTER.new()
+	ines.randomize_look(512)
+	ines.look["top_color"] = _c1().to_html(false)
+	ines.scale = Vector3.ONE * PEOPLE_SCALE
+	ines.position = Vector3(-0.6, 0, -0.9)
+	a.add_child(ines)
+	_lamp(pos + Vector3(0, 3.6, 1.0), Color(1.0, 0.88, 0.65), 1.4, 6.0)
+	_interactive(a, "accueil", "E : l'accueil du club (gérer le club)", Vector3(4.8, 2.4, 2.6), Vector3(0, 1.2, 1.2))
 
 
 ## Le tableau des parts du club, à l'entrée du grand hall, à gauche des portes : qui possède le club, et les
@@ -1610,6 +1689,8 @@ func _on_interact(target: Node) -> void:
 			sortir_bureau()
 		"bureau":
 			open_bureau()
+		"accueil":
+			open_club()
 		"panneau", "tactique":
 			open_panneau()
 		"parts", "conseil":
@@ -1643,15 +1724,35 @@ func _ouvrir_ecran(chemin: String, titre: String, sinon: String) -> void:
 			p.commune = commune
 	else:
 		p = _affiche(titre, sinon)
-	p.connect("closed", func():
-		p.queue_free()
-		_ecran = null
-		player.frozen = false
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
+	p.connect("closed", _ecran_ferme.bind(p))
 	player.frozen = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_panel_layer.add_child(p)
 	_ecran = p
+	if _bouton_club:
+		_bouton_club.visible = false
+
+
+## Un écran du club se referme ; l'accueil du club referme sur l'écran choisi (« suite »).
+func _ecran_ferme(p: Control) -> void:
+	var suite := str(p.get("suite")) if "suite" in p else ""
+	p.queue_free()
+	_ecran = null
+	player.frozen = false
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	if _bouton_club:
+		_bouton_club.visible = true
+	match suite:
+		"bureau":
+			open_bureau()
+		"parts":
+			open_parts()
+		"panneau":
+			open_panneau()
+
+
+func open_club() -> void:
+	_ouvrir_ecran(CLUB_BASKET, "Le club", "L'accueil du club ouvrira avec le championnat de basket.")
 
 
 func open_bureau() -> void:
@@ -1664,6 +1765,44 @@ func open_parts() -> void:
 
 func open_panneau() -> void:
 	_ouvrir_ecran(PANNEAU_BASKET, "Le panneau du club", "Le classement et le prochain match seront affichés ici pour la première journée du championnat, le samedi à 20 h.")
+
+
+## L'interface des intérieurs, et le bouton « Le club » sous les crédits : la gestion du club s'ouvre de
+## partout dans la salle, sans chercher le bureau (sur téléphone aussi, d'un toucher).
+func _build_ui() -> void:
+	super._build_ui()
+	var couche := CanvasLayer.new()
+	couche.name = "BoutonDuClub"
+	add_child(couche)
+	var b := Button.new()
+	b.name = "LeClub"
+	b.text = "Le club  ·  B"
+	b.position = Vector2(28, 130)
+	b.focus_mode = Control.FOCUS_NONE
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	for etat in ["normal", "hover", "pressed"]:
+		var st := StyleBoxFlat.new()
+		st.bg_color = _c1().darkened(0.35 if etat == "normal" else 0.1)
+		st.border_color = _c2()
+		st.set_border_width_all(2)
+		st.set_corner_radius_all(6)
+		st.set_content_margin_all(10)
+		st.content_margin_left = 18
+		st.content_margin_right = 18
+		b.add_theme_stylebox_override(etat, st)
+	for c in ["font_color", "font_hover_color", "font_pressed_color"]:
+		b.add_theme_color_override(c, _c2().lightened(0.2))
+	b.add_theme_font_override("font", _serif)
+	b.add_theme_font_size_override("font_size", 20)
+	b.pressed.connect(open_club)
+	couche.add_child(b)
+	_bouton_club = b
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_B and _ecran == null:
+		get_viewport().set_input_as_handled()
+		open_club()
 
 
 ## L'affiche qui tient la place des écrans du fil basket : un panneau qu'on ferme.

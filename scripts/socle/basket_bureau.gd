@@ -33,6 +33,10 @@ func remplir(col: VBoxContainer) -> void:
 		_fermer(col)
 		return
 	_mot(col, b.phrase_actionnaires(commune), OR, 15)
+	# Ce qui empêche de décider, dit tout de suite plutôt qu'au premier clic.
+	var refus: String = b.refus_bureau(commune)
+	if refus != "":
+		_mot(col, pourquoi(refus) + (" Vous pouvez tout lire, sans rien changer." if refus in ["compte", "parts"] else ""), ROUGE, 15)
 	var onglets := _rangee(col)
 	for p in [["equipe", "L'équipe"], ["marche", "Le marché"], ["comptes", "Les comptes"]]:
 		var bt := _bouton(onglets, p[1], func(): page = p[0]; _message = ""; rafraichir(), "Onglet_" + p[0])
@@ -42,6 +46,8 @@ func remplir(col: VBoxContainer) -> void:
 	_filet(col)
 	if b.cliches.is_empty():
 		_mot(col, "Les notes des joueurs ne sont pas encore arrivées : il faut être connecté une première fois.", DOUX)
+	elif not b.tirage_fait(commune) and page != "comptes":
+		_mot(col, "L'effectif n'est pas encore tiré : les dix joueurs du club arrivent avec les premières notes, %s au soir. Le marché ouvre ensuite, et la première journée se joue le samedi à 20 h." % preload("res://scripts/socle/basket_club.gd")._jour(b.quand_tirage()), TEXTE, 16)
 	elif page == "marche":
 		_marche(col)
 	elif page == "comptes":

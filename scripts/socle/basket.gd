@@ -563,12 +563,24 @@ func masse_salariale(club: String, j := -1) -> int:
 	return _masse(marche_du_groupe(saison, ici[0], ici[1], j), ici[2])
 
 
+## Les effectifs du groupe d'un club sont-ils tirés ? Ils le sont avec le cliché du vendredi d'avant la
+## première journée ; avant, le club n'a personne et le marché attend.
+func tirage_fait(club: String) -> bool:
+	var ici := place_de(club)
+	return not ici.is_empty() and effectifs.has("%d/%d/0" % [ici[0], ici[1]])
+
+
+## Le vendredi soir du tirage de la saison (secondes locales) : celui du cliché de la première journée.
+func quand_tirage() -> int:
+	return coup_envoi(saison, 1) - 86400
+
+
 ## Les joueurs libres du groupe d'un club pour le marché ouvert : [{code, nom, club, comp, poste, note, forme,
 ## prix, salaire, offre, meneur, moi}], les meilleures notes d'abord. « offre » est la meilleure offre posée.
 func joueurs_libres(club: String) -> Array:
 	var ici := place_de(club)
 	var j := journee_du_marche()
-	if ici.is_empty() or j == 0:
+	if ici.is_empty() or j == 0 or not tirage_fait(club):
 		return []
 	var m := marche_du_groupe(saison, ici[0], ici[1], j - 1)
 	var pris := {}

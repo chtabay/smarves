@@ -100,6 +100,50 @@ func _init() -> void:
 		check(espace.intersect_ray(q).is_empty(), "le passage de l'enceinte à x = %d est ouvert" % int(x))
 	check(salle.player.position.z > 60.0, "on arrive à l'arrêt du car, sur le parvis")
 
+	# La loge du président : du balcon du hall (en haut du grand escalier), on y entre à pied par la porte de
+	# l'enceinte ; sa vitre donne sur le parquet, et l'on ne passe pas à travers.
+	var balcon := Vector3(0, salle.LOGE_Y + 1.2, salle.ENCEINTE_Z + 2.5)
+	var q_loge := PhysicsRayQueryParameters3D.create(balcon, Vector3(0, salle.LOGE_Y + 1.2, salle.BUREAU_POS.z))
+	check(espace.intersect_ray(q_loge).is_empty(), "du balcon, la porte de l'enceinte s'ouvre sur la loge du président")
+	var q_sol := PhysicsRayQueryParameters3D.create(salle.BUREAU_POS + Vector3(-2.5, 1.0, 0), salle.BUREAU_POS + Vector3(-2.5, -1.0, 0))
+	check(not espace.intersect_ray(q_sol).is_empty(), "la loge a un plancher, au niveau du balcon")
+	var q_vitre := PhysicsRayQueryParameters3D.create(salle.BUREAU_POS + Vector3(-3.0, 1.2, 0), Vector3(-3.0, salle.LOGE_Y + 1.2, 0))
+	var vitre := espace.intersect_ray(q_vitre)
+	check(not vitre.is_empty() and vitre.position.z > salle.LOGE_VITRE - 0.5, "la vitre de la loge retient le visiteur, face au parquet")
+	var q_balcon := PhysicsRayQueryParameters3D.create(balcon, balcon + Vector3(0, -2.0, 0))
+	check(not espace.intersect_ray(q_balcon).is_empty(), "le balcon des loges porte le visiteur")
+	for n in ["AccueilDuClub", "LisseDeLaLoge", "VitreDeLaLoge", "EcranDeLaLogeSalle"]:
+		check(salle.find_child(n, true, false) != null, "la salle a son élément %s" % n)
+	var places_loge: Array = salle._places.filter(func(t: Transform3D): return t.origin.z > salle.LOGE_VITRE - 0.5 and absf(t.origin.x) < salle.LOGE_X)
+	check(places_loge.is_empty(), "personne n'est assis dans la loge")
+	check(salle._president.global_position.distance_to(salle.BUREAU_POS) < 8.0, "le président attend dans sa loge")
+
+	# L'accueil du club : le bouton « Le club », la touche B et le comptoir du hall l'ouvrent ; il dit qui dirige,
+	# les étapes pour diriger, et mène aux trois écrans.
+	check(salle._bouton_club != null and salle._bouton_club.visible and salle._bouton_club.text.begins_with("Le club"), "le bouton « Le club » est à l'écran")
+	var touche := InputEventKey.new()
+	touche.physical_keycode = KEY_B
+	touche.pressed = true
+	salle._unhandled_input(touche)
+	check(salle._ecran != null and salle._ecran.get_script().resource_path.ends_with("basket_club.gd") and not salle._bouton_club.visible, "la touche B ouvre l'accueil du club")
+	var accueil_textes := _textes(salle._ecran)
+	check(accueil_textes.has("Pour diriger le club") and accueil_textes.has("Prendre des parts du club") and accueil_textes.has("Recevoir l'effectif"), "l'accueil dit les étapes pour diriger le club")
+	salle._ecran.suite = "bureau"
+	salle._ecran.closed.emit()
+	await process_frame
+	check(salle._ecran != null and salle._ecran.get_script().resource_path.ends_with("basket_bureau.gd"), "de l'accueil, on passe au bureau du président")
+	salle._ecran.closed.emit()
+	await process_frame
+	var comptoir: Node = null
+	for a in salle.find_children("*", "Area3D", true, false):
+		if a.get_meta("interact", "") == "accueil":
+			comptoir = a
+	salle._on_interact(comptoir)
+	check(salle._ecran != null and salle._ecran.get_script().resource_path.ends_with("basket_club.gd"), "le comptoir de l'accueil du hall ouvre l'accueil du club")
+	salle._ecran.closed.emit()
+	await process_frame
+	check(salle._ecran == null and salle._bouton_club.visible and not salle.player.frozen, "l'accueil se ferme")
+
 	# La porte des vestiaires mène au bureau du président ; sa porte ramène au parquet.
 	var porte: Node = null
 	for a in salle.find_children("*", "Area3D", true, false):
