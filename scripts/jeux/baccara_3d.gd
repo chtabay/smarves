@@ -158,6 +158,9 @@ func _sweep(profile: PackedVector2Array) -> ArrayMesh:
 
 ## Le tapis imprimé : le nom de la table, les trois mises, les deux cases de cartes.
 func _make_layout() -> Texture2D:
+	var cle := "baccara:%s:%s" % [title, commission]
+	if KIT.vue_partagee(cle):
+		return KIT.vue_partagee(cle)
 	var S := 600.0
 	var vp := SubViewport.new()
 	vp.size = Vector2i(int(FELT.x * S), int(FELT.y * S))
@@ -196,8 +199,7 @@ func _make_layout() -> Texture2D:
 		c.draw_string(f, mid.position + Vector2(0, mid.size.y * 0.7), title, HORIZONTAL_ALIGNMENT_CENTER, mid.size.x, 40, gold)
 		c.draw_string(f, mid.position + Vector2(0, mid.size.y * 0.7 + 30), "CASINO DE SMARVES", HORIZONTAL_ALIGNMENT_CENTER, mid.size.x, 20, Color(gold, 0.7))
 	)
-	KIT._add_viewport(vp)
-	return vp.get_texture()
+	return KIT.partager(cle, vp)
 
 
 # --- Les cartes -----------------------------------------------------------------------------

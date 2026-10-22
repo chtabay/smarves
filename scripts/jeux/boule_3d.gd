@@ -97,6 +97,9 @@ func _hole_angle(k: int) -> float:
 
 ## La couronne : un trou noir cerclé de couleur par case, le numéro à côté.
 func _make_ring() -> Texture2D:
+	var cle := "boule:couronne"
+	if KIT.vue_partagee(cle):
+		return KIT.vue_partagee(cle)
 	var S := 1024
 	var vp := SubViewport.new()
 	vp.size = Vector2i(S, S)
@@ -122,12 +125,14 @@ func _make_ring() -> Texture2D:
 			c.draw_string(f, Vector2(-30, 12), str(n), HORIZONTAL_ALIGNMENT_CENTER, 60, 34, col)
 			c.draw_set_transform(Vector2.ZERO)
 	)
-	KIT._add_viewport(vp)
-	return vp.get_texture()
+	return KIT.partager(cle, vp)
 
 
 ## Le tapis : les neuf numéros à leurs couleurs, les six chances, la règle du 5.
 func _make_layout() -> Texture2D:
+	var cle := "boule"
+	if KIT.vue_partagee(cle):
+		return KIT.vue_partagee(cle)
 	var S := 600.0
 	var vp := SubViewport.new()
 	vp.size = Vector2i(int(FELT.x * S), int(FELT.y * S))
@@ -167,8 +172,7 @@ func _make_layout() -> Texture2D:
 		c.draw_arc(bowl.get_center(), (BOWL_R + 0.07) * S, 0, TAU, 96, gold, 4.0, true)
 		c.draw_rect(Rect2(Vector2(8, 8), Vector2(vp.size) - Vector2(16, 16)), gold, false, 3.0)
 	)
-	KIT._add_viewport(vp)
-	return vp.get_texture()
+	return KIT.partager(cle, vp)
 
 
 # --- Le lancer ------------------------------------------------------------------------------

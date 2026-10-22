@@ -92,6 +92,9 @@ func _build() -> void:
 
 ## Le tapis imprimé : le filet d'or, la ligne de mise, les cinq cases du tableau, le nom de la salle.
 func _make_layout() -> Texture2D:
+	var cle := "poker"
+	if KIT.vue_partagee(cle):
+		return KIT.vue_partagee(cle)
 	var S := 700.0
 	var vp := SubViewport.new()
 	var px := int(2.0 * R * S)
@@ -114,8 +117,7 @@ func _make_layout() -> Texture2D:
 		c.draw_string(f, mid + Vector2(-0.6 * S, -0.3 * S), "POKER DES AMBASSADEURS", HORIZONTAL_ALIGNMENT_CENTER, 1.2 * S, 46, gold)
 		c.draw_string(f, mid + Vector2(-0.6 * S, 0.27 * S), "BLINDES 25 / 50  ·  CASINO DE SMARVES", HORIZONTAL_ALIGNMENT_CENTER, 1.2 * S, 24, Color(gold, 0.75))
 	)
-	KIT._add_viewport(vp)
-	return vp.get_texture()
+	return KIT.partager(cle, vp)
 
 
 ## L'étiquette d'une place : une pastille sombre à l'écran, posée sur le bord de la table devant

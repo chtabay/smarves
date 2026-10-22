@@ -115,6 +115,11 @@ func _init() -> void:
 		root.add_child(n)
 		for i in 4:
 			await process_frame
+		# Les niveaux de détail des gros maillages se calculent dans un fil (Lointain) : on les attend.
+		for i in 600:
+			if not Lointain.en_travail():
+				break
+			await process_frame
 		var m := Budget.mesurer(n)
 		var dep := Budget.depassements(m)
 		budget.lieux[chemin] = {"mesure": m, "a_alleger": Array(dep)}

@@ -116,6 +116,9 @@ func _build_table() -> void:
 
 ## Le tapis : grille des numéros, colonnes, douzaines, chances simples, filets crème et or.
 func _make_layout() -> Texture2D:
+	var cle := "roulette"
+	if KIT.vue_partagee(cle):
+		return KIT.vue_partagee(cle)
 	var S := 640.0
 	var vp := SubViewport.new()
 	vp.size = Vector2i(int(FELT.x * S), int(FELT.y * S))
@@ -190,8 +193,7 @@ func _make_layout() -> Texture2D:
 		c.draw_string(f, Vector2(-260, 46), "Roulette européenne · un seul zéro", HORIZONTAL_ALIGNMENT_CENTER, 520, 24, Color(ink, 0.8))
 		c.draw_set_transform(Vector2.ZERO)
 	)
-	add_child(vp)
-	return vp.get_texture()
+	return KIT.partager(cle, vp)
 
 
 static func _ellipse(c: Control, at: Vector2, r: Vector2, col: Color) -> void:
@@ -299,6 +301,9 @@ func _apron_y(r: float) -> float:
 ## Le bandeau des numéros : 37 secteurs colorés, numéro crème, filets d'or ; en bas, la couleur pure
 ## pour le fond des cases.
 func _make_ring_texture() -> Texture2D:
+	var cle := "roulette:cylindre"
+	if KIT.vue_partagee(cle):
+		return KIT.vue_partagee(cle)
 	var sw := 80
 	var vp := SubViewport.new()
 	vp.size = Vector2i(sw * 37, 128)
@@ -319,8 +324,7 @@ func _make_ring_texture() -> Texture2D:
 			c.draw_set_transform(Vector2.ZERO)
 		c.draw_rect(Rect2(0, 100, sw * 37, 3), Color(0.9, 0.72, 0.38))
 	)
-	add_child(vp)
-	return vp.get_texture()
+	return KIT.partager(cle, vp)
 
 
 # --- Le lancer --------------------------------------------------------------------------------

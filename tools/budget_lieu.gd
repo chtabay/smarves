@@ -46,7 +46,7 @@ func _init() -> void:
 	quit(0)
 
 
-## Bâtit la scène, attend IMAGES images, mesure, puis la libère.
+## Bâtit la scène, attend IMAGES images et ses niveaux de détail, mesure, puis la libère.
 func mesurer(chemin: String) -> Dictionary:
 	var ps: PackedScene = load(chemin)
 	if ps == null:
@@ -60,6 +60,11 @@ func mesurer(chemin: String) -> Dictionary:
 	root.add_child(n)
 	current_scene = n
 	for i in IMAGES:
+		await process_frame
+	# Les niveaux de détail des gros maillages se calculent dans un fil (Lointain) : on les attend.
+	for i in 600:
+		if not Lointain.en_travail():
+			break
 		await process_frame
 	return Budget.mesurer(n)
 

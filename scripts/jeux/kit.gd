@@ -53,6 +53,26 @@ static func _add_viewport(vp: SubViewport) -> void:
 	h.add_child(vp)
 
 
+## Les tapis imprimés et les bandeaux peints, partagés par les tables qui les ont pareils : une
+## table demande sa vue par une clé qui dit tout ce qui change le dessin (« baccara:MINUIT:false ») ; la
+## première la peint, les suivantes reprennent la même texture, au pixel près. Six blackjacks ne gardent
+## qu'un tapis en mémoire. Les vues restent d'une scène à l'autre, comme les jetons et les cartes.
+static var _vues := {}
+
+
+## La texture déjà peinte sous cette clé, ou null.
+static func vue_partagee(cle: String) -> Texture2D:
+	var vp = _vues.get(cle)
+	return vp.get_texture() if vp != null and is_instance_valid(vp) else null
+
+
+## Garde la vue sous cette clé et rend sa texture.
+static func partager(cle: String, vp: SubViewport) -> Texture2D:
+	_add_viewport(vp)
+	_vues[cle] = vp
+	return vp.get_texture()
+
+
 static func serif() -> Font:
 	if _font == null:
 		_font = Polices.gras()

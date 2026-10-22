@@ -90,6 +90,9 @@ func _build() -> void:
 
 ## Le tapis du comptoir : un cadre par symbole, à sa couleur, avec ce qu'il paie.
 func _make_layout(size: Vector2) -> Texture2D:
+	var cle := "roue:%s" % size
+	if KIT.vue_partagee(cle):
+		return KIT.vue_partagee(cle)
 	var S := 600.0
 	var vp := SubViewport.new()
 	vp.size = Vector2i(int(size.x * S), int(size.y * S))
@@ -112,8 +115,7 @@ func _make_layout(size: Vector2) -> Texture2D:
 			c.draw_string(f, px.position + Vector2(0, px.size.y * 0.55), name, HORIZONTAL_ALIGNMENT_CENTER, px.size.x, 64, ink)
 			c.draw_string(f, px.position + Vector2(0, px.size.y * 0.86), "%d contre 1" % PAYS[k], HORIZONTAL_ALIGNMENT_CENTER, px.size.x, 22, gold)
 	)
-	KIT._add_viewport(vp)
-	return vp.get_texture()
+	return KIT.partager(cle, vp)
 
 
 const WHEEL_COLORS := {"1": Color(0.95, 0.85, 0.3), "2": Color(0.3, 0.6, 0.95), "5": Color(0.85, 0.3, 0.6),
