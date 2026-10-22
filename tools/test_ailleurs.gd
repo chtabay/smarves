@@ -42,6 +42,12 @@ func _init() -> void:
 	check(communes.lointaines() == ["casino_minuit"], "elle est la seule destination lointaine")
 	check(communes.par_insee("") == null, "aucune commune ne répond au code INSEE vide")
 
+	# L'aéroport se montre aussi sur la carte du menu de départ, et y embarque.
+	carte.set("_titre", true)
+	carte.call("_montrer", CarteVienne.POITIERS_INSEE)
+	check(_boutons(carte.get("_fiche_box")).has("Embarquer pour Las Vegas  →"), "la carte du menu de départ propose le vol depuis Poitiers-Biard")
+	carte.set("_titre", false)
+
 	# L'aller : le vol depuis Poitiers-Biard pose dans la rotonde.
 	carte.duree_vol = 0.2
 	carte.voler("casino_minuit")
@@ -587,3 +593,12 @@ func _emballer(pk: PCKPacker, dossier: String, racine: String) -> void:
 func _fin() -> void:
 	print("\n%d échec(s)" % fails)
 	quit(1 if fails > 0 else 0)
+
+
+func _boutons(n: Node) -> Array:
+	var out := []
+	for e in n.get_children():
+		if e is Button:
+			out.append(e.text)
+		out.append_array(_boutons(e))
+	return out

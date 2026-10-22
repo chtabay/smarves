@@ -617,7 +617,8 @@ func _montrer(insee: String, alerte := "") -> void:
 		_geste(c.id, actions)
 	elif not e.is_empty():
 		_geste(e.id, actions)
-	if insee == CarteVienne.POITIERS_INSEE and not _titre:
+	# Depuis le menu de départ aussi : on embarque pour une destination lointaine comme on va dans une commune.
+	if insee == CarteVienne.POITIERS_INSEE:
 		for id in Communes.lointaines():
 			if id != Communes.actuelle():
 				var vols := HBoxContainer.new()
