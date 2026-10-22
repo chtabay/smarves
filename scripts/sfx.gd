@@ -71,6 +71,7 @@ func _ready() -> void:
 	_musique.bus = "Ambiance"
 	_musique.volume_db = -60.0
 	add_child(_musique)
+	_calculer_d_avance()
 
 
 func play(group: String, volume_db := 0.0, pitch := 1.0) -> void:
@@ -106,7 +107,7 @@ func set_ambience(kind: String) -> void:
 		return
 	ambience = kind
 	if not _loops.has(kind):
-		_loops[kind] = _render_loop(kind)
+		_loops[kind] = _boucle(kind)
 	_gen_player.stream = _loops[kind]
 	_gen_player.play()
 	_musique_ville(kind == "village")
@@ -134,9 +135,47 @@ var _musique_pos := 0.0
 
 
 var _loops := {}
+## Les deux boucles se calculent dès le lancement, dans des fils à part : trois cent cinquante mille
+## échantillons en GDScript prenaient près d'une seconde au premier passage sur la place puis au
+## casino (davantage sur téléphone), pendant le chargement du lieu.
+var _calculs := {}
+var _donnees := {}
+var _verrou := Mutex.new()
 
 
-func _render_loop(kind: String) -> AudioStreamWAV:
+func _calculer_d_avance() -> void:
+	for kind in ["village", "casino"]:
+		_calculs[kind] = WorkerThreadPool.add_task(_calculer.bind(kind), false, "Ambiance " + kind)
+
+
+func _calculer(kind: String) -> void:
+	var data := _render_data(kind)
+	_verrou.lock()
+	_donnees[kind] = data
+	_verrou.unlock()
+
+
+func _boucle(kind: String) -> AudioStreamWAV:
+	if _calculs.has(kind):
+		WorkerThreadPool.wait_for_task_completion(_calculs[kind])
+		_calculs.erase(kind)
+	_verrou.lock()
+	var data: PackedByteArray = _donnees.get(kind, PackedByteArray())
+	_donnees.erase(kind)
+	_verrou.unlock()
+	if data.is_empty():
+		data = _render_data(kind)
+	var w := AudioStreamWAV.new()
+	w.format = AudioStreamWAV.FORMAT_16_BITS
+	w.mix_rate = int(RATE)
+	w.stereo = true
+	w.data = data
+	w.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	w.loop_end = int(RATE * 16.0)
+	return w
+
+
+func _render_data(kind: String) -> PackedByteArray:
 	var seconds := 16.0
 	var n := int(RATE * seconds)
 	# Quelques images de plus après la fin de la boucle : le mélangeur lit un peu au-delà de loop_end
@@ -180,14 +219,7 @@ func _render_loop(kind: String) -> AudioStreamWAV:
 	for j in marge:
 		data.encode_s16((n + j) * 4, data.decode_s16(j * 4))
 		data.encode_s16((n + j) * 4 + 2, data.decode_s16(j * 4 + 2))
-	var w := AudioStreamWAV.new()
-	w.format = AudioStreamWAV.FORMAT_16_BITS
-	w.mix_rate = int(RATE)
-	w.stereo = true
-	w.data = data
-	w.loop_mode = AudioStreamWAV.LOOP_FORWARD
-	w.loop_end = n
-	return w
+	return data
 
 
 func _process(delta: float) -> void:
@@ -199,6 +231,9 @@ func _process(delta: float) -> void:
 
 
 func _exit_tree() -> void:
+	for kind in _calculs:
+		WorkerThreadPool.wait_for_task_completion(_calculs[kind])
+	_calculs.clear()
 	if _fondu:
 		_fondu.kill()
 	_musique.stop()

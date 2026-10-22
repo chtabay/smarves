@@ -198,7 +198,8 @@ func caches_trouvees() -> Array:
 
 
 func _on_node_added(node: Node) -> void:
-	if node.get_script() == VILLAGE:
+	# Le village de l'écran titre rentre dans l'arbre une seconde fois quand on appuie sur Jouer.
+	if node.get_script() == VILLAGE and not node.zone_entered.is_connected(_on_zone_entered):
 		node.zone_entered.connect(_on_zone_entered)
 		node.cache_found.connect(_on_cache_found)
 
