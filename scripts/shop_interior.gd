@@ -254,6 +254,48 @@ func _label3d(text: String, pos: Vector3, size: int, color: Color, rot_y := 0.0)
 	return l
 
 
+# --- Le décor d'une brique ------------------------------------------------------------------------
+
+## Le décor nommé par le champ « modele » d'une structure (socle 1.13, le stade ; 1.14, la salle) : une brique
+## de la bibliothèque (« stade-de-campagne@1 ») ou une scène de la commune, posée sous le nœud « Modele » et
+## vérifiée au contrat d'ancres de son genre (scripts/socle/ancres.gd). null (et le lieu du socle prend sa
+## place) si la référence est vide, introuvable, ou si le décor ne tient pas le contrat.
+func _charger_decor(ref: String, genre: String, lieu: String) -> Node3D:
+	if ref == "":
+		return null
+	var chemin := Bibliotheque.scene(ref, genre) if Bibliotheque.est_reference(ref) else ref
+	if chemin == "" or not ResourceLoader.exists(chemin):
+		push_warning("%s : décor introuvable « %s », celui du socle le remplace" % [lieu, ref])
+		return null
+	var n := (load(chemin) as PackedScene).instantiate() as Node3D
+	if n == null:
+		push_warning("%s : « %s » n'est pas une scène 3D, le décor du socle la remplace" % [lieu, ref])
+		return null
+	n.name = "Modele"
+	add_child(n)
+	var fautes := Ancres.verifier_genre(n, genre)
+	if not fautes.is_empty():
+		push_warning("%s : le décor « %s » ne tient pas le contrat : %s" % [lieu, ref, " ; ".join(fautes)])
+		remove_child(n)
+		n.free()
+		return null
+	return n
+
+
+## Un point dans le repère d'une ancre, rendu dans celui du lieu.
+func _vers(ancre: Node3D, local: Vector3) -> Vector3:
+	return to_local(ancre.global_transform * local)
+
+
+## Un nœud du lieu à la place d'une ancre (et de ce décalage, dans son repère), tourné comme elle : on y
+## accroche une zone d'interaction.
+func _pied(ancre: Node3D, decalage := Vector3.ZERO) -> Node3D:
+	var n := Node3D.new()
+	add_child(n)
+	n.global_transform = Transform3D(ancre.global_transform.basis.orthonormalized(), ancre.global_transform * decalage)
+	return n
+
+
 # --- La pièce ---------------------------------------------------------------------------------
 
 func _environment() -> void:

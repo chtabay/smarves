@@ -441,26 +441,7 @@ func _sortir_siege() -> void:
 ## héritage ; posée sous le stade, elle doit tenir le contrat d'ancres du stade. Un décor introuvable ou
 ## qui ne le tient pas est laissé : le stade du socle prend sa place, et le journal dit pourquoi.
 func _charger_modele() -> Node3D:
-	var ref := str(_terrain.get("champs", {}).get("modele", ""))
-	if ref == "":
-		return null
-	var chemin := Bibliotheque.scene(ref, "stade") if Bibliotheque.est_reference(ref) else ref
-	if chemin == "" or not ResourceLoader.exists(chemin):
-		push_warning("Stade : décor introuvable « %s », le stade du socle le remplace" % ref)
-		return null
-	var n := (load(chemin) as PackedScene).instantiate() as Node3D
-	if n == null:
-		push_warning("Stade : « %s » n'est pas une scène 3D, le stade du socle la remplace" % ref)
-		return null
-	n.name = "Modele"
-	add_child(n)
-	var fautes := Ancres.verifier_stade(n)
-	if not fautes.is_empty():
-		push_warning("Stade : le décor « %s » ne tient pas le contrat : %s" % [ref, " ; ".join(fautes)])
-		remove_child(n)
-		n.free()
-		return null
-	return n
+	return _charger_decor(str(_terrain.get("champs", {}).get("modele", "")), "stade", "Stade")
 
 
 ## Ce que le socle pose sur les ancres du décor : le tableau d'affichage, le président, le bureau, le
@@ -495,20 +476,6 @@ func _depuis_ancres() -> void:
 	var b := Ancres.trouver(_modele, "Buvette")
 	if b:
 		_interactive(_pied(b), "buvette", "E : un café à la buvette", Vector3(3.4, 2.4, 2.0), Vector3(0, 1.2, 0.4))
-
-
-## Un point dans le repère d'une ancre, rendu dans celui du stade.
-func _vers(ancre: Node3D, local: Vector3) -> Vector3:
-	return to_local(ancre.global_transform * local)
-
-
-## Un nœud du stade à la place d'une ancre (et de ce décalage, dans son repère), tourné comme elle : on y
-## accroche une zone d'interaction.
-func _pied(ancre: Node3D, decalage := Vector3.ZERO) -> Node3D:
-	var n := Node3D.new()
-	add_child(n)
-	n.global_transform = Transform3D(ancre.global_transform.basis.orthonormalized(), ancre.global_transform * decalage)
-	return n
 
 
 ## L'habillage de la commune (socle 1.6, champ « habillage » du terrain) : sa scène, posée autour de la
