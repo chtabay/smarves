@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dx5y7jvy4f1ub"
-path="res://.godot/imported/moquette_e.png-19c6e8749dc64cfa6c8c8ac42c0a49fd.ctex"
+path.s3tc="res://.godot/imported/moquette_e.png-19c6e8749dc64cfa6c8c8ac42c0a49fd.s3tc.ctex"
+path.etc2="res://.godot/imported/moquette_e.png-19c6e8749dc64cfa6c8c8ac42c0a49fd.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://bibliotheque/matieres-de-minuit/1/moquette_e.png"
-dest_files=["res://.godot/imported/moquette_e.png-19c6e8749dc64cfa6c8c8ac42c0a49fd.ctex"]
+dest_files=["res://.godot/imported/moquette_e.png-19c6e8749dc64cfa6c8c8ac42c0a49fd.s3tc.ctex", "res://.godot/imported/moquette_e.png-19c6e8749dc64cfa6c8c8ac42c0a49fd.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

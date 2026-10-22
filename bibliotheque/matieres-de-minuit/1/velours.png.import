@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cjuivlvls4yrq"
-path="res://.godot/imported/velours.png-cbe24b063a10d76f78ce07c653c231ee.ctex"
+path.s3tc="res://.godot/imported/velours.png-cbe24b063a10d76f78ce07c653c231ee.s3tc.ctex"
+path.etc2="res://.godot/imported/velours.png-cbe24b063a10d76f78ce07c653c231ee.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://bibliotheque/matieres-de-minuit/1/velours.png"
-dest_files=["res://.godot/imported/velours.png-cbe24b063a10d76f78ce07c653c231ee.ctex"]
+dest_files=["res://.godot/imported/velours.png-cbe24b063a10d76f78ce07c653c231ee.s3tc.ctex", "res://.godot/imported/velours.png-cbe24b063a10d76f78ce07c653c231ee.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

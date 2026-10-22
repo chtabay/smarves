@@ -157,12 +157,23 @@ Chaque table peignait son tapis dans sa propre vue hors écran (`SubViewport`, 6
 - Casino de Smarves : ses tables sont toutes différentes, rien ne change (74,7 Mo).
 - Vérifié pixel par pixel sur les 19 tapis de Minuit (images relues avec rendu) : 13 identiques à l'octet, les 6 blackjacks à un niveau sur 255 près sur quelques lettres de l'annonce en arc (l'ordre dans lequel la police met ses lettres en cache). La taille des tapis ne change pas : assis, on les voit à 600 à 900 px par mètre sur un écran de 1920.
 
+## Les arbres lointains et le décor compressé de Minuit (22 octobre 2026, nuit)
+
+**Les imposteurs.** `Lointain.imposteurs`, troisième remède appliqué par `Chargement`, prend les multimaillages d'arbres et de buissons (au moins 50 cm de haut, 48 triangles, une emprise à peu près ronde : une haie ou une rangée de vigne n'en est pas) et photographie une fois chaque maillage, sans lumière, dans une petite vue (256 px de haut). Le multimaillage est découpé en cellules de 30 m : chacune garde ses arbres jusqu'à 120 m (au centre de la cellule, à 4 m près pour ne pas clignoter), puis les remplace par des panneaux tournés vers la caméra, éclairés par la scène et sans ombre. À 120 m, un arbre de 10 m fait une soixantaine de pixels de haut. De près, rien ne change ; sans rendu (`--headless`), rien ne change non plus, faute de photo. Les feuilles de quelques triangles et les troncs ne sont pas pris : le panneau n'y gagnerait presque rien.
+
+| Commune | triangles dessinés avant | après |
+|---|---|---|
+| Civaux | 1 415 808 | 775 596 |
+| L'Isle-Jourdain | 1 782 390 | 1 288 998 |
+| Cloué | 1 014 252 | 893 471 |
+
+**Le décor de Minuit.** Les matières de la DA (bibliothèque) et les surfaces unies du décor (sols, ciels, façades, murs, une frise) sont compressées pour la carte graphique (S3TC sur ordinateur, ETC2 sur téléphone : quatre à huit fois moins de mémoire) ; les enseignes, les néons, le texte, les tapis et les roues restent sans perte. La liste est dans `tools/minuit_decor/regler_import.py`. Le casino de Minuit passe de 131 à 94,9 Mo de textures, sous le seuil de 96 Mo.
+
 ## Ce qui reste
 
 - Le casino se bâtit encore en 1,7 s : ses salles (0,35 s), ses tables (la roulette 85 ms, le Grand Hasard 170), ses étiquettes et ses lustres. Les bâtir pendant un écran de chargement animé, comme les communes greffées (`Chargement`), serait la prochaine étape.
 - La foule du Dôme de Minuit pendant un match : des capsules moins fines ou des silhouettes à deux niveaux. Les 110 lampes de la place (les réverbères et les fenêtres), les 2 600 surfaces du casino.
-- Les arbres et les feuillages des villages (Civaux 1,4 M triangles dessinés, L'Isle-Jourdain 1,8 M, Cloué 1,0 M) : des feuilles séparées que les niveaux de détail ne savent pas simplifier sans perte. Ce sont des choix d'auteur (moins de feuilles plus grandes, des imposteurs au loin), avec une différence visible.
-- Les textures du décor de Minuit (90 Mo, 1024 px sans compression en mémoire) : la compression de la carte graphique les diviserait par quatre, avec une légère perte.
+- Les arbres proches des villages (L'Isle-Jourdain 1,3 M triangles dessinés, Cloué 0,9 M, Civaux 0,8 M, imposteurs compris) : des feuilles séparées que les niveaux de détail ne savent pas simplifier sans perte. Moins de feuilles plus grandes, ou des imposteurs plus près, se verraient : ce sont des choix d'auteur.
 - Les paquets des communes (Civaux, Minuit…) ont leurs propres textures et figurines : le même rangement (`Memo`) leur servirait ; Minuit charge 256 Mo de textures (des 2048 × 2048 sans compression), bien au-delà du seuil. Chaque paquet est repris une fois par ses auteurs, avec le budget que l'emballeur leur dit.
 - Si le téléphone peine encore, la lumière précalculée (`LightmapGI`) pour les lieux fixes.
 - La première visite d'un lieu compile ses shaders sur la carte graphique ; Godot les garde ensuite en cache, les visites suivantes sont plus rapides.

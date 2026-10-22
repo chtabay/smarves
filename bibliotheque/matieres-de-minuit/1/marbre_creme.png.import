@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://b7ki8r0u7iu8r"
-path="res://.godot/imported/marbre_creme.png-f9a866a1db9014f8f50cb02bdfaae0c6.ctex"
+path.s3tc="res://.godot/imported/marbre_creme.png-f9a866a1db9014f8f50cb02bdfaae0c6.s3tc.ctex"
+path.etc2="res://.godot/imported/marbre_creme.png-f9a866a1db9014f8f50cb02bdfaae0c6.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://bibliotheque/matieres-de-minuit/1/marbre_creme.png"
-dest_files=["res://.godot/imported/marbre_creme.png-f9a866a1db9014f8f50cb02bdfaae0c6.ctex"]
+dest_files=["res://.godot/imported/marbre_creme.png-f9a866a1db9014f8f50cb02bdfaae0c6.s3tc.ctex", "res://.godot/imported/marbre_creme.png-f9a866a1db9014f8f50cb02bdfaae0c6.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

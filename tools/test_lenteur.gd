@@ -251,6 +251,50 @@ func _init() -> void:
 	await process_frame
 	await process_frame
 	_verifier(bille.mesh.radial_segments == 12 and perle.mesh.radial_segments == 12, "une scène qui arrive dans l'arbre est simplifiée sans rien demander")
+	# Les arbres lointains : un buisson rond en multimaillage devient, au-delà de IMPOSTEUR_DES mètres, un
+	# panneau ; une haie, une feuille de quelques triangles ne sont pas prises. Sans rendu, pas de photo.
+	var bois := Node3D.new()
+	var buisson := MultiMeshInstance3D.new()
+	buisson.multimesh = MultiMesh.new()
+	buisson.multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	var boule := ArrayMesh.new()
+	boule.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, SphereMesh.new().get_mesh_arrays())
+	buisson.multimesh.mesh = boule
+	buisson.multimesh.instance_count = 3
+	var foule := MultiMeshInstance3D.new()
+	foule.multimesh = MultiMesh.new()
+	foule.multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	foule.multimesh.mesh = boule
+	foule.multimesh.instance_count = 100
+	foule.multimesh.visible_instance_count = 0
+	var haie := MultiMeshInstance3D.new()
+	haie.multimesh = MultiMesh.new()
+	haie.multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	var boite := BoxMesh.new()
+	boite.size = Vector3(10, 1.5, 1)
+	boite.subdivide_width = 20
+	haie.multimesh.mesh = ArrayMesh.new()
+	haie.multimesh.mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, boite.get_mesh_arrays())
+	haie.multimesh.instance_count = 2
+	var feuille := MultiMeshInstance3D.new()
+	feuille.multimesh = MultiMesh.new()
+	feuille.multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	feuille.multimesh.mesh = QuadMesh.new()
+	feuille.multimesh.instance_count = 50
+	for x in [buisson, haie, feuille, foule]:
+		bois.add_child(x)
+	bois.set_meta("sans_lointain", true)
+	root.add_child(bois)
+	_verifier(Lointain._arbre(buisson) and not Lointain._arbre(haie) and not Lointain._arbre(feuille), "un buisson rond est pris pour les imposteurs, pas une haie ni une feuille")
+	_verifier(not Lointain._arbre(foule), "un multimaillage tenu par un script (instances comptées) n'est pas pris")
+	_verifier(Lointain.imposteurs(bois) == 0 and buisson.visible, "sans rendu, les arbres restent tels quels")
+	Lointain._decouper(buisson, QuadMesh.new())
+	var morceaux := bois.get_children().filter(func(m): return m != buisson and m.has_meta("lointain_imposteur"))
+	var de_pres := morceaux.filter(func(m): return m.multimesh.mesh == buisson.multimesh.mesh)
+	var de_loin := morceaux.filter(func(m): return m.multimesh.mesh is QuadMesh)
+	_verifier(not buisson.visible and de_pres.size() == de_loin.size() and de_pres.size() >= 1 and de_pres.all(func(m): return m.visibility_range_end == Lointain.IMPOSTEUR_DES) and de_loin.all(func(m): return m.visibility_range_begin == Lointain.IMPOSTEUR_DES and m.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF), "chaque cellule a ses arbres de près et ses panneaux au loin, sans ombre")
+	_verifier(de_pres.reduce(func(a, m): return a + m.multimesh.instance_count, 0) == 3, "les cellules gardent tous les arbres")
+	bois.free()
 	# Ce qui est vraiment dessiné : le gros maillage, posé à 300 m, ne compte plus qu'à son niveau lointain ;
 	# hors de sa distance de visibilité, plus du tout ; « triangles_pleins » garde le compte de tout.
 	gros.position = Vector3(300, 0, 0)

@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://g6uk4r6sl5hg"
-path="res://.godot/imported/dallage.png-9d8c538a9304070f119cd7dd73e35c2a.ctex"
+path.s3tc="res://.godot/imported/dallage.png-9d8c538a9304070f119cd7dd73e35c2a.s3tc.ctex"
+path.etc2="res://.godot/imported/dallage.png-9d8c538a9304070f119cd7dd73e35c2a.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://bibliotheque/matieres-de-minuit/1/dallage.png"
-dest_files=["res://.godot/imported/dallage.png-9d8c538a9304070f119cd7dd73e35c2a.ctex"]
+dest_files=["res://.godot/imported/dallage.png-9d8c538a9304070f119cd7dd73e35c2a.s3tc.ctex", "res://.godot/imported/dallage.png-9d8c538a9304070f119cd7dd73e35c2a.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

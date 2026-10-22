@@ -10,6 +10,11 @@ extends RefCounted
 ##    (ImporterMesh.generate_lods, meshoptimizer) : le moteur dessine le niveau dont l'erreur reste sous
 ##    un pixel à l'écran. Le calcul se fait dans un fil, le maillage est remplacé quand il est prêt ;
 ##    de près, c'est le même maillage. Les maillages à os (figurines) ont les leurs (CritterMesh).
+## 3. Les arbres des multimaillages, au-delà de IMPOSTEUR_DES mètres, deviennent des imposteurs : une
+##    image de l'arbre, prise une fois au chargement, sur un panneau tourné vers la caméra. Le multimaillage
+##    est découpé en cellules de CELLULE mètres, que le moteur passe de l'arbre à l'image selon la
+##    distance ; de près, rien ne change. Sans rendu (--headless), il n'y a rien à photographier : rien ne
+##    change non plus.
 
 const TRIANGLES_MIN := 10_000
 ## Angles de generate_lods : les normales plus proches que le premier se fondent, plus écartées que le
@@ -26,6 +31,7 @@ static func appliquer(racine: Node) -> void:
 		return
 	simplifier(racine)
 	niveaux(racine)
+	imposteurs(racine)
 
 
 # --- Les primitives ---------------------------------------------------------------------------
@@ -179,9 +185,10 @@ static func _poser(mesh: ArrayMesh, surfaces: Array, instances: Array) -> void:
 			mi.mesh = nouveau
 
 
-## Vrai tant que des niveaux restent à lire ou à calculer (tests, captures : attendre image par image).
+## Vrai tant que des niveaux restent à lire ou à calculer, ou des imposteurs à photographier (tests,
+## captures : attendre image par image).
 static func en_travail() -> bool:
-	return en_cours > 0 or not _file.is_empty()
+	return en_cours > 0 or not _file.is_empty() or _photos > 0
 
 
 static func _triangles(mesh: Mesh) -> int:
@@ -198,3 +205,200 @@ static func _a_des_niveaux(mesh: Mesh) -> bool:
 
 static func _a_des_os(mesh: Mesh) -> bool:
 	return mesh.surface_get_format(0) & Mesh.ARRAY_FORMAT_BONES
+
+
+# --- Les arbres lointains ------------------------------------------------------------------------
+
+## Au-delà de cette distance (au centre de sa cellule), un arbre se dessine en image.
+const IMPOSTEUR_DES := 120.0
+const CELLULE := 30.0
+## Marge autour de la distance de bascule, pour que l'arbre ne clignote pas quand on s'y tient.
+const MARGE := 4.0
+## Hauteur de la photo d'un arbre, en pixels (à 120 m, un arbre de 10 m en fait une soixantaine à l'écran).
+const PHOTO_PX := 256
+## Ce qui est un arbre ou un buisson : au moins HAUTEUR_MIN mètres de haut, TRIANGLES_ARBRE triangles (en
+## deçà, le panneau ne gagne presque rien), une emprise à peu près ronde (une haie, une rangée de vigne, un mur
+## ne tournent pas avec la caméra).
+const HAUTEUR_MIN := 0.5
+const TRIANGLES_ARBRE := 48
+const EMPRISE := 2.0
+
+## Les photos en cours (une par maillage d'arbre).
+static var _photos := 0
+
+
+## Remplace au loin les arbres des multimaillages de la scène par leurs imposteurs. Renvoie le nombre de
+## multimaillages pris ; les photos se font aux images suivantes, puis les cellules se posent.
+static func imposteurs(racine: Node) -> int:
+	if DisplayServer.get_name() == "headless":
+		return 0
+	var par_maillage := {}
+	for mm in racine.find_children("*", "MultiMeshInstance3D", true, false):
+		if _arbre(mm):
+			mm.set_meta("lointain_imposteur", true)
+			var cle := [mm.multimesh.mesh, mm.material_override]
+			if not par_maillage.has(cle):
+				par_maillage[cle] = []
+			par_maillage[cle].append(weakref(mm))
+	for cle in par_maillage:
+		_photographier(cle[0], cle[1], par_maillage[cle])
+	return par_maillage.values().reduce(func(a, l): return a + l.size(), 0)
+
+
+## Vrai si ce multimaillage est une plantation d'arbres que rien d'autre ne règle déjà.
+static func _arbre(mm: MultiMeshInstance3D) -> bool:
+	var m := mm.multimesh
+	if m == null or m.mesh == null or m.instance_count == 0 or m.transform_format != MultiMesh.TRANSFORM_3D:
+		return false
+	if mm.has_meta("lointain_imposteur") or mm.visibility_range_end > 0.0 or mm.visibility_range_begin > 0.0 or not mm.visible:
+		return false
+	# Un multimaillage qu'un script tient (une foule qui se lève, des instances comptées, des données par
+	# instance pour un shader) n'est pas une plantation : on n'y touche pas. Les capsules non plus : ce sont
+	# les gens des foules.
+	if m.visible_instance_count >= 0 or m.use_custom_data or m.mesh is CapsuleMesh or mm.get_script() != null:
+		return false
+	if m.mesh.get_surface_count() == 0 or (m.mesh is ArrayMesh and _a_des_os(m.mesh)):
+		return false
+	var a := m.mesh.get_aabb()
+	var e := _echelle(mm.global_transform.basis) * _echelle(m.get_instance_transform(0).basis)
+	var large := maxf(a.size.x, a.size.z)
+	if a.size.y * e < HAUTEUR_MIN or minf(a.size.x, a.size.z) <= 0.0 or _triangles(m.mesh) < TRIANGLES_ARBRE:
+		return false
+	return large / minf(a.size.x, a.size.z) <= EMPRISE
+
+
+## Photographie l'arbre (sa couleur propre, sans lumière : le panneau est éclairé par la scène), puis pose
+## les imposteurs de chaque multimaillage qui le porte.
+static func _photographier(mesh: Mesh, matiere: Material, porteurs: Array) -> void:
+	_photos += 1
+	var a := mesh.get_aabb()
+	var large := maxf(a.size.x, a.size.z)
+	var vp := SubViewport.new()
+	vp.size = Vector2i(maxi(16, int(PHOTO_PX * large / a.size.y)), PHOTO_PX)
+	vp.transparent_bg = true
+	vp.own_world_3d = true
+	vp.world_3d = World3D.new()
+	vp.debug_draw = Viewport.DEBUG_DRAW_UNSHADED
+	vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	mi.material_override = matiere
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	vp.add_child(mi)
+	var cam := Camera3D.new()
+	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
+	cam.keep_aspect = Camera3D.KEEP_HEIGHT
+	cam.size = a.size.y
+	cam.near = 0.05
+	cam.far = a.size.z + 2.0 * large + 2.0
+	cam.position = Vector3(a.get_center().x, a.get_center().y, a.end.z + large + 1.0)
+	vp.add_child(cam)
+	var arbre := Engine.get_main_loop() as SceneTree
+	arbre.root.add_child.call_deferred(vp)
+	await arbre.process_frame
+	await RenderingServer.frame_post_draw
+	await RenderingServer.frame_post_draw
+	var img := vp.get_texture().get_image()
+	vp.queue_free()
+	_photos -= 1
+	if img == null or img.is_empty():
+		return
+	img.convert(Image.FORMAT_RGBA8)
+	img.fix_alpha_edges()
+	img.generate_mipmaps()
+	var panneau := QuadMesh.new()
+	panneau.size = Vector2(large, a.size.y)
+	# Le panneau tourne autour de son centre : chaque instance le pose au centre de son arbre (_morceau).
+	var mat := StandardMaterial3D.new()
+	mat.albedo_texture = ImageTexture.create_from_image(img)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+	mat.alpha_scissor_threshold = 0.5
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_FIXED_Y
+	mat.billboard_keep_scale = true
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.roughness = 1.0
+	mat.metallic_specular = 0.0
+	# Le panneau est éclairé comme une boule (une couronne d'arbre), pas comme une feuille de papier.
+	mat.normal_enabled = true
+	mat.normal_texture = _boule()
+	panneau.material = mat
+	for w in porteurs:
+		var mm = w.get_ref()
+		if mm != null and is_instance_valid(mm) and mm.is_inside_tree() and mm.multimesh != null and mm.multimesh.mesh == mesh:
+			_decouper(mm, panneau)
+
+
+static var _normales_boule: Texture2D
+
+
+## La carte de normales d'une demi-boule, vue de face : le panneau prend la lumière d'un côté, l'ombre de l'autre.
+static func _boule() -> Texture2D:
+	if _normales_boule == null:
+		var n := 64
+		var img := Image.create(n, n, false, Image.FORMAT_RGB8)
+		for y in n:
+			for x in n:
+				var v := Vector2((x + 0.5) / n * 2.0 - 1.0, 1.0 - (y + 0.5) / n * 2.0) * 0.8
+				if v.length() > 0.95:
+					v = v.normalized() * 0.95
+				var z := sqrt(1.0 - v.length_squared())
+				img.set_pixel(x, y, Color(v.x * 0.5 + 0.5, v.y * 0.5 + 0.5, z * 0.5 + 0.5))
+		img.generate_mipmaps()
+		_normales_boule = ImageTexture.create_from_image(img)
+	return _normales_boule
+
+
+## Range les arbres du multimaillage par cellules : pour chacune, les arbres jusqu'à IMPOSTEUR_DES mètres
+## et leurs panneaux au-delà. Le multimaillage d'origine reste, caché.
+static func _decouper(mm: MultiMeshInstance3D, panneau: Mesh) -> void:
+	var m := mm.multimesh
+	var cellules := {}
+	for i in m.instance_count:
+		var p: Vector3 = mm.global_transform * m.get_instance_transform(i).origin
+		var k := Vector2i(floori(p.x / CELLULE), floori(p.z / CELLULE))
+		if not cellules.has(k):
+			cellules[k] = []
+		cellules[k].append(i)
+	var parent := mm.get_parent()
+	for k in cellules:
+		var pres := _morceau(mm, m.mesh, cellules[k], "pres")
+		pres.cast_shadow = mm.cast_shadow
+		pres.material_override = mm.material_override
+		pres.visibility_range_end = IMPOSTEUR_DES
+		pres.visibility_range_end_margin = MARGE
+		parent.add_child(pres, true)
+		var loin := _morceau(mm, panneau, cellules[k], "loin", m.mesh.get_aabb().get_center())
+		loin.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		loin.visibility_range_begin = IMPOSTEUR_DES
+		loin.visibility_range_begin_margin = MARGE
+		parent.add_child(loin, true)
+	mm.visible = false
+
+
+## Un multimaillage des instances indices de mm, portant mesh ; centre : là où poser un panneau dans le
+## repère de l'arbre (le centre de sa boîte), qui tourne sur lui-même au lieu de tourner autour du pied.
+static func _morceau(mm: MultiMeshInstance3D, mesh: Mesh, indices: Array, quoi: String, centre = null) -> MultiMeshInstance3D:
+	var m := mm.multimesh
+	var n := MultiMesh.new()
+	n.transform_format = MultiMesh.TRANSFORM_3D
+	n.use_colors = m.use_colors
+	n.use_custom_data = m.use_custom_data
+	n.mesh = mesh
+	n.instance_count = indices.size()
+	for j in indices.size():
+		var i: int = indices[j]
+		var t := m.get_instance_transform(i)
+		if centre != null:
+			t.origin = t * centre
+		n.set_instance_transform(j, t)
+		if m.use_colors:
+			n.set_instance_color(j, m.get_instance_color(i))
+		if m.use_custom_data:
+			n.set_instance_custom_data(j, m.get_instance_custom_data(i))
+	var out := MultiMeshInstance3D.new()
+	out.name = "%s_%s" % [mm.name, quoi]
+	out.multimesh = n
+	out.transform = mm.transform
+	out.layers = mm.layers
+	out.set_meta("lointain_imposteur", true)
+	return out

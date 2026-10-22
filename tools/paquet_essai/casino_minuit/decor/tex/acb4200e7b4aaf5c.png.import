@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://csavyj34ijdnk"
-path="res://.godot/imported/acb4200e7b4aaf5c.png-13460a5f19c6a64ec80cc732005170ba.ctex"
+path.s3tc="res://.godot/imported/acb4200e7b4aaf5c.png-13460a5f19c6a64ec80cc732005170ba.s3tc.ctex"
+path.etc2="res://.godot/imported/acb4200e7b4aaf5c.png-13460a5f19c6a64ec80cc732005170ba.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://tools/paquet_essai/casino_minuit/decor/tex/acb4200e7b4aaf5c.png"
-dest_files=["res://.godot/imported/acb4200e7b4aaf5c.png-13460a5f19c6a64ec80cc732005170ba.ctex"]
+dest_files=["res://.godot/imported/acb4200e7b4aaf5c.png-13460a5f19c6a64ec80cc732005170ba.s3tc.ctex", "res://.godot/imported/acb4200e7b4aaf5c.png-13460a5f19c6a64ec80cc732005170ba.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

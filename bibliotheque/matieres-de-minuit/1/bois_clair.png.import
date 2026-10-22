@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://d1xowgs3vodnp"
-path="res://.godot/imported/bois_clair.png-f4253d42d2d0d2751e4151fbc2107e1d.ctex"
+path.s3tc="res://.godot/imported/bois_clair.png-f4253d42d2d0d2751e4151fbc2107e1d.s3tc.ctex"
+path.etc2="res://.godot/imported/bois_clair.png-f4253d42d2d0d2751e4151fbc2107e1d.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://bibliotheque/matieres-de-minuit/1/bois_clair.png"
-dest_files=["res://.godot/imported/bois_clair.png-f4253d42d2d0d2751e4151fbc2107e1d.ctex"]
+dest_files=["res://.godot/imported/bois_clair.png-f4253d42d2d0d2751e4151fbc2107e1d.s3tc.ctex", "res://.godot/imported/bois_clair.png-f4253d42d2d0d2751e4151fbc2107e1d.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
