@@ -16,6 +16,8 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	if village == null:
+		return
 	var cam: Camera3D = village.camera
 	if cam:
 		cam._yaw_goal += delta * 0.06
@@ -107,7 +109,15 @@ func _build_ui() -> void:
 
 
 func _play() -> void:
-	get_tree().change_scene_to_file("res://scenes/main.tscn")
+	# Le village du fond devient la partie, sans être rebâti (main.gd, quitter_vitrine).
+	var tree := get_tree()
+	var v := village
+	village = null
+	remove_child(v)
+	tree.root.add_child(v)
+	tree.current_scene = v
+	v.quitter_vitrine()
+	queue_free()
 
 
 func _maybe_capture() -> void:

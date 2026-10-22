@@ -91,15 +91,42 @@ func _ready() -> void:
 	# En vitrine derrière l'écran titre : pas d'interface, pas d'accueil, pas de bavardages.
 	if has_meta("vitrine"):
 		for c in get_children():
-			if c is CanvasLayer:
+			if c is CanvasLayer and c.visible:
 				c.visible = false
+				_cachees_en_vitrine.append(c)
 		set_process_unhandled_input(false)
 		_bark_timer = INF
 		return
+	_ouvrir_la_partie()
+	_maybe_capture()
+
+
+## « Jouer » depuis l'écran titre : le village qui tournait derrière devient la partie, sans être
+## rebâti (le rebâtir coûtait une à deux secondes de plus). Il retrouve ce qu'une arrivée sur la place
+## lui donne : son interface, l'habitant qu'on dirige, une caméra neuve, les bavardages, l'accueil.
+func quitter_vitrine() -> void:
+	remove_meta("vitrine")
+	for c in _cachees_en_vitrine:
+		c.visible = true
+	_cachees_en_vitrine.clear()
+	set_process_unhandled_input(true)
+	_bark_timer = 3.0
+	var ancienne := camera
+	camera = Camera3D.new()
+	camera.set_script(ORBIT)
+	add_child(camera)
+	camera.make_current()
+	camera.au_dela.connect(_vers_la_carte)
+	ancienne.queue_free()
+	_spawn_player()
+	_refresh_places()
+	_ouvrir_la_partie()
+
+
+func _ouvrir_la_partie() -> void:
 	if not Game.welcomed and not "--capture" in " ".join(OS.get_cmdline_user_args()):
 		_welcome()
 	Game.brunet_calls.connect(_on_brunet_calls)
-	_maybe_capture()
 
 
 ## Au-delà du cran « quartier », le village laisse place à la carte de la Vienne.
@@ -115,7 +142,19 @@ func _on_brunet_calls() -> void:
 
 # --- Matériaux -----------------------------------------------------------------
 
+## Les textures de bruit déjà fabriquées, gardées d'un chargement du village à l'autre (l'écran titre,
+## chaque retour sur la place) : le bruit est le même à chaque fois (graine fixe), seul le calcul coûtait.
+static var _bruits := {}
+
+
 func _noise_tex(normal: bool, freq: float, dark: Color) -> NoiseTexture2D:
+	var cle := [normal, freq, dark]
+	if not _bruits.has(cle):
+		_bruits[cle] = _fabriquer_bruit(normal, freq, dark)
+	return _bruits[cle]
+
+
+func _fabriquer_bruit(normal: bool, freq: float, dark: Color) -> NoiseTexture2D:
 	var n := FastNoiseLite.new()
 	n.frequency = freq
 	n.fractal_octaves = 4
@@ -992,6 +1031,8 @@ func _announce(text: String, duree := 3.5) -> void:
 
 
 var _bark_timer := 3.0
+## Les calques d'interface masqués tant que le village sert de fond à l'écran titre.
+var _cachees_en_vitrine: Array[CanvasLayer] = []
 
 
 ## De temps en temps, un habitant près de la caméra dit quelque chose : souvent une rumeur.

@@ -13,15 +13,112 @@ var _device: OptionButton
 var _joueurs: CheckButton
 ## Voir les autres joueurs connectés dans les lieux (autoload Presences) ; sans compte, rien ne s'ouvre.
 var voir_joueurs := true
+## La qualité de l'image : « haute » (tous les effets, comme avant le 22 octobre 2026), « equilibree »
+## (mêmes effets à moindre coût) ou « legere » (sans éclairage indirect, brouillard ni reflets, rendu 3D
+## réduit). Appliquée à chaque environnement qui entre dans l'arbre (_sur_noeud), sans toucher aux lieux.
+var qualite := "equilibree"
+const QUALITES := [["haute", "Haute"], ["equilibree", "Équilibrée"], ["legere", "Légère"]]
+## Images par seconde au plus, et quand la fenêtre n'a pas le focus : au-delà, la carte graphique tourne
+## pour rien (le jeu montait à la fréquence de l'écran, 144 ou 165 images/s sur les écrans rapides).
+const CADENCE := {"haute": 60, "equilibree": 60, "legere": 30}
+const CADENCE_ARRIERE_PLAN := 10
+var _qualite: OptionButton
 var _mouse_before := Input.MOUSE_MODE_VISIBLE
 
 
 func _ready() -> void:
 	layer = 50
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	# Téléphone et navigateur : la qualité légère d'office (le rendu Mobile ou Compatibility n'a de toute
+	# façon ni éclairage indirect ni brouillard volumétrique).
+	if OS.has_feature("mobile") or OS.has_feature("web"):
+		qualite = "legere"
 	_build()
 	_load()
 	_root.visible = false
+	get_tree().node_added.connect(_sur_noeud)
+	appliquer_qualite()
+
+
+func _notification(what: int) -> void:
+	# Fenêtre en arrière-plan ou réduite : dix images par seconde suffisent (la musique a un quart de
+	# seconde d'avance, le réseau et les minuteries suivent).
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and not OS.has_feature("mobile"):
+		Engine.max_fps = CADENCE_ARRIERE_PLAN
+	elif what == NOTIFICATION_APPLICATION_FOCUS_IN:
+		Engine.max_fps = CADENCE.get(qualite, 60)
+
+
+## Les réglages du moteur qui valent pour tout le jeu : cadence, filtres des ombres, finesse de
+## l'éclairage indirect, du brouillard et de l'occlusion, résolution du rendu 3D.
+func appliquer_qualite() -> void:
+	Engine.max_fps = CADENCE.get(qualite, 60)
+	var rs := RenderingServer
+	var haute := qualite == "haute"
+	var legere := qualite == "legere"
+	# En qualité haute, les valeurs du projet (celles du jeu jusqu'ici) ; sinon, un cran ou deux plus bas.
+	var ombre_soleil: int = _reglage("lights_and_shadows/directional_shadow/soft_shadow_filter_quality")
+	var ombre_lampes: int = _reglage("lights_and_shadows/positional_shadow/soft_shadow_filter_quality")
+	rs.directional_soft_shadow_filter_set_quality(ombre_soleil if haute else (rs.SHADOW_QUALITY_SOFT_VERY_LOW if legere else rs.SHADOW_QUALITY_SOFT_LOW))
+	rs.positional_soft_shadow_filter_set_quality(ombre_lampes if haute else (rs.SHADOW_QUALITY_HARD if legere else rs.SHADOW_QUALITY_SOFT_VERY_LOW))
+	rs.gi_set_use_half_resolution(_reglage("global_illumination/gi/use_half_resolution") if haute else true)
+	# Rayons et convergence restent ceux du projet : converger en moins d'images, c'est lancer plus de
+	# rayons à chaque image (mesuré : l'image du casino passait de 1,2 à 2,2 s en rendu logiciel).
+	rs.environment_set_sdfgi_frames_to_update_light(_reglage("global_illumination/sdfgi/frames_to_update_lights") if haute else rs.ENV_SDFGI_UPDATE_LIGHT_IN_8_FRAMES)
+	rs.environment_set_volumetric_fog_volume_size(_reglage("environment/volumetric_fog/volume_size") if haute else 48, _reglage("environment/volumetric_fog/volume_depth") if haute else 32)
+	rs.environment_set_volumetric_fog_filter_active(_reglage("environment/volumetric_fog/use_filter") if haute else false)
+	for genre in ["ssao", "ssil"]:
+		var q: int = _reglage("environment/%s/quality" % genre) if haute else 1
+		var demi: bool = _reglage("environment/%s/half_size" % genre) if haute else true
+		var args := [q, demi, _reglage("environment/%s/adaptive_target" % genre), _reglage("environment/%s/blur_passes" % genre),
+			_reglage("environment/%s/fadeout_from" % genre), _reglage("environment/%s/fadeout_to" % genre)]
+		if genre == "ssao":
+			rs.callv("environment_set_ssao_quality", args)
+		else:
+			rs.callv("environment_set_ssil_quality", args)
+	rs.environment_set_ssr_roughness_quality(_reglage("environment/screen_space_reflection/roughness_quality", rs.ENV_SSR_ROUGHNESS_QUALITY_LOW) if haute else rs.ENV_SSR_ROUGHNESS_QUALITY_DISABLED)
+	var vp := get_viewport()
+	# FSR (plus net que l'étirement simple) n'existe pas dans le rendu Compatibility du navigateur.
+	var fsr := RenderingServer.get_current_rendering_method() != "gl_compatibility"
+	vp.scaling_3d_mode = (Viewport.SCALING_3D_MODE_FSR if fsr else Viewport.SCALING_3D_MODE_BILINEAR) if legere else _reglage("scaling_3d/mode")
+	vp.scaling_3d_scale = 0.75 if legere else _reglage("scaling_3d/scale")
+	vp.msaa_3d = Viewport.MSAA_DISABLED if legere else _reglage("anti_aliasing/quality/msaa_3d")
+	for we in get_tree().root.find_children("*", "WorldEnvironment", true, false):
+		_regler_environnement(we)
+
+
+func _reglage(nom: String, defaut: Variant = null) -> Variant:
+	var v = ProjectSettings.get_setting("rendering/" + nom)
+	return defaut if v == null else v
+
+
+func _sur_noeud(n: Node) -> void:
+	if n is WorldEnvironment:
+		_regler_environnement.call_deferred(n)
+
+
+## Chaque lieu règle son environnement pour la qualité haute ; on garde ses choix de côté (méta
+## « qualite_haute ») pour les rendre si le joueur revient à la qualité haute.
+func _regler_environnement(we: WorldEnvironment) -> void:
+	if not is_instance_valid(we) or we.environment == null:
+		return
+	var env := we.environment
+	if not env.has_meta("qualite_haute"):
+		env.set_meta("qualite_haute", {"sdfgi": env.sdfgi_enabled, "ssil": env.ssil_enabled,
+			"brouillard": env.volumetric_fog_enabled, "ssr": env.ssr_enabled, "ssr_pas": env.ssr_max_steps})
+	var h: Dictionary = env.get_meta("qualite_haute")
+	var legere := qualite == "legere"
+	env.sdfgi_enabled = h.sdfgi and not legere
+	env.ssil_enabled = h.ssil and not legere
+	env.volumetric_fog_enabled = h.brouillard and not legere
+	env.ssr_enabled = h.ssr and not legere
+	env.ssr_max_steps = h.ssr_pas if qualite == "haute" else mini(h.ssr_pas, 24)
+
+
+func _set_qualite(q: String) -> void:
+	qualite = q
+	appliquer_qualite()
+	_save()
 
 
 func is_open() -> bool:
@@ -147,6 +244,19 @@ func _build() -> void:
 		voir_joueurs = on
 		_save())
 	v.add_child(_joueurs)
+	var qrow := HBoxContainer.new()
+	qrow.add_theme_constant_override("separation", 12)
+	v.add_child(qrow)
+	var ql := Label.new()
+	ql.text = "Qualité de l'image"
+	ql.custom_minimum_size = Vector2(220, 0)
+	qrow.add_child(ql)
+	_qualite = OptionButton.new()
+	_qualite.custom_minimum_size = Vector2(220, 0)
+	for q in QUALITES:
+		_qualite.add_item(q[1])
+	_qualite.item_selected.connect(func(i: int): _set_qualite(QUALITES[i][0]))
+	qrow.add_child(_qualite)
 	_fullscreen = CheckButton.new()
 	_fullscreen.text = "Plein écran"
 	_fullscreen.toggled.connect(_set_fullscreen)
@@ -186,15 +296,22 @@ func _save() -> void:
 	cfg.set_value("ecran", "plein_ecran", _fullscreen.button_pressed)
 	cfg.set_value("son", "sortie", AudioServer.output_device)
 	cfg.set_value("multi", "voir_joueurs", voir_joueurs)
+	cfg.set_value("ecran", "qualite", qualite)
 	cfg.save(PATH)
 
 
 func _load() -> void:
 	var cfg := ConfigFile.new()
+	_montrer_qualite()
 	if cfg.load(PATH) != OK:
 		for k in _sliders:
 			_set_volume(_sliders[k].value, k)
 		return
+	var q: String = cfg.get_value("ecran", "qualite", qualite)
+	for e in QUALITES:
+		if e[0] == q:
+			qualite = q
+	_montrer_qualite()
 	for k in _sliders:
 		_sliders[k].set_value_no_signal(float(cfg.get_value("son", k, 0.8)))
 		_set_volume(_sliders[k].value, k)
@@ -210,3 +327,9 @@ func _load() -> void:
 	_fullscreen.set_pressed_no_signal(fs)
 	if fs:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+
+
+func _montrer_qualite() -> void:
+	for i in QUALITES.size():
+		if QUALITES[i][0] == qualite:
+			_qualite.select(i)
