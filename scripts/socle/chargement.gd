@@ -172,6 +172,42 @@ func _lacher() -> void:
 	_id = ""
 
 
+## Lit d'avance, dans un fil, des scènes qu'on ouvrira sans doute depuis celle-ci : leurs scripts se
+## compilent sans bloquer l'image (ceux du casino : 0,65 s à l'entrée sinon). Une à la fois, et les
+## ressources lues restent tenues ici, sans quoi le cache les oublierait aussitôt.
+var _a_chauffer: Array = []
+var _en_chauffe := ""
+var _chauffees := {}
+
+
+func chauffer(chemins: Array) -> void:
+	for c in chemins:
+		if not _chauffees.has(c) and c != _en_chauffe and not c in _a_chauffer and ResourceLoader.exists(c):
+			_a_chauffer.append(c)
+	_chauffe_suivante()
+
+
+func _chauffe_suivante() -> void:
+	while _en_chauffe == "" and not _a_chauffer.is_empty():
+		var c: String = _a_chauffer.pop_front()
+		if ResourceLoader.has_cached(c):
+			continue
+		if ResourceLoader.load_threaded_request(c) == OK:
+			_en_chauffe = c
+
+
+func _chauffe() -> void:
+	if _en_chauffe == "":
+		return
+	var etat := ResourceLoader.load_threaded_get_status(_en_chauffe)
+	if etat == ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+		return
+	if etat == ResourceLoader.THREAD_LOAD_LOADED:
+		_chauffees[_en_chauffe] = ResourceLoader.load_threaded_get(_en_chauffe)
+	_en_chauffe = ""
+	_chauffe_suivante()
+
+
 ## Change de scène : derrière l'écran si `chemin` est une scène d'une commune en paquet (res://communes/<id>/),
 ## d'un coup sinon. Les portes qui ramènent dans une commune (boutique, étude, salle, stade) passent par là.
 ## Si `chemin` est la scène gardée en quittant (garder), elle revient telle qu'on l'a laissée, sans se rebâtir.
@@ -249,6 +285,7 @@ func entrer(id: String, chemin: String) -> void:
 
 
 func _process(dt: float) -> void:
+	_chauffe()
 	if not visible:
 		return
 	_t += dt

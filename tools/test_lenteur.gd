@@ -137,5 +137,55 @@ func _init() -> void:
 		await process_frame
 	_verifier(not is_instance_valid(la_place), "deux lieux plus loin, la place gardée est libérée")
 
+	# Le lieu construit une fois, puis sauvegardé : ce qu'un script fabrique est rangé sur l'appareil.
+	var appels := [0]
+	var fabrique := func():
+		appels[0] += 1
+		return {"n": appels[0], "v": PackedVector3Array([Vector3.ONE])}
+	var dossier := "user://cache/essai_lenteur/"
+	if DirAccess.dir_exists_absolute(dossier):
+		for d in DirAccess.get_directories_at(dossier):
+			for f in DirAccess.get_files_at(dossier + d):
+				DirAccess.remove_absolute(dossier + d + "/" + f)
+			DirAccess.remove_absolute(dossier + d)
+	Memo._versions.erase("essai_lenteur")
+	var a = Memo.valeur("essai_lenteur", "res://tools/test_lenteur.gd", ["clé", 1], fabrique)
+	var b = Memo.valeur("essai_lenteur", "res://tools/test_lenteur.gd", ["clé", 1], fabrique)
+	_verifier(appels[0] == 1 and a == b and b.v[0] == Vector3.ONE, "une valeur se fabrique une fois, puis se relit du fichier")
+	Memo.valeur("essai_lenteur", "res://tools/test_lenteur.gd", ["clé", 2], fabrique)
+	_verifier(appels[0] == 2, "une autre clé se fabrique")
+	var version: String = DirAccess.get_directories_at(dossier)[0]
+	Memo._versions.erase("essai_lenteur")
+	Memo.valeur("essai_lenteur", "res://tools/mesure_lenteur.gd", ["clé", 1], fabrique)
+	var versions := DirAccess.get_directories_at(dossier)
+	_verifier(appels[0] == 3 and versions.size() == 1 and versions[0] != version, "un script qui change refabrique et efface la version d'avant")
+	var pixels := [0]
+	var peindre := func():
+		pixels[0] += 1
+		var img := Image.create(4, 2, false, Image.FORMAT_RGB8)
+		img.set_pixel(3, 1, Color.RED)
+		img.generate_mipmaps()
+		return img
+	var t1 := Memo.image("essai_lenteur", "res://tools/mesure_lenteur.gd", "image", peindre)
+	Memo.oublier()
+	var t2 := Memo.image("essai_lenteur", "res://tools/mesure_lenteur.gd", "image", peindre)
+	_verifier(pixels[0] == 1 and t1 != t2 and t2.get_image().get_pixel(3, 1) == Color.RED and t2.get_image().has_mipmaps(), "une image peinte se relit avec ses pixels et ses mipmaps")
+	var bruit := NoiseTexture2D.new()
+	bruit.width = 16
+	bruit.height = 16
+	bruit.noise = FastNoiseLite.new()
+	var premiere := Memo.bruit("essai_lenteur", "res://tools/mesure_lenteur.gd", "bruit", bruit)
+	for i in 3:
+		await process_frame
+	Memo.oublier()
+	var seconde := Memo.bruit("essai_lenteur", "res://tools/mesure_lenteur.gd", "bruit", bruit)
+	_verifier(premiere == bruit and seconde is ImageTexture and seconde.get_image().get_data() == bruit.get_image().get_data(), "une texture de bruit sert telle quelle la première fois, puis se relit, pixel pour pixel")
+	# Le casino se lit d'avance depuis la place : ses scripts sont déjà là quand on y entre.
+	for i in 30:
+		if ResourceLoader.has_cached("res://scenes/casino.tscn"):
+			break
+		await create_timer(0.1).timeout
+	_verifier(ResourceLoader.has_cached("res://scenes/casino.tscn") and ResourceLoader.has_cached("res://scripts/casino_interior.gd"), "le casino et ses scripts sont lus d'avance depuis la place")
+
 	print("%d échec(s)" % echecs)
 	quit(1 if echecs else 0)
