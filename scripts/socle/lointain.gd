@@ -21,6 +21,9 @@ const TRIANGLES_MIN := 10_000
 ## second font une arête vive.
 const FUSION := 25.0
 const ARETE := 60.0
+## Où les niveaux calculés sont gardés sur l'appareil ; un changement de ce script les jette.
+const MEMO_NIVEAUX := "lointain_niveaux"
+const MEMO_SCRIPT := "res://scripts/socle/lointain.gd"
 
 ## Les calculs de niveaux en cours (maillages), pour les tests.
 static var en_cours := 0
@@ -141,14 +144,16 @@ static func _suivant() -> void:
 	var surfaces := []
 	for s in mesh.get_surface_count():
 		surfaces.append({"prim": mesh.surface_get_primitive_type(s), "arrays": mesh.surface_get_arrays(s), "mat": mesh.surface_get_material(s)})
-	_taches[mesh] = WorkerThreadPool.add_task(_calculer.bind(mesh, surfaces, e[1]), false, "Niveaux de détail")
+	var dossier := Memo.dossier(MEMO_NIVEAUX, MEMO_SCRIPT)
+	_taches[mesh] = WorkerThreadPool.add_task(_calculer.bind(mesh, surfaces, e[1], dossier), false, "Niveaux de détail")
 	if not _file.is_empty():
 		Engine.get_main_loop().process_frame.connect(_suivant, CONNECT_ONE_SHOT)
 
 
 ## Dans un fil : indexe les surfaces qui ne le sont pas, calcule leurs niveaux, puis remet la main au fil
-## principal pour poser le maillage.
-static func _calculer(mesh: ArrayMesh, surfaces: Array, instances: Array) -> void:
+## principal pour poser le maillage. Les niveaux d'une surface sont gardés sur l'appareil (Memo), sous
+## l'empreinte de ses tableaux : la même maison, à l'arrivée suivante, relit les siens au lieu de les recalculer.
+static func _calculer(mesh: ArrayMesh, surfaces: Array, instances: Array, dossier: String) -> void:
 	for sf in surfaces:
 		var arrays: Array = sf.arrays
 		var idx = arrays[Mesh.ARRAY_INDEX]
@@ -158,14 +163,29 @@ static func _calculer(mesh: ArrayMesh, surfaces: Array, instances: Array) -> voi
 			st.index()
 			arrays = st.commit_to_arrays()
 			sf.arrays = arrays
-		var im := ImporterMesh.new()
-		im.add_surface(sf.prim, arrays)
-		im.generate_lods(FUSION, ARETE, [])
-		var lods := {}
-		for l in im.get_surface_lod_count(0):
-			lods[im.get_surface_lod_size(0, l)] = im.get_surface_lod_indices(0, l)
-		sf.lods = lods
+		var lods = Memo.fichier(dossier, _empreinte(sf.prim, arrays), _niveaux_de.bind(sf.prim, arrays))
+		sf.lods = lods if lods is Dictionary else _niveaux_de(sf.prim, arrays)
 	Callable(Lointain, "_poser").call_deferred(mesh, surfaces, instances)
+
+
+static func _niveaux_de(prim: int, arrays: Array) -> Dictionary:
+	var im := ImporterMesh.new()
+	im.add_surface(prim, arrays)
+	im.generate_lods(FUSION, ARETE, [])
+	var lods := {}
+	for l in im.get_surface_lod_count(0):
+		lods[im.get_surface_lod_size(0, l)] = im.get_surface_lod_indices(0, l)
+	return lods
+
+
+## L'empreinte d'une surface : ses tableaux et la version du moteur (meshoptimizer peut changer avec lui).
+static func _empreinte(prim: int, arrays: Array) -> String:
+	var h := HashingContext.new()
+	h.start(HashingContext.HASH_MD5)
+	h.update(("%d|%s" % [prim, Engine.get_version_info().string]).to_utf8_buffer())
+	for a in arrays:
+		h.update(var_to_bytes(a))
+	return h.finish().hex_encode()
 
 
 static func _poser(mesh: ArrayMesh, surfaces: Array, instances: Array) -> void:

@@ -66,6 +66,22 @@ static func bruit(famille: String, script: String, cle, texture: NoiseTexture2D)
 	return texture
 
 
+## Le dossier de `famille`, à demander sur le fil principal, pour fichier() depuis un fil (WorkerThreadPool).
+static func dossier(famille: String, script: String) -> String:
+	return _dossier(famille, script)
+
+
+## Comme valeur(), dans un dossier déjà obtenu (dossier()) et sous un nom de fichier choisi par l'appelant :
+## ne touche à rien de partagé, peut servir depuis un fil.
+static func fichier(dossier_famille: String, nom: String, fabrique: Callable) -> Variant:
+	var chemin := dossier_famille + nom + ".bin"
+	var v = _relire(chemin)
+	if v == null:
+		v = fabrique.call()
+		_ranger(chemin, v)
+	return v
+
+
 ## Vide les textures gardées en mémoire (les fichiers restent) ; pour les tests.
 static func oublier() -> void:
 	_memoire.clear()

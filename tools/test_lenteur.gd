@@ -241,6 +241,28 @@ func _init() -> void:
 	var lods: Array = RenderingServer.mesh_get_surface(gros.mesh.get_rid(), 0).get("lods", []) if gros.mesh is ArrayMesh else []
 	_verifier(gros.mesh != am and not Lointain.en_travail() and lods.size() >= 2 and Budget._triangles(gros.mesh, {}) == tri_gros, "un gros maillage reçoit ses niveaux de détail (%d) et garde ses triangles de près" % lods.size())
 	_verifier(Lointain.niveaux(lieu) == 0, "un maillage à niveaux n'est pas repris")
+	# Les niveaux calculés sont gardés sur l'appareil : le même maillage, à l'arrivée suivante (un nouvel
+	# ArrayMesh aux mêmes tableaux), relit les siens, identiques, sans recalcul.
+	var dossier_niveaux := Memo.dossier(Lointain.MEMO_NIVEAUX, Lointain.MEMO_SCRIPT)
+	var empreinte := Lointain._empreinte(Mesh.PRIMITIVE_TRIANGLES, am.surface_get_arrays(0))
+	var range_ok := FileAccess.file_exists(dossier_niveaux + empreinte + ".bin")
+	var revenu := MeshInstance3D.new()
+	var am2 := ArrayMesh.new()
+	am2.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, sphere.get_mesh_arrays())
+	revenu.mesh = am2
+	lieu.add_child(revenu)
+	var t_relu := Time.get_ticks_usec()
+	Lointain.niveaux(lieu)
+	for i in 600:
+		await process_frame
+		if not Lointain.en_travail():
+			break
+	var lods2: Array = RenderingServer.mesh_get_surface(revenu.mesh.get_rid(), 0).get("lods", [])
+	var memes := lods2.size() == lods.size()
+	for i in mini(lods.size(), lods2.size()):
+		memes = memes and lods[i].index_data == lods2[i].index_data
+	_verifier(range_ok and revenu.mesh != am2 and memes, "les niveaux d'un maillage sont gardés sur l'appareil et relus, identiques, à l'arrivée suivante (%d µs)" % (Time.get_ticks_usec() - t_relu))
+	revenu.queue_free()
 	# Chargement l'applique de lui-même à chaque scène 3D qui arrive, sauf à celles qui le refusent.
 	var autre := Node3D.new()
 	var bille := MeshInstance3D.new()
