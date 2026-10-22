@@ -461,7 +461,7 @@ func _on_interact(target: Node) -> void:
 		"exit":
 			Game.return_point = "casino"
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-			get_tree().change_scene_to_file("res://scenes/main.tscn")
+			Chargement.changer("res://scenes/main.tscn")
 		"talk":
 			var v: Node = target.get_parent()
 			v.say(Lines.line(v.speaker))

@@ -29,7 +29,7 @@ static func ouvrir(id_commune: String) -> bool:
 		return false
 	_prochaine = id_commune
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	(Engine.get_main_loop() as SceneTree).change_scene_to_file("res://scenes/etude.tscn")
+	Chargement.lieu("res://scenes/etude.tscn")
 	return true
 
 

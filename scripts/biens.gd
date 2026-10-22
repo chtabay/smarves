@@ -541,7 +541,7 @@ func enter(id: String) -> void:
 	visiting = id
 	get_tree().paused = false
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	get_tree().change_scene_to_file(LOGEMENT_SCENE)
+	Chargement.lieu(LOGEMENT_SCENE)
 
 
 ## Pour les portes du village : le lot d'un logement, s'il est au joueur, et la scène qui l'ouvre.

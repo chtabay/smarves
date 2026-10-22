@@ -174,7 +174,10 @@ func _lacher() -> void:
 
 ## Change de scène : derrière l'écran si `chemin` est une scène d'une commune en paquet (res://communes/<id>/),
 ## d'un coup sinon. Les portes qui ramènent dans une commune (boutique, étude, salle, stade) passent par là.
+## Si `chemin` est la scène gardée en quittant (garder), elle revient telle qu'on l'a laissée, sans se rebâtir.
 func changer(chemin: String) -> void:
+	if _revenir(chemin):
+		return
 	var id := chemin.trim_prefix("res://communes/").get_slice("/", 0) if chemin.begins_with("res://communes/") else ""
 	var c: Commune = Communes.commune(id) if id != "" else null
 	if c == null or c.pack == "" or not Communes.ouvrir(id):
@@ -342,3 +345,153 @@ class Barre extends Control:
 			if x1 > x0:
 				draw_rect(Rect2(Vector2(x0, 0), Vector2(x1 - x0, size.y)), Color(1, 1, 1, 0.22))
 		draw_rect(r, OR.darkened(0.4), false, 1.0)
+
+
+# --- La scène gardée -------------------------------------------------------------------------------
+# Les lieux se bâtissent dans le code, pièce par pièce : quitter la place pour une boutique, puis y
+# revenir, la rebâtissait entière. Désormais la scène qu'on quitte pour un de ses lieux (boutique, casino,
+# salle, étude, logement) reste dans l'arbre, cachée et à l'arrêt : ni dessin, ni scripts, ni physique.
+# Au retour (changer), elle reprend là où on l'a laissée, l'habitant devant la porte. Une seule à la
+# fois, pour une seule visite : un deuxième changement de scène sans retour la libère. Elle ne revient
+# pas si la partie a changé ce qu'elle montre (signature : les seuils passés, les biens du joueur) ;
+# elle se rebâtit alors comme avant. Une scène peut donner sa signature (signature_garde) et se remettre
+# à jour au retour (revenir).
+
+var _gardee: Node = null
+var _garde := {}
+var _sauts := 0
+
+
+## Va dans le lieu `chemin` en gardant la scène en cours pour y revenir sans la rebâtir.
+func lieu(chemin: String) -> void:
+	garder()
+	get_tree().change_scene_to_file(chemin)
+
+
+## Garde la scène en cours, cachée et à l'arrêt, avant d'en changer.
+func garder() -> void:
+	var tree := get_tree()
+	var s := tree.current_scene
+	_liberer()
+	if s == null or not s is Node3D or s.scene_file_path == "" or _actif:
+		return
+	if not tree.scene_changed.is_connected(_sur_changement):
+		tree.scene_changed.connect(_sur_changement)
+	var presences := get_node_or_null("/root/Presences")
+	var sfx := get_node_or_null("/root/Sfx")
+	var g := {"chemin": s.scene_file_path, "mode": s.process_mode, "camera": s.get_viewport().get_camera_3d(),
+		"ambiance": str(sfx.get("ambience")) if sfx else "", "signature": signature(s), "caches": [], "envs": [], "presences": []}
+	if presences and presences.get("_scene") == s:
+		g.presences = [presences.commune, presences.lieu, presences.get("_joueur"), presences.get("_echelle")]
+	# L'interface (calques et contrôles hors calque) ne suit pas la visibilité de la 3D : on la cache à part.
+	for c in s.find_children("*", "CanvasLayer", true, false):
+		if c.visible:
+			c.visible = false
+			g.caches.append(c)
+	for c in s.find_children("*", "Control", true, false):
+		if c.visible and not c.get_parent() is CanvasItem and not c.get_parent() is CanvasLayer:
+			c.visible = false
+			g.caches.append(c)
+	# Un seul environnement par monde : celui de la scène gardée sort de l'arbre le temps de la visite.
+	for we in s.find_children("*", "WorldEnvironment", true, false):
+		var parent := we.get_parent()
+		g.envs.append([we, parent, we.get_index()])
+		parent.remove_child(we)
+	s.visible = false
+	s.process_mode = Node.PROCESS_MODE_DISABLED
+	tree.current_scene = null
+	_gardee = s
+	_garde = g
+	_sauts = 0
+
+
+## Ce que la scène montre de la partie et qui ne se remet pas à jour seul : les seuils de gagné au jeu
+## passés dans sa commune (lieux et structures), et les biens du joueur (achats, tenue, véhicule,
+## logements). Une scène peut donner la sienne (signature_garde).
+func signature(s: Node) -> Variant:
+	if s.has_method("signature_garde"):
+		return s.signature_garde()
+	return signature_commune(s)
+
+
+## La signature par défaut (voir signature) ; une scène qui donne la sienne peut partir de celle-ci.
+func signature_commune(s: Node) -> Variant:
+	var chemin := s.scene_file_path
+	var id := chemin.trim_prefix("res://communes/").get_slice("/", 0) if chemin.begins_with("res://communes/") else Communes.ORIGINE
+	var c: Commune = Communes.commune(id)
+	var game := get_node_or_null("/root/Game")
+	var gagne: int = int(game.get("won")) if game else 0
+	var passes := 0
+	if c:
+		for l in c.lieux() + c.structures():
+			if typeof(l) == TYPE_DICTIONARY and l.has("seuil") and gagne >= int(l.seuil):
+				passes += 1
+	var biens := get_node_or_null("/root/Biens")
+	var b := ""
+	if biens:
+		b = var_to_str([biens.get("owned"), biens.get("worn"), biens.get("driven"), biens.get("avatar"), (biens.get("logements") as Dictionary).keys()])
+	return [passes, b]
+
+
+func _sur_changement() -> void:
+	if _gardee == null:
+		return
+	_sauts += 1
+	if _sauts > 1:
+		_liberer()
+
+
+func _liberer() -> void:
+	if _gardee != null and is_instance_valid(_gardee):
+		for e in _garde.get("envs", []):
+			if is_instance_valid(e[0]):
+				e[0].free()
+		_gardee.queue_free()
+	_gardee = null
+	_garde = {}
+
+
+## Rend la scène gardée si c'est `chemin` et que la partie n'a pas changé ce qu'elle montre.
+func _revenir(chemin: String) -> bool:
+	if _gardee == null:
+		return false
+	if not is_instance_valid(_gardee) or _garde.chemin != chemin:
+		return false
+	var s := _gardee
+	var g := _garde
+	_gardee = null
+	_garde = {}
+	if signature(s) != g.signature:
+		_gardee = s
+		_garde = g
+		_liberer()
+		return false
+	var tree := get_tree()
+	var quittee := tree.current_scene
+	if quittee != null:
+		tree.root.remove_child(quittee)
+		quittee.queue_free()
+	for e in g.envs:
+		if is_instance_valid(e[0]) and is_instance_valid(e[1]):
+			e[1].add_child(e[0])
+			e[1].move_child(e[0], mini(e[2], e[1].get_child_count() - 1))
+	s.process_mode = g.mode
+	s.visible = true
+	for c in g.caches:
+		if is_instance_valid(c):
+			c.visible = true
+	tree.current_scene = s
+	if is_instance_valid(g.camera) and g.camera.is_inside_tree():
+		g.camera.make_current()
+	# Game.return_point (la porte d'où l'on sort) reste posé, comme pour une scène rebâtie : c'est la scène
+	# qui le lit et l'efface, dans revenir() si elle en a besoin.
+	var sfx := get_node_or_null("/root/Sfx")
+	if sfx and g.ambiance != "":
+		sfx.set_ambience(g.ambiance)
+	var presences := get_node_or_null("/root/Presences")
+	if presences and not g.presences.is_empty() and is_instance_valid(g.presences[2]):
+		presences.entrer(g.presences[0], g.presences[1], s, g.presences[2], g.presences[3])
+	if s.has_method("revenir"):
+		s.revenir()
+	tree.scene_changed.emit()
+	return true

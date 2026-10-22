@@ -123,6 +123,28 @@ func quitter_vitrine() -> void:
 	_ouvrir_la_partie()
 
 
+## Gardée pendant une visite (boutique, casino, salle : Chargement.garder), la place revient sans se
+## rebâtir si la partie n'a pas changé ce qu'elle montre : en plus des seuils et des biens, ceux des
+## prestations, dont les portes annoncent l'ouverture.
+func signature_garde() -> Variant:
+	var prestations := 0
+	for id in Prestation.SMARVES:
+		if Game.won >= int(Prestation.SMARVES[id].seuil):
+			prestations += 1
+	return [Chargement.signature_commune(self), prestations]
+
+
+## Le retour sur la place gardée : la liste des lieux suit le gagné au jeu, et l'habitant, resté devant
+## la porte, se retourne vers la rue.
+func revenir() -> void:
+	Game.return_point = ""
+	_refresh_places()
+	if player:
+		player.velocity = Vector3.ZERO
+		player.rotation.y += PI
+	set_fps(fps)
+
+
 func _ouvrir_la_partie() -> void:
 	if not Game.welcomed and not "--capture" in " ".join(OS.get_cmdline_user_args()):
 		_welcome()
@@ -716,7 +738,7 @@ func _enter(id: String) -> void:
 		return
 	if id == "casino":
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-		get_tree().change_scene_to_file("res://scenes/casino.tscn")
+		Chargement.lieu("res://scenes/casino.tscn")
 		return
 	# On ne joue plus dehors : chaque jeu du village a sa salle (scripts/village/salle.gd).
 	var scene := Commune.smarves().interieur(id)
@@ -724,7 +746,7 @@ func _enter(id: String) -> void:
 		_announce("%s %s, mais %s n'est pas encore installé." % [p.name, _agree(p, "est ouvert"), p.game])
 		return
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	get_tree().change_scene_to_file(scene)
+	Chargement.lieu(scene)
 
 
 ## La première fois, Josiane accueille le joueur et l'envoie vers sa machine, en deux phrases.

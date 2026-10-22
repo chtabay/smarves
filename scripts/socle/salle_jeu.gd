@@ -54,7 +54,7 @@ static func ouvrir(id_commune: String, id: String) -> bool:
 		return false
 	_prochaine = [id_commune, id]
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	(Engine.get_main_loop() as SceneTree).change_scene_to_file("res://scenes/salle_jeu.tscn")
+	Chargement.lieu("res://scenes/salle_jeu.tscn")
 	return true
 
 

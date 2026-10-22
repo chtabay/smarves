@@ -333,6 +333,8 @@ func _ready() -> void:
 
 Une porte qui ramène dans une scène de commune passe par `Chargement.changer(chemin)` plutôt que `change_scene_to_file` : derrière l'écran pour une commune en pack, d'un coup sinon. Le journal du jeu note les durées de chaque temps (`[chargement] …`).
 
+**La scène gardée** (socle 1.12, 22 octobre 2026). Une porte qui mène de la scène de la commune à un de ses lieux passe par `Chargement.lieu(chemin)` (les lieux du socle le font déjà : `SalleJeu.ouvrir`, `Commerce.ouvrir`, `Etude.ouvrir`, `Prestation.ouvrir`, le Cercle) : la scène de la commune reste alors cachée et à l'arrêt pendant la visite, et `Chargement.changer` la rend au retour sans la rebâtir, l'habitant devant la porte. Elle se rebâtit quand même si un seuil de gagné au jeu de la commune est passé ou si les biens du joueur ont changé pendant la visite. Une scène qui montre autre chose de la partie peut donner sa signature (`func signature_garde() -> Variant`, en partant de `Chargement.signature_commune(self)`) et se remettre à jour au retour (`func revenir() -> void`). Détails dans [LENTEUR.md](LENTEUR.md).
+
 Le mécanisme est éprouvé par `tools/test_communes.gd`, qui emballe la commune d'essai de [`tools/commune_essai/`](../tools/commune_essai/) en pack avec `PCKPacker`, l'inscrit sans la monter, l'ouvre, charge sa scène depuis le pack, puis vérifie qu'un pack qui voudrait remplacer `scripts/game_state.gd`, un pack avec du code natif, un pack abîmé et un dossier dont le manifeste ment sur son id sont refusés :
 
 ```sh

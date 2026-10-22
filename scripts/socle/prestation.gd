@@ -55,7 +55,7 @@ static func ouvrir(metier_: String, options_ := {}) -> bool:
 		return false
 	_prochaine = {"metier": metier_, "options": options_.duplicate(true)}
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	(Engine.get_main_loop() as SceneTree).change_scene_to_file(SCENE)
+	Chargement.lieu(SCENE)
 	return true
 
 

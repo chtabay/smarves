@@ -225,7 +225,7 @@ func _on_interact(target: Node) -> void:
 			# On ressort devant l'ancien local « Prochainement » (Village.lots).
 			Game.return_point = "lot_reserve"
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-			get_tree().change_scene_to_file("res://scenes/main.tscn")
+			Chargement.changer("res://scenes/main.tscn")
 		"keeper":
 			say(PAROLES.pick_random())
 			var keeper := _keeper.get_child(0)

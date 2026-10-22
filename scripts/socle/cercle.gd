@@ -50,7 +50,7 @@ var _salle_minuteur: Timer
 static func ouvrir(id_casino := "smarves", scene := "res://scenes/casino.tscn", point := "cercle") -> void:
 	_prochaine = [id_casino, scene, point]
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	(Engine.get_main_loop() as SceneTree).change_scene_to_file("res://scenes/cercle.tscn")
+	Chargement.lieu("res://scenes/cercle.tscn")
 
 
 func _ready() -> void:
@@ -189,7 +189,7 @@ func _on_interact(target: Node) -> void:
 		"exit":
 			Game.return_point = retour_point
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-			get_tree().change_scene_to_file(retour_scene)
+			Chargement.changer(retour_scene)
 		"plateau":
 			ouvrir_table(str(target.get_meta("table")), str(target.get_meta("titre", "")))
 		_:

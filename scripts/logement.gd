@@ -289,7 +289,7 @@ func _on_interact(target: Node) -> void:
 		"exit":
 			Game.return_point = str(Biens.item(home).get("lot", ""))
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-			get_tree().change_scene_to_file("res://scenes/main.tscn")
+			Chargement.changer("res://scenes/main.tscn")
 		"grenier":
 			open_grenier()
 		"slot":

@@ -902,7 +902,7 @@ func enter_seller(id: String) -> void:
 		main._announce("%s ouvre bientôt ses portes." % biens.SELLERS[id].name)
 		return
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	get_tree().change_scene_to_file(scene)
+	Chargement.lieu(scene)
 
 
 func has_door(id: String) -> bool:
