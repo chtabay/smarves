@@ -33,6 +33,8 @@ ENTREES = [
     # La bibliothèque commune (socle 1.13) : le catalogue, ses briques, les contrats d'ancres.
     "bibliotheque/bibliotheque.json", "scripts/socle/bibliotheque.gd", "scripts/socle/ancres.gd",
     "tools/test_bibliotheque.gd",
+    # Les règles des paquets (socle 1.15) : l'emballeur les applique, leur test les vérifie.
+    "tools/regles_paquet.gd", "tools/test_regles_paquet.gd",
     "scripts/socle/etude.gd", "scenes/etude.tscn",
     "scripts/socle/commerce.gd", "scripts/socle/articles.gd", "scenes/commerce.tscn",
     "scenes/stade.tscn", "communes/vienne.json",

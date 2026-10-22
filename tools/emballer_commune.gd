@@ -11,6 +11,11 @@ extends SceneTree
 ## Tout est rangé sous res://communes/<id>/ dans le paquet. Une ressource importée (image, son,
 ## modèle) part sous sa forme importée (.godot/imported/), avec son fichier .import ; l'original ne
 ## part pas. Le contrat est dans docs/COMMUNE.md, section « Publier sa commune ».
+## Les règles des paquets (tools/regles_paquet.gd) : à la recopie, une texture de plus de 256 px sans perte
+## passe en WebP avec perte (sauf celles qu'emballage.json garde sans perte) ; ce qui pèse encore (textures,
+## données non compressées, fichiers déjà dans le jeu) est dit à la fin, sans refuser le paquet.
+
+const REGLES := preload("res://tools/regles_paquet.gd")
 
 
 func _init() -> void:
@@ -50,13 +55,15 @@ func _init() -> void:
 
 	var fichiers := {}
 	_parcourir(depuis, depuis, "res://communes/%s/" % id, fichiers)
+	_a_alleger = REGLES.rapport(depuis, REGLES.index_du_jeu())
 	# Les briques proposées à la bibliothèque (dossier bibliotheque/<brique>/ et sa fiche brique.json) : une
 	# fiche fautive arrête l'emballage, pour que la proposition arrive lisible au portail.
 	var fautes := _propositions(depuis)
+	fautes.append_array(REGLES.verifier_reglages(depuis))
 	if not fautes.is_empty():
 		if recopie:
 			_retirer(id)
-		printerr("Briques proposées : %s" % " ; ".join(fautes))
+		printerr("Paquet refusé : %s" % " ; ".join(fautes))
 		quit(1)
 		return
 	var pk := PCKPacker.new()
@@ -73,6 +80,10 @@ func _init() -> void:
 		quit(1)
 		return
 	print("%d fichiers emballés dans %s (%s)" % [fichiers.size(), sortie, Portail.taille(FileAccess.get_file_as_bytes(sortie).size())])
+	if _converties > 0:
+		print("Règles des paquets : %d texture(s) passée(s) en WebP avec perte." % _converties)
+	for l in _a_alleger:
+		print("À alléger : %s" % l)
 
 	# Les refus du jeu, tels qu'un joueur les rencontrerait en l'installant.
 	var communes: Node = root.get_node("Communes")
@@ -105,7 +116,7 @@ func _init() -> void:
 func _parcourir(dossier: String, racine: String, cible: String, out: Dictionary) -> void:
 	var d := DirAccess.open(dossier)
 	for f in d.get_files():
-		if f == TEMOIN:
+		if f == TEMOIN or f == REGLES.REGLAGES:
 			continue
 		var chemin := dossier + f
 		var dans_le_paquet := cible + chemin.trim_prefix(racine)
@@ -124,6 +135,9 @@ func _parcourir(dossier: String, racine: String, cible: String, out: Dictionary)
 
 
 const TEMOIN := ".emballage"
+## Les textures converties à la recopie, et ce qui pèse encore (REGLES.rapport).
+var _converties := 0
+var _a_alleger := PackedStringArray()
 
 
 ## Dit les briques que la commune propose à la bibliothèque, et rend leurs fautes : la fiche, et pour un
@@ -161,7 +175,7 @@ func _recopier(source: String, id: String) -> String:
 	_vider(dossier)
 	DirAccess.make_dir_recursive_absolute(dossier)
 	FileAccess.open(dossier + TEMOIN, FileAccess.WRITE).store_string("recopie de %s par tools/emballer_commune.gd\n" % source)
-	_copier(dehors, dossier)
+	_copier(dehors, dossier, dehors, REGLES.reglages(dehors))
 	var sortie := []
 	var code := OS.execute(OS.get_executable_path(), ["--headless", "--path", ProjectSettings.globalize_path("res://"), "--import"], sortie, true)
 	if code != 0:
@@ -170,7 +184,9 @@ func _recopier(source: String, id: String) -> String:
 	return dedans
 
 
-func _copier(de: String, vers: String) -> void:
+## La recopie d'un dossier ; une texture de plus de 256 px sans perte y passe en WebP avec perte (réglée par son
+## .import, que l'import suit), sauf si les réglages r de la commune la gardent sans perte.
+func _copier(de: String, vers: String, racine: String, r: Dictionary) -> void:
 	var d := DirAccess.open(de)
 	for f in d.get_files():
 		if f.ends_with(".md") or f.ends_with(".uid"):
@@ -179,13 +195,26 @@ func _copier(de: String, vers: String) -> void:
 			# les réglages d'import suivent, pas l'identifiant : la copie reçoit le sien
 			var t := FileAccess.get_file_as_string(de + f)
 			var lignes := Array(t.split("\n")).filter(func(l): return not l.begins_with("uid=") and not l.begins_with("source_file=") and not l.begins_with("dest_files=") and not l.begins_with("path"))
-			FileAccess.open(vers + f, FileAccess.WRITE).store_string("\n".join(lignes))
+			t = "\n".join(lignes)
+			var image := f.trim_suffix(".import")
+			if _a_convertir(de + image, (de + image).trim_prefix(racine), t, r):
+				t = REGLES.import_avec_perte(t)
+			FileAccess.open(vers + f, FileAccess.WRITE).store_string(t)
 		else:
 			DirAccess.copy_absolute(de + f, vers + f)
+			if not FileAccess.file_exists(de + f + ".import") and _a_convertir(de + f, (de + f).trim_prefix(racine), "", r):
+				FileAccess.open(vers + f + ".import", FileAccess.WRITE).store_string(REGLES.import_avec_perte(""))
 	for sous in d.get_directories():
 		if not sous.begins_with(".") and sous != "tests":
 			DirAccess.make_dir_recursive_absolute(vers + sous)
-			_copier(de + sous + "/", vers + sous + "/")
+			_copier(de + sous + "/", vers + sous + "/", racine, r)
+
+
+func _a_convertir(image: String, relatif: String, texte_import: String, r: Dictionary) -> bool:
+	if not REGLES.est_image(image) or REGLES.sans_perte(relatif, r) or not REGLES.trop_lourde(REGLES.cote(image), texte_import):
+		return false
+	_converties += 1
+	return true
 
 
 func _vider(dossier: String) -> void:
