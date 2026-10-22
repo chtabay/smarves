@@ -2,7 +2,8 @@ extends SceneTree
 ## Vérifie les remèdes à la lenteur sans affichage : godot --headless --path . -s tools/test_lenteur.gd
 ## « Jouer » reprend le village de l'écran titre dans l'état d'une arrivée sur la place ; la qualité de
 ## l'image règle les environnements et la cadence, et la qualité haute rend les choix des lieux ; les
-## ambiances calculées en tâche de fond sont celles d'avant, échantillon pour échantillon.
+## ambiances calculées en tâche de fond sont celles d'avant, échantillon pour échantillon ; la place
+## quittée pour un lieu revient sans se rebâtir, sauf si la partie a changé ce qu'elle montre.
 
 var echecs := 0
 
@@ -89,6 +90,52 @@ func _init() -> void:
 	for kind in ["village", "casino"]:
 		var boucle: AudioStreamWAV = sfx._loops[kind]
 		_verifier(boucle.data == sfx._render_data(kind) and boucle.loop_end == int(sfx.RATE * 16.0), "ambiance %s : identique au calcul d'avant" % kind)
+
+	# La place gardée pendant une visite.
+	change_scene_to_file("res://scenes/main.tscn")
+	for i in 3:
+		await process_frame
+	var chargement: Node = root.get_node("Chargement")
+	var la_place := current_scene
+	var calques_place := _calques_visibles(la_place)
+	chargement.lieu("res://scenes/casino.tscn")
+	for i in 3:
+		await process_frame
+	_verifier(current_scene != la_place and is_instance_valid(la_place) and la_place.is_inside_tree(), "au casino, la place reste gardée dans l'arbre")
+	_verifier(not la_place.visible and la_place.process_mode == Node.PROCESS_MODE_DISABLED and _calques_visibles(la_place) == 0, "la place gardée est cachée et à l'arrêt, son interface aussi")
+	_verifier(root.find_children("*", "WorldEnvironment", true, false).size() == 1, "un seul environnement dans l'arbre pendant la visite")
+	var t0 := Time.get_ticks_usec()
+	chargement.changer("res://scenes/main.tscn")
+	await process_frame
+	var duree := (Time.get_ticks_usec() - t0) / 1000
+	_verifier(current_scene == la_place and la_place.visible and la_place.can_process(), "le retour rend la même place, visible et en marche (%d ms)" % duree)
+	_verifier(_calques_visibles(la_place) == calques_place and root.find_children("*", "WorldEnvironment", true, false).size() == 1, "son interface et son environnement reviennent")
+	_verifier(root.get_node("Sfx").ambience == "village" and root.get_viewport().get_camera_3d() != null and root.get_viewport().get_camera_3d().is_inside_tree(), "l'ambiance du village et une caméra de la place")
+	# Un achat pendant la visite change la place (véhicule, panneaux) : elle se rebâtit.
+	chargement.lieu("res://scenes/casino.tscn")
+	for i in 3:
+		await process_frame
+	var biens: Node = root.get_node("Biens")
+	game.credits = 10_000_000
+	var achete := false
+	for it in biens.CATALOGUE:
+		if biens.available(it.id) and biens.buy(it.id):
+			achete = true
+			break
+	_verifier(achete, "un achat pendant la visite")
+	chargement.changer("res://scenes/main.tscn")
+	for i in 3:
+		await process_frame
+	_verifier(current_scene != la_place and not is_instance_valid(la_place), "après un achat, la place se rebâtit et l'ancienne est libérée")
+	# Deux changements sans retour : la place gardée est libérée.
+	la_place = current_scene
+	chargement.lieu("res://scenes/casino.tscn")
+	for i in 3:
+		await process_frame
+	change_scene_to_file("res://scenes/cafe.tscn")
+	for i in 3:
+		await process_frame
+	_verifier(not is_instance_valid(la_place), "deux lieux plus loin, la place gardée est libérée")
 
 	print("%d échec(s)" % echecs)
 	quit(1 if echecs else 0)

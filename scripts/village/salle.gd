@@ -124,7 +124,7 @@ func _on_interact(target: Node) -> void:
 		"exit":
 			Game.return_point = shop
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-			get_tree().change_scene_to_file("res://scenes/main.tscn")
+			Chargement.changer("res://scenes/main.tscn")
 		"keeper":
 			say((_salle.lines as Array).pick_random())
 			var c := _keeper.get_child(0)

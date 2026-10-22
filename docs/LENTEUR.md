@@ -39,8 +39,17 @@ Du lancement à la place en jeu : 6,9 à 7,9 s avant, 4,9 à 5,0 s après sur ce
 
 Rendu : le conteneur n'a pas de carte graphique, seulement un rendu logiciel (lavapipe), où chaque image prend une seconde à 480 × 270 et où les effets d'écran pèsent peu (à si petite taille, c'est le nombre de lampes et d'objets qui domine). Temps d'image moyen : place 1,04 s avant, 0,99 s en haute, 0,65 s en légère ; casino 1,22 s avant, 1,18 s en haute, 1,13 s en équilibrée, 0,75 s en légère. Le gain de l'équilibrée sur une vraie carte graphique, en pleine définition, ne se mesure pas ici ; celui du plafond de cadence, si : il dépend seulement de la fréquence de l'écran.
 
+## La scène gardée (22 octobre 2026)
+
+« Pourquoi le chargement d'une ville se refait-il à chaque fois complètement ? » Parce que les lieux se bâtissent dans le code, pièce par pièce, et que Godot jette la scène qu'on quitte : revenir sur la place depuis une boutique ou le casino la rebâtissait entière, et de même pour une commune en paquet au retour d'une de ses salles.
+
+Désormais (`Chargement.lieu` et `Chargement.changer`, socle) la scène qu'on quitte pour un de ses lieux (boutique, casino, salle de jeu, étude, prestation, Cercle, logement) reste dans l'arbre, cachée et à l'arrêt : ni dessin, ni scripts, ni physique, son environnement sorti de l'arbre le temps de la visite. Au retour, elle reprend telle qu'on l'a laissée, l'habitant devant la porte (sur la place, il se retourne vers la rue), avec son ambiance, sa caméra et les autres joueurs connectés.
+
+- Une seule scène gardée à la fois, pour une seule visite : un deuxième changement de scène sans retour la libère. La mémoire en plus est donc celle d'un lieu, téléphone compris.
+- Elle ne revient pas si la partie a changé ce qu'elle montre et qu'elle ne remet pas à jour d'elle-même : un seuil de gagné au jeu passé dans sa commune (lieux, structures et, sur la place, prestations) ou un bien du joueur (achat, tenue, véhicule, logement). Elle se rebâtit alors comme avant. Une scène peut donner sa signature (`signature_garde`) et se remettre à jour au retour (`revenir`).
+- Retour sur la place depuis le casino : 44 à 51 ms au lieu de 0,6 s (et 1,8 à 2,0 s avant le 22 octobre).
+
 ## Ce qui reste
 
 - Le casino se bâtit en 3,3 s : 1,6 s pour ses salles, 0,65 s pour fondre ses 6 100 pièces immobiles en 550 maillages (`static_batch.gd`). Bâtir la salle pendant un écran de chargement animé, comme les communes greffées (`Chargement`), ou garder le résultat de la fonte, seraient les prochaines étapes.
-- Chaque retour sur la place reconstruit encore la rue du Clain et la route du bois (0,6 s) ; garder la place en mémoire pendant qu'on est dans une boutique ou au casino l'éviterait.
 - La première visite d'un lieu compile ses shaders sur la carte graphique ; Godot les garde ensuite en cache, les visites suivantes sont plus rapides.
