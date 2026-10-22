@@ -46,7 +46,7 @@ check(r["result"]["serverInfo"]["name"] == "kit-communes", "le serveur se prése
 check("tools" in r["result"]["capabilities"], "  et annonce des outils")
 demande("notifications/initialized", notification=True)
 noms = [t["name"] for t in demande("tools/list")["result"]["tools"]]
-check(set(noms) >= {"contrat", "conception", "atelier", "verifier_manifeste", "nouvelle_commune", "tester_commune", "emballer_commune", "bourg_reel"},
+check(set(noms) >= {"contrat", "conception", "atelier", "verifier_manifeste", "nouvelle_commune", "tester_commune", "parcourir_commune", "emballer_commune", "bourg_reel"},
       "les outils sont listés : " + ", ".join(noms))
 
 t, e = outil("contrat")
@@ -86,6 +86,8 @@ try:
     m = json.loads((essai / "commune.json").read_text(encoding="utf-8"))
     check(m["nom"] == "Vouneuil-sous-Biard" and m["population"] > 0, "  avec le nom et la population du référentiel")
     check(m["banque"]["nom"] == "La caisse de Vouneuil-sous-Biard", "  et sa caisse à son nom")
+    note = (essai / "INTENTIONS.md").read_text(encoding="utf-8") if (essai / "INTENTIONS.md").is_file() else ""
+    check(note.startswith("# Vouneuil-sous-Biard — note d'intentions"), "  et sa note d'intentions à remplir")
     angles = RACINE / "communes" / "angles_sur_l_anglin"
     if not angles.exists():
         try:
@@ -103,6 +105,10 @@ try:
         check(t.startswith("RÉUSSI"), "tester_commune passe sur la commune créée")
         t, e = outil("tester_commune")
         check(t.startswith("RÉUSSI"), "tester_commune passe sur le kit")
+        if not t.startswith("RÉUSSI"):
+            print(t[-2000:])
+        t, e = outil("parcourir_commune", id="vouneuil_sous_biard")
+        check(t.startswith("RÉUSSI") and "Vue2_Scene2 → Vue3_Scene3" in t, "parcourir_commune marche d'un repère de vue à l'autre")
         if not t.startswith("RÉUSSI"):
             print(t[-2000:])
 finally:

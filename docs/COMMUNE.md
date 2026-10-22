@@ -366,15 +366,20 @@ Une commune est **tenue** par l'auteur de son premier paquet valide : lui seul y
 Le kit est un `.zip` à poser à la racine du SDK des communes. Il contient :
 
 - `communes/<id>/commune.json` : le manifeste prérempli (`id`, `nom`, `insee`, `auteur`, `population`, `socle_min` à `1.12`, `arrivee` avec son nom, `licence` et `sources` vides, un lieu et une banque « à écrire ») ;
-- `communes/<id>/commune.tscn` et `commune.gd` : **la scène de départ**, qui marche telle quelle. Une lumière et un ciel, un sol avec sa collision, le panneau de la commune, une petite place bâtie avec l'atelier du socle (deux maisons à façades du Poitou dont un café, deux arbres d'automne, un banc, trois habitants qui bavardent ou s'assoient : section suivante) et un repère `Arrivee`. Le script crée l'habitant de Smarves (`fp_player.gd`) et la caméra à crans du village (`orbit_camera.gd`) et les expose sous les noms que le jeu attend, **`player` et `camera`** : c'est ce qui donne sans une ligne de code la bascule de vue (Tab, autoload `Vue`), les commandes tactiles (`Tactile`) et la carte de la Vienne en dézoomant ;
+- `communes/<id>/commune.tscn` et `commune.gd` : **la scène de départ**, qui marche telle quelle. Une lumière réglable (`SOLEIL` : hauteur, direction, couleur) et un ciel, un sol avec sa collision, un repère `Arrivee` et trois repères de vue `Vue1_…`, `Vue2_…`, `Vue3_…`, un par scène forte de la note d'intentions, que suit `tools/parcours_commune.gd`. **Elle ne pose aucun décor** : un lieu se compose d'après sa note ([`CONCEPTION.md`](CONCEPTION.md)), pas en partant d'une placette type ; le script rappelle les appels de l'atelier et de la bibliothèque. Il crée l'habitant de Smarves (`fp_player.gd`) et la caméra à crans du village (`orbit_camera.gd`) et les expose sous les noms que le jeu attend, **`player` et `camera`** : c'est ce qui donne sans une ligne de code la bascule de vue (Tab, autoload `Vue`), les commandes tactiles (`Tactile`) et la carte de la Vienne en dézoomant ;
+- `communes/<id>/INTENTIONS.md` : **la note d'intentions à remplir** avant le premier modèle ([`CONCEPTION.md`](CONCEPTION.md), « Avant de construire »), que l'emballeur laisse hors du paquet ;
 - `LISEZMOI.md` : le mode d'emploi, de l'installation de Godot au dépôt.
 
-Le modèle du kit vit dans Smarves, [`tools/kit/`](../tools/kit/) (les mêmes fichiers, avec `__ID__`, `__NOM__` et `__INSEE__` à la place des valeurs) ; le portail le recopie (`src/lib/communes/kit.ts` dans Pyramides2). Trois outils du dépôt accompagnent le kit :
+Le modèle du kit vit dans Smarves, [`tools/kit/`](../tools/kit/) (les mêmes fichiers, avec `__ID__`, `__NOM__` et `__INSEE__` à la place des valeurs) ; le portail le recopie (`src/lib/communes/kit.ts` dans Pyramides2). Quatre outils du dépôt accompagnent le kit :
 
 - **`tools/test_commune.gd`**, le test minimal : le pack s'ouvre comme chez un joueur, la scène expose `player` et `camera`, l'habitant se pose au sol et marche. Sans argument, il éprouve le kit lui-même ; avec `--pck=`, un paquet déjà emballé.
   ```sh
   godot --headless --path . -s tools/test_commune.gd -- <id>
   godot --headless --path . -s tools/test_commune.gd -- <id> --pck=build/<id>.pck
+  ```
+- **`tools/parcours_commune.gd`**, pour juger à hauteur de joueur : l'habitant posé sur chaque repère `Vue…` de la scène, trois captures par repère (de dessus, à pied, en se retournant), une marche d'un repère au suivant et un rapport, dans `user://parcours/<id>/` ; sans rendu (`--headless`), les marches seulement. Il prend aussi un paquet (`--pck=`) et des points donnés (`--point=x,y,z,lacet`). Voir [`CONCEPTION.md`](CONCEPTION.md), « Juger à hauteur de joueur ».
+  ```sh
+  godot --path . -s tools/parcours_commune.gd -- <id>
   ```
 - **`tools/bourg_reel.py`**, pour partir de la vraie disposition du bourg, comme Availles-Limouzine : rues, places, bâtiments à leur place et à leur hauteur, eau, bois et relief, tirés d'OpenStreetMap, de la BD TOPO et du RGE ALTI de l'IGN. Le code INSEE du manifeste suffit : l'outil en tire le centre du bourg et un cadre de 1 km de côté, et écrit `bourg.json` et `sol.png` dans `communes/<id>/`. Les réglages (centre, cadre, lieux remarquables, nom de la rivière) se gardent dans `communes/<id>/bourg_reel.json` ; celui d'Availles-Limouzine sert d'exemple ([`tools/paquet_essai/availles_limouzine/bourg_reel.json`](../tools/paquet_essai/availles_limouzine/bourg_reel.json)), et sa scène ([`availles.gd`](../tools/paquet_essai/availles_limouzine/availles.gd)) montre comment construire le bourg depuis `bourg.json`. Les sources et leurs licences sont écrites dans `bourg.json` : recopiez-les dans `licence` et `sources` du manifeste.
   ```sh
@@ -388,7 +393,7 @@ Le modèle du kit vit dans Smarves, [`tools/kit/`](../tools/kit/) (les mêmes fi
 
 Un développeur n'a pas besoin du dépôt de Smarves, qui peut redevenir privé : **le SDK** est un projet Godot autonome, publié avec chaque version du jeu (`smarves-sdk.zip`, à côté de l'installateur dans la Release). Décision de Guillaume du 18 octobre 2026 : le socle y est **lisible**, mais le village de Smarves n'y est pas.
 
-- **Ce qu'il contient** : le socle en clair (`scripts/socle/`, les dix jeux et leurs panneaux, les tables 3D du casino (`scripts/jeux/`), le stade, la salle de jeu, les façades, les figurants, l'habitant et sa caméra, la carte de la Vienne), les modèles, sons, matières et polices qu'ils utilisent, le kit de départ (`tools/kit/`), les outils (`test_commune`, `emballer_commune`, `bourg_reel.py`, le serveur MCP et son `.mcp.json`), l'exemple complet d'Availles-Limouzine, ce document et la méthode de conception (`CONCEPTION.md`).
+- **Ce qu'il contient** : le socle en clair (`scripts/socle/`, les dix jeux et leurs panneaux, les tables 3D du casino (`scripts/jeux/`), le stade, la salle de jeu, les façades, les figurants, l'habitant et sa caméra, la carte de la Vienne), les modèles, sons, matières et polices qu'ils utilisent, le kit de départ (`tools/kit/`), les outils (`test_commune`, `parcours_commune`, `emballer_commune`, `bourg_reel.py`, le serveur MCP et son `.mcp.json`), l'exemple technique d'Availles-Limouzine, ce document, la méthode de conception (`CONCEPTION.md`, avec sa note d'exemple et ses planches de référence) et les extraits communs de la bible et du cadrage (`BIBLE.md`, `SUITE.md` : le ton, l'époque, le vocabulaire, l'économie, la carte et les structures ; ce qui est propre à Smarves n'y est pas).
 - **Ce qu'il ne contient pas** : la place, le casino, les intérieurs, les quartiers et les lieux cachés de Smarves. Le manifeste de Smarves y est réduit à ce que le socle lit d'une commune d'origine ; un **lanceur** (`scenes/main.tscn` du SDK) tient la place du village : il inscrit les communes posées dans `res://communes/<id>/` et ouvre celle qu'on choisit, comme chez un joueur.
 - **Comment il est fait** : [`tools/sdk/construire_sdk.py`](../tools/sdk/construire_sdk.py) part des autoloads et des points d'entrée d'une commune, suit les liens (`res://…`, `preload`, classes nommées, dossiers de modèles) et s'arrête aux fichiers du village (`COUPE`) ; ceux que le socle nomme quand même sont remplacés par un bouchon (`tools/sdk/bouchons/`). Un lien dur vers le village sans bouchon arrête la construction. [`tools/sdk/test_sdk.sh`](../tools/sdk/test_sdk.sh) déballe le zip hors du dépôt et y passe le kit, l'atelier, la salle de jeu, Availles-Limouzine, le lanceur et le serveur MCP ; la construction de main le fait avant de publier.
 
@@ -435,9 +440,10 @@ Le kit est aussi un **serveur MCP**, [`tools/mcp/kit_communes.py`](../tools/mcp/
 | `contrat` | les sections de ce document (le manifeste, les structures, le paquet, la publication) |
 | `conception` | les sections de [`CONCEPTION.md`](CONCEPTION.md), la méthode de conception d'un lieu (intentions, trois scènes, continuité, palette, animation, critique) |
 | `atelier` | le catalogue de l'atelier, une famille de modèles, ou une recherche par nom (« bench ») |
-| `nouvelle_commune` | une commune depuis le kit, par son seul code INSEE (nom et population viennent de `communes/vienne.json`) |
+| `nouvelle_commune` | une commune depuis le kit, par son seul code INSEE (nom et population viennent de `communes/vienne.json`), avec sa note d'intentions à remplir |
 | `verifier_manifeste` | les refus rapides d'un `commune.json` et ce que le portail affichera vide |
 | `tester_commune` | `tools/test_commune.gd` sur la commune, le kit ou un `.pck` |
+| `parcourir_commune` | `tools/parcours_commune.gd` : les poses et les marches entre les repères de vue, et les captures si Godot a un rendu |
 | `emballer_commune` | `tools/emballer_commune.gd`, avec la taille du paquet face aux 32 Mo |
 | `bourg_reel` | `tools/bourg_reel.py`, le plan réel du bourg |
 

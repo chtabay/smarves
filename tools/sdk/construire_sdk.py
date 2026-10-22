@@ -41,7 +41,7 @@ ENTREES = [
     "scripts/socle/commerce.gd", "scripts/socle/articles.gd", "scenes/commerce.tscn",
     "scenes/stade.tscn", "communes/vienne.json",
     "tools/kit/commune.gd", "tools/kit/commune.tscn", "tools/kit/commune.json",
-    "tools/test_commune.gd", "tools/emballer_commune.gd", "tools/test_atelier.gd", "tools/test_salle_jeu.gd",
+    "tools/test_commune.gd", "tools/parcours_commune.gd", "tools/emballer_commune.gd", "tools/test_atelier.gd", "tools/test_salle_jeu.gd",
     "tools/fixtures/salle_jeu/commune.json", "tools/fixtures/salle_jeu/commune.tscn",
     # L'exemple complet : Availles-Limouzine dans sa disposition réelle, tirée de bourg_reel.py.
     "tools/paquet_essai/availles_limouzine/commune.json", "tools/paquet_essai/availles_limouzine/commune.tscn",
@@ -53,6 +53,26 @@ ENTREES = [
 TELS_QUELS = [
     "tools/bourg_reel.py", "tools/mcp/kit_communes.py", "tools/mcp/test_kit_communes.py",
     "docs/COMMUNE.md", "docs/CONCEPTION.md", "docs/BIBLIOTHEQUE.md", "docs/LENTEUR.md", "docs/AVATAR.md", "assets/LICENCES.md", "icon.svg", ".editorconfig", ".gitattributes",
+    # La méthode de conception (docs/CONCEPTION.md) : sa note d'exemple, ses planches de référence et le
+    # modèle de note du kit. docs/.gdignore garde les images hors de l'import de Godot.
+    "docs/.gdignore", "docs/exemples/INTENTIONS-isle-jourdain.md", "docs/references/minuit.jpg",
+    "docs/references/isle-jourdain.jpg", "tools/kit/INTENTIONS.md",
+]
+## Les parties de la bible et du cadrage qui valent pour toutes les communes ; COMMUNE.md et CONCEPTION.md y
+## renvoient. Le SDK en reçoit un extrait tiré à chaque construction (EXTRAITS), pas les fichiers entiers :
+## ce qui est propre à Smarves (ses lieux, ses personnages, son casino, l'ordre du récit) reste au jeu.
+## (fichier, sections « ## n. » gardées, sous-sections « ### » écartées dans ces sections, en-tête)
+EXTRAITS = [
+    ("docs/BIBLE.md", {2, 3, 5, 7, 8, 9}, {"Au village", "Au casino", "Le joueur", "Enseignes"},
+     "Ce fichier du SDK est un extrait de la bible du monde de Smarves (`docs/BIBLE.md` du jeu), tiré à chaque "
+     "construction du SDK. Il garde ce qui vaut pour toutes les communes : le ton, l'époque, la règle des lieux, "
+     "la réserve de noms, l'économie en crédits et le vocabulaire. Ce qui est propre à Smarves (sa géographie, "
+     "ses lieux et leurs tenanciers, son casino, ses personnages, l'ordre de son récit) n'y est pas : une "
+     "commune garde ces règles communes et invente le reste, ancré dans sa propre géographie réelle."),
+    ("docs/SUITE.md", {5, 6}, {"Le football de la Vienne : une pyramide à la Hattrick", "L'ordre pour y arriver"},
+     "Ce fichier du SDK est un extrait du cadrage de Smarves (`docs/SUITE.md` du jeu), tiré à chaque "
+     "construction du SDK : la carte de la Vienne, les communes greffées et les structures partagées. Les autres "
+     "chantiers du jeu n'y sont pas ; le contrat à jour est `COMMUNE.md`."),
 ]
 ## Le village de Smarves : ce qui ne part pas. Les liens qui y mènent s'arrêtent là.
 COUPE = {
@@ -147,6 +167,25 @@ def fermeture():
     return gardes, durs
 
 
+def _extrait(rel, gardees, ecartees, entete):
+    """Le titre du document, l'en-tête de l'extrait, puis les sections « ## n. » gardées, sans leurs
+    sous-sections écartées. Les sections citées ailleurs gardent leur numéro (« bible, section 8 »)."""
+    lignes = (RACINE / rel).read_text(encoding="utf-8").split("\n")
+    out = [lignes[0] + " (extrait)", "", entete, ""]
+    garder = False
+    sous_ecartee = False
+    for l in lignes[1:]:
+        m = re.match(r"## (\d+)\. ", l)
+        if l.startswith("## "):
+            garder = bool(m) and int(m.group(1)) in gardees
+            sous_ecartee = False
+        elif l.startswith("### "):
+            sous_ecartee = l[4:].strip() in ecartees
+        if garder and not sous_ecartee and not re.match(r"\s*!\[", l):
+            out.append(l)
+    return "\n".join(out).rstrip() + "\n"
+
+
 def _version():
     """La version du SDK : la date et le commit du dépôt d'où il sort (« 2026-10-18-335f9a6 »). Le jeu
     n'a pas de numéro de version : il se repère à son commit (scripts/socle/version.gd)."""
@@ -204,6 +243,8 @@ def construire(sortie, lister=False):
         ".gitignore": ".godot/\n/build/\n*.pck\n",
         "sdk.json": json.dumps({"sdk": _version()}) + "\n",
     }
+    for rel, gardees, ecartees, entete in EXTRAITS:
+        textes[rel] = _extrait(rel, gardees, ecartees, entete)
     for rel in textes:
         fichiers.pop(rel, None)
     intrus = sorted(r for r in fichiers if r.startswith((".godot/", "addons/")))
