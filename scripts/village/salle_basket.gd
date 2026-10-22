@@ -82,6 +82,13 @@ var _ecran: Control
 var _anneau: StandardMaterial3D
 ## L'écran de la pièce du président, qui répète le cube.
 var _ecran_loge: Label3D
+## Le décor de la salle quand le gymnase en nomme un (socle 1.14, champ « modele ») : une brique de la
+## bibliothèque (« salle-de-quartier@1 ») ou une scène de la commune, branchée par ses ancres (Ancres.SALLE) ;
+## null pour le Garden du socle. Le socle y garde le parquet, les paniers, les bancs, le cube, le club et son
+## match ; le reste (les murs, les gradins, le hall, la foule) est au décor.
+var _modele: Node3D
+## La hauteur des rampes de lumière : sous le toit du Garden, ou au-dessus du cube d'un décor.
+var _haut := TOIT_Y
 
 
 ## Ouvre la salle d'une commune. match : celui que le fil basket veut voir (vide : l'entraînement). La salle
@@ -153,22 +160,29 @@ func _ready() -> void:
 	if _match.is_empty() and basket and basket.has_method("match_pour_salle"):
 		_match = basket.match_pour_salle(commune)
 	_serif = Polices.texte()
+	_modele = _charger_decor(str(_champs().get("modele", "")), "salle", "Salle")
+	if _modele:
+		_haut = to_local(Ancres.trouver(_modele, "Cube").global_position).y + 5.0
 	_environment()
 	_nuit()
 	_parquet()
 	_paniers()
-	_gradins()
-	_toit()
+	if _modele == null:
+		_gradins()
+		_toit()
 	_cube_ecrans()
 	_bancs()
-	_bureau_du_club()
-	_bureau_du_president()
-	_coursive()
-	_grand_hall()
-	_facade_et_parvis()
-	_parking()
-	_heron_geant()
-	_habillage()
+	if _modele == null:
+		_bureau_du_club()
+		_bureau_du_president()
+		_coursive()
+		_grand_hall()
+		_facade_et_parvis()
+		_parking()
+		_heron_geant()
+		_habillage()
+	else:
+		_depuis_ancres()
 	_vivants()
 	if fusionner_decor:
 		_fusionner_decor()
@@ -177,6 +191,10 @@ func _ready() -> void:
 	player = PLAYER.new()
 	player.position = Vector3(0, 0, ARRET_Z - 2.0)
 	player.rotation.y = 0.0
+	var arrivee := Ancres.trouver(_modele, "Arrivee")
+	if arrivee:
+		player.position = to_local(arrivee.global_position)
+		player.rotation.y = arrivee.global_rotation.y + PI
 	add_child(player)
 	player.interact.connect(_on_interact)
 	Sfx.set_ambience("casino")
@@ -185,6 +203,35 @@ func _ready() -> void:
 	else:
 		charger_match(_match)
 	_maybe_capture()
+
+
+## Ce que le socle pose sur les ancres d'un décor (Ancres.SALLE) : le président, le bureau (la gestion de
+## l'équipe), le panneau et le tableau des parts du club, l'arrêt du car, et, si le décor l'a, l'enseigne. Le
+## parquet, les paniers, les bancs et le cube sont déjà là ; il n'y a pas de pièce à part pour le président.
+func _depuis_ancres() -> void:
+	var p := Ancres.trouver(_modele, "President")
+	_poser_president(to_local(p.global_position), p.global_rotation.y)
+	var b := Ancres.trouver(_modele, "Bureau")
+	_lamp(_vers(b, Vector3(0, 2.4, 0.8)), Color(1.0, 0.85, 0.6), 1.0, 5.0)
+	_interactive(_pied(b), "bureau", "E : s'asseoir au bureau, gérer l'équipe", Vector3(2.4, 2.0, 2.0), Vector3(0, 1.0, 0.6))
+	var pn := Ancres.trouver(_modele, "Panneau")
+	var lp := rad_to_deg(pn.global_rotation.y)
+	_label3d("LE PANNEAU DU CLUB", _vers(pn, Vector3(0, 2.25, 0.06)), 28, _c2(), lp)
+	_label3d(_enseigne(_nom_club()), _vers(pn, Vector3(0, 1.85, 0.06)), 34, Color(1, 1, 1), lp)
+	_label3d("Classement  ·  Prochain match  ·  L'effectif", _vers(pn, Vector3(0, 1.45, 0.06)), 20, Color(0.8, 0.82, 0.9), lp)
+	_interactive(_pied(pn), "panneau", "E : lire le panneau du club", Vector3(2.4, 2.4, 1.6), Vector3(0, 1.2, 0.8))
+	var pa := Ancres.trouver(_modele, "Parts")
+	var la := rad_to_deg(pa.global_rotation.y)
+	_label3d("LES PARTS DU CLUB", _vers(pa, Vector3(0, 2.6, 0.06)), 36, _c2(), la)
+	_label3d(_enseigne(_nom_club()), _vers(pa, Vector3(0, 2.1, 0.06)), 32, Color(1, 1, 1), la)
+	_label3d("Les actionnaires  ·  Acheter des parts", _vers(pa, Vector3(0, 1.6, 0.06)), 22, Color(0.85, 0.87, 0.95), la)
+	_lamp(_vers(pa, Vector3(0, 3.2, 1.0)), Color(1.0, 0.88, 0.65), 1.0, 5.0)
+	_interactive(_pied(pa), "parts", "E : les parts du club", Vector3(3.0, 3.0, 2.0), Vector3(0, 1.5, 1.0))
+	_interactive(_pied(Ancres.trouver(_modele, "Sortie")), "exit", "E : reprendre le car pour %s" % _place_commune(), Vector3(3.0, 2.6, 2.4), Vector3(0, 1.2, 0))
+	var f := Ancres.trouver(_modele, "Fronton")
+	if f:
+		var l := _label3d("%s  ·  %s" % [_enseigne(_nom_club()), _enseigne(_nom_salle())], _vers(f, Vector3.ZERO), 64, _c2(), rad_to_deg(f.global_rotation.y))
+		l.name = "Fronton"
 
 
 ## L'habillage de la commune (socle 1.12, champ « habillage » du gymnase) : sa scène, posée dans la salle
@@ -362,9 +409,9 @@ func _nuit() -> void:
 			spot.spot_angle = 38.0
 			spot.shadow_enabled = sx < 0.0 and sz < 0.0
 			add_child(spot)
-			spot.position = Vector3(sx * 9.0, TOIT_Y - 3.0, sz * 6.0)
+			spot.position = Vector3(sx * 9.0, _haut - 3.0, sz * 6.0)
 			spot.look_at(Vector3(sx * 6.0, 0, sz * 3.0), Vector3.UP)
-	for sz: float in [-1.0, 1.0]:
+	for sz: float in ([] if _modele else [-1.0, 1.0]):
 		var spot := SpotLight3D.new()
 		spot.light_color = Color(0.95, 0.9, 1.0)
 		spot.light_energy = 6.0
@@ -378,12 +425,15 @@ func _nuit() -> void:
 ## Le parquet ciré, ses lignes, les raquettes et le rond central aux couleurs du club, le nom au milieu.
 func _parquet() -> void:
 	var bois := _wood_floor(Color(0.86, 0.64, 0.4))
-	# Le sol de tout le bâtiment, du fond de la salle au bout du parvis : rien où tomber.
-	_box(Vector3(170.0, 0.4, 250.0), Vector3(0, -0.3, 25.0), _std(Color(0.08, 0.08, 0.1), 0.9), true).name = "Sol"
+	# Le sol de tout le bâtiment, du fond de la salle au bout du parvis : rien où tomber. Un décor a le sien
+	# au-delà du bord du parquet.
+	if _modele == null:
+		_box(Vector3(170.0, 0.4, 250.0), Vector3(0, -0.3, 25.0), _std(Color(0.08, 0.08, 0.1), 0.9), true).name = "Sol"
 	_box(Vector3(BORD_X * 2.0, 0.2, BORD_Z * 2.0), Vector3(0, -0.1, 0), _std(Color(0.12, 0.12, 0.14), 0.6), true)
 	# Le vomitoire : un tapis aux couleurs du club, du hall au bord du parquet.
 	var dz := BORD_Z + RANGS_BAS * RANG + 0.4
-	_box(Vector3(VOMITOIRE * 2.0, 0.2, dz - BORD_Z), Vector3(0, -0.1, (dz + BORD_Z) / 2.0), _std(_c1().darkened(0.3), 0.8), true)
+	if _modele == null:
+		_box(Vector3(VOMITOIRE * 2.0, 0.2, dz - BORD_Z), Vector3(0, -0.1, (dz + BORD_Z) / 2.0), _std(_c1().darkened(0.3), 0.8), true)
 	_box(Vector3(L + 4.0, 0.04, P + 4.0), Vector3(0, 0.02, 0), _std(_c1().darkened(0.2), 0.4))
 	_box(Vector3(L, 0.04, P), Vector3(0, 0.03, 0), bois)
 	var blanc := _std(Color(0.97, 0.97, 0.95), 0.5)
@@ -601,20 +651,24 @@ func _toit() -> void:
 		_label3d(str(bannieres[i][1]), Vector3(x, 18.4, z + 0.05), 34, Color(0.95, 0.95, 0.9))
 
 
-## Le cube d'écrans au-dessus du rond central : le score sur quatre faces, l'anneau lumineux dessous.
+## Le cube d'écrans au-dessus du rond central (à l'ancre « Cube » d'un décor) : le score sur quatre faces,
+## l'anneau lumineux dessous, les câbles qui le pendent au toit du Garden.
 func _cube_ecrans() -> void:
-	var y := 15.5
+	var c := Vector3(0, 15.5, 0)
+	if _modele:
+		c = to_local(Ancres.trouver(_modele, "Cube").global_position)
+	var y := c.y
 	var noir := _std(Color(0.03, 0.03, 0.04), 0.4)
-	_box(Vector3(7.6, 4.4, 7.6), Vector3(0, y, 0), noir)
+	_box(Vector3(7.6, 4.4, 7.6), Vector3(c.x, y, c.z), noir)
 	var ecran := _neon(Color(0.08, 0.1, 0.18), 1.0)
 	for i in 4:
 		var a := i * PI / 2.0
 		var dir := Vector3(sin(a), 0, cos(a))
-		var face := _box(Vector3(7.0, 3.8, 0.05), Vector3(0, y, 0) + dir * 3.83, ecran)
+		var face := _box(Vector3(7.0, 3.8, 0.05), Vector3(c.x, y, c.z) + dir * 3.83, ecran)
 		face.rotation.y = a
-		var titre := _label3d("", Vector3(0, y + 1.35, 0) + dir * 3.88, 70, _c2(), rad_to_deg(a))
+		var titre := _label3d("", Vector3(c.x, y + 1.35, c.z) + dir * 3.88, 70, _c2(), rad_to_deg(a))
 		_cube_titre.append(titre)
-		var score := _label3d("", Vector3(0, y - 0.25, 0) + dir * 3.88, 200, Color(1, 1, 1), rad_to_deg(a))
+		var score := _label3d("", Vector3(c.x, y - 0.25, c.z) + dir * 3.88, 200, Color(1, 1, 1), rad_to_deg(a))
 		score.line_spacing = -20
 		_cube.append(score)
 	# L'anneau lumineux sous le cube : une fine couronne, pas un soleil.
@@ -624,9 +678,11 @@ func _cube_ecrans() -> void:
 	tore.outer_radius = 4.3
 	couronne.mesh = tore
 	couronne.material_override = _neon(_c2(), 1.2)
-	couronne.position = Vector3(0, y - 2.3, 0)
+	couronne.position = Vector3(c.x, y - 2.3, c.z)
 	add_child(couronne)
-	_cyl(3.2, 1.2, Vector3(0, y + 2.9, 0), noir)
+	_cyl(3.2, 1.2, Vector3(c.x, y + 2.9, c.z), noir)
+	if _modele:
+		return
 	for k in 4:
 		var a := k * PI / 2.0 + PI / 4.0
 		_box(Vector3(0.06, TOIT_Y - y - 2.2, 0.06), Vector3(cos(a) * 3.0, (TOIT_Y + y + 2.2) / 2.0, sin(a) * 3.0), _std(Color(0.3, 0.3, 0.32), 0.5, 0.7))
@@ -671,11 +727,17 @@ func _bureau_du_club() -> void:
 	l.name = "EnseigneBureau"
 	_lamp(Vector3(x, 2.4, z + 1.2), Color(1.0, 0.85, 0.6), 1.2, 6.0)
 	_interactive(porte, "porte_bureau", "E : entrer au bureau du président", Vector3(2.6, 2.6, 1.8), Vector3(0, 1.3, 0.9))
+	_poser_president(Vector3(x - 2.6, 0, z + 1.0), 0.0)
+
+
+## Le président à cette place, tourné de ce lacet ; il suit ensuite le visiteur des yeux (_process).
+func _poser_president(pos: Vector3, lacet: float) -> void:
 	_president = CRITTER.new()
 	_president.randomize_look(311)
 	_president.look["top_color"] = "#1a1a1e"
 	_president.scale = Vector3.ONE * PEOPLE_SCALE
-	_president.position = Vector3(x - 2.6, 0, z + 1.0)
+	_president.position = pos
+	_president.rotation.y = lacet
 	add_child(_president)
 	_interactive(_president, "president", "E : parler %s" % _a(_nom_president()), Vector3(0.8, 1.0, 0.8), Vector3(0, 0.4, 0))
 
@@ -1415,6 +1477,10 @@ func _ecrire_cube(titre: String, texte: String) -> void:
 
 ## Une part des places prises : la foule se montre ou se cache, place par place, toujours les mêmes.
 func _remplir(part: float) -> void:
+	for d in _danseuses:
+		d.debug_anim("idle")
+	if _foule == null:
+		return
 	var mm := _foule.multimesh
 	var h := Hasard.depuis(77)
 	var n := 0
@@ -1427,8 +1493,6 @@ func _remplir(part: float) -> void:
 			t = t.scaled_local(Vector3.ZERO)
 		mm.set_instance_transform(i, t)
 	_foule.set_meta("prises", n)
-	for d in _danseuses:
-		d.debug_anim("idle")
 
 
 func _process(delta: float) -> void:
@@ -1440,7 +1504,7 @@ func _process(delta: float) -> void:
 	if _anneau:
 		_anneau.emission_energy_multiplier = 1.8 + 0.6 * sin(t * 2.0)
 	_defile_t -= delta
-	if _defile_t <= 0.0 and not _defile_textes.is_empty():
+	if _defile_t <= 0.0 and not _defile_textes.is_empty() and _defile:
 		_defile_t = 3.0
 		_defile.text = _defile_textes[int(t / 3.0) % _defile_textes.size()]
 	if _joueurs.size() > 0 and _joueurs[0].visible:

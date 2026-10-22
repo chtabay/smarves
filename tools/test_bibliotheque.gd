@@ -1,9 +1,10 @@
 extends SceneTree
-## Vérifie la bibliothèque commune et le contrat d'ancres du stade, sans affichage :
+## Vérifie la bibliothèque commune et les contrats d'ancres du stade et de la salle, sans affichage :
 ## godot --headless --path . -s tools/test_bibliotheque.gd
 ## Chaque brique du catalogue se résout et sa scène existe ; chaque stade de la bibliothèque tient le contrat
 ## d'ancres ; le manifeste accepte « modele » ; et le stade d'une commune dont le terrain nomme
-## « stade-de-campagne@1 » reçoit le club, le match, le tableau, le président, le bureau, le panneau et la sortie.
+## « stade-de-campagne@1 » reçoit le club, le match, le tableau, le président, le bureau, le panneau et la sortie ;
+## la salle de Smarves sur « salle-de-quartier@1 », le club, le cube, le président, le bureau, les parts et le car.
 
 var fails := 0
 
@@ -60,6 +61,22 @@ func _init() -> void:
 	vide.add_child(m)
 	check(Ancres.verifier_stade(vide).size() == 7 and Ancres.verifier_stade(vide)[-1].contains("origine"), "une pelouse hors de l'origine est refusée")
 	vide.free()
+	# Chaque salle de la bibliothèque tient le contrat de la salle (socle 1.14) ; un parquet déplacé est refusé.
+	check(Bibliotheque.references("salle").size() >= 1, "la bibliothèque a une salle de basket : %s" % ", ".join(Bibliotheque.references("salle")))
+	for ref in Bibliotheque.references("salle"):
+		var n: Node3D = load(Bibliotheque.scene(ref, "salle")).instantiate()
+		root.add_child(n)
+		check(Ancres.verifier_salle(n).is_empty(), "%s tient le contrat de la salle %s" % [ref, str(Ancres.verifier_salle(n))])
+		check(Ancres.verifier_stade(n).size() > 0 and Bibliotheque.scene(ref, "stade") == "", "%s n'est pas un stade" % ref)
+		n.queue_free()
+	var vide_salle := Node3D.new()
+	check(Ancres.verifier_salle(vide_salle).size() == 8, "une salle sans ancres : les huit ancres requises manquent")
+	var mp := Marker3D.new()
+	mp.name = "Parquet"
+	mp.rotation.y = 0.5
+	vide_salle.add_child(mp)
+	check(Ancres.verifier_salle(vide_salle)[-1].contains("« Parquet » doit être à l'origine"), "un parquet tourné est refusé")
+	vide_salle.free()
 
 	# Une commune propose une brique : son dossier bibliotheque/<id>/ et sa fiche ; Guillaume l'intègre à la main.
 	var props := Bibliotheque.propositions("res://tools/fixtures/proposition/")
@@ -108,6 +125,14 @@ func _init() -> void:
 	var deux := ok.duplicate()
 	deux.scene = "res://communes/essai/stade.tscn"
 	check(Structures.verifier([deux]).size() == 1, "« scene » et « modele » ensemble sont refusés")
+	var gym := {"type": "gymnase", "id": "gymnase", "nom": "La salle", "club": "Le club", "modele": "salle-de-quartier@1"}
+	check(Structures.verifier([gym]).is_empty(), "le gymnase : « modele » nomme une salle de la bibliothèque")
+	var gym_stade := gym.duplicate()
+	gym_stade.modele = "stade-de-campagne@1"
+	check(Structures.verifier([gym_stade]).size() == 1 and Structures.verifier([gym_stade])[0].contains("pas une salle"), "un stade n'est pas une salle")
+	var stade_salle := ok.duplicate()
+	stade_salle.modele = "salle-de-quartier@1"
+	check(Structures.verifier([stade_salle]).size() == 1, "une salle n'est pas un stade")
 
 	# Le stade de la commune d'essai, sur le décor de campagne : le club s'y branche par les ancres.
 	var t5: int = foot.coup_envoi(1, 5) + 3600
@@ -157,6 +182,37 @@ func _init() -> void:
 	stade = current_scene
 	check(stade._modele == null and _interactions(stade).has("locaux") and stade._supporters.size() > 10, "un décor introuvable : c'est le stade du socle")
 	e.champs.erase("modele")
+
+	# La salle de Smarves sur la salle de quartier : le club s'y branche par les ancres, sans le Garden.
+	var g: Dictionary = registre.structure("smarves/gymnase")
+	g.champs.modele = "salle-de-quartier@1"
+	load("res://scripts/village/salle_basket.gd").prochaine_commune = "smarves"
+	change_scene_to_file("res://scenes/salle_basket.tscn")
+	await create_timer(1.5).timeout
+	var salle: Node = current_scene
+	check(salle._modele != null and salle.get_node_or_null("Modele") != null, "la salle de la bibliothèque est posée")
+	var its := _interactions(salle)
+	for k in ["exit", "president", "bureau", "panneau", "parts"]:
+		check(its.has(k), "le socle a posé « %s » sur son ancre de la salle" % k)
+	check(not its.has("porte_bureau") and not its.has("echoppe") and salle.get_node_or_null("Foule") == null and salle.get_node_or_null("BureauDuPresident") == null,
+		"rien du Garden n'est posé : ni la porte du bureau, ni les échoppes, ni la foule")
+	check(salle._president.global_position.distance_to(Ancres.trouver(salle._modele, "President").global_position) < 0.01, "le président de la salle se tient à son ancre")
+	check(salle.player.global_position.distance_to(Ancres.trouver(salle._modele, "Arrivee").global_position) < 0.5, "le visiteur paraît à l'arrivée de la salle")
+	check(salle._cube.size() == 4 and absf(salle._cube[0].global_position.y - Ancres.trouver(salle._modele, "Cube").global_position.y - 0.25 + 0.5) < 0.6, "le cube pend à son ancre")
+	check(salle._cube_titre[0].text != "", "le cube dit le match ou l'entraînement : %s" % salle._cube_titre[0].text)
+	var ts: Array = salle.find_children("*", "Label3D", true, false).map(func(l): return l.text)
+	check("HÉRONS DU CLAIN  ·  CLAIN GARDEN" in ts, "l'enseigne de la salle porte le club et le nom de la salle")
+	var avant_s: int = salle._panel_layer.get_child_count()
+	salle._on_interact(its.bureau)
+	await process_frame
+	check(salle._ecran != null and salle._panel_layer.get_child_count() > avant_s, "le bureau du décor ouvre la gestion de l'équipe")
+	g.champs.modele = "salle-de-quartier@9"
+	load("res://scripts/village/salle_basket.gd").prochaine_commune = "smarves"
+	change_scene_to_file("res://scenes/salle_basket.tscn")
+	await create_timer(1.5).timeout
+	salle = current_scene
+	check(salle._modele == null and _interactions(salle).has("porte_bureau"), "une salle introuvable : c'est le Garden du socle")
+	g.champs.erase("modele")
 
 	print("\n%d échec(s)" % fails)
 	quit(1 if fails > 0 else 0)

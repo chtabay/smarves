@@ -13,8 +13,9 @@ extends RefCounted
 const CATALOGUE := "res://bibliotheque/bibliotheque.json"
 ## Les genres de briques que le jeu sait employer (un genre ajouté plus tard fait monter le socle).
 ##   stade : un décor de stade, branché par le contrat d'ancres du stade (Ancres.STADE) ;
+##   salle : un décor de salle de basket, branché par celui de la salle (Ancres.SALLE, socle 1.14) ;
 ##   decor : un modèle ou un ensemble à poser tel quel, sans comportement.
-const GENRES := ["stade", "decor"]
+const GENRES := ["stade", "salle", "decor"]
 ## Les champs d'une fiche de brique proposée (brique.json) : requis, puis facultatifs.
 const FICHE_REQUIS := ["genre", "nom", "auteur", "licence", "scene"]
 const FICHE_FACULTATIFS := ["description", "apercu"]

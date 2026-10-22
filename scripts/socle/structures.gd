@@ -42,9 +42,11 @@ const TYPES := {
 	# pyramide de groupes de huit complétés par des figurants ; « nom » est le nom de la salle.
 	# « scene » et « habillage » (socle 1.12) : comme pour le terrain, la salle de la commune tout entière (son
 	# script hérite de scripts/village/salle_basket.gd), ou une scène posée dans la salle du socle.
+	# « modele » (socle 1.14) : le décor de la salle, une brique de la bibliothèque (« salle-de-quartier@1 ») ou une
+	# scène de la commune, branché par ses ancres (Ancres.SALLE) ; exclusif de « scene ».
 	"gymnase": {
 		"nom": "le gymnase",
-		"champs": {"club": TYPE_STRING, "court": TYPE_STRING, "couleurs": TYPE_ARRAY, "habillage": TYPE_STRING, "scene": TYPE_STRING},
+		"champs": {"club": TYPE_STRING, "court": TYPE_STRING, "couleurs": TYPE_ARRAY, "habillage": TYPE_STRING, "scene": TYPE_STRING, "modele": TYPE_STRING},
 		"requis": ["club"],
 		"unique": true,
 		"relie": "le championnat de basket de la Vienne : la commune a un club, qui prend la place d'un club figurant dès la journée suivante",
@@ -74,6 +76,9 @@ const TYPES := {
 ## Les jeux d'une salle de jeu, et ses décors (scripts/socle/salle_jeu.gd, JEUX et DECORS).
 const JEUX := ["machine", "loto", "blackjack", "roulette", "craps", "baccara", "poker", "des", "roue", "courses"]
 const DECORS := ["cafe", "salle", "cave"]
+
+## Le genre de brique que nomme le champ « modele » de chaque type (socle 1.13 : le terrain ; 1.14 : le gymnase).
+const GENRE_DU_MODELE := {"terrain_foot": "stade", "gymnase": "salle"}
 
 ## Les champs de toutes les structures. « noeud » est le nom du nœud de la scène qui la place (un
 ## Node3D de commune.tscn, cherché par son nom) ; « lot » est la porte du village qui y mène.
@@ -132,17 +137,18 @@ static func verifier(liste: Variant) -> PackedStringArray:
 			var sc: String = s.scene
 			if not sc.begins_with("res://communes/") or not sc.ends_with(".tscn"):
 				erreurs.append("structure %s : « scene » est une scène de la commune (res://communes/<id>/….tscn)" % id)
-		if t == "terrain_foot" and typeof(s.get("modele")) == TYPE_STRING:
+		if t in GENRE_DU_MODELE and typeof(s.get("modele")) == TYPE_STRING:
 			var m: String = s.modele
+			var genre: String = GENRE_DU_MODELE[t]
 			if s.has("scene"):
 				erreurs.append("structure %s : « scene » ou « modele », pas les deux" % id)
 			if Bibliotheque.est_reference(m):
 				if Bibliotheque.brique(m).is_empty():
-					erreurs.append("structure %s : « %s » n'est pas dans la bibliothèque (connues : %s)" % [id, m, ", ".join(Bibliotheque.references("stade"))])
-				elif Bibliotheque.scene(m, "stade") == "":
-					erreurs.append("structure %s : « %s » n'est pas un stade, ou demande un socle plus récent" % [id, m])
+					erreurs.append("structure %s : « %s » n'est pas dans la bibliothèque (connues : %s)" % [id, m, ", ".join(Bibliotheque.references(genre))])
+				elif Bibliotheque.scene(m, genre) == "":
+					erreurs.append("structure %s : « %s » n'est pas %s, ou demande un socle plus récent" % [id, m, "un stade" if genre == "stade" else "une salle"])
 			elif not m.begins_with("res://communes/") or not m.ends_with(".tscn"):
-				erreurs.append("structure %s : « modele » est une brique de la bibliothèque (« stade-de-campagne@1 ») ou une scène de la commune (res://communes/<id>/….tscn)" % id)
+				erreurs.append("structure %s : « modele » est une brique de la bibliothèque (« %s ») ou une scène de la commune (res://communes/<id>/….tscn)" % [id, "stade-de-campagne@1" if genre == "stade" else "salle-de-quartier@1"])
 		if t == "salle_jeu":
 			if typeof(s.get("jeux")) == TYPE_ARRAY:
 				for j in s.jeux:

@@ -20,7 +20,7 @@ Deux règles de Guillaume (22 octobre 2026) passent avant tout le reste :
 
 ## Le catalogue
 
-`bibliotheque/bibliotheque.json`, lu par `Bibliotheque` (`scripts/socle/bibliotheque.gd`), et recopié dans le portail (`STADES_DE_LA_BIBLIOTHEQUE`, `src/lib/communes/structures.ts` dans Pyramides2) pour qu’il refuse une référence inconnue : ajouter une brique au jeu, c’est aussi l’ajouter là.
+`bibliotheque/bibliotheque.json`, lu par `Bibliotheque` (`scripts/socle/bibliotheque.gd`), et recopié dans le portail (`STADES_DE_LA_BIBLIOTHEQUE` et `SALLES_DE_LA_BIBLIOTHEQUE`, `src/lib/communes/structures.ts` dans Pyramides2) pour qu’il refuse une référence inconnue : ajouter une brique au jeu, c’est aussi l’ajouter là.
 
 ```json
 "stade-de-campagne": {
@@ -58,6 +58,26 @@ Une ancre est un nœud 3D nommé (un `Marker3D`, le plus souvent), n'importe où
 Le décor apporte ses propres collisions (sol compris, au-delà du terrain), ses lumières et sa foule s'il en veut. Il ne lit ni le club ni le championnat. Un décor introuvable, ou qui ne tient pas le contrat, est laissé de côté : le stade du socle prend sa place, et le journal dit pourquoi (`Ancres.verifier_stade`). Le portail vérifie la forme de la référence et son existence ; l'essai d'un décor maison se fait avec le kit : `godot --path . -s tools/capture_stade_modele.gd -- --modele=<référence ou chemin> --capture=sortie.png`.
 
 Premier stade de la bibliothèque : **`stade-de-campagne@1`**, un terrain de village (tribune de bois couverte, club-house et sa véranda où le président a son bureau, buvette, tableau à volets, haie de charmille et portail). Test : `godot --headless --path . -s tools/test_bibliotheque.gd`.
+
+## Le contrat de la salle de basket (socle 1.14)
+
+Le champ `modele` du gymnase nomme une salle de la bibliothèque (`"modele": "salle-de-quartier@1"`) ou une scène de la commune, comme pour le stade, et `scene` et `modele` ne vont pas ensemble. Le club de basket reste celui du championnat : son match, son effectif, ses parts et son bureau sont ceux du socle. Les ancres suivent la même règle que celles du stade (+Z vers le visiteur).
+
+| Ancre | Requise | Ce que le socle y pose |
+|---|---|---|
+| `Parquet` | oui | le terrain : le parquet de 28 × 15 (longueur selon x), ses lignes et le rond central aux couleurs du club, les deux paniers, les bancs et la table de marque, les fauteuils du bord, les joueurs, la mascotte, les danseuses et le match. **À l'origine du décor, sans rotation.** Le parquet et ses abords occupent ±18 × ±11,5 : le décor commence au-delà. Le socle éclaire le parquet par quatre rampes, 2 m au-dessus du centre du cube. |
+| `Arrivee` | oui | le visiteur, à son entrée, tourné vers le +Z de l'ancre |
+| `Sortie` | oui | l'arrêt du car, qui ramène à la place de la ville |
+| `Cube` | oui | le centre du cube d'écrans (7,6 m de côté, l'anneau lumineux 2,3 m sous son centre) : le score sur quatre faces, l'entraînement ou le prochain match. Le plafond du décor passe au moins 3,5 m au-dessus. |
+| `President` | oui | le président du club, qui suit le visiteur des yeux, et sa causerie |
+| `Bureau` | oui | la gestion de l'équipe (l'écran du bureau du fil basket) |
+| `Panneau` | oui | le panneau du club : classement, prochain match, effectif |
+| `Parts` | oui | le tableau des parts du club : les porteurs, l'achat de parts |
+| `Fronton` | non | le nom du club et de la salle, aux couleurs du club |
+
+Avec un décor, le socle ne pose rien du Clain Garden : ni les gradins et leur foule, ni le hall, la coursive et ses échoppes, ni le parvis, ni la pièce à part du bureau du président. Le décor apporte ses murs, son sol au-delà du parquet, ses lumières et sa foule s'il en veut. Un décor introuvable ou qui ne tient pas le contrat est laissé de côté : c'est la salle du socle (`Ancres.verifier_salle`). L'essai d'une salle : `godot --path . -s tools/capture_salle_modele.gd -- --modele=<référence ou chemin> --capture=sortie.png` (la salle de Smarves sur ce décor).
+
+Première salle de la bibliothèque : **`salle-de-quartier@1`**, un gymnase municipal (murs de brique et plinthe bleue, charpente de métal, six rangs de gradins au nord, le bureau du club vitré à l'ouest, le panneau et le tableau des parts à l'est, la porte sous l'enseigne, le parvis et l'abribus).
 
 ## Proposer une brique
 
@@ -115,10 +135,10 @@ Chacune est utile seule, et rien ne change dans la première salle.
 | # | Étape | Où | Taille |
 |---|---|---|---|
 | 1 | Contrat du stade, champ `modele`, catalogue et premier stade de la bibliothèque (socle 1.13) | smarves, portail | **fait** |
-| 2 | Contrat de la salle de basket (parquet, cube, bureau, parts, sortie, arrivée) et `modele` du gymnase. Le gymnase a déjà `scene` et `habillage` depuis le socle 1.12. | smarves, portail | 2 à 3 jours |
+| 2 | Contrat de la salle de basket (parquet, cube, président, bureau, panneau, parts, sortie, arrivée), `modele` du gymnase et première salle de la bibliothèque (socle 1.14) | smarves, portail | **fait** |
 | 3 | Règles d'emballage : l'emballeur convertit et compresse, le portail signale ce qui existe déjà dans le jeu et les textures sans perte trop lourdes | smarves, portail | 2 à 3 jours |
 | 4 | Les matières : une brique de genre `matieres` (les 19 matières de la DA de Minuit pour commencer), employée par nom | smarves | 2 jours |
 | 5 | Proposer une brique : le dossier `bibliotheque/` des paquets et sa fiche, vérifiés par l'emballeur et signalés par le portail, puis intégrés à la main (`tools/integrer_brique.gd`). Pas de dépôt automatique. | smarves, portail | **fait** |
 | 6 | Les auteurs reconstruisent leurs paquets : pour Minuit, le bol de la Fortune devient `stade-fortune@1` par ses ancres, le Dôme une salle, les matières passent à la bibliothèque, les textures et les données se compressent | paquets | 2 à 4 jours pour Minuit |
 
-Sans dépôt automatique, il reste environ deux semaines : les étapes 2, 3 et 4, indépendantes, puis la 6 par les auteurs.
+Il reste environ une semaine et demie : les étapes 3 et 4, indépendantes, puis la 6 par les auteurs.

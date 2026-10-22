@@ -1,6 +1,6 @@
 class_name Ancres
 extends RefCounted
-## Les contrats d'ancres (socle 1.13) : ce qu'un décor doit montrer pour que le socle y branche son
+## Les contrats d'ancres (socle 1.13 ; la salle, 1.14) : ce qu'un décor doit montrer pour que le socle y branche son
 ## comportement. Une ancre est un nœud 3D nommé (un Marker3D, le plus souvent), n'importe où sous la racine du
 ## décor ; le socle y pose ce qui est à lui (le club, son match, sa gestion) et rien d'autre. Le décor ne
 ## connaît ni le club ni le championnat ; le socle ne connaît du décor que ses ancres.
@@ -23,6 +23,24 @@ const STADE := {
 	"Buvette": {"requis": false, "role": "la buvette : le socle y fait parler la tenancière"},
 }
 
+## La salle de basket (socle 1.14) : ce que le socle branche sur n'importe quelle salle, de la bibliothèque ou
+## d'une commune, sans que son script hérite de scripts/village/salle_basket.gd.
+const SALLE := {
+	"Parquet": {"requis": true, "role": "le rond central : le socle y pose le parquet de 28 × 15 (longueur selon x) et ses abords, les paniers, les bancs, la table de marque, et y fait jouer le club. Elle est à l'origine du décor, sans rotation."},
+	"Arrivee": {"requis": true, "role": "où le visiteur paraît en entrant, tourné vers son +Z"},
+	"Sortie": {"requis": true, "role": "l'arrêt du car : le socle y met le retour vers la commune"},
+	"Cube": {"requis": true, "role": "le centre du cube d'écrans, au-dessus du parquet : le socle y pend le score sur quatre faces"},
+	"President": {"requis": true, "role": "où se tient le président du club : le socle y pose le personnage et sa causerie"},
+	"Bureau": {"requis": true, "role": "le bureau du président : la gestion de l'équipe"},
+	"Panneau": {"requis": true, "role": "le panneau du club : le classement, le prochain match et l'effectif"},
+	"Parts": {"requis": true, "role": "le tableau des parts du club : les porteurs et l'achat de parts"},
+	"Fronton": {"requis": false, "role": "l'enseigne de la salle : le socle y écrit le nom du club et de la salle, à ses couleurs"},
+}
+
+## Les contrats par genre de brique, et l'ancre qui doit être à l'origine du décor.
+const CONTRATS := {"stade": STADE, "salle": SALLE}
+const ORIGINES := {"stade": "Pelouse", "salle": "Parquet"}
+
 ## La tolérance sur la place de la pelouse (en unités du jeu, et en radians).
 const ECART := 0.05
 
@@ -38,12 +56,24 @@ static func trouver(racine: Node, nom: String) -> Node3D:
 
 ## Les fautes d'un décor de stade au regard du contrat (aucune : il se branche).
 static func verifier_stade(racine: Node) -> PackedStringArray:
-	var erreurs := verifier(racine, STADE)
-	var p := trouver(racine, "Pelouse")
+	return verifier_genre(racine, "stade")
+
+
+## Les fautes d'un décor de salle de basket au regard du contrat.
+static func verifier_salle(racine: Node) -> PackedStringArray:
+	return verifier_genre(racine, "salle")
+
+
+## Les fautes d'un décor au regard du contrat de son genre (« stade », « salle ») : les ancres requises, et
+## celle du terrain à l'origine du décor, sans rotation.
+static func verifier_genre(racine: Node, genre: String) -> PackedStringArray:
+	var erreurs := verifier(racine, CONTRATS[genre])
+	var nom: String = ORIGINES[genre]
+	var p := trouver(racine, nom)
 	if p != null and racine is Node3D:
 		var t: Transform3D = (racine as Node3D).global_transform.affine_inverse() * p.global_transform if p.is_inside_tree() else _relatif(racine as Node3D, p)
 		if t.origin.length() > ECART or t.basis.get_euler().length() > ECART:
-			erreurs.append("l'ancre « Pelouse » doit être à l'origine du décor, sans rotation")
+			erreurs.append("l'ancre « %s » doit être à l'origine du décor, sans rotation" % nom)
 	return erreurs
 
 

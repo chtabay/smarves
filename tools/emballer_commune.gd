@@ -127,15 +127,15 @@ const TEMOIN := ".emballage"
 
 
 ## Dit les briques que la commune propose à la bibliothèque, et rend leurs fautes : la fiche, et pour un
-## stade le contrat d'ancres (docs/BIBLIOTHEQUE.md, « Proposer une brique »).
+## stade ou une salle le contrat d'ancres (docs/BIBLIOTHEQUE.md, « Proposer une brique »).
 func _propositions(dossier: String) -> PackedStringArray:
 	var fautes := PackedStringArray()
 	for p in Bibliotheque.propositions(dossier):
 		fautes.append_array(p.erreurs)
-		if p.erreurs.is_empty() and p.fiche.genre == "stade":
+		if p.erreurs.is_empty() and Ancres.CONTRATS.has(p.fiche.genre):
 			var n: Node3D = (load(p.dossier + str(p.fiche.scene)) as PackedScene).instantiate()
 			root.add_child(n)
-			for f in Ancres.verifier_stade(n):
+			for f in Ancres.verifier_genre(n, p.fiche.genre):
 				fautes.append("brique %s : %s" % [p.id, f])
 			n.free()
 		if p.erreurs.is_empty():

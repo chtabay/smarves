@@ -10,6 +10,16 @@
 			"versions": {
 				"1": {"scene": "res://bibliotheque/stade-de-campagne/1/stade.tscn", "socle": "1.13"}
 			}
+		},
+		"salle-de-quartier": {
+			"genre": "salle",
+			"nom": "La salle de quartier",
+			"description": "Un gymnase municipal : murs de brique, charpente de métal, six rangs de gradins au nord, le bureau du club vitré, l'abribus devant la porte.",
+			"auteur": "Smarves",
+			"licence": "celle du jeu",
+			"versions": {
+				"1": {"scene": "res://bibliotheque/salle-de-quartier/1/salle.tscn", "socle": "1.14"}
+			}
 		}
 	}
 }
