@@ -1,0 +1,24 @@
+{
+	"format": 1,
+	"matieres": {
+		"bois_clair": {"image": "bois_clair.png", "nom": "Bois clair", "dalle": [1, 2], "rugosite": 0.4},
+		"bois_laque": {"image": "bois_laque.png", "nom": "Bois laqué", "dalle": [1, 2], "rugosite": 0.35, "metal": 0.05},
+		"caisson": {"image": "caisson.png", "nom": "Plafond à caissons", "dalle": [4, 4], "rugosite": 1.0},
+		"capiton": {"image": "capiton.png", "nom": "Capiton rouge", "dalle": [0.8, 0.8], "rugosite": 0.7, "contraste": 0.45},
+		"ciel_jour": {"image": "ciel_jour.png", "nom": "Ciel peint", "dalle": [16, 8], "rugosite": 1.0},
+		"dallage": {"image": "dallage.png", "nom": "Dallage de jardin", "dalle": [2, 2], "rugosite": 0.6},
+		"damier": {"image": "damier.png", "nom": "Damier de marbre", "dalle": [2, 2], "rugosite": 0.3},
+		"eau": {"image": "eau.png", "nom": "Eau de bassin", "dalle": [2, 2], "rugosite": 0.1, "lueur": 0.3},
+		"marbre_creme": {"image": "marbre_creme.png", "nom": "Marbre crème", "dalle": [2, 2], "rugosite": 0.32},
+		"marbre_noir": {"image": "marbre_noir.png", "nom": "Marbre noir", "dalle": [2, 2], "rugosite": 0.25, "metal": 0.05},
+		"marbre_rouge": {"image": "marbre_rouge.png", "nom": "Marbre rouge", "dalle": [2, 2], "rugosite": 0.3},
+		"moquette_a": {"image": "moquette_a.png", "nom": "Moquette de la salle", "dalle": [2, 2], "rugosite": 0.95},
+		"moquette_b": {"image": "moquette_b.png", "nom": "Moquette du salon", "dalle": [2, 2], "rugosite": 0.95},
+		"moquette_c": {"image": "moquette_c.png", "nom": "Moquette du poker", "dalle": [2, 2], "rugosite": 0.95},
+		"moquette_d": {"image": "moquette_d.png", "nom": "Moquette du foyer", "dalle": [2, 2], "rugosite": 0.95},
+		"moquette_e": {"image": "moquette_e.png", "nom": "Moquette des machines", "dalle": [2, 2], "rugosite": 0.95},
+		"mosaique": {"image": "mosaique.png", "nom": "Mosaïque", "dalle": [2, 2], "rugosite": 0.55},
+		"onyx": {"image": "onyx.png", "nom": "Onyx rétroéclairé", "dalle": [1, 1], "rugosite": 0.3, "lueur": 0.5},
+		"velours": {"image": "velours.png", "nom": "Velours à galon", "dalle": [2, 4], "rugosite": 0.9}
+	}
+}

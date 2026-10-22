@@ -78,13 +78,15 @@ static func integrer(commune: String, brique: String, source: String, racine: St
 		if fiche.has(k):
 			existante[k] = fiche[k]
 	existante["commune"] = commune
-	var entree := {"scene": dest + str(fiche.scene), "socle": Commune.SOCLE}
+	var champ := Bibliotheque.champ_fichier(str(fiche.genre))
+	var entree := {champ: dest + str(fiche[champ]), "socle": Commune.SOCLE}
 	if fiche.has("apercu"):
 		entree.apercu = dest + str(fiche.apercu)
 	existante.versions[str(version)] = entree
 	FileAccess.open(catalogue, FileAccess.WRITE).store_string(JSON.stringify(cat, "\t", false) + "\n")
 	Bibliotheque._catalogue = {}
-	return {"version": version, "scene": entree.scene, "dossier": dest}
+	Bibliotheque._matieres = {}
+	return {"version": version, "scene": entree[champ], "dossier": dest}
 
 
 ## Recopie le dossier (sans brique.json, .import ni .uid : le projet les refait) en remplaçant le chemin de

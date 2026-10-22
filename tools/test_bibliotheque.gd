@@ -4,7 +4,8 @@ extends SceneTree
 ## Chaque brique du catalogue se résout et sa scène existe ; chaque stade de la bibliothèque tient le contrat
 ## d'ancres ; le manifeste accepte « modele » ; et le stade d'une commune dont le terrain nomme
 ## « stade-de-campagne@1 » reçoit le club, le match, le tableau, le président, le bureau, le panneau et la sortie ;
-## la salle de Smarves sur « salle-de-quartier@1 », le club, le cube, le président, le bureau, les parts et le car.
+## la salle de Smarves sur « salle-de-quartier@1 », le club, le cube, le président, le bureau, les parts et le car ;
+## les matières de « matieres-de-minuit@1 » se posent par leur nom (socle 1.17).
 
 var fails := 0
 
@@ -41,8 +42,9 @@ func _init() -> void:
 	check(refs.size() >= 1 and "stade-de-campagne@1" in refs, "la bibliothèque a ses briques : %s" % ", ".join(refs))
 	for ref in refs:
 		var b := Bibliotheque.brique(ref)
+		var fichier := str(b.get(Bibliotheque.champ_fichier(str(b.get("genre", ""))), ""))
 		check(str(b.get("nom", "")) != "" and str(b.get("auteur", "")) != "" and str(b.get("licence", "")) != ""
-			and ResourceLoader.exists(str(b.get("scene", ""))), "%s : un nom, un auteur, une licence, une scène" % ref)
+			and (ResourceLoader.exists(fichier) or FileAccess.file_exists(fichier)), "%s : un nom, un auteur, une licence, %s" % [ref, fichier])
 	check(Bibliotheque.brique("stade-de-campagne@2").is_empty() and Bibliotheque.brique("inconnu@1").is_empty(), "une version ou une brique inconnue ne se résout pas")
 	check(Bibliotheque.scene("stade-de-campagne@1", "gymnase") == "", "une brique ne sert que pour son genre")
 
@@ -78,6 +80,40 @@ func _init() -> void:
 	check(Ancres.verifier_salle(vide_salle)[-1].contains("« Parquet » doit être à l'origine"), "un parquet tourné est refusé")
 	vide_salle.free()
 
+	# Les matières (socle 1.17) : chaque brique de matières tient sa fiche, chaque matière son image.
+	check("matieres-de-minuit@1" in Bibliotheque.references("matieres"), "la bibliothèque a les matières de Minuit")
+	for ref in Bibliotheque.references("matieres"):
+		var chemin := str(Bibliotheque.brique(ref).matieres)
+		var fautes := Bibliotheque.verifier_matieres(JSON.parse_string(FileAccess.get_file_as_string(chemin)), chemin.get_base_dir())
+		check(fautes.is_empty(), "%s : ses matières se tiennent %s" % [ref, str(fautes)])
+		for nom in Bibliotheque.matieres(ref):
+			var t := Bibliotheque.texture(ref, nom)
+			check(t != null and t.get_width() >= 256, "%s : « %s » a son image (%s)" % [ref, nom, str(t.get_size()) if t else "aucune"])
+	var minuit := Bibliotheque.matieres("matieres-de-minuit@1")
+	check(minuit.size() == 19, "les dix-neuf matières de la DA de Minuit : %s" % ", ".join(minuit.keys()))
+	# Les mêmes octets que dans le dossier de Minuit : l'emballeur les y signale comme déjà dans le jeu.
+	# (Le chemin est coupé pour que le SDK, qui n'a pas Minuit, ne l'emporte pas.)
+	var minuit_essai := "res://tools" + "/paquet_essai/casino_minuit/"
+	if ResourceLoader.exists(minuit_essai + "kit.gd"):
+		var kit = load(minuit_essai + "kit.gd")
+		var pareilles := 0
+		for nom in kit.DA_TEX:
+			if minuit.has(nom) and FileAccess.get_md5(minuit[nom].image) == FileAccess.get_md5(minuit_essai + "decor/tex/%s.png" % kit.DA_TEX[nom]):
+				pareilles += 1
+		check(pareilles == kit.DA_TEX.size(), "les images sont celles de Minuit, à l'octet près (%d / %d)" % [pareilles, kit.DA_TEX.size()])
+	var marbre := Bibliotheque.matiere("matieres-de-minuit@1", "marbre_noir")
+	check(marbre != null and marbre.shader.resource_path == Bibliotheque.SHADER_MATIERE and marbre.get_shader_parameter("dalle") == Vector2(2, 2)
+		and is_equal_approx(marbre.get_shader_parameter("rugosite"), 0.25) and is_equal_approx(marbre.get_shader_parameter("metal"), 0.05),
+		"une matière se pose par son nom, avec les réglages de la brique")
+	var teint := Bibliotheque.matiere("matieres-de-minuit@1", "marbre_creme", {"teinte": Color(0.6, 0.57, 0.55), "dalle": Vector2(4, 4)})
+	check(teint.get_shader_parameter("teinte") == Color(0.6, 0.57, 0.55) and teint.get_shader_parameter("dalle") == Vector2(4, 4)
+		and teint != Bibliotheque.matiere("matieres-de-minuit@1", "marbre_creme"), "les réglages de la commune passent devant, sur une matière à elle")
+	check(Bibliotheque.matiere("matieres-de-minuit@1", "inconnue") == null and Bibliotheque.matiere("stade-de-campagne@1", "marbre_noir") == null
+		and Bibliotheque.matieres("matieres-de-minuit@2").is_empty() and Bibliotheque.scene("matieres-de-minuit@1", "stade") == "",
+		"une matière, une brique ou une version inconnues ne rendent rien")
+	check(Bibliotheque.verifier_matieres({"matieres": {"Marbre": {"image": "../x.png", "dalle": [0, 2], "lueur": 9, "eclat": 1}}}, "res://nulle/part/").size() == 5,
+		"des matières fautives : nom, image hors du dossier, dalle, réglage hors bornes, réglage inconnu")
+
 	# Une commune propose une brique : son dossier bibliotheque/<id>/ et sa fiche ; Guillaume l'intègre à la main.
 	var props := Bibliotheque.propositions("res://tools/fixtures/proposition/")
 	check(props.size() == 1 and props[0].id == "stade-des-essais" and props[0].erreurs.is_empty(), "la brique proposée se lit avec sa fiche : %s" % str(props.map(func(x): return [x.id, x.erreurs])))
@@ -106,6 +142,16 @@ func _init() -> void:
 	FileAccess.open(cat, FileAccess.WRITE).store_string(JSON.stringify(lu))
 	check(integrer.integrer("essai", "stade-des-essais", "res://tools/fixtures/proposition/", racine, cat).has("erreur"), "un nom déjà pris par un autre auteur est refusé")
 	check(integrer.integrer("essai", "inconnue", "res://tools/fixtures/proposition/", racine, cat).has("erreur"), "une brique non proposée est refusée")
+	# Une brique de matières se propose et s'intègre de la même façon, avec son fichier de matières.
+	var pm := Bibliotheque.propositions("res://tools/fixtures/proposition_matieres/")
+	check(pm.size() == 1 and pm[0].fiche.genre == "matieres" and pm[0].erreurs.is_empty(), "des matières proposées se lisent : %s" % str(pm.map(func(x): return [x.id, x.erreurs])))
+	var fm := " ".join(Bibliotheque.verifier_fiche({"genre": "matieres", "nom": "x", "auteur": "a", "licence": "l", "scene": "x.tscn"}, "matieres-x", "res://nulle/part/"))
+	check(fm.contains("manquant « matieres »") and fm.contains("inconnu « scene »"),
+		"une brique de matières nomme son fichier « matieres », pas une scène")
+	var rm: Dictionary = integrer.integrer("essai", "matieres-des-essais", "res://tools/fixtures/proposition_matieres/", racine, cat)
+	var lm: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(cat)).briques.get("matieres-des-essais", {})
+	check(rm.get("version") == 1 and str(lm.get("genre")) == "matieres" and str(lm.versions["1"].get("matieres")) == racine + "matieres-des-essais/1/matieres.json"
+		and FileAccess.file_exists(racine + "matieres-des-essais/1/carrelage.png"), "les matières entrent en version 1, avec leurs images : %s" % str(rm))
 	Bibliotheque._catalogue = {}
 
 	# Le manifeste : « modele » nomme une brique ou une scène de la commune, jamais les deux avec « scene ».

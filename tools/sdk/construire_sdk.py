@@ -120,6 +120,10 @@ def fermeture():
             continue
         for m in LIEN.finditer(t):
             pile.append(_res(m.group(0)))
+        # Une brique de matières nomme ses images sans chemin, à côté de son matieres.json.
+        if f.name == "matieres.json":
+            for m in re.finditer(r'"image"\s*:\s*"([^"/]+)"', t):
+                pile.append((f.parent / m.group(1)).relative_to(RACINE).as_posix())
         for m in DOSSIER.finditer(t):
             d = RACINE / _res(m.group(1))
             if d.is_dir():

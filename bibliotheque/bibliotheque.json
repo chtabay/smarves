@@ -8,7 +8,10 @@
 			"auteur": "Smarves",
 			"licence": "celle du jeu",
 			"versions": {
-				"1": {"scene": "res://bibliotheque/stade-de-campagne/1/stade.tscn", "socle": "1.13"}
+				"1": {
+					"scene": "res://bibliotheque/stade-de-campagne/1/stade.tscn",
+					"socle": "1.13"
+				}
 			}
 		},
 		"salle-de-quartier": {
@@ -18,7 +21,24 @@
 			"auteur": "Smarves",
 			"licence": "celle du jeu",
 			"versions": {
-				"1": {"scene": "res://bibliotheque/salle-de-quartier/1/salle.tscn", "socle": "1.14"}
+				"1": {
+					"scene": "res://bibliotheque/salle-de-quartier/1/salle.tscn",
+					"socle": "1.14"
+				}
+			}
+		},
+		"matieres-de-minuit": {
+			"genre": "matieres",
+			"nom": "Les matières de Minuit",
+			"description": "Les dix-neuf matières de la direction artistique de Casino Minuit : trois marbres et leur damier, deux bois, cinq moquettes, le velours à galon, le capiton, l'onyx rétroéclairé, la mosaïque, le dallage, le plafond à caissons, l'eau et le ciel peint.",
+			"auteur": "Guillaume",
+			"licence": "celle du jeu",
+			"commune": "casino_minuit",
+			"versions": {
+				"1": {
+					"matieres": "res://bibliotheque/matieres-de-minuit/1/matieres.json",
+					"socle": "1.17"
+				}
 			}
 		}
 	}

@@ -79,6 +79,40 @@ Avec un décor, le socle ne pose rien du Clain Garden : ni les gradins et leur f
 
 Première salle de la bibliothèque : **`salle-de-quartier@1`**, un gymnase municipal (murs de brique et plinthe bleue, charpente de métal, six rangs de gradins au nord, le bureau du club vitré à l'ouest, le panneau et le tableau des parts à l'est, la porte sous l'enseigne, le parvis et l'abribus).
 
+## Les matières (socle 1.17)
+
+Une brique de genre `matieres` est une boîte d'images de matières (marbres, bois, moquettes, étoffes…), chacune avec sa taille réelle et ses réglages, qu'une commune emploie par leur nom au lieu de les mettre dans son paquet. Rien n'oblige à s'en servir : une commune garde ses propres textures si elle veut.
+
+```gdscript
+var sol := Bibliotheque.matiere("matieres-de-minuit@1", "marbre_creme")
+var nuit := Bibliotheque.matiere("matieres-de-minuit@1", "marbre_creme", {"teinte": Color(0.6, 0.57, 0.55)})
+```
+
+| Fonction | Ce qu'elle rend |
+|---|---|
+| `Bibliotheque.matiere(ref, nom, reglages = {})` | un `ShaderMaterial` neuf, prêt à poser : l'image en dalles de taille réelle, sans UV (`shaders/matiere.gdshader`), avec les réglages de la brique ; `reglages` les remplace (`teinte`, `dalle`, `origine`, `rugosite`, `metal`, `speculaire`, `lueur`, `contraste`). `null` si la référence ou le nom est inconnu |
+| `Bibliotheque.texture(ref, nom)` | l'image seule, pour un matériau à soi |
+| `Bibliotheque.matieres(ref)` | les matières de la brique, par nom, avec leurs réglages |
+
+Le shader pose l'image vue d'en haut en (x, z) et vue de côté en (horizontale, −y), dans le repère de l'objet : un maillage fusionné sans UV la reçoit à la bonne taille. Les images sont rangées tête-bêche, comme le veut le glTF, et le shader les relit à l'endroit.
+
+La version vit dans `res://bibliotheque/<id>/<version>/`, avec ses images et un fichier `matieres.json` que le catalogue nomme (`"matieres": "res://bibliotheque/<id>/1/matieres.json"`, à la place de `scene`) :
+
+```json
+{
+	"format": 1,
+	"matieres": {
+		"marbre_noir": {"image": "marbre_noir.png", "nom": "Marbre noir", "dalle": [2, 2], "rugosite": 0.25, "metal": 0.05}
+	}
+}
+```
+
+- Le nom d'une matière s'écrit en minuscules, chiffres et soulignés ; `image` est une image du dossier (png, jpg, webp), sans chemin ; `dalle` est la taille réelle d'une répétition de l'image, en mètres.
+- Les réglages facultatifs et leurs bornes : `rugosite`, `metal`, `speculaire`, `contraste` (0 à 1), `lueur` (0 à 4).
+- La planche d'une brique (chaque matière sur un bloc, avec son nom) : `godot --path . -s tools/planche_matieres.gd -- --ref=<référence> --capture=planche.png`.
+
+Première brique de matières : **`matieres-de-minuit@1`**, les dix-neuf matières de la direction artistique de Casino Minuit, de Guillaume : trois marbres (crème, noir, rouge) et leur damier, le bois clair et le bois laqué, cinq moquettes (de la salle, du salon, du poker, du foyer, des machines), le velours à galon, le capiton rouge, l'onyx rétroéclairé, la mosaïque, le dallage de jardin, le plafond à caissons, l'eau de bassin et le ciel peint. Ce sont les images de Minuit à l'octet près (1,8 Mo), avec les réglages de son kit. Minuit ne change pas : ses zones nomment encore ses propres copies. Quand il reconstruira son paquet (étape 6), l'emballeur les lui signale comme « déjà dans le jeu », et il pourra les prendre dans la bibliothèque.
+
 ## Proposer une brique
 
 Une ville qui a fait un décor réutilisable le range, dans son propre paquet, sous `res://communes/<id>/bibliotheque/<id de la brique>/` avec une fiche `brique.json` :
@@ -95,7 +129,7 @@ Une ville qui a fait un décor réutilisable le range, dans son propre paquet, s
 }
 ```
 
-- `genre` (`stade`, `salle` ou `decor`), `nom`, `auteur`, `licence` et `scene` sont requis ; `description` et `apercu` facultatifs. `scene` et `apercu` sont des fichiers du dossier de la brique.
+- `genre` (`stade`, `salle`, `decor` ou `matieres`), `nom`, `auteur`, `licence` et `scene` sont requis ; `description` et `apercu` facultatifs. `scene` et `apercu` sont des fichiers du dossier de la brique. Une brique de matières nomme son fichier `matieres` (un `.json` du dossier, section « Les matières ») à la place de `scene`, et ses matières sont vérifiées.
 - L'id du dossier s'écrit en minuscules, chiffres et tirets (`stade-fortune`).
 - Une brique se suffit : elle ne nomme aucun fichier de sa ville hors de son dossier. Elle peut employer l'atelier et la bibliothèque du jeu.
 - La ville s'en sert comme de ses propres fichiers, par son chemin (`"modele": "res://communes/<id>/bibliotheque/stade-fortune/stade.tscn"`). Proposer ne change rien au jeu.
@@ -141,9 +175,9 @@ Chacune est utile seule, et rien ne change dans la première salle.
 | 1 | Contrat du stade, champ `modele`, catalogue et premier stade de la bibliothèque (socle 1.13) | smarves, portail | **fait** |
 | 2 | Contrat de la salle de basket (parquet, cube, président, bureau, panneau, parts, sortie, arrivée), `modele` du gymnase et première salle de la bibliothèque (socle 1.14) | smarves, portail | **fait** |
 | 3 | Règles d'emballage : l'emballeur convertit les textures et dit ce qui pèse encore (données en clair, fichiers déjà dans le jeu), le portail le dit aussi ; `Atelier.donnees` lit les données compressées (socle 1.15) | smarves, portail | **fait** |
-| 4 | Les matières : une brique de genre `matieres` (les 19 matières de la DA de Minuit pour commencer), employée par nom | smarves | 2 jours |
+| 4 | Les matières : une brique de genre `matieres`, employée par nom (`Bibliotheque.matiere`), et la première, `matieres-de-minuit@1` (socle 1.17) | smarves, portail | **fait** |
 | 5 | Proposer une brique : le dossier `bibliotheque/` des paquets et sa fiche, vérifiés par l'emballeur et signalés par le portail, puis intégrés à la main (`tools/integrer_brique.gd`). Pas de dépôt automatique. | smarves, portail | **fait** |
 | 7 | Le budget par lieu (socle 1.16) : l'emballeur bâtit et mesure chaque lieu du paquet, range la mesure dans le paquet (`budget.json`), le portail la dit lieu par lieu ; les objets lointains simplifiés par le socle ([`docs/LENTEUR.md`](LENTEUR.md)) | smarves, portail | **fait** |
 | 6 | Les auteurs reconstruisent leurs paquets : pour Minuit, le bol de la Fortune devient `stade-fortune@1` par ses ancres, le Dôme une salle, les matières passent à la bibliothèque, les textures et les données se compressent | paquets | 2 à 4 jours pour Minuit |
 
-Il reste l'étape 4 (environ deux jours) et la 6 par les auteurs. Le format des paquets est arrêté avec l'étape 3 et le budget par lieu avec la 7 : Civaux, Minuit, L'Isle-Jourdain et Cloué sont repris une fois, avec le SDK à jour, et l'emballeur dit à chaque auteur ce que ses lieux ont à alléger.
+Il ne reste que l'étape 6, par les auteurs. Le format des paquets est arrêté avec l'étape 3 et le budget par lieu avec la 7 : Civaux, Minuit, L'Isle-Jourdain et Cloué sont repris une fois, avec le SDK à jour, et l'emballeur dit à chaque auteur ce que ses lieux ont à alléger.
