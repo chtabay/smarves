@@ -16,29 +16,31 @@ const PAL := {
 	"ambre_chaud": Color("#FF8A2A"), "lumiere": Color("#FFD9A8"), "feutre": Color("#0D5C3F"),
 }
 
-## Les textures de la DA, prises dans le décor de l'original (decor/tex/) : mêmes pixels, rangées tête-bêche
-## comme le veut le glTF (les shaders da les relisent à l'endroit).
-const DA_TEX := {
-	"bois_clair": "33e6a7eab6c439f0",
-	"bois_laque": "8baffad2e5b9109d",
-	"caisson": "9be791e16c2f94d6",
-	"capiton": "71eeb0cd74eb0fa6",
-	"ciel_jour": "4c1c942dfeedebcc",
-	"dallage": "caa50c637539cc67",
-	"damier": "5796a0821b1410aa",
-	"eau": "a828a721c26a3e59",
-	"marbre_creme": "3674ae9da73096e6",
-	"marbre_noir": "c68ceb6d1e4fd50d",
-	"marbre_rouge": "7224e504e5d014ee",
-	"moquette_a": "d16417aaae39077a",
-	"moquette_b": "cf26ebd608637463",
-	"moquette_c": "6d0333e4bb6b873a",
-	"moquette_d": "87d598e70fb27d20",
-	"moquette_e": "94f721fe08277b10",
-	"mosaique": "8887d6b5b1834fdc",
-	"onyx": "753cc1013b0041ec",
-	"velours": "8d906cff494a1f8f",
-}
+## Les textures de la DA : la brique matieres-de-minuit@1 de la bibliothèque (socle 1.17), les images de l'original
+## à l'octet près, rangées tête-bêche comme le veut le glTF (les shaders da les relisent à l'endroit). Les zones
+## du décor (decor/*.glb) les nomment dans leurs extras (decor.gd).
+const MATIERES := "matieres-de-minuit@1"
+const DA_TEX := [
+	"bois_clair",
+	"bois_laque",
+	"caisson",
+	"capiton",
+	"ciel_jour",
+	"dallage",
+	"damier",
+	"eau",
+	"marbre_creme",
+	"marbre_noir",
+	"marbre_rouge",
+	"moquette_a",
+	"moquette_b",
+	"moquette_c",
+	"moquette_d",
+	"moquette_e",
+	"mosaique",
+	"onyx",
+	"velours",
+]
 
 ## La palette, pour les zones (K.pal.or).
 var pal: Dictionary = PAL
@@ -384,7 +386,7 @@ func compenser(e: float) -> void:
 
 
 static func tex_da(nom: String) -> Texture2D:
-	return load(BASE + "decor/tex/%s.png" % DA_TEX[nom])
+	return Bibliotheque.texture(MATIERES, nom)
 
 
 ## Une texture de la DA (DA_TEX), posée en dalles de taille réelle par le shader da.

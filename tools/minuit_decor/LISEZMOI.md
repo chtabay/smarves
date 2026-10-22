@@ -21,7 +21,10 @@ Le paquet `casino_minuit` ne refait pas le décor de la version HTML : il le cha
 
 Les noms de zones passés à `exporter_decor.mjs` portent le préfixe `zone-` (la liste est dans `donnees/rendu.json`).
 Une texture du décor change de nom quand son contenu change : après un nouvel export, reporter les nouveaux noms
-dans `DA_TEX` (kit.gd) et dans les `TEX_*` d'ecrans.gd.
+dans les `TEX_*` d'ecrans.gd. Les dix-neuf images de la DA sont dans la bibliothèque (`matieres-de-minuit@1`, socle 1.17) :
+après un nouvel export, `python3 -I vers_bibliotheque.py <decor> <empreinte>=<nom> …` les retire des zones (chaque
+matière qui en portait une la nomme dans ses extras, « matiere », et son image devient `tex/matiere.png`, un pixel
+blanc que `decor.gd` remplace au chargement), puis on efface leurs copies de `decor/tex/`.
 
 Les scripts attendent la source de l'original dans `/mnt/project-files/casino-minuit/source` et, dans `vendor/`
 (ou le dossier que nomme la variable `MINUIT_VENDOR`),

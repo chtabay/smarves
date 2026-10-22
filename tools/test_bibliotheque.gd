@@ -91,16 +91,21 @@ func _init() -> void:
 			check(t != null and t.get_width() >= 256, "%s : « %s » a son image (%s)" % [ref, nom, str(t.get_size()) if t else "aucune"])
 	var minuit := Bibliotheque.matieres("matieres-de-minuit@1")
 	check(minuit.size() == 19, "les dix-neuf matières de la DA de Minuit : %s" % ", ".join(minuit.keys()))
-	# Les mêmes octets que dans le dossier de Minuit : l'emballeur les y signale comme déjà dans le jeu.
+	# Minuit les prend dans la bibliothèque (socle 1.17) : son kit les nomme, et son décor n'en garde aucune copie.
 	# (Le chemin est coupé pour que le SDK, qui n'a pas Minuit, ne l'emporte pas.)
 	var minuit_essai := "res://tools" + "/paquet_essai/casino_minuit/"
 	if ResourceLoader.exists(minuit_essai + "kit.gd"):
 		var kit = load(minuit_essai + "kit.gd")
-		var pareilles := 0
+		var prises := 0
 		for nom in kit.DA_TEX:
-			if minuit.has(nom) and FileAccess.get_md5(minuit[nom].image) == FileAccess.get_md5(minuit_essai + "decor/tex/%s.png" % kit.DA_TEX[nom]):
-				pareilles += 1
-		check(pareilles == kit.DA_TEX.size(), "les images sont celles de Minuit, à l'octet près (%d / %d)" % [pareilles, kit.DA_TEX.size()])
+			if minuit.has(nom) and kit.tex_da(nom) == Bibliotheque.texture("matieres-de-minuit@1", nom):
+				prises += 1
+		check(prises == kit.DA_TEX.size() and prises == 19, "Minuit prend ses matières dans la bibliothèque (%d / %d)" % [prises, kit.DA_TEX.size()])
+		var copies := {}
+		for nom in minuit:
+			copies[FileAccess.get_md5(minuit[nom].image)] = nom
+		var restent := Array(DirAccess.get_files_at(minuit_essai + "decor/tex/")).filter(func(f): return f.ends_with(".png") and copies.has(FileAccess.get_md5(minuit_essai + "decor/tex/" + f)))
+		check(restent.is_empty(), "le décor de Minuit n'en garde aucune copie %s" % str(restent))
 	var marbre := Bibliotheque.matiere("matieres-de-minuit@1", "marbre_noir")
 	check(marbre != null and marbre.shader.resource_path == Bibliotheque.SHADER_MATIERE and marbre.get_shader_parameter("dalle") == Vector2(2, 2)
 		and is_equal_approx(marbre.get_shader_parameter("rugosite"), 0.25) and is_equal_approx(marbre.get_shader_parameter("metal"), 0.05),
