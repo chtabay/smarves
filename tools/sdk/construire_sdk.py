@@ -30,6 +30,9 @@ ICI = Path(__file__).resolve().parent
 ENTREES = [
     "scripts/socle/atelier.gd", "scripts/socle/atelier.json", "scripts/socle/salle_jeu.gd", "scenes/salle_jeu.tscn",
     "scripts/socle/tables.gd",
+    # La bibliothèque commune (socle 1.13) : le catalogue, ses briques, les contrats d'ancres.
+    "bibliotheque/bibliotheque.json", "scripts/socle/bibliotheque.gd", "scripts/socle/ancres.gd",
+    "tools/test_bibliotheque.gd",
     "scripts/socle/etude.gd", "scenes/etude.tscn",
     "scripts/socle/commerce.gd", "scripts/socle/articles.gd", "scenes/commerce.tscn",
     "scenes/stade.tscn", "communes/vienne.json",

@@ -1,0 +1,15 @@
+{
+	"format": 1,
+	"briques": {
+		"stade-de-campagne": {
+			"genre": "stade",
+			"nom": "Le stade de campagne",
+			"description": "Un terrain de village : une petite tribune de bois couverte, la haie de charmille, le club-house en crépi, le tableau à volets.",
+			"auteur": "Smarves",
+			"licence": "celle du jeu",
+			"versions": {
+				"1": {"scene": "res://bibliotheque/stade-de-campagne/1/stade.tscn", "socle": "1.13"}
+			}
+		}
+	}
+}

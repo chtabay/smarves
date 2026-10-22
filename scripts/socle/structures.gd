@@ -31,7 +31,9 @@ const TYPES := {
 		"nom": "le terrain de football",
 		# « habillage » (socle 1.6) : une scène de la commune posée dans le stade du socle, autour de la pelouse.
 		# « scene » (socle 1.8) : le stade de la commune tout entier, une scène dont le script hérite du stade du socle.
-		"champs": {"club": TYPE_STRING, "court": TYPE_STRING, "couleurs": TYPE_ARRAY, "stade": TYPE_STRING, "habillage": TYPE_STRING, "scene": TYPE_STRING},
+		# « modele » (socle 1.13) : le décor du stade, une brique de la bibliothèque (« stade-de-campagne@1 ») ou une
+		# scène de la commune, sans héritage, branchée par le contrat d'ancres du stade (scripts/socle/ancres.gd).
+		"champs": {"club": TYPE_STRING, "court": TYPE_STRING, "couleurs": TYPE_ARRAY, "stade": TYPE_STRING, "habillage": TYPE_STRING, "scene": TYPE_STRING, "modele": TYPE_STRING},
 		"requis": ["club"],
 		"unique": true,
 		"relie": "le championnat de la Vienne : la commune a un club, qui y entre à la saison suivante (tout de suite si personne n'a encore joué)",
@@ -130,6 +132,17 @@ static func verifier(liste: Variant) -> PackedStringArray:
 			var sc: String = s.scene
 			if not sc.begins_with("res://communes/") or not sc.ends_with(".tscn"):
 				erreurs.append("structure %s : « scene » est une scène de la commune (res://communes/<id>/….tscn)" % id)
+		if t == "terrain_foot" and typeof(s.get("modele")) == TYPE_STRING:
+			var m: String = s.modele
+			if s.has("scene"):
+				erreurs.append("structure %s : « scene » ou « modele », pas les deux" % id)
+			if Bibliotheque.est_reference(m):
+				if Bibliotheque.brique(m).is_empty():
+					erreurs.append("structure %s : « %s » n'est pas dans la bibliothèque (connues : %s)" % [id, m, ", ".join(Bibliotheque.references("stade"))])
+				elif Bibliotheque.scene(m, "stade") == "":
+					erreurs.append("structure %s : « %s » n'est pas un stade, ou demande un socle plus récent" % [id, m])
+			elif not m.begins_with("res://communes/") or not m.ends_with(".tscn"):
+				erreurs.append("structure %s : « modele » est une brique de la bibliothèque (« stade-de-campagne@1 ») ou une scène de la commune (res://communes/<id>/….tscn)" % id)
 		if t == "salle_jeu":
 			if typeof(s.get("jeux")) == TYPE_ARRAY:
 				for j in s.jeux:

@@ -69,6 +69,10 @@ static var prochaine_commune := ""
 var commune := ""
 var _terrain := {}
 var _club := ""
+## Le décor du stade quand le terrain en nomme un (socle 1.13, champ « modele ») : une brique de la
+## bibliothèque (« stade-de-campagne@1 ») ou une scène de la commune, branchée par ses ancres
+## (scripts/socle/ancres.gd) ; null pour le stade du socle.
+var _modele: Node3D
 
 
 ## Ouvre le stade d'une commune : la scène du socle, habillée de son terrain, ou la scène du stade que la
@@ -103,22 +107,31 @@ func _ready() -> void:
 			_terrain = e
 	_club = _club_de_la_commune()
 	_serif = Polices.texte()
-	W = L + 20.0
-	D = P + 24.0
+	_modele = _charger_modele()
+	# Avec un décor, le sol du socle s'arrête aux abords du terrain (main courante, bancs, pylônes).
+	W = L + 20.0 if _modele == null else L + 10.0
+	D = P + 24.0 if _modele == null else P + 8.0
 	_environment()
 	_nuit()
 	_pelouse()
-	_tribune()
-	_entree()
-	_siege()
-	_tableau_affichage()
-	_habillage()
-	_le_president()
+	if _modele == null:
+		_tribune()
+		_entree()
+		_siege()
+		_tableau_affichage()
+		_habillage()
+		_le_president()
+	else:
+		_depuis_ancres()
 	_build_ui()
 	_bandeau_du_direct()
 	player = PLAYER.new()
 	player.position = Vector3(0, 0, -P / 2.0 - 4.0)
 	player.rotation.y = PI
+	var arrivee := Ancres.trouver(_modele, "Arrivee")
+	if arrivee:
+		player.position = arrivee.global_position
+		player.rotation.y = arrivee.global_rotation.y + PI
 	add_child(player)
 	player.interact.connect(_on_interact)
 	Sfx.set_ambience("village")
@@ -423,6 +436,81 @@ func _sortir_siege() -> void:
 	player.velocity = Vector3.ZERO
 
 
+## Le décor du stade que nomme le terrain (socle 1.13, champ « modele ») : la scène d'une brique de la
+## bibliothèque (« stade-de-campagne@1 ») ou celle de la commune (res://communes/<id>/….tscn), sans
+## héritage ; posée sous le stade, elle doit tenir le contrat d'ancres du stade. Un décor introuvable ou
+## qui ne le tient pas est laissé : le stade du socle prend sa place, et le journal dit pourquoi.
+func _charger_modele() -> Node3D:
+	var ref := str(_terrain.get("champs", {}).get("modele", ""))
+	if ref == "":
+		return null
+	var chemin := Bibliotheque.scene(ref, "stade") if Bibliotheque.est_reference(ref) else ref
+	if chemin == "" or not ResourceLoader.exists(chemin):
+		push_warning("Stade : décor introuvable « %s », le stade du socle le remplace" % ref)
+		return null
+	var n := (load(chemin) as PackedScene).instantiate() as Node3D
+	if n == null:
+		push_warning("Stade : « %s » n'est pas une scène 3D, le stade du socle la remplace" % ref)
+		return null
+	n.name = "Modele"
+	add_child(n)
+	var fautes := Ancres.verifier_stade(n)
+	if not fautes.is_empty():
+		push_warning("Stade : le décor « %s » ne tient pas le contrat : %s" % [ref, " ; ".join(fautes)])
+		remove_child(n)
+		n.free()
+		return null
+	return n
+
+
+## Ce que le socle pose sur les ancres du décor : le tableau d'affichage, le président, le bureau, le
+## panneau du club, la sortie, et, si le décor les a, le fronton de la tribune et la buvette. La pelouse et
+## le match sont déjà là (_pelouse) ; il n'y a pas de siège à part : la gestion est au bureau.
+func _depuis_ancres() -> void:
+	var t := Ancres.trouver(_modele, "Tableau")
+	var lacet := rad_to_deg(t.global_rotation.y)
+	_score = _label3d("0 - 0", _vers(t, Vector3(0, 0.4, 0.05)), 160, Color(1.0, 0.85, 0.3), lacet)
+	_horloge = _label3d("", _vers(t, Vector3(0, -0.35, 0.05)), 48, Color(0.95, 0.95, 0.9), lacet)
+	_affiche = _label3d("", _vers(t, Vector3(0, -0.85, 0.05)), 34, Color(0.8, 0.85, 0.95), lacet)
+	for l in [_score, _horloge, _affiche]:
+		l.shaded = false
+	_lamp(_vers(t, Vector3(0, 0.7, 1.5)), Color(1.0, 0.9, 0.7), 1.0, 6.0)
+	var feuille := _pied(t, Vector3(0, -t.global_position.y, 1.0))
+	_interactive(feuille, "feuille", "E : lire la feuille du dernier match", Vector3(7.0, 2.5, 2.0), Vector3(0, 1.2, 0))
+	var p := Ancres.trouver(_modele, "President")
+	_poser_president(to_local(p.global_position), p.global_rotation.y, rad_to_deg(p.global_rotation.y))
+	_interactive(_pied(Ancres.trouver(_modele, "Bureau")), "bureau", "E : le bureau du président, la gestion du club", Vector3(2.0, 2.0, 2.0), Vector3(0, 1.0, 0.6))
+	var pn := Ancres.trouver(_modele, "Panneau")
+	var lp := rad_to_deg(pn.global_rotation.y)
+	_label3d("LE PANNEAU DU CLUB", _vers(pn, Vector3(0, 2.15, 0.06)), 30, Color(1.0, 0.9, 0.55), lp)
+	_label3d(_enseigne(_nom_club()), _vers(pn, Vector3(0, 1.75, 0.06)), 34, Color(0.95, 0.95, 0.9), lp)
+	_label3d("Classement  ·  Prochain match  ·  Les obligations", _vers(pn, Vector3(0, 1.4, 0.06)), 20, Color(0.75, 0.8, 0.78), lp)
+	_lamp(_vers(pn, Vector3(0, 2.6, 0.9)), Color(1.0, 0.85, 0.6), 1.0, 5.0)
+	_interactive(_pied(pn), "panneau", "E : lire le panneau du club", Vector3(2.4, 2.4, 1.6), Vector3(0, 1.2, 0.8))
+	var origine := commune == Communes.ORIGINE
+	_interactive(_pied(Ancres.trouver(_modele, "Sortie")), "exit", "E : sortir sur la route du Bois" if origine else "E : sortir du stade", Vector3(2.6, 2.6, 2.4), Vector3(0, 1.2, 0))
+	var f := Ancres.trouver(_modele, "TribuneClub")
+	if f:
+		_label3d("%s  ·  %s" % [_enseigne(_nom_club()), _enseigne(_nom_stade())], _vers(f, Vector3.ZERO), 64, _couleur().darkened(0.1), rad_to_deg(f.global_rotation.y))
+	var b := Ancres.trouver(_modele, "Buvette")
+	if b:
+		_interactive(_pied(b), "buvette", "E : un café à la buvette", Vector3(3.4, 2.4, 2.0), Vector3(0, 1.2, 0.4))
+
+
+## Un point dans le repère d'une ancre, rendu dans celui du stade.
+func _vers(ancre: Node3D, local: Vector3) -> Vector3:
+	return to_local(ancre.global_transform * local)
+
+
+## Un nœud du stade à la place d'une ancre (et de ce décalage, dans son repère), tourné comme elle : on y
+## accroche une zone d'interaction.
+func _pied(ancre: Node3D, decalage := Vector3.ZERO) -> Node3D:
+	var n := Node3D.new()
+	add_child(n)
+	n.global_transform = Transform3D(ancre.global_transform.basis.orthonormalized(), ancre.global_transform * decalage)
+	return n
+
+
 ## L'habillage de la commune (socle 1.6, champ « habillage » du terrain) : sa scène, posée autour de la
 ## pelouse ; la pelouse, la tribune, le tableau et le match restent ceux du socle. La scène lit le club
 ## par son parent (le stade : _nom_club(), _couleurs()…) si elle en a besoin.
@@ -441,6 +529,12 @@ func _habillage() -> void:
 ## Le président du club (l'hôte du lieu qui porte le terrain), debout au bord de la pelouse devant sa
 ## tribune : E ouvre la causerie.
 func _le_president() -> void:
+	_poser_president(Vector3(9.0, 0, -P / 2.0 - 2.4), PI * 0.75, 180.0)
+
+
+## Le président à cette place, tourné de ce lacet (le personnage regarde son +Z), avec son nom (tourné de
+## nom_y degrés, face au visiteur) et sa causerie.
+func _poser_president(pos: Vector3, lacet: float, nom_y: float) -> void:
 	var c := CRITTER.new()
 	c.randomize_look(1987)
 	c.look["top"] = "veste"
@@ -452,11 +546,11 @@ func _le_president() -> void:
 	c.look.erase("prop_r")
 	c.look.erase("apron")
 	c.scale = Vector3.ONE * PEOPLE_SCALE
-	c.position = Vector3(9.0, 0, -P / 2.0 - 2.4)
-	c.rotation.y = PI * 0.75
+	c.position = pos
+	c.rotation.y = lacet
 	add_child(c)
 	_president = c
-	_label3d(_nom_president(), c.position + Vector3(0, 2.3, 0), 22, Color(0.95, 0.85, 0.6), 180.0)
+	_label3d(_nom_president(), c.position + Vector3(0, 2.3, 0), 22, Color(0.95, 0.85, 0.6), nom_y)
 	_interactive(c, "president", "E : parler %s" % _a(_nom_president()), Vector3(1.2, 1.0, 1.2), Vector3(0, 0.4, 0))
 
 
