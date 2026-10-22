@@ -6,6 +6,10 @@ L'état des lieux du 20 octobre est dans le dossier du projet (`bibliotheque-ass
 
 ## Le principe
 
+Deux règles de Guillaume (22 octobre 2026) passent avant tout le reste :
+- **La créativité des producteurs n'est jamais réduite.** La bibliothèque est une offre, jamais une contrainte. Une ville peut tout faire elle-même et rien ne l'oblige à employer une brique. Seuls le club de foot et le club de basket ont un contrat, les ancres, pour qu'ils restent dans le championnat ; le décor autour est libre.
+- **Pas de dépôt automatique.** Une brique n'entre dans la bibliothèque que si Guillaume l'accepte, à la main, après l'avoir regardée. Cela évite une bibliothèque qui gonfle sans contrôle. Une ville propose ; elle ne publie pas dans la bibliothèque.
+
 - **Le décor se partage, le fonctionnement reste au socle.** Un stade de la bibliothèque est un décor : tribunes, club-house, tableau, haies. Le club, son effectif, le championnat, le match, le mercato, la causerie, les obligations et les paris restent ceux du socle, identiques pour toutes les villes. Aucune brique n'emporte sa propre gestion.
 - **Le lien entre les deux est un contrat d'ancres** (`scripts/socle/ancres.gd`). Le décor montre quelques nœuds nommés ; le socle y pose ce qui est à lui. Un décor n'a pas à hériter d'un script du socle : il lui suffit de tenir le contrat.
 - **Une brique a un identifiant et une version** (`stade-de-campagne@1`). Une version publiée ne change plus. Une retouche se publie en `@2`, dans un dossier à côté, et les villes restées sur `@1` la gardent telle quelle.
@@ -55,6 +59,30 @@ Le décor apporte ses propres collisions (sol compris, au-delà du terrain), ses
 
 Premier stade de la bibliothèque : **`stade-de-campagne@1`**, un terrain de village (tribune de bois couverte, club-house et sa véranda où le président a son bureau, buvette, tableau à volets, haie de charmille et portail). Test : `godot --headless --path . -s tools/test_bibliotheque.gd`.
 
+## Proposer une brique
+
+Une ville qui a fait un décor réutilisable le range, dans son propre paquet, sous `res://communes/<id>/bibliotheque/<id de la brique>/` avec une fiche `brique.json` :
+
+```json
+{
+	"genre": "stade",
+	"nom": "Le stade de la Fortune",
+	"description": "Un bol à l'américaine à deux étages de tribunes sous une roue de roulette géante.",
+	"auteur": "Guillaume",
+	"licence": "celle du jeu",
+	"scene": "stade.tscn",
+	"apercu": "apercu.png"
+}
+```
+
+- `genre` (`stade` ou `decor`), `nom`, `auteur`, `licence` et `scene` sont requis ; `description` et `apercu` facultatifs. `scene` et `apercu` sont des fichiers du dossier de la brique.
+- L'id du dossier s'écrit en minuscules, chiffres et tirets (`stade-fortune`).
+- Une brique se suffit : elle ne nomme aucun fichier de sa ville hors de son dossier. Elle peut employer l'atelier et la bibliothèque du jeu.
+- La ville s'en sert comme de ses propres fichiers, par son chemin (`"modele": "res://communes/<id>/bibliotheque/stade-fortune/stade.tscn"`). Proposer ne change rien au jeu.
+- L'emballeur (`tools/emballer_commune.gd`) dit les briques proposées et refuse une fiche fautive ou un stade qui ne tient pas le contrat d'ancres. Le portail les signale dans son rapport.
+
+**L'acceptation est un geste de Guillaume.** Après avoir regardé la brique, il la fait entrer avec `godot --headless --path . -s tools/integrer_brique.gd -- <commune> <brique> --depuis=<dossier de la commune>`. L'outil recopie la brique dans `res://bibliotheque/<brique>/<version>/`, change ses chemins et l'inscrit au catalogue avec le crédit de son auteur et de sa ville. Un nom déjà pris par un autre auteur est refusé, et une nouvelle proposition du même auteur devient la version suivante. La brique entre au jeu à la version suivante du jeu. La ville publie alors une v2 de son paquet qui la référence (`"modele": "stade-fortune@1"`) au lieu de l'embarquer.
+
 ## Ce que Casino Minuit gagnerait (mesure du 22 octobre 2026)
 
 Lecture directe du répertoire de `casino_minuit.pck` (27,5 Mo, 538 fichiers). Attention : monter le paquet avec `ProjectSettings.load_resource_pack` puis parcourir `res://` compte aussi les ressources du jeu lui-même ; c'est ce qui avait donné « 63 Mo déballé » et des personnages qui ne sont plus dans le paquet.
@@ -90,7 +118,7 @@ Chacune est utile seule, et rien ne change dans la première salle.
 | 2 | Contrat de la salle de basket (parquet, cube, bureau, parts, sortie, arrivée) et `modele` du gymnase. Le gymnase a déjà `scene` et `habillage` depuis le socle 1.12. | smarves, portail | 2 à 3 jours |
 | 3 | Règles d'emballage : l'emballeur convertit et compresse, le portail signale ce qui existe déjà dans le jeu et les textures sans perte trop lourdes | smarves, portail | 2 à 3 jours |
 | 4 | Les matières : une brique de genre `matieres` (les 19 matières de la DA de Minuit pour commencer), employée par nom | smarves | 2 jours |
-| 5 | Proposer une brique depuis le portail : dépôt d'un décor seul, contrôles automatiques (poids, polygones, échelle, licence, aucun script hors du décor, ancres vérifiées par un essai du jeu), capture, validation de Guillaume d'un clic, puis la brique entre au jeu à la version suivante avec le crédit de son auteur | portail, smarves | 1,5 à 2 semaines |
+| 5 | Proposer une brique : le dossier `bibliotheque/` des paquets et sa fiche, vérifiés par l'emballeur et signalés par le portail, puis intégrés à la main (`tools/integrer_brique.gd`). Pas de dépôt automatique. | smarves, portail | **fait** |
 | 6 | Les auteurs reconstruisent leurs paquets : pour Minuit, le bol de la Fortune devient `stade-fortune@1` par ses ancres, le Dôme une salle, les matières passent à la bibliothèque, les textures et les données se compressent | paquets | 2 à 4 jours pour Minuit |
 
-En tout, quatre semaines environ, dont la moitié pour l'étape 5. Les étapes 2, 3 et 4 sont indépendantes et peuvent avancer ensemble.
+Sans dépôt automatique, il reste environ deux semaines : les étapes 2, 3 et 4, indépendantes, puis la 6 par les auteurs.

@@ -50,6 +50,15 @@ func _init() -> void:
 
 	var fichiers := {}
 	_parcourir(depuis, depuis, "res://communes/%s/" % id, fichiers)
+	# Les briques proposées à la bibliothèque (dossier bibliotheque/<brique>/ et sa fiche brique.json) : une
+	# fiche fautive arrête l'emballage, pour que la proposition arrive lisible au portail.
+	var fautes := _propositions(depuis)
+	if not fautes.is_empty():
+		if recopie:
+			_retirer(id)
+		printerr("Briques proposées : %s" % " ; ".join(fautes))
+		quit(1)
+		return
 	var pk := PCKPacker.new()
 	pk.pck_start(sortie)
 	for cible in fichiers:
@@ -115,6 +124,23 @@ func _parcourir(dossier: String, racine: String, cible: String, out: Dictionary)
 
 
 const TEMOIN := ".emballage"
+
+
+## Dit les briques que la commune propose à la bibliothèque, et rend leurs fautes : la fiche, et pour un
+## stade le contrat d'ancres (docs/BIBLIOTHEQUE.md, « Proposer une brique »).
+func _propositions(dossier: String) -> PackedStringArray:
+	var fautes := PackedStringArray()
+	for p in Bibliotheque.propositions(dossier):
+		fautes.append_array(p.erreurs)
+		if p.erreurs.is_empty() and p.fiche.genre == "stade":
+			var n: Node3D = (load(p.dossier + str(p.fiche.scene)) as PackedScene).instantiate()
+			root.add_child(n)
+			for f in Ancres.verifier_stade(n):
+				fautes.append("brique %s : %s" % [p.id, f])
+			n.free()
+		if p.erreurs.is_empty():
+			print("Proposée à la bibliothèque : %s (%s, %s), examinée à la main après le dépôt." % [p.id, p.fiche.genre, p.fiche.nom])
+	return fautes
 
 
 ## Recopie le dossier source sous res://communes/<id>/ (sans ce qui ne part pas dans un paquet), puis
