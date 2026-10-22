@@ -3,7 +3,9 @@ extends SceneTree
 ## « Jouer » reprend le village de l'écran titre dans l'état d'une arrivée sur la place ; la qualité de
 ## l'image règle les environnements et la cadence, et la qualité haute rend les choix des lieux ; les
 ## ambiances calculées en tâche de fond sont celles d'avant, échantillon pour échantillon ; la place
-## quittée pour un lieu revient sans se rebâtir, sauf si la partie a changé ce qu'elle montre.
+## quittée pour un lieu revient sans se rebâtir, sauf si la partie a changé ce qu'elle montre ; ce qu'un
+## script fabrique se range sur l'appareil (Memo) ; le budget d'un lieu se mesure (Budget) ; les objets
+## lointains sont simplifiés et reçoivent leurs niveaux de détail (Lointain).
 
 var echecs := 0
 
@@ -104,6 +106,15 @@ func _init() -> void:
 	_verifier(current_scene != la_place and is_instance_valid(la_place) and la_place.is_inside_tree(), "au casino, la place reste gardée dans l'arbre")
 	_verifier(not la_place.visible and la_place.process_mode == Node.PROCESS_MODE_DISABLED and _calques_visibles(la_place) == 0, "la place gardée est cachée et à l'arrêt, son interface aussi")
 	_verifier(root.find_children("*", "WorldEnvironment", true, false).size() == 1, "un seul environnement dans l'arbre pendant la visite")
+	# Les figurines du casino naissent avec leurs niveaux de détail (CritterMesh, socle 1.16).
+	var figurines := 0
+	var a_niveaux := 0
+	for mi in current_scene.find_children("*", "MeshInstance3D", true, false):
+		if mi.mesh is ArrayMesh and mi.mesh.get_surface_count() > 0 and mi.mesh.surface_get_format(0) & Mesh.ARRAY_FORMAT_BONES:
+			figurines += 1
+			if RenderingServer.mesh_get_surface(mi.mesh.get_rid(), 0).has("lods"):
+				a_niveaux += 1
+	_verifier(figurines > 0 and a_niveaux == figurines, "les figurines du casino ont leurs niveaux de détail (%d sur %d)" % [a_niveaux, figurines])
 	var t0 := Time.get_ticks_usec()
 	chargement.changer("res://scenes/main.tscn")
 	await process_frame
@@ -186,6 +197,61 @@ func _init() -> void:
 			break
 		await create_timer(0.1).timeout
 	_verifier(ResourceLoader.has_cached("res://scenes/casino.tscn") and ResourceLoader.has_cached("res://scripts/casino_interior.gd"), "le casino et ses scripts sont lus d'avance depuis la place")
+
+	# Le budget par lieu : la mesure d'une scène, et ce qui dépasse les seuils.
+	var lieu := Node3D.new()
+	lieu.set_meta("sans_lointain", true)
+	var perle := MeshInstance3D.new()
+	perle.mesh = SphereMesh.new()
+	perle.mesh.radius = 0.03
+	perle.mesh.height = 0.06
+	perle.scale = Vector3.ONE * 0.5
+	lieu.add_child(perle)
+	var lampe := OmniLight3D.new()
+	lampe.shadow_enabled = true
+	lieu.add_child(lampe)
+	lieu.add_child(Label3D.new())
+	var gros := MeshInstance3D.new()
+	var sphere := SphereMesh.new()
+	sphere.radial_segments = 128
+	sphere.rings = 64
+	var am := ArrayMesh.new()
+	am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, sphere.get_mesh_arrays())
+	gros.mesh = am
+	lieu.add_child(gros)
+	root.add_child(lieu)
+	await process_frame
+	var tri_perle := Budget._triangles(perle.mesh, {})
+	var tri_gros := Budget._triangles(am, {})
+	var mesure := Budget.mesurer(lieu)
+	_verifier(mesure.triangles == tri_perle + tri_gros and mesure.lumieres == 1 and mesure.ombres == 1 and mesure.etiquettes == 1 and mesure.noeuds == 5, "la mesure d'un lieu compte triangles, lampes, ombres, étiquettes et nœuds")
+	var dep := Budget.depassements(mesure, {"triangles": 1000, "ombres": 0, "noeuds": 100})
+	_verifier(dep.size() == 2 and dep[0].begins_with("%s triangles" % Budget._nombre(mesure.triangles)) and dep[1].begins_with("1 lampes à ombres"), "ce qui dépasse les seuils est dit, dans l'ordre des seuils : %s" % " ; ".join(dep))
+	_verifier(Budget.depassements(mesure).is_empty() and Budget.resume(mesure).begins_with("%s triangles, " % Budget._nombre(mesure.triangles)), "un petit lieu tient dans les seuils du socle ; son résumé commence par ses triangles")
+	# Les objets lointains : une perle de 1,5 cm (sphère 64 × 32) ne garde que douze segments ; un
+	# maillage de seize mille triangles reçoit ses niveaux dans un fil, puis remplace l'ancien.
+	Lointain.appliquer(lieu)
+	_verifier(perle.mesh.radial_segments == 12 and perle.mesh.rings == 6 and Budget.mesurer(lieu).triangles < mesure.triangles, "une petite primitive est ramenée aux segments de sa taille vue (%d × %d)" % [perle.mesh.radial_segments, perle.mesh.rings])
+	var nouveaux := 0
+	for i in 600:
+		await process_frame
+		if not Lointain.en_travail():
+			break
+	var lods: Array = RenderingServer.mesh_get_surface(gros.mesh.get_rid(), 0).get("lods", []) if gros.mesh is ArrayMesh else []
+	_verifier(gros.mesh != am and not Lointain.en_travail() and lods.size() >= 2 and Budget._triangles(gros.mesh, {}) == tri_gros, "un gros maillage reçoit ses niveaux de détail (%d) et garde ses triangles de près" % lods.size())
+	_verifier(Lointain.niveaux(lieu) == 0, "un maillage à niveaux n'est pas repris")
+	# Chargement l'applique de lui-même à chaque scène 3D qui arrive, sauf à celles qui le refusent.
+	var autre := Node3D.new()
+	var bille := MeshInstance3D.new()
+	bille.mesh = SphereMesh.new()
+	bille.mesh.radius = 0.01
+	autre.add_child(bille)
+	root.add_child(autre)
+	await process_frame
+	await process_frame
+	_verifier(bille.mesh.radial_segments == 12 and perle.mesh.radial_segments == 12, "une scène qui arrive dans l'arbre est simplifiée sans rien demander")
+	lieu.queue_free()
+	autre.queue_free()
 
 	print("%d échec(s)" % echecs)
 	quit(1 if echecs else 0)

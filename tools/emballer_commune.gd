@@ -98,19 +98,56 @@ func _init() -> void:
 	var c: Commune = communes.commune(id)
 	var ok: bool = communes.ouvrir(id)
 	var scene: PackedScene = load(str(c.data.scene)) if ok else null
-	var n: Node = scene.instantiate() if scene else null
-	if n:
-		n.free()
-	else:
+	if scene == null:
 		printerr("La scène ne se charge pas : %s" % c.data.scene)
 		quit(1)
 		return
+	# Le budget par lieu (Budget) : chaque scène du manifeste est bâtie, mesurée, et ce qui dépasse est dit ;
+	# la mesure part dans le paquet (budget.json), que le portail lit.
+	var budget := {"socle": Commune.SOCLE, "seuils": Budget.SEUILS, "lieux": {}}
+	for chemin in _scenes_du_manifeste(c.data):
+		var ps: PackedScene = load(chemin)
+		var n: Node = ps.instantiate() if ps else null
+		if n == null:
+			printerr("La scène ne se charge pas : %s" % chemin)
+			quit(1)
+			return
+		root.add_child(n)
+		for i in 4:
+			await process_frame
+		var m := Budget.mesurer(n)
+		var dep := Budget.depassements(m)
+		budget.lieux[chemin] = {"mesure": m, "a_alleger": Array(dep)}
+		print("Budget de %s : %s%s" % [chemin.trim_prefix("res://communes/%s/" % id), Budget.resume(m), "" if dep.is_empty() else "\n   À alléger : " + " ; ".join(dep)])
+		root.remove_child(n)
+		n.free()
+	var fichier_budget := ProjectSettings.globalize_path("user://emballage/budget.json")
+	var fb := FileAccess.open(fichier_budget, FileAccess.WRITE)
+	fb.store_string(JSON.stringify(budget, "  "))
+	fb.close()
+	fichiers["res://communes/%s/budget.json" % id] = fichier_budget
+	pk = PCKPacker.new()
+	pk.pck_start(sortie)
+	for cible in fichiers:
+		pk.add_file(cible, fichiers[cible])
+	pk.flush()
 	if FileAccess.get_file_as_bytes(sortie).size() > Portail.TAILLE_MAX:
 		printerr("Le paquet dépasse 32 Mo : le portail le refusera.")
 		quit(1)
 		return
 	print("Accepté par le jeu : %s (%s), version %s. À déposer sur la page développeur." % [c.nom, c.ville() + ", " + c.pays() if c.lointaine() else c.insee, c.data.get("version", "?")])
 	quit(0)
+
+
+## Les scènes qu'un paquet ouvre : la sienne et celles de ses structures (scene, habillage, modele).
+func _scenes_du_manifeste(data: Dictionary) -> Array:
+	var out := [str(data.scene)]
+	for s in data.get("structures", []):
+		for champ in ["scene", "habillage", "modele"]:
+			var v := str(s.get(champ, ""))
+			if v.begins_with("res://") and not v in out:
+				out.append(v)
+	return out
 
 
 func _parcourir(dossier: String, racine: String, cible: String, out: Dictionary) -> void:

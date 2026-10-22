@@ -57,6 +57,7 @@ func _ready() -> void:
 	layer = 96
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	visible = false
+	get_tree().root.child_entered_tree.connect(_sur_scene)
 	_voile = ColorRect.new()
 	_voile.color = NUIT
 	_voile.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -170,6 +171,15 @@ func _lacher() -> void:
 	_recueillir()
 	_gardees = []
 	_id = ""
+
+
+## Chaque scène 3D qui arrive sous la racine (un lieu, une commune) reçoit, une fois bâtie, ses objets
+## lointains simplifiés (Lointain) : primitives à la taille vue, niveaux de détail des gros maillages.
+## Un outil qui mesure sans cela pose la méta « sans_lointain » sur Chargement ; une scène qui tient à
+## ses primitives fines la pose sur sa racine.
+func _sur_scene(n: Node) -> void:
+	if n is Node3D and not has_meta("sans_lointain") and not n.has_meta("sans_lointain"):
+		Callable(Lointain, "appliquer").call_deferred(n)
 
 
 ## Lit d'avance, dans un fil, des scènes qu'on ouvrira sans doute depuis celle-ci : leurs scripts se

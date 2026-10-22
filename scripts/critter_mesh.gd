@@ -80,8 +80,15 @@ static func build(l: Dictionary) -> Dictionary:
 		cm.look = l
 		var out: Dictionary = cm._make()
 		var a: Array = out.mesh.surface_get_arrays(0)
+		# Les niveaux de détail (Lointain) : de loin, l'habitant se dessine avec dix fois moins de triangles.
+		var im := ImporterMesh.new()
+		im.add_surface(Mesh.PRIMITIVE_TRIANGLES, a)
+		im.generate_lods(Lointain.FUSION, Lointain.ARETE, [])
+		var lods := {}
+		for li in im.get_surface_lod_count(0):
+			lods[im.get_surface_lod_size(0, li)] = im.get_surface_lod_indices(0, li)
 		return {"v": a[Mesh.ARRAY_VERTEX], "n": a[Mesh.ARRAY_NORMAL], "c": a[Mesh.ARRAY_COLOR], "uv": a[Mesh.ARRAY_TEX_UV],
-			"b": a[Mesh.ARRAY_BONES], "w": a[Mesh.ARRAY_WEIGHTS], "i": a[Mesh.ARRAY_INDEX],
+			"b": a[Mesh.ARRAY_BONES], "w": a[Mesh.ARRAY_WEIGHTS], "i": a[Mesh.ARRAY_INDEX], "lods": lods,
 			"rest": out.rest, "height": out.height, "leg": out.leg, "face": out.face})
 	var out := _depuis(d)
 	_cache[key] = out
@@ -99,7 +106,7 @@ static func _depuis(d: Dictionary) -> Dictionary:
 	arrays[Mesh.ARRAY_WEIGHTS] = d.w
 	arrays[Mesh.ARRAY_INDEX] = d.i
 	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], d.get("lods", {}))
 	mesh.surface_set_material(0, material())
 	var rest: Array[Vector3] = []
 	rest.assign(d.rest)
