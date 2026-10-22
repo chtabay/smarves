@@ -24,10 +24,10 @@ static func bake(root: Node3D, skip: Array = []) -> int:
 			continue
 		# Deux boîtes de même taille ont les mêmes sommets : on ne les génère qu'une fois.
 		var ck = _shape_key(mi.mesh)
-		var surfaces: Array = cache.get(ck, [])
 		if not cache.has(ck):
-			surfaces = _surfaces(mi.mesh)
-			cache[ck] = surfaces
+			cache[ck] = {"mesh": mi.mesh, "surfaces": _surfaces(mi.mesh)}
+		var mesh: Mesh = cache[ck].mesh
+		var surfaces: Array = cache[ck].surfaces
 		if surfaces.is_empty():
 			continue
 		var xf: Transform3D = inv * mi.global_transform
@@ -46,40 +46,24 @@ static func bake(root: Node3D, skip: Array = []) -> int:
 			mats.append(mat)
 		if not ok:
 			continue
-		var nxf := Transform3D(xf.basis.inverse().transposed(), Vector3.ZERO)
 		for s in surfaces.size():
 			var sf: Dictionary = surfaces[s]
-			var key := "%d|%s|%d|%d|%s" % [mats[s].get_instance_id(), sf.color, mi.cast_shadow, mi.layers, str(cell)]
+			var key := "%d|%s|%s|%s|%d|%d|%s" % [mats[s].get_instance_id(), sf.color, sf.uv, sf.idx, mi.cast_shadow, mi.layers, str(cell)]
 			if not groups.has(key):
-				groups[key] = {"v": PackedVector3Array(), "n": PackedVector3Array(), "uv": PackedVector2Array(),
-					"c": PackedColorArray(), "i": PackedInt32Array(), "mat": mats[s], "color": sf.color,
-					"shadow": mi.cast_shadow, "layers": mi.layers}
-			var g: Dictionary = groups[key]
-			var base: int = g.v.size()
-			g.v.append_array(xf * (sf.v as PackedVector3Array))
-			g.n.append_array(nxf * (sf.n as PackedVector3Array))
-			g.uv.append_array(sf.uv)
-			if sf.color:
-				g.c.append_array(sf.c)
-			var idx: PackedInt32Array = sf.i
-			for k in idx.size():
-				g.i.append(idx[k] + base)
+				groups[key] = {"pieces": [], "mat": mats[s], "shadow": mi.cast_shadow, "layers": mi.layers}
+			groups[key].pieces.append([mesh, s, xf])
 		merged.append(mi)
+	# La fonte elle-même se fait dans le moteur (SurfaceTool.append_from : sommets, normales, UV, couleurs
+	# et indices transformés en C++) : en GDScript, sommet par sommet, le casino y passait 0,65 s.
 	for key in groups:
 		var g: Dictionary = groups[key]
-		var arrays := []
-		arrays.resize(Mesh.ARRAY_MAX)
-		arrays[Mesh.ARRAY_VERTEX] = g.v
-		arrays[Mesh.ARRAY_NORMAL] = g.n
-		arrays[Mesh.ARRAY_TEX_UV] = g.uv
-		if g.color:
-			arrays[Mesh.ARRAY_COLOR] = g.c
-		arrays[Mesh.ARRAY_INDEX] = g.i
-		var am := ArrayMesh.new()
-		am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		for piece in g.pieces:
+			st.append_from(piece[0], piece[1], piece[2])
 		var out := MeshInstance3D.new()
 		out.name = "Lot"
-		out.mesh = am
+		out.mesh = st.commit()
 		out.material_override = g.mat
 		out.cast_shadow = g.shadow
 		out.layers = g.layers
@@ -93,54 +77,50 @@ static func bake(root: Node3D, skip: Array = []) -> int:
 	return merged.size()
 
 
-## Les surfaces d'un maillage en tableaux simples (sommets, normales, UV, couleurs, indices), ou [] si
-## le maillage a autre chose que des triangles.
+## Ce qu'il faut savoir de chaque surface d'un maillage pour la fondre (matériau, couleurs par sommet,
+## UV), ou [] si le maillage n'est pas fait de triangles avec leurs normales.
 static func _surfaces(mesh: Mesh) -> Array:
 	var out := []
-	var list := []
 	_simplify(mesh)
-	if mesh is PrimitiveMesh:
-		list.append([(mesh as PrimitiveMesh).get_mesh_arrays(), (mesh as PrimitiveMesh).material])
-	elif mesh is ArrayMesh:
-		for s in mesh.get_surface_count():
-			if (mesh as ArrayMesh).surface_get_primitive_type(s) != Mesh.PRIMITIVE_TRIANGLES:
-				return []
-			list.append([mesh.surface_get_arrays(s), mesh.surface_get_material(s)])
-	else:
+	if not (mesh is PrimitiveMesh or mesh is ArrayMesh):
 		return []
-	for e in list:
-		var a: Array = e[0]
+	for s in mesh.get_surface_count():
+		if mesh is ArrayMesh and (mesh as ArrayMesh).surface_get_primitive_type(s) != Mesh.PRIMITIVE_TRIANGLES:
+			return []
+		var a: Array = mesh.surface_get_arrays(s)
 		var v: PackedVector3Array = a[Mesh.ARRAY_VERTEX]
 		var n = a[Mesh.ARRAY_NORMAL]
-		var uv = a[Mesh.ARRAY_TEX_UV]
-		var c = a[Mesh.ARRAY_COLOR]
-		var idx = a[Mesh.ARRAY_INDEX]
 		if n == null or (n as PackedVector3Array).size() != v.size():
 			return []
-		if uv == null or (uv as PackedVector2Array).size() != v.size():
-			uv = PackedVector2Array()
-			uv.resize(v.size())
-		if idx == null or (idx as PackedInt32Array).is_empty():
-			idx = PackedInt32Array(range(v.size()))
+		var uv = a[Mesh.ARRAY_TEX_UV]
+		var c = a[Mesh.ARRAY_COLOR]
 		var has_c: bool = c != null and (c as PackedColorArray).size() == v.size()
-		out.append({"v": v, "n": n, "uv": uv, "c": c if has_c else PackedColorArray(), "color": has_c, "i": idx, "mat": e[1]})
+		var has_uv: bool = uv != null and (uv as PackedVector2Array).size() == v.size()
+		var idx = a[Mesh.ARRAY_INDEX]
+		var has_i: bool = idx != null and not (idx as PackedInt32Array).is_empty()
+		# Couleurs, UV, indices : un lot ne mêle pas des surfaces qui n'ont pas les mêmes tableaux.
+		out.append({"color": has_c, "uv": has_uv, "idx": has_i, "mat": mesh.surface_get_material(s)})
 	return out
 
 
 ## Une clé qui ne dépend que de la forme : la même pour deux primitives aux mêmes dimensions.
 static func _shape_key(mesh: Mesh) -> Variant:
+	var props := []
 	if mesh is BoxMesh:
-		var b := mesh as BoxMesh
-		return "box%s|%d" % [b.size, b.material.get_instance_id() if b.material else 0]
-	if mesh is SphereMesh or mesh is CylinderMesh or mesh is TorusMesh:
-		_simplify(mesh)
-		var props := []
-		for p in mesh.get_property_list():
-			if p.usage & PROPERTY_USAGE_STORAGE and p.name != "resource_name" and p.name != "resource_path":
-				var v = mesh.get(p.name)
-				props.append(v.get_instance_id() if v is Object else v)
-		return mesh.get_class() + str(props)
-	return mesh
+		props = [(mesh as BoxMesh).size, mesh.subdivide_width, mesh.subdivide_height, mesh.subdivide_depth]
+	elif mesh is SphereMesh:
+		props = [mesh.radius, mesh.height, mesh.radial_segments, mesh.rings, mesh.is_hemisphere]
+	elif mesh is CylinderMesh:
+		props = [mesh.top_radius, mesh.bottom_radius, mesh.height, mesh.radial_segments, mesh.rings, mesh.cap_top, mesh.cap_bottom]
+	elif mesh is TorusMesh:
+		props = [mesh.inner_radius, mesh.outer_radius, mesh.rings, mesh.ring_segments]
+	else:
+		return mesh
+	var pm := mesh as PrimitiveMesh
+	props.append(pm.material.get_instance_id() if pm.material else 0)
+	props.append(pm.flip_faces)
+	props.append(pm.add_uv2)
+	return mesh.get_class() + str(props)
 
 
 ## Les primitives de Godot sont très fines par défaut : une perle de lustre de 3 cm en sphère 64 × 32,

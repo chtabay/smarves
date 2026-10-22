@@ -49,7 +49,30 @@ Désormais (`Chargement.lieu` et `Chargement.changer`, socle) la scène qu'on qu
 - Elle ne revient pas si la partie a changé ce qu'elle montre et qu'elle ne remet pas à jour d'elle-même : un seuil de gagné au jeu passé dans sa commune (lieux, structures et, sur la place, prestations) ou un bien du joueur (achat, tenue, véhicule, logement). Elle se rebâtit alors comme avant. Une scène peut donner sa signature (`signature_garde`) et se remettre à jour au retour (`revenir`).
 - Retour sur la place depuis le casino : 44 à 51 ms au lieu de 0,6 s (et 1,8 à 2,0 s avant le 22 octobre).
 
+## Le lieu construit une fois, puis sauvegardé (22 octobre 2026)
+
+Les lieux se bâtissent dans le code à chaque ouverture, et une part de ce travail ne dépend que du code : il donne le même résultat à chaque lancement. Cette part se fait désormais une fois, et son résultat reste sur l'appareil (`user://cache/`, `scripts/socle/memo.gd`) ; les lancements suivants le relisent. Chaque famille a son dossier, par empreinte du script qui fabrique la valeur : un script modifié jette ce qu'il avait calculé, et les versions précédentes sont effacées au premier passage.
+
+- **Les figurines** (`critter_mesh.gd`) : six mille triangles par habitant, sommet par sommet en GDScript, 14 ms chacun, 26 à 48 par lieu. Relus en moins d'une milliseconde. 7,6 Mo pour les 108 fiches rencontrées sur la place, au casino et à la salle de basket.
+- **Les textures de bruit** (`Memo.bruit`) : le moteur calcule une `NoiseTexture2D` à la première image, sur le fil principal, 80 ms pour 512 × 512 ; la place en a douze, soit **une seconde entre la fin de sa construction et sa première image**, qu'aucune mesure de script ne montrait. La première fois elle sert telle quelle et ses pixels sont rangés dès qu'ils sont prêts ; ensuite c'est l'image rangée (7 Mo pour la place). Même chose pour l'acajou et le feutre du casino, le grain et le cuir du kit des jeux.
+- **Les images peintes pixel par pixel** (`Memo.image`) : les six tableaux du casino, la rose des vents, les faces des dés (100 000 pixels) : 130 ms au casino.
+- **La fonte des pièces immobiles** (`static_batch.gd`) se fait dans le moteur (`SurfaceTool.append_from`) et non plus sommet par sommet : 0,65 s → 0,2 s au casino, 550 lots identiques au triangle et au format près. Les boîtes, sphères et cylindres de mêmes dimensions partagent désormais un même maillage.
+- **Les scripts du casino** mettent 0,65 s à se compiler à l'entrée (les 24 scripts du lieu et des jeux, dont `casino_interior.gd` seul 0,35 s). La place les lit d'avance dans un fil (`Chargement.chauffer`), pendant qu'on la regarde.
+
+Chargements sans rendu, même conteneur, au second lancement (le premier construit et range) :
+
+| | 22 octobre, matin | après |
+|---|---|---|
+| Écran titre (construction + première image) | 2,4 s | 0,9 et 1,0 s |
+| « Jouer » | 0,07 s | 0,06 s |
+| Casino | 3,3 s | 1,7 et 1,9 s |
+| Retour sur la place (rebâtie) | 0,66 s | 0,76 s |
+| Salle de basket | 1,0 s | 0,5 s |
+
+Sur téléphone, où le GDScript et le calcul du bruit sont trois à quatre fois plus lents, le gain est d'autant plus grand ; le premier lancement y reste long, et c'est le prix de la méthode. Les fichiers rangés se refont d'eux-mêmes si on les supprime.
+
 ## Ce qui reste
 
-- Le casino se bâtit en 3,3 s : 1,6 s pour ses salles, 0,65 s pour fondre ses 6 100 pièces immobiles en 550 maillages (`static_batch.gd`). Bâtir la salle pendant un écran de chargement animé, comme les communes greffées (`Chargement`), ou garder le résultat de la fonte, seraient les prochaines étapes.
+- Le casino se bâtit encore en 1,7 s : ses salles (0,35 s), ses tables (la roulette 85 ms, le Grand Hasard 170), ses étiquettes et ses lustres. Les bâtir pendant un écran de chargement animé, comme les communes greffées (`Chargement`), serait la prochaine étape.
+- Les paquets des communes (Civaux, Minuit…) ont leurs propres textures et figurines : le même rangement leur servirait, voir [BIBLIOTHEQUE.md](BIBLIOTHEQUE.md) pour le budget par lieu.
 - La première visite d'un lieu compile ses shaders sur la carte graphique ; Godot les garde ensuite en cache, les visites suivantes sont plus rapides.

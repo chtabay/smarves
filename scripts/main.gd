@@ -88,6 +88,8 @@ func _ready() -> void:
 		_spawn_player()
 	_refresh_places()
 	Sfx.set_ambience("village")
+	# Le casino se lit d'avance dans un fil : ses scripts se compilent pendant qu'on regarde la place.
+	Chargement.chauffer(["res://scenes/casino.tscn"])
 	# En vitrine derrière l'écran titre : pas d'interface, pas d'accueil, pas de bavardages.
 	if has_meta("vitrine"):
 		for c in get_children():
@@ -169,10 +171,10 @@ func _on_brunet_calls() -> void:
 static var _bruits := {}
 
 
-func _noise_tex(normal: bool, freq: float, dark: Color) -> NoiseTexture2D:
+func _noise_tex(normal: bool, freq: float, dark: Color) -> Texture2D:
 	var cle := [normal, freq, dark]
 	if not _bruits.has(cle):
-		_bruits[cle] = _fabriquer_bruit(normal, freq, dark)
+		_bruits[cle] = Memo.bruit("bruits", "res://scripts/main.gd", cle, _fabriquer_bruit(normal, freq, dark))
 	return _bruits[cle]
 
 

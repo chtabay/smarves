@@ -166,7 +166,7 @@ func _materials() -> void:
 	g.set_color(1, Color(1, 1, 1))
 	grain.color_ramp = g
 	wood = _std(Color(0.42, 0.17, 0.08), 0.35)
-	wood.albedo_texture = grain
+	wood.albedo_texture = Memo.bruit("casino", "res://scripts/casino_interior.gd", "acajou", grain)
 	wood.uv1_triplanar = true
 	wood.uv1_scale = Vector3(0.5, 4.0, 0.5)
 	dark_wood = wood.duplicate()
@@ -184,7 +184,7 @@ func _materials() -> void:
 	fg.set_color(0, Color(0.78, 0.8, 0.78))
 	fg.set_color(1, Color(1, 1, 1))
 	ft.color_ramp = fg
-	felt.albedo_texture = ft
+	felt.albedo_texture = Memo.bruit("casino", "res://scripts/casino_interior.gd", "feutre", ft)
 	felt.uv1_triplanar = true
 	felt.uv1_scale = Vector3.ONE * 3.0
 	velvet = _std(Color(0.5, 0.03, 0.08), 0.85)
@@ -1027,7 +1027,7 @@ func _extra_materials() -> void:
 	lamp_shade.emission = Color(0.25, 0.6, 0.3)
 	lamp_shade.emission_energy_multiplier = 0.6
 	for k in 6:
-		_paintings.append(_make_painting(k))
+		_paintings.append(Memo.image("casino", "res://scripts/casino_interior.gd", ["tableau", k], _make_painting.bind(k)))
 
 
 # --- Briques d'architecture --------------------------------------------------------------
@@ -1154,7 +1154,7 @@ func _painting(parent: Node3D, at: Vector3, size: Vector2, tex: Texture2D) -> vo
 
 
 ## Un « tableau à l'huile » : un paysage du Poitou tiré du hasard, coucher de soleil sur les champs.
-func _make_painting(seed_value: int) -> ImageTexture:
+func _make_painting(seed_value: int) -> Image:
 	var w := 192
 	var h := 144
 	var img := Image.create(w, h, false, Image.FORMAT_RGB8)
@@ -1186,7 +1186,7 @@ func _make_painting(seed_value: int) -> ImageTexture:
 		for y in range(horizon - 30, horizon + 4):
 			for x in range(bx, bx + 8):
 				img.set_pixel(x, y, Color(0.2, 0.15, 0.15))
-	return ImageTexture.create_from_image(img)
+	return img
 
 
 func _floor(x0: float, x1: float, z0: float, z1: float, mat: Material, h := WALL_H, coffers := true, y0 := 0.0) -> void:
@@ -1564,7 +1564,7 @@ func _build_hall() -> void:
 	md.radial_segments = 64
 	medal.mesh = md
 	var mm := _std(Color.WHITE, 0.15)
-	mm.albedo_texture = _compass_texture()
+	mm.albedo_texture = Memo.image("casino", "res://scripts/casino_interior.gd", "rose", _compass_texture)
 	medal.material_override = mm
 	medal.position = Vector3(0, 0.006, 15.6)
 	add_child(medal)
@@ -1664,7 +1664,7 @@ func _build_cloakroom() -> void:
 	_chandelier(Vector3(-12.5, 3.2, 15.0), 0.5)
 
 
-func _compass_texture() -> ImageTexture:
+func _compass_texture() -> Image:
 	var s := 256
 	var img := Image.create(s, s, false, Image.FORMAT_RGB8)
 	var c := Vector2(s / 2.0, s / 2.0)
@@ -1684,7 +1684,7 @@ func _compass_texture() -> ImageTexture:
 			elif r >= 0.98:
 				col = Color(0.12, 0.08, 0.08)
 			img.set_pixel(x, y, col)
-	return ImageTexture.create_from_image(img)
+	return img
 
 
 func _banquette(pos: Vector3, rot_y: float) -> void:

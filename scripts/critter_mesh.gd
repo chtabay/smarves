@@ -68,16 +68,45 @@ static func material() -> ShaderMaterial:
 	return _material
 
 
-## Le maillage, le squelette et ses os de repos pour une fiche ; le maillage est partagé entre fiches identiques.
+## Le maillage, le squelette et ses os de repos pour une fiche ; le maillage est partagé entre fiches
+## identiques, et gardé sur l'appareil d'un lancement à l'autre (Memo) : un habitant demande 14 ms de
+## GDScript (six mille triangles, sommet par sommet) et un lieu en pose de 26 à 48 ; relu, moins d'un.
 static func build(l: Dictionary) -> Dictionary:
 	var key := var_to_str(l).hash()
 	if _cache.has(key):
 		return _cache[key]
-	var cm := CritterMesh.new()
-	cm.look = l
-	var out := cm._make()
+	var d: Dictionary = Memo.valeur("figurines", "res://scripts/critter_mesh.gd", key, func():
+		var cm := CritterMesh.new()
+		cm.look = l
+		var out: Dictionary = cm._make()
+		var a: Array = out.mesh.surface_get_arrays(0)
+		return {"v": a[Mesh.ARRAY_VERTEX], "n": a[Mesh.ARRAY_NORMAL], "c": a[Mesh.ARRAY_COLOR], "uv": a[Mesh.ARRAY_TEX_UV],
+			"b": a[Mesh.ARRAY_BONES], "w": a[Mesh.ARRAY_WEIGHTS], "i": a[Mesh.ARRAY_INDEX],
+			"rest": out.rest, "height": out.height, "leg": out.leg, "face": out.face})
+	var out := _depuis(d)
 	_cache[key] = out
 	return out
+
+
+static func _depuis(d: Dictionary) -> Dictionary:
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = d.v
+	arrays[Mesh.ARRAY_NORMAL] = d.n
+	arrays[Mesh.ARRAY_COLOR] = d.c
+	arrays[Mesh.ARRAY_TEX_UV] = d.uv
+	arrays[Mesh.ARRAY_BONES] = d.b
+	arrays[Mesh.ARRAY_WEIGHTS] = d.w
+	arrays[Mesh.ARRAY_INDEX] = d.i
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	mesh.surface_set_material(0, material())
+	var rest: Array[Vector3] = []
+	rest.assign(d.rest)
+	var skin := Skin.new()
+	for bi in BONES.size():
+		skin.add_bind(bi, Transform3D(Basis(), -rest[bi]))
+	return {"mesh": mesh, "skin": skin, "rest": rest, "height": float(d.height), "leg": float(d.leg), "face": float(d.face)}
 
 
 func _make() -> Dictionary:

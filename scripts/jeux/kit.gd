@@ -115,8 +115,8 @@ static func _grain() -> Texture2D:
 	g.set_color(0, Color(0.55, 0.52, 0.5))
 	g.set_color(1, Color(1.08, 1.0, 0.95))
 	t.color_ramp = g
-	_tex["grain"] = t
-	return t
+	_tex["grain"] = Memo.bruit("kit", "res://scripts/jeux/kit.gd", "grain", t)
+	return _tex["grain"]
 
 
 static func leather(c := Color(0.16, 0.05, 0.03)) -> StandardMaterial3D:
@@ -133,7 +133,7 @@ static func leather(c := Color(0.16, 0.05, 0.03)) -> StandardMaterial3D:
 		t.bump_strength = 1.5
 		t.noise = n
 		m.normal_enabled = true
-		m.normal_texture = t
+		m.normal_texture = Memo.bruit("kit", "res://scripts/jeux/kit.gd", "cuir", t)
 		m.normal_scale = 0.35
 		m.uv1_triplanar = true
 		m.uv1_scale = Vector3.ONE * 6.0
@@ -621,6 +621,13 @@ static func _die_tex(body: Color, pip: Color) -> Texture2D:
 	var key := "die_%s_%s" % [body.to_html(), pip.to_html()]
 	if _tex.has(key):
 		return _tex[key]
+	var t := Memo.image("kit", "res://scripts/jeux/kit.gd", key, _die_img.bind(body, pip))
+	_tex[key] = t
+	return t
+
+
+## Les six faces, peintes pixel par pixel (une centaine de milliers) : gardées sur l'appareil.
+static func _die_img(body: Color, pip: Color) -> Image:
 	var cs := 128
 	var img := Image.create(cs * 3, cs * 2, false, Image.FORMAT_RGBA8)
 	img.fill(body)
@@ -645,9 +652,7 @@ static func _die_tex(body: Color, pip: Color) -> Texture2D:
 						col = col.lerp(pip, clampf(rad + 1.0 - d, 0.0, 1.0))
 				img.set_pixel(ox + x, oy + y, col)
 	img.generate_mipmaps()
-	var t := ImageTexture.create_from_image(img)
-	_tex[key] = t
-	return t
+	return img
 
 
 ## Un dé : la valeur v est en haut quand on le tourne de « die_basis(v) ».
