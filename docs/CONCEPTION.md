@@ -1,6 +1,6 @@
 # Concevoir un lieu
 
-Le contrat ([`COMMUNE.md`](COMMUNE.md)) dit ce que le jeu accepte d'une commune. Cette page dit ce qui donne envie d'y rester : la méthode qui a fait passer L'Isle-Jourdain d'une maquette correcte (0.1) à un bourg que l'on parcourt avec plaisir (0.2), et les leçons de Casino Minuit, de Cloué et de Civaux. Rien ici n'est vérifié par l'emballeur ni par le portail : c'est une méthode, pour un auteur comme pour un Claude ou une équipe d'agents. Validée par Guillaume le 22 octobre 2026.
+Le contrat ([`COMMUNE.md`](COMMUNE.md)) dit ce que le jeu accepte d'une commune. Cette page dit ce qui donne envie d'y rester : la méthode qui a fait passer L'Isle-Jourdain d'une maquette correcte (0.1) à un bourg que l'on parcourt avec plaisir (0.2), et les leçons de Casino Minuit, de Cloué et de Civaux. Rien ici n'est vérifié par l'emballeur ni par le portail : c'est une méthode, pour un auteur comme pour un Claude ou une équipe d'agents. Validée par Guillaume le 22 octobre 2026, puis complétée le même soir après la relecture d'un nouvel auteur parti de zéro : le niveau montré, les questions à poser avant de commencer, la note complète en exemple, le réel, ce qu'on joue, l'outil de parcours, le travail avec Guillaume et le ton.
 
 Elle vaut pour un village, un quartier, un intérieur ou une salle de la bibliothèque. Les échelles changent (un bourg resserré, une vallée, un complexe nocturne, une campagne ouverte), la méthode reste.
 
@@ -15,15 +15,41 @@ Elle vaut pour un village, un quartier, un intérieur ou une salle de la bibliot
 
 Le second verdict ne s'obtient pas en comptant des bâtiments ou des objets ; il se juge à l'impression d'ensemble, à hauteur de joueur. Les tests automatiques et les revues de captures ne remplacent pas un essai par un humain.
 
+## Le niveau visé, montré
+
+Les références se regardent avant d'écrire la note, dans le jeu et sur ces planches :
+
+- **Casino Minuit** (`casino_minuit`), la référence de la submersion, dedans comme dehors : [`references/minuit.jpg`](references/minuit.jpg) (la fontaine, la réception, les machines, le pit, le jardin d'hiver, le sports bar, le bar, la galerie, le foyer).
+- **L'Isle-Jourdain 0.2** (`isle_jourdain` 0.2.2), le premier lieu construit avec cette méthode, que Guillaume a trouvé « très beau » : [`references/isle-jourdain.jpg`](references/isle-jourdain.jpg), prise par `tools/parcours_commune.gd` (par rangée : l'arrivée dans le bourg, le belvédère sur le viaduc, la berge sous les arches, la minoterie ; en vue de dessus, à pied, en se retournant). Sa note complète est l'exemple de [`exemples/INTENTIONS-isle-jourdain.md`](exemples/INTENTIONS-isle-jourdain.md).
+- **Cloué** (`cloue`) : son sports bar est le repère de qualité d'un intérieur remarquable.
+
+Ces paquets sont au catalogue (https://pyramides2.vercel.app/api/communes, le champ `paquet` de chaque commune) : dans le jeu, le carnet (C), « La Vienne », les installe ; `tools/parcours_commune.gd -- <id> --pck=<paquet>` les parcourt dans le SDK. Leurs sources ne sont pas dans le SDK (Minuit pèse à lui seul 15 Mo).
+
+**Availles-Limouzine n'est pas un exemple de niveau.** C'est l'exemple technique du plan réel (`bourg_reel.py`) : 919 maisons du même modèle sur leurs emprises, rien ne s'y joue. Il montre comment lire `bourg.json`, pas à quoi doit ressembler un lieu.
+
+## Avant de commencer : ce que sait le porteur du projet
+
+Guillaume connaît des lieux ce qu'aucune source ne donne (pour Châtellerault : l'industrie, les difficultés sociales, la place du stationnement dans le centre). Avant la note, lui poser une fois, en un seul message :
+
+1. **Ce qu'il sait du lieu** : ce qu'il y a vu, ce qu'on y fait, ce qui le caractérise pour lui, ce qu'il ne faut pas manquer ou pas montrer.
+2. **Les visuels** : a-t-il des photos, des cartes, des souvenirs précis ; en veut-il de notre part (planches, croquis générés) avant de valider ?
+3. **Les inspirations** : un film, un lieu, un jeu, une ambiance ; une commune déjà publiée dont il faut s'approcher ou s'écarter.
+4. **Ce qu'on y joue** : les structures attendues (section « Ce qu'une commune offre en jeu »).
+
+Ses réponses vont en tête de la note. S'il ne répond pas, on part des sources et on le dit dans la note.
+
 ## Avant de construire : la note d'intentions
 
-Une page, écrite avant le premier modèle, qui sert de référence à tous ceux qui construisent. Elle se garde à côté de la commune (`communes/<id>/INTENTIONS.md` : l'emballeur ne met aucun `.md` dans le paquet).
+Une note, écrite avant le premier modèle, qui sert de référence à tous ceux qui construisent. Elle se garde à côté de la commune (`communes/<id>/INTENTIONS.md` : l'emballeur ne met aucun `.md` dans le paquet). Le kit en donne le modèle vide ([`tools/kit/INTENTIONS.md`](../tools/kit/INTENTIONS.md)) ; **l'exemple complet est celui de L'Isle-Jourdain** ([`exemples/INTENTIONS-isle-jourdain.md`](exemples/INTENTIONS-isle-jourdain.md)), avec son équipe et l'auto-critique de sa 0.1. C'est le niveau de détail attendu.
 
 - **L'intention en une phrase.** « Une ville qui descend vers son île, sous un viaduc beaucoup plus grand qu'elle. »
 - **L'atmosphère** : l'heure, la saison, la lumière, ce qui se passe aujourd'hui (une fête qu'on prépare, un marché, une veille de match). Une fiction de mise en scène suffit, présentée comme telle.
-- **Les ancrages réels** : les repères que l'on doit reconnaître (un ouvrage, une silhouette, un matériau), avec leurs sources. La carte peut recomposer les distances pour servir le jeu, mais garde les rapports d'échelle qui font le lieu (le viaduc domine les maisons).
-- **Les trois scènes fortes** (section suivante) et **la continuité** entre elles.
-- **La palette chiffrée** (plus bas).
+- **Ce que sait le porteur du projet** (section précédente).
+- **Les ancrages réels** : les repères que l'on doit reconnaître (un ouvrage, une silhouette, un matériau), leurs dimensions réelles et leurs sources (inventaire Mérimée sur pop.culture.gouv.fr, Atlas des paysages de la Vienne, sites de la commune et du tourisme). La carte peut recomposer les distances pour servir le jeu, mais garde les rapports d'échelle qui font le lieu (le viaduc de 300 m sur 40 domine les maisons). Signaler les **homonymes** (L'Isle-Jourdain du Gers n'est pas celle de la Vienne) et suivre « Représenter le réel ».
+- **Ce que l'on y joue** (section « Ce qu'une commune offre en jeu »).
+- **Les trois scènes fortes** (section suivante), chacune avec son **détail majeur**, et **la continuité** entre elles.
+- **La palette chiffrée en familles**, **le soleil** (direction, hauteur, couleur), **la rugosité des matières** et **les caméras de contrôle** (plus bas).
+- **L'équipe et l'ordre de travail** (« La méthode de travail »).
 - **Ce qui est hors du périmètre** : pas de nouveau revenu, pari ou système de jeu inventé dans un décor ; les jeux existants passent par les structures et les tables du socle ([`COMMUNE.md`](COMMUNE.md), « Les structures »).
 
 ## Trois scènes fortes
@@ -56,7 +82,23 @@ Une table de quelques familles (pierre, enduits, toitures, menuiseries et métal
 | Toitures | tuile variée pour le bourg, ardoise bleutée pour le moulin | `#9B624A`, `#B77B56`, `#424D56` |
 | Eau | vert profond, plus clair dans le peu profond | `#284D4C`, `#48736B`, reflet `#8FAEB4` |
 
-(Extrait de la palette de L'Isle-Jourdain.) La note fixe aussi un réglage de lumière de départ : direction et hauteur du soleil, couleur du ciel et des ombres. Éviter une teinte globale (tout orange, tout bleu) qui écrase les matières ; les ombres restent lisibles. Avant de fabriquer une matière, regarder celles de l'atelier et de la bibliothèque (`Atelier.matiere`, `Bibliotheque.matiere`, [`BIBLIOTHEQUE.md`](BIBLIOTHEQUE.md)).
+(Extrait des sept familles de L'Isle-Jourdain, complètes dans l'exemple.) La note fixe aussi, chiffrés, **le réglage de lumière de départ** (soleil venant de l'ouest-sud-ouest à 24–30°, crème légèrement chaud ; ciel bleu grisé et ombres douces), **la rugosité des matières** (pierre vers 0,85, bois 0,65, métal peint 0,45) et **les caméras de contrôle** (une vue à hauteur d'yeux, une vue de suivi au cran du jeu ; le grand repère peut sortir du cadre à l'approche). Le kit règle son soleil par `SOLEIL` dans `commune.gd`. Éviter une teinte globale (tout orange, tout bleu) qui écrase les matières ; les ombres restent lisibles. Avant de fabriquer une matière, regarder celles de l'atelier et de la bibliothèque (`Atelier.matiere`, `Bibliotheque.matiere`, [`BIBLIOTHEQUE.md`](BIBLIOTHEQUE.md)).
+
+## Représenter le réel
+
+Les communes sont réelles ; ce que le jeu y met est une fiction, et elle doit se lire comme telle.
+
+- **Fiction présentée comme telle.** Une fête, une livraison, un personnage, une intrigue sont des inventions de mise en scène ; la note et la `description` ne les donnent pas pour des faits ni pour des événements annoncés.
+- **Aucune généralisation sur les habitants.** Une difficulté sociale, un métier, une communauté peuvent nourrir des personnages et des intrigues inventés ; ils ne valent jamais constat sur les gens du lieu. Pas de moquerie d'un lieu ni de ses habitants : le ton du jeu ([`BIBLE.md`](BIBLE.md)) vise le jeu d'argent, pas eux.
+- **Des noms vérifiés.** Rues, monuments, rivières et lieux-dits gardent leur nom réel, vérifié sur deux sources ; les commerces, les habitants et leurs histoires sont inventés, et aucun personnage ne ressemble à une personne réelle (la règle de Smarves, [`BIBLE.md`](BIBLE.md), « La géographie »).
+- **Des entreprises réelles.** Une entreprise, une association ou un club qui existe (un spectacle de rapaces, un circuit, un club de football) n'est ni nommé ni représenté par sa marque, son logo ou ses personnes : on invente un équivalent plausible, sous un autre nom, et on ne lui prête rien de négatif. Un monument public ou un paysage se représentent librement.
+- **Des photos datées.** Une photo ou une page consultée ne prouve pas l'état actuel d'un bâtiment ; la note dit leur date. Les sources et leurs licences vont dans `licence` et `sources` du manifeste.
+
+## Ce qu'une commune offre en jeu
+
+Le joueur vient dans une commune pour s'y promener **et pour y jouer**. Les communes publiées offrent presque toutes **un stade** (`terrain_foot`, un club dans le championnat de la Vienne), **une salle de jeu** (`salle_jeu`, avec son tenancier et ses tables) et **un commerce** (`commerce`), souvent un arrêt de car ; Minuit a aussi son gymnase. C'est l'attendu par défaut d'une commune publiée ; une maquette visitable sans jeu (comme L'Isle-Jourdain 0.2) le dit dans sa `description` et dans sa note, et dit quand ses lieux ouvriront.
+
+Tout passe par les **structures du socle** ([`COMMUNE.md`](COMMUNE.md), « Les structures ») et la bibliothèque commune ([`BIBLIOTHEQUE.md`](BIBLIOTHEQUE.md)) : le stade de campagne et la salle de quartier s'y prennent tout faits. Un lieu ne fabrique ni ses tables ni ses règles, n'invente ni revenu ni pari, et suit la règle des lieux du monde : on joue à l'intérieur, et les gains au jeu ouvrent les salles par seuils ([`BIBLE.md`](BIBLE.md), « Les lieux »). Les noms et les répliques des tenanciers suivent le ton et le vocabulaire de la bible.
 
 ## L'animation et la vie
 
@@ -105,11 +147,39 @@ Tout ce qui bouge se paie à chaque image, et le téléphone le sent d'abord. Le
 3. **Approfondissement, au moins deux passes.** Reprendre ce qui est générique, les raccords pauvres, les détails visibles de près ; installer la vie et le son dans des espaces déjà traversables ; étendre la qualité des trois scènes aux liaisons. Chaque passe se termine par le second verdict (« ça surprend ? »), pas seulement le premier.
 4. **Critique indépendante, puis finition.** La finition ne vient qu'après les reprises de fond sur les volumes, les matières, les parcours et la vie.
 
+## Juger à hauteur de joueur
+
+[`tools/parcours_commune.gd`](../tools/parcours_commune.gd) parcourt n'importe quelle commune, en source ou en paquet, comme le ferait un joueur. La scène porte un `Marker3D` par point de vue, nommé `Vue1_…`, `Vue2_…` dans l'ordre de la promenade (le kit en pose trois, un par scène forte), son -Z tourné vers ce qu'on doit voir. L'outil y pose l'habitant, vérifie qu'il tient au sol, le fait marcher de chaque repère au suivant, et photographie chacun trois fois : en vue de dessus au cran du jeu, à pied à hauteur d'yeux, à pied en se retournant. Il range les images et un rapport (temps de chargement, poses, marches, blocages avec leur position et leur capture) dans `user://parcours/<id>/`.
+
+```sh
+godot --path . -s tools/parcours_commune.gd -- <id>                         # avec le rendu : captures et marches
+godot --headless --path . -s tools/parcours_commune.gd -- <id>              # les marches seulement
+godot --path . -s tools/parcours_commune.gd -- <id> --pck=build/<id>.pck    # le paquet tel que le joueur le reçoit
+godot --path . -s tools/parcours_commune.gd -- cloue --pck=cloue.pck --point=x,y,z,lacet   # un endroit précis
+```
+
+Deux repères qui se suivent doivent se rejoindre à pied presque en ligne droite : pour un détour (un escalier, une porte, un pont), posez un repère au coude. Une marche bloquée signale un mur, une marche trop haute ou un accès manquant. Les captures servent au second verdict (« ça surprend ? ») et à la critique indépendante ; elles ne remplacent pas un essai par un humain.
+
 ## La critique indépendante
 
-Un regard qui n'a pas construit le lieu, avec **un brief de joueur** : où il arrive et ce qu'on lui promet, sans explication de développement. Il parcourt, prend ses captures à hauteur de joueur et juge à trois échelles : la silhouette dans le paysage, la composition d'un parcours, le détail à côté du personnage.
+Un regard qui n'a pas construit le lieu, avec **un brief de joueur** : où il arrive et ce qu'on lui promet, sans explication de développement. Il parcourt avec `tools/parcours_commune.gd` puis à la main, prend ses captures à hauteur de joueur et juge à trois échelles : la silhouette dans le paysage, la composition d'un parcours, le détail à côté du personnage.
 
 Il relève les répétitions, les ruptures d'échelle, les accès manquants, les zones faibles entre les scènes, les promesses d'interaction non tenues, la vie qui ne raconte rien. Il rend ses deux verdicts séparément, et dit ce qu'il n'a pas pu éprouver (fluidité sur téléphone, confort tactile, sons à l'écoute).
+
+## Travailler avec Guillaume
+
+Guillaume porte le projet. Il donne la direction et juge le résultat ; entre les deux, l'auteur a carte blanche.
+
+1. **Les questions d'abord** (« Avant de commencer »), en un seul message.
+2. **La note d'intentions et l'équipe, validées avant tout lancement.** On lui présente la note (au moins l'intention, les trois scènes, les ancrages, ce qu'on y joue) et l'équipe proposée avec son ordre de travail, puis on attend son accord. Aucun agent de production n'est lancé avant.
+3. **Puis carte blanche.** Une fois validées, on construit sans redemander : les choix de composition, de noms de lieux et de personnages sont ceux de l'auteur. On ne revient vers lui que pour un choix qui change l'intention.
+4. **La livraison** comprend toujours : le paquet (`build/<id>.pck`, emballé et passé par `test_commune` et `parcours_commune`), un mode d'emploi court (installer le paquet, la promenade conseillée, ce qui est nouveau), les sources (le dossier de la commune, la note d'intentions, les sources réelles et leurs dates) et des captures prises dans le jeu à hauteur de joueur. Le message dit, à part, ce qui reste à éprouver par un humain (fluidité sur sa machine et son téléphone, sons à l'écoute, confort tactile).
+5. **L'auto-critique, quand il la demande** : franche, par rapport à l'objectif de départ et pas au seul « rien ne bloque » ; ce qui marche, les écarts importants, l'erreur de pilotage s'il y en a une, et ce qu'on reprendrait d'abord. L'exemple est celui de L'Isle-Jourdain 0.1 ([`exemples/INTENTIONS-isle-jourdain.md`](exemples/INTENTIONS-isle-jourdain.md), à la fin).
+6. **La version précédente est conservée** : chaque livraison garde la précédente (son paquet et ses sources), et chaque dépôt sur le portail porte une version plus haute.
+
+## Le ton du jeu
+
+Les noms, les répliques des tenanciers, les enseignes et la `description` suivent la bible du monde, commune à toutes les communes : le ton (coloré et décalé, au premier degré, pour des adultes, jamais de morale), l'époque (un présent qui a gardé ses années 1980, sans portable ni internet), la règle des lieux et des seuils, l'économie en crédits et le vocabulaire. Dans le SDK, [`BIBLE.md`](BIBLE.md) en est l'extrait commun ; ce qui est propre à Smarves (ses lieux, ses personnages, son récit) n'y est pas, et chaque commune invente le sien dans sa propre géographie.
 
 ## Les pièges déjà rencontrés
 

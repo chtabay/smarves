@@ -285,14 +285,16 @@ def nouvelle_commune(insee, id="", nom="", dossier=""):
         raise Erreur("%s existe déjà : je n'écrase pas une commune." % (d / "commune.json"))
     d.mkdir(parents=True, exist_ok=True)
     faits = []
-    for nom_f in ("commune.json", "commune.tscn", "commune.gd"):
+    for nom_f in ("commune.json", "commune.tscn", "commune.gd", "INTENTIONS.md"):
         t = _lire("tools/kit/" + nom_f).replace("La caisse de __NOM__", nom_de_caisse(nom)).replace("__ID__", id).replace("__NOM__", nom).replace("__INSEE__", str(insee))
         if nom_f == "commune.json":
             t = t.replace('"population": 0', '"population": %d' % int(ref.get("population", 0)))
         (d / nom_f).write_text(t, encoding="utf-8")
         faits.append(str((d / nom_f).relative_to(RACINE)) if RACINE in d.parents else str(d / nom_f))
-    return ("Commune « %s » (id « %s ») créée depuis le kit :\n%s\nÀ remplir dans commune.json : auteur, "
-            "description, licence, sources, lieux et banque. Puis tester_commune." % (nom, id, "\n".join("- " + f for f in faits)))
+    return ("Commune « %s » (id « %s ») créée depuis le kit :\n%s\nD'abord la note d'intentions (INTENTIONS.md, "
+            "outil conception) et les questions au porteur du projet, avant le premier modèle. À remplir dans "
+            "commune.json : auteur, description, licence, sources, lieux et banque. Puis tester_commune et "
+            "parcourir_commune." % (nom, id, "\n".join("- " + f for f in faits)))
 
 
 def tester_commune(id="", dossier="", pck=""):
@@ -305,6 +307,23 @@ def tester_commune(id="", dossier="", pck=""):
             cmd.append("--depuis=" + _res(_dossier(id, dossier)))
         elif not (RACINE / "communes" / id).is_dir():
             cmd.append("--depuis=" + _res(_dossier(id)))
+    code, sortie = _lancer(cmd)
+    return ("RÉUSSI" if code == 0 else "ÉCHEC (code %d)" % code) + "\n" + sortie
+
+
+def parcourir_commune(id="", dossier="", pck="", reperes="", rendu=False):
+    cmd = [_godot()] + ([] if rendu else ["--headless"]) + ["--path", str(RACINE), "-s", "tools/parcours_commune.gd", "--"]
+    if id:
+        cmd.append(id)
+    if pck:
+        cmd.append("--pck=" + str(Path(pck).resolve()))
+    elif id:
+        if dossier:
+            cmd.append("--depuis=" + _res(_dossier(id, dossier)))
+        elif not (RACINE / "communes" / id).is_dir():
+            cmd.append("--depuis=" + _res(_dossier(id)))
+    if reperes:
+        cmd.append("--reperes=" + reperes)
     code, sortie = _lancer(cmd)
     return ("RÉUSSI" if code == 0 else "ÉCHEC (code %d)" % code) + "\n" + sortie
 
@@ -337,11 +356,12 @@ OUTILS = {
                 "les structures, le kit de départ, le paquet, la publication. Sans section : la liste des sections.",
                 {"section": {"type": "string", "description": "un mot du titre : « fournit », « structures », « paquet », « kit », « publier »…"}}, []),
     "conception": (conception, "La méthode pour concevoir un lieu réussi (docs/CONCEPTION.md), à lire avant de "
-                   "construire : le critère (le lieu surprend, pas seulement « rien ne bloque »), la note d'intentions, "
-                   "les trois scènes fortes, la continuité habitée, la palette chiffrée, l'animation et la vie "
-                   "(habitants, mécanismes, eau, enseignes, son, coût), la méthode de travail, la critique "
-                   "indépendante, les pièges. Sans section : l'introduction et la liste des sections.",
-                   {"section": {"type": "string", "description": "un mot du titre : « critère », « intentions », « scènes », « continuité », « palette », « animation », « habitants », « méthode », « critique », « pièges », ou « tout »"}}, []),
+                   "construire : le critère (le lieu surprend, pas seulement « rien ne bloque »), le niveau visé, les "
+                   "questions au porteur du projet, la note d'intentions (modèle et exemple complet), les trois scènes "
+                   "fortes, la continuité habitée, la palette chiffrée, représenter le réel, ce qu'une commune offre "
+                   "en jeu, l'animation et la vie, la méthode de travail, juger à hauteur de joueur, la critique "
+                   "indépendante, travailler avec Guillaume et livrer, le ton, les pièges. Sans section : l'introduction et la liste des sections.",
+                   {"section": {"type": "string", "description": "un mot du titre : « critère », « niveau », « commencer », « intentions », « scènes », « continuité », « palette », « réel », « jeu », « animation », « habitants », « méthode », « hauteur », « critique », « Guillaume », « ton », « pièges », ou « tout »"}}, []),
     "atelier": (atelier, "Ce que le jeu prête aux communes sans rien embarquer : modèles 3D par famille, maisons "
                 "à façades, figurants, meubles, sons, matières, polices, scènes du socle (le stade). Donne aussi "
                 "l'appel GDScript (classe Atelier). Sans argument : le résumé.",
@@ -351,8 +371,9 @@ OUTILS = {
     "verifier_manifeste": (verifier_manifeste, "Vérifie vite un commune.json (champs obligatoires, id, INSEE, scène, "
                            "marques du kit) et signale ce que le portail affichera vide.",
                            {"id": _ID, "dossier": _DOSSIER, "texte": {"type": "string", "description": "le manifeste lui-même, au lieu d'un fichier"}}, []),
-    "nouvelle_commune": (nouvelle_commune, "Crée une commune depuis le kit de départ (scène avec habitant, caméra, "
-                         "lumière, sol, panneau, une rue et des figurants de l'atelier), dans communes/<id>/.",
+    "nouvelle_commune": (nouvelle_commune, "Crée une commune depuis le kit de départ dans communes/<id>/ : le "
+                         "manifeste, une scène sans décor (habitant, caméra, lumière réglable, sol, arrivée et trois "
+                         "repères de vue) et la note d'intentions à remplir avant le premier modèle.",
                          {"insee": {"type": "string", "description": "le code INSEE (« 86290 ») : le nom et la population viennent du référentiel du jeu"},
                           "id": {"type": "string", "description": "l'id, sinon tiré du nom (« la_villedieu_du_clain »)"},
                           "nom": {"type": "string", "description": "le nom affiché, sinon celui du référentiel"}, "dossier": _DOSSIER}, ["insee"]),
@@ -360,6 +381,13 @@ OUTILS = {
                        "manifeste est valide, la scène expose player et camera, l'habitant se pose et marche. Sans "
                        "argument : le kit lui-même.",
                        {"id": _ID, "dossier": _DOSSIER, "pck": {"type": "string", "description": "un paquet déjà emballé, testé tel quel"}}, []),
+    "parcourir_commune": (parcourir_commune, "Juge à hauteur de joueur, avec Godot : pose l'habitant sur chaque repère "
+                          "de vue de la scène (Marker3D Vue1_…, Vue2_…), vérifie qu'il tient au sol et qu'on va à pied "
+                          "d'un repère au suivant ; avec rendu=true (Godot avec un écran), photographie chaque repère de "
+                          "dessus, à pied et en se retournant. Captures et rapport dans user://parcours/<id>/.",
+                          {"id": _ID, "dossier": _DOSSIER, "pck": {"type": "string", "description": "un paquet déjà emballé, parcouru tel quel"},
+                           "reperes": {"type": "string", "description": "le début du nom des repères à suivre (« Vue » par défaut)"},
+                           "rendu": {"type": "boolean", "description": "true pour les captures (demande un écran)"}}, []),
     "emballer_commune": (emballer_commune, "Emballe la commune en build/<id>.pck avec Godot, par les mêmes refus que "
                          "le jeu, et donne sa taille (32 Mo au plus sur le portail).",
                          {"id": _ID, "dossier": _DOSSIER}, ["id"]),

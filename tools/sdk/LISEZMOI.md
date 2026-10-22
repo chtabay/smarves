@@ -11,8 +11,13 @@ Le village de Smarves lui-même (sa place, son casino, ses intérieurs) n'y est 
 tient sa place.
 
 Le contrat entre le jeu et une commune est dans `docs/COMMUNE.md`. Ce qui fait un lieu réussi, et la
-méthode pour y arriver (intentions, trois scènes fortes, continuité habitée, palette, animation et
-vie, critique indépendante), est dans `docs/CONCEPTION.md` : à lire avant de construire.
+méthode pour y arriver, est dans `docs/CONCEPTION.md` : **à lire avant de construire**. On y trouve le
+niveau visé (planches de Casino Minuit et de L'Isle-Jourdain dans `docs/references/`), les questions à
+poser au porteur du projet avant de commencer, la note d'intentions (le modèle vide est
+`tools/kit/INTENTIONS.md`, l'exemple complet `docs/exemples/INTENTIONS-isle-jourdain.md`), les règles
+pour représenter le réel, ce qu'une commune offre en jeu, la façon de travailler avec Guillaume et de
+livrer. Le ton, l'époque, le vocabulaire et l'économie en crédits sont dans `docs/BIBLE.md` (l'extrait
+commun de la bible du jeu) ; la carte et les structures partagées dans `docs/SUITE.md` (extrait).
 
 ## 1. Ouvrir le SDK
 
@@ -31,8 +36,8 @@ godot --headless --path . -s tools/test_commune.gd          # le kit de départ 
 ## 2. Créer sa commune
 
 Copier le kit de départ téléchargé sur le portail des développeurs : son dossier `communes/<id>/`
-va dans `communes/`. On peut aussi partir du modèle `tools/kit/`, en remplaçant `__ID__`, `__NOM__`
-et `__INSEE__`. Avec Claude, demandez `nouvelle_commune` en donnant le code INSEE (section 4).
+(manifeste, scène, script et note d'intentions à remplir) va dans `communes/`. On peut aussi partir du
+modèle `tools/kit/`, en remplaçant `__ID__`, `__NOM__` et `__INSEE__`. Avec Claude, demandez `nouvelle_commune` en donnant le code INSEE (section 4).
 
 ```sh
 godot --headless --path . -s tools/test_commune.gd -- <id>
@@ -43,8 +48,10 @@ caméra, que l'habitant se pose au sol et qu'il marche.
 
 ## 3. Construire avec le socle
 
-Avant le premier modèle, une page d'intentions (`communes/<id>/INTENTIONS.md`, que l'emballeur
-laisse hors du paquet) : `docs/CONCEPTION.md`, « Avant de construire ».
+Avant le premier modèle, la note d'intentions (`communes/<id>/INTENTIONS.md`, d'après
+`tools/kit/INTENTIONS.md` ; l'emballeur la laisse hors du paquet) : `docs/CONCEPTION.md`, « Avant de
+construire ». La scène du kit ne pose aucun décor : un sol, une lumière réglable (`SOLEIL`), l'arrivée
+et trois repères `Vue1_…`, `Vue2_…`, `Vue3_…`, un par scène forte.
 
 - **L'atelier** (`scripts/socle/atelier.json`, classe `Atelier`) : modèles 3D, maisons à façades,
   figurants, meubles, sons, matières. Ils sont déjà dans le jeu chez le joueur : rien ne part dans
@@ -68,8 +75,16 @@ laisse hors du paquet) : `docs/CONCEPTION.md`, « Avant de construire ».
   « Les tables du casino ».
 - **Le vrai bourg** : `python3 -I tools/bourg_reel.py <id>` tire d'OpenStreetMap et de l'IGN les
   rues, les bâtiments, l'eau et le relief.
-- **Un exemple complet** : Availles-Limouzine (`tools/paquet_essai/availles_limouzine/`), bâtie dans
-  sa disposition réelle depuis `bourg.json`, avec ses lieux remarquables dessinés d'après photo.
+- **Juger à hauteur de joueur** : `tools/parcours_commune.gd` pose l'habitant sur chaque repère `Vue…`
+  de la scène, le photographie en vue de dessus, à pied et en se retournant, et vérifie qu'on va à pied
+  d'un repère au suivant ; il marche aussi sur un paquet (`--pck=`) et sur un point donné (`--point=`).
+  ```sh
+  godot --path . -s tools/parcours_commune.gd -- <id>     # captures et rapport dans user://parcours/<id>/
+  ```
+- **Un exemple technique** : Availles-Limouzine (`tools/paquet_essai/availles_limouzine/`), bâtie dans
+  sa disposition réelle depuis `bourg.json`. Il montre comment lire le plan réel, pas le niveau visé :
+  ses maisons sont toutes du même modèle et rien ne s'y joue. Les références de niveau sont au
+  catalogue (Casino Minuit, Cloué, L'Isle-Jourdain), voir `docs/CONCEPTION.md`, « Le niveau visé ».
   `godot --headless --path . -s tools/test_availles.gd` l'emballe et l'essaie.
 
 ## 4. Avec Claude
