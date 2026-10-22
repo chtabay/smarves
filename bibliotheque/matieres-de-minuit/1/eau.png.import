@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dgj1aynkajp80"
-path="res://.godot/imported/eau.png-393fc76fc9c5e11f8c50d2e8e07127e6.ctex"
+path.s3tc="res://.godot/imported/eau.png-393fc76fc9c5e11f8c50d2e8e07127e6.s3tc.ctex"
+path.etc2="res://.godot/imported/eau.png-393fc76fc9c5e11f8c50d2e8e07127e6.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://bibliotheque/matieres-de-minuit/1/eau.png"
-dest_files=["res://.godot/imported/eau.png-393fc76fc9c5e11f8c50d2e8e07127e6.ctex"]
+dest_files=["res://.godot/imported/eau.png-393fc76fc9c5e11f8c50d2e8e07127e6.s3tc.ctex", "res://.godot/imported/eau.png-393fc76fc9c5e11f8c50d2e8e07127e6.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
