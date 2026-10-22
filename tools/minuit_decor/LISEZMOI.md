@@ -33,5 +33,7 @@ textures avec une police de secours. Un export qui montre une police sans empatt
 sur le jackpot est à refaire.
 
 Ensuite, côté Godot : régler l'import de `decor/*.glb` (sans tangentes, sans LOD, sans maillage d'ombre) et de
-`decor/tex/*.png` (sans perte, avec mipmaps) et de `decor/ecrans/*.png` (sans perte, sans mipmaps) avec
-`python3 -I regler_import.py <decor>`, réimporter (`godot --headless --import`), puis emballer comme d'habitude.
+`decor/tex/*.png` (sans perte, avec mipmaps, bornées à 1024 px quand les deux côtés en ont au moins autant) et
+de `decor/ecrans/*.png` (sans perte, sans mipmaps) avec `python3 -I regler_import.py <decor>`, réimporter
+(`godot --headless --import`), puis emballer comme d'habitude. Le monde des PNJ s'exporte compressé :
+`node exporter_pnj.mjs <paquet>/donnees/pnj_monde.json.gz …` (le paquet le lit par `Atelier.donnees`).

@@ -104,6 +104,12 @@ static func faire(modele: String, teintes := {}) -> Node3D:
 	m.scale = Vector3.ONE * ECHELLE[os]
 	m.rotation.y = PI
 	f.add_child(m)
+	# Les bouts d'os du fichier (Head_end, Foot_L_end…) arrivent en BoneAttachment3D qui ne portent rien et se
+	# recalculent à chaque image : trente-quatre nœuds par figurant, sept mille cinq cents à Casino Minuit.
+	for ba in m.find_children("*", "BoneAttachment3D", true, false):
+		if ba.find_children("*", "VisualInstance3D", true, false).is_empty():
+			ba.get_parent().remove_child(ba)
+			ba.free()
 	for mi in m.find_children("*", "MeshInstance3D", true, false):
 		var mesh: Mesh = (mi as MeshInstance3D).mesh
 		(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -199,6 +205,8 @@ class Figurant extends Node3D:
 	func _ready() -> void:
 		if geste_courant == "":
 			jouer("idle")
+		# Un figurant immobile n'a rien à faire à chaque image ; suivre() le remet en marche.
+		set_process(not circuit.is_empty())
 
 	## Joue un geste (« idle », « walk », « sit », « talk »…), d'un fondu ; décale le départ pour que
 	## deux figurants voisins ne bougent pas ensemble.
@@ -228,6 +236,7 @@ class Figurant extends Node3D:
 		_i = depart % points.size()
 		position = points[_i]
 		_i = (_i + 1) % points.size()
+		set_process(true)
 		jouer("walk")
 
 	func _process(dt: float) -> void:

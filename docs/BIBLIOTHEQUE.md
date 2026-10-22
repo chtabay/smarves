@@ -130,6 +130,8 @@ Le code des règles est `tools/regles_paquet.gd` (test : `godot --headless --pat
 
 **Mesure sur Minuit** (22 octobre 2026, paquet refait par l'emballeur sans rien changer au dossier, et non republié) : **27,5 Mo → 17,8 Mo**, 76 textures passées en WebP avec perte (les 53 autres font 256 px ou moins). Il ne reste à alléger que `pnj_monde.json` (1,4 Mo, environ 0,2 Mo compressé), qui demande à Minuit de le lire par `Atelier.donnees`. Les matières de la DA (étape 4) et le stade par ses ancres viendront à la reconstruction du paquet.
 
+**Reprise de Minuit 0.10.0** (22 octobre 2026, socle 1.16) : `pnj_monde.json` part en `.gz` (206 Ko) et le paquet tombe à **14,7 Mo**, sans plus rien à alléger côté règles. Au budget, la scène du casino passe de 16 498 à 7 701 nœuds (les collisions d'une zone partagent un seul corps), de 256 à 36 scripts actifs, de 255,7 à 199,7 Mo de textures (textures du décor bornées à 1024 px) et sous le seuil de triangles (580 567). Les 110 Mo de textures restants sont les tapis des tables du socle (un SubViewport par table) : les ramener sous 96 Mo est une décision du socle. Le Dôme hors match passe de 938 816 à 359 072 triangles (seuls les sièges occupés sont dessinés).
+
 ## Les étapes du chantier
 
 Chacune est utile seule, et rien ne change dans la première salle.

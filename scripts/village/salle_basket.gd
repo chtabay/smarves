@@ -70,6 +70,8 @@ var _bandeau_score: Label
 var _bandeau_fait: Label
 ## La foule, en un seul maillage multiple, et ceux qui vivent : les joueurs, l'entraîneur, la mascotte.
 var _foule: MultiMeshInstance3D
+## La teinte de chaque place, dans l'ordre de _places.
+var _teintes_foule: Array[Color] = []
 var _places: Array = []
 var _joueurs: Array = []
 var _parcours_t := 0.0
@@ -600,12 +602,14 @@ func _foule_assise() -> void:
 	mm.instance_count = _places.size()
 	var h := Hasard.depuis(4242)
 	var teintes := [_c1(), _c2(), Color(0.85, 0.85, 0.85), Color(0.2, 0.2, 0.22), Color(0.6, 0.15, 0.15), Color(0.25, 0.35, 0.55)]
+	_teintes_foule.clear()
 	for i in _places.size():
 		var t: Transform3D = _places[i]
 		t.origin.y += 0.42
 		mm.set_instance_transform(i, t)
 		var c: Color = teintes[0] if h.suivant() < 0.35 else teintes[h.entier(0, teintes.size() - 1)]
-		mm.set_instance_color(i, c.darkened(h.suivant() * 0.3))
+		_teintes_foule.append(c.darkened(h.suivant() * 0.3))
+		mm.set_instance_color(i, _teintes_foule[i])
 	_foule = MultiMeshInstance3D.new()
 	_foule.multimesh = mm
 	_foule.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -1481,17 +1485,19 @@ func _remplir(part: float) -> void:
 		d.debug_anim("idle")
 	if _foule == null:
 		return
+	# Les places prises passent en tête du maillage multiple, avec leur teinte, et lui seul les dessine
+	# (visible_instance_count) : une salle d'entraînement ne fait plus tourner dix mille silhouettes vides.
 	var mm := _foule.multimesh
 	var h := Hasard.depuis(77)
 	var n := 0
 	for i in _places.size():
-		var t: Transform3D = _places[i]
-		t.origin.y += 0.42
 		if h.suivant() < part:
+			var t: Transform3D = _places[i]
+			t.origin.y += 0.42
+			mm.set_instance_transform(n, t)
+			mm.set_instance_color(n, _teintes_foule[i])
 			n += 1
-		else:
-			t = t.scaled_local(Vector3.ZERO)
-		mm.set_instance_transform(i, t)
+	mm.visible_instance_count = n
 	_foule.set_meta("prises", n)
 
 

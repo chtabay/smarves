@@ -176,11 +176,11 @@ func _build() -> void:
 	var n := 0
 	for k in 9:
 		var a := PI * k / 8.0
-		KIT.sphere(0.016, Vector3(cos(a) * 0.335, 1.84 + sin(a) * 0.15, 0.142), _bulbs_a if n % 2 == 0 else _bulbs_b, self)
+		KIT.sphere(0.016, Vector3(cos(a) * 0.335, 1.84 + sin(a) * 0.15, 0.142), _bulbs_a if n % 2 == 0 else _bulbs_b, self, 8)
 		n += 1
 	for k in 6:
 		for x in [-0.33, 0.33]:
-			KIT.sphere(0.014, Vector3(x, 1.5 + k * 0.06, 0.142), _bulbs_a if n % 2 == 0 else _bulbs_b, self)
+			KIT.sphere(0.014, Vector3(x, 1.5 + k * 0.06, 0.142), _bulbs_a if n % 2 == 0 else _bulbs_b, self, 8)
 			n += 1
 	# Le bras.
 	_lever = Node3D.new()

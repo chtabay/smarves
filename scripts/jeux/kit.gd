@@ -260,12 +260,12 @@ static func cyl(r: float, h: float, pos: Vector3, material: Material, parent: No
 	return mesh_node(cm, material, parent, pos)
 
 
-static func sphere(r: float, pos: Vector3, material: Material, parent: Node3D) -> MeshInstance3D:
+static func sphere(r: float, pos: Vector3, material: Material, parent: Node3D, sides := 24) -> MeshInstance3D:
 	var sm := SphereMesh.new()
 	sm.radius = r
 	sm.height = r * 2.0
-	sm.radial_segments = 24
-	sm.rings = 12
+	sm.radial_segments = sides
+	sm.rings = sides / 2
 	return mesh_node(sm, material, parent, pos)
 
 
