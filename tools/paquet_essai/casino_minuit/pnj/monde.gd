@@ -49,11 +49,12 @@ var zones_closes: Array = []
 ## zones_closes : les lieux fermés par un seuil du joueur, tenus pour des zones du personnel (les clients n'y vont
 ## pas, le personnel si).
 func charger(chemin: String, closes := []) -> bool:
-	var f := FileAccess.open(chemin, FileAccess.READ)
-	if f == null:
+	# Le fichier est rangé compressé (pnj_monde.json.gz, règles des paquets du socle 1.15) : l'atelier lit
+	# l'un ou l'autre.
+	if not FileAccess.file_exists(chemin) and not FileAccess.file_exists(chemin + ".gz"):
 		push_error("[pnj] monde introuvable : " + chemin)
 		return false
-	var d = JSON.parse_string(f.get_as_text())
+	var d = Atelier.donnees(chemin)
 	if not d is Dictionary:
 		push_error("[pnj] monde illisible : " + chemin)
 		return false

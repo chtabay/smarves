@@ -602,17 +602,25 @@ func disque(nom_mat: String, cx: float, cz: float, r: float, y: float, seg := 64
 
 # --- Volumes qu'on ne traverse pas ---------------------------------------------------------------
 
+## Les volumes d'une zone partagent un seul corps : une forme par volume, posée par son propriétaire de
+## formes, sans nœud à elle (budget du socle 1.16 : les zones en posaient plus de mille trois cents).
+func forme(xf: Transform3D, s: Shape3D) -> void:
+	var corps: StaticBody3D = zone.get_meta("corps") if zone.has_meta("corps") else null
+	if corps == null:
+		corps = StaticBody3D.new()
+		corps.name = "Collisions"
+		zone.add_child(corps)
+		zone.set_meta("corps", corps)
+	var id := corps.create_shape_owner(corps)
+	corps.shape_owner_add_shape(id, s)
+	corps.shape_owner_set_transform(id, xf)
+
+
 ## Un pavé de collision w × h × d centré en (x, y, z).
 func solide(w: float, h: float, d: float, x: float, y: float, z: float, ry := 0.0) -> void:
-	var corps := StaticBody3D.new()
-	corps.position = Vector3(x, y, z)
-	corps.rotation.y = ry
-	var f := CollisionShape3D.new()
 	var b := BoxShape3D.new()
 	b.size = Vector3(w, h, d)
-	f.shape = b
-	corps.add_child(f)
-	zone.add_child(corps)
+	forme(Transform3D(Basis(Vector3.UP, ry), Vector3(x, y, z)), b)
 
 
 ## Un rectangle au sol qu'on ne traverse pas (addBox du moteur web), haut de h.
@@ -622,15 +630,10 @@ func obstacle(x0: float, x1: float, z0: float, z1: float, y := 0.0, h := 2.4) ->
 
 ## Un cylindre qu'on ne traverse pas (addCircle).
 func rond(x: float, z: float, r: float, y := 0.0, h := 2.4) -> void:
-	var corps := StaticBody3D.new()
-	corps.position = Vector3(x, y + h / 2.0, z)
-	var f := CollisionShape3D.new()
 	var c := CylinderShape3D.new()
 	c.radius = r
 	c.height = h
-	f.shape = c
-	corps.add_child(f)
-	zone.add_child(corps)
+	forme(Transform3D(Basis(), Vector3(x, y + h / 2.0, z)), c)
 
 
 ## Un segment qu'on ne traverse pas, d'épaisseur e (addSeg : garde-corps, tambour).
@@ -649,15 +652,10 @@ func rampe(x: float, largeur: float, z0: float, y0: float, z1: float, y1: float)
 	var dz := z1 - z0
 	var dy := y1 - y0
 	var l := Vector2(dz, dy).length()
-	var corps := StaticBody3D.new()
-	corps.position = Vector3(x, (y0 + y1) / 2.0 - 0.15, (z0 + z1) / 2.0)
-	corps.rotation.x = atan2(dy, -dz) if dz < 0.0 else -atan2(dy, dz)
-	var f := CollisionShape3D.new()
 	var b := BoxShape3D.new()
 	b.size = Vector3(largeur, 0.3, l)
-	f.shape = b
-	corps.add_child(f)
-	zone.add_child(corps)
+	var rx := atan2(dy, -dz) if dz < 0.0 else -atan2(dy, dz)
+	forme(Transform3D(Basis(Vector3.RIGHT, rx), Vector3(x, (y0 + y1) / 2.0 - 0.15, (z0 + z1) / 2.0)), b)
 
 
 # --- Lumière, textes ------------------------------------------------------------------------------

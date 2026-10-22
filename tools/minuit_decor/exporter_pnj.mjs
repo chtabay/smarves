@@ -8,6 +8,7 @@
 import { createRequire } from 'module';
 import { spawn } from 'child_process';
 import fs from 'fs';
+import zlib from 'zlib';
 import path from 'path';
 import { fileURLToPath } from 'url';
 const require = createRequire(import.meta.url);
@@ -98,7 +99,9 @@ function findChromium() { const base = '/opt/pw-browsers'; for (const d of fs.re
       stats: { nodes: W.nav.nodes.length, edges: W.nav.edges.length, npcs: C.npc.list.length } };
   });
   const verif = res.verif; delete res.verif;
-  fs.writeFileSync(OUT, JSON.stringify(res));
+  // Au-delà de 100 Ko, une donnée part compressée (règle 3 des paquets) : pnj_monde.json devient pnj_monde.json.gz.
+  if (OUT.endsWith('.gz')) fs.writeFileSync(OUT, zlib.gzipSync(JSON.stringify(res), { level: 9 }));
+  else fs.writeFileSync(OUT, JSON.stringify(res));
   if (VERIF) fs.writeFileSync(VERIF, JSON.stringify(verif));
   console.log('niveaux', res.levels.length, 'obstacles', res.colliders.length, 'nœuds', res.nodes.length, 'arêtes', res.edges.length, 'stations', res.stations.length, 'gabarits', res.templates.length, 'points', Object.keys(res.points).map(k => k + ':' + res.points[k].length).join(' '));
   await browser.close(); process.exit(0);

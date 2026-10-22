@@ -455,15 +455,9 @@ static func pente_solide(K, x0: float, y0: float, x1: float, y1: float, z: float
 	var th := atan2(y1 - y0, x1 - x0)
 	var l := Vector2(x1 - x0, y1 - y0).length()
 	var nrm := Vector3(-sin(th), cos(th), 0)
-	var corps := StaticBody3D.new()
-	corps.position = Vector3((x0 + x1) / 2.0, (y0 + y1) / 2.0, z) + nrm * (h / 2.0)
-	corps.rotation.z = th
-	var f := CollisionShape3D.new()
 	var b := BoxShape3D.new()
 	b.size = Vector3(l, absf(h), w)
-	f.shape = b
-	corps.add_child(f)
-	K.zone.add_child(corps)
+	K.forme(Transform3D(Basis(Vector3.BACK, th), Vector3((x0 + x1) / 2.0, (y0 + y1) / 2.0, z) + nrm * (h / 2.0)), b)
 
 
 ## La volée d'un escalator, qu'on gravit à pied (le tapis ne l'entraîne pas) : une rampe sous la pente.

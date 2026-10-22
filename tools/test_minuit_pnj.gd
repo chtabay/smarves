@@ -17,6 +17,7 @@ func check(ok: bool, what: String) -> void:
 
 
 func _init() -> void:
+	await process_frame
 	var monde = load(BASE + "pnj/monde.gd").new()
 	var t0 := Time.get_ticks_msec()
 	check(monde.charger(BASE + "donnees/pnj_monde.json"), "le monde des PNJ se charge")
