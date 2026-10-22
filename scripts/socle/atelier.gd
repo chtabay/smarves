@@ -228,3 +228,21 @@ static func matiere(nom: String) -> ShaderMaterial:
 	var m := ShaderMaterial.new()
 	m.shader = load(p)
 	return m
+
+
+# --- Les données -----------------------------------------------------------------------------------
+
+## Les données JSON d'une commune (socle 1.15) : lues dans chemin, ou, s'il n'existe pas, dans chemin + « .gz »,
+## compressé en gzip. Une donnée de plus de 100 Ko part compressée dans le paquet (docs/BIBLIOTHEQUE.md, « Les
+## règles des paquets ») : gzip -9 pnj.json donne pnj.json.gz, que Atelier.donnees("res://communes/<id>/pnj.json")
+## lit comme l'original. null si le fichier manque ou ne se lit pas.
+static func donnees(chemin: String) -> Variant:
+	var texte := ""
+	if FileAccess.file_exists(chemin):
+		texte = FileAccess.get_file_as_string(chemin)
+	elif FileAccess.file_exists(chemin + ".gz"):
+		texte = FileAccess.get_file_as_bytes(chemin + ".gz").decompress_dynamic(-1, FileAccess.COMPRESSION_GZIP).get_string_from_utf8()
+	else:
+		push_warning("Atelier : pas de données « %s »" % chemin)
+		return null
+	return JSON.parse_string(texte)
