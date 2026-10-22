@@ -11,6 +11,13 @@ extends RefCounted
 ## qui la branche sur le socle.
 
 const CATALOGUE := "res://bibliotheque/bibliotheque.json"
+## Les genres de briques que le jeu sait employer (un genre ajouté plus tard fait monter le socle).
+##   stade : un décor de stade, branché par le contrat d'ancres du stade (Ancres.STADE) ;
+##   decor : un modèle ou un ensemble à poser tel quel, sans comportement.
+const GENRES := ["stade", "decor"]
+## Les champs d'une fiche de brique proposée (brique.json) : requis, puis facultatifs.
+const FICHE_REQUIS := ["genre", "nom", "auteur", "licence", "scene"]
+const FICHE_FACULTATIFS := ["description", "apercu"]
 
 static var _catalogue: Dictionary = {}
 
@@ -76,3 +83,62 @@ static func references(genre := "") -> PackedStringArray:
 			out.append("%s@%s" % [id, v])
 	out.sort()
 	return out
+
+
+# --- Les briques proposées par les communes ---------------------------------------------------------
+
+## Les briques qu'une commune propose à la bibliothèque : chaque dossier
+## <commune>/bibliotheque/<id de la brique>/ qui tient une fiche brique.json. La proposition ne change rien
+## au jeu : la commune s'en sert comme de ses propres fichiers, et la brique n'entre dans la bibliothèque que
+## si Guillaume l'accepte (tools/integrer_brique.gd). Rend [{id, dossier, fiche, erreurs}], triées par id.
+static func propositions(dossier_commune: String) -> Array:
+	var out := []
+	if not dossier_commune.ends_with("/"):
+		dossier_commune += "/"
+	var racine := dossier_commune + "bibliotheque/"
+	var d := DirAccess.open(racine)
+	if d == null:
+		return out
+	var ids := Array(d.get_directories())
+	ids.sort()
+	for id in ids:
+		var dossier: String = racine + id + "/"
+		if not FileAccess.file_exists(dossier + "brique.json"):
+			continue
+		var fiche = JSON.parse_string(FileAccess.get_file_as_string(dossier + "brique.json"))
+		var p := {"id": id, "dossier": dossier, "fiche": fiche if typeof(fiche) == TYPE_DICTIONARY else {}}
+		p.erreurs = verifier_fiche(fiche, id, dossier)
+		out.append(p)
+	return out
+
+
+## Les fautes d'une fiche de brique proposée (aucune : elle peut être examinée).
+static func verifier_fiche(fiche: Variant, id: String, dossier: String) -> PackedStringArray:
+	var erreurs := PackedStringArray()
+	if not est_reference(id + "@1"):
+		erreurs.append("brique « %s » : l'id du dossier s'écrit en minuscules, chiffres et tirets" % id)
+	if typeof(fiche) != TYPE_DICTIONARY:
+		erreurs.append("brique %s : brique.json n'est pas un objet JSON lisible" % id)
+		return erreurs
+	for k in FICHE_REQUIS:
+		if str(fiche.get(k, "")).strip_edges() == "":
+			erreurs.append("brique %s : champ manquant « %s »" % [id, k])
+	for k in fiche:
+		if not (k in FICHE_REQUIS or k in FICHE_FACULTATIFS):
+			erreurs.append("brique %s : champ inconnu « %s »" % [id, k])
+		elif typeof(fiche[k]) != TYPE_STRING:
+			erreurs.append("brique %s : « %s » est un texte" % [id, k])
+	if fiche.has("genre") and not str(fiche.genre) in GENRES:
+		erreurs.append("brique %s : genre inconnu « %s » (connus : %s)" % [id, str(fiche.genre), ", ".join(GENRES)])
+	# La scène et l'aperçu sont des fichiers du dossier de la brique, nommés sans chemin.
+	for k in ["scene", "apercu"]:
+		var f := str(fiche.get(k, ""))
+		if f == "":
+			continue
+		if "/" in f or ":" in f:
+			erreurs.append("brique %s : « %s » est un fichier du dossier de la brique, sans chemin" % [id, k])
+		elif not ResourceLoader.exists(dossier + f) and not FileAccess.file_exists(dossier + f):
+			erreurs.append("brique %s : « %s » introuvable dans son dossier" % [id, f])
+	if str(fiche.get("scene", "")) != "" and not str(fiche.scene).ends_with(".tscn"):
+		erreurs.append("brique %s : « scene » est une scène .tscn" % id)
+	return erreurs

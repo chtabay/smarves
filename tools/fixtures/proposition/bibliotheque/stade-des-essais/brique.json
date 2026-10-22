@@ -1,0 +1,8 @@
+{
+	"genre": "stade",
+	"nom": "Le stade des essais",
+	"description": "Le plus petit décor qui tienne le contrat du stade : une dalle et ses ancres.",
+	"auteur": "Le kit des communes",
+	"licence": "CC0",
+	"scene": "stade.tscn"
+}

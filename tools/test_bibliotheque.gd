@@ -61,6 +61,36 @@ func _init() -> void:
 	check(Ancres.verifier_stade(vide).size() == 7 and Ancres.verifier_stade(vide)[-1].contains("origine"), "une pelouse hors de l'origine est refusée")
 	vide.free()
 
+	# Une commune propose une brique : son dossier bibliotheque/<id>/ et sa fiche ; Guillaume l'intègre à la main.
+	var props := Bibliotheque.propositions("res://tools/fixtures/proposition/")
+	check(props.size() == 1 and props[0].id == "stade-des-essais" and props[0].erreurs.is_empty(), "la brique proposée se lit avec sa fiche : %s" % str(props.map(func(x): return [x.id, x.erreurs])))
+	check(Bibliotheque.verifier_fiche({"genre": "fusee", "nom": "x", "auteur": "a", "licence": "l", "scene": "../x.tscn", "prix": 3}, "Fusee", "res://nulle/part/").size() == 4,
+		"une fiche fautive : id, genre, champ inconnu, scène hors du dossier")
+	var integrer = load("res://tools/integrer_brique.gd")
+	var racine := "user://biblio_essai/"
+	DirAccess.make_dir_recursive_absolute(racine)
+	var cat := racine + "bibliotheque.json"
+	DirAccess.remove_absolute(cat)
+	var r1: Dictionary = integrer.integrer("essai", "stade-des-essais", "res://tools/fixtures/proposition/", racine, cat)
+	check(r1.get("version") == 1 and r1.scene == racine + "stade-des-essais/1/stade.tscn", "la brique entre en version 1 : %s" % str(r1))
+	var tscn := FileAccess.get_file_as_string(racine + "stade-des-essais/1/stade.tscn")
+	check(tscn.contains(racine + "stade-des-essais/1/stade.gd") and not tscn.contains("res://communes/"), "ses chemins sont ceux de la bibliothèque")
+	check(not FileAccess.file_exists(racine + "stade-des-essais/1/brique.json"), "la fiche passe au catalogue, pas dans le dossier")
+	var lu: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(cat))
+	var b: Dictionary = lu.briques.get("stade-des-essais", {})
+	check(b.get("auteur") == "Le kit des communes" and b.get("commune") == "essai" and b.get("licence") == "CC0" and b.versions.has("1"), "le catalogue garde le crédit de l'auteur et de sa commune")
+	var integree: Node3D = load(r1.scene).instantiate()
+	root.add_child(integree)
+	check(Ancres.verifier_stade(integree).is_empty(), "le stade intégré tient le contrat")
+	integree.queue_free()
+	var r2: Dictionary = integrer.integrer("essai", "stade-des-essais", "res://tools/fixtures/proposition/", racine, cat)
+	check(r2.get("version") == 2 and FileAccess.file_exists(racine + "stade-des-essais/1/stade.tscn"), "une nouvelle proposition fait une version 2, la 1 reste")
+	lu.briques["stade-des-essais"].auteur = "Quelqu'un d'autre"
+	FileAccess.open(cat, FileAccess.WRITE).store_string(JSON.stringify(lu))
+	check(integrer.integrer("essai", "stade-des-essais", "res://tools/fixtures/proposition/", racine, cat).has("erreur"), "un nom déjà pris par un autre auteur est refusé")
+	check(integrer.integrer("essai", "inconnue", "res://tools/fixtures/proposition/", racine, cat).has("erreur"), "une brique non proposée est refusée")
+	Bibliotheque._catalogue = {}
+
 	# Le manifeste : « modele » nomme une brique ou une scène de la commune, jamais les deux avec « scene ».
 	var base := {"type": "terrain_foot", "id": "stade", "nom": "Le stade", "club": "Le club"}
 	var ok := base.duplicate()
