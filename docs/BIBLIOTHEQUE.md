@@ -16,7 +16,7 @@ L'état des lieux du 20 octobre est dans le dossier du projet (`bibliotheque-ass
 
 ## Le catalogue
 
-`bibliotheque/bibliotheque.json`, lu par `Bibliotheque` (`scripts/socle/bibliotheque.gd`), et recopié dans le portail (`src/lib/communes/bibliotheque.ts` dans Pyramides2) pour qu'il refuse une référence inconnue.
+`bibliotheque/bibliotheque.json`, lu par `Bibliotheque` (`scripts/socle/bibliotheque.gd`), et recopié dans le portail (`STADES_DE_LA_BIBLIOTHEQUE`, `src/lib/communes/structures.ts` dans Pyramides2) pour qu’il refuse une référence inconnue : ajouter une brique au jeu, c’est aussi l’ajouter là.
 
 ```json
 "stade-de-campagne": {
