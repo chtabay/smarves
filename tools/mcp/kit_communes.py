@@ -2,7 +2,7 @@
 """Le kit des communes en serveur MCP : ce que le Claude d'un développeur peut demander au socle de
 Smarves pendant qu'il construit une commune en paquet.
 
-Il lit les mêmes fichiers que le jeu (docs/COMMUNE.md, scripts/socle/atelier.json, tools/kit/,
+Il lit les mêmes fichiers que le jeu (docs/COMMUNE.md, docs/CONCEPTION.md, scripts/socle/atelier.json, tools/kit/,
 scripts/socle/commune.gd) et lance les mêmes outils (tools/test_commune.gd, tools/emballer_commune.gd,
 tools/bourg_reel.py) : ses réponses sont celles du jeu, pas une copie qui vieillit à côté.
 
@@ -34,6 +34,10 @@ rangé sous res://communes/<id>/ : un manifeste commune.json, une scène qui exp
 maisons, figurants, meubles, sons, matières : rien à embarquer), « nouvelle_commune » pour partir du
 kit, puis « verifier_manifeste », « tester_commune » et « emballer_commune » avant de déposer le paquet
 sur le portail des développeurs. Une version par dépôt, toujours plus haute ; 32 Mo au plus.
+Avant de construire un lieu, lis « conception » : la méthode (une note d'intentions, trois scènes fortes
+jugées à hauteur de joueur, une continuité habitée entre elles, une palette chiffrée, l'animation et la
+vie, des passes d'approfondissement, une critique indépendante). Une commune qui passe les tests n'est
+pas pour autant réussie : le critère est que le lieu surprenne, pas seulement que rien ne bloque.
 Une table de jeu ne se fabrique pas avec les modèles de l'atelier : la structure « salle_jeu » pose les
 tables du casino de Smarves, et une salle bâtie à la main les prend par la classe Tables
 (scripts/socle/tables.gd, socle 1.10) ; « contrat Les structures », paragraphe « Les tables du casino », donne les appels."""
@@ -45,19 +49,20 @@ def _lire(rel):
     return (RACINE / rel).read_text(encoding="utf-8")
 
 
-def _sections_doc():
-    """Les sections de docs/COMMUNE.md, par titre (##, ###), dans l'ordre."""
-    out, titre, lignes = [], None, []
-    for ligne in _lire("docs/COMMUNE.md").splitlines():
+def _sections_doc(doc="docs/COMMUNE.md"):
+    """Les sections d'un document (docs/COMMUNE.md par défaut), par titre (##, ###), dans l'ordre, avec
+    leur niveau (2 ou 3)."""
+    out, titre, niveau, lignes = [], None, 0, []
+    for ligne in _lire(doc).splitlines():
         m = re.match(r"^(#{2,3}) (.+)$", ligne)
         if m:
             if titre:
-                out.append((titre, "\n".join(lignes).strip()))
-            titre, lignes = m.group(2).strip(), [ligne]
+                out.append((titre, "\n".join(lignes).strip(), niveau))
+            titre, niveau, lignes = m.group(2).strip(), len(m.group(1)), [ligne]
         elif titre:
             lignes.append(ligne)
     if titre:
-        out.append((titre, "\n".join(lignes).strip()))
+        out.append((titre, "\n".join(lignes).strip(), niveau))
     return out
 
 
@@ -144,12 +149,34 @@ def contrat(section=""):
     secs = _sections_doc()
     if not section:
         return ("docs/COMMUNE.md, le contrat entre le jeu et une commune. Sections (demande-en une par son "
-                "titre) :\n" + "\n".join("- " + t for t, _ in secs))
-    cle = _normal(section)
-    trouve = [(t, c) for t, c in secs if cle in _normal(t)]
-    if not trouve:
-        raise Erreur("Aucune section ne contient « %s ». Sections : %s" % (section, ", ".join(t for t, _ in secs)))
-    return "\n\n".join(c for _, c in trouve)
+                "titre) :\n" + "\n".join("- " + t for t, _, _ in secs))
+    return _section(secs, section)
+
+
+def conception(section=""):
+    secs = _sections_doc("docs/CONCEPTION.md")
+    if not section:
+        intro = _lire("docs/CONCEPTION.md").split("\n## ")[0].strip()
+        return (intro + "\n\nSections (demande-en une par son titre, ou « tout ») :\n"
+                + "\n".join("- " + t for t, _, _ in secs))
+    if _normal(section) == "tout":
+        return _lire("docs/CONCEPTION.md")
+    return _section(secs, section)
+
+
+def _section(secs, section):
+    """Les sections dont le titre contient ce mot ; une section ## vient avec ses ###."""
+    cle, pris, dans = _normal(section), [], False
+    for t, c, niveau in secs:
+        if niveau == 2:
+            dans = cle in _normal(t)
+            if dans:
+                pris.append(c)
+        elif dans or cle in _normal(t):
+            pris.append(c)
+    if not pris:
+        raise Erreur("Aucune section ne contient « %s ». Sections : %s" % (section, ", ".join(t for t, _, _ in secs)))
+    return "\n\n".join(pris)
 
 
 def atelier(rubrique="", famille="", cherche=""):
@@ -309,6 +336,12 @@ OUTILS = {
     "contrat": (contrat, "Les règles qu'une commune doit suivre (docs/COMMUNE.md) : le manifeste et ses champs, "
                 "les structures, le kit de départ, le paquet, la publication. Sans section : la liste des sections.",
                 {"section": {"type": "string", "description": "un mot du titre : « fournit », « structures », « paquet », « kit », « publier »…"}}, []),
+    "conception": (conception, "La méthode pour concevoir un lieu réussi (docs/CONCEPTION.md), à lire avant de "
+                   "construire : le critère (le lieu surprend, pas seulement « rien ne bloque »), la note d'intentions, "
+                   "les trois scènes fortes, la continuité habitée, la palette chiffrée, l'animation et la vie "
+                   "(habitants, mécanismes, eau, enseignes, son, coût), la méthode de travail, la critique "
+                   "indépendante, les pièges. Sans section : l'introduction et la liste des sections.",
+                   {"section": {"type": "string", "description": "un mot du titre : « critère », « intentions », « scènes », « continuité », « palette », « animation », « habitants », « méthode », « critique », « pièges », ou « tout »"}}, []),
     "atelier": (atelier, "Ce que le jeu prête aux communes sans rien embarquer : modèles 3D par famille, maisons "
                 "à façades, figurants, meubles, sons, matières, polices, scènes du socle (le stade). Donne aussi "
                 "l'appel GDScript (classe Atelier). Sans argument : le résumé.",

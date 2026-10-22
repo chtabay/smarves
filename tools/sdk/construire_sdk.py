@@ -52,7 +52,7 @@ ENTREES = [
 ## Copiés tels quels, sans suivre leurs liens (outils hors Godot, documentation).
 TELS_QUELS = [
     "tools/bourg_reel.py", "tools/mcp/kit_communes.py", "tools/mcp/test_kit_communes.py",
-    "docs/COMMUNE.md", "docs/BIBLIOTHEQUE.md", "docs/LENTEUR.md", "docs/AVATAR.md", "assets/LICENCES.md", "icon.svg", ".editorconfig", ".gitattributes",
+    "docs/COMMUNE.md", "docs/CONCEPTION.md", "docs/BIBLIOTHEQUE.md", "docs/LENTEUR.md", "docs/AVATAR.md", "assets/LICENCES.md", "icon.svg", ".editorconfig", ".gitattributes",
 ]
 ## Le village de Smarves : ce qui ne part pas. Les liens qui y mènent s'arrêtent là.
 COUPE = {
