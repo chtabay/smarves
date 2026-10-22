@@ -80,6 +80,11 @@ func _matieres(d: Node) -> void:
 			var mat := m.surface_get_material(i) as BaseMaterial3D
 			if mat == null:
 				continue
+			# Une matière de la DA (extras « matiere », tools/minuit_decor/vers_bibliotheque.py) : son image est
+			# celle de la bibliothèque, à la place du pixel blanc que nomme le .glb.
+			var extras = mat.get_meta("extras", {})
+			if extras is Dictionary and extras.has("matiere"):
+				mat.albedo_texture = K.tex_da(str(extras.matiere))
 			# Les instances cuites portent leur couleur aux sommets (fleurs de verre, palmiers).
 			if m.surface_get_format(i) & Mesh.ARRAY_FORMAT_COLOR and not mat.vertex_color_use_as_albedo:
 				mat.vertex_color_use_as_albedo = true
