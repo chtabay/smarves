@@ -90,6 +90,9 @@ func _die_rest(i: int) -> Vector3:
 
 
 func _make_layout() -> Texture2D:
+	var cle := "hasard"
+	if KIT.vue_partagee(cle):
+		return KIT.vue_partagee(cle)
 	var S := 600.0
 	var vp := SubViewport.new()
 	vp.size = Vector2i(int(FELT.x * S), int(FELT.y * S))
@@ -122,8 +125,7 @@ func _make_layout() -> Texture2D:
 		c.draw_arc(dome.get_center(), 0.17 * S, 0, TAU, 64, gold, 3.0, true)
 		c.draw_rect(Rect2(Vector2(8, 8), Vector2(vp.size) - Vector2(16, 16)), gold, false, 3.0)
 	)
-	KIT._add_viewport(vp)
-	return vp.get_texture()
+	return KIT.partager(cle, vp)
 
 
 ## Une face de dé dessinée sur le tapis.

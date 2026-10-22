@@ -4,8 +4,9 @@ extends SceneTree
 ## l'image règle les environnements et la cadence, et la qualité haute rend les choix des lieux ; les
 ## ambiances calculées en tâche de fond sont celles d'avant, échantillon pour échantillon ; la place
 ## quittée pour un lieu revient sans se rebâtir, sauf si la partie a changé ce qu'elle montre ; ce qu'un
-## script fabrique se range sur l'appareil (Memo) ; le budget d'un lieu se mesure (Budget) ; les objets
-## lointains sont simplifiés et reçoivent leurs niveaux de détail (Lointain).
+## script fabrique se range sur l'appareil (Memo) ; le budget d'un lieu se mesure (Budget), en comptant ce
+## qui est vraiment dessiné ; les objets lointains sont simplifiés et reçoivent leurs niveaux de détail
+## (Lointain) ; les tables pareilles partagent leur tapis.
 
 var echecs := 0
 
@@ -250,8 +251,67 @@ func _init() -> void:
 	await process_frame
 	await process_frame
 	_verifier(bille.mesh.radial_segments == 12 and perle.mesh.radial_segments == 12, "une scène qui arrive dans l'arbre est simplifiée sans rien demander")
+	# Ce qui est vraiment dessiné : le gros maillage, posé à 300 m, ne compte plus qu'à son niveau lointain ;
+	# hors de sa distance de visibilité, plus du tout ; « triangles_pleins » garde le compte de tout.
+	gros.position = Vector3(300, 0, 0)
+	gros.scale = Vector3.ONE * 5.0
+	tri_perle = Budget._triangles(perle.mesh, {})
+	var pres := [[Vector3.ZERO, 0.0]]
+	var loin := Budget.mesurer(lieu, pres)
+	_verifier(loin.triangles_pleins == tri_perle + tri_gros and loin.triangles < tri_perle + tri_gros / 4 and loin.triangles > tri_perle, "un maillage lointain compte à son niveau de détail (%d triangles dessinés sur %d)" % [loin.triangles, loin.triangles_pleins])
+	gros.position = Vector3(2, 0, 0)
+	_verifier(Budget.mesurer(lieu, pres).triangles == tri_perle + tri_gros, "de près, le même maillage compte en entier")
+	gros.position = Vector3(300, 0, 0)
+	gros.visibility_range_end = 100.0
+	_verifier(Budget.mesurer(lieu, pres).triangles == tri_perle, "au-delà de sa distance de visibilité, il ne compte plus")
+	gros.visibility_range_end = 0.0
+	# Le champ de la caméra : de x = 200, regardant vers +x on voit le maillage, vers -x la perle.
+	var vers_x := Budget.mesurer(lieu, [[Vector3(200, 0, 0), 0.0]], [6])
+	var dos := Budget.mesurer(lieu, [[Vector3(200, 0, 0), 0.0]], [2])
+	_verifier(vers_x.triangles > 0 and dos.triangles == tri_perle and vers_x.triangles != dos.triangles, "seul ce qui entre dans le champ est compté (%d triangles vers le maillage, %d vers la perle)" % [vers_x.triangles, dos.triangles])
+	# Les points de vue : la caméra du lieu et ses zones d'interaction.
+	var zone := Area3D.new()
+	zone.position = Vector3(40, 0, 0)
+	lieu.add_child(zone)
+	var vue := Camera3D.new()
+	lieu.add_child(vue)
+	var pts := Budget.points_de_vue(lieu)
+	_verifier(pts.size() == 2 and pts[1][0].is_equal_approx(Vector3(40, 1.6, 0)), "les points de vue sont la caméra et les zones, à hauteur d'yeux")
+	# Sans rendu, un multimaillage n'a pas de boîte : il compte en entier, partout.
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = am
+	mm.instance_count = 3
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	mmi.position = Vector3(0, 0, 900)
+	lieu.add_child(mmi)
+	var avec_mm := Budget.mesurer(lieu, pres)
+	if DisplayServer.get_name() == "headless":
+		_verifier(avec_mm.multimaillages_entiers == 1 and avec_mm.triangles >= tri_gros * 3, "sans rendu, un multimaillage compte en entier (%d triangles)" % avec_mm.triangles)
 	lieu.queue_free()
 	autre.queue_free()
+
+	# Les tapis : deux blackjacks pareils n'en peignent qu'un, deux baccaras de noms différents, deux.
+	var tapis := func(t: Node) -> Texture2D:
+		for mi in t.find_children("*", "MeshInstance3D", true, false):
+			for s in (mi.mesh.get_surface_count() if mi.mesh else 0):
+				var m2 = mi.get_active_material(s)
+				if m2 is ShaderMaterial and m2.get_shader_parameter("layout_tex") != null:
+					return m2.get_shader_parameter("layout_tex")
+		return null
+	# (Tables se charge ici : elle nomme les autoloads, que ce script ne connaît pas à sa compilation.)
+	var tables: GDScript = load("res://scripts/socle/tables.gd")
+	var poses: Array = [tables.table("blackjack"), tables.table("blackjack"), tables.table("baccara", "minuit"), tables.table("baccara", "banco")]
+	for t in poses:
+		root.add_child(t)
+	await process_frame
+	var tx: Array = poses.map(func(t): return tapis.call(t))
+	_verifier(tx[0] != null and tx[0] == tx[1], "deux blackjacks partagent un seul tapis")
+	_verifier(tx[2] != null and tx[3] != null and tx[2] != tx[3], "deux baccaras de noms différents ont chacun le leur")
+	for t in poses:
+		t.queue_free()
+	await process_frame
 
 	print("%d échec(s)" % echecs)
 	quit(1 if echecs else 0)

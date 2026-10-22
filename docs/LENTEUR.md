@@ -77,7 +77,7 @@ Une fois bâti, un lieu demande à la carte graphique un nombre de triangles, de
 
 | | seuil |
 |---|---|
-| triangles visibles (multimaillages compris) | 600 000 |
+| triangles dessinés au regard le plus chargé (multimaillages compris ; voir « Ce qui est vraiment dessiné ») | 600 000 |
 | surfaces dessinées | 2 500 |
 | lampes | 80 |
 | lampes à ombres | 8 |
@@ -122,11 +122,47 @@ Les lieux dessinent de près ce qu'on voit de loin. Deux remèdes, appliqués pa
 
 La salle de basket ne change presque pas : ses triangles sont ceux de la foule (9 163 capsules en multimaillage, 660 000 triangles), que ce remède ne touche pas. `tools/test_lenteur.gd` vérifie la mesure, les seuils, la simplification, les niveaux et leur application automatique.
 
+## Ce qui est vraiment dessiné (22 octobre 2026, soir)
+
+Le budget comptait tout ce qui est visible, au niveau de détail le plus fin, comme si l'on voyait tout le lieu à la fois et de près : 323 000 triangles de figurines à Civaux, alors que ces figurines ont des niveaux de détail (`CritterMesh`) et que le moteur dessine les lointaines en quelques centaines de triangles. `Budget.mesurer` compte désormais ce que la carte graphique dessine :
+
+- **D'où l'on regarde.** Les points de vue sont ceux où le joueur se tient : la caméra du lieu à l'arrivée (avec son inclinaison : la vue de dessus du village regarde le sol), les autres caméras, et chaque zone d'interaction (`Area3D` : portes, tables, habitants) à hauteur d'yeux ; pas deux à moins de 6 m, au plus 48. De chacun, huit regards font le tour (le champ de la caméra par défaut de Godot, 75° en 16:9). Le lieu compte pour le **regard le plus chargé** (`point_le_plus_charge` : position et direction).
+- **Ce que le moteur garde.** Un objet entre dans le regard si sa boîte touche le champ ; au-delà de sa distance de visibilité (`visibility_range_end`, mesurée au centre de sa boîte), il ne compte pas ; un maillage à niveaux de détail compte au niveau que le moteur choisit à sa distance pour un écran de 1920 pixels (erreur sous un pixel, `rendering/mesh_lod/lod_change/threshold_pixels`).
+- **`triangles_pleins`** et **`surfaces_pleines`** gardent l'ancien compte (tout, partout, au plus fin) ; le résumé les dit : « 570 844 triangles (743 100 au plus fin) ». Les seuils ne changent pas.
+- **Comparé au moteur.** `L'Isle-Jourdain`, dix-huit regards rendus par Godot (1920 × 1080) et comptés par lui (`RENDER_INFO_PRIMITIVES_IN_FRAME`) : le budget est de 16 à 50 % au-dessus, jamais en dessous. Il prend la distance la plus courte jusqu'à la boîte quand le moteur en prend une un peu plus longue, et son champ est un peu plus large.
+- **Sans rendu** (`--headless`), le moteur ne garde pas les instances d'un multimaillage (sa boîte est vide) : le multimaillage compte alors en entier, partout, au plus fin (`multimaillages_entiers`). Un lieu riche en multimaillages (bois, prairies, feuillages) se mesure plus juste avec rendu : l'emballeur ou `tools/budget_lieu.gd` lancés sans `--headless` (sur un serveur, sous `xvfb-run` avec `--rendering-driver opengl3`).
+- `tools/budget_lieu.gd` et l'emballeur attendent que les niveaux de détail calculés dans un fil (`Lointain`) soient posés avant de mesurer.
+
+Les lieux de Smarves, avec rendu (dessiné / au plus fin) :
+
+| lieu | triangles dessinés | au plus fin | surfaces dessinées | textures |
+|---|---|---|---|---|
+| La place | 189 059 | 392 309 | 1 056 | 63,5 Mo |
+| Casino | 570 844 | 743 100 | **2 628** | 74,7 Mo |
+| Salle de basket | 213 538 | 340 616 | 360 | 6,0 Mo |
+| Stade | 104 896 | 180 170 | 200 | 0,0 Mo |
+| Café | 25 380 | 26 812 | 98 | 6,3 Mo |
+| Salle de jeu | 10 558 | 10 726 | 113 | 2,0 Mo |
+| Commerce | 6 972 | 7 116 | 23 | 0,7 Mo |
+
+Le casino de Smarves repasse sous le seuil de triangles : on le comptait tout entier à la fois, ses 48 figurines au plus fin.
+
+**Essayé et abandonné** : donner des niveaux de détail aux maillages de mille triangles (au lieu de dix mille) et aux arbres des multimaillages. Les villages y gagnaient 10 à 20 %, mais Godot choisit le niveau d'après la distance à un coin de la boîte du maillage, pas à sa surface : un mur fondu avec sa rue (une boîte de 40 m) se voyait simplifié à un mètre de la caméra, en aplat noir sur la capture. Le seuil de dix mille reste.
+
+## Les tapis partagés (22 octobre 2026, soir)
+
+Chaque table peignait son tapis dans sa propre vue hors écran (`SubViewport`, 600 à 700 px par mètre) : six blackjacks, six tapis identiques de 5,3 Mo. Les tapis et le cylindre de la roulette se demandent désormais au kit par une clé qui dit tout ce qui change le dessin (`KIT.vue_partagee`, `KIT.partager` : « blackjack », « baccara:MINUIT:false », « roue:(2.4, 0.62) ») ; la première table le peint, les suivantes reprennent la même texture. Les vues restent d'une scène à l'autre, comme les jetons et les cartes : revenir au casino ne repeint plus rien (avant, chaque visite ajoutait ses tapis sans libérer les précédents).
+
+- Casino Minuit : 199,7 → **131,1 Mo** de textures (19 tables, 6 tapis distincts au lieu de 19). Les 90 Mo du décor de l'auteur restent : sous le seuil seuls, au-dessus avec les tapis.
+- Casino de Smarves : ses tables sont toutes différentes, rien ne change (74,7 Mo).
+- Vérifié pixel par pixel sur les 19 tapis de Minuit (images relues avec rendu) : 13 identiques à l'octet, les 6 blackjacks à un niveau sur 255 près sur quelques lettres de l'annonce en arc (l'ordre dans lequel la police met ses lettres en cache). La taille des tapis ne change pas : assis, on les voit à 600 à 900 px par mètre sur un écran de 1920.
+
 ## Ce qui reste
 
 - Le casino se bâtit encore en 1,7 s : ses salles (0,35 s), ses tables (la roulette 85 ms, le Grand Hasard 170), ses étiquettes et ses lustres. Les bâtir pendant un écran de chargement animé, comme les communes greffées (`Chargement`), serait la prochaine étape.
-- La foule de la salle de basket (660 000 triangles) et du Dôme de Minuit : des capsules moins fines ou des silhouettes à deux niveaux. Les 110 lampes de la place (les réverbères et les fenêtres), les 2 800 surfaces du casino.
-- Les tapis des tables du casino, dessinés dans un `SubViewport` à 600 px par mètre : 75 Mo de textures, à ramener à la taille vue.
+- La foule du Dôme de Minuit pendant un match : des capsules moins fines ou des silhouettes à deux niveaux. Les 110 lampes de la place (les réverbères et les fenêtres), les 2 600 surfaces du casino.
+- Les arbres et les feuillages des villages (Civaux 1,4 M triangles dessinés, L'Isle-Jourdain 1,8 M, Cloué 1,0 M) : des feuilles séparées que les niveaux de détail ne savent pas simplifier sans perte. Ce sont des choix d'auteur (moins de feuilles plus grandes, des imposteurs au loin), avec une différence visible.
+- Les textures du décor de Minuit (90 Mo, 1024 px sans compression en mémoire) : la compression de la carte graphique les diviserait par quatre, avec une légère perte.
 - Les paquets des communes (Civaux, Minuit…) ont leurs propres textures et figurines : le même rangement (`Memo`) leur servirait ; Minuit charge 256 Mo de textures (des 2048 × 2048 sans compression), bien au-delà du seuil. Chaque paquet est repris une fois par ses auteurs, avec le budget que l'emballeur leur dit.
 - Si le téléphone peine encore, la lumière précalculée (`LightmapGI`) pour les lieux fixes.
 - La première visite d'un lieu compile ses shaders sur la carte graphique ; Godot les garde ensuite en cache, les visites suivantes sont plus rapides.

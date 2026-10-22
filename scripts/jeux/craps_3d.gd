@@ -135,6 +135,9 @@ func _pyramids(normals := false) -> Texture2D:
 
 
 func _make_layout() -> Texture2D:
+	var cle := "craps"
+	if KIT.vue_partagee(cle):
+		return KIT.vue_partagee(cle)
 	var S := 600.0
 	var vp := SubViewport.new()
 	vp.size = Vector2i(int(IN.x * S), int(IN.y * S))
@@ -190,8 +193,7 @@ func _make_layout() -> Texture2D:
 		c.draw_string(f, top.position + Vector2(0, top.size.y * 0.7), "CASINO  DE  SMARVES", HORIZONTAL_ALIGNMENT_CENTER, top.size.x, 34, gold)
 		c.draw_rect(Rect2(Vector2(8, 8), Vector2(vp.size) - Vector2(16, 16)), gold, false, 3.0)
 	)
-	KIT._add_viewport(vp)
-	return vp.get_texture()
+	return KIT.partager(cle, vp)
 
 
 # --- Le palet ------------------------------------------------------------------------------

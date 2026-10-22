@@ -115,6 +115,9 @@ func _half_disc(r: float) -> ArrayMesh:
 
 ## Le tapis : deux arcs, les annonces écrites en courbe, les cinq cercles de mise.
 func _make_layout() -> Texture2D:
+	var cle := "blackjack"
+	if KIT.vue_partagee(cle):
+		return KIT.vue_partagee(cle)
 	var vp := SubViewport.new()
 	vp.size = Vector2i(int(2 * R * S), int(R * S))
 	vp.transparent_bg = true
@@ -138,8 +141,7 @@ func _make_layout() -> Texture2D:
 			cv.draw_arc(p, 46, 0, TAU, 48, gold, 4.0, true)
 			cv.draw_arc(p, 38, 0, TAU, 48, Color(ink, 0.6), 2.0, true)
 	)
-	add_child(vp)
-	return vp.get_texture()
+	return KIT.partager(cle, vp)
 
 
 ## Du texte posé sur un arc (centre en haut de la texture), lisible depuis les joueurs.
