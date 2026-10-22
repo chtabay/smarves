@@ -88,7 +88,10 @@ func _vider(n: Node) -> void:
 func _mot(parent: Control, texte: String, couleur := TEXTE, taille := 16) -> Label:
 	var l := Label.new()
 	l.text = texte
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	# Seul un texte en colonne passe à la ligne : dans une rangée ou une grille, un label qui se replie n'a
+	# plus de largeur et s'écrit une lettre par ligne.
+	if parent is VBoxContainer:
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.add_theme_color_override("font_color", couleur)
 	l.add_theme_font_size_override("font_size", taille)
 	parent.add_child(l)

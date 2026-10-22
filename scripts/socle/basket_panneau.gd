@@ -50,7 +50,10 @@ func _unhandled_input(event: InputEvent) -> void:
 func _ligne(parent: Control, texte: String, couleur := TEXTE, taille := 16) -> Label:
 	var l := Label.new()
 	l.text = texte
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	# Seul un texte en colonne passe à la ligne : dans une rangée ou une grille, un label qui se replie n'a
+	# plus de largeur et s'écrit une lettre par ligne.
+	if parent is VBoxContainer:
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.add_theme_color_override("font_color", couleur)
 	l.add_theme_font_size_override("font_size", taille)
 	parent.add_child(l)
@@ -106,6 +109,8 @@ func remplir(col: VBoxContainer) -> void:
 	var mm: Array = b.match_du_club(commune)
 	var e: Dictionary = b.equipe(b.saison, n, g, ici[2], mm[3] if not mm.is_empty() else maxi(1, jj))
 	_ligne(col, "L'effectif (notes de la semaine, de 1 à 99)", OR, 18)
+	if e.joueurs.is_empty():
+		_ligne(col, "Pas encore de joueurs : l'effectif se tire avec les premières notes, le vendredi soir avant la première journée.", DOUX, 15)
 	var joueurs: Array = e.joueurs.duplicate()
 	joueurs.sort_custom(func(a, x): return a.note > x.note)
 	for j in joueurs:

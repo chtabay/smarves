@@ -111,6 +111,24 @@ func _init() -> void:
 	game.credits = 100000
 
 	t = basket.coup_envoi(1, 1) - 3600
+	# Avant le cliché de la première journée : pas d'effectif, le marché attend, et le bureau le dit.
+	basket.actualiser()
+	check(not basket.tirage_fait("smarves") and basket.joueurs_libres("smarves").is_empty(), "avant le tirage, le marché attend")
+	var avant_tirage: PanelContainer = load("res://scripts/socle/basket_bureau.gd").new()
+	avant_tirage.commune = "smarves"
+	root.add_child(avant_tirage)
+	await process_frame
+	basket.cliches["2000-01-01"] = {"id": "2000-01-01", "joueurs": {}}
+	avant_tirage.rafraichir()
+	check(textes(avant_tirage).contains("L'effectif n'est pas encore tiré"), "le bureau dit que l'effectif se tire avec les premières notes")
+	# Un texte dans une rangée garde sa largeur (il s'écrivait une lettre par ligne).
+	var consigne_l: Label = null
+	for x in avant_tirage.find_children("*", "Label", true, false):
+		if x.get_parent() is HFlowContainer:
+			consigne_l = x
+	check(consigne_l == null or consigne_l.autowrap_mode == TextServer.AUTOWRAP_OFF, "un texte en rangée ne se replie pas")
+	avant_tirage.queue_free()
+	basket.cliches.erase("2000-01-01")
 	var fixture: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(CLICHE))
 	for j in [1, 2, 3]:
 		var c: Dictionary = fixture.duplicate(true)
