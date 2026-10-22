@@ -71,8 +71,62 @@ Chargements sans rendu, même conteneur, au second lancement (le premier constru
 
 Sur téléphone, où le GDScript et le calcul du bruit sont trois à quatre fois plus lents, le gain est d'autant plus grand ; le premier lancement y reste long, et c'est le prix de la méthode. Les fichiers rangés se refont d'eux-mêmes si on les supprime.
 
+## Le budget par lieu (22 octobre 2026, socle 1.16)
+
+Une fois bâti, un lieu demande à la carte graphique un nombre de triangles, de surfaces dessinées, de lampes (chaque lampe à ombres redessine la scène), de textures en mémoire ; au processeur un nombre de nœuds et de scripts qui tournent à chaque image. Ce sont ces nombres qui font ramer un téléphone, plus que le temps de construction, et personne ne les voyait. La classe **`Budget`** (`scripts/socle/budget.gd`) les compte sur une scène dans l'arbre, et porte les seuils du socle, calés sur le casino de Smarves, le lieu le plus chargé qui tourne sur téléphone :
+
+| | seuil |
+|---|---|
+| triangles visibles (multimaillages compris) | 600 000 |
+| surfaces dessinées | 2 500 |
+| lampes | 80 |
+| lampes à ombres | 8 |
+| textures uniques | 96 Mo |
+| nœuds | 8 000 |
+| scripts actifs | 250 |
+| étiquettes (`Label3D`) | 250 |
+
+Rien ne refuse un lieu : on dit ce qui dépasse, dans les mots des auteurs (« 968 512 triangles (au plus 600 000) »).
+
+- `tools/budget_lieu.gd` mesure les lieux de Smarves, des scènes, ou les lieux d'un paquet (`--pck=`), et écrit la mesure en JSON (`--json=`).
+- **L'emballeur** (`tools/emballer_commune.gd`) bâtit chaque lieu du manifeste (la scène de la commune, celles de ses structures : `scene`, `habillage`, `modele`), le mesure, dit ce qui dépasse, et range la mesure dans le paquet (`communes/<id>/budget.json` : `socle`, `seuils`, `lieux`).
+- **Le portail** (Pyramides2, `src/lib/communes/paquet.ts`, `budgetDesLieux`) lit ce fichier à la soumission et le dit lieu par lieu, sans refuser : « Budget : 2 lieu(x) dans les seuils du socle, 1 au-delà. », puis « Budget de dome.tscn : 968 512 triangles, … À alléger : … ». Un paquet sans ce fichier vient d'un emballeur d'avant le socle 1.16 : la page demande de le refaire avec le SDK à jour.
+
+Les lieux de Smarves, mesurés par l'outil (`tools/budget_lieu.gd`, 22 octobre 2026, objets lointains déjà simplifiés) :
+
+| lieu | triangles | surfaces | lampes (à ombres) | textures | nœuds | scripts actifs | étiquettes |
+|---|---|---|---|---|---|---|---|
+| La place (`main.tscn`) | 392 309 | 1 122 | **110** (1) | 63,5 Mo | 2 508 | 72 | 159 |
+| Casino | **774 516** | **2 804** | 65 (2) | 74,7 Mo | 4 455 | 124 | 69 |
+| Salle de basket | **920 360** | 449 | 35 (1) | 6,0 Mo | 2 581 | 28 | 74 |
+| Stade | 180 170 | 253 | 12 (1) | 0,0 Mo | 537 | 33 | 15 |
+| Café | 26 812 | 117 | 8 (2) | 6,3 Mo | 225 | 6 | 4 |
+| Salle de jeu | 12 574 | 124 | 6 (2) | 2,0 Mo | 185 | 4 | 4 |
+| Commerce | 7 116 | 32 | 4 (2) | 0,7 Mo | 81 | 3 | 1 |
+
+En gras ce qui dépasse : les seuils sont une cible, et trois lieux de Smarves la manquent encore (la foule de la salle de basket, les tables et les lustres du casino, les lampes de la place). Les textures du casino sont pour l'essentiel les tapis de ses tables, dessinés dans un `SubViewport` à 600 px par mètre (voir « Ce qui reste »).
+
+## Les objets lointains (22 octobre 2026, socle 1.16)
+
+Les lieux dessinent de près ce qu'on voit de loin. Deux remèdes, appliqués par `Chargement` à chaque scène 3D qui arrive sous la racine, une fois bâtie, sans que les lieux aient rien à faire (classe **`Lointain`**, `scripts/socle/lointain.gd` ; une scène qui tient à ses primitives fines pose la méta `sans_lointain` sur sa racine) :
+
+- **Les primitives à leur taille vue.** Les sphères, cylindres, capsules et tores de Godot sont très fins par défaut : une perle de lustre de 3 cm en sphère 64 × 32 fait 4 000 triangles, et le casino en a trois cents. `Lointain.simplifier` ramène leurs segments à ce que l'œil voit à leur taille réelle, la plus grande de leurs instances (12 segments sous 12 cm de rayon, 20 sous 40 cm, 32 au-delà) : 924 primitives au casino, en 40 ms.
+- **Les niveaux de détail des gros maillages.** Un maillage de dix mille triangles et plus reçoit des niveaux de détail automatiques (`ImporterMesh.generate_lods`, meshoptimizer) : le moteur dessine celui dont l'erreur reste sous un pixel à l'écran, et de près c'est le même maillage. Un maillage par image est lu sur le fil principal (les maisons d'Availles, 1,6 million de triangles, demanderaient 0,6 s d'un coup), le calcul se fait dans un fil, et le maillage est remplacé quand il est prêt. Les figurines (`critter_mesh.gd`) naissent avec les leurs, rangées avec elles sur l'appareil.
+
+| | triangles avant | après | primitives | maillages à niveaux |
+|---|---|---|---|---|
+| Casino | 2 404 436 | 774 516 | 924 | 48 figurines (146 876 triangles au premier niveau) |
+| La place | 868 653 | 392 309 | | |
+| Casino Minuit (scène) | 870 913 | 643 989 | | 20 (21 ms sur le fil principal) |
+| Availles-Limouzine | | | | 11 (2 ms sur le fil principal, prêts après 4,6 s) |
+
+La salle de basket ne change presque pas : ses triangles sont ceux de la foule (9 163 capsules en multimaillage, 660 000 triangles), que ce remède ne touche pas. `tools/test_lenteur.gd` vérifie la mesure, les seuils, la simplification, les niveaux et leur application automatique.
+
 ## Ce qui reste
 
 - Le casino se bâtit encore en 1,7 s : ses salles (0,35 s), ses tables (la roulette 85 ms, le Grand Hasard 170), ses étiquettes et ses lustres. Les bâtir pendant un écran de chargement animé, comme les communes greffées (`Chargement`), serait la prochaine étape.
-- Les paquets des communes (Civaux, Minuit…) ont leurs propres textures et figurines : le même rangement leur servirait, voir [BIBLIOTHEQUE.md](BIBLIOTHEQUE.md) pour le budget par lieu.
+- La foule de la salle de basket (660 000 triangles) et du Dôme de Minuit : des capsules moins fines ou des silhouettes à deux niveaux. Les 110 lampes de la place (les réverbères et les fenêtres), les 2 800 surfaces du casino.
+- Les tapis des tables du casino, dessinés dans un `SubViewport` à 600 px par mètre : 75 Mo de textures, à ramener à la taille vue.
+- Les paquets des communes (Civaux, Minuit…) ont leurs propres textures et figurines : le même rangement (`Memo`) leur servirait ; Minuit charge 256 Mo de textures (des 2048 × 2048 sans compression), bien au-delà du seuil. Chaque paquet est repris une fois par ses auteurs, avec le budget que l'emballeur leur dit.
+- Si le téléphone peine encore, la lumière précalculée (`LightmapGI`) pour les lieux fixes.
 - La première visite d'un lieu compile ses shaders sur la carte graphique ; Godot les garde ensuite en cache, les visites suivantes sont plus rapides.
