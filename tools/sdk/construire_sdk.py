@@ -100,7 +100,9 @@ def fermeture():
     pile = list(_autoloads()) + ENTREES
     while pile:
         rel = pile.pop()
-        if rel in COUPE or rel in gardes:
+        # Le cache de Godot (.godot/) est propre à chaque machine : chargement.gd nomme « res://.godot/ »
+        # et la CI a déjà importé le projet quand le SDK se construit.
+        if rel in COUPE or rel in gardes or rel.startswith((".godot/", "build/")):
             continue
         f = RACINE / rel
         if not f.is_file():
@@ -158,6 +160,9 @@ def _projet():
     t = (RACINE / "project.godot").read_text(encoding="utf-8")
     t = re.sub(r'run/main_scene="[^"]*"', 'run/main_scene="res://scenes/main.tscn"', t)
     t = t.replace('config/name="Smarves"', 'config/name="Smarves — SDK des communes"')
+    # Le module addons/smarves_version estampille les exports du jeu avec son commit : il ne part pas
+    # dans le SDK, où une commune s'emballe sans lui ; sa section partirait sans lui et Godot s'en plaindrait.
+    t = re.sub(r"\[editor_plugins\]\n+enabled=[^\n]*\n+", "", t)
     return t
 
 
@@ -199,6 +204,9 @@ def construire(sortie, lister=False):
     }
     for rel in textes:
         fichiers.pop(rel, None)
+    intrus = sorted(r for r in fichiers if r.startswith((".godot/", "addons/")))
+    if intrus or "res://addons/" in textes["project.godot"]:
+        sys.exit("Le SDK ne doit contenir ni cache .godot/ ni module addons/ : %s" % ", ".join(intrus or ["project.godot"]))
     taille = sum(p.stat().st_size for p in fichiers.values()) + sum(len(t.encode()) for t in textes.values())
     code = [r for r in fichiers if r.endswith((".gd", ".tscn"))]
     print("%d fichiers, %.1f Mo, dont %d scripts et scènes" % (len(fichiers) + len(textes), taille / 1048576, len(code)))

@@ -77,6 +77,15 @@ try:
     check(not e and (essai / "commune.json").is_file(), "nouvelle_commune crée Vouneuil-sous-Biard depuis le kit, par son INSEE")
     m = json.loads((essai / "commune.json").read_text(encoding="utf-8"))
     check(m["nom"] == "Vouneuil-sous-Biard" and m["population"] > 0, "  avec le nom et la population du référentiel")
+    check(m["banque"]["nom"] == "La caisse de Vouneuil-sous-Biard", "  et sa caisse à son nom")
+    angles = RACINE / "communes" / "angles_sur_l_anglin"
+    if not angles.exists():
+        try:
+            outil("nouvelle_commune", insee="86004")
+            b = json.loads((angles / "commune.json").read_text(encoding="utf-8"))["banque"]["nom"]
+            check(b == "La caisse d'Angles-sur-l'Anglin", "  le nom de la caisse s'élide devant une voyelle : %s" % b)
+        finally:
+            shutil.rmtree(angles, ignore_errors=True)
     t, e = outil("verifier_manifeste", id="vouneuil_sous_biard")
     check(not e and "accepté" in t, "  et son manifeste passe")
     t, e = outil("nouvelle_commune", insee="86297")

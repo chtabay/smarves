@@ -20,6 +20,7 @@ import re
 import shutil
 import subprocess
 import sys
+import unicodedata
 from pathlib import Path
 
 RACINE = Path(__file__).resolve().parents[2]
@@ -232,6 +233,16 @@ def verifier_manifeste(id="", dossier="", texte=""):
     return "\n".join(out)
 
 
+def nom_de_caisse(nom):
+    """« La caisse d'Angles-sur-l'Anglin », « La caisse du Vigeant », « La caisse des Ormes » : l'élision
+    devant une voyelle et la contraction de l'article. Même règle que le portail (src/lib/communes/kit.ts)."""
+    if nom.startswith("Le "):
+        return "La caisse du " + nom[3:]
+    if nom.startswith("Les "):
+        return "La caisse des " + nom[4:]
+    return ("La caisse d'" if unicodedata.normalize("NFD", nom[:1])[:1].lower() in "aeiouy" else "La caisse de ") + nom
+
+
 def nouvelle_commune(insee, id="", nom="", dossier=""):
     ref = _vienne().get(str(insee))
     if not ref:
@@ -248,7 +259,7 @@ def nouvelle_commune(insee, id="", nom="", dossier=""):
     d.mkdir(parents=True, exist_ok=True)
     faits = []
     for nom_f in ("commune.json", "commune.tscn", "commune.gd"):
-        t = _lire("tools/kit/" + nom_f).replace("__ID__", id).replace("__NOM__", nom).replace("__INSEE__", str(insee))
+        t = _lire("tools/kit/" + nom_f).replace("La caisse de __NOM__", nom_de_caisse(nom)).replace("__ID__", id).replace("__NOM__", nom).replace("__INSEE__", str(insee))
         if nom_f == "commune.json":
             t = t.replace('"population": 0', '"population": %d' % int(ref.get("population", 0)))
         (d / nom_f).write_text(t, encoding="utf-8")
