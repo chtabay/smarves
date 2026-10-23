@@ -1,10 +1,14 @@
-extends "res://scripts/village/stade.gd"
-## Le stade de la Fortune, où joue le Racing Club Minuit (socle 1.8, champ « scene » du terrain) : la pelouse
-## et le match du socle, dans un stade bâti par Casino Minuit. Un bol à l'américaine sous une roue de roulette
-## géante qui tourne (roue.gd), deux étages de tribunes, la promenade, les Suites impériales, la piscine des
-## parieurs, le Jackpot Lounge et sa scène, le penthouse du président (batiment.gd, sur le plan de bol.gd) ; au
-## sud le parvis, ses fontaines, Jackpot le chat en smoking et la station de taxis (parvis.gd). On y arrive en
-## taxi, on en repart en taxi : vers le casino ou l'aéroport (taxi.gd).
+extends Node3D
+## Le stade de la Fortune, où joue le Racing Club Minuit : le décor du stade, branché par ses ancres (socle 1.13,
+## champ « modele » du terrain ; décor vivant, socle 1.18). Le socle y pose la pelouse, le match, le président et
+## sa gestion, le panneau et le tableau ; le décor bâtit le reste et le fait vivre. Un bol à l'américaine sous une
+## roue de roulette géante qui tourne (roue.gd), deux étages de tribunes, la promenade, les Suites impériales, la
+## piscine des parieurs, le Jackpot Lounge et sa scène, le penthouse du président (batiment.gd, sur le plan de
+## bol.gd) ; au sud le parvis, ses fontaines, Jackpot le chat en smoking et la station de taxis (parvis.gd). On y
+## arrive en taxi, on en repart en taxi : vers le casino ou l'aéroport (taxi.gd).
+## Les ancres (scripts/socle/ancres.gd) : Pelouse au rond central, Arrivee sous l'auvent de la station, Sortie à
+## la station de taxis, Tableau sur la face sud de l'écran à 360°, President et Bureau au penthouse, Panneau
+## sous le palier de l'escalier du hall.
 ## Capture : outils/capture_stade_minuit.gd, ou les options du stade du socle (--at=x,z,lacet,tangage), plus
 ## --y=hauteur pour poser le visiteur à un étage.
 
@@ -18,8 +22,14 @@ const SEMAINE := BASE + "stade/semaine.gd"
 const LOT_E := BASE + "zones/lot_e.gd"
 ## La roue tourne d'un tour en deux minutes.
 const VITESSE_ROUE := TAU / 120.0
+## Le panneau du club, sous le palier, à gauche du tunnel des joueurs ; le penthouse du président.
+const PANNEAU := Vector3(3.2, 0, -22.83)
+const PRESIDENT := Vector3(-1.5, 16.5, -24.1)
+const BUREAU := Vector3(0.3, 16.5, -23.0)
 
 var K
+## Le stade du socle, une fois qu'il a tout posé (brancher).
+var stade: Node3D
 var _t := 0.0
 var _roue := {}
 var _parvis := {}
@@ -34,50 +44,42 @@ var _revu := 0.0
 
 func _ready() -> void:
 	K = load(KIT).new(self)
-	super()
-	var at := false
-	for arg in OS.get_cmdline_user_args():
-		if arg.begins_with("--at="):
-			at = true
-	if not at:
-		player.position = load(PARVIS).ARRIVEE
-		player.rotation.y = PI
-	for arg in OS.get_cmdline_user_args():
-		if arg.begins_with("--y="):
-			player.position.y = float(arg.trim_prefix("--y="))
-	load(SEMAINE).inscrire()
+	places = load(BATIMENT).construire(K, self)
+	_roue = load(ROUE).construire(K)
+	_parvis = load(PARVIS).construire(K)
+	_panneau()
+	_figurants()
+	_foule()
+	_ancres()
+	# Mesuré ou vu seul, le décor suit déjà la semaine : brancher() le reprend avec le stade.
 	_vivre()
-	_annoncer()
 
 
-## Ce que le visiteur entend en arrivant, selon le moment : le stade du socle parle d'entraînement à toute
-## heure ; ici, il dort la semaine.
-func _annoncer() -> void:
-	var nom := _nom_club()
-	match moment:
-		"desert":
-			_note("Le stade de la Fortune dort : rendez-vous mercredi à 18 h pour l'entraînement public, ou dimanche dès 13 h.")
-		"entrainement":
-			_note("Entraînement public de %s jusqu'à 20 h : les tribunes sont ouvertes, prenez place." % nom)
-		"portes":
-			_note("Les portes sont ouvertes, la foule arrive : coup d'envoi à %d h." % Football.HEURE_COUP_ENVOI if _a_domicile()
-				else "Les portes sont ouvertes : %s joue à l'extérieur, le match passe sur l'écran géant à %d h." % [nom, Football.HEURE_COUP_ENVOI])
-		"match":
-			if not _a_domicile():
-				_note("%s joue à l'extérieur : tout le stade regarde le match sur l'écran géant." % nom)
-		"sortie":
-			_note("Le match est fini, la foule redescend vers le Strip. Les taxis attendent sur le parvis.")
+## Les ancres du contrat du stade.
+func _ancres() -> void:
+	var e: Array = _roue.ecran[0]
+	_ancre("Pelouse", Vector3.ZERO, 0.0)
+	_ancre("Arrivee", load(PARVIS).ARRIVEE, 0.0)
+	_ancre("Sortie", Vector3(0, 0, load(PARVIS).Z_TAXI - 3.0), PI)
+	_ancre("Tableau", (e[0] as Label3D).position, PI)
+	_ancre("President", PRESIDENT, 0.0)
+	_ancre("Bureau", BUREAU, 0.0)
+	_ancre("Panneau", PANNEAU, PI)
 
 
-func _place_name() -> String:
-	return "Le stade de la Fortune"
+func _ancre(nom: String, p: Vector3, lacet: float) -> void:
+	var m := Marker3D.new()
+	m.name = nom
+	m.position = p
+	m.rotation.y = lacet
+	add_child(m)
 
 
-## La nuit du Strip : le ciel violet sombre, la lueur des diodes, et quatre projecteurs pendus au bord de la
-## roue, qui font le jour sur la pelouse.
-func _nuit() -> void:
+## La nuit du Strip (socle 1.18, à la place de celle du socle) : le ciel violet sombre, la lueur des diodes, et
+## quatre projecteurs pendus au bord de la roue, qui font le jour sur la pelouse.
+func nuit(s: Node3D) -> void:
 	var we: WorldEnvironment = null
-	for c in get_children():
+	for c in s.get_children():
 		if c is WorldEnvironment:
 			we = c
 	if we:
@@ -116,13 +118,64 @@ func _nuit() -> void:
 		spot.look_at(Vector3(sin(a) * 6.0, 0, cos(a) * 4.0), Vector3.UP)
 
 
-## Tout le stade de la commune, à la place de la tribune du socle.
-func _tribune() -> void:
-	places = load(BATIMENT).construire(K, self)
-	_roue = load(ROUE).construire(K)
-	_parvis = load(PARVIS).construire(K)
-	_figurants()
-	_foule()
+## Le stade est posé (socle 1.18) : M. Castellane dans son costume, l'écran à 360° qui reprend le score du
+## socle, la sortie qui devient la station de taxis, la semaine du stade et ce qu'on entend en arrivant.
+func brancher(s: Node3D) -> void:
+	stade = s
+	_le_president()
+	# Le score, la minute et l'affiche du socle (au Tableau) sont recopiés sur les quatre faces de l'écran.
+	for l in [s._score, s._horloge, s._affiche]:
+		if l:
+			l.visible = false
+	for a in s.find_children("*", "Area3D", true, false):
+		if str(a.get_meta("interact", "")) == "exit":
+			a.set_meta("prompt", "E : prendre un taxi")
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--y="):
+			_hauteur.call_deferred(float(arg.trim_prefix("--y=")))
+	load(SEMAINE).inscrire()
+	_vivre()
+	_annoncer()
+
+
+func _hauteur(y: float) -> void:
+	stade.player.position.y = y
+
+
+## M. Castellane, le président, dans son penthouse suspendu sous la roue, derrière son bureau : le socle l'a posé
+## à l'ancre President ; il garde son costume noir et sa cravate aux couleurs du club.
+func _le_president() -> void:
+	var ancien: Node3D = stade._president
+	if ancien == null:
+		return
+	var P = Atelier.personnages()
+	var c: Node3D = P.faire("dealer-businessman", {"Suit": "#0E0C10", "Tie": "#B3121F", "White": "#F3EAD7"})
+	stade.add_child(c)
+	c.global_position = ancien.global_position
+	c.regarder(c.global_position + Vector3(0, 0, 1))
+	c.jouer("idle")
+	stade._president = c
+	stade._interactive(c, "president", "E : parler %s" % stade._a(stade._nom_president()), Vector3(1.6, 1.8, 1.2), Vector3(0, 0.9, 1.6))
+	ancien.queue_free()
+
+
+## Ce que le visiteur entend en arrivant, selon le moment : le stade du socle parle d'entraînement à toute
+## heure ; ici, il dort la semaine.
+func _annoncer() -> void:
+	var nom: String = stade._nom_club()
+	match moment:
+		"desert":
+			stade._note("Le stade de la Fortune dort : rendez-vous mercredi à 18 h pour l'entraînement public, ou dimanche dès 13 h.")
+		"entrainement":
+			stade._note("Entraînement public de %s jusqu'à 20 h : les tribunes sont ouvertes, prenez place." % nom)
+		"portes":
+			stade._note("Les portes sont ouvertes, la foule arrive : coup d'envoi à %d h." % Football.HEURE_COUP_ENVOI if _a_domicile()
+				else "Les portes sont ouvertes : %s joue à l'extérieur, le match passe sur l'écran géant à %d h." % [nom, Football.HEURE_COUP_ENVOI])
+		"match":
+			if not _a_domicile():
+				stade._note("%s joue à l'extérieur : tout le stade regarde le match sur l'écran géant." % nom)
+		"sortie":
+			stade._note("Le match est fini, la foule redescend vers le Strip. Les taxis attendent sur le parvis.")
 
 
 ## Les foules du dimanche, posées une fois pour toutes et montrées par parts (visible_instance_count) : les
@@ -188,68 +241,33 @@ func _vivre() -> void:
 		var d: MultiMesh = _foules[1].multimesh
 		var debout := part if moment == "portes" or moment == "sortie" else (0.15 if moment == "match" else 0.0)
 		d.visible_instance_count = int(d.instance_count * debout)
+	if stade == null:
+		return
 	var sur_la_pelouse := moment == "entrainement" or ((moment == "portes" or moment == "match") and _a_domicile())
-	for id in _acteurs:
-		(_acteurs[id] as Node3D).visible = sur_la_pelouse
-	if _ballon:
-		_ballon.visible = sur_la_pelouse
+	for id in stade._acteurs:
+		(stade._acteurs[id] as Node3D).visible = sur_la_pelouse
+	if stade._ballon:
+		stade._ballon.visible = sur_la_pelouse
 	for sp in _projecteurs:
 		sp.light_energy = 7.0 if moment != "desert" else 2.2
 
 
 ## Le Racing Club Minuit reçoit-il ce dimanche ? Sinon (ou sans club au championnat), le match est ailleurs.
 func _a_domicile() -> bool:
-	return _club != "" and str(_rencontre.get("dom", "")) == _club
+	return stade != null and stade._club != "" and str(stade._rencontre.get("dom", "")) == stade._club
 
 
-## L'entrée du stade du socle (portail, panneau du club) : ici, on entre par le parvis et le hall ; le panneau
-## du club tient en diodes sous le palier de l'escalier, à gauche du tunnel des joueurs, dans l'axe de la porte.
-func _entree() -> void:
+## Le panneau du club, en diodes sous le palier de l'escalier, à gauche du tunnel des joueurs, dans l'axe de la
+## porte : le cadre et l'écran ; le socle y écrit le club et y pose la lecture (ancre Panneau).
+func _panneau() -> void:
 	K.zone_debut("FORTUNE-PANNEAU")
-	var x := 3.2
+	var x := PANNEAU.x
 	var z := -22.4 - 0.36
 	K.box("laque_noire", 2.3, 2.4, 0.12, x, 1.9, z)
 	K.box("or", 2.5, 0.1, 0.16, x, 3.15, z)
 	K.box("or", 2.5, 0.1, 0.16, x, 0.65, z)
-	load(BASE + "zones/lot_e.gd").ecran(K, x, 1.75, z - 0.07, 2.0, 1.3, PI, 4, 0.5)
-	K.texte("LE PANNEAU DU CLUB", 2.1, 0.22, x, 2.85, z - 0.08, PI, "grave")
-	K.interaction("panneau", "E : lire le panneau du club", x, 1.6, z - 1.0, Vector3(2.3, 2.4, 1.2))
+	load(LOT_E).ecran(K, x, 1.75, z - 0.07, 2.0, 1.3, PI, 4, 0.5)
 	K.zone_fin()
-
-
-## Le siège du club, au socle une pièce à part : ici, c'est le bureau du penthouse (_le_president).
-func _siege() -> void:
-	pass
-
-
-## Le score, l'horloge et l'affiche du match : sur la face sud de l'écran à 360°, recopiés sur les trois autres.
-func _tableau_affichage() -> void:
-	var m: Array = _roue.ecran
-	_score = m[0][0]
-	_horloge = m[0][1]
-	_affiche = m[0][2]
-	_score.text = "0 - 0"
-
-
-## M. Castellane, le président, dans son penthouse suspendu sous la roue, derrière son bureau : on monte le voir
-## par l'ascenseur de verre de la promenade.
-func _le_president() -> void:
-	var P = Atelier.personnages()
-	var c: Node3D = P.faire("dealer-businessman", {"Suit": "#0E0C10", "Tie": "#B3121F", "White": "#F3EAD7"})
-	c.position = Vector3(-1.5, 16.5, -24.1)
-	add_child(c)
-	c.regarder(Vector3(-1.5, 16.5, 0))
-	c.jouer("idle")
-	_president = c
-	var l := _label3d(_nom_president(), c.position + Vector3(0, 2.2, 0.3), 22, Color(0.95, 0.85, 0.6), 180.0)
-	l.shaded = false
-	l.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
-	_interactive(c, "president", "E : parler %s" % _a(_nom_president()), Vector3(1.6, 1.8, 1.2), Vector3(0, 0.9, 1.6))
-	# Le bureau d'acajou, devant lui : la gestion du club, comme au siège du stade du socle.
-	var bureau := Node3D.new()
-	bureau.position = Vector3(0.3, 16.5, -23.0)
-	add_child(bureau)
-	_interactive(bureau, "bureau", "E : le bureau du président, la gestion du club", Vector3(1.0, 1.6, 1.6), Vector3(0, 0.8, 0))
 
 
 ## Ceux qui restent quand le stade est désert : le voiturier de la station, le barman de la piscine ; dans le
@@ -286,16 +304,17 @@ func _figurants() -> void:
 
 
 func _process(delta: float) -> void:
-	super(delta)
 	_t += delta
 	K.animer(delta, _t)
 	if _roue.has("cases"):
 		(_roue.cases as Node3D).rotation.y = _t * VITESSE_ROUE
 		(_roue.bille as Node3D).position = load(ROUE).place_bille(_t)
 		var m: Array = _roue.ecran
-		for i in range(1, m.size()):
-			for k in 3:
-				m[i][k].text = m[0][k].text
+		if stade != null:
+			for i in m.size():
+				m[i][0].text = stade._score.text
+				m[i][1].text = stade._horloge.text
+				m[i][2].text = stade._affiche.text
 	_revu += delta
 	if _revu > 1.0:
 		_revu = 0.0
@@ -305,42 +324,45 @@ func _process(delta: float) -> void:
 		mat.emission_energy_multiplier = 2.4 + 1.2 * sin(_t * 1.3)
 
 
-func _on_interact(target: Node) -> void:
-	match str(target.get_meta("interact", "")):
-		"taxi":
-			load(TAXI).ouvrir(self, player, "Où va-t-on ?", [
+## Les interactions passent d'abord par le décor (socle 1.18) : les siennes, et la sortie, qui est un taxi.
+func interagir(cle: String, cible: Node) -> bool:
+	var player: CharacterBody3D = stade.player
+	match cle:
+		"taxi", "exit":
+			load(TAXI).ouvrir(stade, player, "Où va-t-on ?", [
 				["Retour au Casino Minuit", "Le Strip, la porte-cochère du casino", _retour_casino],
 				["L'aéroport McCarran", "Le vol MN 1203, pour Poitiers-Biard", func(): Carte.ouvrir()]])
 		"monter":
-			player.global_position = target.get_meta("vers")
+			player.global_position = cible.get_meta("vers")
 			player.velocity = Vector3.ZERO
-			player.rotation.y = float(target.get_meta("cap", player.rotation.y))
+			player.rotation.y = float(cible.get_meta("cap", player.rotation.y))
 		"billetterie":
-			_dire(_billetterie())
+			stade._dire(_billetterie())
 		"accueil":
-			_dire(_accueil())
+			stade._dire(_accueil())
 		"boutique":
-			_dire(["« Le maillot du dimanche, rouge et or, brodé main : 1 203 dollars. Le prix du vol, monsieur. »",
+			stade._dire(["« Le maillot du dimanche, rouge et or, brodé main : 1 203 dollars. Le prix du vol, monsieur. »",
 				"« L'écharpe en soie du Racing Club Minuit. Elle porte bonheur aux tables, paraît-il. »",
 				"« Jackpot en peluche, chapeau compris. Les enfants l'adorent, les joueurs aussi. »"].pick_random())
 		"tunnel":
-			_dire("Les joueurs entrent par là le dimanche, sous les flammes et les feux d'artifice. La porte est fermée la semaine.")
+			stade._dire("Les joueurs entrent par là le dimanche, sous les flammes et les feux d'artifice. La porte est fermée la semaine.")
 		"piscine":
-			_dire(["« Un Fortune Spritz ? Les cabanas se louent à la journée de match, avec vue sur la pelouse. »",
+			stade._dire(["« Un Fortune Spritz ? Les cabanas se louent à la journée de match, avec vue sur la pelouse. »",
 				"« La piscine est à l'année. Le dimanche, on parie depuis l'eau. »"].pick_random())
 		"machines":
-			_dire("Les machines du Jackpot Lounge tournent pour le décor : on joue aux tables du casino, sur le Strip.")
+			stade._dire("Les machines du Jackpot Lounge tournent pour le décor : on joue aux tables du casino, sur le Strip.")
 		"scene":
-			_dire("La scène de Minuit Live : le dimanche, un concert avant le coup d'envoi et à la mi-temps.")
+			stade._dire("La scène de Minuit Live : le dimanche, un concert avant le coup d'envoi et à la mi-temps.")
 		_:
-			super(target)
+			return false
+	return true
 
 
 ## Le taxi du retour : on repart à la porte-cochère du casino (minuit.gd lit le point de retour).
 func _retour_casino() -> void:
-	Game.return_point = _lot()
+	Game.return_point = stade._lot()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	var c: Commune = Communes.commune(commune)
+	var c: Commune = Communes.commune(stade.commune)
 	Chargement.changer(str(c.data.scene) if c else "res://scenes/main.tscn")
 
 

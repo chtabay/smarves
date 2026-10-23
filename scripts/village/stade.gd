@@ -71,7 +71,8 @@ var _terrain := {}
 var _club := ""
 ## Le décor du stade quand le terrain en nomme un (socle 1.13, champ « modele ») : une brique de la
 ## bibliothèque (« stade-de-campagne@1 ») ou une scène de la commune, branchée par ses ancres
-## (scripts/socle/ancres.gd) ; null pour le stade du socle.
+## (scripts/socle/ancres.gd) ; null pour le stade du socle. Un décor vivant (socle 1.18) peut aussi avoir
+## nuit(stade), brancher(stade) et interagir(cle, cible) -> bool : voir Ancres.CROCHETS.
 var _modele: Node3D
 
 
@@ -112,7 +113,11 @@ func _ready() -> void:
 	W = L + 20.0 if _modele == null else L + 10.0
 	D = P + 24.0 if _modele == null else P + 8.0
 	_environment()
-	_nuit()
+	# Un décor qui fait sa propre nuit (socle 1.18) la fait à la place de celle du socle (ses pylônes, ses projecteurs).
+	if _modele != null and _modele.has_method("nuit"):
+		_modele.nuit(self)
+	else:
+		_nuit()
 	_pelouse()
 	if _modele == null:
 		_tribune()
@@ -137,6 +142,9 @@ func _ready() -> void:
 	Sfx.set_ambience("village")
 	_rencontre = _choisir()
 	_composer()
+	# Le décor qui le demande reçoit le stade une fois tout posé (socle 1.18) : sa vie, ses foules, ses annonces.
+	if _modele != null and _modele.has_method("brancher"):
+		_modele.brancher(self)
 	_maybe_capture()
 
 
@@ -1300,6 +1308,9 @@ func _show_speech() -> void:
 
 
 func _on_interact(target: Node) -> void:
+	# Le décor parle le premier (socle 1.18) : ses propres interactions, ou les siennes à la place du socle.
+	if _modele != null and _modele.has_method("interagir") and _modele.interagir(str(target.get_meta("interact", "")), target):
+		return
 	match str(target.get_meta("interact", "")):
 		"exit":
 			Game.return_point = _lot()
