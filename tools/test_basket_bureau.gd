@@ -230,10 +230,19 @@ func _init() -> void:
 	await process_frame
 	var tout := textes(parts)
 	check(tout.contains("LES HÉRONS DU CLAIN") and tout.contains("tenue par Lucien") and tout.contains("à vous") and trouver(parts, "Prendre_1") != null, "le tableau des parts : les porteurs et les obligations libres")
+	# En saison, les parts ne se prennent pas (demande du 23 octobre au soir) : le bouton est éteint et dit quand.
+	check((trouver(parts, "Prendre_1") as Button).disabled and tout.contains("à l'intersaison") and trouver(parts, "Fenetre") != null, "en saison, « Prendre » est éteint : les parts se prennent à l'intersaison")
 	avant = game.credits
 	(trouver(parts, "Prendre_1") as Button).pressed.emit()
 	await process_frame
-	check(game.credits == avant - 500 and basket.mes_obligations("smarves").has(1), "le bouton Prendre prend la n° 1")
+	check(game.credits == avant and not basket.mes_obligations("smarves").has(1), "et la n° 1 ne se prend pas")
+	# À l'intersaison, si.
+	var en_saison := t
+	t = basket.coup_envoi(1, 14) + 4 * 3600
+	(trouver(parts, "Prendre_1") as Button).pressed.emit()
+	await process_frame
+	t = en_saison
+	check(game.credits == avant - 500 and basket.mes_obligations("smarves").has(1), "à l'intersaison, le bouton Prendre prend la n° 1")
 	parts.queue_free()
 
 	var bureau: PanelContainer = load("res://scripts/socle/basket_bureau.gd").new()

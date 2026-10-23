@@ -188,7 +188,9 @@ func _init() -> void:
 	foot.oublier_effectifs()
 
 	# Les obligations du club, chez le notaire (modèle Impérial 2030) : sans porteur tout le monde parle ;
-	# sinon la plus grosse somme investie, ou chacun à égalité.
+	# sinon la plus grosse somme investie, ou chacun à égalité. Les obligations ne se prennent qu'à
+	# l'intersaison (demande du 23 octobre au soir) : on se place juste avant la saison 2.
+	t = foot.coup_envoi(2, 1) - 3600
 	var game: Node = root.get_node("Game")
 	game.saving_enabled = false
 	game.credits = 10000
@@ -214,7 +216,7 @@ func _init() -> void:
 	check(foot.dividendes_dus().is_empty(), "rien n'est dû pour les journées d'avant l'achat")
 	t = foot.coup_envoi(2, 7) + 3 * 3600
 	var dus: Array = foot.dividendes_dus()
-	check(dus.size() == 4 and dus[0].j == 4 and dus[3].j == 7 and dus[0].brut == int(round(350 * foot.recette_facteur(m0.dom))), "quatre journées jouées depuis la n° 7 : quatre dividendes de 350 au classement (%s)" % str(dus))
+	check(dus.size() == 7 and dus[0].j == 1 and dus[6].j == 7 and dus[0].brut == int(round(350 * foot.recette_facteur(m0.dom))), "sept journées jouées depuis la n° 7, prise à l'intersaison : sept dividendes de 350 au classement (%s)" % str(dus))
 	foot.salaires = func(_c: String) -> int: return 700
 	check(foot.dividendes_dus()[0].salaires == int(round(700.0 * 5000.0 / 8500.0)), "les salaires du mercato se retiennent au prorata de l'investi")
 	foot.salaires = Callable()
@@ -223,7 +225,7 @@ func _init() -> void:
 	var total := 0
 	for v in verses:
 		total += int(v.net)
-	check(verses.size() == 4 and game.credits == credits_avant + total and foot.dividendes_dus().is_empty() and foot.dividendes[m0.dom].j == 7, "versés une fois, dans la bourse")
+	check(verses.size() == 7 and game.credits == credits_avant + total and foot.dividendes_dus().is_empty() and foot.dividendes[m0.dom].j == 7, "versés une fois, dans la bourse")
 	# Le serveur a le dernier mot : une prise qu'il donne à un autre est rendue à sa valeur.
 	foot.obligations_a_declarer = {}
 	credits_avant = game.credits

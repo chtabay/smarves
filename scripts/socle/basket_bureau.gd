@@ -38,7 +38,7 @@ func remplir(col: VBoxContainer) -> void:
 	# Ce qui empêche de décider, dit tout de suite plutôt qu'au premier clic.
 	var refus: String = b.refus_bureau(commune)
 	if refus != "":
-		_mot(col, pourquoi(refus) + (" Vous pouvez tout lire, sans rien changer." if refus in ["compte", "parts"] else ""), ROUGE, 15)
+		_mot(col, pourquoi(refus) + (" Vous pouvez tout lire, sans rien changer." if refus in ["compte", "parts", "division"] else ""), ROUGE, 15)
 	# Renommer le club : son dirigeant, s'il en tient des parts (demande de Guillaume du 23 octobre 2026).
 	if refus == "" and b.investi(commune) > 0:
 		var r := _rangee(col)

@@ -1584,6 +1584,11 @@ func _agenda(col: VBoxContainer) -> void:
 		return
 	var t: int = a.maintenant()
 	var rdv: Array = a.entre(t - 3 * 3600, t + 14 * 86400).filter(func(rv): return str(rv.get("activite", "")) in ["football", "mercato"])
+	# La saison en une phrase (l'intersaison, où se prennent les parts, et le mercato), et tout le calendrier au carnet.
+	col.add_child(_mot(preload("res://scripts/socle/calendrier.gd").resume(foot(), "football"), 15, CRAIE, null, true))
+	var cal := _bouton("Tout le calendrier des championnats  (carnet)", func(): preload("res://scripts/socle/calendrier.gd").ouvrir())
+	cal.name = "Calendrier"
+	col.add_child(cal)
 	col.add_child(_mot("Les deux semaines du club : les matchs, l'arrivée des nouveaux joueurs au marché, les dates limites de nos enchères et de nos ventes.", 14, DOUX, null, true))
 	if rdv.is_empty():
 		col.add_child(_mot("Rien dans les deux semaines qui viennent.", 16, CRAIE))

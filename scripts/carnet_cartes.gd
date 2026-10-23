@@ -517,13 +517,13 @@ func parcours() -> Array:
 			texte = "%s ouvre à %s gagnés au jeu (encore %s) : les obligations %s partent de %s crédits." \
 				% [cl.lieu, Game.fmt(int(cl.seuil)), Game.fmt(int(cl.seuil) - Game.won), DIRIGER.de(cl.nom), Game.fmt(cl.moteur.valeur(1))]
 		else:
-			texte = "Les obligations %s, dès %s crédits, %s : elles versent à chaque journée jouée." % [DIRIGER.de(cl.nom), Game.fmt(cl.moteur.valeur(1)), ou]
+			texte = "Les obligations %s, dès %s crédits, %s, %s : elles versent à chaque journée jouée." % [DIRIGER.de(cl.nom), Game.fmt(cl.moteur.valeur(1)), ou, DIRIGER.ferme_texte(cl.moteur)]
 		out.append({"id": "club_" + str(cl.sport), "titre": "Une obligation de club" if i == 0 else "Un second club, %s" % cl.nom,
 			"etat": "fait" if cl.tient else ("ouvert" if ouvert else "ferme"), "texte": texte,
 			"aller": "notaire" if cl.sport == "football" else ""})
 		if i == 0:
 			# 3. Diriger un club, juste après la première obligation.
-			var t := "Celui qui a mis le plus dans un club le dirige : la tactique, le marché, le bureau du président."
+			var t := "Celui qui a mis le plus dans un club le dirige (un club par division, on en change à l'intersaison) : la tactique, le marché, le bureau du président."
 			if dirige_un:
 				t = "Vous dirigez un club : son bureau est à vous."
 			elif not meilleur.is_empty():

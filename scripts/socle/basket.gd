@@ -44,6 +44,8 @@ const RECETTE := 3000
 const OBLIGATIONS := [500, 1000, 1500, 2250, 3000, 4000, 5000, 6250, 7500]
 const TOTAL := 31000
 const RACHAT := 0.8
+## Qui dirige, la règle d'un club par division et l'intersaison (scripts/socle/diriger.gd).
+const DIRIGER := preload("res://scripts/socle/diriger.gd")
 
 ## Les clubs inscrits (un gymnase au registre) : id de la commune -> {nom, court, couleurs, commune, salle}.
 var clubs := {}
@@ -68,6 +70,8 @@ var _marches := {}
 var bureau := {"obligations": [], "encheres": [], "liberations": [], "consignes": [], "noms": []}
 ## Les obligations prises (true) ou rendues (false) ici que le serveur ne sait pas encore : club -> {rang: bool}.
 var a_declarer := {}
+## La direction de chaque club, tenue au serveur : club -> {par, moi, division}.
+var directions := {}
 ## Les mises retenues sur les crédits, par lot « saison/journée/niveau/groupe/joueur ».
 var retenues := {}
 ## La dernière journée dont le dividende est versé, club -> {s, j} ; et tout ce qui a été versé.
@@ -681,8 +685,7 @@ func investi(club: String) -> int:
 ## Qui dirige le club (le mercato, la consigne) : sans porteur, tout le monde ; sinon la plus grosse somme
 ## investie, et chacun à égalité. Le serveur en juge de même (basket.dirige).
 func peut_decider(club: String) -> bool:
-	var a := actionnaires(club)
-	return a.is_empty() or investi(club) >= int(a[0].investi)
+	return DIRIGER.decide(self, club)
 
 
 func phrase_actionnaires(club: String) -> String:
@@ -692,7 +695,8 @@ func phrase_actionnaires(club: String) -> String:
 	var morceaux: Array = []
 	for x in a:
 		morceaux.append("%s %s" % ["vous" if x.moi else x.nom, Game.fmt(int(x.investi))])
-	var qui := "c'est vous qui dirigez le club" if peut_decider(club) else "c'est %s qui dirige le club" % a[0].nom
+	var dg: Dictionary = DIRIGER.dirigeant(self, club)
+	var qui := "c'est vous qui dirigez le club" if bool(dg.get("moi", false)) else "c'est %s qui dirige le club" % str(dg.get("nom", a[0].nom))
 	return "Au capital : %s crédits ; %s." % [", ".join(morceaux), qui]
 
 
@@ -724,6 +728,8 @@ func prendre(club: String, rang: int) -> Dictionary:
 		return {"ok": false, "raison": "club"}
 	if not porteur(club, rang).is_empty():
 		return {"ok": false, "raison": "prise"}
+	if not DIRIGER.en_intersaison(self):
+		return {"ok": false, "raison": "intersaison"}
 	if Game.credits < valeur(rang):
 		return {"ok": false, "raison": "credits"}
 	Game.credits -= valeur(rang)
@@ -835,7 +841,7 @@ func refus_bureau(club: String) -> String:
 	if not connecte():
 		return "compte"
 	if not peut_decider(club):
-		return "parts"
+		return "division" if DIRIGER.etat(self, club).ailleurs != "" else "parts"
 	return ""
 
 
@@ -962,6 +968,49 @@ func lire() -> void:
 	if r.code == 200 and r.corps is Dictionary:
 		appliquer(r.corps)
 		envoyer()
+	await lire_directions()
+
+
+## Relit qui dirige chaque club (public), puis demande la direction des clubs où l'on y a droit : le plus
+## gros porteur qui ne dirige pas déjà un club de la même division (scripts/socle/diriger.gd).
+func lire_directions() -> void:
+	var r: Dictionary = await _appeler("smarves_directions", {"p_sport": "basket"})
+	if r.code != 200 or not (r.corps is Array):
+		return
+	appliquer_directions(r.corps)
+	if not connecte():
+		return
+	for club in clubs:
+		if DIRIGER.peut_prendre(self, club):
+			await prendre_direction(club)
+
+
+## Les directions lues au serveur : [{club, par, moi, division}].
+func appliquer_directions(liste: Array) -> void:
+	directions = {}
+	for d in liste:
+		if d is Dictionary:
+			directions[str(d.get("club", ""))] = {"par": str(d.get("par", "")), "moi": bool(d.get("moi", false)), "division": str(d.get("division", ""))}
+	change.emit()
+
+
+## Demande la direction d'un club au serveur ; `changer` quitte, à l'intersaison, le club de la même
+## division qu'on dirigeait. {ok} ou {ok: false, raison} « intersaison », « division », « parts », « compte ».
+func prendre_direction(club: String, changer := false) -> Dictionary:
+	if not connecte():
+		return {"ok": false, "raison": "compte"}
+	var r: Dictionary = await _appeler("smarves_direction_prendre", {"p_sport": "basket", "p_club": club,
+		"p_division": DIRIGER.division(self, club), "p_changer": changer})
+	if r.code != 200 or not (r.corps is Dictionary):
+		return {"ok": false, "raison": "reseau"}
+	if bool(r.corps.get("ok", false)):
+		if changer:
+			for c in directions.keys():
+				if c != club and bool(directions[c].moi) and DIRIGER.division(self, c) == DIRIGER.division(self, club):
+					directions.erase(c)
+		directions[club] = {"par": "vous", "moi": true, "division": DIRIGER.division(self, club)}
+		change.emit()
+	return r.corps
 
 
 ## L'état lu au serveur remplace ce qu'on en savait ; puis les mises se règlent.
@@ -974,8 +1023,8 @@ func appliquer(corps: Dictionary) -> void:
 	change.emit()
 
 
-## Dit au serveur les obligations prises et rendues ici. Une prise qu'il refuse (un autre l'a eue avant)
-## est remboursée.
+## Dit au serveur les obligations prises et rendues ici. Une prise qu'il refuse (un autre l'a eue avant,
+## ou l'intersaison s'est fermée entre-temps) est remboursée.
 func envoyer() -> void:
 	if not connecte() or (not appel.is_valid() and get_tree().get_script() != null):
 		return
@@ -985,7 +1034,7 @@ func envoyer() -> void:
 			var r: Dictionary = await _appeler("smarves_basket_obligation_prendre" if prise else "smarves_basket_obligation_rendre", {"p_club": club, "p_rang": int(rang)})
 			if r.code != 200 or not r.corps is Dictionary or r.corps.has("erreur"):
 				continue
-			if prise and not bool(r.corps.get("ok", false)) and str(r.corps.get("raison", "")) == "prise":
+			if prise and not bool(r.corps.get("ok", false)) and str(r.corps.get("raison", "")) in ["prise", "intersaison"]:
 				Game.credits += valeur(int(rang))
 				Game.changed.emit()
 			bureau.obligations = bureau.obligations.filter(func(o): return not (str(o.club) == club and int(o.rang) == int(rang) and bool(o.get("moi", false))))
@@ -1161,4 +1210,5 @@ func effacer() -> void:
 	retenues = {}
 	dividendes = {}
 	dividendes_total = 0
+	directions = {}
 	_oublier()

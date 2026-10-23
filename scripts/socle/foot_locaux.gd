@@ -65,6 +65,9 @@ func remplir(colonne: VBoxContainer) -> void:
 	var b3 := _bouton("Le registre des obligations", func(): obligations.emit())
 	b3.name = "Obligations"
 	rang.add_child(b3)
+	var b4 := _bouton("Le calendrier", func(): preload("res://scripts/socle/calendrier.gd").ouvrir())
+	b4.name = "Calendrier"
+	rang.add_child(b4)
 	colonne.add_child(_mot("C'est ici que le club se dirige : le président commente, il ne décide pas. La tactique complète (le onze sur le terrain, les rôles) arrive avec le bureau.", 14, DOUX, null, true))
 	var bas := _pied(colonne)
 	bas.add_child(_bouton("Refermer la porte  (Échap)", func(): closed.emit()))

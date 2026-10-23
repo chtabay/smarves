@@ -33,6 +33,17 @@ func remplir(col: VBoxContainer) -> void:
 	# Ce qui manque pour diriger, calculé plutôt que laissé au joueur.
 	_mot(col, DIRIGER.phrase(b, commune), TEXTE, 17).name = "PourDiriger"
 	var suffit: int = int(DIRIGER.etat(b, commune).suffit)
+	# Les parts ne se prennent qu'à l'intersaison (demande du 23 octobre au soir) : on dit quand.
+	var inter: bool = DIRIGER.en_intersaison(b)
+	var fenetre := ("Les parts se prennent à l'intersaison, %s : c'est maintenant." if inter else "Les parts se prennent à l'intersaison, %s. On les rend quand on veut.") % DIRIGER.phrase_intersaison(b)
+	# La phrase « pour diriger » dit déjà les dates : on n'y ajoute que le retour.
+	if DIRIGER.phrase(b, commune).contains(DIRIGER.phrase_intersaison(b)):
+		fenetre = "On rend les parts quand on veut ; on n'en prend qu'à l'intersaison."
+	_mot(col, fenetre, OR if inter else DOUX, 15).name = "Fenetre"
+	# On dirige déjà un club de la même division : à l'intersaison, on peut changer pour celui-ci.
+	if inter and str(DIRIGER.etat(b, commune).ailleurs) != "" and DIRIGER.peut_prendre(b, commune, true):
+		var ailleurs := str(b.fiche(str(DIRIGER.etat(b, commune).ailleurs)).get("nom", ""))
+		_bouton(col, "Diriger ce club à la place %s" % DIRIGER.de(ailleurs), func(): agir(await b.prendre_direction(commune, true)), "ChangerDeClub")
 	var facteur: float = b.recette_facteur(commune)
 	var benefice := maxf(0.0, b.RECETTE * facteur - b.masse_salariale(commune))
 	_mot(col, "À chaque journée jouée, le club partage sa recette (%s crédits, ×%.1f au classement d'aujourd'hui) moins ses salaires (%s) entre les obligations, au prorata de leur valeur. On en rend une à 80 %%." \
@@ -46,10 +57,12 @@ func remplir(col: VBoxContainer) -> void:
 		var p: Dictionary = b.porteur(commune, r)
 		if p.is_empty():
 			var bt := _bouton(h, "Prendre", func(): agir(b.prendre(commune, r)), "Prendre_%d" % r)
-			bt.disabled = Game.credits < b.valeur(r)
-			if r == suffit:
+			bt.disabled = Game.credits < b.valeur(r) or not inter
+			if r == suffit and inter:
 				_mot(h, "← pour diriger", OR, 15)
-			if bt.disabled:
+			if not inter:
+				_mot(h, "à l'intersaison", DOUX, 14)
+			elif bt.disabled:
 				_mot(h, DIRIGER.manque_credits(b.valeur(r)), DOUX, 14)
 		elif bool(p.moi):
 			_mot(h, "à vous", OR, 15)
@@ -61,6 +74,7 @@ func remplir(col: VBoxContainer) -> void:
 	# Les cartes des parts du club, comme au classeur du carnet (demande de Guillaume du 20 octobre).
 	_bouton(col, "Voir les cartes des parts", func():
 		preload("res://scripts/carnet_cartes.gd").ouvrir_club(self, "basket", commune), "VoirCartes")
+	_bouton(col, "Le calendrier", func(): preload("res://scripts/socle/calendrier.gd").ouvrir(), "Calendrier")
 	_fermer(col)
 
 
