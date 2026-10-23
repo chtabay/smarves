@@ -6,7 +6,7 @@ extends "res://scripts/village/salle.gd"
 ## registre de la commune, le même plan qu'à Smarves (scripts/shop_panel.gd, carte_biens.gd). Ce qu'on y
 ## achète entre au catalogue de Biens sous « <commune>/<id> », et se finance à la banque de la commune.
 ## La commune ouvre son étude depuis sa scène par Etude.ouvrir("<commune>").
-## Avec « notaire.modele » (socle 1.21), l'étude se pose sur un décor de la bibliothèque ou de la commune, branché
+## Avec « notaire.modele » (socle 1.22), l'étude se pose sur un décor de la bibliothèque ou de la commune, branché
 ## par ses ancres (Ancres.ETUDE) : le socle n'y bâtit plus sa pièce.
 ## Capture : godot --path . res://scenes/etude.tscn -- --commune=<id> --capture=sortie.png [--registre-ouvert]
 
@@ -98,7 +98,7 @@ func _bureau(nom: String, graine: int) -> void:
 	_lamp(Vector3(-0.8, 1.2, bz), Color(1.0, 0.85, 0.55), 0.9, 3.0)
 
 
-# --- Le décor d'une brique (socle 1.21) -------------------------------------------------------------
+# --- Le décor d'une brique (socle 1.22) -------------------------------------------------------------
 
 ## L'étude sur le décor que nomme « modele » : le socle n'y bâtit rien, il branche ses ancres (Ancres.ETUDE). Le
 ## notaire à son bureau, le registre, l'enseigne, la plaque, le plan du registre et la sortie.

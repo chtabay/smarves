@@ -70,6 +70,14 @@ func _init() -> void:
 		if a.get_meta("interact", "") == "jeu":
 			tables.append(str(a.get_meta("jeu")))
 	check(tables.size() == 10, "une table ou une machine par jeu : %s" % ", ".join(tables))
+	check(salle_jeu.table_serveur("essai_salle", "tripot") == "salle:essai_salle:tripot", "connecté, le poker du tripot se joue à plusieurs à sa table du serveur")
+	# La table partagée d'une commune (Partage) : mêmes règles que le serveur, et rien ne bloque sans compte.
+	check(Partage.refus("essai_salle", "plaque.sorties", [{"a": 1}]) == "", "une clé partagée bien formée passe")
+	check(Partage.refus("Essai", "plaque") != "" and Partage.refus("essai_salle", "a b") != "", "une commune ou une clé mal formée est refusée")
+	check(Partage.refus("essai_salle", "plaque", "x".repeat(Partage.OCTETS)) != "", "une valeur de plus de 4 Ko est refusée")
+	var hors: Dictionary = await Partage.lire("essai_salle", "plaque")
+	check(not hors.ok and hors.erreur != "", "sans compte, la lecture rend ok faux et une raison : %s" % hors.erreur)
+	check(Partage.reponse({"code": 200, "corps": {"valeur": [1]}}) == {"ok": true, "valeur": [1], "erreur": ""}, "une réponse du serveur se lit")
 	check(s._salle.host == "Mme Rivière" and s._salle.name == "Le tripot de la gare", "la tenancière et le nom viennent du manifeste")
 	var tables3d: GDScript = load("res://scripts/socle/tables.gd")
 	for j in tables:
@@ -117,6 +125,8 @@ func _init() -> void:
 		"la porte ramène dans la commune, devant la porte de la salle")
 	await _etude(game)
 	await _commerces(game)
+	await _sorties()
+	await _tarifs()
 	await _sur_decors(game)
 	_fin()
 
@@ -159,7 +169,7 @@ func _etude(game: Node) -> void:
 	biens.sell("essai_salle/buffet")
 
 
-## La salle de jeu et l'étude sur un décor de la bibliothèque (socle 1.21, champ « modele ») : le socle n'y bâtit
+## La salle de jeu et l'étude sur un décor de la bibliothèque (socle 1.22, champ « modele ») : le socle n'y bâtit
 ## rien, il branche ses ancres.
 func _sur_decors(game: Node) -> void:
 	var registre: Node = root.get_node("Registre")
@@ -279,6 +289,102 @@ func _commerces(game: Node) -> void:
 		"structure b : article x : un meuble a besoin d'un modele", "structure b : un article sans id", "structure b : article y : couleur « #rrggbb »",
 		"structure b : article y : un meuble a besoin d'un modele", "structure b : article y : emplacement inconnu « plafond » (lit, sol, grand, mur, petit, jardin)"],
 		"un article mal écrit est refusé, phrase par phrase : %s" % [fautes])
+
+
+## Chaque lieu, ouvert par la touche E devant sa porte, et quitté par la touche E sur sa sortie : la
+## commune revient telle qu'on l'a laissée (Chargement.lieu), et la touche de la sortie ne fait pas rentrer
+## l'habitant resté devant la porte (retour de l'auteur de Chauvigny, octobre 2026).
+func _sorties() -> void:
+	var lieux := {
+		"le tripot": func(): return load("res://scripts/socle/salle_jeu.gd").ouvrir("essai_salle", "tripot"),
+		"l'étude": func(): return load("res://scripts/socle/etude.gd").ouvrir("essai_salle"),
+		"la mercerie": func(): return load("res://scripts/socle/commerce.gd").ouvrir("essai_salle", "mercerie"),
+		"la maison achetée chez le notaire": func(): return root.get_node("Biens").enter("essai_salle/maison_gare"),
+	}
+	var biens: Node = root.get_node("Biens")
+	check(biens.buy("essai_salle/maison_gare", true, "essai_salle") and biens.logements.has("essai_salle/maison_gare"), "on achète la maison du chef de gare")
+	for nom in lieux:
+		var commune: Node = current_scene
+		if commune == null or commune.scene_file_path != "res://communes/essai_salle/commune.tscn":
+			check(false, "on part de la commune pour entrer dans %s" % nom)
+			return
+		# L'habitant de la commune, en vue de dessus, devant la porte du lieu.
+		var cam := Camera3D.new()
+		commune.add_child(cam)
+		var habitant: CharacterBody3D = load("res://scripts/fp_player.gd").new()
+		habitant.follow_camera = cam
+		commune.add_child(habitant)
+		var porte := Area3D.new()
+		porte.set_meta("interact", "porte")
+		commune.add_child(porte)
+		var entrees := [0]
+		habitant.interact.connect(func(t: Node):
+			if t == porte:
+				entrees[0] += 1
+				lieux[nom].call())
+		habitant.focus_target = porte
+		_touche_e()
+		await process_frame
+		await process_frame
+		var s: Node = current_scene
+		check(entrees[0] == 1 and s != null and s != commune and s.get("player") != null, "la touche E devant la porte fait entrer dans %s" % nom)
+		if s == null or s == commune or s.get("player") == null:
+			return
+		var sortie: Node = null
+		for a in s.find_children("*", "Area3D", true, false):
+			if a.get_meta("interact", "") == "exit":
+				sortie = a
+		s.player.focus_target = sortie
+		_touche_e()
+		await process_frame
+		await process_frame
+		while root.get_node("Chargement").actif():
+			await process_frame
+		check(current_scene == commune and entrees[0] == 1, "  la touche E sur la sortie rend la commune gardée, sans y faire rentrer (%d entrée(s))" % entrees[0])
+		if current_scene != commune:
+			return
+		for n in [habitant, porte, cam]:
+			n.free()
+	biens.sell("essai_salle/maison_gare")
+
+
+## Les tarifs d'une table de commune : le tapis du poker dit les blindes configurées, la plaque du
+## blackjack les mises configurées, et des mises incohérentes sont refusées.
+func _tarifs() -> void:
+	var tables: GDScript = load("res://scripts/socle/tables.gd")
+	var scene := Node3D.new()
+	root.add_child(scene)
+	var poker: Node3D = tables.table("poker")
+	scene.add_child(poker)
+	var pp: PanelContainer = tables.panneau("poker")
+	check(pp.configurer_blindes(5, 10, 200), "des blindes de 5/10 s'acceptent")
+	poker.attach(pp)
+	check(poker.ligne_tapis.begins_with("BLINDES 5 / 10"), "le tapis du poker dit les blindes de la table : %s" % poker.ligne_tapis)
+	var bj: Node3D = tables.table("blackjack")
+	scene.add_child(bj)
+	var bp: PanelContainer = tables.panneau("blackjack")
+	check(not bp.configurer_mises([10, 5]) and not bp.configurer_mises([0, 5]) and not bp.configurer_mises([5]), "des mises en désordre, nulles ou seules sont refusées")
+	check(bp.configurer_mises([2, 4, 10, 20]) and bp.BETS == [2, 4, 10, 20], "le blackjack prend les mises de la salle")
+	bj.attach(bp)
+	check(bj._plaque.text == "Mise\n2 à 20", "la plaque du blackjack dit les mises de la table : %s" % bj._plaque.text.replace("\n", " "))
+	var rp: PanelContainer = tables.panneau("roulette")
+	check(rp.configurer_mises([1, 2, 5, 10]) and rp.CHIPS == [1, 2, 5, 10], "la roulette prend les jetons de la salle")
+	for n in [pp, bp, rp]:
+		n.free()
+	scene.queue_free()
+	await process_frame
+
+
+## Une pression de la touche E, comme la reçoit le jeu.
+func _touche_e() -> void:
+	var e := InputEventKey.new()
+	e.physical_keycode = KEY_E
+	e.keycode = KEY_E
+	e.pressed = true
+	root.push_input(e)
+	var r := e.duplicate()
+	r.pressed = false
+	root.push_input(r)
 
 
 func _fin() -> void:

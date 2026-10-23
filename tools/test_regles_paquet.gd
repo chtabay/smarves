@@ -76,6 +76,16 @@ func _init() -> void:
 	if OS.execute("gzip", ["-9", ProjectSettings.globalize_path(TMP + "petit.json")]) == 0:
 		check(int(_atelier().donnees(TMP + "petit.json").get("a", 0)) == 1, "un fichier fait par gzip -9 se lit")
 
+	# La version, à la règle du portail : trois nombres, pas de « -beta » (retour de l'auteur de Chauvigny).
+	check(REGLES.refus_version("0.2.0") == "" and REGLES.refus_version("10.0.12") == "", "une version à trois nombres passe")
+	for v in ["0.2.0-beta", "0.2", "v1", "", "1.0.0 "]:
+		check(REGLES.refus_version(v) != "", "« %s » est refusée, comme au portail" % v)
+	# Les notes de travail restent chez l'auteur ; la licence et le mode d'emploi partent.
+	for f in ["INTENTIONS.md", "plan-de-travail.md", "notes/critique.md"]:
+		check(REGLES.note_de_travail(f), "%s ne part pas" % f)
+	for f in ["LICENCE.md", "LIRE-MOI.md", "LISEZMOI.md", "commune.gd", "licence.txt"]:
+		check(not REGLES.note_de_travail(f), "%s part" % f)
+
 	print("\n%d échec(s)" % fails)
 	quit(1 if fails > 0 else 0)
 

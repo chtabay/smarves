@@ -46,7 +46,7 @@ const SALLE := {
 	"Fronton": {"requis": false, "role": "l'enseigne de la salle : le socle y écrit le nom du club et de la salle, à ses couleurs"},
 }
 
-## La salle de jeu (socle 1.21) : ce que le socle branche sur un décor de salle de jeu, de la bibliothèque ou
+## La salle de jeu (socle 1.22) : ce que le socle branche sur un décor de salle de jeu, de la bibliothèque ou
 ## d'une commune (champ « modele » de la structure « salle_jeu »), à la place de la pièce qu'il bâtit.
 ## Les tables vont aux ancres Table1, Table2… dans l'ordre des jeux de la structure ; un jeu sans ancre n'est
 ## pas posé. Une ancre de table est au sol, au centre de la table, son +Z vers la place du joueur.
@@ -59,7 +59,7 @@ const SALLE_JEU := {
 	"Enseigne": {"requis": false, "role": "le socle y écrit l'enseigne de la salle, lisible depuis son +Z"},
 }
 
-## L'étude du notaire (socle 1.21) : ce que le socle branche sur un décor d'étude (champ « modele » du
+## L'étude du notaire (socle 1.22) : ce que le socle branche sur un décor d'étude (champ « modele » du
 ## notaire), à la place de la pièce qu'il bâtit.
 const ETUDE := {
 	"Arrivee": {"requis": true, "role": "où le visiteur paraît en entrant, tourné vers son +Z"},

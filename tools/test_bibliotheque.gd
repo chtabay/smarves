@@ -156,7 +156,7 @@ func _init() -> void:
 		"les options passent au façadier, et deux graines font deux maisons")
 	bancs.queue_free()
 
-	# Les intérieurs (socle 1.21) : chaque salle de jeu et chaque étude tient le contrat de son genre.
+	# Les intérieurs (socle 1.22) : chaque salle de jeu et chaque étude tient le contrat de son genre.
 	check("bar-des-sports@1" in Bibliotheque.references("salle_jeu") and "etude-de-notaire@1" in Bibliotheque.references("etude"),
 		"la bibliothèque a le bar des sports et l'étude de notaire")
 	for genre in ["salle_jeu", "etude"]:
@@ -280,7 +280,7 @@ func _init() -> void:
 	deux.scene = "res://communes/essai/stade.tscn"
 	check(Structures.verifier([deux]).size() == 1, "« scene » et « modele » ensemble sont refusés")
 	var jeu := {"type": "salle_jeu", "id": "bar", "nom": "Le bar", "jeux": ["poker"], "modele": "bar-des-sports@1"}
-	check(Structures.verifier([jeu]).is_empty(), "« modele » d'une salle de jeu : une brique de la bibliothèque (socle 1.21)")
+	check(Structures.verifier([jeu]).is_empty(), "« modele » d'une salle de jeu : une brique de la bibliothèque (socle 1.22)")
 	var jeu_stade := jeu.duplicate()
 	jeu_stade.modele = "stade-de-campagne@1"
 	check(" ".join(Structures.verifier([jeu_stade])).contains("n'est pas une salle de jeu"), "un stade n'est pas une salle de jeu")

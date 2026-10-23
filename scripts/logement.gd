@@ -287,9 +287,12 @@ func _refurnish() -> void:
 func _on_interact(target: Node) -> void:
 	match str(target.get_meta("interact", "")):
 		"exit":
-			Game.return_point = str(Biens.item(home).get("lot", ""))
+			# Une maison achetée chez le notaire d'une autre commune ramène dans cette commune.
+			var it: Dictionary = Biens.item(home)
+			var c: Commune = Communes.commune(str(it.get("commune", ""))) if it.has("commune") else null
+			Game.return_point = str(it.get("lot", ""))
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-			Chargement.changer("res://scenes/main.tscn")
+			Chargement.changer(str(c.data.scene) if c else "res://scenes/main.tscn")
 		"grenier":
 			open_grenier()
 		"slot":

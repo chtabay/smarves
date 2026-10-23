@@ -254,6 +254,8 @@ func entrer(id: String, chemin: String) -> void:
 	# paquet dans des fils puis bâtir prend plus longtemps que bâtir directement.
 	if _id != id:
 		_lacher()
+	# Les quartiers enregistrés (Quartiers) se lisent dans des fils pendant que la scène se bâtit.
+	Quartiers.demander(c)
 	var t0 := Time.get_ticks_msec()
 	var pendant := t0 - _debut_prechargement if not _requetes.is_empty() else 0
 	var lues := _lues() if not _requetes.is_empty() else 0.0
@@ -508,6 +510,15 @@ func _revenir(chemin: String) -> bool:
 	var g := _garde
 	_gardee = null
 	_garde = {}
+	# La touche E (ou le clic) qui a passé la porte de sortie est encore en route quand la scène gardée
+	# revient : sans cela, elle parviendrait à l'habitant resté devant la porte du lieu, qui y rentrerait
+	# aussitôt. La scène revient, qu'elle soit rendue ou rebâtie, sans rien de ce qui la visait.
+	var vp := get_viewport()
+	if vp:
+		vp.set_input_as_handled()
+	for p in get_tree().get_nodes_in_group("player"):
+		if s.is_ancestor_of(p) and "focus_target" in p:
+			p.focus_target = null
 	if signature(s) != g.signature:
 		_gardee = s
 		_garde = g

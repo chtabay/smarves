@@ -15,8 +15,15 @@ extends SceneTree
 ##                            pour regarder une commune sans repères, ou un endroit précis. Avec --point,
 ##                            seuls les points donnés sont suivis
 ##   --sans-marche            les captures seulement
+##   --libre=x,y,z,lacet,tangage[,champ]   une vue libre de plus (répétable), caméra posée où l'on veut,
+##                            hors du joueur : en unités de la scène et en degrés (tangage négatif : on
+##                            regarde vers le bas ; champ : l'angle de vue, 70 par défaut). Les vues libres
+##                            se prennent après les repères, nommées libre-1, libre-2…
+##   --sans-interface         les captures sans l'interface (le décor seul) ; par défaut, elles sont prises
+##                            telles qu'en jeu, avec ce que le joueur voit à l'écran
 ##   sans id                  le kit de départ (tools/kit/), comme tools/test_commune.gd
 ## Avec --headless, aucune image : seuls les poses et les marches sont éprouvées.
+## Les quatre regards du retour de l'auteur de Chauvigny : à pied, de dessus, libre, tel qu'en jeu.
 ##
 ## Les repères se posent dans la scène de la commune : un Marker3D par point de vue, son -Z tourné vers
 ## ce que le joueur doit voir. Deux repères qui se suivent doivent se rejoindre à pied presque en ligne
@@ -32,6 +39,7 @@ var lignes: PackedStringArray = []
 var sortie := ""
 var images := false
 var a_pied := false
+var sans_interface := false
 
 
 func check(ok: bool, what: String) -> void:
@@ -53,6 +61,7 @@ func _init() -> void:
 	var prefixe := "Vue"
 	var marcher := true
 	var points: Array = []
+	var libres: Array = []
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--pck="):
 			deja = a.trim_prefix("--pck=")
@@ -66,6 +75,10 @@ func _init() -> void:
 			points.append(a.trim_prefix("--point=").split_floats(","))
 		elif a == "--sans-marche":
 			marcher = false
+		elif a.begins_with("--libre="):
+			libres.append(a.trim_prefix("--libre=").split_floats(","))
+		elif a == "--sans-interface":
+			sans_interface = true
 		elif not a.begins_with("--"):
 			id = a
 	DirAccess.make_dir_recursive_absolute(TMP)
@@ -171,7 +184,31 @@ func _init() -> void:
 		for i in reperes.size() - 1:
 			await _marcher(s, vue, p, reperes[i], reperes[i + 1])
 	await _vue(s, vue, false)
+	if images and not libres.is_empty():
+		await _libres(s, libres)
 	_fin()
+
+
+## Les vues libres : une caméra à part, posée et tournée comme demandé, puis la caméra du jeu reprend.
+func _libres(s: Node, libres: Array) -> void:
+	var avant := root.get_camera_3d()
+	var cam := Camera3D.new()
+	cam.far = 4000.0
+	s.add_child(cam)
+	for i in libres.size():
+		var v: PackedFloat64Array = libres[i]
+		if v.size() < 3:
+			check(false, "--libre=%s : au moins x,y,z" % ",".join(Array(v).map(func(x): return str(x))))
+			continue
+		cam.global_position = Vector3(v[0], v[1], v[2])
+		cam.rotation = Vector3(deg_to_rad(v[4]) if v.size() > 4 else 0.0, deg_to_rad(v[3]) if v.size() > 3 else 0.0, 0.0)
+		cam.fov = v[5] if v.size() > 5 else 70.0
+		cam.make_current()
+		await create_timer(0.5, true).timeout
+		await _capturer("libre-%d" % (i + 1))
+	cam.queue_free()
+	if avant != null and is_instance_valid(avant):
+		avant.make_current()
 
 
 ## L'habitant posé sur le repère, tourné comme lui, puis laissé tomber au sol.
@@ -247,8 +284,17 @@ func _plat(v: Vector3) -> Vector3:
 
 
 func _capturer(nom: String) -> void:
+	var caches: Array = []
+	if sans_interface:
+		for c in root.find_children("*", "CanvasLayer", true, false):
+			if c.visible:
+				c.visible = false
+				caches.append(c)
+		await process_frame
 	await RenderingServer.frame_post_draw
 	var img := root.get_texture().get_image()
+	for c in caches:
+		c.visible = true
 	if img == null:
 		return
 	img.save_png(sortie + nom + ".png")

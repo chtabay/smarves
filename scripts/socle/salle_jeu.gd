@@ -7,7 +7,7 @@ extends "res://scripts/village/salle.gd"
 ## ouvre sa salle depuis sa scène par SalleJeu.ouvrir("<commune>", "<id de la structure>"). Avec
 ## « guichet » (socle 1.2), le banquier de la commune tient un bureau près de la porte : le prêt pour jouer,
 ## au nom de la banque du manifeste (scripts/loan_panel.gd, de_commune).
-## Avec « modele » (socle 1.21), la salle se pose sur un décor de la bibliothèque ou de la commune, branché par
+## Avec « modele » (socle 1.22), la salle se pose sur un décor de la bibliothèque ou de la commune, branché par
 ## ses ancres (Ancres.SALLE_JEU) : le socle n'y bâtit plus sa pièce.
 ## Capture : godot --path . res://scenes/salle_jeu.tscn -- --commune=<id> --salle=<id> --capture=sortie.png
 
@@ -29,6 +29,8 @@ const JEUX := {
 const DECORS := ["cafe", "salle", "cave"]
 ## La grille des tables : trois par rang, une case de 4,2 sur 4 chacune (la table du casino et la place
 ## du joueur devant elle).
+## Le poker à plusieurs (scripts/jeux/poker_multi.gd), quand le joueur est connecté à son compte.
+const POKER_MULTI := "res://scripts/jeux/poker_multi.gd"
 const COLONNES := 3
 const CASE := Vector2(4.2, 4.0)
 const REPLIQUES := ["« Installez-vous. Ici, la chance n'a pas de préférence. »",
@@ -216,7 +218,7 @@ func _tables(jeux: Array) -> void:
 
 ## Une table ou une machine, dans le repère « t » (au sol, au centre de la table, la place du joueur vers +Z),
 ## sous sa lampe et son enseigne, avec sa zone d'interaction : la grille de la salle du socle, ou l'ancre
-## TableN d'un décor (socle 1.21).
+## TableN d'un décor (socle 1.22).
 func _poser_table(jeu: String, t: Transform3D, i: int) -> void:
 	if Tables.fiche(jeu).is_empty():
 		return
@@ -267,7 +269,7 @@ func _poser_table(jeu: String, t: Transform3D, i: int) -> void:
 	a.set_meta("jeu", jeu)
 
 
-# --- Le décor d'une brique (socle 1.21) -------------------------------------------------------------
+# --- Le décor d'une brique (socle 1.22) -------------------------------------------------------------
 
 ## La salle sur le décor que nomme « modele » : le socle n'y bâtit rien, il branche ses ancres (Ancres.SALLE_JEU).
 ## Le tenancier au comptoir, une table par ancre TableN dans l'ordre des jeux, le guichet, l'enseigne et la sortie.
@@ -369,7 +371,14 @@ func open_game() -> void:
 	var f := Tables.fiche(_jeu_ouvert)
 	if f.is_empty():
 		f = JEUX.machine
-	var p: PanelContainer = load(f.panneau).new()
+	var p: PanelContainer
+	if _jeu_ouvert == "poker" and Compte.connecte():
+		# Connecté, on joue à plusieurs : chaque salle de jeu a sa table au serveur, aux tarifs des
+		# Ambassadeurs (fonction casino du dépôt chtabay/addict, smarves-poker.js).
+		p = load(POKER_MULTI).new()
+		p.configurer_table(table_serveur(commune, str(structure.get("id", ""))), p.SB, p.BB, p.CAP)
+	else:
+		p = load(f.panneau).new()
 	if "game" in p:
 		p.game = self
 	if "title" in p:
@@ -378,6 +387,11 @@ func open_game() -> void:
 	var t: Node3D = _table_choisie if _table_choisie else _tables3d.get(_jeu_ouvert, null)
 	_table_choisie = null
 	_ouvrir_panneau(p, t)
+
+
+## La table à plusieurs d'une salle, chez le serveur : « salle:<commune>:<salle> ».
+static func table_serveur(id_commune: String, id_salle: String) -> String:
+	return "salle:%s:%s" % [id_commune, id_salle]
 
 
 ## Ouvre un panneau ; avec une table 3D, comme au casino : on s'y assoit, la caméra glisse jusqu'à la

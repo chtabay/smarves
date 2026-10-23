@@ -7,7 +7,7 @@ extends RefCounted
 ##   "notaire": {
 ##     "nom": "Maître Garnier", "etude": "L'étude de Maître Garnier",
 ##     "titre": "Étude de Maître Garnier, notaire à Smarves",
-##     "modele": "etude-de-notaire@1",                    ← facultatif (socle 1.21) : le décor de l'étude
+##     "modele": "etude-de-notaire@1",                    ← facultatif (socle 1.22) : le décor de l'étude
 ##     "registre": {"source": "res://…/adresses.gd"}      ← un script qui rend le registre (static func registre())
 ##              ou {"quartiers": [...], "adresses": [...]} ← le registre écrit dans le manifeste
 ##   }
@@ -134,7 +134,7 @@ static func verifier(n: Variant) -> PackedStringArray:
 	if typeof(n) != TYPE_DICTIONARY:
 		out.append("« notaire » doit être un objet (nom, etude, registre)")
 		return out
-	# « modele » (socle 1.21) : le décor de l'étude, une brique de la bibliothèque ou une scène de la commune.
+	# « modele » (socle 1.22) : le décor de l'étude, une brique de la bibliothèque ou une scène de la commune.
 	if n.has("modele"):
 		if typeof(n.modele) != TYPE_STRING:
 			out.append("notaire.modele n'a pas le bon type")

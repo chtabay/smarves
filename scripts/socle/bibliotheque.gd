@@ -16,8 +16,8 @@ const CATALOGUE := "res://bibliotheque/bibliotheque.json"
 ##   salle : un décor de salle de basket, branché par celui de la salle (Ancres.SALLE, socle 1.14) ;
 ##   decor : un modèle ou un ensemble à poser tel quel, sans comportement ;
 ##   matieres : des images de matières (marbres, bois, moquettes…) employées par leur nom (socle 1.17) ;
-##   salle_jeu : un décor de salle de jeu, branché par ses ancres (Ancres.SALLE_JEU, socle 1.21) ;
-##   etude : un décor d'étude de notaire, branché par ses ancres (Ancres.ETUDE, socle 1.21).
+##   salle_jeu : un décor de salle de jeu, branché par ses ancres (Ancres.SALLE_JEU, socle 1.22) ;
+##   etude : un décor d'étude de notaire, branché par ses ancres (Ancres.ETUDE, socle 1.22).
 const GENRES := ["stade", "salle", "decor", "matieres", "salle_jeu", "etude"]
 ## Les champs d'une fiche de brique proposée (brique.json) : requis, puis facultatifs. Une brique de matières
 ## nomme son fichier « matieres » (un .json du dossier) à la place de « scene ».

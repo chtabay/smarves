@@ -97,7 +97,7 @@
 				"1": {
 					"scene": "res://bibliotheque/etude-de-notaire/1/etude.tscn",
 					"apercu": "res://bibliotheque/etude-de-notaire/1/apercu.png",
-					"socle": "1.21"
+					"socle": "1.22"
 				}
 			}
 		},
@@ -112,7 +112,7 @@
 				"1": {
 					"scene": "res://bibliotheque/bar-des-sports/1/bar.tscn",
 					"apercu": "res://bibliotheque/bar-des-sports/1/apercu.png",
-					"socle": "1.21"
+					"socle": "1.22"
 				}
 			}
 		}

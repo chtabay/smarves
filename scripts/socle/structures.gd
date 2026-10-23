@@ -53,7 +53,7 @@ const TYPES := {
 	},
 	# Socle 1.1 (« guichet » : 1.2). Une salle de jeu meublée et tenue par le socle (scripts/socle/salle_jeu.gd) : la commune
 	# nomme son tenancier et ses jeux, le socle pose les tables et fait tourner les jeux de Smarves.
-	# « modele » (socle 1.21) : le décor de la salle, une brique de la bibliothèque (« bar-des-sports@1 ») ou une
+	# « modele » (socle 1.22) : le décor de la salle, une brique de la bibliothèque (« bar-des-sports@1 ») ou une
 	# scène de la commune, branché par ses ancres (Ancres.SALLE_JEU) à la place de la pièce du socle.
 	"salle_jeu": {
 		"nom": "la salle de jeu",
@@ -80,7 +80,7 @@ const JEUX := ["machine", "loto", "blackjack", "roulette", "craps", "baccara", "
 const DECORS := ["cafe", "salle", "cave"]
 
 ## Le genre de brique que nomme le champ « modele » de chaque type (socle 1.13 : le terrain ; 1.14 : le gymnase ;
-## 1.21 : la salle de jeu), avec une brique d'exemple et ce qu'elle est, pour les messages.
+## 1.22 : la salle de jeu), avec une brique d'exemple et ce qu'elle est, pour les messages.
 const GENRE_DU_MODELE := {"terrain_foot": "stade", "gymnase": "salle", "salle_jeu": "salle_jeu"}
 const EXEMPLE_DU_GENRE := {"stade": ["stade-de-campagne@1", "un stade"], "salle": ["salle-de-quartier@1", "une salle"],
 	"salle_jeu": ["bar-des-sports@1", "une salle de jeu"], "etude": ["etude-de-notaire@1", "une étude"]}

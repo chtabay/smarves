@@ -15,6 +15,11 @@ extends RefCounted
 ##    est découpé en cellules de CELLULE mètres, que le moteur passe de l'arbre à l'image selon la
 ##    distance ; de près, rien ne change. Sans rendu (--headless), il n'y a rien à photographier : rien ne
 ##    change non plus.
+## 4. Un quartier qu'une commune désigne (Lointain.quartier, ou la méta « lointain » sur son nœud) a une
+##    version lointaine : ses maillages fixes fondus en un seul par matière, qui reçoit ses niveaux de détail
+##    comme un gros maillage (2.), sans ombre. Au-delà de la distance du quartier, le moteur dessine cette
+##    version au lieu des centaines de petits maillages qui, chacun sous TRIANGLES_MIN, n'avaient pas de
+##    niveaux (retour de l'auteur de Chauvigny : 581 613 triangles vus d'un point haut).
 
 const TRIANGLES_MIN := 10_000
 ## Angles de generate_lods : les normales plus proches que le premier se fondent, plus écartées que le
@@ -30,6 +35,9 @@ static func appliquer(racine: Node) -> void:
 	if not is_instance_valid(racine) or not racine.is_inside_tree():
 		return
 	simplifier(racine)
+	for q in racine.find_children("*", "Node3D", true, false):
+		if q.has_meta("lointain"):
+			quartier(q, float(q.get_meta("lointain")))
 	niveaux(racine)
 	imposteurs(racine)
 
@@ -402,3 +410,92 @@ static func _morceau(mm: MultiMeshInstance3D, mesh: Mesh, indices: Array, quoi: 
 	out.layers = mm.layers
 	out.set_meta("lointain_imposteur", true)
 	return out
+
+
+# --- Les quartiers lointains ---------------------------------------------------------------------
+
+## La distance par défaut d'un quartier, en mètres, comptée du centre de sa boîte : un quartier de village
+## fait 100 à 200 m de large.
+const QUARTIER_DES := 150.0
+## Les surfaces d'un maillage fondu : au-delà, un second maillage prend la suite.
+const SURFACES_MAX := 64
+
+
+## Donne au quartier (un nœud et tout ce qu'il porte) sa version lointaine : un nœud « <nom>_loin », enfant
+## du quartier, dessiné au-delà de `des` mètres, quand ses maillages ne le sont plus. Ne sont pris que les
+## maillages fixes et visibles : pas ceux à os, ni ceux qui ont déjà leur distance, ni ceux d'une branche
+## marquée « sans_lointain » (une porte qui s'ouvre, une enseigne qui clignote). Renvoie le nombre de
+## maillages fondus (0 : rien à faire, ou quartier déjà traité).
+static func quartier(q: Node3D, des := QUARTIER_DES) -> int:
+	if not is_instance_valid(q) or q.has_meta("lointain_fait"):
+		return 0
+	q.set_meta("lointain_fait", true)
+	var par_matiere := {}
+	var pris: Array[MeshInstance3D] = []
+	var repere := q.global_transform.affine_inverse()
+	for mi: MeshInstance3D in q.find_children("*", "MeshInstance3D", true, false):
+		if not _fondable(mi, q):
+			continue
+		var t := repere * mi.global_transform
+		for s in mi.mesh.get_surface_count():
+			if mi.mesh is ArrayMesh and mi.mesh.surface_get_primitive_type(s) != Mesh.PRIMITIVE_TRIANGLES:
+				continue
+			var mat: Material = mi.material_override
+			if mat == null:
+				mat = mi.get_surface_override_material(s)
+			if mat == null:
+				mat = mi.mesh.surface_get_material(s)
+			if not par_matiere.has(mat):
+				par_matiere[mat] = []
+			par_matiere[mat].append([mi.mesh, s, t])
+		pris.append(mi)
+	if pris.size() < 2:
+		return 0
+	var matieres := par_matiere.keys()
+	var maillages: Array[ArrayMesh] = []
+	var boite := AABB()
+	for debut in range(0, matieres.size(), SURFACES_MAX):
+		var am := ArrayMesh.new()
+		for mat in matieres.slice(debut, debut + SURFACES_MAX):
+			var st := SurfaceTool.new()
+			st.begin(Mesh.PRIMITIVE_TRIANGLES)
+			for e in par_matiere[mat]:
+				st.append_from(e[0], e[1], e[2])
+			st.commit(am)
+			am.surface_set_material(am.get_surface_count() - 1, mat)
+		boite = am.get_aabb() if maillages.is_empty() else boite.merge(am.get_aabb())
+		maillages.append(am)
+	# La distance se mesure au centre de la boîte : tous les morceaux prennent celle du quartier entier.
+	var premier: MeshInstance3D = null
+	for am in maillages:
+		am.custom_aabb = boite
+		var loin := MeshInstance3D.new()
+		loin.name = "%s_loin" % q.name
+		loin.mesh = am
+		loin.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		loin.visibility_range_begin = des
+		loin.visibility_range_begin_margin = MARGE
+		loin.set_meta("lointain_quartier", true)
+		q.add_child(loin, true)
+		if premier == null:
+			premier = loin
+	# Le moteur montre chaque maillage d'origine tant qu'on est plus près que `des` du quartier (son parent
+	# de visibilité), et la version lointaine au-delà : jamais les deux, jamais aucun.
+	for mi in pris:
+		mi.visibility_parent = mi.get_path_to(premier)
+	return pris.size()
+
+
+static func _fondable(mi: MeshInstance3D, q: Node) -> bool:
+	if mi.mesh == null or mi.mesh.get_surface_count() == 0 or not mi.is_visible_in_tree():
+		return false
+	if mi.skeleton != NodePath(""):
+		return false
+	if mi.visibility_range_end > 0.0 or mi.visibility_range_begin > 0.0 or mi.visibility_parent != NodePath("") or mi.has_meta("lointain_quartier"):
+		return false
+	var n: Node = mi
+	while n != null and n != q:
+		if n.has_meta("sans_lointain"):
+			return false
+		n = n.get_parent()
+	return true

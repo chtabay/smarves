@@ -15,7 +15,8 @@ const REGLES := preload("res://scripts/jeux/regles.gd")
 
 const RED := [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]
 const WHEEL := [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26]
-const CHIPS := [1, 5, 25, 100, 500]
+## Les jetons proposés : ceux du casino par défaut, ceux d'une commune par configurer_mises().
+var CHIPS := [1, 5, 25, 100, 500]
 
 var title := "Roulette"
 var chip_index := 1
@@ -377,3 +378,18 @@ func _draw_wheel() -> void:
 		_wheel.draw_line(c, c + Vector2(cos(a), sin(a)) * r * 0.55, Color(0.9, 0.75, 0.4), 4.0)
 	var bp := c + Vector2(cos(_ball_angle), sin(_ball_angle)) * (r - 26.0)
 	_wheel.draw_circle(bp, 6.0, Color(0.98, 0.98, 0.95))
+
+
+## Les mises d'une table de commune (sur le modèle de configurer_blindes) : de deux à neuf montants
+## croissants, choisis au clavier par 1 à 9. À appeler avant que le panneau entre dans la scène. Rend false,
+## sans rien changer, pour une liste incohérente (vide, trop longue, une mise nulle ou en désordre).
+func configurer_mises(mises: Array) -> bool:
+	var ok := mises.size() >= 2 and mises.size() <= 9
+	for i in mises.size():
+		ok = ok and typeof(mises[i]) in [TYPE_INT, TYPE_FLOAT] and int(mises[i]) > 0 and (i == 0 or int(mises[i]) > int(mises[i - 1]))
+	if not ok:
+		push_warning("%s : mises refusées %s." % [title, str(mises)])
+		return false
+	CHIPS = mises.map(func(m): return int(m))
+	chip_index = mini(chip_index, CHIPS.size() - 1)
+	return true

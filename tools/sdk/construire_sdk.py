@@ -29,7 +29,9 @@ ICI = Path(__file__).resolve().parent
 ## Ce dont une commune a besoin, en plus des autoloads du projet.
 ENTREES = [
     "scripts/socle/atelier.gd", "scripts/socle/atelier.json", "scripts/socle/salle_jeu.gd", "scenes/salle_jeu.tscn",
-    "scripts/socle/tables.gd",
+    "scripts/socle/tables.gd", "scripts/socle/partage.gd",
+    # Les quartiers enregistrés d'avance (socle 1.21) : la classe, l'outil qui les enregistre, son test.
+    "scripts/socle/quartiers.gd", "tools/enregistrer_quartiers.gd", "tools/test_quartiers.gd",
     # La bibliothèque commune (socle 1.13) : le catalogue, ses briques, les contrats d'ancres.
     "bibliotheque/bibliotheque.json", "scripts/socle/bibliotheque.gd", "scripts/socle/ancres.gd",
     "tools/test_bibliotheque.gd", "tools/planche_facadier.gd", "tools/capture_decor.gd", "tools/capture_interieur_modele.gd",
@@ -38,6 +40,8 @@ ENTREES = [
     # Le budget par lieu (socle 1.16) : l'emballeur mesure, budget_lieu.gd mesure un paquet sans l'emballer.
     "tools/budget_lieu.gd",
     "scripts/socle/etude.gd", "scenes/etude.tscn",
+    # L'intérieur d'une maison achetée chez le notaire d'une commune (Biens.enter), à essayer dans le SDK.
+    "scripts/logement.gd", "scenes/logement.tscn",
     "scripts/socle/commerce.gd", "scripts/socle/articles.gd", "scenes/commerce.tscn",
     "scenes/stade.tscn", "communes/vienne.json", "communes/france.json",
     "tools/kit/commune.gd", "tools/kit/commune.tscn", "tools/kit/commune.json",
@@ -77,20 +81,25 @@ EXTRAITS = [
 ## Le village de Smarves : ce qui ne part pas. Les liens qui y mènent s'arrêtent là.
 COUPE = {
     "scenes/main.tscn", "scenes/title.tscn", "scenes/casino.tscn", "scenes/notaire.tscn", "scenes/couture.tscn",
-    "scenes/garage.tscn", "scenes/brocante.tscn", "scenes/logement.tscn", "scenes/bourse.tscn", "scenes/cafe.tscn",
+    "scenes/garage.tscn", "scenes/brocante.tscn", "scenes/bourse.tscn", "scenes/cafe.tscn",
     "scenes/moulin.tscn", "scenes/rabelais.tscn",
     "scripts/main.gd", "scripts/title.gd", "scripts/village/village.gd", "scripts/casino_interior.gd",
-    "scripts/casino_exterior.gd", "scripts/logement.gd", "scripts/outskirts.gd", "scripts/village/bois.gd",
+    "scripts/casino_exterior.gd", "scripts/outskirts.gd", "scripts/village/bois.gd",
     "scripts/village/passelourdin.gd", "scripts/village/pepites.gd", "scripts/village/charge.gd",
+    # Le registre du notaire de Smarves se calcule sur l'agencement du village (NORTH_ROW, BOIS…), absent
+    # du bouchon : il ne se compilerait pas, et toute commune qui déclare un notaire en hériterait les
+    # erreurs (retour de l'auteur de Chauvigny). Le manifeste d'origine du SDK ne le nomme plus (_origine).
+    "scripts/adresses.gd",
 }
 ## Les fichiers coupés que le socle nomme quand même, remplacés par leur bouchon (tools/sdk/bouchons/).
 BOUCHONS = {
     "scenes/main.tscn": "lanceur.tscn",
     "scripts/village/village.gd": "village.gd",
 }
-SUFFIXES = (".gd", ".tscn", ".tres", ".gdshader", ".glb", ".gltf", ".bin", ".png", ".jpg", ".ogg", ".wav", ".mp3",
+SUFFIXES = (".gd", ".tscn", ".tres", ".gdshader", ".gdshaderinc", ".glb", ".gltf", ".bin", ".png", ".jpg", ".ogg", ".wav", ".mp3",
             ".ttf", ".otf", ".woff", ".woff2", ".json", ".svg")
-LIEN = re.compile(r"res://[\w/\-. ]+?\.(?:gdshader|gd|tscn|tres|glb|gltf|bin|png|jpg|ogg|wav|mp3|ttf|otf|woff2|woff|json|svg)(?!\w)")
+## Les morceaux de shader (.gdshaderinc) passent avant .gdshader : un #include est un lien comme un autre.
+LIEN = re.compile(r"res://[\w/\-. ]+?\.(?:gdshaderinc|gdshader|gd|tscn|tres|glb|gltf|bin|png|jpg|ogg|wav|mp3|ttf|otf|woff2|woff|json|svg)(?!\w)")
 DOSSIER = re.compile(r'"(res://[\w/\-.]+/)"')
 
 
@@ -131,7 +140,7 @@ def fermeture():
             continue
         gardes.add(rel)
         imp = Path(str(f) + ".import")
-        if f.suffix not in (".gd", ".tscn", ".tres", ".gdshader", ".json"):
+        if f.suffix not in (".gd", ".tscn", ".tres", ".gdshader", ".gdshaderinc", ".json"):
             if imp.is_file():
                 # Les .gltf nomment leur .bin et leurs textures dans leur propre fichier, lu plus bas.
                 pass
@@ -209,10 +218,14 @@ def _projet():
 
 def _origine():
     """Le manifeste de Smarves, réduit à ce que le socle lit d'une commune d'origine : son id, sa place
-    sur la carte, sa banque, son stade. Ses intérieurs et ses lots ne sont pas dans le SDK."""
+    sur la carte, sa banque, son stade. Ses intérieurs, ses lots et le registre de son notaire ne sont pas
+    dans le SDK."""
     m = json.loads((RACINE / "communes/smarves/commune.json").read_text(encoding="utf-8"))
     m["interieurs"] = {"stade": "res://scenes/stade.tscn"}
     m.pop("lots", None)
+    # Le registre de Smarves (scripts/adresses.gd) ne part pas : Maître Garnier garde son nom, sans adresses.
+    if "notaire" in m:
+        m["notaire"].pop("registre", None)
     m["description"] = "Smarves n'est pas dans le SDK : le lanceur tient sa place."
     return json.dumps(m, ensure_ascii=False, indent="\t") + "\n"
 

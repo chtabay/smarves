@@ -89,7 +89,7 @@ Avec un décor, le socle ne pose rien du Clain Garden : ni les gradins et leur f
 
 Première salle de la bibliothèque : **`salle-de-quartier@1`**, un gymnase municipal (murs de brique et plinthe bleue, charpente de métal, six rangs de gradins au nord, le bureau du club vitré à l'ouest, le panneau et le tableau des parts à l'est, la porte sous l'enseigne, le parvis et l'abribus).
 
-## Les intérieurs : la salle de jeu et l'étude (socle 1.21)
+## Les intérieurs : la salle de jeu et l'étude (socle 1.22)
 
 Deux genres de briques de plus, pour les intérieurs que le socle tient déjà : la salle de jeu (structure `salle_jeu`) et l'étude du notaire (champ `notaire`). Le `modele` de la salle de jeu, ou `notaire.modele`, nomme une brique de la bibliothèque (`"modele": "bar-des-sports@1"`, `"modele": "etude-de-notaire@1"`) ou une scène de la commune. Le socle ne bâtit alors pas sa pièce : il pose le décor et y branche ce qui est à lui par ses ancres (`Ancres.SALLE_JEU`, `Ancres.ETUDE`), avec la même règle que pour le stade (+Z vers le visiteur). Les jeux, leurs tables, la bourse, le registre et la sortie restent ceux du socle. Le décor apporte ses murs, ses lumières (sans `WorldEnvironment` à lui, il prend celui des salles du socle), son mobilier et ses figurants. Un décor introuvable ou qui ne tient pas le contrat est laissé de côté : c'est la pièce du socle.
 
@@ -254,7 +254,7 @@ Chacune est utile seule, et rien ne change dans la première salle.
 | 7 | Le budget par lieu (socle 1.16) : l'emballeur bâtit et mesure chaque lieu du paquet, range la mesure dans le paquet (`budget.json`), le portail la dit lieu par lieu ; les objets lointains simplifiés par le socle ([`docs/LENTEUR.md`](LENTEUR.md)) | smarves, portail | **fait** |
 | 8 | Les décors : le premier, `facadier-du-poitou@1`, venu de Chauvigny 0.2.2 (MIT) ; la planche du façadier | smarves | **fait** |
 | 9 | Les monuments de pierre de Chauvigny : `donjon-en-ruine@1`, `eglise-romane@1` et leurs primitives de pierre ; les vues d'un décor (`tools/capture_decor.gd`) | smarves | **fait** |
-| 10 | Les intérieurs : genres `salle_jeu` et `etude`, leurs contrats d'ancres, `modele` de la salle de jeu et du notaire ; `bar-des-sports@1` et `etude-de-notaire@1`, venus de Cloué 1.6.2 (socle 1.21) | smarves, portail | **fait** |
+| 10 | Les intérieurs : genres `salle_jeu` et `etude`, leurs contrats d'ancres, `modele` de la salle de jeu et du notaire ; `bar-des-sports@1` et `etude-de-notaire@1`, venus de Cloué 1.6.2 (socle 1.22) | smarves, portail | **fait** |
 | 6 | Les auteurs reconstruisent leurs paquets : pour Minuit, le bol de la Fortune par ses ancres, le Dôme une salle, les matières passent à la bibliothèque, les textures et les données se compressent | paquets | Minuit : fait, sauf le Dôme (0.10.5, 23 octobre 2026) ; L'Isle-Jourdain 0.2.3 dans les seuils |
 
 Il ne reste que l'étape 6, par les auteurs. Le 23 octobre 2026, Minuit passe le stade de la Fortune par ses ancres (0.10.5, socle 1.20 : le bol pourra devenir une brique, `stade-fortune@1`, une fois qu'il ne connaîtra plus le stade) et L'Isle-Jourdain repasse sous les seuils (0.2.3, [`docs/LENTEUR.md`](LENTEUR.md)). Le format des paquets est arrêté avec l'étape 3 et le budget par lieu avec la 7 : Civaux, Minuit, L'Isle-Jourdain et Cloué sont repris une fois, avec le SDK à jour, et l'emballeur dit à chaque auteur ce que ses lieux ont à alléger.

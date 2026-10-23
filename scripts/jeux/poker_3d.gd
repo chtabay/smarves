@@ -20,6 +20,7 @@ const POT_AT := Vector3(0.0, 0.0, -0.46)
 ## Salle des jeux, a les siens (à poser avant que la table entre dans la scène).
 var nom_tapis := "POKER DES AMBASSADEURS"
 var ligne_tapis := "BLINDES 25 / 50  ·  CASINO DE SMARVES"
+const LIGNE_PAR_DEFAUT := "BLINDES 25 / 50  ·  CASINO DE SMARVES"
 var couleur_tapis := Color(0.03, 0.09, 0.2)
 
 var _hole := {}             # place -> [carte, carte]
@@ -33,6 +34,7 @@ var _tag_layer: CanvasLayer
 ## Ce que chaque main montrée à l'abattage contenait (« deux paires »).
 var _shown_hand := {}
 var _shown := false
+var _tapis: MeshInstance3D
 
 
 func _ready() -> void:
@@ -75,7 +77,7 @@ func _build() -> void:
 		var t := -PI / 2.0 + TAU * k / 16.0
 		prof.append(Vector2(R + 0.105, felt_y + 0.03) + Vector2(cos(t) * 0.06, sin(t) * 0.045))
 	KIT.mesh_node(KIT.lathe(prof, 96), KIT.leather(Color(0.1, 0.05, 0.035)), self)
-	KIT.mesh_node(KIT.disc(R, 96), KIT.felt(couleur_tapis, Vector2(2.0 * R, 2.0 * R), _make_layout()), self, Vector3(0, felt_y, 0))
+	_tapis = KIT.mesh_node(KIT.disc(R, 96), KIT.felt(couleur_tapis, Vector2(2.0 * R, 2.0 * R), _make_layout()), self, Vector3(0, felt_y, 0))
 	# Le bouton du donneur.
 	_button = Node3D.new()
 	add_child(_button)
@@ -98,7 +100,7 @@ func _build() -> void:
 
 ## Le tapis imprimé : le filet d'or, la ligne de mise, les cinq cases du tableau, le nom de la salle.
 func _make_layout() -> Texture2D:
-	var cle := "poker" if nom_tapis == "POKER DES AMBASSADEURS" else "poker:" + nom_tapis
+	var cle := "poker" if nom_tapis == "POKER DES AMBASSADEURS" and ligne_tapis == LIGNE_PAR_DEFAUT else "poker:%s|%s" % [nom_tapis, ligne_tapis]
 	if KIT.vue_partagee(cle):
 		return KIT.vue_partagee(cle)
 	var S := 700.0
@@ -124,6 +126,20 @@ func _make_layout() -> Texture2D:
 		c.draw_string(f, mid + Vector2(-0.6 * S, 0.27 * S), ligne_tapis, HORIZONTAL_ALIGNMENT_CENTER, 1.2 * S, 24, Color(gold, 0.75))
 	)
 	return KIT.partager(cle, vp)
+
+
+## Le tapis imprime les blindes de la table : celles que le panneau a reçues (configurer_blindes) remplacent
+## celles écrites en tête de ligne_tapis, pour ne jamais afficher un faux tarif.
+func _blindes_du_panneau(p: Control) -> void:
+	if not ("SB" in p and "BB" in p) or not ligne_tapis.begins_with("BLINDES "):
+		return
+	var blindes := "BLINDES %d / %d" % [p.SB, p.BB]
+	var reste := ligne_tapis.substr(ligne_tapis.find("  ·  ")) if ligne_tapis.contains("  ·  ") else ""
+	if ligne_tapis == blindes + reste:
+		return
+	ligne_tapis = blindes + reste
+	if _tapis and _tapis.material_override is ShaderMaterial:
+		_tapis.material_override.set_shader_parameter("layout_tex", _make_layout())
 
 
 ## L'étiquette d'une place : une pastille sombre à l'écran, posée sur le bord de la table devant
@@ -424,6 +440,7 @@ func _on_showdown(winners: Array, show_all: bool, amount: int) -> void:
 
 func attach(p: Control) -> void:
 	panel = p
+	_blindes_du_panneau(p)
 	p.embedded = true
 	p.table3d = self
 	p.hand_started.connect(_deal_hands)
