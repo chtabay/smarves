@@ -24,6 +24,14 @@ Date, version visée (0.1.0), auteur. Une ligne : *composition originale inspir�
 
 *Homonymes : les résultats qui parlent d'une autre commune du même nom. Photos : leur date ; elles ne prouvent pas l'état actuel. Entreprises et personnes réelles : voir CONCEPTION.md, « Représenter le réel ».*
 
+## Le fil rouge
+
+*Comment le jeu d'argent traverse la commune et révèle son drame, sans morale (CONCEPTION.md, « Le fil rouge ») : le notaire et son registre, le tripot ou le cercle, le café de courses ou le sports bar, le club, la banque et son guichet ; et les traces que le joueur relie (une ardoise de dettes, des tickets par terre, des objets en dépôt). Une trace au moins par scène forte.*
+
+## Fidélité aux photos
+
+*Le dossier de photos de référence (`references/`, hors paquet). Ce qu'on garde (ordre, orientation, silhouettes), ce qu'on exagère, ce qu'on laisse (CONCEPTION.md, « Travailler d'après photos »).*
+
 ## Ce que l'on y joue
 
 *Les structures déclarées (stade, salle de jeu, commerce, gymnase, gare, arrêt de car), leurs noms et leurs tenanciers, ou pourquoi ce lieu n'en a pas encore (CONCEPTION.md, « Ce qu'une commune offre en jeu »). Aucun revenu, pari ni jeu inventé dans le décor.*

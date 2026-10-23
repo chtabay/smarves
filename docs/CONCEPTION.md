@@ -94,11 +94,35 @@ Les communes sont réelles ; ce que le jeu y met est une fiction, et elle doit s
 - **Des entreprises réelles.** Une entreprise, une association ou un club qui existe (un spectacle de rapaces, un circuit, un club de football) n'est ni nommé ni représenté par sa marque, son logo ou ses personnes : on invente un équivalent plausible, sous un autre nom, et on ne lui prête rien de négatif. Un monument public ou un paysage se représentent librement.
 - **Des photos datées.** Une photo ou une page consultée ne prouve pas l'état actuel d'un bâtiment ; la note dit leur date. Les sources et leurs licences vont dans `licence` et `sources` du manifeste.
 
+### Travailler d'après photos
+
+**On construit d'après des photos, pas d'après une idée du lieu.** Sans elles, on bâtit le cliché (Chauvigny 0.1 montrait une forteresse crénelée sur une butte, au lieu d'une ville d'où sortent des châteaux). Avant la maquette, rassemblez un dossier de photos de référence : la silhouette de loin, les rues principales, les ouvrages, les matières de près, la lumière du soir. Il se range dans `communes/<id>/references/`, avec un fichier `.gdignore` vide pour que Godot ne les importe pas ; l'emballeur laisse ce dossier hors du paquet, et les photos qui ne sont pas à vous ne se publient pas.
+
+La note d'intentions y ajoute **une note de fidélité**, en trois lignes :
+
+- **ce qu'on garde** : l'ordre des choses (ce qui est devant, derrière, au-dessus), l'orientation (où se couche le soleil, d'où vient la rivière), les silhouettes qu'un habitant reconnaîtrait ;
+- **ce qu'on exagère** : la pente, la hauteur d'un clocher, la largeur d'une rivière, le nombre d'enseignes, pour qu'ils se lisent à l'échelle du jeu ;
+- **ce qu'on laisse** : ce qui ne se joue pas et alourdit (un lotissement, une zone d'activités), dit comme tel.
+
 ## Ce qu'une commune offre en jeu
 
 Le joueur vient dans une commune pour s'y promener **et pour y jouer**. Les communes publiées offrent presque toutes **un stade** (`terrain_foot`, un club dans le championnat de la Vienne), **une salle de jeu** (`salle_jeu`, avec son tenancier et ses tables) et **un commerce** (`commerce`), souvent un arrêt de car ; Minuit a aussi son gymnase. C'est l'attendu par défaut d'une commune publiée ; une maquette visitable sans jeu (comme L'Isle-Jourdain 0.2) le dit dans sa `description` et dans sa note, et dit quand ses lieux ouvriront.
 
 Tout passe par les **structures du socle** ([`COMMUNE.md`](COMMUNE.md), « Les structures ») et la bibliothèque commune ([`BIBLIOTHEQUE.md`](BIBLIOTHEQUE.md)) : le stade de campagne et la salle de quartier s'y prennent tout faits. Un lieu ne fabrique ni ses tables ni ses règles, n'invente ni revenu ni pari, et suit la règle des lieux du monde : on joue à l'intérieur, et les gains au jeu ouvrent les salles par seuils ([`BIBLE.md`](BIBLE.md), « Les lieux »). Les noms et les répliques des tenanciers suivent le ton et le vocabulaire de la bible.
+
+## Le fil rouge : le jeu d'argent partout
+
+**Le jeu d'argent est le fil rouge de chaque commune, et c'est par lui que le lieu révèle son drame.** Il n'est pas un équipement parmi d'autres, posé dans un coin d'un bourg pittoresque : il traverse la commune, de la place au fond des arrière-salles, et le joueur le retrouve où qu'il aille. Le jeu ne fait jamais la morale (la bible, « Le ton ») ; il montre, et le joueur comprend seul.
+
+**La panoplie attendue**, à décliner selon la taille et le caractère du lieu (un hameau en a deux ou trois, une ville toutes) :
+
+- **le notaire et son registre** (`notaire`), qui vend la commune adresse par adresse : c'est par lui que les gains deviennent des murs, et que les dettes se lisent ;
+- **un tripot ou un cercle** (`salle_jeu`, ou une salle originale), la salle où l'on joue gros, souvent fermée par un seuil ;
+- **un café de courses ou un sports bar**, où l'on parie sur ce qui se passe ailleurs ;
+- **un club de football ou de basket** (`terrain_foot`, `gymnase`), dont le président a ses dettes et ses parieurs ;
+- **une banque et son guichet** (`banque`, `guichet` d'une salle), qui prête pour jouer.
+
+**La manière : le drame par des traces.** On ne raconte pas, on laisse des traces que le joueur relie : une ardoise des dettes derrière le zinc, des tickets de course froissés par terre devant le café, des objets en dépôt dans une vitrine (une montre, une alliance, des clés de voiture), une boutique fermée « pour cause de saisie », une enseigne repeinte au nom du créancier. Chaque scène forte de la note d'intentions porte au moins une trace du fil rouge. Le notaire se pense dès la première version : arrivé tard, il reste un ajout ; prévu d'emblée, il donne sa forme à la commune (Chauvigny 0.1 avait ses lieux de jeu sans en faire le fil de la ville).
 
 ## L'animation et la vie
 
@@ -142,9 +166,9 @@ Tout ce qui bouge se paie à chaque image, et le téléphone le sent d'abord. Le
 
 **Trois rôles suffisent le plus souvent** : la direction (la note d'intentions, les arbitrages, la cohérence), la construction (découpée par zones quand le lieu est grand, chacune dans ses propres fichiers) et la critique indépendante. Ce sont les reprises qui font la qualité, plus que le nombre d'agents. Un grand lieu peut répartir la construction entre spécialistes (relief et parcours, ouvrages, bâti, intérieur remarquable, eau et paysage, vie et son), mais la direction garde le plan commun.
 
-1. **Direction et maquette traversable.** La note d'intentions, puis le relief, les parcours, les accès et les points de vue, éprouvés avec l'habitant et la caméra du jeu avant toute production détaillée. Ce qu'offre déjà le socle (atelier, bibliothèque, structures, `bourg_reel`) se repère à ce moment.
+1. **Direction, planche et maquette traversable.** La note d'intentions, puis **une planche à valider** : une seule image qui montre ce qu'on veut (des captures de la maquette, des photos de référence, un croquis), présentée avec la note avant tout lancement ; on ne construit pas avant de savoir ce qu'on veut. Puis le relief, les parcours, les accès et les points de vue, éprouvés avec l'habitant et la caméra du jeu avant toute production détaillée. Ce qu'offre déjà le socle (atelier, bibliothèque, structures, `bourg_reel`) se repère à ce moment.
 2. **Construction.** Chaque zone part du plan commun : une convention d'échelle et d'origine, les points de raccord avec les zones voisines, les ressources partagées et une part du budget. Les raccords et les vues se vérifient régulièrement avec la caméra du jeu.
-3. **Approfondissement, au moins deux passes.** Reprendre ce qui est générique, les raccords pauvres, les détails visibles de près ; installer la vie et le son dans des espaces déjà traversables ; étendre la qualité des trois scènes aux liaisons. Chaque passe se termine par le second verdict (« ça surprend ? »), pas seulement le premier.
+3. **Approfondissement, par vagues, au moins deux.** Une vague reprend tout le lieu sur un même thème (les silhouettes, puis les matières, puis la vie), avec une planche de captures avant et après ; c'est plus sûr que de finir une zone avant de commencer la suivante. Reprendre ce qui est générique, les raccords pauvres, les détails visibles de près ; installer la vie et le son dans des espaces déjà traversables ; étendre la qualité des trois scènes aux liaisons. Chaque passe se termine par le second verdict (« ça surprend ? »), pas seulement le premier.
 4. **Critique indépendante, puis finition.** La finition ne vient qu'après les reprises de fond sur les volumes, les matières, les parcours et la vie.
 
 ## Juger à hauteur de joueur
@@ -164,7 +188,7 @@ Deux repères qui se suivent doivent se rejoindre à pied presque en ligne droit
 
 Un regard qui n'a pas construit le lieu, avec **un brief de joueur** : où il arrive et ce qu'on lui promet, sans explication de développement. Il parcourt avec `tools/parcours_commune.gd` puis à la main, prend ses captures à hauteur de joueur et juge à trois échelles : la silhouette dans le paysage, la composition d'un parcours, le détail à côté du personnage.
 
-Il relève les répétitions, les ruptures d'échelle, les accès manquants, les zones faibles entre les scènes, les promesses d'interaction non tenues, la vie qui ne raconte rien. Il rend ses deux verdicts séparément, et dit ce qu'il n'a pas pu éprouver (fluidité sur téléphone, confort tactile, sons à l'écoute).
+Il relève les répétitions, les ruptures d'échelle, les accès manquants, les zones faibles entre les scènes, les promesses d'interaction non tenues, la vie qui ne raconte rien. Il rend ses deux verdicts séparément (« ça marche », « ça surprend »), chacun par oui ou non avec ses raisons, et dit ce qu'il n'a pas pu éprouver (fluidité sur téléphone, confort tactile, sons à l'écoute). Une vague ne se ferme que sur deux oui. C'est la méthode qui a fait Chauvigny 0.2 : note d'intentions, planche validée, vagues, critique indépendante à deux verdicts à la fin de chacune.
 
 ## Travailler avec Guillaume
 
@@ -185,6 +209,8 @@ Les noms, les répliques des tenanciers, les enseignes et la `description` suive
 
 - **Le critère qui glisse** vers « rien ne bloque » (L'Isle-Jourdain 0.1).
 - **La maquette** : une rivière en canal rectiligne, des coteaux lissés, des chemins trop propres. Il manque les rapports naturels entre eau, rochers, végétation, soutènements et bâtiments.
+- **Les maisons toutes du même modèle** : `Atelier.rue` et `Atelier.maison` donnent une façade correcte, mais répétée elle devient un décor de lotissement dès qu'on densifie. Variez au moins la hauteur, la largeur, la matière (enduit, pierre, colombage), l'habillage (volets, enseigne, lierre, glycine) et l'alignement d'une maison à sa voisine, et ne posez jamais deux voisines pareilles. Une version plus riche (un façadier à types et graine) est proposée à l'atelier.
+- **Le ciel du soir trop mauve** : un couchant réglé de tête tire vers le violet. Réglez-le sur une photo du lieu à l'heure voulue : un horizon jaune-orangé, puis un bleu clair, puis le bleu du ciel en montant, sans rose au-dessus de l'horizon ; le soleil (`SOLEIL`) prend la couleur de l'horizon, plus claire.
 - **Le vocabulaire habituel** : les mêmes encadrements, enduits et fenêtres partout. L'histoire d'un quartier construit et transformé ne se lit pas ; une façade de huit mètres n'a pas besoin de dix fenêtres identiques.
 - **La vie en couche d'animation** : des habitants présents, aucune situation.
 - **Deux surfaces à la même hauteur** (un tablier de pont et son sol) : elles clignotent. Décaler ou supprimer l'une des deux.

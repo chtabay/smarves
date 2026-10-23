@@ -60,6 +60,16 @@ func _init() -> void:
 		scene.add_child(v)
 		await process_frame
 		check(v.get_child_count() > 0, "un figurant en tenue « %s » est habillé" % tenue)
+	# Rhabillé assis, il reste assis : son nouveau squelette garde le nom que visent ses mouvements.
+	var figurant: Node3D = Atelier.figurant(7, "sit")
+	scene.add_child(figurant)
+	await process_frame
+	var assis: Node3D = figurant.critter
+	assis.set_look(Cast.resolve("", "habitant", "", 11, "idle", false).look)
+	await process_frame
+	await process_frame
+	check(assis.skeleton.name == "Skeleton3D" and assis.pose == assis.Pose.SIT,
+		"un figurant rhabillé garde sa pose : ses mouvements visent toujours son squelette (%s)" % assis.skeleton.name)
 
 	# Les personnages 3D : chaque rôle et chaque modèle du catalogue se pose, et ce sont ceux du module.
 	var P: GDScript = Atelier.personnages()

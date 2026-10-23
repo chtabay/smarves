@@ -508,6 +508,15 @@ func _revenir(chemin: String) -> bool:
 	var g := _garde
 	_gardee = null
 	_garde = {}
+	# La touche E (ou le clic) qui a passé la porte de sortie est encore en route quand la scène gardée
+	# revient : sans cela, elle parviendrait à l'habitant resté devant la porte du lieu, qui y rentrerait
+	# aussitôt. La scène revient, qu'elle soit rendue ou rebâtie, sans rien de ce qui la visait.
+	var vp := get_viewport()
+	if vp:
+		vp.set_input_as_handled()
+	for p in get_tree().get_nodes_in_group("player"):
+		if s.is_ancestor_of(p) and "focus_target" in p:
+			p.focus_target = null
 	if signature(s) != g.signature:
 		_gardee = s
 		_garde = g
