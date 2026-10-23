@@ -7,6 +7,7 @@ import json
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 ICI = Path(__file__).resolve().parent
@@ -74,7 +75,17 @@ check(not e and "accepté" in t, "le manifeste d'Availles-Limouzine passe")
 t, e = outil("verifier_manifeste", texte=(RACINE / "tools/kit/commune.json").read_text(encoding="utf-8"))
 check(not e and "REFUS" in t and "marques du kit" in t, "le manifeste du kit non rempli est refusé")
 t, e = outil("nouvelle_commune", insee="86999")
-check(e, "un INSEE hors de la Vienne est refusé")
+check(e, "un INSEE inconnu est refusé")
+t, e = outil("nouvelle_commune", insee="75056")
+check(e, "Paris, dont le jeu ne connaît pas les communes, est refusé")
+with tempfile.TemporaryDirectory() as d:
+    t, e = outil("nouvelle_commune", insee="01034", dossier=d + "/belley")
+    m = json.loads((Path(d) / "belley/commune.json").read_text(encoding="utf-8")) if not e else {}
+    check(not e and m.get("insee") == "01034" and m.get("socle_min") == "1.19" and m.get("population", 0) > 9000,
+          "Belley, dans l'Ain, part du kit avec le socle 1.19 : %s" % t)
+    m["socle_min"] = "1.12"
+    t, e = outil("verifier_manifeste", texte=json.dumps(m))
+    check("REFUS" in t and "socle_min" in t, "et le socle 1.12 ne lui suffit pas")
 t, e = outil("verifier_manifeste", texte="{pas du json")
 check("REFUS" in t, "un manifeste illisible est refusé")
 
