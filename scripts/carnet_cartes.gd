@@ -12,6 +12,9 @@ extends Control
 ##   ses neuf obligations, à soi, en vente, ou tenues par un autre joueur (son nom dessus).
 ## - « Mes établissements » : chaque établissement dont on tient au moins une part (le café, le moulin,
 ##   la salle des fêtes du comité…), avec le topo complet de ses parts, à soi ou en vente.
+## La commune d'origine s'ouvre sur « Mon parcours » (les quatre marches de l'investisseur, de la première
+## part au second club) ; sous chaque club, ce qu'il manque pour le diriger (scripts/socle/diriger.gd). Les
+## cartes qu'on tient sont en grand, les places à compléter en petit (demande de Guillaume du 23 octobre).
 ## Une rubrique vide dit où aller pour l'acheter : rien ne s'achète ici, et seuls les gestes sans prix
 ## (porter, conduire, habiter, louer) se font depuis le classeur.
 ##
@@ -51,6 +54,9 @@ const GENRES := [
 	["autre", "Les autres biens", Color(0.4, 0.46, 0.5)],
 ]
 const NOTAIRE := preload("res://scripts/socle/notaire.gd")
+const DIRIGER := preload("res://scripts/socle/diriger.gd")
+## La taille des places à compléter (en vente, à d'autres joueurs), à côté des cartes qu'on tient.
+const K_PLACE := 0.66
 
 ## Le carnet, qui tient le classeur.
 var carnet = null
@@ -400,6 +406,8 @@ func _village(x: Dictionary) -> void:
 	var id := str(x.id)
 	var origine := id == _origine()
 	_tete_village(x)
+	if origine:
+		_parcours()
 	# Mes biens, ensemble, rangés par genre : la couleur du bandeau dit le genre.
 	_categorie("Mes biens")
 	var liste := cartes(id)
@@ -426,9 +434,15 @@ func _village(x: Dictionary) -> void:
 		_titre_section(str(club.nom), "%d à vous · %d à d'autres joueurs · %d en vente" % [mien, autres, libres], club.cartes[0].couleurs[0])
 		var p := _mot(_page, str(club.phrase), 16, INK_LIGHT)
 		p.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		var flot := _flot()
+		var verse := 0
 		for c in club.cartes:
-			_ajouter(flot, c)
+			if c.qui == "moi":
+				verse += int(c.dividende)
+		var d := _mot(_page, DIRIGER.phrase(Football if club.sport == "football" else Basket, str(club.club)), 16, INK, _gras)
+		d.name = "PourDiriger_" + str(club.sport)
+		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_mot(_page, "Vos obligations versent environ %s crédits par journée jouée." % Game.fmt(verse), 16, INK_LIGHT)
+		_cartes_et_places(club.cartes, "qui", "%d en vente · %d à d'autres joueurs" % [libres, autres])
 	# Mes établissements : ceux dont on tient une part, avec le topo complet.
 	_categorie("Mes établissements")
 	var etabs := etablissements(id)
@@ -437,9 +451,133 @@ func _village(x: Dictionary) -> void:
 			else "Le notaire de %s les vend sur place." % str(x.nom)))
 	for e in etabs:
 		_titre_section(str(e.nom), "%d à vous · %d en vente" % [int(e.n), int(e.max) - int(e.n)], _couleur_genre("part"))
-		var flot := _flot()
+		var rente := 0
 		for c in e.cartes:
-			_ajouter(flot, c)
+			if c.etat == "moi":
+				rente += int(c.rente)
+		_mot(_page, "Vos parts annoncent %s crédits de rente à chaque recette (toutes les %d mises)." % [Game.fmt(rente), Biens.PERIOD], 16, INK_LIGHT)
+		_cartes_et_places(e.cartes, "etat", "%d en vente" % (int(e.max) - int(e.n)))
+
+
+# --- Le parcours ---------------------------------------------------------------------------------
+
+## Les quatre marches de l'investisseur, de la première part au second club, pour la commune d'origine
+## (demande de Guillaume du 23 octobre : une gestion accessible dès les premiers gains, où l'on progresse).
+## [{id, titre, texte, etat}] ; etat : « fait », « suivant » (la première marche à faire, ouverte),
+## « ouvert », « ferme » (son lieu n'est pas encore ouvert). La marche suivante peut mener chez Maître
+## Garnier (aller : « notaire »).
+func parcours() -> Array:
+	var o: Commune = Communes.origine()
+	var v := str(o.id)
+	var out: Array = []
+	# 1. Une part d'établissement.
+	var parts := Biens.catalogue().filter(func(it): return it.kind == "part" and _village_de(it) == v)
+	var a_une_part := parts.any(func(it): return Biens.count(it.id) > 0)
+	var moins_chere := {}
+	for it in parts:
+		if Biens.available(it.id) and (moins_chere.is_empty() or Biens.next_price(it.id) < Biens.next_price(moins_chere.id)):
+			moins_chere = it
+	var hote := str(Biens.SELLERS.notaire.host)
+	out.append({"id": "part", "titre": "Une part d'établissement", "etat": "fait" if a_une_part else "ouvert", "aller": "notaire",
+		"texte": "Vos parts versent leur rente à chaque recette, toutes les %d mises." % Biens.PERIOD if a_une_part else
+			("%s, %s crédits, chez %s : elle rapporte à chaque recette, toutes les %d mises." % [str(moins_chere.name), Game.fmt(Biens.next_price(moins_chere.id)), hote, Biens.PERIOD]
+			if not moins_chere.is_empty() else "Les parts s'ouvrent avec les lieux du village.")})
+	# 2. et 4. Les clubs de la commune, dans l'ordre de leurs seuils.
+	var clubs_ici: Array = []
+	for st in o.structures():
+		var sport := "football" if str(st.get("type", "")) == "terrain_foot" else ("basket" if str(st.get("type", "")) == "gymnase" else "")
+		if sport == "":
+			continue
+		var lieu := {}
+		for l in o.lieux():
+			if l.id == str(st.id):
+				lieu = l
+		clubs_ici.append({"sport": sport, "nom": str(st.get("club", "le club")), "lieu": str(lieu.get("name", st.get("nom", ""))),
+			"seuil": int(lieu.get("seuil", 0))})
+	clubs_ici.sort_custom(func(a, b): return a.seuil < b.seuil)
+	var dirige_un := false
+	var meilleur := {}
+	for cl in clubs_ici:
+		var m: Node = Football if cl.sport == "football" else Basket
+		cl.moteur = m
+		cl.tient = m.clubs.has(v) and int(m.investi(v)) > 0
+		if cl.tient:
+			var e := DIRIGER.etat(m, v)
+			dirige_un = dirige_un or bool(e.dirige)
+			if meilleur.is_empty() or int(e.manque) < int(meilleur.manque):
+				meilleur = e.merged({"moteur": m, "nom": cl.nom})
+	for i in clubs_ici.size():
+		var cl: Dictionary = clubs_ici[i]
+		var ouvert := Game.won >= int(cl.seuil)
+		var ou := "à l'étude de %s ou dans les locaux du club" % hote if cl.sport == "football" else "au tableau des parts, à l'entrée de la salle"
+		var texte := ""
+		if cl.tient:
+			texte = "Vous tenez %s crédits d'obligations %s ; elles versent à chaque journée jouée." % [Game.fmt(int(cl.moteur.investi(v))), DIRIGER.de(cl.nom)]
+		elif not ouvert:
+			texte = "%s ouvre à %s gagnés au jeu (encore %s) : les obligations %s partent de %s crédits." \
+				% [cl.lieu, Game.fmt(int(cl.seuil)), Game.fmt(int(cl.seuil) - Game.won), DIRIGER.de(cl.nom), Game.fmt(cl.moteur.valeur(1))]
+		else:
+			texte = "Les obligations %s, dès %s crédits, %s : elles versent à chaque journée jouée." % [DIRIGER.de(cl.nom), Game.fmt(cl.moteur.valeur(1)), ou]
+		out.append({"id": "club_" + str(cl.sport), "titre": "Une obligation de club" if i == 0 else "Un second club, %s" % cl.nom,
+			"etat": "fait" if cl.tient else ("ouvert" if ouvert else "ferme"), "texte": texte,
+			"aller": "notaire" if cl.sport == "football" else ""})
+		if i == 0:
+			# 3. Diriger un club, juste après la première obligation.
+			var t := "Celui qui a mis le plus dans un club le dirige : la tactique, le marché, le bureau du président."
+			if dirige_un:
+				t = "Vous dirigez un club : son bureau est à vous."
+			elif not meilleur.is_empty():
+				var ph: String = DIRIGER.phrase(meilleur.moteur, v)
+				t = "%s : %s" % [meilleur.nom, ph.substr(0, 1).to_lower() + ph.substr(1)]
+			out.append({"id": "diriger", "titre": "Diriger un club", "etat": "fait" if dirige_un else ("ouvert" if not meilleur.is_empty() else "ferme"),
+				"texte": t, "aller": ""})
+	for x in out:
+		if x.etat == "ouvert":
+			x.etat = "suivant"
+			break
+	return out
+
+
+## Le parcours, en tête de la commune d'origine : une ligne par marche, la suivante en avant. Rien quand
+## tout est fait.
+func _parcours() -> void:
+	var marches := parcours()
+	if marches.all(func(x): return x.etat == "fait"):
+		return
+	var bloc := VBoxContainer.new()
+	bloc.name = "Parcours"
+	bloc.add_theme_constant_override("separation", 2)
+	_page.add_child(bloc)
+	_mot(bloc, "Mon parcours", 22, INK_LIGHT, _gras)
+	for x in marches:
+		var r := HBoxContainer.new()
+		r.add_theme_constant_override("separation", 10)
+		r.name = "Marche_" + str(x.id)
+		bloc.add_child(r)
+		var signe := _mot(r, {"fait": "✓", "suivant": "→", "ouvert": "·", "ferme": "○"}[x.etat], 18,
+			{"fait": Color(0.2, 0.55, 0.3), "suivant": RED_INK, "ouvert": INK_LIGHT, "ferme": PENCIL}[x.etat], _gras)
+		signe.custom_minimum_size.x = 22
+		signe.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		var col := VBoxContainer.new()
+		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		col.add_theme_constant_override("separation", 0)
+		r.add_child(col)
+		_mot(col, str(x.titre), 17, INK if x.etat != "ferme" else PENCIL, _gras if x.etat == "suivant" else _texte)
+		var t := _mot(col, str(x.texte), 15, INK_LIGHT if x.etat != "ferme" else PENCIL)
+		t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		if x.etat == "suivant" and str(x.aller) != "":
+			_geste(col, "chez " + str(Biens.SELLERS[x.aller].host), _aller_chez.bind(str(x.aller)))
+	var bas := Control.new()
+	bas.custom_minimum_size.y = 6
+	bloc.add_child(bas)
+
+
+## Va chez un vendeur depuis le classeur (comme les adresses de la page de la commune).
+func _aller_chez(vendeur: String) -> void:
+	_quitter(func():
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		get_tree().paused = false
+		get_tree().change_scene_to_file(Biens.SELLERS[vendeur].scene))
 
 
 ## À l'entrée d'un club : ses neuf obligations, rien d'autre.
@@ -575,11 +713,28 @@ func _flot() -> HFlowContainer:
 	return flot
 
 
-func _ajouter(flot: HFlowContainer, c: Dictionary) -> void:
+## Les cartes qu'on tient d'un club ou d'un établissement, en grand, puis ses places à compléter, en petit,
+## comme les cases vides d'un album : le topo complet reste, sans prendre la page. `cle` : « qui » ou « etat ».
+func _cartes_et_places(liste: Array, cle: String, compte: String) -> void:
+	var flot := _flot()
+	for c in liste:
+		if c[cle] == "moi":
+			_ajouter(flot, c)
+	var places := liste.filter(func(c): return c[cle] != "moi")
+	if places.is_empty():
+		return
+	_mot(_page, "À compléter : " + compte, 15, PENCIL)
+	var petit := _flot()
+	for c in places:
+		_ajouter(petit, c, K_PLACE)
+
+
+func _ajouter(flot: HFlowContainer, c: Dictionary, k := 1.0) -> void:
 	var vue := CarteVue.new()
 	vue.classeur = self
 	vue.donnees = c
 	vue.couleur = c.couleur
+	vue.k = k
 	vue.name = "Carte_" + str(c.id).replace("/", "_").replace(":", "_")
 	var i := _affichees.size()
 	vue.choisie.connect(func(): montrer(i))
