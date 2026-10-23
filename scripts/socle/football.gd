@@ -544,7 +544,9 @@ func force(club: String, s: int) -> float:
 ## ajoutent les joueurs achetés au marché que le club a ce dimanche-là (le crochet renforts).
 func effectif(club: String, s: int, j := 0) -> Dictionary:
 	var cru := _effectif_cru(club, s)
-	if j <= 1 and not renforts.is_valid():
+	# Les décisions de la semaine (FootDilemmes) : le moral et la condition du match de la journée.
+	var touche: Array = FootDilemmes.effets(self, club, s, j) if j >= 1 else []
+	if j <= 1 and not renforts.is_valid() and touche.is_empty():
 		return cru
 	var cle := "%d/%d/%s" % [s, j, club]
 	if _effectifs.has(cle):
@@ -552,14 +554,13 @@ func effectif(club: String, s: int, j := 0) -> Dictionary:
 	var out: Dictionary = cru.duplicate(true)
 	# Les semaines d'entraînement déjà jouées cette saison (FootEntrainement) : le cru en profite.
 	FootEntrainement.appliquer(out, programmes(club, s, j - 1))
-	if j <= 0 or not renforts.is_valid():
-		_effectifs[cle] = out
-		return out
-	for r in renforts.call(s, j, club):
-		if r is Dictionary and r.has("id"):
-			var copie: Dictionary = (r as Dictionary).duplicate(true)
-			copie.erase("id")
-			out[str(r.id)] = copie
+	if j > 0 and renforts.is_valid():
+		for r in renforts.call(s, j, club):
+			if r is Dictionary and r.has("id"):
+				var copie: Dictionary = (r as Dictionary).duplicate(true)
+				copie.erase("id")
+				out[str(r.id)] = copie
+	FootDilemmes.appliquer(out, touche)
 	_effectifs[cle] = out
 	return out
 
@@ -1073,6 +1074,9 @@ static func consigne(d: Dictionary) -> Dictionary:
 	var prog := FootEntrainement.programme(d.get("entrainement", ""))
 	if prog != FootEntrainement.DEFAUT:
 		out["entrainement"] = prog
+	# La décision de la semaine (FootDilemmes), seulement si elle est tranchée.
+	if str(d.get("dilemme", "")) in ["a", "b"]:
+		out["dilemme"] = str(d.dilemme)
 	return out
 
 
@@ -1154,7 +1158,7 @@ func envoyer_locales() -> void:
 		var corps := {"p_saison": int(p[0]), "p_journee": int(p[1]), "p_club": p[2],
 			"p_formation": d.get("formation", "4-4-2"), "p_mentalite": d.get("mentalite", "equilibree"), "p_pressing": d.get("pressing", "normal")}
 		var detail := {}
-		for k in ["compo", "banc", "roles", "entrainement"]:
+		for k in ["compo", "banc", "roles", "entrainement", "dilemme"]:
 			if d.has(k):
 				detail[k] = d[k]
 		if not detail.is_empty():

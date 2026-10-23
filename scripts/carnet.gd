@@ -1065,7 +1065,7 @@ func _fill_courrier() -> void:
 	var t: int = Avis.maintenant()
 	var nouveaux: Array = Avis.non_lus()
 	_title(_left, "Le courrier")
-	_text(_left, "Ce qui est arrivé : les matchs de vos clubs, les dividendes, les parts, les tickets, le mercato.", 15, PENCIL)
+	_text(_left, "Ce qui est arrivé : les matchs de vos clubs, les décisions de la semaine, les dividendes, les parts, les tickets, le mercato.", 15, PENCIL)
 	_gap(_left, 6)
 	_text(_left, "Nouveau" if not nouveaux.is_empty() else "Rien de nouveau.", 21, RED_INK if not nouveaux.is_empty() else INK_LIGHT, true)
 	for a in nouveaux:
@@ -1090,6 +1090,24 @@ func _un_avis(col: VBoxContainer, a: Dictionary, t: int, nouveau: bool) -> void:
 	titre.name = "Avis"
 	if str(a.texte) != "":
 		_text(col, str(a.texte), 15, PENCIL)
+	# Une décision de la semaine (FootDilemmes) : ses deux choix, ou celui qui est fait.
+	var choix: Array = Avis.choix_de(a)
+	if not choix.is_empty():
+		var fait: Array = choix.filter(func(c): return c.fait)
+		if not fait.is_empty():
+			_text(col, "Vous avez choisi : %s.%s" % [fait[0].libelle, " Vous pouvez encore changer d'avis avant le coup d'envoi." if fait[0].ouvert else ""], 15, INK, true)
+		if choix[0].ouvert:
+			for c in choix:
+				if c.fait:
+					continue
+				var b := _link(col, "→ " + str(c.libelle), func():
+					Avis.trancher(a, str(c.choix))
+					_refresh(), true)
+				b.name = "Choix_" + str(c.choix)
+				b.custom_minimum_size.y = 36
+		elif fait.is_empty():
+			_text(col, "Trop tard pour trancher : le match a commencé, ou vous ne dirigez plus le club.", 15, PENCIL)
+		return
 	var nom: String = Avis.nom_du_lien(a.get("lien", {}))
 	if nom != "":
 		var ok: bool = Avis.peut_aller(a.lien)

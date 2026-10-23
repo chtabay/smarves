@@ -47,6 +47,8 @@ const GENRES := {
 	"mercato": ["une nouvelle du mercato", "%d nouvelles du mercato"],
 	"bourse": ["une position encaissée", "%d positions encaissées"],
 	"biens": ["une nouvelle de vos biens", "%d nouvelles de vos biens"],
+	"dilemme": ["une décision à prendre", "%d décisions à prendre"],
+	"suite": ["la suite d'une décision", "%d suites de décisions"],
 }
 
 ## Le dossier du courrier (les tests en prennent un à part).
@@ -295,6 +297,8 @@ func verifier() -> void:
 	for club in _clubs_suivis(f):
 		bouge = _matchs(f, club) or bouge
 		bouge = _compo(f, club) or bouge
+		bouge = _dilemme(f, club) or bouge
+		bouge = _suite(f, club) or bouge
 	bouge = _porteurs(f) or bouge
 	bouge = _periode(f) or bouge
 	if bouge:
@@ -417,6 +421,75 @@ func _porteurs(f: Node) -> bool:
 		return false
 	suivi["porteurs"] = apres
 	suivi["direction"] = dir_apres
+	return true
+
+
+## La décision de la semaine d'un club qu'on dirige (FootDilemmes) : elle arrive à la fin du match d'avant
+## et se tranche au courrier, jusqu'au coup d'envoi. L'avis porte {dilemme: {s, j, club}} : le carnet y met
+## les deux boutons.
+func _dilemme(f: Node, club: String) -> bool:
+	if not f.peut_decider(club):
+		return false
+	var r: Dictionary = f.prochain_match(club)
+	if r.is_empty():
+		return false
+	var t: int = f.maintenant()
+	if int(r.j) > 1 and t < int(f.coup_envoi(r.s, int(r.j) - 1)) + 3 * 3600:
+		return false
+	var d: Dictionary = FootDilemmes.du_jour(f, club, int(r.s), int(r.j))
+	if d.is_empty():
+		return false
+	return publier({"id": "dilemme/%d/%d/%s" % [r.s, r.j, club], "genre": "dilemme", "importance": "forte",
+		"titre": "%s : %s" % [_nom(f, club), d.titre], "texte": str(d.texte),
+		"dilemme": {"s": int(r.s), "j": int(r.j), "club": club}, "lien": {"vers": "courrier"}})
+
+
+## La suite d'une décision, une fois le match joué : ce qu'elle a fait, et le résultat. Sans réponse, l'avis
+## dit que l'adjoint n'a rien tranché. Seulement pour une décision que ce courrier a montrée.
+func _suite(f: Node, club: String) -> bool:
+	var s: int = f.saison
+	var j: int = f.journee_jouee()
+	if j < 1 or not deja("dilemme/%d/%d/%s" % [s, j, club]) or deja("suite/%d/%d/%s" % [s, j, club]):
+		return false
+	var m: Dictionary = FootCourrier.match_de(f, club, s, j)
+	if m.is_empty() or (m.score as Array).is_empty():
+		return false
+	var d: Dictionary = FootDilemmes.du_jour(f, club, s, j)
+	var choix: String = FootDilemmes.choix_de(f, club, s, j)
+	var i := FootCourrier.issue(m, club)
+	var resultat := "%s %d-%d %s %s." % [i.mot, i.pour, i.contre, "contre" if i.domicile else "chez", _nom(f, str(i.adv))]
+	var texte := (str(d[choix].suite) if choix != "" else "Personne n'a tranché : l'adjoint a laissé faire, rien n'a changé.") + " " + resultat
+	return publier({"id": "suite/%d/%d/%s" % [s, j, club], "quand": int(f.coup_envoi(s, j)) + 2 * 3600 + 60, "genre": "suite",
+		"titre": "%s : %s" % [_nom(f, club), ("suite de « %s »" % str(d[choix].libelle)) if choix != "" else "la décision de la semaine est restée sans réponse"],
+		"texte": texte, "lien": {"vers": "bureau", "club": club, "page": "championnat"}})
+
+
+## Les deux boutons d'un avis de décision : [{choix, libelle, fait, ouvert}] ; [] si l'avis n'en est pas un.
+## fait : le choix tranché ; ouvert : on peut encore trancher (on dirige, le match n'est pas joué).
+func choix_de(a: Dictionary) -> Array:
+	var x = a.get("dilemme", null)
+	var f := get_node_or_null("/root/Football")
+	if not (x is Dictionary) or f == null:
+		return []
+	var d: Dictionary = FootDilemmes.du_jour(f, str(x.club), int(x.s), int(x.j))
+	if d.is_empty():
+		return []
+	var tranche: String = FootDilemmes.choix_de(f, str(x.club), int(x.s), int(x.j))
+	var ouvert: bool = f.peut_decider(str(x.club)) and int(f.maintenant()) < int(f.coup_envoi(int(x.s), int(x.j))) and int(x.s) == int(f.saison)
+	return ["a", "b"].map(func(c): return {"choix": c, "libelle": str(d[c].libelle), "fait": tranche == c, "ouvert": ouvert})
+
+
+## Tranche la décision d'un avis, et le marque lu.
+func trancher(a: Dictionary, choix: String) -> bool:
+	var x = a.get("dilemme", null)
+	var f := get_node_or_null("/root/Football")
+	if not (x is Dictionary) or f == null or not FootDilemmes.choisir(f, str(x.club), int(x.s), int(x.j), choix):
+		return false
+	for y in liste:
+		if y.id == a.id:
+			y.lu = true
+	sauver()
+	change.emit()
 	return true
 
 
