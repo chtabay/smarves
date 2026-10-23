@@ -5335,7 +5335,7 @@ var _fil_serie := 0
 
 
 func _fil_demarrer() -> void:
-	if synchrone:
+	if synchrone or not fils_possibles():
 		return
 	# Le monde du fil se lit dans le fil même, depuis le fichier (et pas en copiant M, qui coûtait près
 	# d'une seconde à l'arrivée) : les mêmes données, les mêmes lieux fermés. Les chemins demandés avant
@@ -5343,6 +5343,13 @@ func _fil_demarrer() -> void:
 	_fil_monde = load(BASE + "pnj/monde.gd").new()
 	_fil = Thread.new()
 	_fil.start(_fil_boucle.bind(M.zones_closes.duplicate()))
+
+
+## Les fils sont-ils là ? Pas dans la version web (export sans fils) : un Thread n'y démarre jamais, et
+## wait_to_finish ne rend rien. Les chemins se cherchent alors dans l'image (_fil_demande sans _fil).
+## --sans-fils le simule sur ordinateur, pour les essais.
+static func fils_possibles() -> bool:
+	return OS.has_feature("threads") and not "--sans-fils" in OS.get_cmdline_user_args()
 
 
 func _fil_arreter() -> void:

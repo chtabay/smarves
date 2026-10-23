@@ -97,6 +97,7 @@ func _ready() -> void:
 	_build_hall()
 	_build_bar()
 	_build_games_room()
+	_build_miosson()
 	_build_ambassadeurs()
 	_build_salon()
 	_build_upper()
@@ -488,14 +489,17 @@ func _on_interact(target: Node) -> void:
 		"blackjack":
 			var b: PanelContainer = BLACKJACK.new()
 			_open_panel(b)
-		"poker":
+		"poker", "poker-miosson":
 			# Connecté au compte : la table partagée entre les joueurs du soir ; sinon, seul contre les habitués.
 			var pk: PanelContainer = POKER_MULTI.new() if Compte.connecte() or _poker_essai else POKER.new()
 			if _poker_essai:
 				pk.hors_ligne = true
+			var cle := "miosson" if kind == "poker-miosson" else "ambassadeurs"
+			if cle == "miosson":
+				_configurer_miosson(pk)
 			if pk.has_signal("lineup_changed"):
-				pk.lineup_changed.connect(_poker_lineup)
-				pk.closed.connect(func(): _poker_lineup({}))
+				pk.lineup_changed.connect(_poker_lineup.bind(cle))
+				pk.closed.connect(func(): _poker_lineup({}, cle))
 			_open_panel(pk)
 		"roue":
 			var w: PanelContainer = WHEEL.new()
@@ -984,7 +988,7 @@ func _maybe_capture() -> void:
 				"roue", "boule":
 					pnl._place("1")
 					pnl._spin()
-				"poker":
+				"poker", "poker-miosson":
 					if _poker_essai:
 						_rejouer_poker(pnl)
 					else:
@@ -1817,8 +1821,9 @@ func _build_games_room() -> void:
 	_person("character-male-e.glb", Vector3(-2.0, 0, -12.2), 180.0)
 	_person("character-female-f.glb", Vector3(4.0, 0, -12.2), 180.0)
 	_person("character-female-a.glb", Vector3(11.8, 0, 2.6), 160.0, "sit")
-	_person("character-male-b.glb", Vector3(-3.0, 0, 0.6), 30.0)
-	_person("character-female-c.glb", Vector3(-2.4, 0, 1.2), -150.0)
+	# Deux curieux debout, qui regardent la table du Miosson.
+	_person("character-male-b.glb", Vector3(-3.3, 0, 4.6), 121.0)
+	_person("character-female-c.glb", Vector3(3.2, 0, 0.4), -55.0)
 
 
 func _stool(at: Vector3, rot_y: float) -> void:
@@ -2108,22 +2113,48 @@ func _rejouer_poker(pnl: Control) -> void:
 		pnl.appliquer(x.v, x.action)
 		await get_tree().create_timer(0.8).timeout
 
-## Les habitués du poker par figurant, et les joueurs venus s'asseoir (par chaise de la salle).
-var _poker_people := {}
-var _poker_guests := {}
+## Les deux tables de poker du casino : le centre de la table et ses habitués, chaise par chaise.
+## Le Miosson, dans la Salle des jeux, est ouvert à tous (pas de seuil) et joue petit : blindes 5/10,
+## 200 au plus par donne, à la table poker:miosson du serveur quand on est connecté.
+const POKER_TABLES := {
+	"ambassadeurs": {"centre": Vector3(20.0, 0, -4.0),
+		"habitues": ["le-commandant", "mme-duval", "teddy", "comtesse-orlov", "maitre-garnier"]},
+	"miosson": {"centre": Vector3(0.0, 0, 2.6),
+		"habitues": ["pere-rigaud", "mme-pacaud", "jordan", "odile", "m-lebreton"]},
+}
+## Le Miosson en solo : les mêmes manières qu'aux Ambassadeurs, place pour place, chez d'autres gens.
+const MIOSSON_SOLO := [["le père Rigaud", 0.75, 0.8], ["Mme Pacaud", 0.1, 0.15], ["Jordan", 0.2, 0.9], ["Odile", 0.6, 0.35], ["M. Lebreton", 0.5, 0.55]]
+
+## Les habitués du poker par figurant, et les joueurs venus s'asseoir (par table, puis par chaise).
+var _poker_people := {"ambassadeurs": {}, "miosson": {}}
+var _poker_guests := {"ambassadeurs": {}, "miosson": {}}
 
 
-## La place d'un figurant à la chaise k (0 : le Commandant ; 5 : la chaise libre du joueur).
-func _poker_chair(k: int) -> Vector3:
+## La place d'un figurant à la chaise k (0 : le premier habitué ; 5 : la chaise libre du joueur).
+func _poker_chair(k: int, table := "ambassadeurs") -> Vector3:
 	var a := TAU * k / 6.0
-	return Vector3(20.0 + sin(a) * 1.85, 0.0, -4.0 + cos(a) * 1.85)
+	var c: Vector3 = POKER_TABLES[table].centre
+	return Vector3(c.x + sin(a) * 1.85, 0.0, c.z + cos(a) * 1.85)
+
+
+## Le panneau du Miosson : son titre, ses tarifs, ses habitués (la table du serveur, connecté).
+func _configurer_miosson(pk: Control) -> void:
+	pk.title = "La table du Miosson"
+	if pk.has_method("configurer_table"):
+		pk.title = "La table du Miosson · à plusieurs"
+		pk.configurer_table("poker:miosson", 5, 10, 200)
+	else:
+		pk.configurer_blindes(5, 10, 200)
+		pk.regulars = MIOSSON_SOLO.duplicate(true)
 
 
 ## La table à plusieurs dit qui est assis où (places de l'écran, la sienne en 0) : les habitués
 ## vont à leur chaise ou se lèvent, et un joueur prend forme à la sienne. {} : tout le monde reprend
 ## sa place de toujours.
-func _poker_lineup(places: Dictionary) -> void:
-	var regulars := ["le-commandant", "mme-duval", "teddy", "comtesse-orlov", "maitre-garnier"]
+func _poker_lineup(places: Dictionary, table := "ambassadeurs") -> void:
+	var regulars: Array = POKER_TABLES[table].habitues
+	var people: Dictionary = _poker_people[table]
+	var guests: Dictionary = _poker_guests[table]
 	var at := {}
 	for i in places:
 		var f: String = places[i].get("figurant", "")
@@ -2133,13 +2164,13 @@ func _poker_lineup(places: Dictionary) -> void:
 		for k in 5:
 			at[k] = regulars[k]
 	for id in regulars:
-		var node: Node3D = _poker_people.get(id)
+		var node: Node3D = people.get(id)
 		if node == null:
 			continue
 		var k = at.find_key(id)
 		node.visible = k != null
 		if k != null:
-			node.position = _poker_chair(k)
+			node.position = _poker_chair(k, table)
 			node.rotation_degrees.y = rad_to_deg(TAU * k / 6.0) + 180.0
 	# Le nom de chaque joueur venu s'asseoir, par chaise de la salle.
 	var noms := {}
@@ -2149,12 +2180,12 @@ func _poker_lineup(places: Dictionary) -> void:
 	for k in 6:
 		var want: bool = at.get(k, "") == "joueur"
 		var nom: String = noms.get(k, "")
-		if _poker_guests.has(k) and (not want or _poker_guests[k].get_meta("nom", "") != nom):
-			Presences.masquer(_poker_guests[k].get_meta("nom", ""), false)
-			_poker_guests[k].queue_free()
-			_poker_guests.erase(k)
-		if want and not _poker_guests.has(k):
-			var g := _person("character-male-b.glb" if k % 2 == 0 else "character-female-a.glb", _poker_chair(k), rad_to_deg(TAU * k / 6.0) + 180.0)
+		if guests.has(k) and (not want or guests[k].get_meta("nom", "") != nom):
+			Presences.masquer(guests[k].get_meta("nom", ""), false)
+			guests[k].queue_free()
+			guests.erase(k)
+		if want and not guests.has(k):
+			var g := _person("character-male-b.glb" if k % 2 == 0 else "character-female-a.glb", _poker_chair(k, table), rad_to_deg(TAU * k / 6.0) + 180.0)
 			g.set_meta("nom", nom)
 			# Un joueur présent dans le casino (autoload Presences) s'assoit avec sa tenue, et sa silhouette
 			# qui marche s'efface tant qu'il est à la table.
@@ -2163,7 +2194,34 @@ func _poker_lineup(places: Dictionary) -> void:
 				g.critter.set_look(Cast.player(tenue))
 			if nom != "":
 				Presences.masquer(nom)
-			_poker_guests[k] = g
+			guests[k] = g
+
+## La table du Miosson, au milieu de la Salle des jeux, entre les deux portes du hall : la même table
+## ronde qu'aux Ambassadeurs, chaises de velours bordeaux, cinq habitués du village. Pas de cordon.
+func _build_miosson() -> void:
+	var c: Vector3 = POKER_TABLES.miosson.centre
+	var poker := Node3D.new()
+	poker.position = c
+	add_child(poker)
+	var pt := POKER_3D.new()
+	pt.with_lamp = false
+	pt.nom_tapis = "TABLE DU MIOSSON"
+	pt.ligne_tapis = "BLINDES 5 / 10  ·  SALLE DES JEUX"
+	pt.couleur_tapis = Color(0.03, 0.16, 0.08)
+	pt.rotation_degrees.y = -60.0
+	poker.add_child(pt)
+	poker.set_meta("table3d", pt)
+	_solid_cyl(c + Vector3(0, 0.5, 0), 1.6, 1.0)
+	var regulars: Array = POKER_TABLES.miosson.habitues
+	for k in 6:
+		var a := TAU * k / 6.0
+		_chair(poker, Vector3(sin(a) * 2.0, 0, cos(a) * 2.0), rad_to_deg(a))
+		if k < 5:
+			_poker_people.miosson[regulars[k]] = _person(regulars[k], _poker_chair(k, "miosson"), rad_to_deg(a) + 180.0)
+	_table_lamp(c + Vector3(0, 2.6, 0), 1.6)
+	_bill(_label("La table du Miosson", c + Vector3(0, 2.9, 0), 0.0, 56))
+	_interactive(poker, "poker-miosson", "E : s'asseoir à la table du Miosson (blindes 5/10)", Vector3(4.0, 2.0, 4.0), Vector3(0, 1.0, 0))
+
 
 func _build_ambassadeurs() -> void:
 	_chandelier(Vector3(20.0, WALL_H - 0.3, -4.0), 1.2)
@@ -2177,12 +2235,12 @@ func _build_ambassadeurs() -> void:
 	poker.add_child(pt)
 	poker.set_meta("table3d", pt)
 	_solid_cyl(Vector3(20.0, 0.5, -4.0), 1.6, 1.0)
-	var regulars := ["le-commandant", "mme-duval", "teddy", "comtesse-orlov", "maitre-garnier"]
+	var regulars: Array = POKER_TABLES.ambassadeurs.habitues
 	for k in 6:
 		var a := TAU * k / 6.0
 		_chair(poker, Vector3(sin(a) * 2.0, 0, cos(a) * 2.0), rad_to_deg(a), Color(0.08, 0.15, 0.4))
 		if k < 5:
-			_poker_people[regulars[k]] = _person(regulars[k], _poker_chair(k), rad_to_deg(a) + 180.0)
+			_poker_people.ambassadeurs[regulars[k]] = _person(regulars[k], _poker_chair(k), rad_to_deg(a) + 180.0)
 	_table_lamp(Vector3(20.0, 2.6, -4.0), 1.6)
 	_bill(_label("Poker des Ambassadeurs", Vector3(20.0, 2.9, -4.0), -90.0, 64))
 	_interactive(poker, "poker", "E : prendre la chaise libre au poker", Vector3(4.0, 2.0, 4.0), Vector3(0, 1.0, 0))

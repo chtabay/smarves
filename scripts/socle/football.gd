@@ -536,22 +536,36 @@ func force(club: String, s: int) -> float:
 
 ## L'effectif d'un club pour une saison : {id: {prenom, nom, poste, age, note, condition, moral, competences}},
 ## les fondateurs vieillis jusqu'à la saison s (les retraités remplacés par des jeunes du cru) et la recrue
-## libre de la saison. Avec une journée j, s'y ajoutent les joueurs achetés au marché que le club a ce
-## dimanche-là (le crochet renforts).
+## libre de la saison. Avec une journée j, le cru a les semaines d'entraînement 1 à j - 1 de la saison, et s'y
+## ajoutent les joueurs achetés au marché que le club a ce dimanche-là (le crochet renforts).
 func effectif(club: String, s: int, j := 0) -> Dictionary:
 	var cru := _effectif_cru(club, s)
-	if j <= 0 or not renforts.is_valid():
+	if j <= 1 and not renforts.is_valid():
 		return cru
 	var cle := "%d/%d/%s" % [s, j, club]
 	if _effectifs.has(cle):
 		return _effectifs[cle]
 	var out: Dictionary = cru.duplicate(true)
+	# Les semaines d'entraînement déjà jouées cette saison (FootEntrainement) : le cru en profite.
+	FootEntrainement.appliquer(out, programmes(club, s, j - 1))
+	if j <= 0 or not renforts.is_valid():
+		_effectifs[cle] = out
+		return out
 	for r in renforts.call(s, j, club):
 		if r is Dictionary and r.has("id"):
 			var copie: Dictionary = (r as Dictionary).duplicate(true)
 			copie.erase("id")
 			out[str(r.id)] = copie
 	_effectifs[cle] = out
+	return out
+
+
+## Les programmes d'entraînement d'un club, semaine par semaine, des journées 1 à jusqu_a d'une saison :
+## celui de la consigne de chaque journée, le général sans consigne (FootEntrainement).
+func programmes(club: String, s: int, jusqu_a: int) -> Array:
+	var out: Array = []
+	for k in range(1, mini(jusqu_a, JOURNEES) + 1):
+		out.append(FootEntrainement.programme(decisions.get("%d/%d/%s" % [s, k, club], {}).get("entrainement", FootEntrainement.DEFAUT)))
 	return out
 
 
@@ -604,6 +618,8 @@ func _effectif_cru(club: String, s: int) -> Dictionary:
 	var n := out.size()
 	# Saison après saison depuis la fondation : un an de plus, la progression de l'âge, et la retraite.
 	for ss in range(int(clubs.get(club, {}).get("fondation", 1)) + 1, s + 1):
+		# Toute la saison d'avant à l'entraînement, puis un an de plus.
+		FootEntrainement.appliquer(out, programmes(club, ss - 1, JOURNEES))
 		var h := Hasard.depuis(Hasard.graine("saison/%d/%s" % [ss, club]))
 		var moyenne := 0.0
 		for id in out:
@@ -619,9 +635,9 @@ func _effectif_cru(club: String, s: int) -> Dictionary:
 				out[nid] = _joueur(h, str(j.poste), h.entier(17, 19), moyenne - 8.0, "jeune/%s/%d" % [nid, ss])
 				continue
 			var d := progression(int(j.age), h)
-			j.note = clampi(int(j.note) + d, 30, 95)
+			j.note = clampi(roundi(float(j.note)) + d, 30, 95)
 			for c in j.competences:
-				j.competences[c] = clampi(int(j.competences[c]) + d + h.entier(-1, 1), 10, 99)
+				j.competences[c] = clampi(roundi(float(j.competences[c])) + d + h.entier(-1, 1), 10, 99)
 	# La recrue du mercato prend la place du plus faible de son poste.
 	var r := recrue(s, club)
 	if not r.is_empty():
@@ -689,6 +705,13 @@ func compo_auto(club: String, s: int, j: int, formation: String) -> Array:
 func banc_auto(club: String, s: int, j: int, compo: Array) -> Array:
 	var e := effectif(club, s, j)
 	return FootMatch.banc_auto(e.keys(), e, compo)
+
+
+## Les effectifs et les matchs se calculent depuis les consignes (l'entraînement de chaque semaine) : une
+## consigne qui change les rend caducs.
+func _oublier_calculs() -> void:
+	_effectifs.clear()
+	_matchs.clear()
 
 
 ## Oublie les effectifs et les matchs calculés : à appeler quand ce qui les fait (recrues, renforts) a changé.
@@ -923,9 +946,9 @@ func rencontre_en_direct(s: int, j: int, dom: String, ext: String) -> Dictionary
 ## Ce que FootMatch attend d'un club : son identité, sa tactique du jour (les décisions : formation, mentalité,
 ## pressing, et s'ils sont donnés le onze, le banc et les rôles) et son effectif. Un joueur de la consigne qui
 ## n'est plus là au coup d'envoi (vendu) laisse sa case à l'adjoint, qui la comble avec le meilleur restant.
-func _equipe(s: int, j: int, club: String, joueurs: Dictionary) -> Dictionary:
+func _equipe(s: int, j: int, club: String, joueurs: Dictionary, essai = null) -> Dictionary:
 	var c: Dictionary = clubs[club]
-	var d: Dictionary = decisions.get("%d/%d/%s" % [s, j, club], {})
+	var d: Dictionary = essai if essai is Dictionary else decisions.get("%d/%d/%s" % [s, j, club], {})
 	var ids: Array = joueurs.keys().filter(func(id): return str(id).begins_with(club + "/"))
 	var formation: String = str(d.get("formation", "4-4-2")) if FootMatch.FORMATIONS.has(str(d.get("formation", ""))) else "4-4-2"
 	var out := {"id": club, "nom": c.nom, "court": c.court, "stade": str(c.get("stade", "le stade %s" % _de(c.nom))),
@@ -951,6 +974,36 @@ func _equipe(s: int, j: int, club: String, joueurs: Dictionary) -> Dictionary:
 	return out
 
 
+## Les forces d'un club par secteur pour le match de la journée j (FootMatch.secteurs : le milieu, l'attaque et la
+## défense de chaque couloir), avec sa consigne posée ou une consigne d'essai : le rapport de l'adjoint.
+func secteurs_du_jour(s: int, j: int, club: String, essai = null) -> Dictionary:
+	var joueurs := effectif(club, s, j)
+	var eq := FootMatch._creer_equipe(_equipe(s, j, club, joueurs, consigne(essai) if essai is Dictionary else null), joueurs)
+	return FootMatch.secteurs(eq, joueurs)
+
+
+## La répétition à l'entraînement (le bureau, page Tactique) : le match de la journée j joué n fois, le club
+## avec une consigne d'essai (pas encore posée), l'adversaire avec la sienne ; chaque fois un autre hasard, tiré
+## ici et jamais celui du dimanche. Rien n'est gardé : {victoires, nuls, defaites, pour, contre, essais}.
+func repetition(s: int, j: int, dom: String, ext: String, club: String, essai: Dictionary, n := 20) -> Dictionary:
+	var joueurs := {}
+	joueurs.merge(effectif(dom, s, j))
+	joueurs.merge(effectif(ext, s, j))
+	var d := consigne(essai)
+	var out := {"victoires": 0, "nuls": 0, "defaites": 0, "pour": 0, "contre": 0, "essais": n}
+	var nous := 0 if club == dom else 1
+	for k in n:
+		var h := Hasard.depuis(randi())
+		var etat := FootMatch.creer(_equipe(s, j, dom, joueurs, d if nous == 0 else null), _equipe(s, j, ext, joueurs, d if nous == 1 else null), joueurs, h)
+		FootMatch.simuler(etat, joueurs, h)
+		var a: int = etat.score[nous]
+		var b: int = etat.score[1 - nous]
+		out.pour += a
+		out.contre += b
+		out["victoires" if a > b else ("nuls" if a == b else "defaites")] += 1
+	return out
+
+
 ## « de l'Étoile », « d'Avenir », « de Jeunesse »…
 static func _de(nom: String) -> String:
 	return ("d'%s" if nom.left(1).to_lower() in ["a", "e", "i", "o", "u", "y", "é", "h"] else "de %s") % nom
@@ -970,6 +1023,7 @@ func decider(s: int, j: int, club: String, d: Dictionary) -> bool:
 	decisions[cle] = consigne(d)
 	locales[cle] = true
 	auteurs.erase(cle)
+	_oublier_calculs()
 	sauver()
 	change.emit()
 	envoyer_locales()
@@ -978,8 +1032,9 @@ func decider(s: int, j: int, club: String, d: Dictionary) -> bool:
 
 ## Une consigne propre : les trois clés de la tactique, dans le même ordre partout, les valeurs inconnues ramenées
 ## au défaut ; puis, seulement s'ils disent quelque chose, compo (onze cases, « » pour une case laissée à
-## l'adjoint), banc (jusqu'à sept ids) et roles (id -> rôle, les clés triées, « normal » omis). Une consigne
-## sans eux reste la consigne d'avant, mot pour mot : la graine des matchs déjà joués ne bouge pas.
+## l'adjoint), banc (jusqu'à sept ids), roles (id -> rôle, les clés triées, « normal » omis) et entrainement
+## (le programme de la semaine, FootEntrainement, « general » omis). Une consigne sans eux reste la consigne
+## d'avant, mot pour mot : la graine des matchs déjà joués ne bouge pas.
 static func consigne(d: Dictionary) -> Dictionary:
 	var out := {"formation": str(d.get("formation", "")) if FootMatch.FORMATIONS.has(str(d.get("formation", ""))) else "4-4-2",
 		"mentalite": str(d.get("mentalite", "")) if FootMatch.MENTALITES.has(str(d.get("mentalite", ""))) else "equilibree",
@@ -1011,6 +1066,9 @@ static func consigne(d: Dictionary) -> Dictionary:
 				roles[k] = r
 	if not roles.is_empty():
 		out["roles"] = roles
+	var prog := FootEntrainement.programme(d.get("entrainement", ""))
+	if prog != FootEntrainement.DEFAUT:
+		out["entrainement"] = prog
 	return out
 
 
@@ -1059,6 +1117,7 @@ func appliquer_consignes(liste: Array) -> bool:
 		locales.erase(cle)
 		auteurs[cle] = str(c.get("par", ""))
 	if bouge:
+		_oublier_calculs()
 		sauver()
 		change.emit()
 	return bouge
@@ -1091,7 +1150,7 @@ func envoyer_locales() -> void:
 		var corps := {"p_saison": int(p[0]), "p_journee": int(p[1]), "p_club": p[2],
 			"p_formation": d.get("formation", "4-4-2"), "p_mentalite": d.get("mentalite", "equilibree"), "p_pressing": d.get("pressing", "normal")}
 		var detail := {}
-		for k in ["compo", "banc", "roles"]:
+		for k in ["compo", "banc", "roles", "entrainement"]:
 			if d.has(k):
 				detail[k] = d[k]
 		if not detail.is_empty():
@@ -1105,6 +1164,7 @@ func envoyer_locales() -> void:
 				# Match passé, ou un autre actionnaire parle pour le club : la consigne d'ici n'a compté pour personne.
 				locales.erase(cle)
 				decisions.erase(cle)
+				_oublier_calculs()
 			sauver()
 			change.emit()
 

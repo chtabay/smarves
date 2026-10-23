@@ -26,8 +26,11 @@ extends "res://scripts/poker_panel.gd"
 ## tarifs des Ambassadeurs, et une vue qui ne dit pas sa table (un serveur d'avant) passe.
 
 ## Les habitués du serveur, par place, et leur figurant dans la salle (casino_interior.gd).
+## Ceux de la table du Miosson (poker:miosson) ont d'autres noms, donnés par le serveur.
 const FIGURANTS := {"Le Commandant": "le-commandant", "Mme Duval": "mme-duval", "Teddy": "teddy",
-	"La comtesse Orlov": "comtesse-orlov", "Maître Garnier": "maitre-garnier"}
+	"La comtesse Orlov": "comtesse-orlov", "Maître Garnier": "maitre-garnier",
+	"Le père Rigaud": "pere-rigaud", "Mme Pacaud": "mme-pacaud", "Jordan": "jordan", "Odile": "odile",
+	"M. Lebreton": "m-lebreton"}
 const SRV_RANKS := ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"]
 const SRV_SUITS := ["♠", "♥", "♦", "♣"]
 ## Le tapis que la table montre pour soi : ses crédits, jusqu'à 10 000 (ou au plafond de la table, s'il

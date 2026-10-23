@@ -1286,7 +1286,8 @@ func _build_ui() -> void:
 # --- Capture d'écran : godot -- --capture=chemin.png [--open=cafe] [--view=d,x,y] ---
 
 ## --carte ouvre la carte de la Vienne ; --carte=86133 y choisit une commune, --carte=86133@4 zoome sur elle ;
-## --carte=car la montre depuis l'arrêt du car, --carte=route:86214 depuis le bout d'une route.
+## --carte=car la montre depuis l'arrêt du car, --carte=route:86214 depuis le bout d'une route ;
+## --carte=france montre la France, --carte=france:33@3 y choisit un département et zoome sur lui.
 func _capture_carte(quoi: String) -> void:
 	await get_tree().create_timer(1.0).timeout
 	if quoi == "car" or quoi.begins_with("route:"):
@@ -1296,8 +1297,14 @@ func _capture_carte(quoi: String) -> void:
 	if quoi == "":
 		return
 	await get_tree().create_timer(1.5).timeout
-	var insee := quoi.get_slice("@", 0)
 	var c: CarteVienne = Carte.get("_carte")
+	if quoi.begins_with("france"):
+		Carte.vers_france()
+		quoi = quoi.trim_prefix("france").trim_prefix(":")
+		if quoi == "":
+			return
+		await get_tree().create_timer(1.3).timeout
+	var insee := quoi.get_slice("@", 0)
 	c.choix.emit(insee)
 	if "@" in quoi:
 		c.cadrer(insee, float(quoi.get_slice("@", 1)), 0.5)
