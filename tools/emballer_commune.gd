@@ -4,7 +4,7 @@ extends SceneTree
 ##   --depuis=res://chemin/  le dossier source (par défaut res://communes/<id>/) ; un autre dossier, dans
 ##                           le projet ou hors de lui (--depuis=/chemin/vers/vegas, le dépôt d'une
 ##                           commune), est d'abord recopié sous res://communes/<id>/, là où le jeu le
-##                           chargera, et importé là (sans .git ni tests/), puis retiré après
+##                           chargera, et importé là (sans .git, tests/ ni references/), puis retiré après
 ##                           l'emballage : un modèle importé nomme ses textures par leur chemin, qui doit
 ##                           être celui du paquet
 ##   --sortie=chemin.pck     où écrire le paquet (par défaut build/<id>.pck)
@@ -178,7 +178,8 @@ func _parcourir(dossier: String, racine: String, cible: String, out: Dictionary)
 		elif not FileAccess.file_exists(chemin + ".import"):
 			out[dans_le_paquet] = chemin
 	for sub in d.get_directories():
-		_parcourir(dossier + sub + "/", racine, cible, out)
+		if not sub in REGLES.DOSSIERS_DE_TRAVAIL:
+			_parcourir(dossier + sub + "/", racine, cible, out)
 
 
 const TEMOIN := ".emballage"
@@ -252,7 +253,7 @@ func _copier(de: String, vers: String, racine: String, r: Dictionary) -> void:
 			if not FileAccess.file_exists(de + f + ".import") and _a_convertir(de + f, (de + f).trim_prefix(racine), "", r):
 				FileAccess.open(vers + f + ".import", FileAccess.WRITE).store_string(REGLES.import_avec_perte(""))
 	for sous in d.get_directories():
-		if not sous.begins_with(".") and sous != "tests":
+		if not sous.begins_with(".") and sous != "tests" and not sous in REGLES.DOSSIERS_DE_TRAVAIL:
 			DirAccess.make_dir_recursive_absolute(vers + sous)
 			_copier(de + sous + "/", vers + sous + "/", racine, r)
 

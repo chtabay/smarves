@@ -20,6 +20,9 @@ const DONNEES := ["json", "txt", "csv", "tsv", "xml", "cfg"]
 ## Les textes qui partent avec le paquet : la licence et le mode d'emploi. Les autres .md (note d'intentions,
 ## plans de travail, critiques) restent chez l'auteur.
 const TEXTES_PUBLICS := ["LICENCE", "LICENSE", "LIRE-MOI", "LISEZMOI", "NOTICE"]
+## Les dossiers de travail d'une commune, gardés hors du paquet : les photos de référence (CONCEPTION.md,
+## « Travailler d'après photos »), avec un .gdignore pour que Godot ne les importe pas.
+const DOSSIERS_DE_TRAVAIL := ["references"]
 ## Les dossiers du jeu où chercher ce qu'un paquet embarque déjà.
 const DU_JEU := ["res://assets/", "res://bibliotheque/"]
 
@@ -162,5 +165,5 @@ static func _rapport(dossier: String, racine: String, r: Dictionary, index: Dict
 		if not f.get_extension() in ["gd", "tscn", "tres", "json", "md", "gz"] and index.has(FileAccess.get_md5(chemin)):
 			out.append("%s : déjà dans le jeu (%s), à référencer plutôt qu'à embarquer" % [rel, index[FileAccess.get_md5(chemin)]])
 	for s in d.get_directories():
-		if not s.begins_with("."):
+		if not s.begins_with(".") and not s in DOSSIERS_DE_TRAVAIL:
 			_rapport(dossier + s + "/", racine, r, index, out)
