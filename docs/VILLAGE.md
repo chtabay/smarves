@@ -20,6 +20,8 @@ Ce document dit comment le village s'étend autour de la place, où sont les ent
 |---|---|---|---|
 | La place de la Mairie | socle central | café, mairie, église, casino, boulangerie, Crédit Smarvois, salle Rabelais | existant |
 | La rue du Clain | à l'ouest, de la place au pont du Moulin des Dames | étude de Maître Garnier, la poste et sa cabine, boucherie Texier, Gisèle Coiffure, Raymonde couture, pizzeria du Clain, l'Épicerie du Bourg, Fleurs Odette, bibliothèque, le lavoir sur le Clain, la placette | posée |
+| La cour derrière le porche | rue du Clain, côté nord, derrière les façades | le porche voûté, la grange à moitié décrépie, la remise et la camionnette du boucher, le puits et son arbre, le coin des voisins, le linge, l'escalier extérieur du local réservé (`scripts/village/cour.gd`) | posée |
+| Les jardins du Clain | derrière la rue du Clain, côté sud, jusqu'à l'eau | trois terrasses de jardins sur murs de moellons, potagers, verger, serre, poulailler, vigne, ruches, la tonnelle et le belvédère ; la berge et ses saules têtards, le ponton, la barque ; le bief du moulin, sa passerelle et le pré aux peupliers (`scripts/village/jardins.gd`) | posés |
 | La route du Bois | à l'est, de la place à l'allée du château | le garage Fradin et ses pompes, la pharmacie, le rond-point du vieux chêne, l'école publique et sa cour, le stade municipal et sa tribune, les pavillons des années 70 | posée |
 | Le chemin de Passelourdin | au nord, entre la mairie et l'église | la rue de l'Église (le presbytère, la maison qu'on peut acheter), le chemin de terre en lacets entre les vignes vendangées, le calvaire, le château d'eau peint au nom du bourg, la cabane de vigne, la lisière et le banc du point de vue, jusqu'aux rochers | posé |
 
@@ -32,7 +34,8 @@ Chaque devanture du village est un emplacement nommé, dans `village.gd` (`NORTH
 | `notaire` | L'étude de Maître Garnier, plaque de cuivre | rue du Clain, côté nord, à l'angle de la place | `Biens.SELLERS.notaire.scene` |
 | `couture` | Raymonde, couture et retouches, mannequins en vitrine | rue du Clain, côté nord, à côté de Gisèle Coiffure | `Biens.SELLERS.couture.scene` |
 | `garage` | Le garage Fradin, porte d'atelier à moitié ouverte, cour à pompes | route du Bois, côté nord, au sortir de la place | `Biens.SELLERS.garage.scene` |
-| `poste`, `boucherie`, `coiffure`, `pizzeria`, `epicerie`, `fleurs`, `bibliotheque` | commerces du bourg, éclairés, fermés au joueur pour l'instant | rue du Clain | décor |
+| `poste`, `boucherie`, `coiffure`, `pizzeria`, `fleurs`, `bibliotheque` | commerces du bourg, éclairés, fermés au joueur pour l'instant | rue du Clain | décor |
+| `epicerie` | l'Épicerie du Bourg de Mme Pineau, un décor où l'on entre : le comptoir et la balance, les rayons, le rideau de perles, l'arrière-boutique et la porte de la cour ; rien ne s'y vend (`scripts/village/epicerie.gd`) | rue du Clain, côté sud | `scenes/epicerie.tscn` |
 | `pharmacie` | la pharmacie et sa croix verte | route du Bois, côté sud | décor |
 | `ecole` | l'école publique (porte d'entrée) | route du Bois, côté nord | décor |
 | `stade` | le stade municipal (arche d'entrée) : lieu du manifeste derrière son seuil, le match de l'Étoile de Smarves minute par minute (`scripts/village/stade.gd`) | route du Bois, côté nord | `scenes/stade.tscn` |
@@ -64,6 +67,9 @@ Chaque devanture du village est un emplacement nommé, dans `village.gd` (`NORTH
 - **Place → route du Bois → bois de Saint-Pierre** : la route passe le rond-point du vieux chêne et arrive à l'allée du château ; le bord est de la place et le bord ouest du socle du bois sont ouverts. Les voitures contournent le chêne (`bois.gd`, `road_z`).
 - **Place → chemin de Passelourdin → rochers** : on passe entre la mairie et l'église, on remonte la rue de l'Église et le chemin de terre jusqu'à l'entrée des rochers ; le bord nord de la place et le bord sud du socle des rochers sont ouverts.
 - **Rue du Clain → Passelourdin** : la ruelle au milieu de la rue, avec son panneau « Rochers de Passelourdin ↑ » (raccourci).
+- **Rue du Clain → la cour** : le porche voûté de la rangée nord, entre la maison et le local réservé ; la cour est fermée au fond, on en ressort par le porche.
+- **Rue du Clain → les jardins → le Clain** : la venelle des jardins, côté sud entre Fleurs Odette et la brocante (plaque émaillée), descend les trois terrasses par ses marches jusqu'à la berge ; la passerelle passe le bief vers le pré.
+- **Les jardins → la placette** : l'escalier bordé de buis remonte de la berge à la placette, au bout de la rue, par une brèche du muret.
 - Les panneaux de la place restent des raccourcis vers chaque socle.
 
 ## Vérifier
@@ -81,7 +87,7 @@ Chaque devanture du village est un emplacement nommé, dans `village.gd` (`NORTH
 
 ## Pour le plan du Carnet : quartiers et lieux cachés
 
-- `Village.ZONES` : id → `{nom, rect}`, où `rect` est un `Rect2` en coordonnées du monde (x, z, largeur, profondeur). Il y en a une par socle : `place`, `rue_du_clain`, `route_du_bois`, `chemin_passelourdin`, `moulin`, `bois`, `rochers`.
+- `Village.ZONES` : id → `{nom, rect}`, où `rect` est un `Rect2` en coordonnées du monde (x, z, largeur, profondeur). Il y en a une par socle : `place`, `rue_du_clain`, `route_du_bois`, `chemin_passelourdin`, `moulin`, `bois`, `rochers`, et `jardins_du_clain` pour les jardins et la berge.
 - `Village.zone_at(pos)` donne le quartier qui contient un point. `Village.current_zone` est celui de l'habitant, et le signal `zone_entered(id)` part à chaque changement, y compris au premier pas et après un raccourci.
 - `Village.CACHES` : id → `{nom, zone, pos}`. Le signal `cache_found(id)` part la première fois qu'on trouve un lieu caché. Il n'y a pour l'instant que `cabane_vigne`.
 - Le village ne garde rien en mémoire : ce qui a été découvert va dans le tiroir Smarves de la sauvegarde, tenu par le Carnet.
