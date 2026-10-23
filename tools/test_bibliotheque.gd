@@ -6,7 +6,7 @@ extends SceneTree
 ## « stade-de-campagne@1 » reçoit le club, le match, le tableau, le président, le bureau, le panneau et la sortie ;
 ## la salle de Smarves sur « salle-de-quartier@1 », le club, le cube, le président, le bureau, les parts et le car ;
 ## les matières de « matieres-de-minuit@1 » se posent par leur nom (socle 1.17) ; le façadier « facadier-du-poitou@1 »
-## bâtit ses dix types.
+## bâtit ses dix types ; chaque décor se bâtit seul (le donjon en ruine, l'église romane).
 
 var fails := 0
 
@@ -151,14 +151,45 @@ func _init() -> void:
 	bancs.add_child(m2)
 	check(is_equal_approx(float(m2.get_meta("w")), 9.0) and m2.get_meta("vegetal") == [] and str(m1.get_meta("traces")) + str(m1.get_meta("w")) != str(m2.get_meta("traces")) + str(m2.get_meta("w")),
 		"les options passent au façadier, et deux graines font deux maisons")
-	var hors := []
-	for f in DirAccess.get_files_at(facadier.get_base_dir()):
-		if f.get_extension() in ["gd", "tscn", "gdshader"]:
-			for ligne in FileAccess.get_file_as_string(facadier.get_base_dir() + "/" + f).split("\n"):
-				if "res://" in ligne and not "res://bibliotheque/facadier-du-poitou/1/" in ligne and not "res://scripts/" in ligne:
-					hors.append(f)
-	check(hors.is_empty(), "le façadier ne nomme rien hors de son dossier et du socle %s" % str(hors))
 	bancs.queue_free()
+
+	# Tous les décors : chacun se bâtit seul, sur un sol plat, ne nomme rien hors de son dossier et du socle, et
+	# garde sa notice quand sa licence la demande.
+	var decors := Bibliotheque.references("decor")
+	check(decors.has("donjon-en-ruine@1") and decors.has("eglise-romane@1"), "la bibliothèque a le donjon en ruine et l'église romane %s" % str(decors))
+	for ref in decors:
+		var b: Dictionary = Bibliotheque.brique(ref)
+		var dossier := str(b.scene).get_base_dir() + "/"
+		var hors := []
+		for f in DirAccess.get_files_at(dossier):
+			if f.get_extension() in ["gd", "tscn", "gdshader"]:
+				for ligne in FileAccess.get_file_as_string(dossier + f).split("\n"):
+					if "res://" in ligne and not dossier in ligne and not "res://scripts/" in ligne:
+						hors.append(f)
+		var notice := not str(b.licence).begins_with("MIT") or FileAccess.file_exists(dossier + "LICENCE.txt")
+		var d: Node3D = load(b.scene).instantiate()
+		root.add_child(d)
+		var boite := AABB()
+		var maillages := d.find_children("*", "MeshInstance3D", true, false)
+		for mi in maillages:
+			boite = boite.merge(mi.global_transform * mi.get_aabb()) if boite.has_volume() else mi.global_transform * mi.get_aabb()
+		var corps := d.find_children("*", "StaticBody3D", true, false)
+		check(hors.is_empty() and notice and not maillages.is_empty() and not corps.is_empty() and boite.position.y > -4.0 and boite.position.y < 0.0,
+			"%s se bâtit seul (%d maillages, %d corps, boîte %s), sans fichier hors de son dossier %s" % [ref, maillages.size(), corps.size(), str(boite.size), str(hors)])
+		if ref == "donjon-en-ruine@1":
+			check(boite.size.y > 30.0 and boite.size.x < 30.0, "le donjon monte à plus de 30 m sur moins de 30 m de large")
+		if ref == "eglise-romane@1":
+			check(absf(boite.get_center().x) < 3.0 and absf(boite.get_center().z) < 3.0 and boite.end.y > 38.0 and boite.end.y < 46.0,
+				"l'église est centrée sur l'origine, son clocher à sa mesure (%.1f m, croix comprise)" % boite.end.y)
+		d.queue_free()
+	var haute: Node3D = load(Bibliotheque.scene("eglise-romane@1", "decor")).instantiate()
+	haute.hauteur_clocher = 50.0
+	root.add_child(haute)
+	var sommet := -INF
+	for mi in haute.find_children("*", "MeshInstance3D", true, false):
+		sommet = maxf(sommet, (mi.global_transform * mi.get_aabb()).end.y)
+	check(sommet > 55.0, "le clocher se règle : %.1f m à Chauvigny, croix comprise" % sommet)
+	haute.queue_free()
 
 	# Une commune propose une brique : son dossier bibliotheque/<id>/ et sa fiche ; Guillaume l'intègre à la main.
 	var props := Bibliotheque.propositions("res://tools/fixtures/proposition/")

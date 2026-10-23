@@ -136,6 +136,13 @@ var largeur: float = m.get_meta("w")   # pour aligner la suivante
 
 La planche (les dix types sur trois graines) : `godot --path . -s tools/planche_facadier.gd -- --ref=facadier-du-poitou@1 --capture=planche.png` (`--rang=0` pour une rangée de près, `--scene=` pour une maison proposée par une commune).
 
+Deux monuments de pierre, venus eux aussi de Chauvigny 0.2.2 (MIT), chacun posé sur un sol plat à y = 0, ses murs plongeant de 1 à 2 m dessous pour absorber une pente douce. Chaque dossier porte les **primitives de pierre** de Chauvigny (`pierre.gd` : blocs, arcs, toits, pignons, révolutions, tours, donjons, murailles, murs ruinés, rochers, voûtes, portes de ville, escaliers, rampes et soutènements aux collisions justes, fenêtres romanes, lanternes, arbres, fusion par genre de matière), qu'une commune peut appeler pour bâtir les siens : `load(<dossier de la brique> + "pierre.gd").tour(parent, position, rayon, hauteur)`.
+
+- **`donjon-en-ruine@1`** : le donjon du château baronnial, roman et éventré, 12 × 16 m et 14 à 32 m de haut ; la fenêtre géminée, les contreforts plats chaînés, les trous de boulin, les traces des planchers et deux cheminées murales dedans, la tour demi-ronde au nord, la tourelle d'escalier au nord-est, l'aiguille isolée, le lierre et les éboulis. On y entre par la brèche du mur est (+x). Les petits objets s'effacent à 70 m et les trous de boulin à 150 m, comme à Chauvigny. Environ 11 000 triangles.
+- **`eglise-romane@1`** : la collégiale Saint-Pierre, 36 × 24 m centrée sur l'origine, la nef selon x (portail à l'ouest, −x ; chevet à l'est, +x) : nef et bas-côtés, transept à oculus, clocher carré sur la croisée, chevet en pièce montée (abside, déambulatoire, chapelles rayonnantes), portail ouest, porte sud et parvis pavé. Pleine, vue du dehors : on n'y entre pas. Réglage : `hauteur_clocher`, la tour sans son toit (34 m par défaut ; 50 à Chauvigny, exagérée pour la ligne d'horizon vue du pont). Environ 17 000 triangles.
+
+Les vues d'un décor (deux trois-quarts et le dessus) : `godot --path . -s tools/capture_decor.gd -- --ref=donjon-en-ruine@1 --capture=dossier/` (`--scene=` pour un décor proposé par une commune).
+
 ## Proposer une brique
 
 Une ville qui a fait un décor réutilisable le range, dans son propre paquet, sous `res://communes/<id>/bibliotheque/<id de la brique>/` avec une fiche `brique.json` :
@@ -202,6 +209,7 @@ Chacune est utile seule, et rien ne change dans la première salle.
 | 5 | Proposer une brique : le dossier `bibliotheque/` des paquets et sa fiche, vérifiés par l'emballeur et signalés par le portail, puis intégrés à la main (`tools/integrer_brique.gd`). Pas de dépôt automatique. | smarves, portail | **fait** |
 | 7 | Le budget par lieu (socle 1.16) : l'emballeur bâtit et mesure chaque lieu du paquet, range la mesure dans le paquet (`budget.json`), le portail la dit lieu par lieu ; les objets lointains simplifiés par le socle ([`docs/LENTEUR.md`](LENTEUR.md)) | smarves, portail | **fait** |
 | 8 | Les décors : le premier, `facadier-du-poitou@1`, venu de Chauvigny 0.2.2 (MIT) ; la planche du façadier | smarves | **fait** |
+| 9 | Les monuments de pierre de Chauvigny : `donjon-en-ruine@1`, `eglise-romane@1` et leurs primitives de pierre ; les vues d'un décor (`tools/capture_decor.gd`) | smarves | **fait** |
 | 6 | Les auteurs reconstruisent leurs paquets : pour Minuit, le bol de la Fortune devient `stade-fortune@1` par ses ancres, le Dôme une salle, les matières passent à la bibliothèque, les textures et les données se compressent | paquets | 2 à 4 jours pour Minuit |
 
 Il ne reste que l'étape 6, par les auteurs. Le format des paquets est arrêté avec l'étape 3 et le budget par lieu avec la 7 : Civaux, Minuit, L'Isle-Jourdain et Cloué sont repris une fois, avec le SDK à jour, et l'emballeur dit à chaque auteur ce que ses lieux ont à alléger.
