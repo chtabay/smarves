@@ -84,6 +84,9 @@ func _init() -> void:
 	check(tri_foule < 1500000, "la foule reste légère : %d triangles" % tri_foule)
 	var dessines := salle.find_children("*", "MeshInstance3D", true, false).filter(func(m): return m.mesh != null and m.is_visible_in_tree()).size()
 	check(dessines < 500, "le décor immobile est fondu : %d maillages à dessiner" % dessines)
+	# La ville autour : l'avenue et ses immeubles, la couronne, les tours au loin, en quelques multimaillages.
+	var ville: Node = salle.get_node_or_null("Ville")
+	check(ville != null and ville.get_meta("immeubles", 0) > 200 and ville.find_children("*", "MultiMeshInstance3D", false, false).size() >= 4, "la salle est au cœur d'une ville : %d immeubles" % (ville.get_meta("immeubles", 0) if ville else 0))
 	check(salle.find_children("Echoppe*", "Node3D", false, false).size() >= 12, "la coursive a ses échoppes derrière les gradins")
 	check(salle.get_node("Parking").get_meta("voitures") > 20, "des voitures au parking : %d" % salle.get_node("Parking").get_meta("voitures"))
 	# On passe à pied de l'arrêt du car au parquet : rien de solide sur le chemin (portes, enceinte, vomitoire).
