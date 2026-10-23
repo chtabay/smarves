@@ -16,6 +16,12 @@ const BOARD_X := -0.38
 const BOARD_STEP := 0.19
 const POT_AT := Vector3(0.0, 0.0, -0.46)
 
+## Ce qu'imprime le tapis, et sa couleur : les Ambassadeurs par défaut ; la table du Miosson, dans la
+## Salle des jeux, a les siens (à poser avant que la table entre dans la scène).
+var nom_tapis := "POKER DES AMBASSADEURS"
+var ligne_tapis := "BLINDES 25 / 50  ·  CASINO DE SMARVES"
+var couleur_tapis := Color(0.03, 0.09, 0.2)
+
 var _hole := {}             # place -> [carte, carte]
 var _board: Array[Node3D] = []
 var _bets := {}             # place -> pile de plaques
@@ -69,7 +75,7 @@ func _build() -> void:
 		var t := -PI / 2.0 + TAU * k / 16.0
 		prof.append(Vector2(R + 0.105, felt_y + 0.03) + Vector2(cos(t) * 0.06, sin(t) * 0.045))
 	KIT.mesh_node(KIT.lathe(prof, 96), KIT.leather(Color(0.1, 0.05, 0.035)), self)
-	KIT.mesh_node(KIT.disc(R, 96), KIT.felt(Color(0.03, 0.09, 0.2), Vector2(2.0 * R, 2.0 * R), _make_layout()), self, Vector3(0, felt_y, 0))
+	KIT.mesh_node(KIT.disc(R, 96), KIT.felt(couleur_tapis, Vector2(2.0 * R, 2.0 * R), _make_layout()), self, Vector3(0, felt_y, 0))
 	# Le bouton du donneur.
 	_button = Node3D.new()
 	add_child(_button)
@@ -92,7 +98,7 @@ func _build() -> void:
 
 ## Le tapis imprimé : le filet d'or, la ligne de mise, les cinq cases du tableau, le nom de la salle.
 func _make_layout() -> Texture2D:
-	var cle := "poker"
+	var cle := "poker" if nom_tapis == "POKER DES AMBASSADEURS" else "poker:" + nom_tapis
 	if KIT.vue_partagee(cle):
 		return KIT.vue_partagee(cle)
 	var S := 700.0
@@ -114,8 +120,8 @@ func _make_layout() -> Texture2D:
 		for k in 5:
 			var r := Rect2(mid + Vector2((BOARD_X + k * BOARD_STEP) * S - 0.075 * S, -0.1 * S), Vector2(0.15, 0.2) * S)
 			c.draw_rect(r, Color(ink, 0.5), false, 3.0)
-		c.draw_string(f, mid + Vector2(-0.6 * S, -0.3 * S), "POKER DES AMBASSADEURS", HORIZONTAL_ALIGNMENT_CENTER, 1.2 * S, 46, gold)
-		c.draw_string(f, mid + Vector2(-0.6 * S, 0.27 * S), "BLINDES 25 / 50  ·  CASINO DE SMARVES", HORIZONTAL_ALIGNMENT_CENTER, 1.2 * S, 24, Color(gold, 0.75))
+		c.draw_string(f, mid + Vector2(-0.6 * S, -0.3 * S), nom_tapis, HORIZONTAL_ALIGNMENT_CENTER, 1.2 * S, 46, gold)
+		c.draw_string(f, mid + Vector2(-0.6 * S, 0.27 * S), ligne_tapis, HORIZONTAL_ALIGNMENT_CENTER, 1.2 * S, 24, Color(gold, 0.75))
 	)
 	return KIT.partager(cle, vp)
 

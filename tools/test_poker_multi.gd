@@ -126,5 +126,21 @@ func _init() -> void:
 	solo._new_hand()
 	check(solo.in_hand, "au solo, 250 crédits suffisent")
 	solo.queue_free()
+	# La table du Miosson, dans la Salle des jeux : 5/10, 200 par donne, confirmée par le serveur.
+	var mio: PanelContainer = MULTI.new()
+	mio.hors_ligne = true
+	check(mio.configurer_table("poker:miosson", 5, 10, 200), "configurer_table accepte le Miosson, 5/10 et 200")
+	layer.add_child(mio)
+	mio.appliquer(cave_vue.call({"id": "poker:miosson", "nom": "La table du Miosson", "blindes": [5, 10], "plafond": 200}), "voir")
+	check(not mio.refusee and mio.BB == 10 and mio.CAP == 200, "le Miosson confirmé par le serveur se joue")
+	check(MULTI.FIGURANTS.get("Le père Rigaud") == "pere-rigaud" and Cast.NAMED.has("pere-rigaud"), "les habitués du Miosson ont leur figurant")
+	mio.queue_free()
+	# Au solo, un habitué ne met jamais plus que le plafond dans une donne.
+	var petit: PanelContainer = load("res://scripts/poker_panel.gd").new()
+	petit.configurer_blindes(5, 10, 200)
+	layer.add_child(petit)
+	petit.seats[1].merge({"engage": 0, "bet": 0})
+	check(petit._post(1, 1000) == 200 and petit._all_in(1), "un habitué s'arrête au plafond de la donne (200)")
+	petit.queue_free()
 	print("\n%d échec(s)" % fails)
 	quit(1 if fails > 0 else 0)
