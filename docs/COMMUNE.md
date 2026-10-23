@@ -102,7 +102,7 @@ Un dossier `communes/<id>/` avec au moins un manifeste `commune.json` et la scè
 | `auteur` | non | qui a fait la commune, tel qu'il s'affiche dans sa fiche (carte, carnet) ; « » par défaut |
 | `version` | non (oui pour publier) | trois nombres (`0.1.0`), à monter à chaque dépôt |
 | `description` | non | deux phrases, montrées dans le carnet du joueur ; « » par défaut |
-| `socle_min` | non | la version du socle demandée (`1.0` par défaut ; le socle est aujourd'hui en `1.20`). Le kit de départ demande `1.12`, la version où `Cast.moi()` est arrivé : un jeu plus ancien refuse la commune proprement au lieu de planter |
+| `socle_min` | non | la version du socle demandée (`1.0` par défaut ; le socle est aujourd'hui en `1.21`). Le kit de départ demande `1.12`, la version où `Cast.moi()` est arrivé : un jeu plus ancien refuse la commune proprement au lieu de planter |
 | `ailleurs` | non | socle 1.5 : une destination hors de la Vienne, rejointe en avion (section « Les destinations lointaines ») ; `{ville, pays, aeroport, vol}`, la ville seule obligatoire. Avec lui, `insee` est absent ou vide |
 | `insee` | oui (sauf `ailleurs`) | le code INSEE d'une commune actuelle de la Vienne (`86263` pour Smarves) ou, depuis le socle 1.18 (`"socle_min": "1.18"`), d'un autre département de la Nouvelle-Aquitaine (`33063` pour Bordeaux ; référentiels dans `communes/departements/`) et, depuis le socle 1.19, de l'Auvergne-Rhône-Alpes (`69123` pour Lyon) : c'est lui qui place la commune sur la carte, à sa vraie place ; deux communes développées ne peuvent pas avoir le même |
 | `carte` | non | plus tard, la scène du petit socle posé sur la carte |
@@ -122,6 +122,7 @@ Un dossier `communes/<id>/` avec au moins un manifeste `commune.json` et la scè
 | `structures` | non | les structures de la commune qui comptent pour les autres communes : gare, arrêt de car, terrain de football (section « Les structures ») ; vide par défaut |
 | `notaire` | non | le notaire de la commune et son registre : toutes les adresses à vendre et le plan de l'étude (section « Le notaire ») |
 | `carnet` | non | socle 1.3 : les compteurs que la commune tient au carnet du joueur, une liste de 24 au plus `{id, libelle, genre, rubrique}` (section « Le carnet du joueur ») ; vide par défaut |
+| `quartiers` | non | socle 1.21 : les quartiers enregistrés d'avance, par nom : `{batir, scene}`, le script qui bâtit le quartier et la scène où il est rangé, dans le dossier de la commune (section « Les quartiers enregistrés ») ; vide par défaut |
 | `page_carnet` | non | la page de la commune d'origine dans le carnet, un script du jeu (`res://scripts/carnet_smarves.gd`) ; lu pour la commune d'origine seulement, jamais dans un paquet |
 
 Les champs facultatifs gardent le format 1 : un manifeste qui ne les a pas reste valide et prend leur valeur par défaut. Présents, ils doivent avoir le bon type (un texte, un objet, un nombre entier positif, une liste de textes), sinon la commune est refusée, par le jeu comme par le portail. `Commune.auteur()`, `arrivee_nom()`, `population()`, `licence()` et `sources()` les lisent.
@@ -193,6 +194,8 @@ Les deux rendent `false`, sans rien changer, pour des tarifs incohérents. Le ta
 | `cloue:poker-cave` | Cloué, La Contrebande | 125/250 | 10 000 | 10 000 |
 
 Une autre table se demande dans le dépôt chtabay/addict. Le test est `tools/test_poker_multi.gd`.
+
+**Le poker à plusieurs des salles de jeu** (23 octobre 2026). Chaque `salle_jeu` du manifeste qui nomme le poker a sa table au serveur, sans rien demander : `salle:<id de la commune>:<id de la salle>` (`SalleJeu.table_serveur`), aux tarifs des Ambassadeurs (25/50, 2 000 par donne). Un joueur connecté à son compte s'y assoit avec les autres joueurs de la salle ; sans compte, le poker de la salle reste en solo. Une table à d'autres tarifs se demande toujours dans le dépôt chtabay/addict.
 
 **Les tables du casino** (socle 1.10, `"socle_min": "1.10"`). Une commune qui bâtit sa propre salle de jeu, au lieu de la salle du socle, prend les tables du casino de Smarves par la classe **`Tables`** ([`scripts/socle/tables.gd`](../scripts/socle/tables.gd)) : ce sont les fichiers du casino lui-même, pas une copie, et quand le casino change ses tables, toutes les communes les ont au jeu suivant. **Ne fabriquez pas de table de jeu** avec les modèles de l'atelier (la machine Kenney de la famille `arcade` et la `table_jeu` de la brocante sont du décor), **et ne recopiez ni les panneaux ni leur thème** dans votre paquet : ils vieilliraient avec lui.
 
@@ -389,7 +392,7 @@ Le modèle du kit vit dans Smarves, [`tools/kit/`](../tools/kit/) (les mêmes fi
   godot --headless --path . -s tools/test_commune.gd -- <id>
   godot --headless --path . -s tools/test_commune.gd -- <id> --pck=build/<id>.pck
   ```
-- **`tools/parcours_commune.gd`**, pour juger à hauteur de joueur : l'habitant posé sur chaque repère `Vue…` de la scène, trois captures par repère (de dessus, à pied, en se retournant), une marche d'un repère au suivant et un rapport, dans `user://parcours/<id>/` ; sans rendu (`--headless`), les marches seulement. Il prend aussi un paquet (`--pck=`) et des points donnés (`--point=x,y,z,lacet`). Voir [`CONCEPTION.md`](CONCEPTION.md), « Juger à hauteur de joueur ».
+- **`tools/parcours_commune.gd`**, pour juger à hauteur de joueur : l'habitant posé sur chaque repère `Vue…` de la scène, trois captures par repère (de dessus, à pied, en se retournant), une marche d'un repère au suivant et un rapport, dans `user://parcours/<id>/` ; sans rendu (`--headless`), les marches seulement. Il prend aussi un paquet (`--pck=`), des points donnés (`--point=x,y,z,lacet`), des vues libres hors du joueur (`--libre=x,y,z,lacet,tangage`) et retire l'interface des images si on le demande (`--sans-interface`). Voir [`CONCEPTION.md`](CONCEPTION.md), « Juger à hauteur de joueur ».
   ```sh
   godot --path . -s tools/parcours_commune.gd -- <id>
   ```
@@ -557,8 +560,36 @@ Ce que le socle fait de lui-même sur les lieux d'une commune, et qu'elle peut a
 | | |
 |---|---|
 | `Budget.mesurer(racine, points, directions)`, `Budget.points_de_vue(racine)`, `Budget.depassements(mesure)`, `Budget.resume(mesure)`, `Budget.SEUILS` | la mesure d'une scène bâtie (triangles et surfaces dessinés au regard le plus chargé, avec niveaux de détail et champ de la caméra, et au plus fin : `triangles_pleins` ; lampes, ombres, textures, nœuds, scripts actifs, étiquettes), les points de vue du joueur (caméra, zones d'interaction), ce qui dépasse les seuils du socle, une ligne de résumé ([`docs/LENTEUR.md`](LENTEUR.md), « Ce qui est vraiment dessiné ») |
+| `Lointain.quartier(noeud, des = 150)` | socle 1.21 : la version lointaine d'un quartier. Ses maillages fixes sont fondus en un seul par matière (`<nom>_loin`), qui reçoit ses niveaux de détail et se dessine au-delà de `des` mètres du centre du quartier, à la place des maisons ; de près, rien ne change. C'est pour une ville faite de centaines de petits maillages, qui chacun sous dix mille triangles n'ont pas de niveaux de détail (Chauvigny, vue d'un point haut : 581 613 triangles). Ce qui bouge (une porte, une enseigne, un figurant) se garde hors de la fonte par la méta `sans_lointain` sur sa branche. Sans appel, la méta `lointain` (la distance) sur le nœud du quartier suffit : `Chargement` s'en charge à l'arrivée. `Budget` compte les maisons de près et la version lointaine de loin |
 | `Lointain.appliquer(racine)` | ce que `Chargement` fait à chaque scène 3D qui arrive : les primitives (sphères, cylindres, capsules, tores) ramenées aux segments de leur taille vue, et des niveaux de détail aux maillages de dix mille triangles et plus, calculés dans un fil. Une scène qui n'en veut pas pose la méta `sans_lointain` sur sa racine |
 | `Memo.valeur(famille, script, cle, fabrique)`, `Memo.image(…)`, `Memo.bruit(famille, script, cle, texture)` | ce qu'un script fabrique à l'identique à chaque lancement (un maillage sommet par sommet, une image peinte, une `NoiseTexture2D`) se fabrique une fois et se relit du disque du joueur (`user://cache/<famille>/`) ; la famille est le nom de la commune, le script celui qui fabrique (son empreinte jette le rangement quand il change) |
+
+### Les quartiers enregistrés (classe `Quartiers`, `scripts/socle/quartiers.gd`) — socle 1.21
+
+Une commune bâtie par code se rebâtit à chaque ouverture, et l'attente grandit avec la ville (10 à 15 s pour Chauvigny en rendu logiciel). Un quartier peut s'enregistrer d'avance et se lire en arrière-plan. Le manifeste le nomme (`"socle_min": "1.21"`) :
+
+```json
+"quartiers": {"chateau": {"batir": "quartiers/chateau.gd", "scene": "quartiers/chateau.scn"}}
+```
+
+- `batir` est un script de la commune dont la fonction statique `batir(racine: Node3D)` remplit le quartier, comme la scène le faisait jusqu'ici (elle peut attendre des images, `await`) ; `scene` (par défaut `quartiers/<nom>.scn`) est ce qu'il a bâti, rangé d'avance ;
+- `tools/enregistrer_quartiers.gd` bâtit chaque quartier et l'enregistre, chez l'auteur, avant d'emballer : `godot --headless --path . -s tools/enregistrer_quartiers.gd -- <id> [--quartier=<nom>]`. À relancer après chaque changement d'un script `batir` : la scène garde ce qu'il a bâti ;
+- dans la scène de la commune, `await Quartiers.poser(self, "<id>", "chateau")` pose le quartier et le rend. Le jeu lit les scènes enregistrées dans des fils dès qu'on entre dans la commune (`Chargement`), pendant que la scène se bâtit ; tant qu'un quartier n'est pas enregistré, `poser` le bâtit par son script : le même appel marche avant et après. Un quartier posé reçoit ses objets lointains (`Lointain`), et sa version lointaine s'il porte la méta `lointain`.
+
+Une scène enregistrée range tels quels les maillages et les images faits par code : l'outil dit la taille de chaque quartier, qui part dans le paquet. Le test est `tools/test_quartiers.gd`.
+
+### La table partagée d'une commune (classe `Partage`, `scripts/socle/partage.gd`) — socle 1.21
+
+Une petite table que tous les joueurs d'une commune lisent et écrivent : la plaque des sorties à deux d'une salle, un livre d'or, le record d'une machine. Elle est rangée au serveur (la fonction casino du dépôt chtabay/addict) ; il faut un compte connecté pour lire comme pour écrire.
+
+| | |
+|---|---|
+| `await Partage.lire(commune, cle)` | la valeur de la clé (`null` si personne ne l'a écrite) |
+| `await Partage.ecrire(commune, cle, valeur)` | remplace la valeur |
+| `await Partage.ajouter(commune, cle, valeur)` | ajoute une entrée à la liste de la clé, qui garde les 50 dernières : `[{de, quand, valeur}]`, signée du nom du joueur et datée par le serveur (millisecondes), la plus récente en dernier |
+| `Partage.refus(commune, cle, valeur)` | ce qui ne va pas dans une demande, avant de la poser (« » si elle passe) |
+
+Chaque appel rend `{ok, valeur, erreur}`. `commune` est l'id du manifeste ; une clé tient en 1 à 48 caractères parmi `a-z`, `0-9`, `_`, `.`, `-` ; une valeur est du JSON de 4 Ko au plus. Sans compte, hors ligne ou sur un refus, `ok` est faux et `erreur` dit pourquoi en une phrase : la commune garde alors ce qu'elle a (sa plaque à elle, sur l'appareil) au lieu d'attendre. Le serveur ne sait pas quelle commune appelle : une commune n'écrit que sous son propre id, par politesse entre auteurs.
 
 ### `Vienne` (classe, `scripts/socle/vienne.gd`)
 

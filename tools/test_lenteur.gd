@@ -241,6 +241,39 @@ func _init() -> void:
 	var lods: Array = RenderingServer.mesh_get_surface(gros.mesh.get_rid(), 0).get("lods", []) if gros.mesh is ArrayMesh else []
 	_verifier(gros.mesh != am and not Lointain.en_travail() and lods.size() >= 2 and Budget._triangles(gros.mesh, {}) == tri_gros, "un gros maillage reçoit ses niveaux de détail (%d) et garde ses triangles de près" % lods.size())
 	_verifier(Lointain.niveaux(lieu) == 0, "un maillage à niveaux n'est pas repris")
+	# Un quartier lointain : trente maisons de deux matières fondues en un maillage à deux surfaces, montré
+	# au-delà de 80 m du quartier quand les maisons ne le sont plus ; la maison d'une branche « sans_lointain »
+	# reste à part.
+	var quartier := Node3D.new()
+	quartier.name = "Bourg"
+	quartier.position = Vector3(500, 0, 0)
+	root.add_child(quartier)
+	var mats := [StandardMaterial3D.new(), StandardMaterial3D.new()]
+	var cube := BoxMesh.new()
+	var tri_maisons := 0
+	for i in 30:
+		var maison := MeshInstance3D.new()
+		maison.mesh = cube
+		maison.material_override = mats[i % 2]
+		maison.position = Vector3((i % 6) * 12.0, 0, (i / 6) * 12.0)
+		if i == 0:
+			var porte := Node3D.new()
+			porte.set_meta("sans_lointain", true)
+			quartier.add_child(porte)
+			porte.add_child(maison)
+		else:
+			quartier.add_child(maison)
+			tri_maisons += Budget._triangles(cube, {})
+	_verifier(Lointain.quartier(quartier, 80.0) == 29 and Lointain.quartier(quartier, 80.0) == 0, "un quartier fond ses maisons fixes, une seule fois")
+	var loins_q := quartier.find_children("Bourg_loin*", "MeshInstance3D", false, false)
+	var loin_q: MeshInstance3D = loins_q[0] if loins_q.size() == 1 else null
+	_verifier(loin_q != null and loin_q.mesh.get_surface_count() == 2 and Budget._triangles(loin_q.mesh, {}) == tri_maisons and loin_q.visibility_range_begin == 80.0, "sa version lointaine : un maillage par matière, les mêmes triangles, au-delà de 80 m")
+	var maisons_q := quartier.find_children("*", "MeshInstance3D", true, false).filter(func(m): return m != loin_q)
+	_verifier(maisons_q.filter(func(m): return m.visibility_parent != NodePath("")).size() == 29, "chaque maison fondue a la version lointaine pour parent de visibilité, pas celle d'une porte")
+	var de_pres_q := Budget.mesurer(quartier, [[Vector3(530, 1.6, 24), 0.0]], [0, 1, 2, 3, 4, 5, 6, 7])
+	var au_loin_q := Budget.mesurer(quartier, [[Vector3(530, 1.6, 400), 0.0]], [0, 1, 2, 3, 4, 5, 6, 7])
+	_verifier(de_pres_q.triangles > 0 and de_pres_q.triangles < tri_maisons and au_loin_q.triangles == tri_maisons + Budget._triangles(cube, {}), "le budget compte les maisons de près, la version lointaine de loin, jamais les deux (%d, %d)" % [de_pres_q.triangles, au_loin_q.triangles])
+	quartier.free()
 	# Chargement l'applique de lui-même à chaque scène 3D qui arrive, sauf à celles qui le refusent.
 	var autre := Node3D.new()
 	var bille := MeshInstance3D.new()

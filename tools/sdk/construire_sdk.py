@@ -29,7 +29,9 @@ ICI = Path(__file__).resolve().parent
 ## Ce dont une commune a besoin, en plus des autoloads du projet.
 ENTREES = [
     "scripts/socle/atelier.gd", "scripts/socle/atelier.json", "scripts/socle/salle_jeu.gd", "scenes/salle_jeu.tscn",
-    "scripts/socle/tables.gd",
+    "scripts/socle/tables.gd", "scripts/socle/partage.gd",
+    # Les quartiers enregistrés d'avance (socle 1.21) : la classe, l'outil qui les enregistre, son test.
+    "scripts/socle/quartiers.gd", "tools/enregistrer_quartiers.gd", "tools/test_quartiers.gd",
     # La bibliothèque commune (socle 1.13) : le catalogue, ses briques, les contrats d'ancres.
     "bibliotheque/bibliotheque.json", "scripts/socle/bibliotheque.gd", "scripts/socle/ancres.gd",
     "tools/test_bibliotheque.gd", "tools/planche_facadier.gd", "tools/capture_decor.gd",

@@ -180,7 +180,10 @@ godot --path . -s tools/parcours_commune.gd -- <id>                         # av
 godot --headless --path . -s tools/parcours_commune.gd -- <id>              # les marches seulement
 godot --path . -s tools/parcours_commune.gd -- <id> --pck=build/<id>.pck    # le paquet tel que le joueur le reçoit
 godot --path . -s tools/parcours_commune.gd -- cloue --pck=cloue.pck --point=x,y,z,lacet   # un endroit précis
+godot --path . -s tools/parcours_commune.gd -- <id> --sans-marche --libre=0,60,40,0,-35       # une vue libre, d'en haut
 ```
+
+Quatre regards, comme les demandait l'auteur de Chauvigny : **à pied** et **de dessus** à chaque repère, **libre** avec `--libre=x,y,z,lacet,tangage[,champ]` (une caméra posée où l'on veut, hors du joueur : un clocher, un point haut, le bout d'une rue ; répétable, les images s'appellent `libre-1.png`, `libre-2.png`…), et **tel qu'en jeu** : par défaut, les images gardent l'interface que le joueur a à l'écran ; `--sans-interface` la retire pour ne garder que le décor. Inutile d'écrire son propre outil de captures.
 
 Deux repères qui se suivent doivent se rejoindre à pied presque en ligne droite : pour un détour (un escalier, une porte, un pont), posez un repère au coude. Une marche bloquée signale un mur, une marche trop haute ou un accès manquant. Les captures servent au second verdict (« ça surprend ? ») et à la critique indépendante ; elles ne remplacent pas un essai par un humain.
 

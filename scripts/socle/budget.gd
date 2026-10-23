@@ -216,9 +216,15 @@ static func _dessin(n: GeometryInstance3D, mesh: Mesh, fois: int, tri: int) -> D
 	# Sans rendu (--headless), le moteur ne garde pas les instances d'un multimaillage : sa boîte est vide.
 	# On le compte alors en entier, partout et au niveau le plus fin.
 	var partout := n is MultiMeshInstance3D and n.get_aabb().size == Vector3.ZERO
-	return {"aabb": n.global_transform * n.get_aabb(), "debut": n.visibility_range_begin, "fin": n.visibility_range_end,
+	var d := {"aabb": n.global_transform * n.get_aabb(), "debut": n.visibility_range_begin, "fin": n.visibility_range_end,
 		"surfaces": [] if partout else surfaces, "fois": fois, "tri": tri, "nb": mesh.get_surface_count(), "partout": partout,
 		"echelle": maxf(absf(echelle.x), maxf(absf(echelle.y), absf(echelle.z))) * n.lod_bias}
+	# Un parent de visibilité (la version lointaine d'un quartier, Lointain.quartier) : l'objet n'est dessiné
+	# que plus près du centre du parent que le début de sa distance.
+	var parent := n.get_node_or_null(n.visibility_parent) as GeometryInstance3D if n.visibility_parent != NodePath("") else null
+	if parent != null and parent.visibility_range_begin > 0.0:
+		d.parent = [(parent.global_transform * parent.get_aabb()).get_center(), parent.visibility_range_begin]
+	return d
 
 
 ## Triangles et surfaces dessinés d'un objet vu du point p, comme le moteur les choisit : hors de sa
@@ -228,6 +234,8 @@ static func _dessine(d: Dictionary, p: Vector3, seuil: float, mult: float) -> Ve
 	var aabb: AABB = d.aabb
 	var centre := p.distance_to(aabb.get_center())
 	if not d.partout and ((d.fin > 0.0 and centre > d.fin) or centre < d.debut):
+		return Vector2i.ZERO
+	if d.has("parent") and p.distance_to(d.parent[0]) >= d.parent[1]:
 		return Vector2i.ZERO
 	var tri: int = d.tri
 	if not d.surfaces.is_empty():
