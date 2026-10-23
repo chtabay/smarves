@@ -10,6 +10,8 @@ const FACADES := preload("res://scripts/village/facades.gd")
 const BOIS := preload("res://scripts/village/bois.gd")
 const CHEMIN := preload("res://scripts/village/passelourdin.gd")
 const PEPITES := preload("res://scripts/village/pepites.gd")
+const JARDINS := preload("res://scripts/village/jardins.gd")
+const COUR := preload("res://scripts/village/cour.gd")
 const KK := "res://assets/kaykit/"
 const KN := "res://assets/kenney/nature/"
 const KC := "res://assets/kenney/cars/"
@@ -52,10 +54,10 @@ const NORTH_ROW := [
 	{"id": "notaire", "w": 2.8, "floors": 2, "door": "center", "roof_kind": "hip", "plaque": "Maître Garnier\nNotaire", "lit": 0.9, "wall": Color(0.97, 0.93, 0.84), "shutter": Color(0.36, 0.4, 0.38)},
 	{"id": "poste", "w": 3.6, "floors": 2, "roof_kind": "hip", "shop": {"name": "POSTES · PTT", "sub": "Télégraphe · Téléphone", "color": Color(0.13, 0.22, 0.48), "ink": Color(1.0, 0.84, 0.2)}},
 	{"w": 2.8, "floors": 2, "roof_kind": "pignon"},
-	{"id": "boucherie", "w": 3.2, "floors": 2, "shop": {"name": "Boucherie Texier", "sub": "Charcuterie · Volailles", "color": Color(0.58, 0.1, 0.12), "ink": Color(1.0, 0.92, 0.75), "awning": [Color(0.8, 0.12, 0.14), Color(0.96, 0.94, 0.9)]}},
-	{"w": 2.6, "floors": 1, "door": "center"},
-	{"kind": "porche", "w": 2.6},
-	{"id": "lot_reserve", "w": 3.4, "floors": 2, "closed": true, "shop": {"name": "Prochainement", "sub": "Un nouveau commerce", "color": Color(0.16, 0.32, 0.24), "ink": Color(0.95, 0.85, 0.55)}},
+	{"id": "boucherie", "cour": "bord", "w": 3.2, "floors": 2, "shop": {"name": "Boucherie Texier", "sub": "Charcuterie · Volailles", "color": Color(0.58, 0.1, 0.12), "ink": Color(1.0, 0.92, 0.75), "awning": [Color(0.8, 0.12, 0.14), Color(0.96, 0.94, 0.9)]}},
+	{"w": 2.6, "floors": 1, "door": "center", "cour": true},
+	{"kind": "porche", "w": 2.6, "cour": true},
+	{"id": "lot_reserve", "cour": true, "w": 3.4, "floors": 2, "closed": true, "shop": {"name": "Prochainement", "sub": "Un nouveau commerce", "color": Color(0.16, 0.32, 0.24), "ink": Color(0.95, 0.85, 0.55)}},
 	{"w": 3.0, "floors": 3, "door": "right", "roof_kind": "hip", "wall": Color(0.97, 0.9, 0.78), "shutter": Color(0.38, 0.55, 0.7)},
 	{"kind": "ruelle", "w": 2.4},
 	{"id": "coiffure", "w": 3.0, "floors": 2, "shop": {"name": "Gisèle Coiffure", "sub": "Dames · Messieurs · Mise en plis", "color": Color(0.82, 0.42, 0.55), "ink": Color(1.0, 0.97, 0.92), "awning": [Color(0.92, 0.55, 0.68), Color(0.98, 0.95, 0.92)], "glow": Color(1.0, 0.85, 0.75)}},
@@ -69,7 +71,7 @@ const SOUTH_ROW := [
 	{"w": 2.6, "floors": 1, "door": "right", "roof_kind": "pignon"},
 	{"id": "epicerie", "roof_sign": "ÉPICERIE", "w": 3.8, "floors": 1, "shop": {"name": "L'Épicerie du Bourg", "sub": "Alimentation · Primeurs · Gaz", "color": Color(0.18, 0.32, 0.58), "ink": Color(1.0, 0.9, 0.6), "awning": [Color(0.95, 0.55, 0.15), Color(0.97, 0.94, 0.88)]}},
 	{"id": "fleurs", "roof_sign": "FLEURS", "w": 3.0, "floors": 1, "shop": {"name": "Fleurs Odette", "sub": "Mariages · Fêtes · Deuils", "color": Color(0.38, 0.55, 0.32), "ink": Color(1.0, 0.98, 0.9), "awning": [Color(0.55, 0.72, 0.42), Color(0.98, 0.96, 0.9)], "glow": Color(1.0, 0.9, 0.7)}},
-	{"kind": "jardin", "w": 2.8},
+	{"kind": "venelle", "w": 2.8},
 	{"id": "brocante", "roof_sign": "BROCANTE", "w": 3.2, "floors": 1, "shop": {"name": "Brocante Boutin", "sub": "Meubles · Objets · Débarras", "color": Color(0.36, 0.26, 0.2), "ink": Color(0.98, 0.88, 0.62), "glow": Color(1.0, 0.8, 0.5)}},
 	{"w": 2.8, "floors": 1},
 	{"id": "bibliotheque", "roof_sign": "BIBLIOTHÈQUE", "w": 4.4, "floors": 2, "roof_kind": "hip", "shop": {"name": "Bibliothèque municipale", "sub": "Mardi · Samedi", "color": Color(0.9, 0.86, 0.76), "ink": Color(0.15, 0.2, 0.35), "door": "left"}},
@@ -114,6 +116,7 @@ const ZONES := {
 	"moulin": {"nom": "Le Moulin des Dames", "rect": Rect2(-81.3, -8.3, 22.4, 16.6)},
 	"bois": {"nom": "Le bois de Saint-Pierre", "rect": Rect2(58.9, -8.3, 22.4, 16.6)},
 	"rochers": {"nom": "Les rochers de Passelourdin", "rect": Rect2(-11.3, -78.3, 22.6, 16.6)},
+	"jardins_du_clain": {"nom": "Les jardins du Clain", "rect": Rect2(JARDINS.X1, JARDINS.Z0, JARDINS.X0 - JARDINS.X1, JARDINS.Z1 - JARDINS.Z0)},
 }
 ## Les lieux cachés, qu'aucune liste n'annonce (docs/SUITE.md, section 1) : id → {nom, zone, pos}.
 const CACHES := {
@@ -136,7 +139,7 @@ const PROMPTS := {
 	"lot_reserve": "Local réservé — un nouveau commerce s'installe bientôt",
 	"coiffure": "E : entrer chez Gisèle Coiffure",
 	"pizzeria": "E : dîner à la Pizzeria du Clain",
-	"epicerie": "L'Épicerie du Bourg — fermée pour l'instant",
+	"epicerie": "E : entrer à l'Épicerie du Bourg, chez Mme Pineau",
 	"fleurs": "Fleurs Odette — fermé pour l'instant",
 	"brocante": "E : entrer à la brocante de Mme Boutin",
 	"bibliotheque": "Bibliothèque municipale — ouverte mardi et samedi",
@@ -155,6 +158,8 @@ var _glass: Array[MultiMesh] = []
 var _flicker := 2.0
 var _cars: Array[Node3D] = []
 var _chemin: RefCounted
+var _jardins: RefCounted
+var _cour: RefCounted
 ## Les enseignes de toit, que l'on fait pâlir quand l'habitant passe derrière (Facades.roof_sign).
 var _roof_signs: Array[Node3D] = []
 ## Le quartier où se tient l'habitant (ZONES), "" hors maquette.
@@ -342,15 +347,23 @@ func _joints() -> void:
 
 ## Une rue sur son socle, de x0 (côté place) à x1 : la chaussée, ses pointillés, ses trottoirs
 ## de dalles calcaires et leurs bordures. gap : un intervalle [a, b] en x où trottoirs et marquage s'arrêtent.
-func _street(x0: float, x1: float, title: String, gap := []) -> void:
+## south_gaps : les intervalles en x où le bord sud s'ouvre (vers les jardins du Clain).
+func _street(x0: float, x1: float, title: String, gap := [], south_gaps := []) -> void:
 	var lo := minf(x0, x1)
 	var hi := maxf(x0, x1)
-	_board(x0, x1, BOARD_Z0, BOARD_Z1, title, [
+	var walls := [
 		[Vector3(lo, 0, BOARD_Z0 - 0.1), Vector3(hi, 0, BOARD_Z0 - 0.1)],
-		[Vector3(lo, 0, BOARD_Z1 + 0.1), Vector3(hi, 0, BOARD_Z1 + 0.1)],
 		[Vector3(lo - 0.1, 0, 8.1), Vector3(lo - 0.1, 0, BOARD_Z1)],
 		[Vector3(hi + 0.1, 0, 8.1), Vector3(hi + 0.1, 0, BOARD_Z1)],
-	])
+	]
+	var a := lo
+	var cuts := south_gaps.duplicate()
+	cuts.sort_custom(func(p, q): return p[0] < q[0])
+	for c in cuts:
+		walls.append([Vector3(a, 0, BOARD_Z1 + 0.1), Vector3(c[0], 0, BOARD_Z1 + 0.1)])
+		a = c[1]
+	walls.append([Vector3(a, 0, BOARD_Z1 + 0.1), Vector3(hi, 0, BOARD_Z1 + 0.1)])
+	_board(x0, x1, BOARD_Z0, BOARD_Z1, title, walls)
 	main._box(Vector3(hi - lo, 0.11, ROAD_W), Vector3((lo + hi) / 2.0, -0.04, ROAD_Z), mats.asphalt, self)
 	var spans := [[lo, hi]]
 	if gap.size() == 2:
@@ -388,10 +401,14 @@ func _street(x0: float, x1: float, title: String, gap := []) -> void:
 
 
 func _rue_du_clain() -> void:
-	_street(CLAIN_X0, CLAIN_X1, "Rue du Clain")
+	var vw := JARDINS.VENELLE_W / 2.0 + 0.1
+	var ew := JARDINS.ESCALIER_W / 2.0 + 0.05
+	_street(CLAIN_X0, CLAIN_X1, "Rue du Clain", [], [[JARDINS.VENELLE_X - vw, JARDINS.VENELLE_X + vw], [JARDINS.ESCALIER_X - ew, JARDINS.ESCALIER_X + ew]])
 	var f := FACADES.new(self, main.serif, 1962)
 	_row(f, NORTH_ROW, true, CLAIN_X0 - 0.5, -1.0)
 	_row(f, SOUTH_ROW, false, CLAIN_X0 - 0.5, -1.0)
+	_cour = COUR.new()
+	_cour.build(self, f)
 	_lavoir(f)
 	_placette(f)
 	_street_props(f)
@@ -406,6 +423,8 @@ func _rue_du_clain() -> void:
 		l.position = g[0]
 		add_child(l)
 	_life()
+	_jardins = JARDINS.new()
+	_jardins.build(self)
 
 
 ## Une rangée de façades, de x_start en s'éloignant de la place (dir = -1 vers l'ouest, +1 vers l'est).
@@ -416,6 +435,8 @@ func _row(f: FACADES, row: Array, north: bool, x_start: float, dir: float) -> vo
 	var back := BOARD_Z0 + 0.3 if north else BOARD_Z1 - 0.3
 	var rot := 0.0 if north else PI
 	var out := 1.0 if north else -1.0
+	# Les passages qui percent le mur du fond (la venelle des jardins) : [x, x] .
+	var percees := []
 	for spec in row:
 		var kind: String = spec.get("kind", "house")
 		var w: float = spec.w
@@ -448,11 +469,11 @@ func _row(f: FACADES, row: Array, north: bool, x_start: float, dir: float) -> vo
 					lots["bourse"] = lots.lot_reserve
 					_charge()
 			"porche":
-				# Un portail sur une cour pavée, et l'arbre de la cour qui dépasse du mur.
-				f.gate(Vector3(cx, 0, front - out * 0.1), rot, w - 0.7, f.pick(f.SHUTTERS))
-				main._box(Vector3(w, 0.06, 3.0), Vector3(cx, 0.0, front - out * 1.6), mats.gravel, self)
-				main._solid_box(Vector3(w, 2.0, 0.3), Vector3(cx, 1.0, front - out * 0.1))
-				_tree(Vector3(cx, 0, front - out * 2.4), "tree_oak_fall", 1.6)
+				# Le passage voûté sous une maison, vers la cour derrière la rue (cour.gd).
+				d = COUR.porche(self, f, cx, w, front)
+			"venelle":
+				_venelle_rue(f, front)
+				percees.append([JARDINS.VENELLE_X - JARDINS.VENELLE_W / 2.0 - 0.2, JARDINS.VENELLE_X + JARDINS.VENELLE_W / 2.0 + 0.2])
 			"jardin":
 				f.garden_wall(Vector3(x, 0, front - out * 0.1), Vector3(x + dir * w, 0, front - out * 0.1), 0.8)
 				main._solid_box(Vector3(w, 2.0, 0.3), Vector3(cx, 1.0, front - out * 0.1))
@@ -468,14 +489,56 @@ func _row(f: FACADES, row: Array, north: bool, x_start: float, dir: float) -> vo
 					var gate := Transform3D(Basis(Vector3.UP, rot), Vector3(cx, 0, front)) * Vector3(w / 2.0 - 0.7, 0, -0.3)
 					_maisons.append({"cx": cx, "nord": north, "pos": Vector3(cx, 0, front), "rot": rot, "w": w, "d": d, "door": gate})
 		# Le fond de la parcelle : jardin derrière la maison, mur mitoyen, potager, arbre fruitier.
+		# Dans la cour du porche (cour.gd), ni jardin à soi ni mur mitoyen : la cour est commune.
+		var en_cour = spec.get("cour", false)
 		if kind != "ruelle" and kind != "vide":
 			var z_b := front - out * (d + 0.05)
-			if kind == "house" and not spec.get("no_yard", false):
+			if kind == "house" and not spec.get("no_yard", false) and not en_cour:
 				_backyard(f, cx, w, z_b, back, out)
-			f.garden_wall(Vector3(x, 0, z_b if kind == "house" else front - out * 0.2), Vector3(x, 0, back), 0.4)
+			if en_cour is bool and en_cour:
+				pass
+			else:
+				f.garden_wall(Vector3(x, 0, z_b if kind == "house" else front - out * 0.2), Vector3(x, 0, back), 0.4)
 		x += dir * w
-	# Le mur du fond de la maquette, derrière les jardins.
-	f.garden_wall(Vector3(x_start, 0, back), Vector3(x, 0, back), 0.45)
+	# Le mur du fond de la maquette, derrière les jardins, percé à la venelle.
+	var a := minf(x_start, x)
+	var bouts := []
+	percees.sort_custom(func(p, q): return p[0] < q[0])
+	for pc in percees:
+		bouts.append([a, pc[0]])
+		a = pc[1]
+	bouts.append([a, maxf(x_start, x)])
+	for bt in bouts:
+		f.garden_wall(Vector3(bt[0], 0, back), Vector3(bt[1], 0, back), 0.45)
+
+
+## L'entrée de la venelle des jardins, entre Fleurs Odette et la brocante : des dalles entre deux murs
+## hauts, jusqu'au bord de la rue, où les jardins du Clain prennent la suite (jardins.gd).
+func _venelle_rue(f: FACADES, front: float) -> void:
+	var vx: float = JARDINS.VENELLE_X
+	var w: float = JARDINS.VENELLE_W
+	main._box(Vector3(w, 0.05, BOARD_Z1 - front), Vector3(vx, 0.02, (front + BOARD_Z1) / 2.0), mats.slabs, self)
+	for s in [-1.0, 1.0]:
+		var wx: float = vx + s * (w / 2.0 + 0.1)
+		f.garden_wall(Vector3(wx, 0, front + 0.1), Vector3(wx, 0, BOARD_Z1), 1.05, Color(0.92, 0.86, 0.74))
+		main._solid_box(Vector3(0.18, 1.6, BOARD_Z1 - front - 0.1), Vector3(wx, 0.8, (front + 0.1 + BOARD_Z1) / 2.0))
+	# Sur le mur est, la plaque émaillée, tournée vers qui entre ; au-dessus, la lanterne éteinte.
+	var plaque := Transform3D(Basis(Vector3.UP, -PI / 2.0), Vector3(vx + w / 2.0 + 0.01, 0.78, front + 0.75))
+	f.batch.box("trim", plaque, Vector3.ZERO, Vector3(1.24, 0.26, 0.03), Color(0.95, 0.95, 0.92))
+	f.batch.box("trim", plaque, Vector3(0, 0, 0.005), Vector3(1.19, 0.2, 0.03), Color(0.14, 0.26, 0.6))
+	var l := Label3D.new()
+	l.text = "VENELLE DES JARDINS"
+	l.font = main.serif
+	l.font_size = 40
+	l.pixel_size = 0.0019
+	l.modulate = Color(0.97, 0.97, 0.95)
+	l.outline_size = 0
+	l.transform = plaque * Transform3D(Basis(), Vector3(0, 0, 0.03))
+	add_child(l)
+	# Une flèche peinte au pochoir sur le mur ouest, pour le lavoir et la rivière.
+	var fleche := Transform3D(Basis(Vector3.UP, PI / 2.0), Vector3(vx - w / 2.0 - 0.01, 0.62, front + 1.6))
+	f.batch.box("trim", fleche, Vector3.ZERO, Vector3(0.5, 0.05, 0.01), Color(0.25, 0.3, 0.35))
+	f.batch.box_tilted("trim", fleche, Vector3(0.22, 0.04, 0), Vector3(0.16, 0.04, 0.012), 0.0, Color(0.25, 0.3, 0.35))
 
 
 func _backyard(f: FACADES, cx: float, w: float, z0: float, z1: float, out: float) -> void:
@@ -560,8 +623,16 @@ func _placette(f: FACADES) -> void:
 	f.batch.box("trim", xf, Vector3(0, 0.35, 0), Vector3(0.24, 0.7, 0.24), Color(0.25, 0.35, 0.3))
 	f.batch.box("trim", xf, Vector3(0, 0.6, 0.18), Vector3(0.06, 0.06, 0.3), Color(0.25, 0.35, 0.3))
 	f.batch.box("trim", xf, Vector3(0, 0.08, 0.22), Vector3(0.5, 0.12, 0.36), Color(0.85, 0.8, 0.7))
-	# Le muret du fond de la placette, vers les jardins.
-	f.garden_wall(Vector3(x_start, 0, BOARD_Z1 - 0.3), Vector3(CLAIN_X1 + 0.2, 0, BOARD_Z1 - 0.3), 0.6)
+	# Le muret du fond de la placette, vers les jardins, ouvert sur l'escalier qui y descend.
+	var ex: float = JARDINS.ESCALIER_X
+	var ew: float = JARDINS.ESCALIER_W / 2.0 + 0.05
+	f.garden_wall(Vector3(x_start, 0, BOARD_Z1 - 0.3), Vector3(ex + ew, 0, BOARD_Z1 - 0.3), 0.6)
+	f.garden_wall(Vector3(ex - ew, 0, BOARD_Z1 - 0.3), Vector3(CLAIN_X1 + 0.2, 0, BOARD_Z1 - 0.3), 0.6)
+	for s in [-1.0, 1.0]:
+		var px: float = ex + s * (ew + 0.08)
+		f.batch.box("wall", Transform3D(), Vector3(px, 0.45, BOARD_Z1 - 0.3), Vector3(0.24, 0.9, 0.24), Color(0.9, 0.85, 0.74))
+		f.batch.cylinder("trim", Transform3D(), Vector3(px, 0.9, BOARD_Z1 - 0.3), 0.09, 0.14, Color(0.97, 0.93, 0.84))
+	main._box(Vector3(ew * 2.0, 0.05, 2.0), Vector3(ex, 0.02, BOARD_Z1 - 1.0), mats.gravel, self)
 
 
 ## Le mobilier de la rue : réverbères, guirlandes, cabine, boîte aux lettres, étals.
@@ -788,6 +859,11 @@ func _door_area(id: String, at: Vector3, rot: float) -> void:
 		a.set_meta("action", enter_seller.bind(id))
 	elif LOGEMENTS.has(id) or portes_adresses.has(id):
 		a.set_meta("action", enter_logement.bind(id))
+	elif id == "epicerie":
+		# Un décor de la ville (communes/smarves/INTENTIONS.md) : on y entre, rien ne s'y vend.
+		a.set_meta("action", func():
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+			Chargement.lieu("res://scenes/epicerie.tscn"))
 	elif id == "stade":
 		# Le stade est un lieu du manifeste, derrière son seuil : la scène principale en tient la porte.
 		a.set_meta("action", func(): main._enter("stade"))
