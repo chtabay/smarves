@@ -35,6 +35,20 @@ func remplir(colonne: VBoxContainer) -> void:
 	pour_diriger.name = "PourDiriger"
 	colonne.add_child(pour_diriger)
 	_suffit = int(DIRIGER.etat(f, club).suffit)
+	# Les parts ne se prennent qu'à l'intersaison (demande du 23 octobre au soir) : on dit quand.
+	var inter: bool = DIRIGER.en_intersaison(f)
+	var fenetre := _mot(("Les obligations se prennent à l'intersaison, %s : c'est maintenant." if inter else "Les obligations se prennent à l'intersaison, %s. On les rend quand on veut.") % DIRIGER.phrase_intersaison(f), 15, OR if inter else DOUX, null, true)
+	fenetre.name = "Fenetre"
+	# La phrase « pour diriger » dit déjà les dates : on n'y ajoute que le retour.
+	if DIRIGER.phrase(f, club).contains(DIRIGER.phrase_intersaison(f)):
+		fenetre.text = "On rend les obligations quand on veut ; on n'en prend qu'à l'intersaison."
+	colonne.add_child(fenetre)
+	# On dirige déjà un club de la même division : à l'intersaison, on peut changer pour celui-ci.
+	if inter and str(DIRIGER.etat(f, club).ailleurs) != "" and DIRIGER.peut_prendre(f, club, true):
+		var ailleurs := str(f.clubs.get(DIRIGER.etat(f, club).ailleurs, {}).get("nom", ""))
+		var ch := _bouton("Diriger ce club à la place %s" % DIRIGER.de(ailleurs), func(): agir(await f.prendre_direction(club, true)))
+		ch.name = "ChangerDeClub"
+		colonne.add_child(ch)
 	var facteur: float = f.recette_facteur(club)
 	colonne.add_child(_mot("Une obligation verse 50 crédits par cran à chaque journée jouée, ×%.1f au classement d'aujourd'hui. L'étude reprend à 80 %%, et une plus grosse s'échange contre une des vôtres pour la différence." % facteur, 14, DOUX, null, true))
 	colonne.add_child(_filet())
@@ -46,6 +60,9 @@ func remplir(colonne: VBoxContainer) -> void:
 	colonne.add_child(_ligne_etat)
 	var bas := _pied(colonne)
 	bas.add_child(_bouton_cartes())
+	var cal := _bouton("Le calendrier", func(): preload("res://scripts/socle/calendrier.gd").ouvrir())
+	cal.name = "Calendrier"
+	bas.add_child(cal)
 	bas.add_child(_bouton("Refermer le registre  (Échap)", func(): closed.emit()))
 
 
@@ -55,15 +72,16 @@ func _rangee(rang: int, miennes: Array, facteur: float) -> Control:
 	h.add_theme_constant_override("h_separation", 10)
 	h.add_theme_constant_override("v_separation", 4)
 	var p: Dictionary = f.porteur(club, rang)
+	var inter: bool = DIRIGER.en_intersaison(f)
 	var titre := _mot("n° %d  ·  %s crédits  ·  %s par journée" % [rang, Game.fmt(f.valeur(rang)), Game.fmt(int(round(f.dividende_de(rang) * facteur)))], 16, CRAIE, Polices.gras())
 	titre.custom_minimum_size.x = 300 if _etroit() else 380
 	h.add_child(titre)
 	if p.is_empty():
 		var b := _bouton("Prendre", func(): agir(f.prendre(club, rang)), 15)
 		b.name = "Prendre_%d" % rang
-		b.disabled = Game.credits < f.valeur(rang)
+		b.disabled = Game.credits < f.valeur(rang) or not inter
 		h.add_child(b)
-		if rang == _suffit:
+		if rang == _suffit and inter:
 			h.add_child(_mot("← pour diriger", 15, OR, Polices.gras()))
 		# L'échange, depuis la plus grosse des siennes qui soit plus petite que celle-ci.
 		var bas := -1
@@ -73,11 +91,13 @@ func _rangee(rang: int, miennes: Array, facteur: float) -> Control:
 		if bas > 0:
 			var e := _bouton("Échanger la n° %d  (+%s)" % [bas, Game.fmt(f.valeur(rang) - f.valeur(bas))], func(): agir(f.echanger(club, bas, rang)), 15)
 			e.name = "Echanger_%d" % rang
-			e.disabled = Game.credits < f.valeur(rang) - f.valeur(bas)
+			e.disabled = Game.credits < f.valeur(rang) - f.valeur(bas) or not inter
 			h.add_child(e)
 		# Un bouton éteint dit ce qui manque.
 		var cout: int = f.valeur(rang) - (f.valeur(bas) if bas > 0 else 0)
-		if Game.credits < cout:
+		if not inter:
+			h.add_child(_mot("à l'intersaison", 14, DOUX))
+		elif Game.credits < cout:
 			h.add_child(_mot(DIRIGER.manque_credits(cout) + (" en échangeant" if bas > 0 else ""), 14, DOUX))
 	elif bool(p.moi):
 		h.add_child(_mot("à vous", 15, OR))
@@ -103,7 +123,12 @@ func agir(r: Dictionary) -> void:
 	remplir(_colonne)
 	if not r.get("ok", false) and _ligne_etat != null:
 		_ligne_etat.text = {"credits": "Il vous manque des crédits pour celle-là.", "prise": "Quelqu'un l'a prise avant vous.",
-			"absente": "Celle-là n'est pas à vous.", "rang": "Il n'y a pas d'obligation de ce rang."}.get(str(r.get("raison", "")), "Maître Garnier fait non de la tête.")
+			"absente": "Celle-là n'est pas à vous.", "rang": "Il n'y a pas d'obligation de ce rang.",
+			"intersaison": "Les obligations ne se prennent qu'à l'intersaison, %s." % DIRIGER.phrase_intersaison(foot()),
+			"division": "Vous dirigez déjà un club de la même division : vous n'en changez qu'à l'intersaison.",
+			"parts": "Un autre porteur a mis plus que vous dans le club.",
+			"compte": "Il faut être connecté à son compte Pyramides pour diriger un club.",
+			"reseau": "Le serveur ne répond pas ; réessayez dans un moment."}.get(str(r.get("raison", "")), "Maître Garnier fait non de la tête.")
 
 
 func _etat_texte() -> String:

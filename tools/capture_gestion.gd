@@ -1,9 +1,9 @@
 extends SceneTree
 ## Captures de la gestion (clubs et cartes), du premier gain au club dirigé, pour en juger l'UX :
 ## godot --path . --resolution 1600x900 -s tools/capture_gestion.gd -- --sortie=<dossier/> [--base=600]
-## Images : debutant-cartes.png et debutant-compte.png (400 gagnés, rien en poche), premiers-gains.png (3 500
+## Images : debutant-cartes.png, debutant-compte.png et calendrier.png (400 gagnés, rien en poche), premiers-gains.png (3 500
 ## gagnés, une part de la Smarvoise et une obligation de l'Étoile ; premiers-gains-cartes.png, plus bas), foot-obligations.png (le registre du
-## stade), basket-accueil.png, basket-parts.png et basket-bureau.png (le club de basket, Lucien dirige, vous
+## stade ; foot-obligations-en-saison.png, hors de l'intersaison), basket-accueil.png, basket-parts.png et basket-bureau.png (le club de basket, Lucien dirige, vous
 ## tenez la n° 2), sur un faux serveur qui suit les règles de tools/test_basket_bureau.gd.
 
 const CLICHE := "res://tools/fixtures/basket_cliche.json"
@@ -80,6 +80,8 @@ func _lancer() -> void:
 		await _photo(sortie + "debutant-cartes.png")
 		carnet.ouvrir_onglet("compte")
 		await _photo(sortie + "debutant-compte.png")
+		carnet.ouvrir_onglet("calendrier")
+		await _photo(sortie + "calendrier.png")
 		carnet.toggle()
 	# Les premiers gains : une part de la Smarvoise, une obligation de l'Étoile.
 	game.won = 3500
@@ -108,6 +110,15 @@ func _lancer() -> void:
 		hote.add_child(reg)
 		await _photo(sortie + "foot-obligations.png")
 		reg.queue_free()
+		# En pleine saison : les obligations ne se prennent pas, le registre dit quand.
+		var t5: int = foot.coup_envoi(1, 5) + 86400
+		foot.regler_horloge(func(): return t5)
+		reg = load("res://scripts/socle/foot_obligations.gd").new()
+		reg.set("club", "smarves")
+		hote.add_child(reg)
+		await _photo(sortie + "foot-obligations-en-saison.png")
+		reg.queue_free()
+		foot.regler_horloge(func(): return t0)
 	game.won = 12000
 	game.credits = 4200
 	# Au Clain Garden : Lucien tient la n° 5, vous la n° 2.

@@ -99,7 +99,11 @@ const OBLIGATIONS := [500, 1000, 1500, 2250, 3000, 4000, 5000, 6250, 7500]
 const DIVIDENDE := 50
 ## Ce que l'étude reprend d'une obligation rendue.
 const RACHAT := 0.8
+## Qui dirige, la règle d'un club par division et l'intersaison (scripts/socle/diriger.gd).
+const DIRIGER := preload("res://scripts/socle/diriger.gd")
 var obligations := {}
+## La direction de chaque club, tenue au serveur : club -> {par, moi, division}.
+var directions := {}
 var obligations_locales := {}
 var obligations_a_declarer := {}
 var dividendes := {}
@@ -1232,10 +1236,7 @@ func investi(club: String) -> int:
 ## Qui parle pour un club au bureau : sans porteur, tout le monde ; sinon la plus grosse somme investie,
 ## et chacun à égalité.
 func peut_decider(club: String) -> bool:
-	var a := actionnaires(club)
-	if a.is_empty():
-		return true
-	return investi(club) >= int(a[0].investi)
+	return DIRIGER.decide(self, club)
 
 
 ## Une phrase pour le notaire, le président et le bureau : qui a mis combien, et qui parle.
@@ -1249,7 +1250,8 @@ func phrase_actionnaires(club: String) -> String:
 			morceaux.append("%s %s %s crédits dans le club" % ["Vous" if x.moi else x.nom, "avez" if x.moi else "a", Game.fmt(int(x.investi))])
 		else:
 			morceaux.append("%s %s" % ["vous" if x.moi else x.nom, Game.fmt(int(x.investi))])
-	var qui := "c'est vous qui parlez au président" if peut_decider(club) else "c'est %s qui parle au président" % a[0].nom
+	var dg: Dictionary = DIRIGER.dirigeant(self, club)
+	var qui := "c'est vous qui parlez au président" if bool(dg.get("moi", false)) else "c'est %s qui parle au président" % str(dg.get("nom", a[0].nom))
 	return "%s : %s." % [", ".join(morceaux), qui]
 
 
@@ -1275,6 +1277,8 @@ func prendre(club: String, rang: int) -> Dictionary:
 		return {"ok": false, "raison": "rang"}
 	if not porteur(club, rang).is_empty():
 		return {"ok": false, "raison": "prise"}
+	if not DIRIGER.en_intersaison(self):
+		return {"ok": false, "raison": "intersaison"}
 	if Game.credits < valeur(rang):
 		return {"ok": false, "raison": "credits"}
 	Game.credits -= valeur(rang)
@@ -1303,6 +1307,8 @@ func echanger(club: String, bas: int, haut: int) -> Dictionary:
 		return {"ok": false, "raison": "rang"}
 	if not porteur(club, haut).is_empty():
 		return {"ok": false, "raison": "prise"}
+	if not DIRIGER.en_intersaison(self):
+		return {"ok": false, "raison": "intersaison"}
 	var montant := valeur(haut) - valeur(bas)
 	if Game.credits < montant:
 		return {"ok": false, "raison": "credits"}
@@ -1453,10 +1459,58 @@ func lire_obligations() -> void:
 	if r.code == 200 and r.corps is Array:
 		appliquer_obligations(r.corps)
 		envoyer_obligations()
+	await lire_directions()
+
+
+## Relit qui dirige chaque club (public), puis demande la direction des clubs où l'on y a droit : le plus
+## gros porteur qui ne dirige pas déjà un club de la même division (scripts/socle/diriger.gd).
+func lire_directions() -> void:
+	var compte := _compte()
+	if compte == null or get_tree().get_script() != null or "--capture" in " ".join(OS.get_cmdline_user_args()):
+		return
+	var r: Dictionary = await compte.appeler("smarves_directions", {"p_sport": "football"})
+	if r.code != 200 or not (r.corps is Array):
+		return
+	appliquer_directions(r.corps)
+	if not compte.connecte():
+		return
+	for club in clubs:
+		if DIRIGER.peut_prendre(self, club):
+			await prendre_direction(club)
+
+
+## Les directions lues au serveur : [{club, par, moi, division}].
+func appliquer_directions(liste: Array) -> void:
+	directions = {}
+	for d in liste:
+		if d is Dictionary:
+			directions[str(d.get("club", ""))] = {"par": str(d.get("par", "")), "moi": bool(d.get("moi", false)), "division": str(d.get("division", ""))}
+	change.emit()
+
+
+## Demande la direction d'un club au serveur ; `changer` quitte, à l'intersaison, le club de la même
+## division qu'on dirigeait. {ok} ou {ok: false, raison} « intersaison », « division », « parts », « compte ».
+func prendre_direction(club: String, changer := false) -> Dictionary:
+	var compte := _compte()
+	if compte == null or not compte.connecte():
+		return {"ok": false, "raison": "compte"}
+	var r: Dictionary = await compte.appeler("smarves_direction_prendre", {"p_sport": "football", "p_club": club,
+		"p_division": DIRIGER.division(self, club), "p_changer": changer})
+	if r.code != 200 or not (r.corps is Dictionary):
+		return {"ok": false, "raison": "reseau"}
+	if bool(r.corps.get("ok", false)):
+		if changer:
+			for c in directions.keys():
+				if c != club and bool(directions[c].moi) and DIRIGER.division(self, c) == DIRIGER.division(self, club):
+					directions.erase(c)
+		directions[club] = {"par": "vous", "moi": true, "division": DIRIGER.division(self, club)}
+		change.emit()
+	return r.corps
 
 
 ## Dit au serveur les obligations prises et rendues ici qu'il ne sait pas encore. Une prise qu'il refuse
-## (« prise » : un autre l'a eue avant) est rendue à sa valeur.
+## (« prise » : un autre l'a eue avant ; « intersaison » : la fenêtre s'est fermée entre-temps) est rendue
+## à sa valeur.
 func envoyer_obligations() -> void:
 	var compte := _compte()
 	if compte == null or not compte.connecte() or get_tree().get_script() != null or "--capture" in " ".join(OS.get_cmdline_user_args()):
@@ -1467,8 +1521,8 @@ func envoyer_obligations() -> void:
 			var r: Dictionary = await compte.appeler("smarves_obligation_prendre" if prise else "smarves_obligation_rendre", {"p_club": club, "p_rang": int(rang)})
 			if r.code != 200 or not (r.corps is Dictionary):
 				continue
-			var fini: bool = bool(r.corps.get("ok", false)) or str(r.corps.get("raison", "")) in ["prise", "absente"]
-			if prise and not bool(r.corps.get("ok", false)) and str(r.corps.get("raison", "")) == "prise":
+			var fini: bool = bool(r.corps.get("ok", false)) or str(r.corps.get("raison", "")) in ["prise", "absente", "intersaison"]
+			if prise and not bool(r.corps.get("ok", false)) and str(r.corps.get("raison", "")) in ["prise", "intersaison"]:
 				var miennes: Array = obligations_locales.get(club, [])
 				miennes.erase(int(rang))
 				if miennes.is_empty():
@@ -1547,6 +1601,7 @@ func effacer() -> void:
 	dividendes_total = 0
 	transferts = {}
 	transferts_locaux = {}
+	directions = {}
 	_matchs = {}
 	_effectifs = {}
 	if dossier != "":

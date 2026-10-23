@@ -151,6 +151,8 @@ static func pourquoi(raison: String) -> String:
 		"club": "Le club n'est pas au championnat.", "ferme": "C'est fermé pour cette fois.",
 		"pris": "Ce joueur n'est plus libre dans le groupe.", "bas": "L'offre est trop basse.",
 		"credits": "Il vous manque des crédits.", "prise": "Quelqu'un l'a prise avant vous.",
+		"intersaison": "Les parts ne se prennent qu'à l'intersaison, %s." % preload("res://scripts/socle/diriger.gd").phrase_intersaison((Engine.get_main_loop() as SceneTree).root.get_node("Basket")),
+		"division": "Vous dirigez déjà un club de la même division : un joueur n'en dirige qu'un par division, et n'en change qu'à l'intersaison.",
 		"absente": "Celle-là n'est pas à vous.", "absent": "Ce joueur n'est pas dans l'effectif.",
 		"reseau": "Le serveur ne répond pas ; réessayez dans un moment.",
 		"detenir": "Il faut tenir au moins une part du club, et le diriger, pour le renommer.",

@@ -9,6 +9,8 @@ extends CanvasLayer
 ##   par banque, biens, obligations, bourse, fortune nette), la semaine et les engagements en cours ;
 ## - « Mes cartes » : le classeur des cartes possédées, un sous-onglet par village, avec le topo complet
 ##   des parts de club (scripts/carnet_cartes.gd) ;
+## - « Le calendrier » : les deux championnats, la journée, le prochain match, l'intersaison (où se prennent
+##   les parts), le mercato et le marché (scripts/socle/calendrier.gd) ;
 ## - un onglet par commune : la commune d'origine d'abord, dont la page vient du jeu (le champ
 ##   « page_carnet » de son manifeste), puis chaque commune qui tient des compteurs au carnet
 ##   (docs/COMMUNE.md, « Le carnet du joueur ») : ils se lisent de partout, et ne bougent que quand
@@ -153,7 +155,7 @@ func toggle() -> void:
 
 ## Les onglets du cahier, dans l'ordre : [[clé, nom]].
 func onglets() -> Array:
-	var out := [["compte", "Mon compte"], ["cartes", "Mes cartes"]]
+	var out := [["compte", "Mon compte"], ["cartes", "Mes cartes"], ["calendrier", "Le calendrier"]]
 	var o: Commune = Communes.origine()
 	if _page_origine != null and o != null:
 		out.append([o.id, o.nom])
@@ -409,6 +411,8 @@ func _refresh() -> void:
 			_fill_compte()
 		"cartes":
 			_album.remplir()
+		"calendrier":
+			_fill_calendrier()
 		"vienne":
 			_fill_vienne()
 		_:
@@ -652,6 +656,41 @@ func _fill_mes_cartes(page: VBoxContainer, id: String) -> void:
 		await get_tree().process_frame
 		_album.choisir_village(id))
 	_gap(page)
+
+
+# --- Le calendrier des championnats -----------------------------------------------------------
+
+## Ouvre le carnet à l'onglet du calendrier (les boutons « Le calendrier » du stade et de la salle).
+func ouvrir_calendrier() -> void:
+	if not _root.visible:
+		toggle()
+	ouvrir_onglet("calendrier")
+
+
+func _fill_calendrier() -> void:
+	var cal := preload("res://scripts/socle/calendrier.gd")
+	for x in [[_left, Football, "football"], [_right, Basket, "basket"]]:
+		var page: VBoxContainer = x[0]
+		var d: Dictionary = cal.page(x[1], x[2])
+		_title(page, d.titre)
+		for l in d.lignes:
+			if str(l[0]) != "":
+				_gap(page, 4)
+				_text(page, l[0], 18, INK, true)
+			_text(page, l[1], 17 if str(l[0]) != "" else 15, INK if str(l[0]) != "" else INK_LIGHT)
+		_gap(page, 8)
+		_text(page, "Les journées de la saison %d" % int(d.saison_des_journees), 18, INK, true)
+		var g := GridContainer.new()
+		g.columns = 4
+		g.add_theme_constant_override("h_separation", 14)
+		page.add_child(g)
+		for j in d.journees:
+			var mot := "J%d  %s" % [j.n, j.jour]
+			_text(g, ("✓ " if j.jouee else ("→ " if j.prochaine else "")) + mot, 15, RED_INK if j.prochaine else (INK_LIGHT if j.jouee else INK), j.prochaine).autowrap_mode = TextServer.AUTOWRAP_OFF
+		_gap(page, 6)
+		_text(page, d.regle, 15, INK_LIGHT)
+	_gap(_right, 6)
+	_link(_right, "→ la semaine, jour par jour", _show_sheet.bind(true, "agenda"))
 
 
 # --- La Vienne --------------------------------------------------------------------------------

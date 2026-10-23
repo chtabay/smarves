@@ -41,6 +41,8 @@ func remplir(col: VBoxContainer) -> void:
 			_mot(col, "Dernier match : %s %d – %d %s" % [m.dom, m.score[0], m.score[1], m.ext], TEXTE, 16)
 		else:
 			_mot(col, "Prochain match : %s – %s, %s" % [m.dom, m.ext, m.quand], TEXTE, 16)
+	# La saison en une phrase : l'intersaison (où se prennent les parts) et le marché.
+	_mot(col, preload("res://scripts/socle/calendrier.gd").resume(b, "basket"), DOUX, 15)
 	_filet(col)
 	_mot(col, "Pour diriger le club", OR, 19)
 	for e in etapes():
@@ -63,6 +65,9 @@ func remplir(col: VBoxContainer) -> void:
 		var bt := _bouton(col, "%s  ·  %s" % [x[1], x[2]], func(): suite = x[0]; closed.emit(), "Aller_" + x[0])
 		bt.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		bt.add_theme_font_size_override("font_size", 17)
+	var cal := _bouton(col, "Le calendrier  ·  les journées, l'intersaison, le marché, au carnet", func(): preload("res://scripts/socle/calendrier.gd").ouvrir(), "Calendrier")
+	cal.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	cal.add_theme_font_size_override("font_size", 17)
 	_fermer(col)
 
 
@@ -75,7 +80,7 @@ func etapes() -> Array:
 	var inv: int = b.investi(commune)
 	var texte := ""
 	if a.is_empty():
-		texte = "Personne ne tient de part : le bureau est ouvert à tous. Une part, dès 500 crédits, vous en fait le premier dirigeant, et chaque journée lui verse un dividende."
+		texte = "Personne ne tient de part : le bureau est ouvert à tous. Une part, dès 500 crédits, vous en fait le premier dirigeant, et chaque journée lui verse un dividende. Les parts se prennent à l'intersaison, %s." % preload("res://scripts/socle/diriger.gd").phrase_intersaison(b)
 	elif dirige:
 		texte = "Vous avez %s crédits dans le club : c'est vous qui le dirigez. Son nom se change au bureau du président." % Game.fmt(inv)
 	else:
