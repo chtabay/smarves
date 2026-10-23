@@ -19,6 +19,7 @@ var _labels := {}
 var _bet := 0
 var _hand := {"player": [], "dealer": []}
 var _hole_hidden := false
+var _plaque: Label3D
 
 
 func _ready() -> void:
@@ -85,6 +86,7 @@ func _build() -> void:
 	var plate := KIT.box(Vector3(0.16, 0.08, 0.01), Vector3(-0.42, felt_y + 0.04, ZC + 0.02), brass, self)
 	plate.rotation.x = -0.4
 	var pl := Label3D.new()
+	_plaque = pl
 	pl.text = "Mise\n5 à 500"
 	pl.font = KIT.serif()
 	pl.font_size = 28
@@ -314,6 +316,9 @@ func result(bet: int, payout: int) -> void:
 
 func attach(p: Control) -> void:
 	panel = p
+	# La plaque dit les mises de la table (configurer_mises), pas celles du casino.
+	if _plaque and "BETS" in p and not p.BETS.is_empty():
+		_plaque.text = "Mise\n%d à %d" % [p.BETS[0], p.BETS[-1]]
 	p.embedded = true
 	p.table3d = self
 	p.hand_started.connect(func():

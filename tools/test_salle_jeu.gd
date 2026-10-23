@@ -118,6 +118,7 @@ func _init() -> void:
 	await _etude(game)
 	await _commerces(game)
 	await _sorties()
+	await _tarifs()
 	_fin()
 
 
@@ -262,6 +263,33 @@ func _sorties() -> void:
 		for n in [habitant, porte, cam]:
 			n.free()
 	biens.sell("essai_salle/maison_gare")
+
+
+## Les tarifs d'une table de commune : le tapis du poker dit les blindes configurées, la plaque du
+## blackjack les mises configurées, et des mises incohérentes sont refusées.
+func _tarifs() -> void:
+	var tables: GDScript = load("res://scripts/socle/tables.gd")
+	var scene := Node3D.new()
+	root.add_child(scene)
+	var poker: Node3D = tables.table("poker")
+	scene.add_child(poker)
+	var pp: PanelContainer = tables.panneau("poker")
+	check(pp.configurer_blindes(5, 10, 200), "des blindes de 5/10 s'acceptent")
+	poker.attach(pp)
+	check(poker.ligne_tapis.begins_with("BLINDES 5 / 10"), "le tapis du poker dit les blindes de la table : %s" % poker.ligne_tapis)
+	var bj: Node3D = tables.table("blackjack")
+	scene.add_child(bj)
+	var bp: PanelContainer = tables.panneau("blackjack")
+	check(not bp.configurer_mises([10, 5]) and not bp.configurer_mises([0, 5]) and not bp.configurer_mises([5]), "des mises en désordre, nulles ou seules sont refusées")
+	check(bp.configurer_mises([2, 4, 10, 20]) and bp.BETS == [2, 4, 10, 20], "le blackjack prend les mises de la salle")
+	bj.attach(bp)
+	check(bj._plaque.text == "Mise\n2 à 20", "la plaque du blackjack dit les mises de la table : %s" % bj._plaque.text.replace("\n", " "))
+	var rp: PanelContainer = tables.panneau("roulette")
+	check(rp.configurer_mises([1, 2, 5, 10]) and rp.CHIPS == [1, 2, 5, 10], "la roulette prend les jetons de la salle")
+	for n in [pp, bp, rp]:
+		n.free()
+	scene.queue_free()
+	await process_frame
 
 
 ## Une pression de la touche E, comme la reçoit le jeu.

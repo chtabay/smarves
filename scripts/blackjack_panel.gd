@@ -9,7 +9,8 @@ signal card_dealt(who: String, card: Dictionary, hidden: bool)
 signal hand_started
 signal hole_revealed(card: Dictionary)
 
-const BETS := [5, 10, 25, 100, 500]
+## Les mises proposées : celles du casino par défaut, celles d'une commune par configurer_mises().
+var BETS := [5, 10, 25, 100, 500]
 const BARRE := preload("res://scripts/jeux/barre.gd")
 const REGLES := preload("res://scripts/jeux/regles.gd")
 const SUITS := ["♠", "♥", "♦", "♣"]
@@ -187,6 +188,21 @@ func _button(parent: Control, text: String, cb: Callable) -> Button:
 	b.pressed.connect(cb)
 	parent.add_child(b)
 	return b
+
+
+## Les mises d'une table de commune (sur le modèle de configurer_blindes) : de deux à neuf montants
+## croissants, choisis au clavier par 1 à 9. À appeler avant que le panneau entre dans la scène. Rend false,
+## sans rien changer, pour une liste incohérente (vide, trop longue, une mise nulle ou en désordre).
+func configurer_mises(mises: Array) -> bool:
+	var ok := mises.size() >= 2 and mises.size() <= 9
+	for i in mises.size():
+		ok = ok and typeof(mises[i]) in [TYPE_INT, TYPE_FLOAT] and int(mises[i]) > 0 and (i == 0 or int(mises[i]) > int(mises[i - 1]))
+	if not ok:
+		push_warning("%s : mises refusées %s." % [title, str(mises)])
+		return false
+	BETS = mises.map(func(m): return int(m))
+	bet_index = mini(bet_index, BETS.size() - 1)
+	return true
 
 
 func _change_bet(d: int) -> void:

@@ -748,11 +748,14 @@ func _build_ui() -> void:
 	hint.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	hint.position.y -= 22
 	root.add_child(hint)
+	# L'invite « E : … » se pose en bas, au-dessus des répliques : au centre, elle cachait ce qu'on regarde
+	# (les cartons d'une vitrine, retour de l'auteur de Chauvigny).
 	_prompt = Label.new()
-	_prompt.set_anchors_preset(Control.PRESET_CENTER)
+	_prompt.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	_prompt.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_prompt.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_prompt.position.y += 40
+	_prompt.position.y -= 130
 	_prompt.add_theme_font_override("font", _serif)
 	_prompt.add_theme_font_size_override("font_size", 22)
 	_prompt.add_theme_color_override("font_color", Color(1, 0.92, 0.7))
