@@ -67,6 +67,7 @@ var chargement_etape := ""
 var _par_etapes := false
 var _monde
 var _monde_fil: Thread
+var _monde_ok := false
 var _rendu_main := 0
 
 var K
@@ -148,6 +149,11 @@ func _preparer_monde() -> void:
 	for l in _fermes():
 		zc.append_array(lieux.get(l, []))
 	_monde = load(BASE + "pnj/monde.gd").new()
+	# Sans fils (la version web), on le lit tout de suite : un fil qui ne démarre pas laissait le casino
+	# sans ses PNJ, rien que des figurants qu'on ne peut ni bousculer ni frapper.
+	if not load(BASE + "pnj/pnj.gd").fils_possibles():
+		_monde_ok = _monde.charger(BASE + "donnees/pnj_monde.json", zc)
+		return
 	_monde_fil = Thread.new()
 	_monde_fil.start(_monde.charger.bind(BASE + "donnees/pnj_monde.json", zc))
 
@@ -192,8 +198,10 @@ func _process(dt: float) -> void:
 func _peupler() -> void:
 	pnj = load(BASE + "pnj/pnj.gd").new()
 	# Le monde des PNJ (leurs chemins, leurs zones) s'est préparé dans un fil pendant que le casino se bâtissait.
-	var monde_ok: bool = _monde_fil.wait_to_finish()
-	_monde_fil = null
+	var monde_ok := _monde_ok
+	if _monde_fil != null:
+		monde_ok = _monde_fil.wait_to_finish() == true
+		_monde_fil = null
 	if not pnj.preparer(self, _fermes(), _monde, monde_ok):
 		pnj.free()
 		pnj = null
@@ -627,8 +635,13 @@ func _interface() -> void:
 	ui.add_child(_message)
 
 
+## Le bouton des commandes tactiles (Tactile) quand rien n'est à portée de E : frapper le PNJ visé (touche F).
+func action_tactile() -> String:
+	return "Frapper" if pnj != null and pnj.invite() != "" else ""
+
+
 ## Le rappel des commandes, comme au village : à pied, ou vu de dessus (la bascule du jeu, Tab).
 func _rappel(dessus: bool) -> void:
-	_aide.text = ("ZQSD : marcher   ·   Maj : courir   ·   Clic droit : tourner   ·   Molette : zoom   ·   E : agir, jouer   ·   Tab : vue à pied" if dessus
-		else "ZQSD : marcher   ·   Maj : courir   ·   Souris : regarder   ·   E : agir, jouer   ·   Tab : vue de dessus") \
+	_aide.text = ("ZQSD : marcher   ·   Maj : courir   ·   Clic droit : tourner   ·   Molette : zoom   ·   E : agir, jouer   ·   F : frapper   ·   Tab : vue à pied" if dessus
+		else "ZQSD : marcher   ·   Maj : courir   ·   Souris : regarder   ·   E : agir, jouer   ·   F ou clic : frapper   ·   Tab : vue de dessus") \
 		+ "   ·   M : la carte   ·   C : le carnet   ·   Échap : réglages"

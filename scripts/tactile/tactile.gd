@@ -9,6 +9,8 @@ extends CanvasLayer
 ## Vue à pied (casino, Tab au village) : pouce virtuel à gauche, glisser à droite pour regarder,
 ## toucher une table ou une porte proche pour agir.
 ## L'invite « E : … » devient un bouton ; Vue (Tab), Carnet (C) et Menu (Échap) sont dans un coin.
+## Une scène qui a une méthode action_tactile() (le texte de sa touche F, vide quand elle ne sert pas)
+## a aussi son bouton quand rien n'est à portée de E : Casino Minuit y met « Frapper ».
 ## Le bouton retour d'Android vaut Échap.
 
 ## Plus petit que ça, un toucher est un « tap » ; au-delà, c'est un glissé.
@@ -22,6 +24,8 @@ var active := false
 
 var _surface: Control
 var _act: Button
+## Le bouton joue la touche F de la scène (action_tactile()) plutôt que E.
+var _act_f := false
 var _view_btn: Button
 var _carnet_btn: Button
 var _menu_btn: Button
@@ -286,10 +290,25 @@ func _update_act(p: CharacterBody3D, walking: bool) -> void:
 		_act.position = r.get_center() - _act.size / 2.0
 	else:
 		show = false
+	# Rien à portée de E, mais la scène propose sa touche F (frapper, au casino de Minuit) : le bouton la joue.
+	_act_f = false
+	if not show and walking and p.focus_target == null and s != null and s.has_method("action_tactile"):
+		var t := str(s.action_tactile())
+		if t != "":
+			show = true
+			_act_f = true
+			if _act.text != t:
+				_act.text = t
+				_act.reset_size()
+			var vp := get_viewport().get_visible_rect().size
+			_act.position = Vector2(vp.x / 2.0, vp.y - 75.0) - _act.size / 2.0
 	_act.visible = show
 
 
 func _on_act() -> void:
+	if _act_f:
+		press_key(KEY_F)
+		return
 	var p := _player()
 	if p != null and p.focus_target != null:
 		_stop_goal()
