@@ -55,6 +55,36 @@
 					"socle": "1.18"
 				}
 			}
+		},
+		"donjon-en-ruine": {
+			"genre": "decor",
+			"nom": "Le donjon en ruine",
+			"description": "Un donjon roman éventré de 12 × 16 m et 14 à 32 m de haut : sommets déchiquetés, fenêtre géminée, contreforts plats chaînés, trous de boulin, traces des planchers et cheminées murales dedans, tour demi-ronde, tourelle d'escalier, aiguille isolée, lierre et éboulis. Venu du château baronnial de Chauvigny 0.2.2.",
+			"auteur": "Le duke · création avec Claude",
+			"licence": "MIT (voir LICENCE.txt)",
+			"commune": "chauvigny",
+			"versions": {
+				"1": {
+					"scene": "res://bibliotheque/donjon-en-ruine/1/donjon.tscn",
+					"apercu": "res://bibliotheque/donjon-en-ruine/1/apercu.png",
+					"socle": "1.20"
+				}
+			}
+		},
+		"eglise-romane": {
+			"genre": "decor",
+			"nom": "L'église romane",
+			"description": "Une collégiale romane du Poitou de 36 × 24 m : nef et bas-côtés, transept à oculus, clocher carré sur la croisée (34 m, réglable ; 50 à Chauvigny), chevet en pièce montée (abside, déambulatoire, chapelles rayonnantes), portail ouest et porte sud. Pleine, vue du dehors. Venue de la collégiale Saint-Pierre de Chauvigny 0.2.2.",
+			"auteur": "Le duke · création avec Claude",
+			"licence": "MIT (voir LICENCE.txt)",
+			"commune": "chauvigny",
+			"versions": {
+				"1": {
+					"scene": "res://bibliotheque/eglise-romane/1/eglise.tscn",
+					"apercu": "res://bibliotheque/eglise-romane/1/apercu.png",
+					"socle": "1.20"
+				}
+			}
 		}
 	}
 }

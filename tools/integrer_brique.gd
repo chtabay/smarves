@@ -72,16 +72,21 @@ static func integrer(commune: String, brique: String, source: String, racine: St
 		return {"erreur": "la brique nomme des fichiers de sa commune hors de son dossier : %s" % ", ".join(fautes.slice(0, 5))}
 	var fiche: Dictionary = p.fiche
 	if existante.is_empty():
-		existante = {"genre": fiche.genre, "versions": {}}
+		existante = {"genre": fiche.genre}
 		cat.briques[brique] = existante
+	# (dans l'ordre des autres fiches du catalogue : le genre, les textes, la commune, puis les versions)
+	var versions: Dictionary = existante.get("versions", {})
+	existante.erase("versions")
 	for k in ["nom", "description", "auteur", "licence"]:
 		if fiche.has(k):
 			existante[k] = fiche[k]
 	existante["commune"] = commune
+	existante["versions"] = versions
 	var champ := Bibliotheque.champ_fichier(str(fiche.genre))
-	var entree := {champ: dest + str(fiche[champ]), "socle": Commune.SOCLE}
+	var entree := {champ: dest + str(fiche[champ])}
 	if fiche.has("apercu"):
 		entree.apercu = dest + str(fiche.apercu)
+	entree.socle = Commune.SOCLE
 	existante.versions[str(version)] = entree
 	cat["format"] = int(cat.get("format", 1))  # (JSON lit les nombres en flottants : « 1.0 » sinon)
 	FileAccess.open(catalogue, FileAccess.WRITE).store_string(JSON.stringify(cat, "\t", false) + "\n")
