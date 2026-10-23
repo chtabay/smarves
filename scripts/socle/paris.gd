@@ -164,12 +164,16 @@ func regler() -> Array:
 	return regles
 
 
-## Règle ce qui est à régler et l'annonce par la fiche du carnet.
+## Règle ce qui est à régler et l'annonce au courrier (autoload Avis) : un ticket gagné fait glisser la
+## fiche, un ticket perdu va seulement au courrier.
 func tic() -> void:
-	var carnet: Node = get_tree().root.get_node_or_null("Carnet")
+	var avis: Node = get_tree().root.get_node_or_null("Avis")
 	for t in regler():
-		if carnet != null:
-			carnet.show_slip("Ticket de la journée %d : %s." % [int(t.j), "gagné, %s crédits" % Game.fmt(int(t.gain)) if t.etat == "gagne" else "perdu"])
+		if avis != null:
+			avis.publier({"id": "ticket/%d/%d/%d" % [int(t.s), int(t.j), int(t.get("quand", 0))], "genre": "ticket",
+				"importance": "normale" if t.etat == "gagne" else "discrete",
+				"titre": "Ticket de la journée %d : %s" % [int(t.j), "gagné, %s crédits" % Game.fmt(int(t.gain)) if t.etat == "gagne" else "perdu"],
+				"texte": "Mise %s, cote %s." % [Game.fmt(int(t.mise)), str(t.cote)], "lien": {"vers": "carnet", "onglet": "compte"}})
 
 
 ## Les tickets réglés dont Josiane n'a pas encore parlé au comptoir ; les marque vus.
