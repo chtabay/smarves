@@ -32,7 +32,7 @@ ENTREES = [
     "scripts/socle/tables.gd",
     # La bibliothèque commune (socle 1.13) : le catalogue, ses briques, les contrats d'ancres.
     "bibliotheque/bibliotheque.json", "scripts/socle/bibliotheque.gd", "scripts/socle/ancres.gd",
-    "tools/test_bibliotheque.gd",
+    "tools/test_bibliotheque.gd", "tools/planche_facadier.gd",
     # Les règles des paquets (socle 1.15) : l'emballeur les applique, leur test les vérifie.
     "tools/regles_paquet.gd", "tools/test_regles_paquet.gd",
     # Le budget par lieu (socle 1.16) : l'emballeur mesure, budget_lieu.gd mesure un paquet sans l'emballer.

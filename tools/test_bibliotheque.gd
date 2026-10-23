@@ -5,7 +5,8 @@ extends SceneTree
 ## d'ancres ; le manifeste accepte « modele » ; et le stade d'une commune dont le terrain nomme
 ## « stade-de-campagne@1 » reçoit le club, le match, le tableau, le président, le bureau, le panneau et la sortie ;
 ## la salle de Smarves sur « salle-de-quartier@1 », le club, le cube, le président, le bureau, les parts et le car ;
-## les matières de « matieres-de-minuit@1 » se posent par leur nom (socle 1.17).
+## les matières de « matieres-de-minuit@1 » se posent par leur nom (socle 1.17) ; le façadier « facadier-du-poitou@1 »
+## bâtit ses dix types.
 
 var fails := 0
 
@@ -118,6 +119,46 @@ func _init() -> void:
 		"une matière, une brique ou une version inconnues ne rendent rien")
 	check(Bibliotheque.verifier_matieres({"matieres": {"Marbre": {"image": "../x.png", "dalle": [0, 2], "lueur": 9, "eclat": 1}}}, "res://nulle/part/").size() == 5,
 		"des matières fautives : nom, image hors du dossier, dalle, réglage hors bornes, réglage inconnu")
+
+	# Le façadier du Poitou (Chauvigny 0.2.2, MIT) : un décor qu'on pose par type et graine.
+	var facadier := Bibliotheque.scene("facadier-du-poitou@1", "decor")
+	check(facadier != "" and "facadier-du-poitou@1" in Bibliotheque.references("decor") and Bibliotheque.scene("facadier-du-poitou@1", "stade") == "",
+		"la bibliothèque a le façadier du Poitou, un décor")
+	check(FileAccess.file_exists(facadier.get_base_dir() + "/LICENCE.txt") and str(Bibliotheque.brique("facadier-du-poitou@1").get("licence", "")).begins_with("MIT"),
+		"le façadier garde sa licence MIT et sa notice")
+	var paquet_maison: PackedScene = load(facadier)
+	var types: Array = paquet_maison.instantiate().get_script().types()
+	var bancs := Node3D.new()
+	root.add_child(bancs)
+	var mauvais := []
+	for ty in types:
+		var mf: Node3D = paquet_maison.instantiate()
+		mf.type = ty
+		mf.graine = 7
+		bancs.add_child(mf)
+		var w := float(mf.get_meta("w", 0.0))
+		var faite := float(mf.get_meta("faite", 0.0))
+		if mf.get_meta("type", "") != ty or w < 3.0 or w > 20.0 or faite < 3.0 or mf.find_children("*", "MeshInstance3D", true, false).is_empty():
+			mauvais.append(ty)
+	check(types.size() == 10 and mauvais.is_empty(), "les dix types se bâtissent, avec leur largeur et leur faîte %s" % str(mauvais))
+	var m1: Node3D = paquet_maison.instantiate()
+	var m2: Node3D = paquet_maison.instantiate()
+	m1.type = "notable"
+	m2.type = "notable"
+	m2.graine = 2
+	m2.options = {"w": 9.0, "quartier": "quai", "vegetal": false}
+	bancs.add_child(m1)
+	bancs.add_child(m2)
+	check(is_equal_approx(float(m2.get_meta("w")), 9.0) and m2.get_meta("vegetal") == [] and str(m1.get_meta("traces")) + str(m1.get_meta("w")) != str(m2.get_meta("traces")) + str(m2.get_meta("w")),
+		"les options passent au façadier, et deux graines font deux maisons")
+	var hors := []
+	for f in DirAccess.get_files_at(facadier.get_base_dir()):
+		if f.get_extension() in ["gd", "tscn", "gdshader"]:
+			for ligne in FileAccess.get_file_as_string(facadier.get_base_dir() + "/" + f).split("\n"):
+				if "res://" in ligne and not "res://bibliotheque/facadier-du-poitou/1/" in ligne and not "res://scripts/" in ligne:
+					hors.append(f)
+	check(hors.is_empty(), "le façadier ne nomme rien hors de son dossier et du socle %s" % str(hors))
+	bancs.queue_free()
 
 	# Une commune propose une brique : son dossier bibliotheque/<id>/ et sa fiche ; Guillaume l'intègre à la main.
 	var props := Bibliotheque.propositions("res://tools/fixtures/proposition/")
