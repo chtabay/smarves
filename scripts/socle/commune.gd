@@ -125,8 +125,9 @@ func _verifier() -> void:
 		erreurs.append("le manifeste de « %s » doit être dans res://communes/%s/" % [id, id])
 	if data.has("ailleurs"):
 		erreurs.append_array(verifier_ailleurs(data))
-	elif Vienne.commune(insee).is_empty():
-		erreurs.append("code INSEE inconnu dans la Vienne : « %s »" % insee)
+	elif Departements.commune(insee).is_empty():
+		erreurs.append("code INSEE inconnu dans la Vienne : « %s »" % insee if Departements.de(insee) == France.VIENNE or not Departements.connu(Departements.de(insee))
+			else "code INSEE inconnu dans son département : « %s »" % insee)
 	if montee and not scene_presente():
 		erreurs.append("scène introuvable : %s" % data.scene)
 	var ids := {}
@@ -261,7 +262,7 @@ func preteur() -> String:
 
 ## Où la poser sur la carte : le centre de la commune réelle (longitude, latitude).
 func centre() -> Vector2:
-	return Vienne.centre(insee)
+	return Departements.centre(insee)
 
 
 ## Les structures que la commune déclare (gare, arrêt de car, terrain…), vide si elle n'en a pas.
@@ -282,10 +283,10 @@ func arrivee_nom() -> String:
 
 
 ## La population : celle du manifeste si elle est donnée (plus que zéro), sinon celle du référentiel
-## de la Vienne (communes/vienne.json).
+## de son département (communes/vienne.json pour la Vienne, Departements).
 func population() -> int:
 	var n := int(data.get("population", 0))
-	return n if n > 0 or lointaine() else int(Vienne.commune(insee).get("population", 0))
+	return n if n > 0 or lointaine() else int(Departements.commune(insee).get("population", 0))
 
 
 ## La licence du plan et des photos, et leurs sources (une liste, vide si rien n'est dit).

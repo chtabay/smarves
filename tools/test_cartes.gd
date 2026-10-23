@@ -65,6 +65,17 @@ func _init() -> void:
 		check(qui == ["autre", "libre", "moi", "libre", "autre", "moi", "libre", "libre", "autre"], "neuf cartes : à soi, en vente, aux autres (%s)" % str(qui))
 		check(cl[0].cartes[0].par == "Lucien" and cl[0].cartes[0].valeur == 500, "chaque carte dit sa valeur et son porteur")
 		check(cl[0].cartes[2].dividende > 0, "et ce qu'elle verse par journée")
+	# Ce qui manque pour diriger, calculé : Lucien 8 000, vous 5 500 ; la n° 7, libre, à 5 000, y suffit.
+	var diriger: GDScript = load("res://scripts/socle/diriger.gd")
+	var e: Dictionary = diriger.etat(foot, "smarves")
+	check(not e.dirige and e.manque == 2500 and e.suffit == 7, "il manque 2 500 pour diriger, la n° 7 suffit (%s)" % str(e))
+	check(diriger.phrase(foot, "smarves").contains("Il vous manque %s" % game.fmt(2500)) and diriger.phrase(foot, "smarves").contains("la n° 7"), "et la phrase le dit")
+	check(diriger.de("Les Hérons du Clain") == "des Hérons du Clain" and diriger.de("L'Étoile de Smarves") == "de l'Étoile de Smarves", "« des Hérons », « de l'Étoile »")
+	# Le parcours : une part, une obligation, faites ; diriger, à faire ; le Clain Garden, pas encore ouvert.
+	var marches: Array = album.parcours()
+	check(marches.map(func(x): return x.id) == ["part", "club_football", "diriger", "club_basket"], "quatre marches, du café au second club (%s)" % str(marches.map(func(x): return x.id)))
+	check(marches.map(func(x): return x.etat) == ["fait", "fait", "suivant", "ferme"], "faites, la suivante, la fermée (%s)" % str(marches.map(func(x): return x.etat)))
+	check(str(marches[3].texte).contains("10 000") or str(marches[3].texte).contains(game.fmt(10000)), "la marche fermée dit son seuil")
 	# Un club de basket dans une autre commune où l'on tient une obligation : un deuxième village.
 	basket.clubs["essai_basket"] = {"nom": "Basket-club d'essai", "court": "BCE", "couleurs": ["#7a1e2c", "#f4f1ea"], "commune": "essai_basket"}
 	basket.bureau.obligations = [{"club": "essai_basket", "rang": 4, "par": "vous", "moi": true}, {"club": "essai_basket", "rang": 8, "par": "Lucien", "moi": false}]
@@ -83,6 +94,9 @@ func _init() -> void:
 	check(album.visible and not carnet.get("_spread").visible, "l'onglet « Mes cartes » remplace les deux pages par le classeur")
 	check(album.find_child("Village_smarves", true, false) != null and album.find_child("Village_essai_basket", true, false) != null, "les deux villages, l'un sous l'autre")
 	check(_cartes(album).size() == 3 + 9 + 5 + 9, "trois biens, l'Étoile, la Smarvoise à Smarves, puis le club de basket (%d)" % _cartes(album).size())
+	check(album.find_child("Parcours", true, false) != null, "le parcours en tête de Smarves")
+	var places: Array = _cartes(album).filter(func(c): return c.k < 1.0)
+	check(places.size() == 7 + 3 + 8, "les places à compléter en petit, les cartes à soi en grand (%d)" % places.size())
 	check(_textes(album).count("Mes biens") == 2 and _textes(album).count("Mes clubs sportifs") == 2 and _textes(album).count("Mes établissements") == 2, "trois rubriques par village")
 	check(album.village == "smarves", "on commence en haut, à Smarves")
 	album.saisir(_touche(KEY_DOWN))

@@ -55,6 +55,10 @@ func _ready() -> void:
 	_check("pincer : un cran plus loin (%d → %d)" % [notch, m.camera.notch], m.camera.notch > notch)
 	# Au-delà du dernier cran, la carte de la Vienne s'ouvre ; Échap (le retour d'Android) la referme.
 	await _wait(1.5)
+	if not Carte.is_open():
+		# Quatre crans : le premier pincer s'arrête au cran Quartier, le suivant ouvre la carte.
+		await _pinch(size * Vector2(0.7, 0.5), 260.0, 60.0)
+		await _wait(1.5)
 	_check("pincer encore : la carte de la Vienne s'ouvre", Carte.is_open())
 	Tactile.press_key(KEY_ESCAPE)
 	await _wait(1.2)

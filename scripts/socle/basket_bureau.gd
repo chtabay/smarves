@@ -94,21 +94,20 @@ func _equipe(col: VBoxContainer) -> void:
 		fiches[e.code] = cl.get("joueurs", {}).get(e.code, {})
 	joueurs.sort_custom(func(a, x): return int(fiches[a.code].get("note", 0)) > int(fiches[x.code].get("note", 0)))
 	_mot(col, "L'effectif (%d joueurs, %s crédits de salaires par journée sur %s permis)" % [joueurs.size(), Game.fmt(b.masse_salariale(commune, maxi(1, j))), Game.fmt(b.PLAFOND)], OR, 18)
+	# Un tableau, comme l'effectif de l'Étoile : une colonne par donnée, plutôt qu'une ligne de base de données.
+	var g := _tableau(col, ["Note", "", "Joueur", "Poste", "Club", "Salaire", "Dernier match", ""])
 	for e in joueurs:
 		var f: Dictionary = fiches[e.code]
-		var r := _rangee(col)
-		var d: Dictionary = f.get("derniere", {})
-		var reel := ""
-		if not d.is_empty():
-			reel = " — %s : %d pts, %d reb, %d pd (PIR %d) contre %s" % [d.date, d.pts, d.reb, d.pd, d.pir, d.adv]
-		var texte := "%d %s  %s (%s, %s)  ·  %s par journée%s" % [int(f.get("note", 0)), fleche(int(f.get("forme", 0))), str(f.get("nom", e.code)),
-			str(f.get("club", "?")), str(f.get("poste", "")).to_lower(), Game.fmt(int(e.salaire)), reel]
-		var l := _mot(r, texte, TEXTE if bool(f.get("dispo", false)) else DOUX, 14)
-		l.custom_minimum_size.x = 640
+		var dispo := bool(f.get("dispo", false))
+		_cellules(g, [str(int(f.get("note", 0))), fleche(int(f.get("forme", 0))), nom_lisible(str(f.get("nom", e.code))), poste_fr(str(f.get("poste", ""))),
+			str(f.get("club", "?")), "%s / j." % Game.fmt(int(e.salaire)), match_lisible(f.get("derniere", {}))], dispo)
 		if liberes.has(e.code):
-			_mot(r, "libéré jeudi", ROUGE, 14)
+			_mot(g, "libéré jeudi", ROUGE, 14)
 		elif jm > 0 and decide:
-			_bouton(r, "Libérer", func(): _liberer(e.code), "Liberer_" + e.code)
+			_bouton(g, "Libérer", func(): _liberer(e.code), "Liberer_" + e.code)
+		else:
+			g.add_child(Control.new())
+	_mot(col, "Note de la semaine sur 100, ▲ en forme, ▼ en baisse ; en gris, un joueur absent de son dernier match. Éval. : l'évaluation du match (points, rebonds, passes, moins les tirs manqués et les ballons perdus).", DOUX, 13)
 	if jm > 0:
 		_mot(col, "Un joueur libéré quitte le club à la clôture du jeudi %s ; il compte pour la moitié de son salaire jusqu'à la fin de la saison." % _date(b.cloture(b.saison, jm)), DOUX, 13)
 
@@ -151,15 +150,16 @@ func _marche(col: VBoxContainer) -> void:
 	if tri == "forme":
 		libres = libres.filter(func(x): return int(x.forme) > 0)
 	var decide: bool = b.peut_decider(commune)
+	var g := _tableau(col, ["Note", "", "Joueur", "Poste", "Club", "Départ", "Salaire", "Meilleure offre", "", ""])
 	for x in libres.slice(0, 30):
-		var r := _rangee(col)
-		var offre := ""
+		var offre := "—"
 		if int(x.offre) > 0:
-			offre = "  ·  meilleure offre %s (%s)" % [Game.fmt(int(x.offre)), "vous" if bool(x.moi) else b.fiche(str(x.meneur)).nom]
-		var l := _mot(r, "%d %s  %s (%s, %s)  ·  départ %s, salaire %s%s" % [int(x.note), fleche(int(x.forme)), x.nom, x.club, str(x.comp),
-			Game.fmt(int(x.prix)), Game.fmt(int(x.salaire)), offre], TEXTE, 14)
-		l.custom_minimum_size.x = 560
+			offre = "%s (%s)" % [Game.fmt(int(x.offre)), "vous" if bool(x.moi) else b.fiche(str(x.meneur)).nom]
+		_cellules(g, [str(int(x.note)), fleche(int(x.forme)), nom_lisible(str(x.nom)), poste_fr(str(x.get("poste", ""))), str(x.club),
+			Game.fmt(int(x.prix)), "%s / j." % Game.fmt(int(x.salaire)), offre], true)
 		if not decide:
+			g.add_child(Control.new())
+			g.add_child(Control.new())
 			continue
 		var minimum: int = maxi(int(x.prix), int(x.offre) + b.pas(int(x.offre)) if int(x.offre) > 0 else 0)
 		var saisie := LineEdit.new()
@@ -167,8 +167,8 @@ func _marche(col: VBoxContainer) -> void:
 		saisie.text = str(_mises.get(x.code, minimum))
 		saisie.custom_minimum_size.x = 90
 		saisie.text_changed.connect(func(t): _mises[x.code] = t)
-		r.add_child(saisie)
-		_bouton(r, "Enchérir", func(): _encherir(str(x.code), int(saisie.text)), "Encherir_" + str(x.code))
+		g.add_child(saisie)
+		_bouton(g, "Enchérir", func(): _encherir(str(x.code), int(saisie.text)), "Encherir_" + str(x.code))
 	if libres.is_empty():
 		_mot(col, "Personne pour l'instant.", DOUX)
 
@@ -207,6 +207,51 @@ func _comptes(col: VBoxContainer) -> void:
 
 
 # ---------------------------------------------------------------- outils
+
+## Un tableau à colonnes, sa ligne de titres en petit : rend la grille, qu'on remplit rangée par rangée.
+func _tableau(col: VBoxContainer, titres: Array) -> GridContainer:
+	var g := GridContainer.new()
+	g.columns = titres.size()
+	g.add_theme_constant_override("h_separation", 14)
+	g.add_theme_constant_override("v_separation", 6)
+	col.add_child(g)
+	for t in titres:
+		_mot(g, str(t).to_upper(), DOUX, 12)
+	return g
+
+
+## Les cellules d'une rangée, en clair si le joueur est disponible ; le nom en gras de couleur.
+func _cellules(g: GridContainer, valeurs: Array, clair: bool) -> void:
+	for i in valeurs.size():
+		var l := _mot(g, str(valeurs[i]), (OR if i == 0 else TEXTE) if clair else DOUX, 15 if i != 2 else 16)
+		# Les nombres à droite : la note, les prix, les salaires.
+		var v := str(valeurs[i])
+		if i == 0 or v.ends_with("/ j.") or v.replace(" ", "").replace("\u202f", "").replace("\u00a0", "").is_valid_int():
+			l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+
+
+## « HORTON TUCKER, TALEN » devient « Talen Horton Tucker ».
+static func nom_lisible(nom: String) -> String:
+	var morceaux := nom.split(",", false, 1)
+	var t := (morceaux[1].strip_edges() + " " + morceaux[0].strip_edges()) if morceaux.size() == 2 else nom
+	var out: Array = []
+	for mot in t.split(" ", false):
+		out.append("-".join(Array(mot.split("-")).map(func(m): return m.substr(0, 1).to_upper() + m.substr(1).to_lower())))
+	return " ".join(out)
+
+
+## Le poste en français.
+static func poste_fr(poste: String) -> String:
+	return {"guard": "arrière", "forward": "ailier", "center": "pivot"}.get(poste.to_lower(), poste.to_lower())
+
+
+## Le dernier match réel : « 20/03 · 23 pts, 1 rbd, 2 pd · éval. 19 · contre MIL ».
+static func match_lisible(d: Dictionary) -> String:
+	if d.is_empty():
+		return "—"
+	var date := str(d.get("date", ""))
+	var jour := "%s/%s" % [date.substr(8, 2), date.substr(5, 2)] if date.length() >= 10 else date
+	return "%s · %d pts, %d rbd, %d pd · éval. %d · contre %s" % [jour, int(d.pts), int(d.reb), int(d.pd), int(d.pir), str(d.adv)]
 
 func _apres(r: Dictionary, bien: String) -> void:
 	_message = bien if r.get("ok", false) else "!" + pourquoi(str(r.get("raison", "")))

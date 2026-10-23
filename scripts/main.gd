@@ -972,8 +972,8 @@ func set_fps(on: bool) -> void:
 		camera.make_current()
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	if _hint:
-		_hint.text = ("ZQSD : marcher   ·   Maj : courir   ·   E : entrer, jouer, parler   ·   V : monter, descendre   ·   Clic droit : tourner la vue   ·   Molette : zoom   ·   Tab : vue à pied   ·   Échap : réglages" if (fps and topdown)
-			else "ZQSD : marcher   ·   Maj : courir   ·   E : entrer, jouer, parler   ·   V : monter, descendre   ·   Tab : vue de dessus   ·   Échap : réglages")
+		_hint.text = ("ZQSD : marcher   ·   Maj : courir   ·   E : entrer, jouer, parler   ·   V : monter, descendre   ·   Clic droit : tourner la vue   ·   Molette : zoom   ·   Tab : vue à pied   ·   M : carte   ·   Échap : réglages" if (fps and topdown)
+			else "ZQSD : marcher   ·   Maj : courir   ·   E : entrer, jouer, parler   ·   V : monter, descendre   ·   Tab : vue de dessus   ·   M : carte   ·   Échap : réglages")
 	if _cross:
 		_cross.visible = fps and not topdown
 		_prompt.visible = false
@@ -1239,7 +1239,7 @@ func _build_ui() -> void:
 	root.add_child(_banner)
 
 	_hint = Label.new()
-	_hint.text = "Cliquer sur un lieu ou un habitant   ·   Clic droit : tourner   ·   Molette : zoomer   ·   Échap : réglages"
+	_hint.text = "Cliquer sur un lieu ou un habitant   ·   Clic droit : tourner   ·   Molette : zoomer   ·   M : carte   ·   Échap : réglages"
 	_hint.add_theme_font_size_override("font_size", 15)
 	_hint.add_theme_color_override("font_color", Color(0.65, 0.65, 0.7, 0.85))
 	_hint.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
@@ -1287,7 +1287,8 @@ func _build_ui() -> void:
 
 ## --carte ouvre la carte de la Vienne ; --carte=86133 y choisit une commune, --carte=86133@4 zoome sur elle ;
 ## --carte=car la montre depuis l'arrêt du car, --carte=route:86214 depuis le bout d'une route ;
-## --carte=france montre la France, --carte=france:33@3 y choisit un département et zoome sur lui.
+## --carte=france montre la France, --carte=france:33@3 y choisit un département et zoome sur lui,
+## --carte=france:r75[:33] regarde une région, --carte=dep:33[:33063] descend dans un autre département.
 func _capture_carte(quoi: String) -> void:
 	await get_tree().create_timer(1.0).timeout
 	if quoi == "car" or quoi.begins_with("route:"):
@@ -1304,6 +1305,20 @@ func _capture_carte(quoi: String) -> void:
 		if quoi == "":
 			return
 		await get_tree().create_timer(1.3).timeout
+		# --carte=france:r75 regarde une région ; --carte=france:r75:33 y désigne un département.
+		if quoi.begins_with("r"):
+			Carte.vers_region(quoi.get_slice(":", 0).trim_prefix("r"))
+			quoi = quoi.get_slice(":", 1) if ":" in quoi else ""
+			await get_tree().create_timer(1.2).timeout
+			if quoi == "":
+				return
+	# --carte=dep:33[:33063] descend dans un autre département, et y désigne une commune.
+	if quoi.begins_with("dep:"):
+		Carte.vers_departement(quoi.get_slice(":", 1))
+		await get_tree().create_timer(1.0).timeout
+		quoi = quoi.get_slice(":", 2) if quoi.get_slice_count(":") > 2 else ""
+		if quoi == "":
+			return
 	var insee := quoi.get_slice("@", 0)
 	c.choix.emit(insee)
 	if "@" in quoi:

@@ -6,8 +6,10 @@ extends Control
 ## rend navigable (interactive) : molette ou pincer pour zoomer, glisser pour déplacer, survoler et
 ## toucher une commune, avec le Clain et la Vienne, Poitiers dans la brume, et les communes qui
 ## s'allument quand elles arrivent. Au niveau « france », la même carte montre les départements
-## (France, communes/france.json) : la Vienne en or, l'épingle sur la commune où l'on est, quelques
-## grandes villes pour se repérer ; dézoomer encore sur la Vienne entière y mène (recul).
+## (France, communes/france.json) : la Vienne en or, l'épingle sur la commune où l'on est, les régions
+## cernées d'un trait franc et nommées, quelques grandes villes pour se repérer ; dézoomer encore sur le
+## département entier y mène (recul). La carte montre de même, commune par commune, tout département
+## dont le jeu connaît les communes (Departements : ceux de la Nouvelle-Aquitaine et de l'Auvergne-Rhône-Alpes).
 
 ## Le joueur survole une commune (« » : plus aucune).
 signal survol(insee: String)
@@ -15,8 +17,10 @@ signal survol(insee: String)
 signal choix(insee: String)
 ## Le joueur zoome encore alors que la carte est au plus près : il veut entrer dans cette commune.
 signal plongee(insee: String)
-## Le joueur dézoome encore alors que la Vienne entière est à l'écran : il veut voir la France.
+## Le joueur dézoome encore alors que le département entier est à l'écran : il veut voir la France.
 signal recul
+## Sur la France, le joueur a dézoomé assez pour quitter la région qu'il regardait.
+signal region_quittee
 
 ## Smarves, au centre de tout.
 const ORIGINE_INSEE := "86263"
@@ -50,19 +54,29 @@ var installees: Array = []
 var a_jour := {}
 ## Les lignes du car : des tirets d'or de la commune « ici » vers chacune de ces communes (codes INSEE).
 var lignes: Array = []
+## Le trajet vers la commune choisie : des tirets blancs depuis « ici » (code INSEE, « » : aucun).
+var trajet := ""
 ## La carte navigable (l'écran Carte) ; sinon un dessin fixe (la bienvenue).
 var interactive := false
-## « vienne » : les communes du département ; « france » : les départements.
-var niveau := "vienne":
+## « departement » : les communes du département ; « france » : les départements et les régions.
+var niveau := "departement":
 	set(v):
 		if v == niveau:
 			return
 		niveau = v
-		_pour = Vector2.ZERO
-		_formes = []
-		_survolee = ""
-		_pousse = 1.0
-		queue_redraw()
+		_refaire()
+## Le département montré commune par commune (Departements.connu).
+var departement := France.VIENNE:
+	set(v):
+		if v == departement:
+			return
+		departement = v
+		if niveau == "departement":
+			_refaire()
+## Sur la France : la région regardée (« » : la France entière, où l'on désigne les régions).
+var region := ""
+## Sur la France : les départements où une ville est ouverte ou à télécharger, hors de la Vienne.
+var actifs: Array = []
 var brume := false
 var rivieres := false
 ## Où est le joueur (code INSEE, « » : nulle part) : une épingle le montre.
@@ -83,6 +97,7 @@ var _maillage_pour := ""
 var _bords := PackedVector2Array()
 var _cours := {}  # nom -> PackedVector2Array lissé
 var _survolee := ""
+var _regions := []  # [code, [PackedVector2Array…], centre, nom]
 ## Les communes qui s'allument : insee -> instant de départ (secondes).
 var _allumage := {}
 var _temps := 0.0
@@ -101,6 +116,14 @@ var _sc := 1.0
 var _dec := Vector2.ZERO
 ## Sur la France : les repères [nom, point de la carte].
 var _reperes := []
+
+
+func _refaire() -> void:
+	_pour = Vector2.ZERO
+	_formes = []
+	_survolee = ""
+	_pousse = 1.0
+	queue_redraw()
 
 
 func _ready() -> void:
@@ -215,7 +238,7 @@ func _projeter() -> void:
 	_formes = []
 	_par_insee = {}
 	_maillage_pour = ""
-	var source: Array = France.departements() if niveau == "france" else Vienne.communes()
+	var source: Array = France.departements() if niveau == "france" else Departements.communes(departement)
 	_lo = Vector2(INF, INF)
 	_hi = Vector2(-INF, -INF)
 	for c in source:
@@ -250,9 +273,21 @@ func _projeter() -> void:
 		_formes.append([id, anneaux, proj.call(c.centre), str(c.nom), boite, int(c.get("population", 0))])
 	_cours = {}
 	_reperes = []
+	_regions = []
 	if niveau == "france":
 		for v in France.villes():
 			_reperes.append([str(v[0]), _plan(Vector2(v[1], v[2]))])
+		for r in France.regions():
+			var anneaux := []
+			for anneau in r.contour:
+				var pts := PackedVector2Array()
+				for p in anneau:
+					pts.append(proj.call(p))
+				pts.append(pts[0])
+				anneaux.append(pts)
+			_regions.append([str(r.code), anneaux, proj.call(r.centre), str(r.nom)])
+		return
+	if departement != France.VIENNE:
 		return
 	for nom in RIVIERES:
 		var pts := PackedVector2Array()
@@ -280,7 +315,11 @@ static func _lisser(pts: PackedVector2Array) -> PackedVector2Array:
 
 func _couleur(insee: String) -> Color:
 	if niveau == "france":
-		return Color(OR, 0.55) if insee == France.VIENNE else FOND
+		if insee == France.VIENNE:
+			return Color(OR, 0.55)
+		if actifs.has(insee):
+			return Color(EAU, 0.45)
+		return Color(EAU, 0.13) if France.region_de(insee) == France.REGION else FOND
 	if insee == ORIGINE_INSEE:
 		return OR
 	if installees.has(insee):
@@ -294,7 +333,7 @@ func _couleur(insee: String) -> Color:
 
 ## Toutes les communes en un seul maillage, refait seulement quand une couleur change.
 func _remailler() -> void:
-	var cle := "%s|%s|%s|%s|%s" % [niveau, publiees, installees, _allumage.keys(), brume]
+	var cle := "%s|%s|%s|%s|%s|%s|%s" % [niveau, departement, publiees, installees, _allumage.keys(), brume, actifs]
 	if cle == _maillage_pour and _maillage != null:
 		return
 	_maillage_pour = cle
@@ -340,14 +379,23 @@ func _draw() -> void:
 	if rivieres:
 		for nom in _cours:
 			draw_polyline(_cours[nom], RIVIERE, 2.2 * fin, true)
-	if ici != "" and _par_insee.has(ici):
+	if ici != "" and _par_insee.has(ici) and niveau == "departement":
 		var depart: Vector2 = _formes[_par_insee[ici]][2]
 		for i in lignes:
 			if _par_insee.has(i) and i != ici:
 				draw_dashed_line(depart, _formes[_par_insee[i]][2], Color(OR, 0.75), 2.0 * fin, 7.0 * fin, true, true)
+		if trajet != "" and trajet != ici and _par_insee.has(trajet) and not lignes.has(trajet):
+			draw_dashed_line(depart, _formes[_par_insee[trajet]][2], Color(1, 1, 1, 0.8), 2.0 * fin, 5.0 * fin, true, true)
+	elif niveau == "departement" and trajet != "" and _par_insee.has(trajet) and _par_insee.has(_gare()) and trajet != _gare():
+		# Venu d'un autre département, on arrive à la gare du chef-lieu : le trajet part d'elle.
+		draw_dashed_line(_formes[_par_insee[_gare()]][2], _formes[_par_insee[trajet]][2], Color(1, 1, 1, 0.8), 2.0 * fin, 5.0 * fin, true, true)
+	if niveau == "france":
+		for r in _regions:
+			for pts in r[1]:
+				draw_polyline(pts, Color(1, 1, 1, 0.42), 1.6 * fin, true)
 	for i in _allumage:
 		var k := clampf((_temps - _allumage[i]) / 1.2, 0.0, 1.0)
-		if k <= 0.0:
+		if k <= 0.0 or not _par_insee.has(i):
 			continue
 		var f: Array = _formes[_par_insee[i]]
 		var col := _couleur(i).lerp(Color.WHITE, (1.0 - k) * 0.6)
@@ -356,17 +404,22 @@ func _draw() -> void:
 			if pts.size() >= 3 and not Geometry2D.triangulate_polygon(pts).is_empty():
 				draw_colored_polygon(pts, col)
 		draw_arc(f[2], (8.0 + 40.0 * k) * fin, 0.0, TAU, 40, Color(_couleur(i), 0.8 * (1.0 - k)), 2.0 * fin, true)
-	if brume and niveau == "vienne":
+	if brume and niveau == "departement" and departement == France.VIENNE:
 		_brume()
 	var origine := France.VIENNE if niveau == "france" else ORIGINE_INSEE
 	for insee in ([origine, choisie, _survolee] if interactive else []):
 		if insee == "" or not _par_insee.has(insee):
 			continue
 		var c := OR if insee == origine and insee != _survolee and insee != choisie else Color.WHITE
-		for pts in _formes[_par_insee[insee]][1]:
+		# Sur la France entière, on désigne une région : c'est elle qu'on cerne.
+		var anneaux: Array = _formes[_par_insee[insee]][1]
+		if niveau == "france" and region == "" and insee != origine:
+			var r := _region_formes(France.region_de(insee))
+			anneaux = r[1] if not r.is_empty() else anneaux
+		for pts in anneaux:
 			var ferme: PackedVector2Array = pts.duplicate()
 			ferme.append(pts[0])
-			draw_polyline(ferme, Color(c, 0.9), 1.8 * fin, true)
+			draw_polyline(ferme, Color(c, 0.9), (2.4 if anneaux != _formes[_par_insee[insee]][1] else 1.8) * fin, true)
 	draw_set_transform_matrix(Transform2D.IDENTITY)
 	if niveau == "france":
 		_france()
@@ -376,18 +429,39 @@ func _draw() -> void:
 		_epingle(vers_ecran(_formes[_par_insee[ici]][2]))
 
 
-## Sur la France : les repères, le nom des départements en zoomant, la Vienne, et l'épingle sur la
+## Une région sur la France : son centre (coordonnées à zoom 1) et le zoom qui la montre entière.
+func cadre_region(code: String) -> Array:
+	_projeter()
+	var r := _region_formes(code)
+	if r.is_empty():
+		return [size / 2.0, 1.0]
+	var boite := Rect2((r[1][0] as PackedVector2Array)[0], Vector2.ZERO)
+	for pts in r[1]:
+		for p in pts:
+			boite = boite.expand(p)
+	var z := minf((size.x - marge * 2.0) / maxf(boite.size.x, 1.0), (size.y - marge * 2.0) / maxf(boite.size.y, 1.0)) * 0.85
+	return [boite.get_center(), clampf(z, 1.0, zoom_max())]
+
+
+func _region_formes(code: String) -> Array:
+	for r in _regions:
+		if r[0] == code:
+			return r
+	return []
+
+
+## Sur la France : les repères, le nom des régions de loin et des départements en zoomant, la Vienne, et l'épingle sur la
 ## commune où l'on est, cerclée d'or qui bat doucement pour qu'on la trouve d'un coup d'œil.
 func _france() -> void:
 	var police := Polices.gras()
 	var fine := Polices.texte()
 	var poses: Array[Rect2] = []
-	var lieu := Vienne.centre(ici if ici != "" else ORIGINE_INSEE)
+	var lieu := Departements.centre(ici if ici != "" else ORIGINE_INSEE)
 	var at := vers_ecran(_plan(lieu))
 	var k := fmod(_temps * 0.6, 1.0)
 	draw_arc(at, 6.0 + 26.0 * k, 0.0, TAU, 40, Color(OR, 0.7 * (1.0 - k)), 2.0, true)
 	poses.append(Rect2(at - Vector2(8, 34), Vector2(16, 34)))
-	var nom := str(Vienne.commune(ici).get("nom", "")) if ici != "" else "Smarves"
+	var nom := str(Departements.commune(ici).get("nom", "")) if ici != "" else "Smarves"
 	var t := 17 if zoom < 3.0 else 19
 	var w := police.get_string_size(nom, HORIZONTAL_ALIGNMENT_LEFT, -1, t).x
 	var o := at + Vector2(12, -8)
@@ -404,6 +478,20 @@ func _france() -> void:
 			poses.append(r)
 			draw_string_outline(fine, v - Vector2(wv / 2.0, 0), "la Vienne", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, 4, Color(0, 0, 0, 0.7))
 			draw_string(fine, v - Vector2(wv / 2.0, 0), "la Vienne", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(OR, 0.9))
+	# De loin, le nom des régions, en capitales espacées, avant les villes repères.
+	if zoom < 1.8:
+		for r in _regions:
+			var nr: String = str(r[3]).to_upper()
+			var tr := 12
+			var wr := fine.get_string_size(nr, HORIZONTAL_ALIGNMENT_LEFT, -1, tr).x
+			var c := vers_ecran(r[2]) + Vector2(0, 16)
+			var rr := Rect2(c - Vector2(wr / 2.0, 12), Vector2(wr, 15))
+			if not poses.all(func(q): return not q.intersects(rr)):
+				continue
+			poses.append(rr)
+			var encre := Color(EAU, 0.95) if r[0] == France.REGION else Color(1, 1, 1, 0.55)
+			draw_string_outline(fine, c - Vector2(wr / 2.0, 0), nr, HORIZONTAL_ALIGNMENT_LEFT, -1, tr, 4, Color(0, 0, 0, 0.7))
+			draw_string(fine, c - Vector2(wr / 2.0, 0), nr, HORIZONTAL_ALIGNMENT_LEFT, -1, tr, encre)
 	for rep in _reperes:
 		var p := vers_ecran(rep[1])
 		var tt := 13 if zoom < 3.0 else 15
@@ -430,6 +518,11 @@ func _france() -> void:
 			poses.append(r)
 			draw_string(fine, c + Vector2(-wn / 2.0, 0), f[3], HORIZONTAL_ALIGNMENT_LEFT, -1, tn, Color(1, 1, 1, 0.42 if f[0] != _survolee else 0.9))
 	_epingle(at)
+
+
+## La gare du département montré : son chef-lieu (Departements.chef_lieu).
+func _gare() -> String:
+	return Departements.chef_lieu(departement)
 
 
 ## Poitiers dans la brume : des nappes pâles qui dérivent lentement et débordent un peu.
@@ -470,6 +563,18 @@ func _noms() -> void:
 	if ici != "" and _par_insee.has(ici):
 		poses.append(Rect2(vers_ecran(_formes[_par_insee[ici]][2]) - Vector2(8, 34), Vector2(16, 34)))
 	var t15 := 15 if not interactive else 17
+	# La gare du département, son chef-lieu : un carré, et son nom toujours (hors de la Vienne, où
+	# Poitiers reste dans la brume).
+	var g := _gare()
+	if niveau == "departement" and departement != France.VIENNE and _par_insee.has(g) and not _marquee(g):
+		var f: Array = _formes[_par_insee[g]]
+		var at := vers_ecran(f[2])
+		var w := police.get_string_size(f[3], HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x
+		draw_rect(Rect2(at - Vector2(5, 5), Vector2(10, 10)), Color(0.08, 0.1, 0.14))
+		draw_rect(Rect2(at - Vector2(5, 5), Vector2(10, 10)), OR, false, 2.0)
+		draw_string_outline(police, at + Vector2(10, 5), f[3], HORIZONTAL_ALIGNMENT_LEFT, -1, 15, 5, Color(0, 0, 0, 0.8))
+		draw_string(police, at + Vector2(10, 5), f[3], HORIZONTAL_ALIGNMENT_LEFT, -1, 15, OR)
+		poses.append(Rect2(at - Vector2(6, 11), Vector2(w + 18, 18)))
 	for f in vus:
 		var at := vers_ecran(f[2])
 		var t: String = f[3]
@@ -501,6 +606,20 @@ func _noms() -> void:
 			draw_string_outline(fine, at + Vector2(8, 0), nom, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, 4, Color(0, 0, 0, 0.6))
 			draw_string(fine, at + Vector2(8, 0), nom, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(RIVIERE, 0.95))
 	if zoom < 2.2:
+		# Hors de la Vienne, où rien n'est encore allumé, les plus grandes villes servent de repères.
+		if departement != France.VIENNE:
+			var grandes := _formes.filter(func(f): return not _marquee(f[0]))
+			grandes.sort_custom(func(a, b): return a[5] > b[5])
+			for f in grandes.slice(0, 8):
+				var at := vers_ecran(f[2])
+				var w := fine.get_string_size(f[3], HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
+				var r := Rect2(at + Vector2(6, -12), Vector2(w, 16))
+				if not poses.all(func(p): return not p.intersects(r)):
+					continue
+				poses.append(r)
+				draw_circle(at, 2.5, Color(1, 1, 1, 0.7), true, -1.0, true)
+				draw_string_outline(fine, at + Vector2(6, 0), f[3], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, 4, Color(0, 0, 0, 0.7))
+				draw_string(fine, at + Vector2(6, 0), f[3], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(1, 1, 1, 0.7))
 		return
 	var vue := Rect2(Vector2.ZERO, size)
 	var t12 := 13 if zoom < 4.0 else 14
@@ -618,8 +737,8 @@ func _zoomer(facteur: float, autour: Vector2) -> void:
 	if facteur > 1.0 and zoom >= zoom_max() - 0.01:
 		plongee.emit(commune_sous(autour))
 		return
-	# Contre la vue d'ensemble de la Vienne, un dézoom de plus (deux crans de molette) montre la France.
-	if facteur < 1.0 and zoom <= 1.001 and niveau == "vienne":
+	# Contre la vue d'ensemble du département, un dézoom de plus (deux crans de molette) montre la France.
+	if facteur < 1.0 and zoom <= 1.001 and niveau == "departement":
 		_pousse *= facteur
 		if _pousse < 0.7:
 			_pousse = 1.0
@@ -629,6 +748,9 @@ func _zoomer(facteur: float, autour: Vector2) -> void:
 	var avant := vers_carte(autour)
 	zoom = clampf(zoom * facteur, 1.0, zoom_max())
 	foyer = _borner(avant - (autour - size / 2.0) / zoom, zoom)
+	if niveau == "france" and region != "" and facteur < 1.0 and zoom < 1.5:
+		region = ""
+		region_quittee.emit()
 	queue_redraw()
 
 

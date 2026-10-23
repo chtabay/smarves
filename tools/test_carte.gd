@@ -94,7 +94,7 @@ func _france(carte: CanvasLayer) -> void:
 	await _attendre(1.3)
 	var c: CarteVienne = carte.get("_carte")
 	c._zoomer(0.8, c.size / 2.0)
-	check(c.niveau == "vienne", "un cran de molette contre la Vienne entière ne suffit pas")
+	check(c.niveau == "departement", "un cran de molette contre la Vienne entière ne suffit pas")
 	c._zoomer(0.8, c.size / 2.0)
 	check(c.niveau == "france", "deux crans, et c'est la France")
 	check((carte.get("_grand_titre") as Label).text == "Carte de France", "le titre le dit")
@@ -103,22 +103,60 @@ func _france(carte: CanvasLayer) -> void:
 	var vienne := c.centre_de("86")
 	check(c.commune_sous(c.vers_ecran(vienne)) == "86", "un clic au milieu de la Vienne désigne la Vienne")
 	check(c.commune_sous(c.vers_ecran(c.vers_plan(Vector2(2.3522, 48.8566)))) == "75", "Paris est à Paris")
+	check(France.regions().size() == 13 and France.region_de("86") == "75" and France.region("75").nom == "Nouvelle-Aquitaine", "les 13 régions, la Vienne en Nouvelle-Aquitaine")
+	check(_ariane(carte) == ["France"], "le fil d'Ariane dit « France » : %s" % str(_ariane(carte)))
 	c.choix.emit("33")
 	await _attendre(0.1)
-	var textes := []
-	for n in (carte.get("_fiche_box") as Node).find_children("*", "", true, false):
-		if n is Label or n is Button:
-			textes.append(n.text)
-	check("Gironde" in textes and textes.any(func(t): return "km de Smarves" in t), "la fiche de la Gironde dit sa distance : %s" % str(textes))
+	var textes := _textes(carte.get("_fiche_box"))
+	check("Nouvelle-Aquitaine" in textes and "Voir la région  →" in textes, "sur la France entière, la Gironde désigne sa région : %s" % str(textes))
+	carte.vers_region("75")
+	await _attendre(1.0)
+	check(c.region == "75" and c.zoom > 1.5 and _ariane(carte) == ["France", "Nouvelle-Aquitaine"], "on regarde la Nouvelle-Aquitaine : %s" % str(_ariane(carte)))
+	c.choix.emit("33")
+	await _attendre(0.1)
+	textes = _textes(carte.get("_fiche_box"))
+	check("Gironde" in textes and textes.any(func(t): return "km de Smarves" in t) and "Voir ses communes  →" in textes, "la fiche de la Gironde dit sa distance et mène à ses communes : %s" % str(textes))
+	c.choix.emit("75")
+	carte.vers_departement("33")
+	await _attendre(1.0)
+	check(c.niveau == "departement" and c.departement == "33" and Departements.communes("33").size() > 500, "on descend en Gironde, commune par commune")
+	check(_ariane(carte) == ["France", "Nouvelle-Aquitaine", "Gironde"], "le fil d'Ariane le dit : %s" % str(_ariane(carte)))
+	check(c.commune_sous(c.vers_ecran(c.centre_de("33063"))) == "33063", "Bordeaux est à Bordeaux")
+	c.choix.emit("33063")
+	await _attendre(0.1)
+	textes = _textes(carte.get("_fiche_box"))
+	check(textes.any(func(t): return "car régional jusqu'à Bordeaux" in t), "Bordeaux est au bout du car régional : %s" % str(textes))
+	check(carte.trajet("86133")[1].ends_with("en car départemental") and carte.trajet("86133")[0] < 15, "Ligugé, à quelques kilomètres en car départemental : %s" % str(carte.trajet("86133")))
+	var modes := func(t: Array) -> Array: return t[2].map(func(e): return [e[0], e[2]])
+	check(modes.call(carte.trajet("19272")) == [["car départemental", "86194"], ["car régional", "19272"]],
+		"Tulle : le car jusqu'à Poitiers, puis le car régional jusqu'à Tulle, son chef-lieu : %s" % str(carte.trajet("19272")))
+	check(modes.call(carte.trajet("33243")) == [["car départemental", "86194"], ["car régional", "33063"], ["car départemental", "33243"]],
+		"Libourne : par les chefs-lieux, Poitiers puis Bordeaux : %s" % str(carte.trajet("33243")))
+	check(modes.call(carte.trajet("86263", "33243")) == [["car départemental", "33063"], ["car régional", "86194"], ["car départemental", "86263"]],
+		"et le retour fait le même chemin : %s" % str(carte.trajet("86263", "33243")))
+	check(modes.call(carte.trajet("69266")) == [["car départemental", "86194"], ["avion", "69123"], ["car départemental", "69266"]]
+		and "avion de Poitiers-Biard à Lyon" in carte.trajet("69266")[1], "Villeurbanne : l'avion de Poitiers-Biard à Lyon, puis le car : %s" % str(carte.trajet("69266")))
+	check(modes.call(carte.trajet("15014", "69266")) == [["car départemental", "69123"], ["car régional", "15014"]],
+		"de Villeurbanne à Aurillac, le car régional d'Auvergne-Rhône-Alpes part de Lyon : %s" % str(carte.trajet("15014", "69266")))
+	var gares := Departements.connus().filter(func(d): return Departements.commune(Departements.chef_lieu(d)).is_empty())
+	check(gares.is_empty(), "chaque département connu a sa gare, son chef-lieu, dans ses communes : %s" % str(gares))
+	check(France.region("84").departements.all(func(d): return Departements.connu(str(d))), "l'Auvergne-Rhône-Alpes est sur la carte, commune par commune")
+	carte.vers_france()
+	await _attendre(1.3)
+	carte.vers_departement("86")
+	await _attendre(1.0)
+	check(c.niveau == "departement" and c.departement == "86", "le fil d'Ariane remonte, la Vienne se retrouve")
+	carte.vers_france()
+	await _attendre(1.3)
 	c.cadrer("86", CarteVienne.ZOOM_MAX_FRANCE)
 	c._zoomer(1.25, c.size / 2.0)
 	await _attendre(0.9)
-	check(c.niveau == "vienne" and c.zoom == 1.0, "zoomer encore sur la Vienne y redescend")
+	check(c.niveau == "departement" and c.zoom == 1.0, "zoomer encore sur la Vienne y redescend")
 	carte.fermer()
 	await _attendre(0.8)
 	carte.ouvrir()
 	await _attendre(0.3)
-	check(c.niveau == "vienne", "la carte se rouvre sur la Vienne")
+	check(c.niveau == "departement", "la carte se rouvre sur la Vienne")
 	carte.vers_france()
 	await _attendre(0.2)
 	carte.fermer()
@@ -262,6 +300,19 @@ func _paquet_iteuil(chemin: String, version: String, id := "iteuil", nom := "Ite
 	pk.add_file("res://communes/%s/commune.json" % id, TMP + id + ".json")
 	pk.add_file("res://communes/%s/commune.tscn" % id, LIGUGE + "commune.tscn")
 	pk.flush()
+
+
+## Les crans du fil d'Ariane de la carte.
+func _ariane(carte: CanvasLayer) -> Array:
+	return (carte.get("_ariane") as Node).get_children().filter(func(n): return n is Button and not n.is_queued_for_deletion()).map(func(b): return b.text)
+
+
+func _textes(boite: Node) -> Array:
+	var out := []
+	for n in boite.find_children("*", "", true, false):
+		if (n is Label or n is Button) and not n.is_queued_for_deletion():
+			out.append(n.text)
+	return out
 
 
 func _attendre(s: float) -> void:
