@@ -4,7 +4,9 @@ extends SceneTree
 ## Les vues de la base et les positions du canal arrivent à la main : les silhouettes naissent avec la
 ## tenue et le nom, glissent d'une position à l'autre avec du retard, se cachent à une table, partent
 ## avec la liste, s'éclipsent sans nouvelles ; ce que le joueur envoie suit sa cadence ; sans compte,
-## rien ne s'ouvre.
+## rien ne s'ouvre. Socle 1.23 : la portée, les messages d'une commune, son entrée seule dans le lieu, ses
+## zones, et la vérification du champ « presences » du manifeste. Le même jeu à deux clients, sur le vrai
+## canal : tools/test_presences_deux.gd.
 
 var fails := 0
 
@@ -101,7 +103,9 @@ func _init() -> void:
 	P.appliquer_vue({"canal": "smarves:smarves:place:1:x", "moi": "moi000", "cadence": 1, "presents": [
 		{"membre": "aaa111", "nom": "Paulette", "tenue": "smoking"}]})
 	await process_frame
-	check(not P.presents.has("bbb222") and not is_instance_valid(nb), "Bastien parti, sa silhouette aussi")
+	check(P.presents.has("bbb222") and is_instance_valid(nb) and nb.visible, "Bastien parti : encore visible à sa dernière place")
+	await attendre(3.2)
+	check(not P.presents.has("bbb222") and not is_instance_valid(nb), "puis il s'éclipse")
 	check(P.cadence == 1, "la cadence suit la base (lieu plein)")
 
 	# Sans nouvelles depuis une minute, la silhouette s'éclipse.
@@ -114,5 +118,139 @@ func _init() -> void:
 	await process_frame
 	await process_frame
 	check(P.etat == "" and P.presents.is_empty(), "quitter la scène quitte le lieu")
+
+	await communes(P)
 	print("%s : %d échec(s)" % ["test_presences", fails])
 	quit(1 if fails else 0)
+
+
+## Socle 1.23 : ce qu'une commune en paquet reçoit du socle.
+func communes(P: Node) -> void:
+	# Comme la scène du kit : elle expose son habitant par `player`.
+	var gd := GDScript.new()
+	gd.source_code = "extends Node3D\nvar player: Node3D\n"
+	gd.reload()
+	var scene := Node3D.new()
+	scene.set_script(gd)
+	scene.name = "Chauvigny"
+	root.add_child(scene)
+	var joueur := Node3D.new()
+	joueur.name = "Habitant"
+	scene.add_child(joueur)
+	scene.player = joueur
+	var aire := Area3D.new()
+	aire.name = "Galerie"
+	scene.add_child(aire)
+	aire.position = Vector3(200, 0, 0)
+	var forme := CollisionShape3D.new()
+	var boite := BoxShape3D.new()
+	boite.size = Vector3(20, 10, 20)
+	forme.shape = boite
+	aire.add_child(forme)
+	check(P.dans_aire(aire, Vector3(205, 1, -5)) and not P.dans_aire(aire, Vector3(215, 1, 0)), "une position dans une aire, une autre dehors")
+
+	# La commune n'écrit rien : le socle trouve l'habitant, le lieu de la scène, la portée par défaut.
+	var manifeste := {"presences": {"zones": [{"id": "galerie", "aire": "Galerie"}]}}
+	check(P.entrer_commune("chauvigny", scene, manifeste), "une scène de commune entre seule dans son lieu")
+	check(P.commune == "chauvigny" and P.lieu == P.lieu_de_scene(scene) and P.portee == P.PORTEE, "son lieu et la portée par défaut")
+	var sans := Node3D.new()
+	root.add_child(sans)
+	check(not P.entrer_commune("chauvigny", sans, {}), "sans habitant, rien ne s'ouvre")
+	sans.queue_free()
+
+	P.appliquer_vue({"canal": "essai", "moi": "moi000", "cadence": 3, "presents": [
+		{"membre": "aaa111", "nom": "Paulette", "tenue": ""}, {"membre": "ccc333", "nom": "Lucien", "tenue": ""}]})
+	var portees := []
+	P.a_portee.connect(func(m, nom, oui): portees.append([nom, oui]))
+	P.recevoir({"m": "aaa111", "x": 10.0, "y": 0.0, "z": 0.0, "a": 0.0})
+	P.recevoir({"m": "ccc333", "x": 100.0, "y": 0.0, "z": 0.0, "a": 0.0})
+	await attendre(0.1)
+	check(P.presents.aaa111.a_portee and is_instance_valid(P.presents.aaa111.noeud) and P.presents.aaa111.noeud.visible, "à 10 unités : visible")
+	check(not P.presents.ccc333.a_portee and not is_instance_valid(P.presents.ccc333.noeud), "à 100 unités : hors de portée, pas de silhouette")
+	check(["Paulette", true] in portees and not ["Lucien", true] in portees, "le signal a_portee pour celle qui arrive à portée")
+	var autour: Array = P.autour()
+	check(autour.size() == 1 and autour[0].nom == "Paulette" and is_equal_approx(autour[0].distance, 10.0), "autour() : les joueurs à portée et leur distance")
+	# Lucien approche jusqu'à 50 : visible ; il recule à 63 (dans la marge) : toujours ; à 70 : caché.
+	P.recevoir({"m": "ccc333", "x": 50.0, "y": 0.0, "z": 0.0, "a": 0.0})
+	await attendre(0.45)
+	check(P.presents.ccc333.a_portee and P.presents.ccc333.noeud.visible, "il entre à portée en approchant")
+	P.recevoir({"m": "ccc333", "x": 63.0, "y": 0.0, "z": 0.0, "a": 0.0})
+	await attendre(0.45)
+	check(P.presents.ccc333.a_portee, "un peu au-delà, la marge le garde (pas de clignotement)")
+	P.recevoir({"m": "ccc333", "x": 70.0, "y": 0.0, "z": 0.0, "a": 0.0})
+	await attendre(0.45)
+	check(not P.presents.ccc333.a_portee and not P.presents.ccc333.noeud.visible, "plus loin, il se cache")
+	check(["Lucien", false] in portees, "et le signal le dit")
+
+	# Les messages d'une commune.
+	var recus := []
+	P.message.connect(func(m, nom, e, d): recus.append([nom, e, d]))
+	P.essai_messages.clear()
+	check(P.envoyer("pret", {"salle": "lab1"}) and P.essai_messages[-1] == ["pret", {"salle": "lab1"}], "envoyer un message de la commune")
+	check(not P.envoyer("Prêt !", {}) and not P.envoyer("pos2" + "x".repeat(30), {}), "un nom de message refusé")
+	check(not P.envoyer("gros", {"t": "x".repeat(1100)}), "un message de plus d'1 Ko refusé")
+	var partis := 0
+	for i in 30:
+		if P.envoyer("geste", {"i": i}):
+			partis += 1
+	check(partis <= 10, "au plus dix messages d'un coup (%d partis)" % partis)
+	P.recevoir_message("geste", {"m": "aaa111", "d": {"action": "nord"}})
+	P.recevoir_message("geste", {"m": "inconnu", "d": {"action": "sud"}})
+	P.recevoir_message("geste", {"m": "aaa111", "d": "pas un objet"})
+	check(recus.size() == 1 and recus[0][0] == "Paulette" and recus[0][2].action == "nord", "recevoir le message d'un présent, pas d'un inconnu")
+
+	# Loin de tous, une position par seconde ; près de quelqu'un, la pleine cadence.
+	check(P._quelqu_un_pres(), "quelqu'un est près")
+	P.recevoir({"m": "aaa111", "x": 400.0, "y": 0.0, "z": 0.0, "a": 0.0})
+	P.recevoir({"m": "ccc333", "x": -400.0, "y": 0.0, "z": 0.0, "a": 0.0})
+	check(not P._quelqu_un_pres(), "loin de tous")
+	P.essai_envois.clear()
+	for i in 20:
+		joueur.position.z += 0.1
+		await attendre(0.05)
+	check(P.essai_envois.size() <= 2, "loin de tous, au plus une position par seconde (%d en 1 s)" % P.essai_envois.size())
+
+	# Les zones : deux secondes dans la galerie, et l'on change de canal.
+	var zones_vues := []
+	P.zone_changee.connect(func(z): zones_vues.append(z))
+	joueur.position = Vector3(201, 0, 0)
+	await attendre(1.0)
+	check(P.lieu != "galerie", "pas tout de suite (le temps de grâce)")
+	await attendre(1.6)
+	check(P.lieu == "galerie" and zones_vues == ["galerie"] and P.presents.is_empty(), "dans la galerie, son propre canal")
+	joueur.position = Vector3(0, 0, 0)
+	await attendre(0.6)
+	joueur.position = Vector3(201, 0, 0)
+	await attendre(2.6)
+	check(P.lieu == "galerie" and zones_vues.size() == 1, "un aller-retour sur la limite ne change rien")
+	joueur.position = Vector3(0, 0, 0)
+	await attendre(2.6)
+	check(P.lieu == P.lieu_de_scene(scene) and zones_vues.size() == 2, "hors de la galerie, le lieu de la scène")
+	# Qui entre dans la scène en se tenant dans la galerie y entre tout de suite.
+	var a2 := aire.duplicate()
+	scene.queue_free()
+	await process_frame
+	await process_frame
+	var s2 := Node3D.new()
+	root.add_child(s2)
+	var j2 := Node3D.new()
+	j2.add_to_group("player")
+	s2.add_child(j2)
+	s2.add_child(a2)
+	j2.position = Vector3(200, 0, 0)
+	check(P.entrer_commune("chauvigny", s2, {"presences": {"portee": 25, "zones": [{"id": "galerie", "aire": ["Galerie"]}]}}),
+		"l'habitant trouvé par le groupe « player »")
+	check(P.lieu == "galerie" and P.portee == 25.0, "on entre dans la zone où l'on se tient, à la portée du manifeste")
+	s2.queue_free()
+	await process_frame
+	await process_frame
+
+	# Le lieu d'une scène, et le champ « presences » du manifeste.
+	var salle := Node3D.new()
+	salle.set_script(GDScript.new())
+	check(P.lieu_de_scene(salle) != "", "un lieu même sans fichier de scène")
+	salle.free()
+	check(Commune.verifier_presences(null).is_empty() and Commune.verifier_presences({"portee": 40, "echelle": 1.5,
+		"zones": [{"id": "galerie", "aire": "Galerie"}, {"id": "hall", "aire": ["Escalier", "Mezzanine"]}]}).is_empty(), "un champ presences juste")
+	var mauvais := Commune.verifier_presences({"portee": -1, "zones": [{"id": "Galerie", "aire": ""}, {"id": "a", "aire": "A"}, {"id": "a", "aire": "B"}], "x": 1})
+	check(mauvais.size() == 5, "un champ presences faux : portée, id, aire, double, champ inconnu (%s)" % ", ".join(mauvais))

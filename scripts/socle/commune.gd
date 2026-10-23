@@ -10,7 +10,7 @@ const FORMAT := 1
 ## La version du socle, comparée au champ « socle_min » des manifestes. La monter ici, c'est aussi monter
 ## SOCLE dans le portail (Pyramides2, src/lib/communes/paquet.ts) et y recopier les règles nouvelles du
 ## manifeste (structures.ts) : sinon le portail refuse les paquets qui demandent ce socle.
-const SOCLE := "1.22"
+const SOCLE := "1.23"
 ## Les compteurs du carnet (champ « carnet ») : leurs genres et leurs bornes.
 const CARNET_GENRES := ["nombre", "credits", "texte", "case"]
 const CARNET_COMPTEURS_MAX := 24
@@ -200,6 +200,57 @@ static func verifier_facultatifs(m: Dictionary) -> PackedStringArray:
 			out.append("sources doit être un texte ou une liste de textes")
 	out.append_array(verifier_carnet(m.get("carnet")))
 	out.append_array(Quartiers.verifier(m.get("quartiers")))
+	out.append_array(verifier_presences(m.get("presences")))
+	return out
+
+
+## Le champ « presences » (socle 1.23) : la portée, l'échelle des silhouettes et les zones des autres
+## joueurs (docs/COMMUNE.md, « Les autres joueurs »). Les phrases d'erreur sont reprises telles quelles par
+## le portail des développeurs.
+static func verifier_presences(p) -> PackedStringArray:
+	var out := PackedStringArray()
+	if p == null:
+		return out
+	if typeof(p) != TYPE_DICTIONARY:
+		out.append("presences doit être un objet (portee, echelle, zones)")
+		return out
+	for k in p:
+		if not k in ["portee", "echelle", "zones"]:
+			out.append("presences : champ inconnu « %s » (portee, echelle, zones)" % k)
+	if p.has("portee") and (not typeof(p.portee) in [TYPE_INT, TYPE_FLOAT] or float(p.portee) < 0.0 or float(p.portee) > 2000.0):
+		out.append("presences.portee doit être un nombre de 0 (tout le lieu) à 2000")
+	if p.has("echelle") and (not typeof(p.echelle) in [TYPE_INT, TYPE_FLOAT] or float(p.echelle) <= 0.0 or float(p.echelle) > 20.0):
+		out.append("presences.echelle doit être un nombre de 0 à 20 (1 : les figurants du socle)")
+	if not p.has("zones"):
+		return out
+	if typeof(p.zones) != TYPE_ARRAY:
+		out.append("presences.zones doit être une liste de zones ({id, aire})")
+		return out
+	if p.zones.size() > 32:
+		out.append("presences.zones : 32 zones au plus")
+	var re := RegEx.create_from_string("^[a-z0-9_]{1,32}$")
+	var vus := {}
+	for z in p.zones:
+		if typeof(z) != TYPE_DICTIONARY or not z.has("id") or not z.has("aire"):
+			out.append("presences.zones : zone incomplète (id, aire) : %s" % str(z))
+			continue
+		var id := str(z.id)
+		if typeof(z.id) != TYPE_STRING or re.search(id) == null:
+			out.append("presences.zones : id invalide : « %s » (minuscules, chiffres, _ ; 32 au plus)" % id)
+		elif vus.has(id):
+			out.append("presences.zones : zone en double : %s" % id)
+		vus[id] = true
+		var aire = z.aire
+		var ok := typeof(aire) == TYPE_STRING and str(aire) != ""
+		if typeof(aire) == TYPE_ARRAY and not aire.is_empty():
+			ok = true
+			for x in aire:
+				ok = ok and typeof(x) == TYPE_STRING and str(x) != ""
+		if not ok:
+			out.append("presences.zones : l'aire de %s doit être un nom de nœud ou une liste de noms" % id)
+		for k in z:
+			if not k in ["id", "aire"]:
+				out.append("presences.zones : champ inconnu « %s » dans %s" % [k, id])
 	return out
 
 
