@@ -172,8 +172,29 @@ Chaque table peignait son tapis dans sa propre vue hors écran (`SubViewport`, 6
 ## Ce qui reste
 
 - Le casino se bâtit encore en 1,7 s : ses salles (0,35 s), ses tables (la roulette 85 ms, le Grand Hasard 170), ses étiquettes et ses lustres. Les bâtir pendant un écran de chargement animé, comme les communes greffées (`Chargement`), serait la prochaine étape.
-- La foule du Dôme de Minuit pendant un match : des capsules moins fines ou des silhouettes à deux niveaux. Les 110 lampes de la place (les réverbères et les fenêtres), les 2 600 surfaces du casino.
-- Les arbres proches des villages (L'Isle-Jourdain 1,3 M triangles dessinés, Cloué 0,9 M, Civaux 0,8 M, imposteurs compris) : des feuilles séparées que les niveaux de détail ne savent pas simplifier sans perte. Moins de feuilles plus grandes, ou des imposteurs plus près, se verraient : ce sont des choix d'auteur.
-- Les paquets des communes (Civaux, Minuit…) ont leurs propres textures et figurines : le même rangement (`Memo`) leur servirait ; Minuit charge 256 Mo de textures (des 2048 × 2048 sans compression), bien au-delà du seuil. Chaque paquet est repris une fois par ses auteurs, avec le budget que l'emballeur leur dit.
+- La foule du Dôme de Minuit pendant un match (Guillaume la garde telle quelle). Les 110 lampes de la place (les réverbères et les fenêtres), les 2 600 surfaces du casino.
+- Les arbres proches des villages (Cloué 0,9 M triangles dessinés, Civaux 0,8 M, imposteurs compris ; L'Isle-Jourdain, voir plus bas) : des feuilles séparées que les niveaux de détail ne savent pas simplifier sans perte. Moins de feuilles plus grandes, ou des imposteurs plus près, se verraient : ce sont des choix d'auteur.
+- Les paquets des communes (Civaux, Cloué…) ont leurs propres textures et figurines : le même rangement (`Memo`) leur servirait. Chaque paquet est repris une fois par ses auteurs, avec le budget que l'emballeur leur dit (Minuit et L'Isle-Jourdain : fait, plus bas).
 - Si le téléphone peine encore, la lumière précalculée (`LightmapGI`) pour les lieux fixes.
 - La première visite d'un lieu compile ses shaders sur la carte graphique ; Godot les garde ensuite en cache, les visites suivantes sont plus rapides.
+
+## Minuit et L'Isle-Jourdain repris avec le SDK à jour (23 octobre 2026)
+
+Les deux paquets refaits par l'emballeur du socle (avec rendu, `xvfb-run`, `--rendering-driver opengl3`) :
+
+| Lieu | Triangles dessinés | Surfaces | Lampes (à ombres) | Textures | Dépasse |
+|---|---|---|---|---|---|
+| Minuit 0.10.5, casino | 567 271 | 2 132 | 16 (0) | 94,9 Mo | non |
+| Minuit 0.10.5, stade de la Fortune (décor seul) | 303 352 | 330 | 30 (0) | 1,3 Mo | non |
+| Minuit 0.10.5, Dôme hors match | 242 432 | 420 | 37 (1) | 6,0 Mo | non |
+| L'Isle-Jourdain 0.2.2 | **1 288 998** | 668 | 16 (2) | 13,4 Mo | triangles |
+| L'Isle-Jourdain 0.2.3 | 596 868 | 901 | 16 (2) | 13,8 Mo | non |
+
+Les textures de Minuit étaient déjà sous le seuil depuis la 0.10.2 (décor compressé pour la carte graphique). La Fortune passe par ses ancres sans changer de budget.
+
+**L'Isle-Jourdain 0.2.3** (le paquet de l'Atelier de la Vienne, repris ici : `paysage.gd` et `atelier.gd`). Le regard le plus chargé est dans le bourg, entouré de jardins et de bois : les arbres comptaient 9 000 à 13 000 triangles chacun jusqu'à 120 m, où le socle les remplace par leurs images.
+- Chaque modèle de plante (les six arbres, le fruitier, les six bouquets des massifs, des haies et du bocage, l'herbe et les fleurs des prairies) porte deux niveaux de détail construits avec lui, que le moteur prend de lui-même : vers 18 m, chaque feuille devient un losange de deux triangles (six pour l'ovale), de même surface, les tiges de moins de 3 cm s'effacent et les autres perdent des facettes, l'herbe passe à deux tronçons ; vers 50 m, une feuille sur deux, deux fois plus grande, le tronc et les branches maîtresses, l'herbe à un tronçon. Un arbre : 8 932 → 3 074 → 1 310 triangles.
+- Les plantations sont rangées en cellules de 12 m (24 avant) : le moteur choisit le niveau d'après le bord de la cellule, et une grande cellule gardait au plus fin des arbres lointains.
+- Les cylindres et les boules fondus dans la géométrie groupée prennent les segments que le socle donne aux primitives qui restent (12 sous 12 cm de rayon, 20 sous 40 cm).
+- La rivière : des mailles de 3 × 5 m au lieu de 1,5 × 2,5 (sa houle fait 2 cm).
+- Comparé sur quatre points de vue (vue de dessus, à pied, en se retournant) : de près rien ne change ; au loin, l'herbe est un peu plus fine. Le patch est dans le dossier du projet (`budget-paquets/`), pour l'auteur.

@@ -67,7 +67,7 @@
 				"1": {
 					"scene": "res://bibliotheque/donjon-en-ruine/1/donjon.tscn",
 					"apercu": "res://bibliotheque/donjon-en-ruine/1/apercu.png",
-					"socle": "1.19"
+					"socle": "1.20"
 				}
 			}
 		},
@@ -82,7 +82,7 @@
 				"1": {
 					"scene": "res://bibliotheque/eglise-romane/1/eglise.tscn",
 					"apercu": "res://bibliotheque/eglise-romane/1/apercu.png",
-					"socle": "1.19"
+					"socle": "1.20"
 				}
 			}
 		}

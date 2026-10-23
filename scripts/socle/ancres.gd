@@ -23,6 +23,15 @@ const STADE := {
 	"Buvette": {"requis": false, "role": "la buvette : le socle y fait parler la tenancière"},
 }
 
+## Ce qu'un décor de stade peut faire de plus (socle 1.20), s'il en a la méthode ; aucune n'est requise. Le
+## décor connaît alors le stade : c'est le cas d'un décor de commune qui vit (Casino Minuit, le stade de la
+## Fortune), pas d'une brique de la bibliothèque, qui se suffit de ses ancres.
+const CROCHETS := {
+	"nuit": "nuit(stade) : la nuit du stade (le ciel, la lune, les projecteurs), à la place de celle du socle",
+	"brancher": "brancher(stade) : appelé une fois le stade posé (le terrain, le président, le match, le visiteur)",
+	"interagir": "interagir(cle, cible) -> bool : chaque interaction passe d'abord par le décor ; vrai s'il l'a prise",
+}
+
 ## La salle de basket (socle 1.14) : ce que le socle branche sur n'importe quelle salle, de la bibliothèque ou
 ## d'une commune, sans que son script hérite de scripts/village/salle_basket.gd.
 const SALLE := {

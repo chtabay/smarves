@@ -57,6 +57,16 @@ Une ancre est un nœud 3D nommé (un `Marker3D`, le plus souvent), n'importe où
 
 Le décor apporte ses propres collisions (sol compris, au-delà du terrain), ses lumières et sa foule s'il en veut. Il ne lit ni le club ni le championnat. Un décor introuvable, ou qui ne tient pas le contrat, est laissé de côté : le stade du socle prend sa place, et le journal dit pourquoi (`Ancres.verifier_stade`). Le portail vérifie la forme de la référence et son existence ; l'essai d'un décor maison se fait avec le kit : `godot --path . -s tools/capture_stade_modele.gd -- --modele=<référence ou chemin> --capture=sortie.png`.
 
+**Le décor vivant** (socle 1.20). Un décor de commune qui fait plus que se laisser poser (une foule qui suit la semaine, sa propre nuit, des interactions à lui) peut avoir trois méthodes, toutes facultatives (`Ancres.CROCHETS`) :
+
+| Méthode | Quand | Ce qu'elle fait |
+|---|---|---|
+| `nuit(stade)` | avant la pelouse | la nuit du stade (le ciel, la lune, les projecteurs), à la place de celle du socle et de ses quatre pylônes |
+| `brancher(stade)` | une fois le stade posé (terrain, président, match, visiteur) | ce qui a besoin du stade : la vie de la semaine, les annonces, un président habillé autrement, le score recopié sur d'autres écrans |
+| `interagir(cle, cible) -> bool` | à chaque interaction, avant le socle | les interactions du décor, ou les siennes à la place de celles du socle (la sortie qui devient un taxi) ; vrai s'il l'a prise |
+
+Un tel décor connaît le stade : c'est un décor de commune, pas une brique de la bibliothèque, qui se suffit de ses ancres. Casino Minuit s'en sert depuis sa version 0.10.5 pour le stade de la Fortune (`stade/fortune.gd`) : le bol, la roue et l'écran à 360°, le parvis et la station de taxis sont son décor ; la pelouse, le match, M. Castellane et sa gestion, le panneau et le tableau sont ceux du socle, posés sur ses ancres. Rien n'a changé à l'écran.
+
 Premier stade de la bibliothèque : **`stade-de-campagne@1`**, un terrain de village (tribune de bois couverte, club-house et sa véranda où le président a son bureau, buvette, tableau à volets, haie de charmille et portail). Test : `godot --headless --path . -s tools/test_bibliotheque.gd`.
 
 ## Le contrat de la salle de basket (socle 1.14)
@@ -210,6 +220,6 @@ Chacune est utile seule, et rien ne change dans la première salle.
 | 7 | Le budget par lieu (socle 1.16) : l'emballeur bâtit et mesure chaque lieu du paquet, range la mesure dans le paquet (`budget.json`), le portail la dit lieu par lieu ; les objets lointains simplifiés par le socle ([`docs/LENTEUR.md`](LENTEUR.md)) | smarves, portail | **fait** |
 | 8 | Les décors : le premier, `facadier-du-poitou@1`, venu de Chauvigny 0.2.2 (MIT) ; la planche du façadier | smarves | **fait** |
 | 9 | Les monuments de pierre de Chauvigny : `donjon-en-ruine@1`, `eglise-romane@1` et leurs primitives de pierre ; les vues d'un décor (`tools/capture_decor.gd`) | smarves | **fait** |
-| 6 | Les auteurs reconstruisent leurs paquets : pour Minuit, le bol de la Fortune devient `stade-fortune@1` par ses ancres, le Dôme une salle, les matières passent à la bibliothèque, les textures et les données se compressent | paquets | 2 à 4 jours pour Minuit |
+| 6 | Les auteurs reconstruisent leurs paquets : pour Minuit, le bol de la Fortune par ses ancres, le Dôme une salle, les matières passent à la bibliothèque, les textures et les données se compressent | paquets | Minuit : fait, sauf le Dôme (0.10.5, 23 octobre 2026) ; L'Isle-Jourdain 0.2.3 dans les seuils |
 
-Il ne reste que l'étape 6, par les auteurs. Le format des paquets est arrêté avec l'étape 3 et le budget par lieu avec la 7 : Civaux, Minuit, L'Isle-Jourdain et Cloué sont repris une fois, avec le SDK à jour, et l'emballeur dit à chaque auteur ce que ses lieux ont à alléger.
+Il ne reste que l'étape 6, par les auteurs. Le 23 octobre 2026, Minuit passe le stade de la Fortune par ses ancres (0.10.5, socle 1.20 : le bol pourra devenir une brique, `stade-fortune@1`, une fois qu'il ne connaîtra plus le stade) et L'Isle-Jourdain repasse sous les seuils (0.2.3, [`docs/LENTEUR.md`](LENTEUR.md)). Le format des paquets est arrêté avec l'étape 3 et le budget par lieu avec la 7 : Civaux, Minuit, L'Isle-Jourdain et Cloué sont repris une fois, avec le SDK à jour, et l'emballeur dit à chaque auteur ce que ses lieux ont à alléger.

@@ -340,7 +340,8 @@ func _init() -> void:
 	foot.obligations_locales = avant
 
 	# Le stade de la Fortune : on y va en taxi depuis la porte-cochère (les portes du casino le disent) ; fermé sous
-	# son seuil, puis le stade que Minuit a bâti (socle 1.8), d'où le taxi ramène au casino.
+	# son seuil, puis le stade du socle dans le décor que Minuit a bâti, branché par ses ancres (socle 1.13 ; décor
+	# vivant, socle 1.20), d'où le taxi ramène au casino.
 	gagne = game.won
 	game.won = 0
 	var porte: Node = s.find_child("stade", true, false)
@@ -368,16 +369,25 @@ func _init() -> void:
 			panneau.call("choisir", 1)
 		await create_timer(1.5, true).timeout
 		var st: Node = current_scene
-		check(st != null and st.scene_file_path == "res://communes/casino_minuit/stade/fortune.tscn", "au seuil, le taxi mène au stade de la Fortune (%s)" % (st.scene_file_path if st else "rien"))
-		if st != null and st.has_method("_nom_club"):
+		var dec: Node = st.get("_modele") if st != null else null
+		check(dec != null and dec.scene_file_path == "res://communes/casino_minuit/stade/fortune.tscn", "au seuil, le taxi mène au stade de la Fortune, son décor par ses ancres (%s)" % (dec.scene_file_path if dec else "rien"))
+		if st != null and st.has_method("_nom_club") and dec != null:
 			check(st.call("_nom_club") == "Racing Club Minuit", "c'est le stade du Racing Club Minuit")
 			check(communes.actuelle() == "casino_minuit", "au stade, on est encore à Casino Minuit : %s" % communes.actuelle())
 			manquantes = []
 			for z in ["FORTUNE-BOL", "FORTUNE-HALL", "FORTUNE-PISCINE", "FORTUNE-LOUNGE", "FORTUNE-PENTHOUSE", "FORTUNE-ROUE-CASES", "FORTUNE-PARVIS", "FORTUNE-STRIP"]:
-				if st.get_node_or_null(z) == null:
+				if dec.get_node_or_null(z) == null:
 					manquantes.append(z)
 			check(manquantes.is_empty(), "le bol, le hall, la piscine, le lounge, le penthouse, la roue et le parvis sont bâtis %s" % str(manquantes))
-			check(st.places.bas.size() > 1000 and st.places.haut.size() > 1000, "les deux étages ont leurs places (%d en bas, %d en haut)" % [st.places.bas.size(), st.places.haut.size()])
+			check(dec.places.bas.size() > 1000 and dec.places.haut.size() > 1000, "les deux étages ont leurs places (%d en bas, %d en haut)" % [dec.places.bas.size(), dec.places.haut.size()])
+			# Le contrat d'ancres : le socle a posé le président au penthouse et le tableau sur l'écran à 360°, la
+			# nuit est celle du Strip (pas de pylônes du socle), et le score du socle passe sur les quatre faces.
+			check(Ancres.verifier_stade(dec).is_empty(), "le décor tient le contrat d'ancres du stade %s" % str(Ancres.verifier_stade(dec)))
+			var pres: Node3D = st.get("_president")
+			check(pres != null and pres.global_position.y > 16.0, "le président est au penthouse (%.1f)" % (pres.global_position.y if pres else -1.0))
+			check(dec.get("_projecteurs").size() == 4 and st.find_children("*", "SpotLight3D", false, false).is_empty(), "les projecteurs sont ceux de la roue, pas les pylônes du socle")
+			await process_frame
+			check(str(dec.get("_roue").ecran[2][0].text) == str(st.get("_score").text) and str(st.get("_score").text) != "", "le score du socle passe sur l'écran à 360° (%s)" % dec.get("_roue").ecran[2][0].text)
 			# La semaine du stade : désert le mardi, l'entraînement public du mercredi soir, le dimanche qui se
 			# remplit des portes au coup d'envoi ; les foules, la pelouse et les projecteurs suivent l'horloge.
 			var sem = load("res://communes/casino_minuit/stade/semaine.gd")
@@ -387,11 +397,11 @@ func _init() -> void:
 			for m in jours:
 				var tq: int = Time.get_unix_time_from_datetime_string(jours[m])
 				foot.regler_horloge(func() -> int: return tq)
-				st.call("_vivre")
-				var mm: MultiMesh = st.get("_foules")[0].multimesh
+				dec.call("_vivre")
+				var mm: MultiMesh = dec.get("_foules")[0].multimesh
 				vus[m] = [sem.moment(tq), mm.visible_instance_count, mm.instance_count]
 			foot.regler_horloge(Callable())
-			st.call("_vivre")
+			dec.call("_vivre")
 			check(vus.desert[0] == "desert" and vus.desert[1] == 0, "le mardi, le stade est désert %s" % str(vus.desert))
 			check(vus.entrainement[0] == "entrainement" and vus.entrainement[1] > 0 and vus.entrainement[1] < vus.entrainement[2] / 10,
 				"le mercredi à 19 h, quelques curieux regardent l'entraînement %s" % str(vus.entrainement))
@@ -409,12 +419,18 @@ func _init() -> void:
 			sp.auto_move = Vector3(0, 0, -1)
 			await create_timer(6.0, true).timeout
 			check(sp.global_position.z > -42.0 and absf(sp.global_position.y) < 0.3, "le tapis rouge mène au stade (%.1f, %.1f, %.1f)" % [sp.global_position.x, sp.global_position.y, sp.global_position.z])
-			sp.global_position = Vector3(0, 0.05, -34.0)
+			# L'escalier impérial de l'atrium (0.10.4) : deux volées, du pied (x = ±13,5) au palier (x = ±4).
+			sp.global_position = Vector3(14.6, 0.05, -27.6)
+			sp.rotation.y = PI / 2.0
 			sp.velocity = Vector3.ZERO
 			await create_timer(3.6, true).timeout
 			sp.auto_move = Vector3.ZERO
 			check(sp.global_position.y > 4.0, "l'escalier du hall monte à la promenade (%.1f, %.1f, %.1f)" % [sp.global_position.x, sp.global_position.y, sp.global_position.z])
-			check(st.find_child("panneau", true, false) != null and st.find_child("feuille", true, false) != null, "le hall a le panneau du club et la feuille du dernier match")
+			var vus_hall := {}
+			for a in st.find_children("*", "Area3D", true, false):
+				if a.global_position.z < -20.0 and a.global_position.y < 4.0:
+					vus_hall[str(a.get_meta("interact", ""))] = true
+			check(vus_hall.has("panneau") and vus_hall.has("feuille"), "le hall a le panneau du club et la feuille du dernier match %s" % str(vus_hall.keys()))
 			var asc: Node = st.find_child("ascenseur", true, false)
 			if asc != null:
 				st.call("_on_interact", asc)
