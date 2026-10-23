@@ -142,11 +142,18 @@ func signature_garde() -> Variant:
 ## Le retour sur la place gardée : la liste des lieux suit le gagné au jeu, et l'habitant, resté devant
 ## la porte, se retourne vers la rue.
 func revenir() -> void:
+	var porte := Game.return_point
 	Game.return_point = ""
 	_refresh_places()
 	if player:
 		player.velocity = Vector3.ZERO
-		player.rotation.y += PI
+		var village := get_node("Village")
+		# Entré de loin (la liste « Le village », ou garé ailleurs en véhicule) : on ressort devant la porte.
+		if village.has_door(porte) and player.global_position.distance_to(village.door_spawn(porte)[0]) > 1.0:
+			var door: Array = village.door_spawn(porte)
+			_put_player(door[0], door[1])
+		else:
+			player.rotation.y += PI
 	set_fps(fps)
 
 
