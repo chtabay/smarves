@@ -76,12 +76,54 @@ func _init() -> void:
 	carte.fermer()
 	await _attendre(0.8)
 	check(not carte.is_open() and not paused, "Échap ou Revenir rend le village")
+	await _france(carte)
 	await _car_et_routes(carte)
 	await _mises_a_jour(carte, communes)
 	await _telechargement(communes)
 	await _titre(carte)
 	print("\n%d échec(s)" % fails)
 	quit(1 if fails > 0 else 0)
+
+
+## Dézoomer encore sur la Vienne entière montre la France ; zoomer sur la Vienne y redescend.
+func _france(carte: CanvasLayer) -> void:
+	check(France.departements().size() == 96 and France.departement("86").nom == "Vienne", "les 96 départements, la Vienne en 86")
+	var km := France.distance_km(Vienne.centre("86263"), Vector2(2.3522, 48.8566))
+	check(km > 280.0 and km < 320.0, "Smarves est à environ 300 km de Paris à vol d'oiseau : %d" % km)
+	carte.ouvrir()
+	await _attendre(1.3)
+	var c: CarteVienne = carte.get("_carte")
+	c._zoomer(0.8, c.size / 2.0)
+	check(c.niveau == "vienne", "un cran de molette contre la Vienne entière ne suffit pas")
+	c._zoomer(0.8, c.size / 2.0)
+	check(c.niveau == "france", "deux crans, et c'est la France")
+	check((carte.get("_grand_titre") as Label).text == "Carte de France", "le titre le dit")
+	await _attendre(1.3)
+	check(c.zoom == 1.0, "la France se découvre entière")
+	var vienne := c.centre_de("86")
+	check(c.commune_sous(c.vers_ecran(vienne)) == "86", "un clic au milieu de la Vienne désigne la Vienne")
+	check(c.commune_sous(c.vers_ecran(c.vers_plan(Vector2(2.3522, 48.8566)))) == "75", "Paris est à Paris")
+	c.choix.emit("33")
+	await _attendre(0.1)
+	var textes := []
+	for n in (carte.get("_fiche_box") as Node).find_children("*", "", true, false):
+		if n is Label or n is Button:
+			textes.append(n.text)
+	check("Gironde" in textes and textes.any(func(t): return "km de Smarves" in t), "la fiche de la Gironde dit sa distance : %s" % str(textes))
+	c.cadrer("86", CarteVienne.ZOOM_MAX_FRANCE)
+	c._zoomer(1.25, c.size / 2.0)
+	await _attendre(0.9)
+	check(c.niveau == "vienne" and c.zoom == 1.0, "zoomer encore sur la Vienne y redescend")
+	carte.fermer()
+	await _attendre(0.8)
+	carte.ouvrir()
+	await _attendre(0.3)
+	check(c.niveau == "vienne", "la carte se rouvre sur la Vienne")
+	carte.vers_france()
+	await _attendre(0.2)
+	carte.fermer()
+	await _attendre(0.8)
+	check(not carte.is_open() and not paused, "on revient au village depuis la France")
 
 
 ## L'arrêt du car sur la place et les panneaux au bout des routes ouvrent la carte.

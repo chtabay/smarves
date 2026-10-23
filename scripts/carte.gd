@@ -6,7 +6,9 @@ extends CanvasLayer
 ## Poitiers dans la brume. Une commune qui arrive (publiée, installée) s'allume à l'ouverture
 ## suivante. Toucher une commune la montre dans la fiche ; « Y aller » change de commune. Au bord de
 ## la brume, l'aéroport de Poitiers-Biard dessert les destinations lointaines (socle 1.5) : la fiche
-## de Poitiers donne leurs vols, et l'on y part en avion (voler).
+## de Poitiers donne leurs vols, et l'on y part en avion (voler). Dézoomer encore sur la Vienne
+## entière montre la France (vers_france) : la Vienne en or parmi les départements, l'épingle sur la
+## commune où l'on est ; zoomer sur la Vienne, ou « Voir la Vienne », y redescend (vers_vienne).
 
 const OR := Color(0.96, 0.8, 0.45)
 const EAU := Color(0.35, 0.8, 0.75)
@@ -25,6 +27,7 @@ var _carte: CarteVienne
 var _fiche: PanelContainer
 var _fiche_box: VBoxContainer
 var _compte: Label
+var _legende: VBoxContainer
 var _retour: Button
 var _aide: Label
 var _mouse_before := Input.MOUSE_MODE_VISIBLE
@@ -133,6 +136,8 @@ func ouvrir(depuis_titre := false, vers := "", mode := "") -> void:
 	# La carte couvre tout l'écran : le village derrière elle n'a pas à être dessiné, la carte
 	# graphique se repose.
 	get_viewport().disable_3d = true
+	_carte.niveau = "vienne"
+	_remplir_legende()
 	_rafraichir(false)
 	var ici := _ici() if not _loin() else CarteVienne.POITIERS_INSEE
 	_carte.ici = "" if _titre or _loin() else ici
@@ -163,7 +168,10 @@ func fermer() -> void:
 	if not is_open() or _en_route:
 		return
 	_en_route = true
-	_carte.cadrer(_ici() if not _loin() else CarteVienne.POITIERS_INSEE, ZOOM_COMMUNE, 0.45)
+	if _carte.niveau == "france":
+		_carte.cadrer(France.VIENNE, CarteVienne.ZOOM_MAX_FRANCE, 0.45)
+	else:
+		_carte.cadrer(_ici() if not _loin() else CarteVienne.POITIERS_INSEE, ZOOM_COMMUNE, 0.45)
 	var t := create_tween()
 	t.tween_property(_voile, "color:a", 1.0, 0.45)
 	await t.finished
@@ -260,6 +268,64 @@ func _neuves() -> Array:
 	var vues = Portail.lire_json(Communes.dossier_greffes.path_join(VUES))
 	var deja: Array = vues if vues is Array else []
 	return _allumees().filter(func(i): return not deja.has(i))
+
+
+# --- La France ------------------------------------------------------------------------------------
+
+## Dézoome au-delà de la Vienne : la France, la Vienne en or au milieu de l'ouest, qui se découvre.
+func vers_france() -> void:
+	if _en_route or _carte.niveau == "france":
+		return
+	_carte.niveau = "france"
+	_carte.choisie = ""
+	_remplir_legende()
+	_rafraichir(false)
+	_montrer(France.VIENNE)
+	_carte.cadrer(France.VIENNE, CarteVienne.ZOOM_MAX_FRANCE)
+	_carte.cadrer_tout(1.1)
+
+
+## Redescend dans la Vienne : la carte plonge sur elle, puis montre ses communes.
+func vers_vienne() -> void:
+	if _en_route or _carte.niveau != "france":
+		return
+	_en_route = true
+	_carte.cadrer(France.VIENNE, CarteVienne.ZOOM_MAX_FRANCE, 0.6)
+	await get_tree().create_timer(0.6).timeout
+	_carte.niveau = "vienne"
+	_carte.choisie = ""
+	_carte.cadrer_tout()
+	_remplir_legende()
+	_rafraichir(false)
+	_montrer(_ici())
+	_en_route = false
+
+
+## La fiche d'un département : la Vienne, ou un département que le jeu n'a pas encore atteint.
+func _montrer_departement(code: String) -> void:
+	var d := France.departement(code)
+	var ici_insee := _ici() if not _loin() else CarteVienne.ORIGINE_INSEE
+	var ici := Vienne.commune(ici_insee)
+	var tete := HBoxContainer.new()
+	tete.add_theme_constant_override("separation", 10)
+	tete.add_child(_mot(str(d.nom), 26, OR if code == France.VIENNE else Color.WHITE, Polices.titre()))
+	if code == France.VIENNE and not _titre and not _loin():
+		tete.add_child(_mot("VOUS ÊTES ICI", 12, EAU, Polices.gras()))
+	_fiche_box.add_child(tete)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 10)
+	if code == France.VIENNE:
+		var n := 1 + Communes.installees().size()
+		_fiche_box.add_child(_mot("Votre département  ·  %s  ·  %d commune%s ouverte%s sur %d" % [code, n, "s" if n > 1 else "", "s" if n > 1 else "", Vienne.communes().size()], 15, DOUX, null, true))
+		_fiche_box.add_child(_mot("Smarves, au sud de Poitiers, sur le Clain : c'est d'ici que tout part. Les villes de la Vienne s'y allument une à une, à mesure qu'on les construit.", 16, TEXTE, null, true))
+		actions.add_child(_bouton("Voir la Vienne  →", OR, Color(0.08, 0.06, 0.03), Color(0, 0, 0, 0), vers_vienne, 16))
+	else:
+		var km := France.distance_km(Vienne.centre(ici_insee), Vector2(d.centre[0], d.centre[1]))
+		_fiche_box.add_child(_mot("Département %s  ·  à %s\u00a0km de %s, à vol d'oiseau" % [code, Game.fmt(int(round(km / 10.0) * 10)).replace(" ", "\u00a0"), str(ici.get("nom", "Smarves"))], 15, DOUX, null, true))
+		_fiche_box.add_child(_mot("Pas encore dans le jeu. Les villes se construisent d'abord dans la Vienne ; un jour, ce département s'allumera lui aussi.", 16, TEXTE, null, true))
+		actions.add_child(_bouton("Revenir à la Vienne", Color(0, 0, 0, 0), OR, OR, vers_vienne, 16))
+	_fiche_box.add_child(_vide(2))
+	_fiche_box.add_child(actions)
 
 
 # --- Les destinations lointaines (socle 1.5) ------------------------------------------------------
@@ -415,7 +481,12 @@ func _construire() -> void:
 	_carte.choix.connect(func(i):
 		_carte.choisie = i
 		_montrer(i if i != "" else _ici()))
+	_carte.recul.connect(vers_france)
 	_carte.plongee.connect(func(i):
+		if _carte.niveau == "france":
+			if i == France.VIENNE:
+				vers_vienne()
+			return
 		if i == "" or (i == _ici() and not _titre):
 			fermer()
 		elif Communes.par_insee(i) != null:
@@ -438,23 +509,13 @@ func _construire() -> void:
 	tete.add_child(_grand_titre)
 	_compte = _mot("", 16, DOUX)
 	tete.add_child(_compte)
-	var legende := VBoxContainer.new()
-	legende.add_theme_constant_override("separation", 2)
-	legende.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_legende = VBoxContainer.new()
+	_legende.add_theme_constant_override("separation", 2)
+	_legende.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tete.add_child(_vide(10))
-	tete.add_child(legende)
-	for l in [[OR, "votre commune"], [EAU, "villes installées"], [Color(EAU, 0.55), "villes publiées, à installer"], [Color(0.78, 0.8, 0.84, 0.6), "Poitiers, dans la brume"]]:
-		var rang := HBoxContainer.new()
-		rang.add_theme_constant_override("separation", 8)
-		rang.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var pastille := ColorRect.new()
-		pastille.color = l[0]
-		pastille.custom_minimum_size = Vector2(14, 14)
-		pastille.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		pastille.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		rang.add_child(pastille)
-		rang.add_child(_mot(l[1], 15, DOUX))
-		legende.add_child(rang)
+	tete.add_child(_legende)
+	_remplir_legende()
+
 
 	# En haut à droite, le retour.
 	_retour = _bouton("", Color(0, 0, 0, 0), TEXTE, Color(1, 1, 1, 0.3), fermer, 17)
@@ -495,6 +556,26 @@ func _construire() -> void:
 	_root.add_child(_voile)
 
 
+## La légende du niveau montré : les communes de la Vienne, ou les départements de la France.
+func _remplir_legende() -> void:
+	for c in _legende.get_children():
+		c.queue_free()
+	var lignes := [[Color(OR, 0.55), "la Vienne, votre département"], [OR, "là où vous êtes"], [Color(1, 1, 1, 0.16), "pas encore dans le jeu"]] if _carte.niveau == "france" \
+		else [[OR, "votre commune"], [EAU, "villes installées"], [Color(EAU, 0.55), "villes publiées, à installer"], [Color(0.78, 0.8, 0.84, 0.6), "Poitiers, dans la brume"]]
+	for l in lignes:
+		var rang := HBoxContainer.new()
+		rang.add_theme_constant_override("separation", 8)
+		rang.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var pastille := ColorRect.new()
+		pastille.color = l[0]
+		pastille.custom_minimum_size = Vector2(14, 14)
+		pastille.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		pastille.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		rang.add_child(pastille)
+		rang.add_child(_mot(l[1], 15, DOUX))
+		_legende.add_child(rang)
+
+
 ## Un fond de nuit, plus clair au milieu, comme une table éclairée par une lampe.
 func _fond() -> Texture2D:
 	var g := Gradient.new()
@@ -525,11 +606,18 @@ func _rafraichir(garder := true) -> void:
 		s += ", %d à installer" % p
 	_compte.text = s
 	var ici := Communes.commune(Communes.actuelle())
-	_sur_titre.text = "C A R   D É P A R T E M E N T A L" if _mode == "car" else "L A   V I E N N E"
-	_grand_titre.text = ("Arrêt de la Place, %s" % (ici.nom if ici else "Smarves")) if _mode == "car" else "Carte du département"
+	var france := _carte.niveau == "france"
+	if france:
+		_compte.text = "1 département dans le jeu sur %d : la Vienne" % France.departements().size()
+	_sur_titre.text = "L A   F R A N C E" if france else "C A R   D É P A R T E M E N T A L" if _mode == "car" else "L A   V I E N N E"
+	_grand_titre.text = "Carte de France" if france else ("Arrêt de la Place, %s" % (ici.nom if ici else "Smarves")) if _mode == "car" else "Carte du département"
 	_retour.text = "←  Revenir au menu" if _titre else "←  Revenir à %s" % (ici.nom if ici else "Smarves")
-	_aide.text = ("Pincer pour zoomer  ·  glisser pour déplacer  ·  toucher une commune" if Tactile.active
-		else "Molette pour zoomer  ·  glisser pour déplacer  ·  cliquer une commune  ·  Échap ou M pour revenir")
+	if france:
+		_aide.text = ("Pincer pour zoomer  ·  toucher un département  ·  zoomer sur la Vienne pour y revenir" if Tactile.active
+			else "Molette pour zoomer  ·  cliquer un département  ·  zoomer sur la Vienne pour y revenir  ·  Échap ou M pour revenir")
+	else:
+		_aide.text = ("Pincer pour zoomer  ·  glisser pour déplacer  ·  toucher une commune  ·  écarter encore pour la France" if Tactile.active
+			else "Molette pour zoomer  ·  glisser pour déplacer  ·  cliquer une commune  ·  dézoomer encore pour la France  ·  Échap ou M pour revenir")
 	if garder:
 		_montrer(_carte.choisie if _carte.choisie != "" else _ici())
 
@@ -538,6 +626,9 @@ func _rafraichir(garder := true) -> void:
 func _montrer(insee: String, alerte := "") -> void:
 	for c in _fiche_box.get_children():
 		c.queue_free()
+	if _carte.niveau == "france":
+		_montrer_departement(insee if not France.departement(insee).is_empty() else France.VIENNE)
+		return
 	if insee == "":
 		insee = _ici()
 	if insee == "" and _loin():
