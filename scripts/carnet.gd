@@ -7,6 +7,8 @@ extends CanvasLayer
 ## Les onglets, de gauche à droite :
 ## - « Mon compte », tenu par le socle : ce qui suit le joueur d'une commune à l'autre (crédits, dettes
 ##   par banque, biens, obligations, bourse, fortune nette), la semaine et les engagements en cours ;
+## - « Courrier » : les avis du courrier (autoload Avis), les nouveaux sur la page de gauche, les déjà lus
+##   à droite, chacun avec le bouton de l'écran où il mène ; le nombre de non lus est sur l'intercalaire ;
 ## - « Mes cartes » : le classeur des cartes possédées, un sous-onglet par village, avec le topo complet
 ##   des parts de club (scripts/carnet_cartes.gd) ;
 ## - un onglet par commune : la commune d'origine d'abord, dont la page vient du jeu (le champ
@@ -36,6 +38,11 @@ var _slip_label: Label
 var _slip_tween: Tween
 ## Une fiche arrivée carnet ouvert : elle attend qu'on le referme.
 var _pending_slip := ""
+## L'avis de la fiche à l'écran (un clic y mène ; {} : le courrier entier), ou null pour une fiche sans suite.
+var _slip_avis = null
+var _pending_avis = null
+## La pastille du courrier : tant qu'il reste des avis non lus, en bas à gauche, hors table et carnet fermé.
+var _pastille: Button
 var _hand: Font
 var _hand_bold: Font
 var _mouse_before := Input.MOUSE_MODE_VISIBLE
@@ -69,7 +76,11 @@ func _ready() -> void:
 	Biens.changed.connect(func():
 		if _root.visible:
 			_refresh())
-	Biens.note.connect(show_slip)
+	# Les recettes des biens, et tout ce qui prévient, passent par le courrier, qui fait glisser la fiche.
+	Avis.fiche.connect(show_slip)
+	Avis.change.connect(func():
+		if _root.visible:
+			_refresh.call_deferred())
 	# Les communes du portail : la liste se lit au lancement, l'installation finit en arrière-plan.
 	Communes.catalogue_lu.connect(func():
 		if _root.visible:
@@ -136,9 +147,12 @@ func toggle() -> void:
 			_album.fermer_zoom()
 		Input.mouse_mode = _mouse_before
 		get_tree().paused = _paused_before
+		if _onglet == "courrier":
+			Avis.tout_lu()
 		if _pending_slip != "":
-			show_slip.call_deferred(_pending_slip)
+			show_slip.call_deferred(_pending_slip, _pending_avis)
 			_pending_slip = ""
+			_pending_avis = null
 	else:
 		_mouse_before = Input.mouse_mode
 		_paused_before = get_tree().paused
@@ -153,7 +167,8 @@ func toggle() -> void:
 
 ## Les onglets du cahier, dans l'ordre : [[clé, nom]].
 func onglets() -> Array:
-	var out := [["compte", "Mon compte"], ["cartes", "Mes cartes"]]
+	var n: int = Avis.non_lus().size()
+	var out := [["compte", "Mon compte"], ["courrier", "Courrier (%d)" % n if n > 0 else "Courrier"], ["cartes", "Mes cartes"]]
 	var o: Commune = Communes.origine()
 	if _page_origine != null and o != null:
 		out.append([o.id, o.nom])
@@ -186,6 +201,8 @@ func _communes_au_carnet() -> Array:
 func ouvrir_onglet(cle: String) -> void:
 	if cle != _onglet and _album.zoom_ouvert():
 		_album.fermer_zoom()
+	if cle != _onglet and _onglet == "courrier":
+		Avis.tout_lu()
 	_onglet = cle
 	_amenage = ""
 	_refresh()
@@ -409,6 +426,8 @@ func _refresh() -> void:
 			_fill_compte()
 		"cartes":
 			_album.remplir()
+		"courrier":
+			_fill_courrier()
 		"vienne":
 			_fill_vienne()
 		_:
@@ -909,10 +928,12 @@ func _fill_sheet_agenda() -> void:
 
 # --- La fiche de papier ------------------------------------------------------------------------
 
-func show_slip(text: String) -> void:
+func show_slip(text: String, avis = null) -> void:
 	if _root.visible:
 		_pending_slip = text
+		_pending_avis = avis
 		return
+	_slip_avis = avis
 	if _slip == null:
 		_slip = PanelContainer.new()
 		var st := StyleBoxFlat.new()
@@ -924,14 +945,18 @@ func show_slip(text: String) -> void:
 		st.border_color = MARGIN_RED
 		st.border_width_left = 3
 		_slip.add_theme_stylebox_override("panel", st)
-		_slip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_slip.custom_minimum_size.x = 420
+		_slip.gui_input.connect(_clic_fiche)
 		add_child(_slip)
 		# Sous le carnet : une fiche arrivée juste avant qu'on l'ouvre ne vient pas sur la page.
 		move_child(_slip, 0)
 		_slip_label = _text(_slip, "", 17)
 		_slip_label.custom_minimum_size.x = 400
 	_slip_label.text = text
+	# Une fiche du courrier se clique : elle mène où dit l'avis. Les autres laissent passer la souris.
+	_slip.mouse_filter = Control.MOUSE_FILTER_IGNORE if avis == null else Control.MOUSE_FILTER_STOP
+	_slip.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	_slip.visible = true
 	_fit_slip()
 	# Le texte ne connaît sa hauteur qu'une fois mis en page : on reprend la mesure à l'image suivante.
 	_fit_slip.call_deferred()
@@ -944,6 +969,7 @@ func show_slip(text: String) -> void:
 	tw.tween_property(_slip, "modulate:a", 1.0, 0.3)
 	tw.tween_interval(5.0 + text.length() * 0.03)
 	tw.tween_property(_slip, "modulate:a", 0.0, 0.8)
+	tw.tween_callback(func(): _slip.visible = false)
 
 
 ## La fiche reprend la taille de son texte, puis se pose en bas à gauche.
@@ -951,3 +977,103 @@ func _fit_slip() -> void:
 	_slip.reset_size()
 	_slip.size = _slip.get_combined_minimum_size()
 	_slip.position = Vector2(28, get_viewport().get_visible_rect().size.y - _slip.size.y - 60)
+
+
+func _clic_fiche(e: InputEvent) -> void:
+	if _slip_avis == null or not (e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT):
+		return
+	var a: Dictionary = _slip_avis
+	_slip_avis = null
+	if _slip_tween:
+		_slip_tween.kill()
+	_slip.visible = false
+	get_viewport().set_input_as_handled()
+	Avis.aller(a)
+
+
+# --- Le courrier ------------------------------------------------------------------------------------
+
+## Ouvre le carnet sur un onglet (« courrier », « compte », « cartes »…) ou sur la semaine (« agenda »).
+func ouvrir_sur(cle: String) -> void:
+	if not _root.visible:
+		toggle()
+	if cle == "agenda":
+		_show_sheet(true, "agenda")
+		return
+	if _sheet.visible:
+		_sheet.visible = false
+	ouvrir_onglet(cle)
+
+
+## La page du courrier : les nouveaux à gauche, les déjà lus à droite ; chacun son heure, son titre, son
+## texte et le bouton de l'écran où il mène. Ils sont marqués lus en quittant l'onglet.
+func _fill_courrier() -> void:
+	var t: int = Avis.maintenant()
+	var nouveaux: Array = Avis.non_lus()
+	_title(_left, "Le courrier")
+	_text(_left, "Ce qui est arrivé : les matchs de vos clubs, les dividendes, les parts, les tickets, le mercato.", 15, PENCIL)
+	_gap(_left, 6)
+	_text(_left, "Nouveau" if not nouveaux.is_empty() else "Rien de nouveau.", 21, RED_INK if not nouveaux.is_empty() else INK_LIGHT, true)
+	for a in nouveaux:
+		_un_avis(_left, a, t, true)
+	_title(_right, "Déjà lu")
+	var lus: Array = Avis.liste.filter(func(x): return bool(x.lu))
+	if lus.is_empty():
+		_text(_right, "Le courrier garde les %d derniers avis." % Avis.GARDES, 16, PENCIL)
+	for a in lus.slice(0, 30):
+		_un_avis(_right, a, t, false)
+
+
+func _un_avis(col: VBoxContainer, a: Dictionary, t: int, nouveau: bool) -> void:
+	_gap(col, 6)
+	var quand := Agenda.jour_relatif(int(a.quand), t)
+	var tete := HBoxContainer.new()
+	tete.add_theme_constant_override("separation", 10)
+	col.add_child(tete)
+	var h := _text(tete, "%s, %s" % [quand, Agenda.heure(int(a.quand))], 15, Color(0.65, 0.15, 0.15))
+	h.autowrap_mode = TextServer.AUTOWRAP_OFF
+	var titre := _text(col, str(a.titre), 18 if nouveau else 17, INK if nouveau else INK_LIGHT, nouveau)
+	titre.name = "Avis"
+	if str(a.texte) != "":
+		_text(col, str(a.texte), 15, PENCIL)
+	var nom: String = Avis.nom_du_lien(a.get("lien", {}))
+	if nom != "":
+		var ok: bool = Avis.peut_aller(a.lien)
+		_link(col, "→ " + nom + ("" if ok else " (une fois levé de table)"), func(): Avis.aller(a), ok).custom_minimum_size.y = 36
+
+
+## La pastille : « Courrier : 3 nouvelles », en bas à gauche, quand rien d'autre n'y est (ni fiche, ni carnet,
+## ni table). Un clic ouvre le courrier.
+func _process(_delta: float) -> void:
+	var n: int = Avis.non_lus().size()
+	var montrer: bool = n > 0 and not _root.visible and not (_slip != null and _slip.visible) and not Avis.occupe()
+	if _pastille == null:
+		if not montrer:
+			return
+		_pastille = Button.new()
+		_pastille.focus_mode = Control.FOCUS_NONE
+		_pastille.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		_pastille.add_theme_font_override("font", _hand_bold)
+		_pastille.add_theme_font_size_override("font_size", 17)
+		for k in ["font_color", "font_hover_color", "font_pressed_color"]:
+			_pastille.add_theme_color_override(k, INK)
+		for k in ["normal", "hover", "pressed"]:
+			var st := StyleBoxFlat.new()
+			st.bg_color = PAPER if k == "normal" else PAPER.darkened(0.06)
+			st.content_margin_left = 14
+			st.content_margin_right = 14
+			st.content_margin_top = 6
+			st.content_margin_bottom = 6
+			st.border_color = MARGIN_RED
+			st.border_width_left = 3
+			st.shadow_color = Color(0, 0, 0, 0.35)
+			st.shadow_size = 5
+			_pastille.add_theme_stylebox_override(k, st)
+		_pastille.pressed.connect(func(): ouvrir_sur("courrier"))
+		add_child(_pastille)
+		move_child(_pastille, 0)
+	_pastille.visible = montrer
+	if montrer:
+		_pastille.text = "Courrier : %s%s" % ["une nouvelle" if n == 1 else "%d nouvelles" % n, "" if Tactile.active else "  (C)"]
+		_pastille.reset_size()
+		_pastille.position = Vector2(28, get_viewport().get_visible_rect().size.y - _pastille.size.y - 60)

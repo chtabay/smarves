@@ -23,6 +23,11 @@ const QUALITES := [["haute", "Haute"], ["equilibree", "Équilibrée"], ["legere"
 const CADENCE := {"haute": 60, "equilibree": 60, "legere": 30}
 const CADENCE_ARRIERE_PLAN := 10
 var _qualite: OptionButton
+## Les fiches du courrier (autoload Avis) : « toutes », l'« important » seulement, ou « aucune » (le courrier,
+## au carnet, garde tout de toute façon).
+var fiches := "toutes"
+const FICHES := [["toutes", "Toutes"], ["important", "L'important"], ["aucune", "Aucune"]]
+var _fiches: OptionButton
 var _mouse_before := Input.MOUSE_MODE_VISIBLE
 
 
@@ -257,6 +262,21 @@ func _build() -> void:
 		_qualite.add_item(q[1])
 	_qualite.item_selected.connect(func(i: int): _set_qualite(QUALITES[i][0]))
 	qrow.add_child(_qualite)
+	var frow := HBoxContainer.new()
+	frow.add_theme_constant_override("separation", 12)
+	v.add_child(frow)
+	var fl := Label.new()
+	fl.text = "Les fiches du courrier"
+	fl.custom_minimum_size = Vector2(220, 0)
+	frow.add_child(fl)
+	_fiches = OptionButton.new()
+	_fiches.custom_minimum_size = Vector2(220, 0)
+	for f in FICHES:
+		_fiches.add_item(f[1])
+	_fiches.item_selected.connect(func(i: int):
+		fiches = FICHES[i][0]
+		_save())
+	frow.add_child(_fiches)
 	_fullscreen = CheckButton.new()
 	_fullscreen.text = "Plein écran"
 	_fullscreen.toggled.connect(_set_fullscreen)
@@ -297,6 +317,7 @@ func _save() -> void:
 	cfg.set_value("son", "sortie", AudioServer.output_device)
 	cfg.set_value("multi", "voir_joueurs", voir_joueurs)
 	cfg.set_value("ecran", "qualite", qualite)
+	cfg.set_value("courrier", "fiches", fiches)
 	cfg.save(PATH)
 
 
@@ -321,6 +342,11 @@ func _load() -> void:
 		for i in _device.item_count:
 			if _device.get_item_text(i) == dev:
 				_device.select(i)
+	var fi: String = cfg.get_value("courrier", "fiches", fiches)
+	for i in FICHES.size():
+		if FICHES[i][0] == fi:
+			fiches = fi
+			_fiches.select(i)
 	voir_joueurs = bool(cfg.get_value("multi", "voir_joueurs", true))
 	_joueurs.set_pressed_no_signal(voir_joueurs)
 	var fs: bool = cfg.get_value("ecran", "plein_ecran", false)

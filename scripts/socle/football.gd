@@ -1380,21 +1380,26 @@ func verser_dividendes() -> Array:
 	return dus
 
 
-## Verse les dividendes dus et l'annonce par la fiche du carnet, un mot par club.
+## Verse les dividendes dus et l'annonce au courrier (autoload Avis), un avis par club.
 func tic() -> void:
 	var verses := verser_dividendes()
 	if verses.is_empty():
 		return
-	var carnet: Node = get_tree().root.get_node_or_null("Carnet")
-	if carnet == null:
+	var avis: Node = get_tree().root.get_node_or_null("Avis")
+	if avis == null:
 		return
 	var par_club := {}
+	var journees := {}
 	for d in verses:
 		par_club[d.club] = int(par_club.get(d.club, 0)) + int(d.net)
+		journees[d.club] = (journees.get(d.club, []) as Array) + [int(d.j)]
 	for club in par_club:
 		var nom := str(clubs.get(club, {}).get("nom", club))
-		carnet.show_slip("%s : dividende de la journée %d, %s crédits." % [nom, int(verses[-1].j), Game.fmt(int(par_club[club]))] if par_club.size() == 1 and verses.size() == 1 \
-			else "%s : %s crédits de dividendes." % [nom, Game.fmt(int(par_club[club]))])
+		var js: Array = journees[club]
+		avis.publier({"id": "dividende/%s/%d/%d" % [club, saison, js[-1]], "genre": "dividende", "montant": int(par_club[club]),
+			"titre": "%s : %s crédits de dividende%s" % [nom, Game.fmt(int(par_club[club])), "" if js.size() == 1 else "s"],
+			"texte": "Journée %d." % js[0] if js.size() == 1 else "Journées %d à %d." % [js[0], js[-1]],
+			"lien": {"vers": "carnet", "onglet": "compte"}})
 
 
 ## Des porteurs forcés pour une capture : « vous:3+1,Lucien:5 » (les rangs des obligations).
