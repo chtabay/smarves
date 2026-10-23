@@ -130,8 +130,10 @@ func _dossier_menteur(communes: Node) -> void:
 	check(communes.charger_dossier(bon) == "dossier", "une commune en dossier sous user:// s'inscrit %s" % str(communes.refus.slice(-1)))
 	var faux := TMP + "faux_insee/"
 	DirAccess.make_dir_recursive_absolute(faux)
-	FileAccess.open(faux + "commune.json", FileAccess.WRITE).store_string(json.replace("\"dossier\"", "\"faux_insee\"").replace("86113", "79191"))
-	check(communes.charger_dossier(faux) == "" and "INSEE" in communes.refus[-1][1], "un code INSEE hors de la Vienne est refusé")
+	FileAccess.open(faux + "commune.json", FileAccess.WRITE).store_string(json.replace("\"dossier\"", "\"faux_insee\"").replace("86113", "75056"))
+	check(communes.charger_dossier(faux) == "" and "INSEE" in communes.refus[-1][1], "un code INSEE hors de la Nouvelle-Aquitaine est refusé")
+	check(Departements.commune("79191").nom == "Niort" and Departements.connu("79") and not Departements.connu("75"),
+		"une commune de la région, Niort, est connue (socle 1.18) ; Paris ne l'est pas")
 
 
 ## La carte : toutes les communes réelles à leur place, cliquables seulement une fois développées.

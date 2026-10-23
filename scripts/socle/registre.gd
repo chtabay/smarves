@@ -47,7 +47,7 @@ func _entree(commune: String, insee: String, nom: String, s: Dictionary, install
 		if not Structures.COMMUNS.has(k):
 			champs[k] = s[k]
 	return {"cle": "%s/%s" % [commune, s.id], "commune": commune, "insee": insee, "commune_nom": nom,
-		"centre": Vienne.centre(insee if insee != "" else CarteVienne.POITIERS_INSEE), "installee": installee, "type": str(s.type), "id": str(s.id),
+		"centre": Departements.centre(insee if insee != "" else CarteVienne.POITIERS_INSEE), "installee": installee, "type": str(s.type), "id": str(s.id),
 		"nom": str(s.nom), "noeud": str(s.get("noeud", "")), "lot": str(s.get("lot", "")), "champs": champs}
 
 
