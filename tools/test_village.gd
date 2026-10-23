@@ -50,6 +50,30 @@ func _init() -> void:
 				break
 		x += 0.5
 	check(blocked.is_empty(), "la route est libre du moulin au bois %s" % ("" if blocked.is_empty() else str(blocked.slice(0, 8))))
+	# Derrière la rue du Clain : on passe sous le porche jusqu'à la cour, on descend la venelle des jardins
+	# jusqu'à la berge du bief, et l'on remonte par l'escalier de la placette (jardins.gd, cour.gd).
+	var jardins: Script = village.JARDINS
+	var hab: CharacterBody3D = main.player
+	var depart_hab := hab.global_position
+	main.camera.yaw = 0.0
+	main.camera.set("_yaw_goal", 0.0)
+	var a_pied := func(depart: Vector3, sens: Vector3, duree: float) -> Vector3:
+		hab.global_position = depart
+		hab.velocity = Vector3.ZERO
+		hab.auto_move = sens
+		await create_timer(duree).timeout
+		hab.auto_move = Vector3.ZERO
+		return hab.global_position
+	var fin: Vector3 = await a_pied.call(Vector3(-28.1, 0.1, 5.6), Vector3(0, 0, -1), 6.0)
+	check(fin.z < -2.0, "sous le porche, on entre dans la cour (z = %.1f)" % fin.z)
+	fin = await a_pied.call(Vector3(jardins.VENELLE_X, 0.1, 8.0), Vector3(0, 0, 1), 16.0)
+	check(fin.z > 27.5 and fin.y < -1.0, "la venelle descend jusqu'à la berge (%.1f, %.2f, %.1f)" % [fin.x, fin.y, fin.z])
+	fin = await a_pied.call(Vector3(jardins.ESCALIER_X, -1.1, 28.6), Vector3(0, 0, -1), 14.0)
+	check(fin.z < 14.0 and fin.y > -0.1, "l'escalier remonte de la berge à la placette (%.1f, %.2f, %.1f)" % [fin.x, fin.y, fin.z])
+	fin = await a_pied.call(Vector3(jardins.PASSERELLE_X, -1.1, 28.6), Vector3(0, 0, 1), 5.0)
+	check(fin.z > jardins.EAU_Z1, "la passerelle mène au pré (z = %.1f)" % fin.z)
+	hab.global_position = depart_hab
+	await create_timer(0.3).timeout
 	# Aucune fente entre deux socles : le sol porte l'habitant de part et d'autre de chaque jointure.
 	var holes := []
 	for j in village.JOINTS_X:
