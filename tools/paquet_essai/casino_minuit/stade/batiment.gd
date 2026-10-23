@@ -1,9 +1,9 @@
 extends RefCounted
 ## Le bâtiment du stade de la Fortune (bol.gd pour le plan) : le mur de la pelouse et son ruban de diodes, les
 ## gradins du bas, la promenade du niveau 1, la vitre des Suites impériales, les gradins du haut et leur
-## coursive, la façade de diodes ceinte de couronnes d'or ; au sud le hall et son escalier monumental, à l'est la
-## piscine des parieurs sous l'écran du virage, à l'ouest le Jackpot Lounge et la scène de Minuit Live, et le
-## penthouse du président, suspendu sous la roue du toit.
+## coursive, la façade de diodes ceinte de couronnes d'or ; au sud le hall, son atrium et son escalier
+## impérial, à l'est la piscine des parieurs sous l'écran du virage, à l'ouest le Jackpot Lounge et la scène de
+## Minuit Live, et le penthouse du président, suspendu sous la roue du toit.
 ## Les cotes (écart d depuis le mur de la pelouse, hauteur y) :
 ##   d 0 à 6,4 : huit rangs du bas, de 1,3 à 4,5 ;  d 6,4 à 10 : la promenade (y 4,5) ;
 ##   d 10 : la vitre des loges (y 4,5 à 8,6) ;  d 10,3 à 17,9 : dix rangs du haut, de 9,4 à 13,9 ;
@@ -21,10 +21,26 @@ const D_COURSIVE := 17.9
 const Y_COURSIVE := 13.9
 const D_FACADE := 19.5
 const H_FACADE := 16.0
-## L'escalier du hall : de x = -3 à 3, de la porte (z = -33) au palier de la promenade (z = -26,5).
-const ESC_X := 3.0
-const ESC_Z0 := -33.0
-const ESC_Z1 := -26.5
+## L'atrium du hall, sur deux étages, entre x = -10 et 10 (les points du pourtour) : de la verrière (z = -35,5) à
+## la baie sur la pelouse (z = -26), où s'ouvrent les loges. La porte au milieu de la verrière, entre x = -3 et 3.
+const ATRIUM_X := 10.0
+const PORTE_X := 3.0
+const Z_PORTE := -35.5
+const Z_BAIE := -26.0
+## Les deux volées de l'escalier : vingt-huit marches chacune, du pied (x = ±13,5) au palier (x = ±4), dans la
+## bande de z = -29 à -26,2 ; le palier, en balcon sur l'atrium, rejoint la promenade.
+const PALIER_X := 4.0
+const VOLEE_PIED := 13.5
+const VOLEE_Z0 := -29.0
+const VOLEE_Z1 := -26.2
+const MARCHES := 28
+## La verrière du hall monte jusque-là ; le plafond de l'atrium suit le dessous des gradins du haut.
+const H_VERRIERE := 8.8
+## La rosace de l'atrium et le lustre de jetons au-dessus.
+const ROSACE := Vector2(0.0, -32.0)
+## Les lettres du plan du stade.
+const PAL_OR := Color("#E8C26A")
+const PAL_IVOIRE := Color("#F3EAD7")
 
 
 ## Tout le bâtiment ; rend les places assises (pour la foule des jours de match) : {"bas": [...], "haut": [...]}.
@@ -65,14 +81,14 @@ static func partout(_cote: String, _m: Vector2) -> bool:
 	return true
 
 
-## Tout sauf l'ouverture de l'escalier du hall (au sud, entre x = -3 et 3).
-static func hors_escalier(cote: String, m: Vector2) -> bool:
-	return not (cote == "S" and absf(m.x) < ESC_X)
+## Tout sauf l'atrium du hall (au sud, entre x = -10 et 10) : sa verrière, sa baie sur la pelouse.
+static func hors_atrium(cote: String, m: Vector2) -> bool:
+	return not (cote == "S" and absf(m.x) < ATRIUM_X)
 
 
-## La vitre des loges : ni l'escalier, ni la piscine (est), ni le lounge (ouest), ouverts sur la pelouse.
+## La vitre des loges : ni l'atrium, ni la piscine (est), ni le lounge (ouest), ouverts sur la pelouse.
 static func vitre(cote: String, m: Vector2) -> bool:
-	return hors_escalier(cote, m) and cote != "E" and cote != "O"
+	return hors_atrium(cote, m) and cote != "E" and cote != "O"
 
 
 ## Les gradins du haut : partout sauf au-dessus de la piscine, que rien ne couvre que la roue.
@@ -110,12 +126,12 @@ static func _bas(K, Bo) -> Array:
 	return places
 
 
-## La promenade du niveau 1 : son dallage, le palier de l'escalier du hall, et la lisse d'or au bord du bas.
+## La promenade du niveau 1 : son dallage, et le palier de l'escalier du hall qui s'avance en balcon sur l'atrium.
 static func _promenade(K, Bo) -> void:
 	Bo.anneau(K, "marbre_noir", [Vector2(D_BAS, Y1), Vector2(D_VITRE, Y1)])
 	Bo.collision(K, [Vector2(D_BAS, Y1), Vector2(D_VITRE, Y1)])
-	K.plan("marbre_noir", -ESC_X, ESC_X, ESC_Z1 - 0.1, -(Bo.B + D_VITRE), Y1)
-	K.dalle(-ESC_X, ESC_X, ESC_Z1 - 0.2, -(Bo.B + D_VITRE), Y1)
+	K.plan("marbre_noir", -PALIER_X, PALIER_X, VOLEE_Z0, Z_BAIE, Y1)
+	K.dalle(-PALIER_X, PALIER_X, VOLEE_Z0, Z_BAIE + 0.1, Y1)
 
 
 ## Les Suites impériales derrière leur vitre (y 4,5 à 8,6) : verre fumé entre des montants d'or, la moquette, le
@@ -173,12 +189,12 @@ static func _haut(K, Bo) -> Array:
 
 # --- La façade --------------------------------------------------------------------------------------
 
-## La peau de diodes sur tout le pourtour (au-dessus de la porte du hall, au sud), ceinte de couronnes d'or
+## La peau de diodes sur tout le pourtour (au-dessus de la verrière du hall, au sud), ceinte de couronnes d'or
 ## aux trois étages ; la couronne du haut, le parapet d'or ; les murs qu'on ne traverse pas.
 static func _facade(K, Bo) -> void:
-	var porte := func(c, m): return hors_escalier(c, m)
+	var porte := func(c, m): return hors_atrium(c, m)
 	Bo.ecrans(K, D_FACADE + 0.02, 0.0, H_FACADE, 0, porte)
-	Bo.ecrans(K, D_FACADE + 0.02, Y1 + 0.3, H_FACADE, 0, func(c, m): return not porte.call(c, m))
+	Bo.ecrans(K, D_FACADE + 0.02, H_VERRIERE + 0.2, H_FACADE, 0, func(c, m): return not porte.call(c, m))
 	for y in [Y1 + 0.15, 9.6, Y_COURSIVE + 0.2]:
 		Bo.anneau(K, "or", [Vector2(D_FACADE, y), Vector2(D_FACADE + 0.5, y)])
 		Bo.anneau(K, "or", [Vector2(D_FACADE + 0.5, y + 0.25), Vector2(D_FACADE + 0.5, y - 0.25)])
@@ -194,35 +210,39 @@ static func _facade(K, Bo) -> void:
 
 # --- Le hall ----------------------------------------------------------------------------------------
 
-## Le hall du niveau 0, sous les loges du sud (x de -17 à 17, z de -22,4 à -35,5) : marbre noir et or, la
-## porte de verre, la billetterie en guichets de caisse, la boutique du club, la porte du tunnel des joueurs,
-## le tableau des résultats, le lustre de jetons et l'escalier monumental qui débouche face à la pelouse.
+## Le hall du niveau 0, sous les loges du sud (x de -17 à 17, z de -22,4 à -35,5). Au milieu, l'atrium sur deux
+## étages : on passe la verrière et l'on a devant soi six mètres et demi de marbre libre, la rosace en roulette, le
+## lustre de jetons qui pend du plafond des gradins, et au fond l'escalier impérial dont les deux volées montent
+## vers le palier, en balcon sous la baie ouverte sur la pelouse. Sous le palier, l'allée du club : le tunnel des
+## joueurs, la feuille du dernier match (le panneau du club est posé par fortune.gd, _entree). De part et
+## d'autre, sous le plafond bas, la billetterie (ouest) et la boutique (est) ; derrière les volées, la galerie
+## des trophées. L'accueil et le plan du stade attendent le visiteur à la porte.
 static func _hall(K) -> void:
 	var zn := -22.4
-	var zs := -35.5
+	var zs := Z_PORTE
 	K.plan("marbre_noir", -17, 17, zs, zn, 0.01)
-	K.plan("plafond_bas", -17, -ESC_X, zs, zn, Y1 - 0.02, false)
-	K.plan("plafond_bas", ESC_X, 17, zs, zn, Y1 - 0.02, false)
-	K.plan("plafond_bas", -ESC_X, ESC_X, zn, ESC_Z1, Y1 - 0.02, false)
-	# Les murs : le nord (sous les gradins), les pignons est et ouest, le dedans de la façade de part et d'autre de la porte.
+	# Le plafond bas des deux ailes et de la galerie, sous la promenade ; au-dessus de l'atrium, le dessous des
+	# gradins du haut (le plafond à caissons de _haut) monte de 8,6 m à la baie à 13,4 m à la verrière.
+	K.plan("plafond_bas", -17, -ATRIUM_X, zs, zn, Y1 - 0.02, false)
+	K.plan("plafond_bas", ATRIUM_X, 17, zs, zn, Y1 - 0.02, false)
+	K.plan("plafond_bas", -ATRIUM_X, ATRIUM_X, Z_BAIE, zn, Y1 - 0.02, false)
+	# Les murs : le nord (sous les gradins), les pignons est et ouest, le dedans de la façade de part et d'autre de la verrière.
 	K.box("marbre_noir", 34, Y1, 0.3, 0, Y1 / 2.0, zn - 0.15)
 	K.solide(34, Y1, 0.3, 0, Y1 / 2.0, zn - 0.15)
 	for s in [-1.0, 1.0]:
 		K.box("marbre_noir", 0.3, Y1, zn - zs, s * 17.0, Y1 / 2.0, (zn + zs) / 2.0)
 		K.solide(0.3, Y1, zn - zs, s * 17.0, Y1 / 2.0, (zn + zs) / 2.0)
-		K.box("marbre_noir", 13.5, Y1, 0.3, s * 10.25, Y1 / 2.0, zs + 0.15)
-		# Les pilastres d'or, la frise du haut.
+		K.box("marbre_noir", 17.0 - ATRIUM_X, Y1, 0.3, s * (17.0 + ATRIUM_X) / 2.0, Y1 / 2.0, zs + 0.15)
+		K.box("or", 0.5, Y1, 0.12, s * 13.5, Y1 / 2.0, zs + 0.36)
 		for x in [5.0, 9.0, 13.0]:
-			K.box("or", 0.5, Y1, 0.12, s * x, Y1 / 2.0, zs + 0.36)
 			K.box("or", 0.5, Y1, 0.12, s * x, Y1 / 2.0, zn - 0.36)
 	K.box("or", 34, 0.25, 0.1, 0, Y1 - 0.3, zn - 0.33)
-	# La porte : quatre vantaux de verre dans un cadre d'or, l'auvent rouge et son nom.
-	K.box("verre", 6.0, 3.6, 0.06, 0, 1.8, zs)
-	for x in [-3.0, -1.5, 0.0, 1.5, 3.0]:
-		K.box("or", 0.12, 3.7, 0.16, x, 1.85, zs)
-	K.box("or", 6.2, 0.16, 0.2, 0, 3.66, zs)
-	K.box("laque_noire", 6.0, 0.9, 0.2, 0, 4.1, zs)
-	K.texte("STADE DE LA FORTUNE", 5.6, 0.5, 0, 4.1, zs - 0.12, PI, "neon", Color("#FFD24A"))
+	_verriere(K, zs)
+	_atrium(K, zn, zs)
+	_escalier(K)
+	_allee_du_club(K, zn)
+	_trophees(K, zn)
+	_accueil(K, zs)
 	# Les guichets de la billetterie (mur ouest du hall), comme à la caisse du casino : grilles d'or, lampes.
 	for i in 4:
 		var z := -24.5 - i * 2.8
@@ -245,47 +265,252 @@ static func _hall(K) -> void:
 	K.obstacle(15.9, 16.85, -33.4, -22.9, 0.0, 2.6)
 	K.interaction("boutique", "E : la boutique du club", 15.5, 1.2, -28.4, Vector3(1.0, 2.0, 10.0))
 	K.texte("BOUTIQUE DU RACING CLUB MINUIT", 10.0, 0.42, 16.75, 3.7, -28.4, -PI / 2.0, "neon", Color("#FF5A6A"))
-	# Le tunnel des joueurs, au nord : deux vantaux d'acier sous un fronton rouge, fermés (les joueurs passent par là).
-	K.box("acier_sombre", 3.0, 2.8, 0.1, 10.0, 1.4, zn - 0.36)
-	K.box("laque_rouge", 3.6, 0.6, 0.2, 10.0, 3.1, zn - 0.4)
-	K.texte("TUNNEL DES JOUEURS", 3.4, 0.3, 10.0, 3.1, zn - 0.52, PI, "grave")
-	K.interaction("tunnel", "E : le tunnel des joueurs", 10.0, 1.3, zn - 1.0, Vector3(3.0, 2.6, 1.2))
-	# Le tableau des résultats, de l'autre côté : la feuille du dernier match (la même qu'au tableau d'affichage).
-	K.box("laque_noire", 3.4, 2.2, 0.12, -10.0, 1.9, zn - 0.36)
-	K.box("or", 3.6, 0.1, 0.16, -10.0, 3.05, zn - 0.36)
-	K.texte("LA FEUILLE DU DERNIER MATCH", 3.2, 0.26, -10.0, 2.7, zn - 0.44, PI, "grave")
-	K.box("creme", 2.4, 1.4, 0.04, -10.0, 1.7, zn - 0.44)
-	K.interaction("feuille", "E : lire la feuille du dernier match", -10.0, 1.6, zn - 1.0, Vector3(3.4, 2.4, 1.2))
-	# L'escalier monumental : marches de marbre noir à nez d'or, rampes d'or, tapis rouge au milieu.
-	var n := 14
-	for i in n:
-		var t0 := float(i) / n
-		var z := lerpf(ESC_Z0, ESC_Z1, t0 + 0.5 / n)
-		var y := Y1 * (i + 1) / n
-		K.box("marbre_noir", 2.0 * ESC_X, y, (ESC_Z1 - ESC_Z0) / n, 0, y / 2.0, z)
-		K.box("or", 2.0 * ESC_X, 0.04, 0.06, 0, y, z - (ESC_Z1 - ESC_Z0) / n / 2.0 + 0.03)
-		K.box("tapis_rouge", 2.0, 0.02, (ESC_Z1 - ESC_Z0) / n, 0, y + 0.01, z)
-	K.rampe(0, 2.0 * ESC_X, ESC_Z0, 0.0, ESC_Z1, Y1)
+	# Les ailes basses : une lampe au-dessus des guichets et de la boutique, les gorges du plafond.
 	for s in [-1.0, 1.0]:
-		K.beam("or", Vector3(s * (ESC_X - 0.1), 1.0, ESC_Z0), Vector3(s * (ESC_X - 0.1), Y1 + 1.0, ESC_Z1), 0.08, 0.08)
-		K.box("laque_noire", 0.2, Y1, ESC_Z1 - ESC_Z0, s * (ESC_X + 0.1), Y1 / 2.0, (ESC_Z0 + ESC_Z1) / 2.0)
-		K.segment(s * ESC_X, ESC_Z0, s * ESC_X, ESC_Z1, 0.2, 0.0, Y1 + 1.2)
-	# Le puits de l'escalier, sous les gradins du haut : ses parois laquées, le dedans de la façade au-dessus de la porte.
-	for s in [-1.0, 1.0]:
-		K.box("laque_noire", 0.2, 4.1, 9.5, s * (ESC_X + 0.1), Y1 + 2.05, -(16.0 + 14.75))
-	K.box("marbre_noir", 2.0 * ESC_X, H_FACADE - Y1, 0.2, 0, (H_FACADE + Y1) / 2.0, zs + 0.2)
-	# Le lustre de jetons, dans le puits de l'escalier : une pile de jetons rouges, noirs et or qui pend du plafond.
-	for i in 9:
-		var m: String = ["rouge_e", "laque_noire", "or"][i % 3]
-		K.cyl(m, 1.4, 1.4, 0.28, 0, 8.2 - i * 0.3, -29.8, 24)
-	K.cyl("or", 0.03, 0.03, 4.0, 0, 10.4, -29.8, 6)
-	K.lumiere(0, 5.4, -29.8, Color("#FFD08A"), 1.6, 12.0)
-	for x in [-12.0, -6.0, 6.0, 12.0]:
-		K.lumiere(x, 3.8, -28.5, Color("#FFC27A"), 1.6, 11.0)
-	# Les gorges lumineuses du plafond, de part et d'autre du puits de l'escalier.
-	for s in [-1.0, 1.0]:
+		K.lumiere(s * 14.0, 3.8, -31.5, Color("#FFC27A"), 1.4, 9.0)
 		K.box("ambre_lum", 13.0, 0.06, 0.3, s * 10.0, Y1 - 0.06, -24.0)
-		K.box("ambre_lum", 13.0, 0.06, 0.3, s * 10.0, Y1 - 0.06, -34.0)
+		K.box("ambre_lum", 17.0 - ATRIUM_X - 0.6, 0.06, 0.3, s * (17.0 + ATRIUM_X) / 2.0, Y1 - 0.06, -34.0)
+
+
+## La verrière : vingt mètres de verre dans une résille d'or, haute de deux étages ; au milieu, les quatre portes
+## sous leur imposte. Dehors, la marquise noire et or porte le nom du stade en néon, ses ampoules dessous.
+static func _verriere(K, zs: float) -> void:
+	var h := H_VERRIERE
+	K.box("verre", 2.0 * ATRIUM_X, h, 0.06, 0, h / 2.0, zs)
+	for x in [-10.0, -7.5, -5.0, -3.0, -1.5, 0.0, 1.5, 3.0, 5.0, 7.5, 10.0]:
+		K.box("or", 0.12 if absf(x) <= PORTE_X else 0.16, h, 0.16, x, h / 2.0, zs)
+	for y in [3.7, 6.3, h]:
+		K.box("or", 2.0 * ATRIUM_X, 0.14, 0.18, 0, y, zs)
+	# On ne traverse que les portes.
+	for s in [-1.0, 1.0]:
+		K.solide(ATRIUM_X - PORTE_X, 3.0, 0.2, s * (ATRIUM_X + PORTE_X) / 2.0, 1.5, zs)
+	# Le dedans de la façade au-dessus de la verrière, jusqu'au plafond de l'atrium.
+	K.box("marbre_noir", 2.0 * ATRIUM_X, 13.4 - h, 0.2, 0, (13.4 + h) / 2.0, zs + 0.2)
+	K.box("ambre_lum", 2.0 * ATRIUM_X - 0.4, 0.08, 0.2, 0, h + 0.15, zs + 0.35)
+	# La marquise.
+	var zm := zs - 3.6
+	K.box("laque_noire", 11.0, 0.35, 3.6, 0, 4.2, zs - 1.8)
+	K.box("or", 11.2, 0.12, 0.16, 0, 4.4, zm)
+	K.box("or", 11.2, 0.12, 0.16, 0, 4.0, zm)
+	K.plan("laque_noire", -5.4, 5.4, zm, zs, 4.02, false)
+	for i in 7:
+		for k in 2:
+			K.sph("ampoule", 0.045, -4.5 + i * 1.5, 3.99, zs - 0.9 - k * 1.6)
+	K.texte("STADE DE LA FORTUNE", 9.0, 0.62, 0, 4.85, zm + 0.1, PI, "neon", Color("#FFD24A"))
+	K.texte("RACING CLUB MINUIT", 4.0, 0.22, 0, 4.2, zm - 0.1, PI, "grave")
+	for s in [-1.0, 1.0]:
+		K.beam("or", Vector3(s * 5.2, 4.3, zm + 0.1), Vector3(s * 5.2, 8.4, zs - 0.1), 0.06, 0.06)
+	load(LOT_E).ampoules(K, Vector3(-5.4, 4.22, zm - 0.02), Vector3(5.4, 4.22, zm - 0.02), 0.16, PI)
+	K.lumiere(0, 3.4, zs - 1.9, Color("#FFC27A"), 1.4, 9.0)
+
+
+## L'atrium : ses deux pignons de marbre noir à pilastres d'or (au-dessus des ailes basses), leurs enseignes qui
+## disent où mène chaque volée, la rosace en roulette au sol, le lustre de jetons, le ruban de diodes au bord de
+## la baie et la balustrade de la promenade au-dessus des volées.
+static func _atrium(K, zn: float, zs: float) -> void:
+	for s in [-1.0, 1.0]:
+		var x: float = s * ATRIUM_X
+		_pignon(K, x, s)
+		# La poutre qui porte le pignon au-dessus de l'aile basse, sa gorge lumineuse.
+		K.box("laque_noire", 0.5, 0.5, Z_BAIE - zs, x, Y1 - 0.25, (Z_BAIE + zs) / 2.0)
+		K.box("or", 0.54, 0.08, Z_BAIE - zs, x, Y1 - 0.52, (Z_BAIE + zs) / 2.0)
+		K.box("ambre_lum", 0.08, 0.1, Z_BAIE - zs - 0.4, x - s * 0.3, Y1 + 0.1, (Z_BAIE + zs) / 2.0)
+		for z in [-27.5, -31.0, -34.5]:
+			K.box("or", 0.12, 3.6, 0.5, x - s * 0.12, Y1 + 1.8, z)
+		# Les enseignes : où mène la volée de ce côté-là.
+		var cap: float = -s * PI / 2.0
+		if s > 0.0:
+			K.texte("PISCINE DES PARIEURS", 7.0, 0.62, x - 0.2, 7.4, -31.0, cap, "neon", Color("#4DE0FF"))
+			K.texte("PENTHOUSE · TRIBUNES 100", 6.0, 0.36, x - 0.2, 6.6, -31.0, cap, "neon", Color("#FFD24A"))
+		else:
+			K.texte("JACKPOT LOUNGE", 7.0, 0.62, x + 0.2, 7.4, -31.0, cap, "neon", Color("#FFD24A"))
+			K.texte("MINUIT LIVE · TRIBUNES 100", 6.0, 0.36, x + 0.2, 6.6, -31.0, cap, "neon", Color("#FF4D8D"))
+	# La balustrade de la promenade, au-dessus des volées, de part et d'autre du palier.
+	for s in [-1.0, 1.0]:
+		K.garde_corps(s * PALIER_X, Z_BAIE, s * ATRIUM_X, Z_BAIE, Y1)
+	# Le ruban de diodes au bord du plafond, au-dessus de la baie : le nom du club qui défile.
+	load(LOT_E).ecran(K, 0, 8.25, Z_BAIE - 0.05, 2.0 * ATRIUM_X - 0.4, 0.6, PI, 4, 0.3)
+	K.box("or", 2.0 * ATRIUM_X, 0.1, 0.2, 0, 7.9, Z_BAIE)
+	# La rosace : une roue de roulette en marbre et laque, rouge et noir, cerclée d'or, sous le lustre.
+	var c := ROSACE
+	K.anneau("or", c.x, c.y, 2.95, 3.12, 0.016)
+	for i in 36:
+		var a0 := TAU * i / 36.0
+		K.anneau("laque_rouge" if i % 2 == 0 else "laque_noire", c.x, c.y, 2.3, 2.95, 0.015, a0, a0 + TAU / 36.0)
+	K.anneau("or", c.x, c.y, 2.2, 2.3, 0.016)
+	K.disque("or", c.x, c.y, 0.55, 0.017, 24)
+	for i in 8:
+		var a := TAU * i / 8.0
+		K.beam("or", Vector3(c.x + sin(a) * 0.55, 0.016, c.y - cos(a) * 0.55), Vector3(c.x + sin(a) * 2.2, 0.016, c.y - cos(a) * 2.2), 0.06, 0.01)
+	# Le lustre de jetons : une pile de douze jetons rouges, noirs et or, pendue au plafond par une tige d'or, son
+	# anneau d'ampoules dessous.
+	for i in 12:
+		var m: String = ["rouge_e", "laque_noire", "or"][i % 3]
+		K.cyl(m, 1.8, 1.8, 0.26, c.x, 10.4 - i * 0.3, c.y, 32)
+	K.cyl("or", 0.04, 0.04, 1.2, c.x, 11.2, c.y, 6)
+	K.tore("ambre_lum", 1.95, 0.06, Transform3D(Basis(), Vector3(c.x, 7.0, c.y)), 32)
+	for i in 16:
+		var a := TAU * i / 16.0
+		K.sph("ampoule", 0.09, c.x + sin(a) * 1.95, 6.9, c.y - cos(a) * 1.95)
+	K.lumiere(c.x, 6.4, c.y, Color("#FFD08A"), 2.6, 17.0)
+
+
+## Un pignon de l'atrium, à x : du plafond bas (y 4,5) au dessous des gradins du haut, de la baie à la verrière.
+static func _pignon(K, x: float, s: float) -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var a := Vector3(x, Y1, Z_BAIE)
+	var b := Vector3(x, Y1, Z_PORTE)
+	var c := Vector3(x, 13.4, Z_PORTE)
+	var d := Vector3(x, 8.6, Z_BAIE)
+	var uv := func(p: Vector3) -> Vector2: return Vector2(p.z, p.y) / 2.0
+	K._quad(st, a, b, c, d, Vector3(-s, 0, 0), uv.call(a), uv.call(b), uv.call(c), uv.call(d))
+	K.put("marbre_noir", st.commit())
+
+
+## L'escalier impérial : deux volées suspendues, marches de marbre noir à nez d'or et tapis rouge sur deux limons
+## laqués, qui montent des ailes vers le palier ; leurs rampes de verre à main courante d'or. On passe dessous là
+## où l'on tient debout : l'atrium s'ouvre ainsi sur l'allée du club et la galerie des trophées. Le palier, en
+## balcon sur l'atrium, porté par deux colonnes d'or.
+static func _escalier(K) -> void:
+	var largeur := VOLEE_Z1 - VOLEE_Z0
+	var zm := (VOLEE_Z0 + VOLEE_Z1) / 2.0
+	var giron := (VOLEE_PIED - PALIER_X) / MARCHES
+	# Là où le dessous de la volée passe à 2,2 m : au-delà, vers le pied, on ne passe plus dessous.
+	var x_libre := PALIER_X + (VOLEE_PIED - PALIER_X) * (1.0 - 2.2 / Y1)
+	for s in [-1.0, 1.0]:
+		for i in MARCHES:
+			var y := Y1 * (i + 1) / MARCHES
+			var x: float = s * (VOLEE_PIED - giron * (i + 0.5))
+			K.box("marbre_noir", giron + 0.02, 0.14, largeur - 0.3, x, y - 0.07, zm)
+			K.box("or", 0.04, 0.04, largeur - 0.3, s * (VOLEE_PIED - giron * i) - s * 0.02, y - 0.02, zm)
+			K.box("tapis_rouge", giron, 0.02, 1.8, x, y + 0.01, zm)
+		var pied := Vector2(s * VOLEE_PIED, 0.0)
+		var haut_ := Vector2(s * PALIER_X, Y1)
+		_rampe_x(K, pied, haut_, VOLEE_Z0 + 0.1, VOLEE_Z1 - 0.1)
+		for z in [VOLEE_Z0, VOLEE_Z1]:
+			var a := Vector3(pied.x, 0.0, z + (0.12 if z < zm else -0.12))
+			var b := Vector3(haut_.x, Y1, a.z)
+			# Le limon, sous les marches, et sa baguette d'or ; la rampe au-dessus.
+			K.beam("laque_noire", a + Vector3(0, -0.12, 0), b + Vector3(0, -0.12, 0), 0.24, 0.5)
+			K.beam("or", a + Vector3(0, -0.4, 0), b + Vector3(0, -0.4, 0), 0.26, 0.05)
+			K.beam("verre", a + Vector3(0, 0.62, 0), b + Vector3(0, 0.62, 0), 0.02, 0.95)
+			K.beam("or", a + Vector3(0, 1.12, 0), b + Vector3(0, 1.12, 0), 0.07, 0.07)
+			for k in 7:
+				var p := a.lerp(b, k / 6.0)
+				K.cyl("or", 0.025, 0.025, 1.1, p.x, p.y + 0.55, p.z, 8)
+			# Les rampes qu'on ne traverse pas : du sol là où l'on ne passe pas dessous, à hauteur de marche au-delà.
+			K.segment(pied.x, z, s * x_libre, z, 0.14, 0.0, 2.2 + 1.2)
+			for k in 4:
+				var x0: float = lerpf(x_libre, PALIER_X, k / 4.0)
+				var x1: float = lerpf(x_libre, PALIER_X, (k + 1) / 4.0)
+				var y0: float = Y1 * (VOLEE_PIED - x0) / (VOLEE_PIED - PALIER_X)
+				var y1: float = Y1 * (VOLEE_PIED - x1) / (VOLEE_PIED - PALIER_X)
+				K.segment(s * x0, z, s * x1, z, 0.14, y0, y1 - y0 + 1.2)
+		# Sous la volée, là où elle devient trop basse : un écran de verre cerclé d'or, qu'on ne traverse pas.
+		K.box("verre", 0.04, 2.0, largeur - 0.3, s * x_libre, 1.0, zm)
+		K.box("or", 0.08, 0.06, largeur - 0.3, s * x_libre, 0.03, zm)
+		K.solide(0.14, 2.2, largeur, s * x_libre, 1.1, zm)
+		# Au pied, deux bornes d'or et leur lanterne.
+		for z in [VOLEE_Z0 - 0.2, VOLEE_Z1 + 0.2]:
+			K.cyl("or", 0.14, 0.18, 1.3, s * (VOLEE_PIED + 0.15), 0.65, z, 12)
+			K.sph("ampoule", 0.16, s * (VOLEE_PIED + 0.15), 1.42, z)
+		K.lumiere(s * 8.5, 6.6, zm, Color("#FFC27A"), 1.3, 10.0)
+	# Les deux colonnes d'or qui portent le palier.
+	for s in [-1.0, 1.0]:
+		K.cyl("or", 0.16, 0.2, Y1 - 0.4, s * (PALIER_X - 0.4), (Y1 - 0.4) / 2.0, VOLEE_Z0 + 0.4, 16)
+		K.cyl("laque_noire", 0.3, 0.3, 0.2, s * (PALIER_X - 0.4), 0.1, VOLEE_Z0 + 0.4, 16)
+		K.rond(s * (PALIER_X - 0.4), VOLEE_Z0 + 0.4, 0.25)
+	# Le palier : sa dalle épaisse, sa sous-face à caissons, son bandeau d'or et sa balustrade en balcon.
+	K.box("laque_noire", 2.0 * PALIER_X, 0.4, Z_BAIE - VOLEE_Z0, 0, Y1 - 0.2, (VOLEE_Z0 + Z_BAIE) / 2.0)
+	K.plan("plafond_bas", -PALIER_X, PALIER_X, VOLEE_Z0, Z_BAIE, Y1 - 0.41, false)
+	K.box("or", 2.0 * PALIER_X + 0.1, 0.08, 0.1, 0, Y1 - 0.05, VOLEE_Z0 - 0.02)
+	K.box("or", 2.0 * PALIER_X + 0.1, 0.08, 0.1, 0, Y1 - 0.37, VOLEE_Z0 - 0.02)
+	K.texte("RACING CLUB MINUIT", 5.0, 0.24, 0, Y1 - 0.21, VOLEE_Z0 - 0.08, PI, "neon", Color("#FF5A6A"))
+	K.garde_corps(-PALIER_X, VOLEE_Z0, PALIER_X, VOLEE_Z0, Y1)
+
+
+## Une rampe de collision sous une volée qui monte le long de x : du pied (x, y) au haut (x, y), entre z0 et z1.
+static func _rampe_x(K, a: Vector2, b: Vector2, z0: float, z1: float) -> void:
+	var d := b - a
+	var forme := BoxShape3D.new()
+	forme.size = Vector3(d.length(), 0.3, z1 - z0)
+	var c := (a + b) / 2.0
+	K.forme(Transform3D(Basis(Vector3.BACK, atan2(d.y, d.x)), Vector3(c.x, c.y - 0.15, (z0 + z1) / 2.0)), forme)
+
+
+## L'allée du club, sous le palier, dans l'axe de la porte : au fond le tunnel des joueurs, entre la feuille du
+## dernier match (à droite en entrant) et le panneau du club (à gauche, fortune.gd, _entree).
+static func _allee_du_club(K, zn: float) -> void:
+	# Le tunnel des joueurs, au nord : deux vantaux d'acier sous un fronton rouge, fermés (les joueurs passent par là).
+	K.box("acier_sombre", 3.0, 2.8, 0.1, 0, 1.4, zn - 0.36)
+	K.box("or", 0.06, 2.8, 0.12, 0, 1.4, zn - 0.4)
+	K.box("laque_rouge", 3.6, 0.6, 0.2, 0, 3.1, zn - 0.4)
+	K.texte("TUNNEL DES JOUEURS", 3.4, 0.3, 0, 3.1, zn - 0.52, PI, "grave")
+	K.interaction("tunnel", "E : le tunnel des joueurs", 0, 1.3, zn - 1.0, Vector3(3.0, 2.6, 1.2))
+	load(LOT_E).cadre_ampoules(K, 0, 1.6, zn - 0.45, 3.4, 3.2, PI, 0.14)
+	# La feuille du dernier match (la même qu'au tableau d'affichage), à droite du tunnel.
+	var x := -3.2
+	var z := zn - 0.36
+	K.box("laque_noire", 2.3, 2.2, 0.12, x, 1.9, z)
+	K.box("or", 2.5, 0.1, 0.16, x, 3.05, z)
+	K.texte("LA FEUILLE DU DERNIER MATCH", 2.1, 0.22, x, 2.75, z - 0.08, PI, "grave")
+	K.box("creme", 1.8, 1.4, 0.04, x, 1.75, z - 0.08)
+	K.interaction("feuille", "E : lire la feuille du dernier match", x, 1.6, zn - 1.0, Vector3(2.3, 2.4, 1.2))
+	K.lumiere(0, 3.5, -25.4, Color("#FFC27A"), 1.1, 8.0)
+
+
+## La galerie des trophées, derrière les volées, sous la promenade : des vitrines éclairées, une coupe d'or
+## dans chacune ; on y passe de l'allée du club aux ailes.
+static func _trophees(K, zn: float) -> void:
+	for x in [-11.5, -7.0, 7.0, 11.5]:
+		var z := zn - 0.8
+		K.box("laque_noire", 1.6, 1.0, 0.8, x, 0.5, z)
+		K.box("or", 1.64, 0.06, 0.84, x, 1.02, z)
+		K.box("verre", 1.5, 1.2, 0.7, x, 1.65, z)
+		K.box("ambre_lum", 1.4, 0.04, 0.6, x, 2.27, z)
+		K.cyl("or", 0.05, 0.12, 0.25, x, 1.17, z, 10)
+		K.cyl("or", 0.22, 0.08, 0.4, x, 1.5, z, 14)
+		K.tore("or", 0.12, 0.02, Transform3D(Basis(Vector3.BACK, PI / 2.0), Vector3(x - 0.24, 1.55, z)), 10)
+		K.tore("or", 0.12, 0.02, Transform3D(Basis(Vector3.BACK, PI / 2.0), Vector3(x + 0.24, 1.55, z)), 10)
+		K.obstacle(x - 0.8, x + 0.8, z - 0.4, z + 0.4, 0.0, 2.3)
+	K.texte("LA GALERIE DES TROPHÉES", 6.0, 0.3, -9.25, 3.6, zn - 0.42, PI, "grave")
+	K.texte("LA GALERIE DES TROPHÉES", 6.0, 0.3, 9.25, 3.6, zn - 0.42, PI, "grave")
+	for s in [-1.0, 1.0]:
+		K.lumiere(s * 9.25, 3.6, -24.6, Color("#FFC27A"), 1.0, 8.0)
+
+
+## L'accueil, à droite en entrant : le comptoir rouge et or de l'hôtesse (fortune.gd la pose, et lui fait dire
+## le chemin) ; à gauche, le plan du stade sur sa stèle.
+static func _accueil(K, zs: float) -> void:
+	var x := -6.8
+	var z := zs + 3.2
+	K.box("laque_rouge", 2.6, 1.05, 0.7, x, 0.53, z)
+	K.box("or", 2.7, 0.06, 0.8, x, 1.08, z)
+	K.box("laque_noire", 2.6, 0.12, 0.72, x, 0.06, z)
+	K.texte("ACCUEIL", 2.0, 0.28, x, 0.62, z - 0.37, PI, "neon", Color("#FFD24A"))
+	K.obstacle(x - 1.3, x + 1.3, z - 0.35, z + 0.35, 0.0, 1.1)
+	K.interaction("accueil", "E : demander son chemin à l'accueil", x, 1.1, z - 0.9, Vector3(2.6, 2.0, 1.0))
+	# Le plan du stade : une stèle noire, son cadre d'or, les lieux et leur côté.
+	var px := 6.8
+	var pz := zs + 3.0
+	K.box("laque_noire", 1.7, 2.5, 0.25, px, 1.25, pz)
+	K.box("or", 1.8, 0.08, 0.3, px, 2.52, pz)
+	K.box("or", 0.06, 2.5, 0.3, px - 0.88, 1.25, pz)
+	K.box("or", 0.06, 2.5, 0.3, px + 0.88, 1.25, pz)
+	K.obstacle(px - 0.9, px + 0.9, pz - 0.15, pz + 0.15)
+	var lignes := [["STADE DE LA FORTUNE", 0.16, PAL_OR],
+		["Tribunes et promenade : par l'escalier", 0.1, PAL_IVOIRE],
+		["À gauche : la boutique du club,", 0.1, PAL_IVOIRE],
+		["la piscine des parieurs, le penthouse", 0.1, PAL_IVOIRE],
+		["À droite : la billetterie,", 0.1, PAL_IVOIRE],
+		["le Jackpot Lounge, Minuit Live", 0.1, PAL_IVOIRE],
+		["Sous le palier : le tunnel des joueurs", 0.1, PAL_IVOIRE],
+		["Derrière l'escalier : les trophées", 0.1, PAL_IVOIRE]]
+	var y := 2.25
+	for l in lignes:
+		K.texte(l[0], 1.5, l[1], px, y, pz - 0.14, PI, "grave", l[2])
+		y -= l[1] + 0.12
 
 
 # --- La piscine des parieurs (est) ---------------------------------------------------------------------

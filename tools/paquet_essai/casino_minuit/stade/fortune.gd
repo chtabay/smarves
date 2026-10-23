@@ -152,8 +152,15 @@ func _foule() -> void:
 		if Vector2(x, z + 70.0).length() < 7.4:
 			continue
 		debout.append([x, 0.0, z, PI + h.randf_range(-0.5, 0.5)])
+	# L'atrium du hall (ni l'accueil ni le plan du stade), et le balcon du palier, au-dessus.
 	for i in 90:
-		debout.append([h.randf_range(-15.0, 15.0), 0.0, h.randf_range(-34.8, -23.5), h.randf() * TAU])
+		var x := h.randf_range(-9.5, 9.5)
+		var z := h.randf_range(-35.0, -29.6)
+		if z < -31.4 and absf(absf(x) - 6.8) < 1.7:
+			continue
+		debout.append([x, 0.0, z, h.randf() * TAU])
+	for i in 24:
+		debout.append([h.randf_range(-3.6, 3.6), 4.5, h.randf_range(-28.7, -26.4), h.randf_range(-0.8, 0.8)])
 	_melanger(debout, h)
 	K.zone_debut("FORTUNE-FOULE")
 	_foules = [E.foule(K, assis, "assis", 1203, "foule_tribunes"), E.foule(K, debout, "debout", 1204, "foule_parvis")]
@@ -195,18 +202,18 @@ func _a_domicile() -> bool:
 	return _club != "" and str(_rencontre.get("dom", "")) == _club
 
 
-## L'entrée du stade du socle (portail, panneau du club) : ici, on entre par le parvis et le hall, où le
-## panneau du club tient en diodes sur le mur nord, à côté de la feuille du dernier match.
+## L'entrée du stade du socle (portail, panneau du club) : ici, on entre par le parvis et le hall ; le panneau
+## du club tient en diodes sous le palier de l'escalier, à gauche du tunnel des joueurs, dans l'axe de la porte.
 func _entree() -> void:
 	K.zone_debut("FORTUNE-PANNEAU")
-	var x := -14.3
+	var x := 3.2
 	var z := -22.4 - 0.36
-	K.box("laque_noire", 3.0, 2.4, 0.12, x, 1.9, z)
-	K.box("or", 3.2, 0.1, 0.16, x, 3.15, z)
-	K.box("or", 3.2, 0.1, 0.16, x, 0.65, z)
-	load(BASE + "zones/lot_e.gd").ecran(K, x, 1.75, z - 0.07, 2.6, 1.5, PI, 4, 0.5)
-	K.texte("LE PANNEAU DU CLUB", 2.8, 0.24, x, 2.85, z - 0.08, PI, "grave")
-	K.interaction("panneau", "E : lire le panneau du club", x, 1.6, z - 1.0, Vector3(3.0, 2.4, 1.2))
+	K.box("laque_noire", 2.3, 2.4, 0.12, x, 1.9, z)
+	K.box("or", 2.5, 0.1, 0.16, x, 3.15, z)
+	K.box("or", 2.5, 0.1, 0.16, x, 0.65, z)
+	load(BASE + "zones/lot_e.gd").ecran(K, x, 1.75, z - 0.07, 2.0, 1.3, PI, 4, 0.5)
+	K.texte("LE PANNEAU DU CLUB", 2.1, 0.22, x, 2.85, z - 0.08, PI, "grave")
+	K.interaction("panneau", "E : lire le panneau du club", x, 1.6, z - 1.0, Vector3(2.3, 2.4, 1.2))
 	K.zone_fin()
 
 
@@ -245,7 +252,9 @@ func _le_president() -> void:
 	_interactive(bureau, "bureau", "E : le bureau du président, la gestion du club", Vector3(1.0, 1.6, 1.6), Vector3(0, 0.8, 0))
 
 
-## Le voiturier de la station, et le barman de la piscine : les seuls qui restent quand le stade est désert.
+## Ceux qui restent quand le stade est désert : le voiturier de la station, le barman de la piscine ; dans le
+## hall, l'hôtesse de l'accueil, le vigile à la porte, et sur le balcon du palier deux visiteurs qui regardent
+## l'atrium en bavardant.
 func _figurants() -> void:
 	var P = Atelier.personnages()
 	var v: Node3D = P.figurant("voiturier", 3)
@@ -258,6 +267,22 @@ func _figurants() -> void:
 	add_child(b)
 	b.regarder(Vector3(0, 4.5, 0))
 	b.jouer("idle")
+	var h: Node3D = P.figurant("hotesse", 2)
+	h.position = Vector3(-6.8, 0, -31.6)
+	add_child(h)
+	h.regarder(Vector3(-4.0, 0, -35.5))
+	h.jouer("idle")
+	var g: Node3D = P.figurant("vigile", 1)
+	g.position = Vector3(4.0, 0, -34.7)
+	add_child(g)
+	g.regarder(Vector3(0, 0, -31.0))
+	g.jouer("idle")
+	for k in 2:
+		var c: Node3D = P.figurant("client", 31 + k)
+		c.position = Vector3(-1.2 + k * 0.9, 4.5, -28.4)
+		add_child(c)
+		c.regarder(Vector3(-0.3 - k * 0.9, 4.5, -28.4))
+		c.jouer("talk", k * 1.3)
 
 
 func _process(delta: float) -> void:
@@ -292,6 +317,8 @@ func _on_interact(target: Node) -> void:
 			player.rotation.y = float(target.get_meta("cap", player.rotation.y))
 		"billetterie":
 			_dire(_billetterie())
+		"accueil":
+			_dire(_accueil())
 		"boutique":
 			_dire(["« Le maillot du dimanche, rouge et or, brodé main : 1 203 dollars. Le prix du vol, monsieur. »",
 				"« L'écharpe en soie du Racing Club Minuit. Elle porte bonheur aux tables, paraît-il. »",
@@ -315,6 +342,20 @@ func _retour_casino() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	var c: Commune = Communes.commune(commune)
 	Chargement.changer(str(c.data.scene) if c else "res://scenes/main.tscn")
+
+
+## L'hôtesse de l'accueil : le chemin, et ce qui se passe au stade à cette heure.
+func _accueil() -> String:
+	match moment:
+		"desert":
+			return "« Bienvenue au stade de la Fortune. Tout dort ce soir, mais la piscine des parieurs est ouverte : par l'escalier, à gauche. »"
+		"entrainement":
+			return "« L'entraînement est public : montez par l'escalier, les tribunes sont ouvertes. Le tunnel des joueurs est sous le palier. »"
+		"portes", "match":
+			return "« Vos places sont en haut de l'escalier. Le Jackpot Lounge à droite, la piscine à gauche, le penthouse par l'ascenseur de verre. »"
+		"sortie":
+			return "« Merci de votre visite ! Les taxis attendent sur le parvis, sous la marquise. »"
+	return "« Les tribunes en haut de l'escalier, la billetterie à droite, la boutique du club à gauche. »"
 
 
 ## Le guichet : le prochain coup d'envoi, à l'heure du jeu.
