@@ -77,7 +77,7 @@ func etapes() -> Array:
 	if a.is_empty():
 		texte = "Personne ne tient de part : le bureau est ouvert à tous. Une part, dès 500 crédits, vous en fait le premier dirigeant, et chaque journée lui verse un dividende."
 	elif dirige:
-		texte = "Vous avez %s crédits dans le club : c'est vous qui le dirigez." % Game.fmt(inv)
+		texte = "Vous avez %s crédits dans le club : c'est vous qui le dirigez. Son nom se change au bureau du président." % Game.fmt(inv)
 	else:
 		texte = "%s dirige avec %s crédits de parts (vous : %s). Celui qui a mis le plus décide ; les parts sont au tableau de l'entrée." \
 			% [str(a[0].nom).capitalize(), Game.fmt(int(a[0].investi)), Game.fmt(inv)]

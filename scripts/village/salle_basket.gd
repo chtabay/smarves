@@ -344,6 +344,10 @@ func _champs() -> Dictionary:
 
 
 func _nom_club() -> String:
+	# Le nom choisi par le dirigeant du club (autoload Basket), sinon celui du gymnase.
+	var basket := get_node_or_null("/root/Basket")
+	if basket and basket.has_method("nom_choisi") and basket.nom_choisi(commune) != "":
+		return basket.nom_choisi(commune)
 	return str(_champs().get("club", CLUB_SECOURS))
 
 

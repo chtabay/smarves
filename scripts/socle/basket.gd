@@ -64,8 +64,8 @@ var _matchs := {}
 var _marches := {}
 ## Le bureau lu au serveur (smarves_basket_bureau) : obligations [{club, rang, par, moi}], encheres [{saison,
 ## journee, groupe, joueur, club, montant, par, moi, quand}], liberations [{saison, journee, club, joueur}],
-## consignes [{saison, journee, club, consigne}].
-var bureau := {"obligations": [], "encheres": [], "liberations": [], "consignes": []}
+## consignes [{saison, journee, club, consigne}], noms [{club, nom, par}] (le nom choisi par le dirigeant).
+var bureau := {"obligations": [], "encheres": [], "liberations": [], "consignes": [], "noms": []}
 ## Les obligations prises (true) ou rendues (false) ici que le serveur ne sait pas encore : club -> {rang: bool}.
 var a_declarer := {}
 ## Les mises retenues sur les crédits, par lot « saison/journée/niveau/groupe/joueur ».
@@ -247,10 +247,16 @@ func titulaire(n: int, g: int, p: int, j: int) -> String:
 	return qui
 
 
-## Le nom, le sigle et les couleurs d'un club ou d'un figurant.
+## Le nom, le sigle et les couleurs d'un club ou d'un figurant. Le nom d'un club est celui que son
+## dirigeant a choisi (renommer), sinon celui de sa structure « gymnase ».
 func fiche(id: String) -> Dictionary:
 	if clubs.has(id):
-		return clubs[id]
+		var choisi := nom_choisi(id)
+		if choisi == "":
+			return clubs[id]
+		var f: Dictionary = clubs[id].duplicate()
+		f.nom = choisi
+		return f
 	var c := Vienne.commune(id.trim_prefix("fig/"))
 	var nom := str(c.get("nom", id))
 	var h := Hasard.depuis(Hasard.graine("basket/" + id))
@@ -781,6 +787,46 @@ func verser_dividendes() -> int:
 
 # ---------------------------------------------------------------- les actes du bureau
 
+## Le nom qu'a choisi le dirigeant d'un club (« » : aucun).
+func nom_choisi(club: String) -> String:
+	for x in bureau.get("noms", []):
+		if str(x.get("club", "")) == club:
+			return str(x.get("nom", ""))
+	return ""
+
+
+## Un nom de club acceptable : de 3 à 40 caractères, lettres (accents compris), chiffres, espaces,
+## apostrophes, tirets, points et « & ». Le serveur applique la même règle.
+static func nom_valide(nom: String) -> bool:
+	var r := RegEx.create_from_string("^[A-Za-zÀ-ÖØ-öø-ÿŒœ0-9 '’.&-]{3,40}$")
+	return r.search(nom) != null and nom.strip_edges() == nom and not nom.contains("  ")
+
+
+## Renomme le club (demande de Guillaume du 23 octobre 2026) : seul un porteur de parts qui le dirige le
+## peut, et le nouveau nom vaut pour tous les joueurs. {ok: true} ou {ok: false, raison} « compte », « parts »,
+## « club », « detenir » (aucune part), « nom » (nom refusé), « reseau ».
+func renommer(club: String, nom: String) -> Dictionary:
+	nom = " ".join(nom.strip_edges().split(" ", false))
+	var raison := refus_bureau(club)
+	if raison == "" and investi(club) <= 0:
+		raison = "detenir"
+	if raison == "" and not nom_valide(nom):
+		raison = "nom"
+	if raison != "":
+		return {"ok": false, "raison": raison}
+	var r: Dictionary = await _appeler("smarves_basket_nommer", {"p_club": club, "p_nom": nom})
+	if r.code != 200 or not r.corps is Dictionary or r.corps.has("erreur"):
+		return {"ok": false, "raison": "reseau" if r.code != 200 or not r.corps is Dictionary else "compte"}
+	if not bool(r.corps.get("ok", false)):
+		lire()
+		return {"ok": false, "raison": str(r.corps.get("raison", "parts"))}
+	bureau.noms = (bureau.noms as Array).filter(func(x): return str(x.get("club", "")) != club)
+	bureau.noms.append({"club": club, "nom": nom, "par": "vous"})
+	sauver()
+	change.emit()
+	return {"ok": true}
+
+
 ## Ce qui empêche le bureau d'agir pour un club, ou « » : « compte » (pas connecté), « parts » (un autre
 ## dirige), « club » (pas au championnat).
 func refus_bureau(club: String) -> String:
@@ -920,7 +966,7 @@ func lire() -> void:
 
 ## L'état lu au serveur remplace ce qu'on en savait ; puis les mises se règlent.
 func appliquer(corps: Dictionary) -> void:
-	for k in ["obligations", "encheres", "liberations", "consignes"]:
+	for k in ["obligations", "encheres", "liberations", "consignes", "noms"]:
 		bureau[k] = (corps.get(k, []) as Array).filter(func(x): return x is Dictionary)
 	_oublier()
 	_regler()
@@ -1080,6 +1126,9 @@ func charger() -> void:
 		effectifs = lu.get("effectifs", {})
 		historique = lu.get("historique", [])
 		bureau = lu.get("bureau", bureau)
+		# Une partie d'avant les noms choisis (23 octobre 2026).
+		if not bureau.has("noms"):
+			bureau.noms = []
 		a_declarer = lu.get("a_declarer", {})
 		retenues = lu.get("retenues", {})
 		dividendes = lu.get("dividendes", {})
@@ -1107,7 +1156,7 @@ func effacer() -> void:
 	effectifs = {}
 	historique = []
 	cliches = {}
-	bureau = {"obligations": [], "encheres": [], "liberations": [], "consignes": []}
+	bureau = {"obligations": [], "encheres": [], "liberations": [], "consignes": [], "noms": []}
 	a_declarer = {}
 	retenues = {}
 	dividendes = {}

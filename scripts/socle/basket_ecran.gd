@@ -152,7 +152,9 @@ static func pourquoi(raison: String) -> String:
 		"pris": "Ce joueur n'est plus libre dans le groupe.", "bas": "L'offre est trop basse.",
 		"credits": "Il vous manque des crédits.", "prise": "Quelqu'un l'a prise avant vous.",
 		"absente": "Celle-là n'est pas à vous.", "absent": "Ce joueur n'est pas dans l'effectif.",
-		"reseau": "Le serveur ne répond pas ; réessayez dans un moment."}.get(raison, "Ça n'a pas marché.")
+		"reseau": "Le serveur ne répond pas ; réessayez dans un moment.",
+		"detenir": "Il faut tenir au moins une part du club, et le diriger, pour le renommer.",
+		"nom": "Le nom doit faire de 3 à 40 caractères : lettres, chiffres, espaces, apostrophes, tirets, points ou « & »."}.get(raison, "Ça n'a pas marché.")
 
 
 static func fleche(forme: int) -> String:
