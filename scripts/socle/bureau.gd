@@ -8,6 +8,12 @@ extends FootTableau
 ## devient une rangée d'onglets en haut. Demande de Guillaume du 18 octobre : « le pilotage ne se fait pas
 ## avec le président, il se fait plutôt dans le bureau ».
 ##
+## Depuis le 23 octobre (« quelque chose de réellement addictif, à la Football Manager ») : l'accueil est le
+## courrier du club (comptes rendus, progrès de l'entraînement, rapport de l'adjoint, ce qui reste à faire),
+## avec l'objectif de la direction et sa confiance ; la page Adversaire donne le rapport de l'adjoint et la
+## répétition (le match joué vingt fois à l'entraînement avec la tactique qu'on prépare) ; la page
+## Entraînement choisit le programme de la semaine, qui fait progresser les joueurs (FootEntrainement).
+##
 ## Tout vient de Football et de Mercato par leurs fonctions publiques ; ce que Football ne donne pas encore
 ## (les postes et consignes individuelles, les statistiques des joueurs), la page le dit au lieu de le
 ## calculer. S'ouvre et se ferme comme les autres fenêtres du stade (signal closed, Échap).
@@ -17,8 +23,19 @@ signal obligations
 
 ## Le marché, pour ses fonctions sans état (la valeur d'un joueur, le cran d'une compétence).
 const MERCATO := preload("res://scripts/socle/mercato/mercato.gd")
-const PAGES := [["accueil", "Accueil"], ["effectif", "Effectif"], ["tactique", "Tactique"], ["agenda", "Agenda"],
-	["championnat", "Championnat"], ["recherche", "Recherche de joueurs"], ["offres", "Offres en cours"]]
+const PAGES := [["accueil", "Accueil"], ["effectif", "Effectif"], ["tactique", "Tactique"], ["adversaire", "Adversaire"],
+	["entrainement", "Entraînement"], ["agenda", "Agenda"], ["championnat", "Championnat"], ["recherche", "Recherche de joueurs"],
+	["offres", "Offres en cours"]]
+## Le courrier lu, sur cet appareil (dans le dossier de Football) : {id: true}.
+const FICHIER_COURRIER := "courrier_lu.json"
+## Les matchs d'une répétition à l'entraînement.
+const REPETITIONS := 20
+const VERT := Color(0.45, 0.85, 0.5)
+## Ce que dit l'adjoint d'un duel, du net avantage au danger.
+const MOTS_DUELS := {"milieu": ["nous dominerons", "léger avantage", "équilibre", "ils auront le ballon", "ils domineront"],
+	"attaque": ["grand ouvert", "jouable", "équilibre", "fermé", "verrouillé"],
+	"defense": ["solide", "tient", "équilibre", "à surveiller", "danger"]}
+const ROUGE := Color(0.95, 0.45, 0.4)
 const ONGLETS_CHAMPIONNAT := [["classement", "Classement"], ["buteurs", "Buteurs"], ["passeurs", "Passeurs"], ["clean_sheets", "Clean sheets"]]
 ## Les fonds : la barre de gauche, plus sombre, et la page.
 const NUIT := Color(0.07, 0.1, 0.11, 0.99)
@@ -35,6 +52,13 @@ var onglet_championnat := "classement"
 var tri_effectif := "poste"
 ## La fiche d'un joueur du cru ouverte dans l'effectif (son id), ou "".
 var joueur_ouvert := ""
+## Le message du courrier ouvert à l'accueil (son id), ou "".
+var message_ouvert := ""
+## Le programme choisi à la page Entraînement, avant d'être posé (« » : celui de la consigne).
+var programme_choisi := ""
+## La dernière répétition à l'entraînement : Football.repetition, ou {} ; et si elle se joue.
+var repetition := {}
+var _repete := false
 
 ## La composition en cours d'écriture : {formation, mentalite, pressing, onze (11 ids, l'ordre des cases),
 ## banc, ordres {id: rôle}} ; vide tant qu'on n'a pas ouvert la tactique. Football les reçoit en compo, banc, roles.
@@ -127,6 +151,15 @@ func _ready() -> void:
 			page = arg.get_slice("=", 1)
 		elif arg.begins_with("--bureau-onglet="):
 			onglet_championnat = arg.get_slice("=", 1)
+		elif arg == "--bureau-courrier":
+			# Le message le plus récent du courrier, ouvert (captures).
+			var liste := courrier()
+			if not liste.is_empty():
+				message_ouvert = str(liste[0].id)
+		elif arg == "--bureau-repetition":
+			repeter.call_deferred()
+		elif arg.begins_with("--bureau-programme="):
+			programme_choisi = arg.get_slice("=", 1)
 		elif arg.begins_with("--bureau-case="):
 			# Un poste choisi sur le terrain, sa consigne individuelle ouverte (captures).
 			case_choisie = int(arg.get_slice("=", 1))
@@ -162,6 +195,7 @@ func aller(p: String) -> void:
 	page = p
 	joueur_ouvert = ""
 	_message = ""
+	repetition = {}
 	_dessiner()
 
 
@@ -187,7 +221,7 @@ func _rafraichir_maintenant() -> void:
 	if focus is LineEdit or focus is OptionButton:
 		return
 	_barre_nav()
-	if page in ["accueil", "effectif", "agenda", "championnat"]:
+	if page in ["accueil", "effectif", "agenda", "championnat", "adversaire", "entrainement"]:
 		_dessiner()
 
 
@@ -206,6 +240,10 @@ func _dessiner() -> void:
 				_effectif(_defile())
 		"tactique":
 			_tactique(_corps)
+		"adversaire":
+			_adversaire(_defile())
+		"entrainement":
+			_entrainement(_defile())
 		"agenda":
 			_agenda(_defile())
 		"championnat":
@@ -248,6 +286,10 @@ func _barre_nav() -> void:
 	for p in PAGES:
 		var b: Button = _boutons_nav[p[0]]
 		var texte: String = p[1]
+		if p[0] == "accueil":
+			var n_lus := non_lus()
+			if n_lus > 0:
+				texte += "  (%d)" % n_lus
 		if p[0] == "offres":
 			var m := _mercato_noeud()
 			if m != null:
@@ -372,71 +414,222 @@ func _phrase_prochain_match() -> String:
 # ---------------------------------------------------------------- l'accueil
 
 func _accueil(col: VBoxContainer) -> void:
-	var f := foot()
-	var rangee: Container = VBoxContainer.new() if _etroit() else HBoxContainer.new()
+	var etroit := _etroit()
+	var largeur := _largeur_page() - 24.0
+	var rangee: Container = VBoxContainer.new() if etroit else HBoxContainer.new()
 	rangee.add_theme_constant_override("separation", 16)
 	col.add_child(rangee)
-	# Le prochain match.
-	var carte1 := _carte(rangee, "Le prochain match")
-	var r: Dictionary = f.prochain_match(club)
-	if r.is_empty():
-		carte1.add_child(_mot("La saison qui vient n'est pas encore tirée.", 16, CRAIE, null, true))
-	else:
-		var adv: String = r.ext if r.dom == club else r.dom
-		carte1.add_child(_mot("%s – %s" % [f.clubs[r.dom].nom, f.clubs[r.ext].nom], 20, CRAIE, Polices.gras()))
-		carte1.add_child(_mot("Journée %d, %s à %d h, %s." % [r.j, date(r.quand), f.HEURE_COUP_ENVOI, "à domicile" if r.dom == club else "chez %s" % f.clubs[adv].nom], 15, DOUX))
-		var d: Dictionary = f.consigne_de(r.s, r.j, club)
-		carte1.add_child(_mot("Consigne : %s, %s, pressing %s." % [d.consigne.formation, FootMatch.MENTALITES[d.consigne.mentalite].nom.to_lower(), FootMatch.PRESSINGS[d.consigne.pressing].nom.to_lower()], 15, CRAIE))
-		var b := _bouton("Préparer la tactique", func(): aller("tactique"), 14)
-		b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-		carte1.add_child(b)
-	# La direction et les obligations.
-	var carte2 := _carte(rangee, "La direction")
-	carte2.add_child(_mot(str(f.phrase_actionnaires(club)), 15, OR, null, true))
-	if f.investi(club) > 0:
-		carte2.add_child(_mot("Dividendes touchés depuis le début : %s crédits." % Game.fmt(int(f.dividendes_total)), 15, CRAIE, null, true))
-	var b2 := _bouton("Le registre des obligations", func(): obligations.emit(), 14)
-	b2.name = "Obligations"
-	b2.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	carte2.add_child(b2)
-	for carte in [carte1, carte2]:
-		for l in carte.get_children():
-			if l is Label and l.autowrap_mode != TextServer.AUTOWRAP_OFF:
-				l.custom_minimum_size.x = (_largeur_page() - 60.0) / (1.0 if _etroit() else 2.0) - 40.0
-	# Le classement et le marché.
-	var bas: Container = VBoxContainer.new() if _etroit() else HBoxContainer.new()
-	bas.add_theme_constant_override("separation", 16)
-	col.add_child(bas)
+	var l_courrier := largeur if etroit else floorf(largeur * 0.56)
+	var l_cartes := largeur if etroit else largeur - l_courrier - 16.0
+	_courrier(_carte(rangee, "Le courrier du club", l_courrier), l_courrier - 30.0)
+	var droite := VBoxContainer.new()
+	droite.add_theme_constant_override("separation", 16)
+	droite.custom_minimum_size.x = l_cartes
+	rangee.add_child(droite)
+	var w := l_cartes - 30.0
+	_carte_match(_carte(droite, "Le prochain match"), w)
+	_carte_direction(_carte(droite, "La direction"), w)
+	var f := foot()
 	var place: Array = f.place_de(club)
 	if not place.is_empty():
-		var carte4 := _carte(bas, "Le classement")
+		var carte4 := _carte(droite, "Le classement")
 		var grille := _classement(f.saison, place[0], place[1])
 		grille.add_theme_constant_override("v_separation", 2)
 		carte4.add_child(grille)
 		var b4 := _bouton("Le championnat", func(): aller("championnat"), 14)
 		b4.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		carte4.add_child(b4)
-	var carte3 := _carte(bas, "Le marché")
+	_carte_marche(_carte(droite, "Le marché"), w)
+
+
+## Un texte replié à la largeur donnée.
+func _texte(parent: Container, t: String, largeur: float, taille := 15, couleur := CRAIE, police: Font = null) -> Label:
+	var l := _mot(t, taille, couleur, police, true)
+	l.custom_minimum_size.x = maxf(120.0, largeur)
+	parent.add_child(l)
+	return l
+
+
+func _carte_match(c: VBoxContainer, w: float) -> void:
+	var f := foot()
+	var r: Dictionary = f.prochain_match(club)
+	if r.is_empty():
+		_texte(c, "La saison qui vient n'est pas encore tirée.", w, 16)
+		return
+	var adv: String = r.ext if r.dom == club else r.dom
+	_texte(c, "%s – %s" % [f.clubs[r.dom].nom, f.clubs[r.ext].nom], w, 19, CRAIE, Polices.gras())
+	_texte(c, "Journée %d, %s à %d h, %s." % [r.j, date(r.quand), f.HEURE_COUP_ENVOI, "à domicile" if r.dom == club else "chez %s" % f.clubs[adv].nom], w, 15, DOUX)
+	var d: Dictionary = f.consigne_de(r.s, r.j, club)
+	var prog := FootEntrainement.programme(d.consigne.get("entrainement", ""))
+	_texte(c, "Consigne : %s, %s, pressing %s. Entraînement : %s." % [d.consigne.formation, FootMatch.MENTALITES[d.consigne.mentalite].nom.to_lower(),
+		FootMatch.PRESSINGS[d.consigne.pressing].nom.to_lower(), str(FootEntrainement.PROGRAMMES[prog].nom).to_lower()], w, 15)
+	var ligne := HFlowContainer.new()
+	ligne.add_theme_constant_override("h_separation", 10)
+	ligne.add_theme_constant_override("v_separation", 6)
+	ligne.add_child(_bouton("Préparer la tactique", func(): aller("tactique"), 14))
+	ligne.add_child(_bouton("L'adversaire", func(): aller("adversaire"), 14))
+	c.add_child(ligne)
+
+
+func _carte_direction(c: VBoxContainer, w: float) -> void:
+	var f := foot()
+	var obj := FootCourrier.objectif(f, club)
+	if not obj.is_empty():
+		_texte(c, "Objectif : %s" % str(obj.titre).to_lower(), w, 17, CRAIE, Polices.gras())
+		_texte(c, str(obj.phrase), w, 14, DOUX)
+	var conf := FootCourrier.confiance(f, club)
+	if not conf.is_empty():
+		var h := HBoxContainer.new()
+		h.add_theme_constant_override("separation", 10)
+		h.add_child(_mot("Confiance", 14, DOUX))
+		var v := float(conf.valeur)
+		var jauge := ColorRect.new()
+		jauge.name = "Confiance"
+		jauge.color = Color(1, 1, 1, 0.1)
+		jauge.custom_minimum_size = Vector2(minf(220.0, w - 200.0), 10)
+		jauge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		var plein := ColorRect.new()
+		plein.color = VERT if v >= 60.0 else (OR if v >= 40.0 else ROUGE)
+		plein.size = Vector2(jauge.custom_minimum_size.x * v / 100.0, 10)
+		jauge.add_child(plein)
+		h.add_child(jauge)
+		h.add_child(_mot(str(conf.phrase), 14, plein.color))
+		c.add_child(h)
+	_texte(c, str(f.phrase_actionnaires(club)), w, 14, OR)
+	if f.investi(club) > 0:
+		_texte(c, "Dividendes touchés depuis le début : %s crédits." % Game.fmt(int(f.dividendes_total)), w, 14)
+	var b2 := _bouton("Le registre des obligations", func(): obligations.emit(), 14)
+	b2.name = "Obligations"
+	b2.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	c.add_child(b2)
+
+
+func _carte_marche(c: VBoxContainer, w: float) -> void:
 	var m := _mercato_noeud()
-	if m != null:
-		for n in m.nouvelles.slice(0, 3):
-			carte3.add_child(_mot(str(n), 15, OR, null, true))
-		var o: Dictionary = m.offres_du_club(club)
-		var tete: int = o.encheres.filter(func(e): return not e.ferme and e.meneur == club).size()
-		var depasse: int = o.encheres.filter(func(e): return not e.ferme and e.meneur != club).size()
-		carte3.add_child(_mot("%d enchère%s en tête, %d dépassée%s, %d vente%s ouverte%s. Quarante nouveaux joueurs chaque dimanche à 17 h." % [tete, "s" if tete > 1 else "", depasse, "s" if depasse > 1 else "",
-			o.ventes.size(), "s" if o.ventes.size() > 1 else "", "s" if o.ventes.size() > 1 else ""], 15, CRAIE, null, true))
-		var ligne := HFlowContainer.new()
-		ligne.add_theme_constant_override("h_separation", 10)
-		ligne.add_child(_bouton("Chercher un joueur", func(): aller("recherche"), 14))
-		ligne.add_child(_bouton("Nos offres en cours", func(): aller("offres"), 14))
-		carte3.add_child(ligne)
+	if m == null:
+		_texte(c, "Le marché n'est pas ouvert ici.", w, 15, DOUX)
+		return
+	for n in m.nouvelles.slice(0, 2):
+		_texte(c, str(n), w, 14, OR)
+	var o: Dictionary = m.offres_du_club(club)
+	var tete: int = o.encheres.filter(func(e): return not e.ferme and e.meneur == club).size()
+	var depasse: int = o.encheres.filter(func(e): return not e.ferme and e.meneur != club).size()
+	_texte(c, "%d enchère%s en tête, %d dépassée%s, %d vente%s ouverte%s. Quarante nouveaux joueurs chaque dimanche à 17 h." % [tete, "s" if tete > 1 else "", depasse, "s" if depasse > 1 else "",
+		o.ventes.size(), "s" if o.ventes.size() > 1 else "", "s" if o.ventes.size() > 1 else ""], w, 14)
+	var ligne := HFlowContainer.new()
+	ligne.add_theme_constant_override("h_separation", 10)
+	ligne.add_theme_constant_override("v_separation", 6)
+	ligne.add_child(_bouton("Chercher un joueur", func(): aller("recherche"), 14))
+	ligne.add_child(_bouton("Nos offres en cours", func(): aller("offres"), 14))
+	c.add_child(ligne)
+
+
+# ---------------------------------------------------------------- le courrier
+
+## Les messages du club (FootCourrier.messages), le plus récent d'abord.
+func courrier() -> Array:
+	return FootCourrier.messages(foot(), club)
+
+
+static func _chemin_lus() -> String:
+	var d := str(foot().dossier)
+	return "" if d == "" else d.path_join(FICHIER_COURRIER)
+
+
+static func lus() -> Dictionary:
+	var chemin := _chemin_lus()
+	if chemin == "" or not FileAccess.file_exists(chemin):
+		return {}
+	var v: Variant = JSON.parse_string(FileAccess.get_file_as_string(chemin))
+	return v if v is Dictionary else {}
+
+
+static func marquer_lu(id: String) -> void:
+	var l := lus()
+	if l.has(id):
+		return
+	l[id] = true
+	var chemin := _chemin_lus()
+	if chemin == "":
+		return
+	var fichier := FileAccess.open(chemin, FileAccess.WRITE)
+	if fichier != null:
+		fichier.store_string(JSON.stringify(l))
+
+
+## Combien de messages du courrier n'ont pas été ouverts.
+func non_lus() -> int:
+	var l := lus()
+	return courrier().filter(func(m): return not l.has(str(m.id))).size()
+
+
+func _courrier(c: VBoxContainer, w: float) -> void:
+	var liste := courrier()
+	if liste.is_empty():
+		_texte(c, "Rien encore : le courrier arrive avec le calendrier.", w, 15, DOUX)
+		return
+	var l := lus()
+	var v := VBoxContainer.new()
+	v.name = "Courrier"
+	v.add_theme_constant_override("separation", 2)
+	c.add_child(v)
+	for m in liste.slice(0, 24):
+		var id := str(m.id)
+		var ouvert := id == message_ouvert
+		var neuf := not l.has(id)
+		var b := Button.new()
+		b.name = "Message_" + id.replace("/", "_")
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.clip_text = true
+		b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		b.custom_minimum_size.x = w
+		b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		b.text = "%s   %s   %s" % ["●" if neuf else "  ", _date_courte(int(m.quand)), m.titre]
+		b.add_theme_font_override("font", Polices.gras() if neuf or ouvert else Polices.texte())
+		b.add_theme_font_size_override("font_size", 14 if _etroit() else 15)
+		for etat in ["normal", "hover", "pressed", "focus"]:
+			b.add_theme_stylebox_override(etat, _boite(Color(OR, 0.14) if ouvert else (Color(1, 1, 1, 0.06) if etat == "hover" else Color(1, 1, 1, 0.02)), Color.TRANSPARENT, 3, 6))
+		b.add_theme_color_override("font_color", OR if neuf or ouvert else CRAIE)
+		b.add_theme_color_override("font_hover_color", OR)
+		b.pressed.connect(func(): _ouvrir_message(id))
+		v.add_child(b)
+		if ouvert:
+			var corps := VBoxContainer.new()
+			corps.add_theme_constant_override("separation", 8)
+			var marge := MarginContainer.new()
+			marge.add_theme_constant_override("margin_left", 22)
+			marge.add_theme_constant_override("margin_bottom", 8)
+			marge.add_child(corps)
+			v.add_child(marge)
+			_texte(corps, str(m.texte), w - 30.0, 15)
+			if str(m.get("page", "")) != "":
+				var cible := str(m.page)
+				var aller_b := _bouton(str(m.get("bouton", "Y aller")), func(): aller(cible), 14)
+				aller_b.name = "Suite"
+				aller_b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+				corps.add_child(aller_b)
+
+
+func _ouvrir_message(id: String) -> void:
+	message_ouvert = "" if message_ouvert == id else id
+	marquer_lu(id)
+	_dessiner()
+
+
+## « dim. 15 nov. »
+static func _date_courte(t: int) -> String:
+	var d := Time.get_datetime_dict_from_unix_time(t)
+	var mois := ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."]
+	return "%s. %d %s" % [str(JOURS[int(d.weekday)]).left(3), int(d.day), mois[int(d.month) - 1]]
+
 
 
 ## Une carte de l'accueil : un fond un peu plus clair, un titre.
-func _carte(parent: Container, titre: String) -> VBoxContainer:
+func _carte(parent: Container, titre: String, largeur := 0.0) -> VBoxContainer:
 	var p := PanelContainer.new()
 	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if largeur > 0.0:
+		p.custom_minimum_size.x = largeur
 	p.add_theme_stylebox_override("panel", _boite(Color(1, 1, 1, 0.04), Color(1, 1, 1, 0.08), 6, 14))
 	parent.add_child(p)
 	var v := VBoxContainer.new()
@@ -497,6 +690,8 @@ func _id_marche(id: String) -> String:
 
 func _effectif(col: VBoxContainer) -> void:
 	var joueurs := _joueurs()
+	# Le début de la saison : ce que l'entraînement a fait depuis.
+	var debut: Dictionary = foot().effectif(club, _journee()[0], 1)
 	var avec_stats := foot().has_method("statistiques")
 	var st := _statistiques()
 	var etroit := _etroit()
@@ -573,7 +768,8 @@ func _effectif(col: VBoxContainer) -> void:
 				"age":
 					grille.add_child(_mot("%d ans" % int(j.age), 15, DOUX))
 				"note":
-					grille.add_child(_mot(str(int(j.note)), 15, CRAIE, Polices.gras()))
+					var gagne := int(j.note) - int(debut.get(id, j).note)
+					grille.add_child(_mot(str(int(j.note)) + ("  ▲%d" % gagne if gagne > 0 else ""), 15, VERT if gagne > 0 else CRAIE, Polices.gras()))
 				"c1", "c2":
 					var principales: Array = MERCATO.PRINCIPALES.get(str(j.poste), ["jeu", "passe"])
 					var c: String = principales[0 if k == "c1" else 1]
@@ -647,11 +843,14 @@ func _fiche_cru(col: VBoxContainer) -> void:
 	grille.add_theme_constant_override("h_separation", 14)
 	grille.add_theme_constant_override("v_separation", 4)
 	col.add_child(grille)
+	var d0: Dictionary = foot().effectif(club, _journee()[0], 1).get(joueur_ouvert, j)
 	for cle in ["endurance", "gardien", "defense", "jeu", "aile", "passe", "but", "cpa"]:
 		var v := FootMatch.competence(j, cle)
 		grille.add_child(_mot(FootMercato.NOMS_COMP[cle], 15, DOUX))
 		grille.add_child(_barre(v, 160))
-		grille.add_child(_mot("%s (%d)" % [MERCATO.mot_niveau(v), MERCATO.niveau(v)], 15, FootMercato.couleur_cran(MERCATO.niveau(v))))
+		var gagne := MERCATO.niveau(v) - MERCATO.niveau(FootMatch.competence(d0, cle))
+		grille.add_child(_mot("%s (%d)  ·  %d %% vers le suivant%s" % [MERCATO.mot_niveau(v), MERCATO.niveau(v), roundi(100.0 * FootEntrainement.vers_cran(v)), "  ▲%d cette saison" % gagne if gagne > 0 else ""],
+			15, FootMercato.couleur_cran(MERCATO.niveau(v))))
 	var s := _stats(joueur_ouvert)
 	if not s.is_empty():
 		col.add_child(_mot("Cette saison : %d match%s, %d but%s, %d passe%s décisive%s." % [int(s.get("matchs", 0)), "s" if int(s.get("matchs", 0)) > 1 else "",
@@ -758,6 +957,11 @@ func _tactique(col: VBoxContainer) -> void:
 	b2.name = "Valider"
 	b2.disabled = not decide
 	haut.add_child(b2)
+	var b3 := _bouton("Répétition", func(): repeter(), 14)
+	b3.name = "Repeter"
+	b3.tooltip_text = "Vingt matchs d'opposition contre l'adversaire de dimanche, avec cette tactique."
+	b3.disabled = r.is_empty()
+	haut.add_child(b3)
 	# Au milieu : le terrain à gauche, l'effectif à droite.
 	var milieu := HBoxContainer.new()
 	milieu.add_theme_constant_override("separation", 14 if etroit else 24)
@@ -806,6 +1010,9 @@ func _tactique(col: VBoxContainer) -> void:
 		etat = _etat_consigne(f.consigne_de(r.s, r.j, club))
 	if ordres().is_empty():
 		etat += "  Les consignes individuelles arrivent avec le prochain moteur de match."
+	if not repetition.is_empty():
+		etat = "Répétition, %d matchs : %d V, %d N, %d D (%.1f – %.1f par match).  %s" % [int(repetition.essais), int(repetition.victoires), int(repetition.nuls), int(repetition.defaites),
+			float(repetition.pour) / maxf(float(repetition.essais), 1.0), float(repetition.contre) / maxf(float(repetition.essais), 1.0), etat]
 	var l := _mot(etat, 14, DOUX, null, true)
 	l.name = "Etat"
 	col.add_child(l)
@@ -1027,6 +1234,7 @@ func placer(id: String, i: int) -> void:
 			compo.ordres.erase(x)
 	compo.banc = banc.filter(func(x): return x != null)
 	_message = ""
+	repetition = {}
 
 
 ## Envoie la composition au championnat (Football.decider), comme la causerie le fait de la consigne.
@@ -1037,6 +1245,10 @@ func valider() -> void:
 		return
 	var d := {"formation": compo.formation, "mentalite": compo.mentalite, "pressing": compo.pressing,
 		"compo": compo.onze.map(func(x): return "" if x == null else str(x)), "banc": compo.banc.duplicate(), "roles": compo.ordres.duplicate()}
+	# Le programme d'entraînement de la semaine reste celui qui est posé.
+	var pose: Dictionary = f.consigne_de(r.s, r.j, club).consigne
+	if pose.has("entrainement"):
+		d["entrainement"] = pose.entrainement
 	var ok: bool = f.decider(r.s, r.j, club, d)
 	_message = ("Composition enregistrée. " + _etat_consigne(f.consigne_de(r.s, r.j, club))) if ok else "Le match est joué ou se joue : la composition attendra le suivant."
 	_dessiner()
@@ -1074,6 +1286,293 @@ class Terrain extends Control:
 			var petite := Rect2(s.x * 0.36, y0 if haut else y0 - s.y * 0.06, s.x * 0.28, s.y * 0.06)
 			draw_rect(petite, craie, false, 2.0)
 			draw_circle(Vector2(s.x / 2, y0 + sens * s.y * 0.11), 2.5, craie)
+
+
+# ---------------------------------------------------------------- l'adversaire
+
+## La consigne qu'on prépare à la tactique (même pas encore validée), pour le rapport et la répétition.
+func _consigne_en_cours() -> Dictionary:
+	if compo.is_empty():
+		_charger_compo()
+	return {"formation": compo.formation, "mentalite": compo.mentalite, "pressing": compo.pressing,
+		"compo": compo.onze.map(func(x): return "" if x == null else str(x)), "banc": compo.banc.duplicate(), "roles": compo.ordres.duplicate()}
+
+
+func _adversaire(col: VBoxContainer) -> void:
+	var f := foot()
+	var w := _large()
+	var rap := FootCourrier.rapport(f, club, _consigne_en_cours())
+	if rap.is_empty():
+		_texte(col, "Pas de match avant la saison qui vient : l'adjoint attend le calendrier.", w, 16)
+		return
+	var c: Dictionary = f.clubs.get(rap.adv, {})
+	var tete := HBoxContainer.new()
+	tete.add_theme_constant_override("separation", 12)
+	if c.has("couleurs"):
+		tete.add_child(_couleurs(c.couleurs))
+	tete.add_child(_mot(str(rap.nom), 24, CRAIE, Polices.gras()))
+	tete.add_child(_mot("%s%s" % ["à domicile" if rap.domicile else "à l'extérieur", ", %s du groupe" % FootLocaux._rang(int(rap.rang)) if int(rap.rang) > 0 else ""], 16, DOUX))
+	col.add_child(tete)
+	var forme := HBoxContainer.new()
+	forme.name = "Forme"
+	forme.add_theme_constant_override("separation", 4)
+	forme.add_child(_mot("Forme ", 15, DOUX))
+	if str(rap.forme) == "":
+		forme.add_child(_mot("pas encore de match joué", 15, DOUX))
+	for x in str(rap.forme):
+		var p := PanelContainer.new()
+		p.add_theme_stylebox_override("panel", _boite(VERT if x == "V" else (ROUGE if x == "D" else Color(0.6, 0.6, 0.6)), Color.TRANSPARENT, 3, 4))
+		var l := _mot(x, 13, ARDOISE, Polices.gras())
+		l.custom_minimum_size.x = 14
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		p.add_child(l)
+		forme.add_child(p)
+	col.add_child(forme)
+	var m: Dictionary = rap.meilleur
+	_texte(col, "%s Son meilleur joueur : %s %s, %s, note %d." % ["Au dernier match, il jouait en %s." % rap.formation if str(rap.formation) != "" else "On ne l'a pas encore vu jouer : l'adjoint le suppose en 4-4-2.",
+		m.get("prenom", ""), m.get("nom", ""), FootMatch.POSTES.get(str(m.get("poste", "")), "").to_lower(), int(m.get("note", 0))], w, 15, CRAIE)
+	col.add_child(_filet())
+	_texte(col, "Les duels du match, avec la tactique que vous préparez (%s, %s) :" % [compo.formation, FootMatch.MENTALITES[compo.mentalite].nom.to_lower()], w, 14, DOUX)
+	var grille := GridContainer.new()
+	grille.name = "Duels"
+	grille.columns = 4
+	grille.add_theme_constant_override("h_separation", 14)
+	grille.add_theme_constant_override("v_separation", 6)
+	col.add_child(grille)
+	var barre_l := clampf(w * 0.22, 90.0, 220.0)
+	for d in rap.duels:
+		var nous := float(d.nous)
+		var eux := float(d.eux)
+		var rapport := nous / maxf(eux, 1.0)
+		var t := _mot(str(d.titre), 15, CRAIE)
+		t.custom_minimum_size.x = 210 if not _etroit() else 150
+		grille.add_child(t)
+		grille.add_child(_duel(nous, eux, barre_l))
+		var mots: Array = MOTS_DUELS["milieu" if d.secteur == "milieu" else ("defense" if str(d.secteur).begins_with("def_") else "attaque")]
+		var verdict: String = mots[0 if rapport >= 1.15 else (1 if rapport >= 1.04 else (2 if rapport > 0.96 else (3 if rapport > 0.87 else 4)))]
+		grille.add_child(_mot(verdict, 14, VERT if rapport >= 1.04 else (CRAIE if rapport > 0.96 else (OR if rapport > 0.87 else ROUGE)), Polices.gras()))
+		grille.add_child(_mot("%d contre %d" % [roundi(nous), roundi(eux)], 13, DOUX))
+	col.add_child(_filet())
+	_texte(col, "L'avis de l'adjoint", w, 13, DOUX)
+	for conseil in rap.conseils:
+		_texte(col, "— " + str(conseil), w, 15)
+	_bloc_repetition(col, w)
+
+
+## Deux barres face à face : la nôtre en or, la leur en craie.
+func _duel(nous: float, eux: float, largeur: float) -> Control:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 4)
+	var maxi_v := maxf(maxf(nous, eux), 1.0)
+	for k in 2:
+		var v := nous if k == 0 else eux
+		var fond := ColorRect.new()
+		fond.color = Color(1, 1, 1, 0.08)
+		fond.custom_minimum_size = Vector2(largeur, 9)
+		fond.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		var plein := ColorRect.new()
+		plein.color = OR if k == 0 else Color(CRAIE, 0.6)
+		plein.size = Vector2(largeur * clampf(v / maxi_v, 0.0, 1.0), 9)
+		if k == 0:
+			plein.position.x = largeur - plein.size.x
+		fond.add_child(plein)
+		h.add_child(fond)
+	h.tooltip_text = "Nous %d, eux %d" % [roundi(nous), roundi(eux)]
+	return h
+
+
+## La répétition : le bouton, puis ce qu'elle a donné.
+func _bloc_repetition(col: VBoxContainer, w: float) -> void:
+	var ligne := HFlowContainer.new()
+	ligne.add_theme_constant_override("h_separation", 12)
+	ligne.add_theme_constant_override("v_separation", 6)
+	col.add_child(ligne)
+	var b := _bouton("Répéter le match à l'entraînement", func(): repeter(), 14)
+	b.name = "Repeter"
+	ligne.add_child(b)
+	if page == "adversaire":
+		ligne.add_child(_bouton("Changer la tactique", func(): aller("tactique"), 14))
+	if repetition.is_empty():
+		_texte(col, "Vingt matchs d'opposition avec la tactique que vous préparez, contre l'adversaire tel que l'adjoint l'imagine. Le hasard du dimanche, lui, reste à venir.", w, 13, DOUX)
+	else:
+		var r := repetition
+		var l := _texte(col, "Sur %d matchs d'opposition : %d victoire%s, %d nul%s, %d défaite%s ; %.1f buts marqués et %.1f encaissés par match." % [int(r.essais),
+			int(r.victoires), "s" if int(r.victoires) > 1 else "", int(r.nuls), "s" if int(r.nuls) > 1 else "", int(r.defaites), "s" if int(r.defaites) > 1 else "",
+			float(r.pour) / maxf(float(r.essais), 1.0), float(r.contre) / maxf(float(r.essais), 1.0)], w, 15, OR, Polices.gras())
+		l.name = "Repetition"
+
+
+## Joue la répétition (Football.repetition) avec la consigne en cours, cinq matchs par image pour ne pas
+## figer l'écran d'un téléphone, et la montre.
+func repeter() -> void:
+	var f := foot()
+	var r: Dictionary = f.prochain_match(club)
+	if r.is_empty() or _repete:
+		return
+	_repete = true
+	var essai := _consigne_en_cours()
+	var total := {"victoires": 0, "nuls": 0, "defaites": 0, "pour": 0, "contre": 0, "essais": 0}
+	for k in REPETITIONS / 5:
+		var x: Dictionary = f.repetition(r.s, r.j, r.dom, r.ext, club, essai, 5)
+		for c in total:
+			total[c] += int(x[c])
+		if k < REPETITIONS / 5 - 1 and is_inside_tree():
+			await get_tree().process_frame
+	_repete = false
+	repetition = total
+	if is_inside_tree():
+		_dessiner()
+
+
+# ---------------------------------------------------------------- l'entraînement
+
+func _entrainement(col: VBoxContainer) -> void:
+	var f := foot()
+	var w := _large()
+	var r: Dictionary = f.prochain_match(club)
+	var pose := FootEntrainement.DEFAUT
+	if not r.is_empty():
+		pose = FootEntrainement.programme(f.consigne_de(r.s, r.j, club).consigne.get("entrainement", ""))
+	var choisi := programme_choisi if programme_choisi != "" else pose
+	_texte(col, "Le programme de la semaine, jusqu'au match de dimanche. Les jeunes progressent vite, les anciens à peine ; chacun surtout dans ce que son poste travaille. Les progrès comptent une fois le match joué : cinq points font un cran.", w, 14, DOUX)
+	var grille := GridContainer.new()
+	grille.name = "Programmes"
+	grille.columns = 2 if _etroit() else 4
+	grille.add_theme_constant_override("h_separation", 8)
+	grille.add_theme_constant_override("v_separation", 8)
+	col.add_child(grille)
+	var lb := (w - 8.0 * (grille.columns - 1)) / grille.columns
+	for cle in FootEntrainement.PROGRAMMES:
+		var p: Dictionary = FootEntrainement.PROGRAMMES[cle]
+		var b := Button.new()
+		b.name = "Programme_" + cle
+		b.custom_minimum_size = Vector2(lb, 74)
+		b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		var ouvert: bool = cle == choisi
+		for etat in ["normal", "hover", "pressed", "focus"]:
+			b.add_theme_stylebox_override(etat, _boite(Color(OR, 0.18) if ouvert else (Color(1, 1, 1, 0.07) if etat == "hover" else Color(1, 1, 1, 0.03)), OR if ouvert else Color(1, 1, 1, 0.1), 5, 8, 2 if ouvert else 1))
+		var v := VBoxContainer.new()
+		v.set_anchors_preset(Control.PRESET_FULL_RECT)
+		v.offset_left = 10
+		v.offset_right = -8
+		v.offset_top = 6
+		v.add_theme_constant_override("separation", 2)
+		v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(v)
+		v.add_child(_mot(str(p.nom) + ("   ✓ posé" if cle == pose and not r.is_empty() else ""), 15, OR if ouvert else CRAIE, Polices.gras()))
+		var ph := _mot(str(p.phrase), 12, DOUX, null, true)
+		ph.custom_minimum_size.x = lb - 22.0
+		v.add_child(ph)
+		b.pressed.connect(func():
+			programme_choisi = cle
+			_dessiner())
+		grille.add_child(b)
+	var ligne := HFlowContainer.new()
+	ligne.add_theme_constant_override("h_separation", 12)
+	col.add_child(ligne)
+	var bv := _bouton("Poser le programme « %s »" % FootEntrainement.PROGRAMMES[choisi].nom, func(): poser_programme(choisi), 14)
+	bv.name = "PoserProgramme"
+	bv.disabled = r.is_empty() or not f.peut_decider(club) or (choisi == pose and f.consigne_de(r.s, r.j, club).etat != "aucune")
+	ligne.add_child(bv)
+	var etat := ""
+	if r.is_empty():
+		etat = "La saison qui vient n'est pas encore tirée."
+	elif not f.peut_decider(club):
+		etat = "Seul celui qui dirige le club choisit le programme. Sans lui, l'adjoint fait du général."
+	elif _message != "":
+		etat = _message
+	else:
+		etat = "Programme posé pour la semaine : %s." % str(FootEntrainement.PROGRAMMES[pose].nom).to_lower()
+	var le := _mot(etat, 14, DOUX)
+	le.name = "Etat"
+	ligne.add_child(le)
+	col.add_child(_filet())
+	# Ce que la semaine apporte à chacun, le plus gros progrès d'abord.
+	var joueurs := _joueurs()
+	var debut: Dictionary = f.effectif(club, _journee()[0], 1)
+	var lignes: Array = []
+	for id in joueurs:
+		var j: Dictionary = joueurs[id]
+		var g := FootEntrainement.gains(j, choisi)
+		var meilleure := ""
+		if choisi == FootEntrainement.DEFAUT:
+			meilleure = "note" if g.has("note") else ""
+		else:
+			for k in g:
+				if k != "note" and (meilleure == "" or float(g[k]) > float(g[meilleure])):
+					meilleure = k
+		lignes.append({"id": id, "j": j, "g": g, "c": meilleure})
+	lignes.sort_custom(func(a, b):
+		var ga := float(a.g.get(a.c, 0.0)) if a.c != "" else 0.0
+		var gb := float(b.g.get(b.c, 0.0)) if b.c != "" else 0.0
+		return ga > gb if ga != gb else str(a.id) < str(b.id))
+	_texte(col, "Ce que la semaine apporterait à chacun", w, 13, DOUX)
+	var t := GridContainer.new()
+	t.name = "Progres"
+	t.columns = 5 if _etroit() else 6
+	t.add_theme_constant_override("h_separation", 16)
+	t.add_theme_constant_override("v_separation", 3)
+	col.add_child(t)
+	var entetes := ["Joueur", "Âge", "Travaille", "Vers le cran suivant", "Semaine"]
+	if not _etroit():
+		entetes.append("Depuis le début de saison")
+	for x in entetes:
+		t.add_child(_mot(x, 13, DOUX))
+	for e in lignes:
+		var j: Dictionary = e.j
+		t.add_child(_mot("%s %s %s" % [j.poste, j.prenom, j.nom], 14, CRAIE))
+		t.add_child(_mot("%d ans" % int(j.age), 14, DOUX))
+		if e.c == "":
+			t.add_child(_mot("–", 14, DOUX))
+			t.add_child(Control.new())
+			t.add_child(_mot("repos", 14, DOUX))
+		elif e.c == "note":
+			t.add_child(_mot("tout, note %d" % int(j.note), 14, CRAIE))
+			t.add_child(_jauge_cran(fposmod(float(j.note), 1.0), fposmod(float(j.note) + float(e.g.note), 1.0), 140))
+			t.add_child(_mot("+%.2f de note" % float(e.g.note), 14, CRAIE))
+		else:
+			var v := FootMatch.competence(j, e.c)
+			t.add_child(_mot("%s %d" % [str(FootMercato.NOMS_COMP.get(e.c, e.c)), MERCATO.niveau(v)], 14, FootMercato.couleur_cran(MERCATO.niveau(v))))
+			var vers := FootEntrainement.vers_cran(v)
+			var apres := FootEntrainement.vers_cran(v + float(e.g[e.c]))
+			t.add_child(_jauge_cran(vers, apres, 140))
+			t.add_child(_mot("+%.2f" % float(e.g[e.c]), 14, VERT if float(e.g[e.c]) >= 0.3 else CRAIE))
+		if not _etroit():
+			var d0: Dictionary = debut.get(e.id, {})
+			var crans := FootEntrainement.crans_gagnes(d0, j).size() if not d0.is_empty() else 0
+			var dn := float(j.note) - float(d0.get("note", j.note))
+			t.add_child(_mot(("%d cran%s, note %+.1f" % [crans, "s" if crans > 1 else "", dn]) if crans > 0 or dn >= 0.05 else "–", 14, VERT if crans > 0 else DOUX))
+
+
+## Où l'on en est vers le cran suivant, et (plus clair) où la semaine mènerait ; au-delà, le cran tombe.
+func _jauge_cran(avant: float, apres: float, largeur: float) -> Control:
+	var fond := ColorRect.new()
+	fond.color = Color(1, 1, 1, 0.08)
+	fond.custom_minimum_size = Vector2(largeur, 8)
+	fond.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var plus := ColorRect.new()
+	plus.color = Color(VERT, 0.55)
+	plus.size = Vector2(largeur * (1.0 if apres < avant else apres), 8)
+	fond.add_child(plus)
+	var plein := ColorRect.new()
+	plein.color = OR
+	plein.size = Vector2(largeur * avant, 8)
+	fond.add_child(plein)
+	return fond
+
+
+## Pose le programme de la semaine dans la consigne du prochain match (Football.decider), sans toucher au reste.
+func poser_programme(prog: String) -> void:
+	var f := foot()
+	var r: Dictionary = f.prochain_match(club)
+	if r.is_empty():
+		return
+	var d: Dictionary = (f.consigne_de(r.s, r.j, club).consigne as Dictionary).duplicate(true)
+	d["entrainement"] = prog
+	var ok: bool = f.decider(r.s, r.j, club, d)
+	programme_choisi = ""
+	_message = ("Programme posé : %s. %s" % [str(FootEntrainement.PROGRAMMES[prog].nom).to_lower(), _etat_consigne(f.consigne_de(r.s, r.j, club))]) if ok else "Le match est joué ou se joue : le programme attendra la semaine suivante."
+	_dessiner()
 
 
 # ---------------------------------------------------------------- l'agenda
