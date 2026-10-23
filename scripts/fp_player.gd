@@ -24,13 +24,17 @@ var auto_move := Vector3.ZERO
 ## le personnage se tourne vers sa marche, et l'on interagit avec ce qui est à portée de main.
 var follow_camera: Camera3D = null
 var avatar: Node3D = null
+## Au guidon d'un deux-roues : l'habitant reste assis au lieu de marcher (scripts/village/conduite.gd).
+var assis := false
 var _pitch := 0.0
+var _capsule: CapsuleShape3D
 
 
 func _ready() -> void:
 	add_to_group("player")
 	var shape := CollisionShape3D.new()
 	var cap := CapsuleShape3D.new()
+	_capsule = cap
 	cap.radius = radius
 	cap.height = body_height
 	shape.shape = cap
@@ -92,7 +96,7 @@ func _physics_process(delta: float) -> void:
 		if dir.length() > 0.1:
 			rotation.y = lerp_angle(rotation.y, atan2(-dir.x, -dir.z), 12.0 * delta)
 		if avatar:
-			avatar.pose = 1 if dir.length() > 0.1 else 0
+			avatar.pose = 2 if assis else (1 if dir.length() > 0.1 else 0)
 	else:
 		dir = (transform.basis * dir).normalized()
 	var run := 1.8 if Input.is_key_pressed(KEY_SHIFT) else 1.0
@@ -101,6 +105,14 @@ func _physics_process(delta: float) -> void:
 	_step_up(delta)
 	move_and_slide()
 	_update_focus()
+
+
+## Élargit ou rend le corps : une voiture tient plus de place qu'un piéton.
+func set_radius(r: float) -> void:
+	radius = r
+	if _capsule:
+		_capsule.radius = r
+		_capsule.height = maxf(body_height, 2.0 * r)
 
 
 ## Enjamber une petite marche : quand on bute au sol contre un obstacle raide, on essaie la même

@@ -647,25 +647,29 @@ func _garage() -> void:
 	for i in 9:
 		var tool := _box(Vector3(0.05, 0.35, 0.03), Vector3(-5.2 + i * 0.4, 1.8, -D / 2.0 + 0.08), steel)
 		tool.rotation_degrees.z = (i % 3 - 1) * 15.0
-	# Les véhicules à vendre : celui du moment, sur le pont, et les deux autres.
-	var spots := [Vector3(4.6, 0, 3.6), Vector3(-3.6, 0, 0.8), Vector3(3.4, 0, -0.8)]
-	var i := 0
+	# Les véhicules à vendre : la 2 CV sur le pont, les deux-roues devant, la DS au fond.
+	# [position, lacet, chevalet de l'étiquette à côté].
+	var spots := {
+		"mobylette": [Vector3(4.6, 0, 3.6), -130.0, Vector3(-1.0, 0, 0)],
+		"deux_cv": [Vector3(-3.6, 0, 0.8), 20.0, Vector3(0, 0, 2.2)],
+		"ds": [Vector3(3.4, 0, -0.8), -40.0, Vector3(0, 0, 1.4)],
+		"velo": [Vector3(1.4, 0, 4.0), -150.0, Vector3(-0.9, 0, 0)],
+		"moto": [Vector3(-2.2, 0, 4.0), 150.0, Vector3(1.0, 0, 0)],
+	}
 	for it in Biens.CATALOGUE:
-		if it.kind != "vehicule":
+		if it.kind != "vehicule" or not spots.has(it.id):
 			continue
+		var spot: Array = spots[it.id]
 		var v := Biens.build_vehicle(it.id)
-		v.position = spots[i] as Vector3
-		v.rotation_degrees.y = [-130.0, 20.0, -40.0][i]
+		v.position = spot[0]
+		v.rotation_degrees.y = spot[1]
 		v.scale = Vector3.ONE * 4.2
 		add_child(v)
 		# L'étiquette de prix, posée sur un chevalet.
-		var tag: Vector3 = spots[i] + Vector3(0, 0, 2.2 if i == 1 else 1.4)
-		if i == 0:
-			tag = spots[i] + Vector3(-1.0, 0, 0)
+		var tag: Vector3 = spot[0] + spot[2]
 		_box(Vector3(0.04, 0.9, 0.04), tag + Vector3(0, 0.45, 0), steel)
 		_box(Vector3(0.7, 0.4, 0.03), tag + Vector3(0, 1.0, 0), _std(Color(0.97, 0.95, 0.88), 0.8))
 		_label3d("%s\n%s crédits" % [it.name, Game.fmt(it.price)], tag + Vector3(0, 1.0, 0.02), 22, Color(0.15, 0.15, 0.2))
-		i += 1
 	# Le pont élévateur sous la première.
 	for x in [-4.5, -2.7]:
 		_box(Vector3(0.18, 0.08, 4.0), Vector3(x, 0.04, 0.8), red)

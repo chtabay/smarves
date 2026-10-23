@@ -123,6 +123,8 @@ const CACHES := {
 signal zone_entered(id: String)
 ## L'habitant trouve un lieu caché, la première fois.
 signal cache_found(id: String)
+## On touche (E) le véhicule garé : la scène monte dessus (scripts/village/conduite.gd).
+signal monter_vehicule
 
 ## Ce qu'on lit en s'approchant d'une devanture.
 const PROMPTS := {
@@ -1053,6 +1055,8 @@ func enter_logement(id: String) -> void:
 
 ## Où l'on gare le véhicule qu'on conduit : sur la place, entre la pétanque et le banc.
 const PARKING := [Vector3(-0.6, 0.02, 3.4), 90.0]
+## Là où on l'a laissé en descendant, le temps de la partie : [id, position, lacet en degrés].
+static var garee: Array = []
 ## Les panneaux « Propriété » : bien → [position, rotation]. La maison de la rue de l'Église est sur
 ## le chemin de Passelourdin ; la maison de maître est la maison verte de la place.
 const PROPERTY_SIGNS := {
@@ -1115,11 +1119,32 @@ func _refresh_biens() -> void:
 	_vehicle = biens.build_vehicle(_vehicle_id)
 	if _vehicle == null:
 		return
-	_vehicle.position = PARKING[0]
-	_vehicle.rotation_degrees.y = PARKING[1]
+	var ici: Array = [garee[1], garee[2]] if garee.size() == 3 and garee[0] == _vehicle_id else PARKING
+	_vehicle.position = ici[0]
+	_vehicle.rotation_degrees.y = ici[1]
 	# Biens.build_vehicle rend tout à l'échelle des voitures KayKit, posées à 1,9 sur la place.
 	_vehicle.scale = Vector3.ONE * 1.9
 	add_child(_vehicle)
+	# On le touche pour monter dessus, ou dedans.
+	var a := Area3D.new()
+	a.name = "Monter"
+	var cs := CollisionShape3D.new()
+	cs.name = "CollisionShape3D"
+	var b := BoxShape3D.new()
+	b.size = Vector3(0.5, 0.5, 0.9)
+	cs.shape = b
+	cs.position.y = 0.25
+	a.add_child(cs)
+	a.set_meta("interact", "vehicule")
+	var nom: String = biens.name_of(_vehicle_id)
+	a.set_meta("prompt", ("E : monter sur %s" if biens.deux_roues(_vehicle_id) else "E : prendre %s") % _bas(nom))
+	a.set_meta("action", func(): monter_vehicule.emit())
+	_vehicle.add_child(a)
+
+
+## « La 2 CV » → « la 2 CV », au milieu d'une phrase.
+static func _bas(nom: String) -> String:
+	return nom.substr(0, 1).to_lower() + nom.substr(1) if nom.begins_with("L") else nom
 
 
 # --- La tournée générale, en terrasse du Café de la Place ----------------------------------------

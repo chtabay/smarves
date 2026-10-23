@@ -7,6 +7,7 @@ const LOAN := preload("res://scripts/loan_panel.gd")
 const OUTSKIRTS := preload("res://scripts/outskirts.gd")
 const PLAYER := preload("res://scripts/fp_player.gd")
 const VILLAGE := preload("res://scripts/village/village.gd")
+const CONDUITE := preload("res://scripts/village/conduite.gd")
 ## Taille du joueur sur la place : celle d'un habitant (0,72 m de haut), les yeux à 0,6 m.
 const PLAYER_EYE := 0.6
 
@@ -59,6 +60,8 @@ var topdown := true
 var _prompt: Label
 var _cross: Label
 var _places_panel: Control
+## Le véhicule qu'on conduit dans le village (scripts/village/conduite.gd).
+var conduite: Node
 
 
 func _ready() -> void:
@@ -139,11 +142,18 @@ func signature_garde() -> Variant:
 ## Le retour sur la place gardée : la liste des lieux suit le gagné au jeu, et l'habitant, resté devant
 ## la porte, se retourne vers la rue.
 func revenir() -> void:
+	var porte := Game.return_point
 	Game.return_point = ""
 	_refresh_places()
 	if player:
 		player.velocity = Vector3.ZERO
-		player.rotation.y += PI
+		var village := get_node("Village")
+		# Entré de loin (la liste « Le village », ou garé ailleurs en véhicule) : on ressort devant la porte.
+		if village.has_door(porte) and player.global_position.distance_to(village.door_spawn(porte)[0]) > 1.0:
+			var door: Array = village.door_spawn(porte)
+			_put_player(door[0], door[1])
+		else:
+			player.rotation.y += PI
 	set_fps(fps)
 
 
@@ -903,6 +913,10 @@ func _spawn_player() -> void:
 	me.rotation.y = PI
 	player.add_child(me)
 	player.avatar = me
+	if conduite:
+		conduite.queue_free()
+	conduite = CONDUITE.new(self, get_node("Village"), player)
+	add_child(conduite)
 	if Game.return_point == "casino":
 		Game.return_point = ""
 		_put_player(Vector3(6.4, 0.05, -2.4), PI)
@@ -958,8 +972,8 @@ func set_fps(on: bool) -> void:
 		camera.make_current()
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	if _hint:
-		_hint.text = ("ZQSD : marcher   ·   Maj : courir   ·   E : entrer, jouer, parler   ·   Clic droit : tourner la vue   ·   Molette : zoom   ·   Tab : vue à pied   ·   Échap : réglages" if (fps and topdown)
-			else "ZQSD : marcher   ·   Maj : courir   ·   E : entrer, jouer, parler   ·   Tab : vue de dessus   ·   Échap : réglages")
+		_hint.text = ("ZQSD : marcher   ·   Maj : courir   ·   E : entrer, jouer, parler   ·   V : monter, descendre   ·   Clic droit : tourner la vue   ·   Molette : zoom   ·   Tab : vue à pied   ·   Échap : réglages" if (fps and topdown)
+			else "ZQSD : marcher   ·   Maj : courir   ·   E : entrer, jouer, parler   ·   V : monter, descendre   ·   Tab : vue de dessus   ·   Échap : réglages")
 	if _cross:
 		_cross.visible = fps and not topdown
 		_prompt.visible = false
@@ -968,9 +982,13 @@ func set_fps(on: bool) -> void:
 		place_signs[id].visible = topdown
 	if _places_panel:
 		_places_panel.visible = topdown
+	if conduite:
+		conduite.appliquer()
 
 
 func _on_player_interact(target: Node) -> void:
+	if conduite:
+		conduite.avant_d_agir(target)
 	if target.has_meta("action"):
 		# Les portes et comptoirs posés par le village (scripts/village/village.gd).
 		(target.get_meta("action") as Callable).call()
@@ -989,6 +1007,10 @@ func _update_prompt() -> void:
 	var t: Node = player.focus_target
 	_prompt.visible = t != null and not player.frozen
 	if t == null:
+		# En roulant, rien à portée : l'invite rappelle comment mettre pied à terre.
+		var v: String = conduite.invite() if conduite else ""
+		_prompt.visible = v != "" and not player.frozen
+		_prompt.text = v
 		return
 	if t.has_meta("place"):
 		var p := _place_info(t.get_meta("place"))

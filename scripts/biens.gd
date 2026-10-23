@@ -80,15 +80,22 @@ const CATALOGUE := [
 	{"id": "smoking", "kind": "tenue", "seller": "couture", "name": "Le smoking de soirée",
 		"price": 3000, "growth": 1.0, "max": 1, "rente": 0, "charge": 20, "standing": 4, "gate": 5000,
 		"color": Color(0.05, 0.05, 0.07), "from": "Raymonde", "blurb": "« Monsieur Armand reconnaît un smoking de chez Raymonde au premier coup d'œil. »"},
-	# Au garage Fradin : on n'en conduit qu'un à la fois.
+	# Au garage Fradin : on n'en conduit qu'un à la fois. vitesse : combien de fois le pas de l'habitant
+	# quand on roule (scripts/village/conduite.gd) ; dessin : le deux-roues dessiné ici faute de modèle.
+	{"id": "velo", "kind": "vehicule", "seller": "garage", "name": "Le vélo de facteur",
+		"price": 120, "growth": 1.0, "max": 1, "rente": 0, "charge": 1, "standing": 0, "gate": 0, "vitesse": 2.2,
+		"model": "", "dessin": "velo", "from": "Roger Fradin", "blurb": "« Réformé par la Poste. Le panier tient un seau de jetons. »"},
 	{"id": "mobylette", "kind": "vehicule", "seller": "garage", "name": "La Mobylette bleue",
-		"price": 500, "growth": 1.0, "max": 1, "rente": 0, "charge": 5, "standing": 1, "gate": 0,
-		"model": "", "from": "Roger Fradin", "blurb": "« Deux temps, mélange à 5 %. Elle vous emmène au casino sans pédaler. »"},
+		"price": 500, "growth": 1.0, "max": 1, "rente": 0, "charge": 5, "standing": 1, "gate": 0, "vitesse": 3.0,
+		"model": "", "dessin": "mobylette", "from": "Roger Fradin", "blurb": "« Deux temps, mélange à 5 %. Elle vous emmène au casino sans pédaler. »"},
+	{"id": "moto", "kind": "vehicule", "seller": "garage", "name": "La Terrot 500",
+		"price": 1200, "growth": 1.0, "max": 1, "rente": 0, "charge": 12, "standing": 2, "gate": 500, "vitesse": 4.0,
+		"model": "", "dessin": "moto", "from": "Roger Fradin", "blurb": "« La reine des routes de la Vienne. On arrive au casino avant la chance. »"},
 	{"id": "deux_cv", "kind": "vehicule", "seller": "garage", "name": "La 2 CV",
-		"price": 2200, "growth": 1.0, "max": 1, "rente": 0, "charge": 20, "standing": 3, "gate": 1000,
+		"price": 2200, "growth": 1.0, "max": 1, "rente": 0, "charge": 20, "standing": 3, "gate": 1000, "vitesse": 3.6,
 		"model": "res://assets/kaykit/city/car_hatchback.gltf", "from": "Roger Fradin", "blurb": "« La voiture de Dédé. Il l'a perdue au 421, je l'ai remise à neuf. »"},
 	{"id": "ds", "kind": "vehicule", "seller": "garage", "name": "La DS 21",
-		"price": 9000, "growth": 1.0, "max": 1, "rente": 0, "charge": 70, "standing": 6, "gate": 20000,
+		"price": 9000, "growth": 1.0, "max": 1, "rente": 0, "charge": 70, "standing": 6, "gate": 20000, "vitesse": 4.4,
 		"model": "res://assets/kaykit/city/car_sedan.gltf", "from": "Roger Fradin", "blurb": "« Suspension hydraulique. On ne sent plus les pavés, ni les pertes. »"},
 	# Chez Ginette Boutin, brocante et meubles : ils ne rapportent rien, ils se posent chez soi.
 	# slot : le genre d'emplacement (lit, sol, grand, mur, petit, jardin). Le standing ne compte que posé
@@ -608,39 +615,71 @@ static func build_vehicle(id: String) -> Node3D:
 		return null
 	if str(it.get("model", "")) != "":
 		return load(it.model).instantiate()
+	return _deux_roues(str(it.get("dessin", "mobylette")))
+
+
+## Les deux-roues dessinés : [échelle du corps, couleur, pièces], une pièce par ligne
+## [forme, taille, position, rotation x, matériau] ; ils regardent +Z, comme les voitures KayKit.
+const DEUX_ROUES := {
+	"mobylette": [0.24, Color(0.2, 0.45, 0.85), [
+		["tore", Vector2(0.17, 0.25), Vector3(0, 0.25, 0.42), 0.0, "noir"],
+		["tore", Vector2(0.17, 0.25), Vector3(0, 0.25, -0.42), 0.0, "noir"],
+		["boite", Vector3(0.08, 0.08, 0.7), Vector3(0, 0.42, 0.0), -8.0, "couleur"],
+		["boite", Vector3(0.22, 0.22, 0.3), Vector3(0, 0.36, -0.12), 0.0, "couleur"],
+		["boite", Vector3(0.2, 0.06, 0.34), Vector3(0, 0.62, -0.22), 0.0, "selle"],
+		["boite", Vector3(0.05, 0.6, 0.05), Vector3(0, 0.52, 0.36), -20.0, "chrome"],
+		["boite", Vector3(0.5, 0.03, 0.03), Vector3(0, 0.82, 0.3), 0.0, "chrome"],
+		["boite", Vector3(0.24, 0.05, 0.3), Vector3(0, 0.46, 0.42), 0.0, "couleur"],
+		["boite", Vector3(0.1, 0.1, 0.06), Vector3(0, 0.74, 0.36), 0.0, "chrome"],
+		["boite", Vector3(0.18, 0.04, 0.26), Vector3(0, 0.48, -0.44), 0.0, "couleur"],
+	]],
+	# Le vélo de facteur, vert bouteille, son panier d'osier à l'avant.
+	"velo": [0.24, Color(0.1, 0.36, 0.24), [
+		["tore", Vector2(0.21, 0.25), Vector3(0, 0.25, 0.42), 0.0, "noir"],
+		["tore", Vector2(0.21, 0.25), Vector3(0, 0.25, -0.42), 0.0, "noir"],
+		["boite", Vector3(0.04, 0.04, 0.5), Vector3(0, 0.6, 0.06), 0.0, "couleur"],
+		["boite", Vector3(0.04, 0.04, 0.5), Vector3(0, 0.42, 0.12), 40.0, "couleur"],
+		["boite", Vector3(0.04, 0.42, 0.04), Vector3(0, 0.45, -0.16), -15.0, "couleur"],
+		["boite", Vector3(0.03, 0.03, 0.42), Vector3(0, 0.26, -0.22), 0.0, "couleur"],
+		["boite", Vector3(0.03, 0.44, 0.03), Vector3(0, 0.46, 0.37), -15.0, "chrome"],
+		["boite", Vector3(0.42, 0.03, 0.03), Vector3(0, 0.7, 0.32), 0.0, "chrome"],
+		["boite", Vector3(0.12, 0.05, 0.2), Vector3(0, 0.68, -0.21), 0.0, "selle"],
+		["boite", Vector3(0.24, 0.14, 0.2), Vector3(0, 0.6, 0.5), 0.0, "osier"],
+		["boite", Vector3(0.14, 0.03, 0.03), Vector3(0, 0.25, -0.02), 0.0, "chrome"],
+	]],
+	# La Terrot 500 : grand réservoir rouge, moteur noir, échappement chromé.
+	"moto": [0.28, Color(0.62, 0.08, 0.08), [
+		["tore", Vector2(0.18, 0.28), Vector3(0, 0.28, 0.48), 0.0, "noir"],
+		["tore", Vector2(0.18, 0.28), Vector3(0, 0.28, -0.48), 0.0, "noir"],
+		["boite", Vector3(0.22, 0.24, 0.3), Vector3(0, 0.34, 0.0), 0.0, "noir"],
+		["boite", Vector3(0.06, 0.06, 0.9), Vector3(0, 0.48, 0.0), -6.0, "couleur"],
+		["boite", Vector3(0.24, 0.16, 0.34), Vector3(0, 0.62, 0.12), 0.0, "couleur"],
+		["boite", Vector3(0.22, 0.07, 0.36), Vector3(0, 0.62, -0.22), 0.0, "selle"],
+		["boite", Vector3(0.05, 0.55, 0.05), Vector3(0, 0.55, 0.42), -20.0, "chrome"],
+		["boite", Vector3(0.6, 0.03, 0.03), Vector3(0, 0.86, 0.34), 0.0, "chrome"],
+		["boite", Vector3(0.14, 0.14, 0.08), Vector3(0, 0.76, 0.46), 0.0, "chrome"],
+		["boite", Vector3(0.06, 0.06, 0.55), Vector3(0.14, 0.26, -0.2), 0.0, "chrome"],
+		["boite", Vector3(0.12, 0.04, 0.3), Vector3(0, 0.58, 0.5), 0.0, "couleur"],
+		["boite", Vector3(0.14, 0.04, 0.34), Vector3(0, 0.58, -0.5), 0.0, "couleur"],
+	]],
+}
+
+
+static func _deux_roues(dessin: String) -> Node3D:
+	var d: Array = DEUX_ROUES.get(dessin, DEUX_ROUES.mobylette)
 	var root := Node3D.new()
-	root.name = "Mobylette"
+	root.name = dessin.capitalize()
 	var body := Node3D.new()
-	body.scale = Vector3.ONE * 0.24
+	body.scale = Vector3.ONE * float(d[0])
 	root.add_child(body)
-	var blue := StandardMaterial3D.new()
-	blue.albedo_color = Color(0.2, 0.45, 0.85)
-	blue.metallic = 0.3
-	blue.roughness = 0.35
-	var dark := StandardMaterial3D.new()
-	dark.albedo_color = Color(0.06, 0.06, 0.07)
-	dark.roughness = 0.8
-	var chrome := StandardMaterial3D.new()
-	chrome.albedo_color = Color(0.85, 0.85, 0.88)
-	chrome.metallic = 1.0
-	chrome.roughness = 0.2
-	var seat := StandardMaterial3D.new()
-	seat.albedo_color = Color(0.35, 0.2, 0.12)
-	seat.roughness = 0.6
-	var parts := [
-		# [forme, taille, position, rotation x, matériau]
-		["tore", Vector2(0.17, 0.25), Vector3(0, 0.25, 0.42), 0.0, dark],
-		["tore", Vector2(0.17, 0.25), Vector3(0, 0.25, -0.42), 0.0, dark],
-		["boite", Vector3(0.08, 0.08, 0.7), Vector3(0, 0.42, 0.0), -8.0, blue],
-		["boite", Vector3(0.22, 0.22, 0.3), Vector3(0, 0.36, -0.12), 0.0, blue],
-		["boite", Vector3(0.2, 0.06, 0.34), Vector3(0, 0.62, -0.22), 0.0, seat],
-		["boite", Vector3(0.05, 0.6, 0.05), Vector3(0, 0.52, 0.36), -20.0, chrome],
-		["boite", Vector3(0.5, 0.03, 0.03), Vector3(0, 0.82, 0.3), 0.0, chrome],
-		["boite", Vector3(0.24, 0.05, 0.3), Vector3(0, 0.46, 0.42), 0.0, blue],
-		["boite", Vector3(0.1, 0.1, 0.06), Vector3(0, 0.74, 0.36), 0.0, chrome],
-		["boite", Vector3(0.18, 0.04, 0.26), Vector3(0, 0.48, -0.44), 0.0, blue],
-	]
-	for p in parts:
+	var mats := {
+		"couleur": _mat(d[1], 0.35, 0.3),
+		"noir": _mat(Color(0.06, 0.06, 0.07), 0.8),
+		"chrome": _mat(Color(0.85, 0.85, 0.88), 0.2, 1.0),
+		"selle": _mat(Color(0.35, 0.2, 0.12), 0.6),
+		"osier": _mat(Color(0.62, 0.46, 0.26), 0.9),
+	}
+	for p in d[2]:
 		var mi := MeshInstance3D.new()
 		if p[0] == "tore":
 			var t := TorusMesh.new()
@@ -653,10 +692,39 @@ static func build_vehicle(id: String) -> Node3D:
 			b.size = p[1]
 			mi.mesh = b
 			mi.rotation_degrees.x = p[3]
-		mi.material_override = p[4]
+		mi.material_override = mats[p[4]]
 		mi.position = p[2]
 		body.add_child(mi)
 	return root
+
+
+static func _mat(c: Color, roughness: float, metallic := 0.0) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = c
+	m.roughness = roughness
+	m.metallic = metallic
+	return m
+
+
+## Un deux-roues (dessiné, sans modèle) : on s'assoit dessus, on ne monte pas dedans.
+static func deux_roues(id: String) -> bool:
+	var it := item(id)
+	return not it.is_empty() and str(it.get("model", "")) == ""
+
+
+## Combien de fois le pas de l'habitant, au guidon ou au volant (2,5 pour un véhicule de commune qui ne le dit pas).
+static func vitesse(id: String) -> float:
+	return float(item(id).get("vitesse", 2.5))
+
+
+## La hauteur de la selle d'un deux-roues, à l'échelle 1 du véhicule.
+static func selle(id: String) -> float:
+	var d: Array = DEUX_ROUES.get(str(item(id).get("dessin", "mobylette")), DEUX_ROUES.mobylette)
+	var top := 0.0
+	for p in d[2]:
+		if p[4] == "selle":
+			top = p[2].y + p[1].y / 2.0
+	return top * float(d[0])
 
 
 # --- Acheter, revendre -------------------------------------------------------------------------
