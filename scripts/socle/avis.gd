@@ -366,8 +366,7 @@ func _compo(f: Node, club: String) -> bool:
 	var reste: int = int(f.coup_envoi(r.s, r.j)) - int(f.maintenant())
 	if reste <= 0 or reste > 86400:
 		return false
-	var c: Dictionary = f.consigne_de(r.s, r.j, club)
-	if str(c.get("etat", "")) != "aucune":
+	if FootDilemmes.tactique_posee(f, club, int(r.s), int(r.j)):
 		return false
 	return publier({"id": "compo/%d/%d/%s" % [r.s, r.j, club], "genre": "rappel",
 		"titre": "%s : la composition de demain n'est pas posée" % _nom(f, club),

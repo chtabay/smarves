@@ -5,6 +5,10 @@ extends CanvasLayer
 ## recette, à chaque reprise d'un bien, à chaque ticket réglé.
 ##
 ## Les onglets, de gauche à droite :
+## - « Aujourd'hui », la page où le carnet s'ouvre quand quelque chose attend (à la Football Manager) : ce
+##   qu'il y a à faire, le plus pressé d'abord et chaque ligne avec son bouton (la décision de la semaine se
+##   tranche là), ce qui est arrivé depuis la dernière visite, une carte par club suivi (rang, forme,
+##   prochain match, direction), et les prochains rendez-vous (scripts/socle/aujourdhui.gd) ;
 ## - « Mon compte », tenu par le socle : ce qui suit le joueur d'une commune à l'autre (crédits, dettes
 ##   par banque, biens, obligations, bourse, fortune nette), la semaine et les engagements en cours ;
 ## - « Courrier » : les avis du courrier (autoload Avis), les nouveaux sur la page de gauche, les déjà lus
@@ -57,8 +61,11 @@ var _sheet: PanelContainer
 var _sheet_box: VBoxContainer
 ## Ce que montre la feuille dépliée : « agenda » (la semaine), ou ce que la page d'origine sait déplier (« plan »).
 var _sheet_mode := "plan"
-## L'onglet ouvert : « compte », « vienne » ou l'id d'une commune.
-var _onglet := "compte"
+## L'onglet ouvert : « aujourdhui », « compte », « vienne » ou l'id d'une commune.
+var _onglet := "aujourdhui"
+## Ce que dit la pastille, relu chaque seconde : [choses à faire, nouvelles].
+var _compte_pastille := [0, 0]
+var _pastille_lue := -1.0
 ## La page de la commune d'origine (son manifeste, « page_carnet ») : un nœud qui remplit les deux pages.
 var _page_origine: Node
 ## Les deux pages ouvertes, et le classeur de cartes qui prend leur place sous l'onglet « Mes cartes ».
@@ -154,6 +161,7 @@ func toggle() -> void:
 		get_tree().paused = _paused_before
 		if _onglet == "courrier":
 			Avis.tout_lu()
+		_pastille_lue = -1.0
 		if _pending_slip != "":
 			show_slip.call_deferred(_pending_slip, _pending_avis)
 			_pending_slip = ""
@@ -163,6 +171,9 @@ func toggle() -> void:
 		_paused_before = get_tree().paused
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		_noter_passage()
+		# Quelque chose attend : le carnet s'ouvre sur « Aujourd'hui », comme la boîte de Football Manager.
+		if not a_faire().is_empty() or not Avis.non_lus().is_empty():
+			_onglet = "aujourdhui"
 		_refresh()
 		_root.visible = true
 		get_tree().paused = true
@@ -173,7 +184,7 @@ func toggle() -> void:
 ## Les onglets du cahier, dans l'ordre : [[clé, nom]].
 func onglets() -> Array:
 	var n: int = Avis.non_lus().size()
-	var out := [["compte", "Mon compte"], ["courrier", "Courrier (%d)" % n if n > 0 else "Courrier"], ["cartes", "Mes cartes"], ["calendrier", "Le calendrier"]]
+	var out := [["aujourdhui", "Aujourd'hui"], ["compte", "Mon compte"], ["courrier", "Courrier (%d)" % n if n > 0 else "Courrier"], ["cartes", "Mes cartes"], ["calendrier", "Le calendrier"]]
 	var o: Commune = Communes.origine()
 	if _page_origine != null and o != null:
 		out.append([o.id, o.nom])
@@ -223,7 +234,7 @@ func tourner(sens: int) -> void:
 func _fill_onglets() -> void:
 	var liste := onglets()
 	if not liste.any(func(o): return o[0] == _onglet):
-		_onglet = "compte"
+		_onglet = "aujourdhui"
 	for i in liste.size():
 		var cle: String = liste[i][0]
 		var actif := cle == _onglet
@@ -417,7 +428,9 @@ func _gap(parent: Control, h := 10) -> void:
 
 
 func _refresh() -> void:
+	# Retirés tout de suite : les nouveaux boutons gardent leur nom (« Choix_a », pas « Choix_a2 »).
 	for c in _left.get_children() + _right.get_children() + _sheet_box.get_children() + _onglets.get_children():
+		c.get_parent().remove_child(c)
 		c.queue_free()
 	_cover.visible = not _sheet.visible
 	if _sheet.visible:
@@ -427,6 +440,8 @@ func _refresh() -> void:
 	_spread.visible = _onglet != "cartes"
 	_album.visible = _onglet == "cartes"
 	match _onglet:
+		"aujourdhui":
+			_fill_aujourdhui()
 		"compte":
 			_fill_compte()
 		"cartes":
@@ -442,6 +457,155 @@ func _refresh() -> void:
 				_page_origine.remplir(_left, _right)
 			else:
 				_fill_commune(_onglet)
+
+
+# --- Aujourd'hui : ce qui attend, ce qui est arrivé, les clubs suivis ---------------------------
+
+const AUJOURDHUI := preload("res://scripts/socle/aujourdhui.gd")
+const VERT := Color(0.18, 0.5, 0.25)
+const OCRE := Color(0.62, 0.5, 0.2)
+
+
+## Ce qui attend le joueur (scripts/socle/aujourdhui.gd), le plus pressé d'abord.
+func a_faire() -> Array:
+	return AUJOURDHUI.a_faire(Football, Avis, Bourse)
+
+
+func _fill_aujourdhui() -> void:
+	var t: int = Agenda.maintenant()
+	_title(_left, "Aujourd'hui")
+	_text(_left, "%s, %s" % [Agenda.date(t), Agenda.heure(t)], 15, PENCIL)
+	_gap(_left, 6)
+	var liste := a_faire()
+	_text(_left, "À faire (%d)" % liste.size() if not liste.is_empty() else "Rien ne presse.", 21, RED_INK if not liste.is_empty() else INK_LIGHT, true)
+	if liste.is_empty():
+		_text(_left, "Pas de décision en attente, pas de composition à poser. Les clubs que vous suivez, en face.", 15, PENCIL)
+	for x in liste:
+		_une_chose(_left, x, t)
+	_gap(_left, 12)
+	# Une décision déjà dans « À faire » ne se répète pas ici.
+	var en_attente: Array = liste.filter(func(x): return x.genre == "dilemme").map(func(x): return x.avis.id)
+	var nouveaux: Array = Avis.non_lus().filter(func(a): return not en_attente.has(a.id))
+	_text(_left, "Depuis votre dernière visite", 20, INK, true)
+	if nouveaux.is_empty():
+		_text(_left, "Rien de nouveau au courrier.", 16, INK_LIGHT)
+	for a in nouveaux.slice(0, 3):
+		var l := _text(_left, "%s, %s  ·  %s" % [Agenda.jour_relatif(int(a.quand), t), Agenda.heure(int(a.quand)), a.titre], 16, INK)
+		l.name = "Nouveau"
+	if nouveaux.size() > 3:
+		_text(_left, "et %d autres." % (nouveaux.size() - 3), 15, PENCIL)
+	_link(_left, "→ le courrier" + (" (%d)" % nouveaux.size() if not nouveaux.is_empty() else ""), ouvrir_onglet.bind("courrier")).custom_minimum_size.y = 40
+	# En face : les clubs suivis, puis les prochains rendez-vous.
+	_title(_right, "Mes clubs")
+	var clubs: Array = AUJOURDHUI.clubs(Football, Avis)
+	if clubs.is_empty():
+		_text(_right, "Vous ne suivez aucun club. Une obligation de club se prend au registre du stade, à l'intersaison ; elle rapporte un dividende chaque journée, et la plus grosse mise dirige.", 16, PENCIL)
+	for club in clubs:
+		var c: Dictionary = AUJOURDHUI.carte(Football, club)
+		if not c.is_empty():
+			_une_carte(_right, c, t)
+	_gap(_right, 10)
+	_text(_right, "Prochains rendez-vous", 20, INK, true)
+	for rv in Agenda.prochains(3, t):
+		var quand := "en ce moment" if Agenda.en_cours(rv, t) else "%s, %s (%s)" % [Agenda.jour_relatif(rv.quand, t), Agenda.heure(rv.quand), AUJOURDHUI.dans(rv.quand, t)]
+		_text(_right, "%s  ·  %s" % [quand, rv.titre], 16, INK_LIGHT if rv.annonce else INK)
+	_text(_right, preload("res://scripts/socle/calendrier.gd").resume(Football, "football"), 15, PENCIL)
+	_link(_right, "→ toute la semaine", _show_sheet.bind(true, "agenda")).custom_minimum_size.y = 40
+
+
+## Une chose à faire : l'échéance, ce qu'il faut faire, et le bouton qui le fait (ou les deux choix d'une
+## décision de la semaine, tranchés ici même).
+func _une_chose(col: VBoxContainer, x: Dictionary, t: int) -> void:
+	_gap(col, 6)
+	var echeance := "à régler" if x.genre == "bourse" else "avant le coup d'envoi, %s" % AUJOURDHUI.dans(int(x.quand), t)
+	if x.genre == "diriger":
+		echeance = "l'intersaison ferme %s" % AUJOURDHUI.dans(int(x.quand), t)
+	elif x.genre == "mercato":
+		echeance = "le mercato ferme %s" % AUJOURDHUI.dans(int(x.quand), t)
+	_text(col, echeance, 15, Color(0.65, 0.15, 0.15))
+	var titre := _text(col, str(x.titre), 18, INK, true)
+	titre.name = "AFaire"
+	if str(x.texte) != "":
+		_text(col, str(x.texte), 15, PENCIL)
+	if x.genre == "dilemme":
+		for c in Avis.choix_de(x.avis):
+			var b := _link(col, "→ " + str(c.libelle), func():
+				Avis.trancher(x.avis, str(c.choix))
+				_refresh(), true)
+			b.name = "Choix_" + str(c.choix)
+			b.custom_minimum_size.y = 36
+	elif str(x.bouton) != "":
+		var l: Dictionary = x.lien
+		var ok: bool = Avis.peut_aller(l)
+		var b := _link(col, "→ " + str(x.bouton) + ("" if ok else " (une fois levé de table)"), func(): Avis.aller({"id": "", "lien": l}), ok)
+		b.name = "Faire_" + str(x.genre)
+		b.custom_minimum_size.y = 36
+
+
+## La carte d'un club suivi : son nom et sa division, son rang, sa forme en pastilles, son prochain match,
+## l'objectif de la direction et sa confiance, et qui dirige.
+func _une_carte(col: VBoxContainer, c: Dictionary, t: int) -> void:
+	_gap(col, 6)
+	var cadre := PanelContainer.new()
+	var st := StyleBoxFlat.new()
+	st.bg_color = PAPER.darkened(0.035)
+	st.border_color = MARGIN_RED
+	st.border_width_left = 3
+	st.content_margin_left = 12
+	st.content_margin_right = 10
+	st.content_margin_top = 6
+	st.content_margin_bottom = 8
+	cadre.add_theme_stylebox_override("panel", st)
+	cadre.name = "Club_" + str(c.club)
+	col.add_child(cadre)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 1)
+	cadre.add_child(v)
+	_text(v, "%s%s" % [c.nom, "  ·  vous dirigez" if c.dirige else ""], 19, INK, true)
+	var place := "%s sur %d, %d pts en %d %s" % [AUJOURDHUI.rang(int(c.rang)), int(c.taille), int(c.pts), int(c.joues), "match" if int(c.joues) <= 1 else "matchs"]
+	if int(c.joues) > 0:
+		if int(c.rang) > 1:
+			place += ", à égalité avec le 1er" if int(c.ecart_tete) == 0 else ", à %d du 1er" % int(c.ecart_tete)
+		elif int(c.taille) > 1:
+			place += ", en tête"
+	_text(v, "%s  ·  %s" % [c.division, place], 16, INK)
+	var ligne := HBoxContainer.new()
+	ligne.add_theme_constant_override("separation", 4)
+	v.add_child(ligne)
+	_text(ligne, "Forme", 15, PENCIL).autowrap_mode = TextServer.AUTOWRAP_OFF
+	if str(c.forme) == "":
+		_text(ligne, "pas encore de match joué", 15, PENCIL).autowrap_mode = TextServer.AUTOWRAP_OFF
+	for x in str(c.forme):
+		_pastille_forme(ligne, x)
+	var p: Dictionary = c.prochain
+	if not p.is_empty():
+		var adv := "%s%s" % [p.nom_adv, " (%s)" % AUJOURDHUI.rang(int(p.rang_adv)) if int(c.joues) > 0 and int(p.rang_adv) > 0 else ""]
+		_text(v, "Journée %d, %s à %s, %s : %s %s" % [int(p.j), Agenda.jour_relatif(int(p.quand), t), Agenda.heure(int(p.quand)), AUJOURDHUI.dans(int(p.quand), t),
+			"contre" if p.domicile else "chez", adv], 16, INK)
+	var o: Dictionary = c.objectif
+	var cf: Dictionary = c.confiance
+	if not o.is_empty():
+		_text(v, "Objectif : %s%s" % [str(o.titre).to_lower(), "  ·  confiance %d sur 100. %s" % [int(cf.valeur), cf.phrase] if not cf.is_empty() else ""], 15, INK_LIGHT)
+	if not c.dirige:
+		_text(v, str(c.direction), 15, PENCIL)
+	var l := {"vers": "bureau", "club": str(c.club), "page": ""}
+	var ok: bool = Avis.peut_aller(l)
+	_link(v, "→ le bureau du club" + ("" if ok else " (une fois levé de table)"), func(): Avis.aller({"id": "", "lien": l}), ok).custom_minimum_size.y = 32
+
+
+## Une pastille de forme : V en vert, N en ocre, D en rouge.
+func _pastille_forme(parent: Control, lettre: String) -> void:
+	var p := PanelContainer.new()
+	var st := StyleBoxFlat.new()
+	st.bg_color = VERT if lettre == "V" else (OCRE if lettre == "N" else RED_INK)
+	st.set_corner_radius_all(4)
+	st.content_margin_left = 6
+	st.content_margin_right = 6
+	p.add_theme_stylebox_override("panel", st)
+	p.name = "Forme_" + lettre
+	parent.add_child(p)
+	var l := _text(p, lettre, 14, PAPER, true)
+	l.autowrap_mode = TextServer.AUTOWRAP_OFF
 
 
 # --- Mon compte : ce qui suit le joueur partout --------------------------------------------------
@@ -1114,11 +1278,26 @@ func _un_avis(col: VBoxContainer, a: Dictionary, t: int, nouveau: bool) -> void:
 		_link(col, "→ " + nom + ("" if ok else " (une fois levé de table)"), func(): Avis.aller(a), ok).custom_minimum_size.y = 36
 
 
-## La pastille : « Courrier : 3 nouvelles », en bas à gauche, quand rien d'autre n'y est (ni fiche, ni carnet,
-## ni table). Un clic ouvre le courrier.
+## La pastille : « Aujourd'hui : 2 choses à faire · 3 nouvelles », en bas à gauche, quand rien d'autre n'y est
+## (ni fiche, ni carnet, ni table). Un clic ouvre la page « Aujourd'hui ». Le compte se relit chaque seconde.
+## « Aujourd'hui : 2 choses à faire · 3 nouvelles  (C) ».
+func texte_pastille(f: int, n: int) -> String:
+	var mots: Array = []
+	if f > 0:
+		mots.append("une chose à faire" if f == 1 else "%d choses à faire" % f)
+	if n > 0:
+		mots.append("une nouvelle" if n == 1 else "%d nouvelles" % n)
+	return "Aujourd'hui : %s%s" % [" · ".join(mots), "" if Tactile.active else "  (C)"]
+
+
 func _process(_delta: float) -> void:
-	var n: int = Avis.non_lus().size()
-	var montrer: bool = n > 0 and not _root.visible and not (_slip != null and _slip.visible) and not Avis.occupe()
+	var horloge := Time.get_ticks_msec() / 1000.0
+	if horloge - _pastille_lue >= 1.0 or _pastille_lue < 0:
+		_pastille_lue = horloge
+		_compte_pastille = [a_faire().size(), Avis.non_lus().size()]
+	var f: int = _compte_pastille[0]
+	var n: int = _compte_pastille[1]
+	var montrer: bool = (n > 0 or f > 0) and not _root.visible and not (_slip != null and _slip.visible) and not Avis.occupe()
 	if _pastille == null:
 		if not montrer:
 			return
@@ -1141,11 +1320,11 @@ func _process(_delta: float) -> void:
 			st.shadow_color = Color(0, 0, 0, 0.35)
 			st.shadow_size = 5
 			_pastille.add_theme_stylebox_override(k, st)
-		_pastille.pressed.connect(func(): ouvrir_sur("courrier"))
+		_pastille.pressed.connect(func(): ouvrir_sur("aujourdhui"))
 		add_child(_pastille)
 		move_child(_pastille, 0)
 	_pastille.visible = montrer
 	if montrer:
-		_pastille.text = "Courrier : %s%s" % ["une nouvelle" if n == 1 else "%d nouvelles" % n, "" if Tactile.active else "  (C)"]
+		_pastille.text = texte_pastille(f, n)
 		_pastille.reset_size()
 		_pastille.position = Vector2(28, get_viewport().get_visible_rect().size.y - _pastille.size.y - 60)
