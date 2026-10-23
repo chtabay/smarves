@@ -123,6 +123,29 @@ La version vit dans `res://bibliotheque/<id>/<version>/`, avec ses images et un 
 
 Première brique de matières : **`matieres-de-minuit@1`**, les dix-neuf matières de la direction artistique de Casino Minuit, de Guillaume : trois marbres (crème, noir, rouge) et leur damier, le bois clair et le bois laqué, cinq moquettes (de la salle, du salon, du poker, du foyer, des machines), le velours à galon, le capiton rouge, l'onyx rétroéclairé, la mosaïque, le dallage de jardin, le plafond à caissons, l'eau de bassin et le ciel peint. Ce sont les images de Minuit à l'octet près (1,8 Mo), avec les réglages de son kit, compressées pour la carte graphique à l'import (S3TC ou ETC2 : ce sont des surfaces unies, la perte ne se voit pas). Minuit les prend dans la bibliothèque depuis sa version 0.10.1 (`socle_min` 1.17) : son kit les nomme (`Bibliotheque.texture`) et les matières de son décor les désignent par leurs extras (« matiere »), que `decor.gd` remplit au chargement. Son paquet n'en emporte plus de copie.
 
+## Les décors
+
+Une brique de genre `decor` est un modèle ou un ensemble à poser tel quel, sans comportement ni contrat d'ancres : la commune instancie sa scène (`Bibliotheque.scene(ref, "decor")`) où elle veut. Ses réglages sont les propriétés de la racine de la scène, à donner avant de l'ajouter à l'arbre.
+
+Premier décor : **`facadier-du-poitou@1`**, le façadier de Chauvigny 0.2.2 (Le duke, licence MIT, notice dans `LICENCE.txt` du dossier). Une maison de bourg composée par type et graine : dix types (`medievale`, `echoppe`, `balet`, `vigneron`, `notable`, `tailleur`, `grange`, `quai`, `ouvriere`, `forte`) et quatre axes de diversité (la silhouette, la matière, la décoration, l'habillage végétal), si bien que deux voisines ne sont jamais pareilles.
+
+```gdscript
+var m = load(Bibliotheque.scene("facadier-du-poitou@1", "decor")).instantiate()
+m.type = "notable"
+m.graine = 12
+m.options = {"w": 8.0, "quartier": "basse", "pente": 0.4}
+add_child(m)
+var largeur: float = m.get_meta("w")   # pour aligner la suivante
+```
+
+- **Le repère** : la façade regarde +Z, l'origine est au pied de la façade, au milieu, et le corps s'étend vers −Z. Les mesures sont en mètres : une commune à l'échelle du village de Smarves (1 unité = 2,4 m) pose la maison à l'échelle 1/2,4.
+- **Les options**, toutes facultatives : `w` et `d` (largeur et profondeur), `niveaux`, `quartier` (la palette des menuiseries : `cite` en teintes sourdes, `basse` franches, `quai` en couleurs de bateau, `montee` entre les deux), `pente` (le dénivelé sous la façade, de gauche à droite : la porte va du côté haut), `lumiere` (la part des fenêtres allumées), `histoire` (les traces de transformation imposées : une liste, ou `false`), `vegetal` (`vigne`, `lierre`, `glycine`, `rosier`, `jardinieres`, `treille` : un nom, une liste, `true` ou `false`), `porte` (sa position en x).
+- **Après la construction**, la racine porte les métadonnées de la maison : `type`, `graine`, `w`, `d`, `faite`, `porte` (le seuil de la porte principale), `vegetal`, `traces`.
+- **Le coût** : une maison fusionne sa géométrie en six surfaces au plus (quatre genres de matière, le feuillage, les fenêtres allumées), avec ses collisions dans un seul corps. La matière est procédurale (`matieres.gdshader`, sans image) : la brique pèse 0,3 Mo, aperçu compris.
+- **On peut aussi appeler le façadier sans scène**, pour bâtir une rangée dans un seul groupe : `load(<dossier de la brique> + "facadier.gd").maison(parent, position, type, graine, options)`.
+
+La planche (les dix types sur trois graines) : `godot --path . -s tools/planche_facadier.gd -- --ref=facadier-du-poitou@1 --capture=planche.png` (`--rang=0` pour une rangée de près, `--scene=` pour une maison proposée par une commune).
+
 ## Proposer une brique
 
 Une ville qui a fait un décor réutilisable le range, dans son propre paquet, sous `res://communes/<id>/bibliotheque/<id de la brique>/` avec une fiche `brique.json` :
@@ -188,6 +211,7 @@ Chacune est utile seule, et rien ne change dans la première salle.
 | 4 | Les matières : une brique de genre `matieres`, employée par nom (`Bibliotheque.matiere`), et la première, `matieres-de-minuit@1` (socle 1.17) | smarves, portail | **fait** |
 | 5 | Proposer une brique : le dossier `bibliotheque/` des paquets et sa fiche, vérifiés par l'emballeur et signalés par le portail, puis intégrés à la main (`tools/integrer_brique.gd`). Pas de dépôt automatique. | smarves, portail | **fait** |
 | 7 | Le budget par lieu (socle 1.16) : l'emballeur bâtit et mesure chaque lieu du paquet, range la mesure dans le paquet (`budget.json`), le portail la dit lieu par lieu ; les objets lointains simplifiés par le socle ([`docs/LENTEUR.md`](LENTEUR.md)) | smarves, portail | **fait** |
+| 8 | Les décors : le premier, `facadier-du-poitou@1`, venu de Chauvigny 0.2.2 (MIT) ; la planche du façadier | smarves | **fait** |
 | 6 | Les auteurs reconstruisent leurs paquets : pour Minuit, le bol de la Fortune par ses ancres, le Dôme une salle, les matières passent à la bibliothèque, les textures et les données se compressent | paquets | Minuit : fait, sauf le Dôme (0.10.5, 23 octobre 2026) ; L'Isle-Jourdain 0.2.3 dans les seuils |
 
 Il ne reste que l'étape 6, par les auteurs. Le 23 octobre 2026, Minuit passe le stade de la Fortune par ses ancres (0.10.5, socle 1.20 : le bol pourra devenir une brique, `stade-fortune@1`, une fois qu'il ne connaîtra plus le stade) et L'Isle-Jourdain repasse sous les seuils (0.2.3, [`docs/LENTEUR.md`](LENTEUR.md)). Le format des paquets est arrêté avec l'étape 3 et le budget par lieu avec la 7 : Civaux, Minuit, L'Isle-Jourdain et Cloué sont repris une fois, avec le SDK à jour, et l'emballeur dit à chaque auteur ce que ses lieux ont à alléger.
