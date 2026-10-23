@@ -14,10 +14,11 @@ const KK := "res://assets/kaykit/"
 const KN := "res://assets/kenney/nature/"
 const KC := "res://assets/kenney/cars/"
 
-## La vue extérieure qui suit l'habitant, en trois crans de molette (docs/SUITE.md, section 2) :
-## [distance, tangage, champ]. Proche pour les détails, Rue pour parcourir (par défaut ; 18 u est le plus haut
-## où l'on reconnaît encore quelqu'un à sa coiffure et à ses épaules), Quartier pour s'orienter.
-const CAMERA_NOTCHES := [[9.0, -48.0, 34.0], [18.0, -51.0, 30.0], [40.0, -60.0, 30.0]]
+## La vue extérieure qui suit l'habitant, en quatre crans de molette (docs/SUITE.md, section 2) :
+## [distance, tangage, champ]. Proche pour les détails, Rue pour parcourir (par défaut ; rapprochée de 18 à
+## 12 u le 23 octobre 2026, l'habitant y fait 70 px de haut au lieu de 45), Large pour voir le bout de la rue
+## (l'ancien cran Rue), Quartier pour s'orienter.
+const CAMERA_NOTCHES := [[7.0, -42.0, 34.0], [12.0, -47.0, 32.0], [20.0, -52.0, 30.0], [40.0, -60.0, 30.0]]
 const CAMERA_DEFAULT := 1
 
 const ROAD_Z := 6.4
