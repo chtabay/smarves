@@ -197,6 +197,7 @@ func _ready() -> void:
 		_parking()
 		_heron_geant()
 		_habillage()
+		_ville()
 	else:
 		_depuis_ancres()
 	_vivants()
@@ -330,6 +331,171 @@ func _materiau_commun(m: Material) -> Material:
 	if not _materiaux_unis.has(cle):
 		_materiaux_unis[cle] = s
 	return _materiaux_unis[cle]
+
+
+# --- La ville autour --------------------------------------------------------------------------------
+
+## On arrive au Garden comme au Madison Square Garden : au cœur d'une ville la nuit. Une avenue part du parvis
+## entre deux rangées d'immeubles éclairés (le plan intermédiaire), une couronne d'immeubles entoure la salle
+## à 120-240 m, et au loin les tours, leurs flèches et leurs feux rouges, sur la lueur orangée de la ville.
+## Tout tient en quelques multimaillages sans ombre ni lumière : les fenêtres sont une texture qui luit.
+## Une salle dérivée peut surcharger _ville() pour poser sa propre ville, ou la laisser vide.
+var _feux_ville: StandardMaterial3D
+
+
+func _ville() -> void:
+	var ville := Node3D.new()
+	ville.name = "Ville"
+	add_child(ville)
+	var h := Hasard.depuis(1879)
+	var cz := 25.0
+	# Le sol de la ville, au-delà de celui du Garden, et l'avenue qui part du parvis vers le sud.
+	var asphalte := _std(Color(0.035, 0.035, 0.045), 0.95)
+	_box(Vector3(1800.0, 0.2, 1800.0), Vector3(0, -0.55, cz), asphalte, false, ville)
+	var av_z0 := ARRET_Z + 16.0
+	var av_l := 520.0
+	_box(Vector3(26.0, 0.1, av_l), Vector3(0, -0.4, av_z0 + av_l / 2.0), _std(Color(0.06, 0.06, 0.07), 0.8), false, ville)
+	var tirets := _neon(Color(0.95, 0.85, 0.55), 1.2)
+	_box(Vector3(0.25, 0.12, av_l), Vector3(0, -0.33, av_z0 + av_l / 2.0), tirets, false, ville)
+	# Les immeubles : un seul maillage (une boîte), tiré et teinté immeuble par immeuble.
+	var blocs: Array = []  # [centre, taille, teinte]
+	var teintes := [Color(0.16, 0.15, 0.17), Color(0.2, 0.17, 0.14), Color(0.12, 0.13, 0.16), Color(0.22, 0.2, 0.19), Color(0.1, 0.1, 0.12)]
+	# Le plan intermédiaire : les deux rives de l'avenue, de part et d'autre, jusqu'au bout.
+	for cote: float in [-1.0, 1.0]:
+		var z := av_z0 + 8.0
+		while z < av_z0 + av_l:
+			var lz := 14.0 + h.suivant() * 16.0
+			var lx := 16.0 + h.suivant() * 14.0
+			var hy := 18.0 + h.suivant() * 46.0
+			blocs.append([Vector3(cote * (15.0 + lx / 2.0), hy / 2.0, z + lz / 2.0), Vector3(lx, hy, lz), h.choix(teintes)])
+			z += lz + 4.0 + h.suivant() * 6.0
+	# La couronne autour du Garden, à 120-240 m, hors de l'avenue.
+	for i in 90:
+		var a := h.suivant() * TAU
+		var r := 120.0 + h.suivant() * 120.0
+		var c := Vector3(sin(a) * r, 0, cz + cos(a) * r)
+		if c.z > av_z0 - 10.0 and absf(c.x) < 45.0:
+			continue
+		var t := Vector3(14.0 + h.suivant() * 22.0, 20.0 + h.suivant() * 60.0, 14.0 + h.suivant() * 22.0)
+		blocs.append([Vector3(c.x, t.y / 2.0, c.z), t, h.choix(teintes)])
+	# Au loin, les tours : par paliers qui rétrécissent (à la new-yorkaise), une flèche et un feu rouge en haut.
+	var feux: Array = []
+	var fleches: Array = []
+	for i in 70:
+		var a := h.suivant() * TAU
+		var r := 320.0 + h.suivant() * 360.0
+		var c := Vector3(sin(a) * r, 0, cz + cos(a) * r)
+		var base := 22.0 + h.suivant() * 22.0
+		var haut := 70.0 + h.suivant() * 170.0
+		var teinte: Color = h.choix(teintes)
+		var paliers := 1 + h.entier(0, 3)
+		var y := 0.0
+		var l := base
+		for k in paliers:
+			var hp := haut / paliers * (1.15 if k == 0 else 0.85)
+			blocs.append([Vector3(c.x, y + hp / 2.0, c.z), Vector3(l, hp, l * (0.8 + 0.2 * h.suivant())), teinte])
+			y += hp
+			l *= 0.72
+		if h.chance(0.45):
+			var fl := 14.0 + h.suivant() * 30.0
+			fleches.append([Vector3(c.x, y + fl / 2.0, c.z), Vector3(0.8, fl, 0.8)])
+			y += fl
+		feux.append(Vector3(c.x, y + 0.6, c.z))
+	ville.set_meta("immeubles", blocs.size())
+	_multiboites(ville, "Immeubles", blocs, _fenetres())
+	_multiboites(ville, "Fleches", fleches.map(func(f): return [f[0], f[1], Color(0.55, 0.56, 0.6)]), _std(Color(0.5, 0.52, 0.56), 0.4, 0.8))
+	_feux_ville = _neon(Color(1.0, 0.12, 0.08), 3.0)
+	_multiboites(ville, "Feux", feux.map(func(f): return [f, Vector3(1.4, 1.4, 1.4), Color.WHITE]), _feux_ville)
+	# Les réverbères de l'avenue : des points de lumière, sans lumière réelle.
+	var reverberes: Array = []
+	for cote: float in [-1.0, 1.0]:
+		for k in int(av_l / 22.0):
+			reverberes.append([Vector3(cote * 12.5, 6.0, av_z0 + 6.0 + k * 22.0), Vector3(0.9, 0.5, 0.9), Color.WHITE])
+			reverberes.append([Vector3(cote * 12.5, 3.0, av_z0 + 6.0 + k * 22.0), Vector3(0.18, 6.0, 0.18), Color(0.1, 0.1, 0.12)])
+	_multiboites(ville, "Reverberes", reverberes, _neon(Color(1.0, 0.86, 0.6), 2.4))
+	# La lueur de la ville sur l'horizon : un grand anneau, orangé en bas, qui se fond dans la nuit.
+	var lueur := MeshInstance3D.new()
+	lueur.name = "Lueur"
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = 900.0
+	cyl.bottom_radius = 900.0
+	cyl.height = 260.0
+	cyl.cap_top = false
+	cyl.cap_bottom = false
+	cyl.radial_segments = 48
+	cyl.rings = 1
+	lueur.mesh = cyl
+	var grad := Gradient.new()
+	grad.set_color(0, Color(0.85, 0.42, 0.2, 1.0))
+	grad.set_color(1, Color(0.08, 0.05, 0.14, 0.0))
+	var gt := GradientTexture2D.new()
+	gt.gradient = grad
+	gt.fill_from = Vector2(0, 1)
+	gt.fill_to = Vector2(0, 0)
+	gt.width = 4
+	gt.height = 64
+	var lm := StandardMaterial3D.new()
+	lm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	lm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	lm.cull_mode = BaseMaterial3D.CULL_DISABLED
+	lm.albedo_texture = gt
+	lm.disable_fog = true
+	lueur.material_override = lm
+	lueur.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	lueur.position = Vector3(0, 110.0, cz)
+	ville.add_child(lueur)
+
+
+## Des boîtes posées d'un coup : [[centre, taille, teinte], ...] en un multimaillage sans ombre.
+func _multiboites(parent: Node, nom: String, boites: Array, mat: Material) -> MultiMeshInstance3D:
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
+	var b := BoxMesh.new()
+	mm.mesh = b
+	mm.instance_count = boites.size()
+	for i in boites.size():
+		var e: Array = boites[i]
+		mm.set_instance_transform(i, Transform3D(Basis.from_scale(e[1]), e[0]))
+		mm.set_instance_color(i, e[2])
+	var mi := MultiMeshInstance3D.new()
+	mi.name = nom
+	mi.multimesh = mm
+	mi.material_override = mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	parent.add_child(mi)
+	return mi
+
+
+## Les façades la nuit : la teinte de l'immeuble, et ses fenêtres, allumées au hasard, chaudes ou froides.
+## Projetées sur le monde (une fenêtre fait 3 m sur 3,5 m quelle que soit la taille de l'immeuble).
+func _fenetres() -> StandardMaterial3D:
+	var h := Hasard.depuis(77)
+	var img := Image.create(64, 64, false, Image.FORMAT_RGB8)
+	img.fill(Color.BLACK)
+	for wx in 8:
+		for wy in 8:
+			if not h.chance(0.42):
+				continue
+			var c := Color(1.0, 0.78, 0.45) if h.chance(0.7) else Color(0.75, 0.85, 1.0)
+			c = c.darkened(h.suivant() * 0.5)
+			for x in range(wx * 8 + 2, wx * 8 + 6):
+				for y in range(wy * 8 + 2, wy * 8 + 7):
+					img.set_pixel(x, y, c)
+	var m := StandardMaterial3D.new()
+	m.vertex_color_use_as_albedo = true
+	m.roughness = 0.9
+	m.emission_enabled = true
+	m.emission_texture = ImageTexture.create_from_image(img)
+	# La lueur s'ajoute à la couleur d'émission : noire, seules les fenêtres luisent. Sous le seuil de la
+	# lueur (1,2), pour que des milliers de fenêtres ne voilent pas tout de blanc.
+	m.emission = Color.BLACK
+	m.emission_energy_multiplier = 1.1
+	m.uv1_triplanar = true
+	m.uv1_world_triplanar = true
+	m.uv1_scale = Vector3(1.0 / 24.0, 1.0 / 28.0, 1.0 / 24.0)
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
+	return m
 
 
 func _place_name() -> String:
@@ -1592,6 +1758,8 @@ func _process(delta: float) -> void:
 		p.rotation = Vector3(0.35 * sin(t * 0.4 + i), 0, 0.45 * sin(t * 0.3 + i * 1.7))
 	if _anneau:
 		_anneau.emission_energy_multiplier = 1.8 + 0.6 * sin(t * 2.0)
+	if _feux_ville:
+		_feux_ville.emission_energy_multiplier = 3.0 if fmod(t, 1.6) < 0.8 else 0.4
 	_defile_t -= delta
 	if _defile_t <= 0.0 and not _defile_textes.is_empty() and _defile:
 		_defile_t = 3.0
