@@ -85,6 +85,36 @@
 					"socle": "1.20"
 				}
 			}
+		},
+		"etude-de-notaire": {
+			"genre": "etude",
+			"nom": "L'étude de notaire",
+			"description": "Une étude de notaire de 12,4 × 11,2 m, boiseries vert sauge et parquet : l'accueil du clerc et son registre ouvert, le cabinet du notaire derrière une travée ajourée (bureau à deux caissons, lampe de banquier, fauteuils de cuir vert), la bibliothèque des archives, le cabinet à plans sous le cadre du plan, le salon d'attente sous la fenêtre. Le socle y assoit le notaire, y écrit l'enseigne et la plaque, et dessine le registre de la commune sur le plan. Venue de l'étude des Sources de Cloué 1.6.2.",
+			"auteur": "Atelier des communes · création avec Codex",
+			"licence": "MIT (voir LICENCE.txt)",
+			"commune": "cloue",
+			"versions": {
+				"1": {
+					"scene": "res://bibliotheque/etude-de-notaire/1/etude.tscn",
+					"apercu": "res://bibliotheque/etude-de-notaire/1/apercu.png",
+					"socle": "1.21"
+				}
+			}
+		},
+		"bar-des-sports": {
+			"genre": "salle_jeu",
+			"nom": "Le bar des sports",
+			"description": "Un grand sports bar de 28 × 24 m, brique et bois sombre : comptoir cannelé de 11 m sous un portique de trois écrans, mur de bouteilles, lounge et alcôves face aux écrans, alcôve des tables tapissée de vert, salon du club et sa vitrine. Dix écrans passent une séquence de football dessinée, sans score réel ; des habitués boivent, un serveur va et vient. Quatre places de table : deux dans l'alcôve, deux dans la salle. Venu du Sport Bar de Selim de Cloué 1.6.2.",
+			"auteur": "Atelier des communes · création avec Codex",
+			"licence": "MIT (voir LICENCE.txt)",
+			"commune": "cloue",
+			"versions": {
+				"1": {
+					"scene": "res://bibliotheque/bar-des-sports/1/bar.tscn",
+					"apercu": "res://bibliotheque/bar-des-sports/1/apercu.png",
+					"socle": "1.21"
+				}
+			}
 		}
 	}
 }

@@ -20,7 +20,7 @@ Deux règles de Guillaume (22 octobre 2026) passent avant tout le reste :
 
 ## Le catalogue
 
-`bibliotheque/bibliotheque.json`, lu par `Bibliotheque` (`scripts/socle/bibliotheque.gd`), et recopié dans le portail (`STADES_DE_LA_BIBLIOTHEQUE` et `SALLES_DE_LA_BIBLIOTHEQUE`, `src/lib/communes/structures.ts` dans Pyramides2) pour qu’il refuse une référence inconnue : ajouter une brique au jeu, c’est aussi l’ajouter là.
+`bibliotheque/bibliotheque.json`, lu par `Bibliotheque` (`scripts/socle/bibliotheque.gd`), et recopié dans le portail (`STADES_DE_LA_BIBLIOTHEQUE`, `SALLES_DE_LA_BIBLIOTHEQUE`, `SALLES_DE_JEU_DE_LA_BIBLIOTHEQUE` et `ETUDES_DE_LA_BIBLIOTHEQUE`, `src/lib/communes/structures.ts` dans Pyramides2) pour qu’il refuse une référence inconnue : ajouter une brique au jeu, c’est aussi l’ajouter là.
 
 ```json
 "stade-de-campagne": {
@@ -88,6 +88,40 @@ Le champ `modele` du gymnase nomme une salle de la bibliothèque (`"modele": "sa
 Avec un décor, le socle ne pose rien du Clain Garden : ni les gradins et leur foule, ni le hall, la coursive et ses échoppes, ni le parvis, ni la pièce à part du bureau du président. Le décor apporte ses murs, son sol au-delà du parquet, ses lumières et sa foule s'il en veut. Un décor introuvable ou qui ne tient pas le contrat est laissé de côté : c'est la salle du socle (`Ancres.verifier_salle`). L'essai d'une salle : `godot --path . -s tools/capture_salle_modele.gd -- --modele=<référence ou chemin> --capture=sortie.png` (la salle de Smarves sur ce décor).
 
 Première salle de la bibliothèque : **`salle-de-quartier@1`**, un gymnase municipal (murs de brique et plinthe bleue, charpente de métal, six rangs de gradins au nord, le bureau du club vitré à l'ouest, le panneau et le tableau des parts à l'est, la porte sous l'enseigne, le parvis et l'abribus).
+
+## Les intérieurs : la salle de jeu et l'étude (socle 1.21)
+
+Deux genres de briques de plus, pour les intérieurs que le socle tient déjà : la salle de jeu (structure `salle_jeu`) et l'étude du notaire (champ `notaire`). Le `modele` de la salle de jeu, ou `notaire.modele`, nomme une brique de la bibliothèque (`"modele": "bar-des-sports@1"`, `"modele": "etude-de-notaire@1"`) ou une scène de la commune. Le socle ne bâtit alors pas sa pièce : il pose le décor et y branche ce qui est à lui par ses ancres (`Ancres.SALLE_JEU`, `Ancres.ETUDE`), avec la même règle que pour le stade (+Z vers le visiteur). Les jeux, leurs tables, la bourse, le registre et la sortie restent ceux du socle. Le décor apporte ses murs, ses lumières (sans `WorldEnvironment` à lui, il prend celui des salles du socle), son mobilier et ses figurants. Un décor introuvable ou qui ne tient pas le contrat est laissé de côté : c'est la pièce du socle.
+
+La salle de jeu :
+
+| Ancre | Requise | Ce que le socle y pose |
+|---|---|---|
+| `Arrivee` | oui | le visiteur, à son entrée, tourné vers le +Z de l'ancre |
+| `Sortie` | oui | la porte du retour vers la commune |
+| `Comptoir` | oui | le tenancier, derrière son comptoir ; on lui parle du côté +Z, jusqu'à 3 m devant l'ancre |
+| `Table1`, `Table2`… `Table9` | la première | une table du casino par jeu de la structure, dans l'ordre : l'ancre au sol, au centre de la table, son +Z vers la place du joueur. Un jeu sans ancre n'est pas posé. |
+| `Guichet` | non | le banquier de la commune, si la salle a un `guichet` |
+| `Enseigne` | non | l'enseigne de la salle (`enseigne`, sinon son nom) |
+
+L'étude :
+
+| Ancre | Requise | Ce que le socle y pose |
+|---|---|---|
+| `Arrivee` | oui | le visiteur, à son entrée, tourné vers le +Z de l'ancre |
+| `Sortie` | oui | la porte du retour vers la commune |
+| `Notaire` | oui | le notaire, derrière son bureau ; on consulte le registre du côté +Z. Avec la méta `assis` à vrai, il est assis (le bassin sur une assise de 0,53 m). |
+| `Registre` | non | un second endroit où consulter le registre, un comptoir d'accueil |
+| `Enseigne` | non | le nom de l'étude |
+| `Plaque` | non | le nom du notaire, sur la plaque du bureau |
+| `Plan` | non | le premier quartier du registre, dessiné sur un papier de 3,2 × 1,45 m centré sur l'ancre |
+
+Les textes que le socle écrit sur une ancre se règlent par ses métas : `hauteur` (la taille des lettres, en mètres), `largeur` (la place qu'ils ne dépassent pas), `couleur`, et `espace` (en capitales espacées, comme une enseigne peinte). L'essai d'un intérieur : `godot --path . -s tools/capture_interieur_modele.gd -- --modele=<référence> --capture=sortie.png [--at=x,z,lacet]` (le tripot ou l'étude de la commune d'essai sur ce décor).
+
+Les deux premiers viennent de Cloué 1.6.2 (Atelier des communes, MIT, notice gardée dans `LICENCE.txt`), sans Cloué :
+
+- **`bar-des-sports@1`**, le Sport Bar de Selim : une salle de 28 × 24 m en brique et bois sombre, le comptoir cannelé de 11 m sous un portique de trois écrans, le mur de bouteilles, le lounge et les alcôves, l'alcôve des tables tapissée de vert, le salon du club et sa vitrine. Ses dix écrans passent une séquence de football dessinée (`animation_football.gd`), sans rencontre ni score réels : les relevés de l'original sont restés à Cloué. Quatre places de table, deux dans l'alcôve et deux dans la salle ; pas de guichet.
+- **`etude-de-notaire@1`**, l'étude des Sources : 12,4 × 11,2 m de boiseries vert sauge, l'accueil du clerc et son registre, le cabinet derrière une travée ajourée, la bibliothèque des archives, le cabinet à plans sous le cadre du plan, le salon d'attente. Le notaire s'y assoit dans son fauteuil.
 
 ## Les matières (socle 1.17)
 
@@ -220,6 +254,7 @@ Chacune est utile seule, et rien ne change dans la première salle.
 | 7 | Le budget par lieu (socle 1.16) : l'emballeur bâtit et mesure chaque lieu du paquet, range la mesure dans le paquet (`budget.json`), le portail la dit lieu par lieu ; les objets lointains simplifiés par le socle ([`docs/LENTEUR.md`](LENTEUR.md)) | smarves, portail | **fait** |
 | 8 | Les décors : le premier, `facadier-du-poitou@1`, venu de Chauvigny 0.2.2 (MIT) ; la planche du façadier | smarves | **fait** |
 | 9 | Les monuments de pierre de Chauvigny : `donjon-en-ruine@1`, `eglise-romane@1` et leurs primitives de pierre ; les vues d'un décor (`tools/capture_decor.gd`) | smarves | **fait** |
+| 10 | Les intérieurs : genres `salle_jeu` et `etude`, leurs contrats d'ancres, `modele` de la salle de jeu et du notaire ; `bar-des-sports@1` et `etude-de-notaire@1`, venus de Cloué 1.6.2 (socle 1.21) | smarves, portail | **fait** |
 | 6 | Les auteurs reconstruisent leurs paquets : pour Minuit, le bol de la Fortune par ses ancres, le Dôme une salle, les matières passent à la bibliothèque, les textures et les données se compressent | paquets | Minuit : fait, sauf le Dôme (0.10.5, 23 octobre 2026) ; L'Isle-Jourdain 0.2.3 dans les seuils |
 
 Il ne reste que l'étape 6, par les auteurs. Le 23 octobre 2026, Minuit passe le stade de la Fortune par ses ancres (0.10.5, socle 1.20 : le bol pourra devenir une brique, `stade-fortune@1`, une fois qu'il ne connaîtra plus le stade) et L'Isle-Jourdain repasse sous les seuils (0.2.3, [`docs/LENTEUR.md`](LENTEUR.md)). Le format des paquets est arrêté avec l'étape 3 et le budget par lieu avec la 7 : Civaux, Minuit, L'Isle-Jourdain et Cloué sont repris une fois, avec le SDK à jour, et l'emballeur dit à chaque auteur ce que ses lieux ont à alléger.

@@ -1,0 +1,19 @@
+Cloué — les chemins de l’eau
+
+Code et géométrie originaux de cette extension : licence MIT, 2026.
+
+Permission est accordée, gratuitement, à toute personne obtenant une copie
+de ce logiciel et de ses fichiers associés, de l'utiliser, le copier, le
+modifier, fusionner, publier, distribuer, sous-licencier et vendre, sous
+réserve de conserver cette notice. Le logiciel est fourni « en l'état »,
+sans garantie expresse ou implicite. Les auteurs ne peuvent être tenus
+responsables de dommages liés à son utilisation.
+
+Les ambiances sonores procédurales originales sont dédiées au domaine
+public sous CC0 1.0 : voir audio/LICENCE.txt.
+
+Le socle Smarves, ses personnages, polices, interfaces, règles et ressources
+référencées gardent leurs licences respectives et ne sont pas inclus dans
+ce paquet. Les informations patrimoniales sont tirées des publications
+de Grand Poitiers citées dans commune.json et dans SOURCES-CLOUE.md.
+Aucune photographie, carte ni plan tiers n'est reproduit dans le pack.
