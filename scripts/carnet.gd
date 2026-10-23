@@ -477,7 +477,7 @@ const OCRE := Color(0.62, 0.5, 0.2)
 
 ## Ce qui attend le joueur (scripts/socle/aujourdhui.gd), le plus pressé d'abord.
 func a_faire() -> Array:
-	return AUJOURDHUI.a_faire(Football, Avis, Bourse)
+	return AUJOURDHUI.a_faire(Football, Avis, Bourse, Basket)
 
 
 func _fill_aujourdhui() -> void:
@@ -507,10 +507,15 @@ func _fill_aujourdhui() -> void:
 	# En face : les clubs suivis, puis les prochains rendez-vous.
 	_title(_right, "Mes clubs")
 	var clubs: Array = AUJOURDHUI.clubs(Football, Avis)
-	if clubs.is_empty():
-		_text(_right, "Vous ne suivez aucun club. Une obligation de club se prend au registre du stade, à l'intersaison ; elle rapporte un dividende chaque journée, et la plus grosse mise dirige.", 16, PENCIL)
+	var paniers: Array = AUJOURDHUI.clubs_basket(Basket)
+	if clubs.is_empty() and paniers.is_empty():
+		_text(_right, "Vous ne suivez aucun club. Une obligation de club se prend au registre du stade (football) ou au tableau des parts de la salle (basket), à l'intersaison ; elle rapporte un dividende chaque journée, et la plus grosse mise dirige.", 16, PENCIL)
 	for club in clubs:
 		var c: Dictionary = AUJOURDHUI.carte(Football, club)
+		if not c.is_empty():
+			_une_carte(_right, c, t)
+	for club in paniers:
+		var c: Dictionary = AUJOURDHUI.carte_basket(Basket, club)
 		if not c.is_empty():
 			_une_carte(_right, c, t)
 	_gap(_right, 10)
@@ -565,13 +570,14 @@ func _une_carte(col: VBoxContainer, c: Dictionary, t: int) -> void:
 	st.content_margin_top = 6
 	st.content_margin_bottom = 8
 	cadre.add_theme_stylebox_override("panel", st)
-	cadre.name = "Club_" + str(c.club)
+	var basket: bool = str(c.get("sport", "")) == "basket"
+	cadre.name = ("Basket_" if basket else "Club_") + str(c.club)
 	col.add_child(cadre)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 1)
 	cadre.add_child(v)
-	_text(v, "%s%s" % [c.nom, "  ·  vous dirigez" if c.dirige else ""], 19, INK, true)
-	var place := "%s sur %d, %d pts en %d %s" % [AUJOURDHUI.rang(int(c.rang)), int(c.taille), int(c.pts), int(c.joues), "match" if int(c.joues) <= 1 else "matchs"]
+	_text(v, "%s%s%s" % ["Basket · " if basket else "", c.nom, "  ·  vous dirigez" if c.dirige else ""], 19, INK, true)
+	var place := "%s sur %d, %s en %d %s" % [AUJOURDHUI.rang(int(c.rang)), int(c.taille), _pts(int(c.pts)), int(c.joues), "match" if int(c.joues) <= 1 else "matchs"]
 	if int(c.joues) > 0:
 		if int(c.rang) > 1:
 			place += ", à égalité avec le 1er" if int(c.ecart_tete) == 0 else ", à %d du 1er" % int(c.ecart_tete)
@@ -595,11 +601,18 @@ func _une_carte(col: VBoxContainer, c: Dictionary, t: int) -> void:
 	var cf: Dictionary = c.confiance
 	if not o.is_empty():
 		_text(v, "Objectif : %s%s" % [str(o.titre).to_lower(), "  ·  confiance %d sur 100. %s" % [int(cf.valeur), cf.phrase] if not cf.is_empty() else ""], 15, INK_LIGHT)
+	if basket and not p.is_empty():
+		_text(v, "Consigne du match : %s." % ("tous les titulaires" if str(c.consigne) == "titulaires" else "rotation"), 15, INK_LIGHT)
 	if not c.dirige:
 		_text(v, str(c.direction), 15, PENCIL)
-	var l := {"vers": "bureau", "club": str(c.club), "page": ""}
+	var l := {"vers": "salle", "club": str(c.club)} if basket else {"vers": "bureau", "club": str(c.club), "page": ""}
 	var ok: bool = Avis.peut_aller(l)
-	_link(v, "→ le bureau du club" + ("" if ok else " (une fois levé de table)"), func(): Avis.aller({"id": "", "lien": l}), ok).custom_minimum_size.y = 32
+	_link(v, ("→ la salle du club" if basket else "→ le bureau du club") + ("" if ok else " (une fois levé de table)"), func(): Avis.aller({"id": "", "lien": l}), ok).custom_minimum_size.y = 32
+
+
+## « 1 pt », « 7 pts ».
+static func _pts(n: int) -> String:
+	return "%d pt%s" % [n, "" if absi(n) <= 1 else "s"]
 
 
 ## Une pastille de forme : V en vert, N en ocre, D en rouge.
@@ -662,21 +675,27 @@ class Courbe extends Control:
 func _fill_palmares(page: VBoxContainer) -> void:
 	_title(page, "Mon palmarès")
 	var rien := true
-	for club in AUJOURDHUI.clubs(Football, Avis):
-		for x in CARRIERE.palmares(Football, club):
+	var suivis: Array = AUJOURDHUI.clubs(Football, Avis).map(func(c): return [Football, c, _nom_club(c)])
+	suivis += AUJOURDHUI.clubs_basket(Basket).map(func(c): return [Basket, c, "%s (basket)" % Basket.fiche(c).nom])
+	for y in suivis:
+		for x in CARRIERE.palmares(y[0], y[1]):
 			rien = false
 			var place := "%s %s" % [AUJOURDHUI.rang(int(x.rang)), x.division] if int(x.rang) > 0 else ""
 			var mots: Array = [place, str(x.titre).to_lower() if place != "" else str(x.titre)].filter(func(m): return m != "")
-			_text(page, "Saison %d, %s : %s" % [int(x.saison), _nom_club(club), ", ".join(mots)], 17, RED_INK if str(x.titre) in ["Champion", "Montée"] else INK)
+			_text(page, "Saison %d, %s : %s" % [int(x.saison), y[2], ", ".join(mots)], 17, RED_INK if str(x.titre) in ["Champion", "Montée"] else INK)
 	if rien:
 		_text(page, "Aucune saison close avec un club suivi. Le palmarès s'écrit à chaque fin de saison : la place finale, les titres, les montées.", 15, PENCIL)
 	_gap(page, 4)
 	_text(page, "Records", 18, INK, true)
 	_row(page, "La plus haute fortune notée", Game.fmt(maxi(CARRIERE.record(), fortune_nette())), INK_LIGHT)
-	_row(page, "Dividendes reçus", Game.fmt(Football.dividendes_total), INK_LIGHT)
+	_row(page, "Dividendes reçus, football", Game.fmt(Football.dividendes_total), INK_LIGHT)
+	_row(page, "Dividendes reçus, basket", Game.fmt(Basket.dividendes_total), INK_LIGHT)
 	var n := 0
 	for club in AUJOURDHUI.clubs(Football, Avis):
 		if Football.peut_decider(club):
+			n += 1
+	for club in AUJOURDHUI.clubs_basket(Basket):
+		if Basket.peut_decider(club):
 			n += 1
 	_row(page, "Clubs dirigés aujourd'hui", str(n), INK_LIGHT)
 
@@ -686,6 +705,7 @@ func _fill_palmares(page: VBoxContainer) -> void:
 ## Les pages de « Mes clubs » : [[clé, nom]], un club suivi par page, puis le calendrier.
 func pages_clubs() -> Array:
 	var out: Array = AUJOURDHUI.clubs(Football, Avis).map(func(c): return [c, _nom_club(c)])
+	out += AUJOURDHUI.clubs_basket(Basket).map(func(c): return ["basket:" + c, "%s (basket)" % Basket.fiche(c).nom])
 	out.append(["calendrier", "Le calendrier"])
 	return out
 
@@ -709,6 +729,9 @@ func _fill_clubs() -> void:
 	_gap(_left, 4)
 	if _club_vu == "calendrier":
 		_fill_calendrier()
+		return
+	if _club_vu.begins_with("basket:"):
+		_fill_un_club_basket(_club_vu.trim_prefix("basket:"))
 		return
 	_fill_un_club(_club_vu)
 
@@ -747,9 +770,9 @@ func _fill_un_club(club: String) -> void:
 				x.clip_text = true
 	var ecarts: Array = []
 	if int(c.joues) > 0:
-		ecarts.append("en tête" if int(c.rang) == 1 and int(c.ecart_tete) == 0 and int(c.taille) > 1 else ("à égalité avec le 1er" if int(c.ecart_tete) == 0 else "à %d pts du 1er" % int(c.ecart_tete)))
+		ecarts.append("en tête" if int(c.rang) == 1 and int(c.ecart_tete) == 0 and int(c.taille) > 1 else ("à égalité avec le 1er" if int(c.ecart_tete) == 0 else "à %s du 1er" % _pts(int(c.ecart_tete))))
 		if sauve >= 2 and int(c.rang) <= sauve:
-			ecarts.append("%d pts d'avance sur la descente" % int(c.ecart_relegation))
+			ecarts.append("%s d'avance sur la descente" % _pts(int(c.ecart_relegation)))
 		elif sauve >= 2:
 			ecarts.append("dans la zone de descente")
 	if not ecarts.is_empty():
@@ -808,6 +831,99 @@ func _fill_un_club(club: String) -> void:
 	_text(_right, preload("res://scripts/socle/calendrier.gd").resume(Football, "football"), 14, PENCIL)
 
 
+## La page d'un club de basket suivi : le classement du groupe de huit, les quatorze journées et leurs
+## scores ; en face, l'effectif (de vrais joueurs, notés chaque vendredi), les parts, la masse salariale.
+func _fill_un_club_basket(club: String) -> void:
+	var c: Dictionary = AUJOURDHUI.carte_basket(Basket, club)
+	if c.is_empty():
+		_text(_left, "Ce club n'est plus au championnat.", 16, PENCIL)
+		return
+	var t: int = Agenda.maintenant()
+	var s: int = Basket.saison
+	_title(_left, str(c.nom))
+	_text(_left, "Basket, %s, saison %d" % [c.division, s], 15, PENCIL)
+	_gap(_left, 4)
+	var ici: Array = Basket.place_de(club)
+	var cl: Array = Basket.classement(s, ici[0], ici[1])
+	var g := GridContainer.new()
+	g.columns = 5
+	g.add_theme_constant_override("h_separation", 12)
+	g.name = "Classement"
+	_left.add_child(g)
+	for h in ["", "Club", "V-D", "Diff.", "Pts"]:
+		_text(g, h, 14, PENCIL).autowrap_mode = TextServer.AUTOWRAP_OFF
+	var sauve: int = cl.size() - int(Basket.DESCENDENT)
+	for i in cl.size():
+		var l: Dictionary = cl[i]
+		var moi: bool = str(l.club) == club
+		var couleur := RED_INK if moi else (INK_LIGHT if i >= sauve else INK)
+		var nom := str(Basket.fiche(str(l.club)).nom)
+		var diff: int = int(l.pour) - int(l.contre)
+		for v in [str(i + 1), nom, "%d-%d" % [int(l.v), int(l.d)], ("+" if diff > 0 else "") + str(diff), str(int(l.pts))]:
+			var x := _text(g, v, 16, couleur, moi)
+			x.autowrap_mode = TextServer.AUTOWRAP_OFF
+			if v == nom:
+				x.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				x.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+				x.clip_text = true
+	if int(c.joues) > 0:
+		var ecarts: Array = ["en tête" if int(c.rang) == 1 else ("à égalité avec le 1er" if int(c.ecart_tete) == 0 else "à %s du 1er" % _pts(int(c.ecart_tete)))]
+		ecarts.append("%s d'avance sur la descente" % _pts(int(c.ecart_relegation)) if int(c.rang) <= sauve else "dans la zone de descente")
+		var e := ", ".join(ecarts)
+		_text(_left, e.substr(0, 1).to_upper() + e.substr(1) + ".", 15, INK)
+	_text(_left, "Deux points la victoire, un la défaite. Le premier monte, les %d derniers descendent." % int(Basket.DESCENDENT), 14, PENCIL)
+	_gap(_left, 8)
+	_text(_left, "Les quatorze journées", 18, INK, true)
+	var jour_court: Callable = preload("res://scripts/socle/calendrier.gd").jour_court
+	for j in range(1, int(Basket.JOURNEES) + 1):
+		var m: Dictionary = AUJOURDHUI.match_basket(Basket, club, s, j)
+		if m.is_empty():
+			continue
+		var adv := str(Basket.fiche(str(m.adv)).nom)
+		var jour: String = jour_court.call(int(m.quand))
+		if not (m.score as Array).is_empty():
+			var v: bool = int(m.score[0]) > int(m.score[1])
+			_text(_left, "J%d  %s  %s %d-%d %s %s" % [j, jour, "V" if v else "D", int(m.score[0]), int(m.score[1]), "contre" if m.dom else "chez", adv], 15, VERT if v else RED_INK)
+		else:
+			var prochain: bool = not c.prochain.is_empty() and int(c.prochain.j) == j
+			_text(_left, "J%d  %s  %s %s%s" % [j, jour, "contre" if m.dom else "chez", adv, "  ·  " + AUJOURDHUI.dans(int(m.quand), t) if prochain else ""], 15,
+				INK if prochain else INK_LIGHT, prochain)
+	# En face : l'effectif, les parts.
+	_title(_right, "L'effectif")
+	var j0: int = mini(int(Basket.journee_jouee()) + 1, int(Basket.JOURNEES))
+	var joueurs: Array = (Basket.equipe(s, ici[0], ici[1], ici[2], j0).joueurs as Array).duplicate()
+	if joueurs.is_empty():
+		_text(_right, "L'effectif se tire le vendredi soir d'avant la première journée.", 15, PENCIL)
+	else:
+		joueurs.sort_custom(func(a, b): return int(a.note) > int(b.note) if int(a.note) != int(b.note) else str(a.code) < str(b.code))
+		var ge := GridContainer.new()
+		ge.columns = 3
+		ge.add_theme_constant_override("h_separation", 12)
+		ge.name = "Effectif"
+		_right.add_child(ge)
+		for h in ["Joueur", "Son club", "Note"]:
+			_text(ge, h, 14, PENCIL).autowrap_mode = TextServer.AUTOWRAP_OFF
+		for x in joueurs:
+			var nom := _text(ge, str(x.nom) + ("" if bool(x.get("dispo", true)) else " (absent)"), 15, INK if bool(x.get("dispo", true)) else PENCIL)
+			nom.autowrap_mode = TextServer.AUTOWRAP_OFF
+			nom.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			_text(ge, str(x.get("club", "")), 14, INK_LIGHT).autowrap_mode = TextServer.AUTOWRAP_OFF
+			_text(ge, str(int(x.note)), 15, INK).autowrap_mode = TextServer.AUTOWRAP_OFF
+		_text(_right, "Masse salariale : %s par journée, sous le plafond de %s." % [Game.fmt(Basket.masse_salariale(club)), Game.fmt(int(Basket.PLAFOND))], 14, PENCIL)
+	_gap(_right, 8)
+	_title(_right, "Les parts")
+	var miennes: Array = Basket.mes_obligations(club)
+	_text(_right, "Vous en tenez %d, %s investis." % [miennes.size(), Game.fmt(Basket.investi(club))] if not miennes.is_empty() else "Vous n'en tenez aucune.", 16, INK)
+	for a in (Basket.actionnaires(club) as Array).slice(0, 3):
+		_row(_right, "vous" if bool(a.moi) else str(a.nom), Game.fmt(int(a.investi)), INK if bool(a.moi) else INK_LIGHT)
+	_text(_right, str(c.direction), 15, PENCIL)
+	var l := {"vers": "salle", "club": club}
+	var ok: bool = Avis.peut_aller(l)
+	_link(_right, "→ la salle du club" + ("" if ok else " (une fois levé de table)"), func(): Avis.aller({"id": "", "lien": l}), ok).custom_minimum_size.y = 34
+	_gap(_right, 6)
+	_text(_right, preload("res://scripts/socle/calendrier.gd").resume(Basket, "basket"), 14, PENCIL)
+
+
 # --- Mon compte : ce qui suit le joueur partout --------------------------------------------------
 
 ## Le nom de la banque d'un prêteur, d'après le manifeste de la commune qui le déclare.
@@ -836,6 +952,14 @@ func _obligations() -> Dictionary:
 	return out
 
 
+## Les obligations de basket qu'on tient, à leur valeur de reprise : club -> crédits.
+func _obligations_basket() -> Dictionary:
+	var out := {}
+	for club in AUJOURDHUI.clubs_basket(Basket):
+		out[club] = int(round(Basket.investi(club) * Basket.RACHAT))
+	return out
+
+
 ## Ce que valent les positions ouvertes en bourse, au dernier cours.
 func _en_bourse() -> int:
 	var t := 0
@@ -852,6 +976,8 @@ func fortune_nette() -> int:
 	var t := Game.credits + Biens.value() + _en_bourse() - Game.debt
 	for club in _obligations():
 		t += int(_obligations()[club])
+	for club in _obligations_basket():
+		t += int(_obligations_basket()[club])
 	return t
 
 
@@ -863,6 +989,9 @@ func _fill_compte() -> void:
 	var obl := _obligations()
 	for club in obl:
 		_row(_left, "Obligations, %s" % _nom_club(club), Game.fmt(int(obl[club])))
+	var obb := _obligations_basket()
+	for club in obb:
+		_row(_left, "Obligations, %s (basket)" % Basket.fiche(club).nom, Game.fmt(int(obb[club])))
 	if not Bourse.ouvertes().is_empty():
 		_row(_left, "En bourse (au dernier cours)", Game.fmt(_en_bourse()))
 	if Game.debts.is_empty():
@@ -881,8 +1010,8 @@ func _fill_compte() -> void:
 	_row(_left, "Dépensé en biens", Game.fmt(Biens.total_spent), INK_LIGHT)
 	_row(_left, "Reçu en rentes", Game.fmt(Biens.total_rentes), INK_LIGHT)
 	_row(_left, "Payé en charges", Game.fmt(Biens.total_charges), INK_LIGHT)
-	if Football.dividendes_total > 0:
-		_row(_left, "Reçu en dividendes", Game.fmt(Football.dividendes_total), INK_LIGHT)
+	if Football.dividendes_total + Basket.dividendes_total > 0:
+		_row(_left, "Reçu en dividendes", Game.fmt(Football.dividendes_total + Basket.dividendes_total), INK_LIGHT)
 	var paris := Paris.bilan()
 	if int(paris.tickets) > 0:
 		_row(_left, "Parié au comptoir", Game.fmt(int(paris.mise)), INK_LIGHT)
@@ -921,6 +1050,12 @@ func _fill_engagements(page: VBoxContainer) -> void:
 		_text(page, "%d %s, %s investis, %s par journée avant le classement%s" % [rangs.size(),
 			"tenue" if rangs.size() == 1 else "tenues", Game.fmt(Football.investi(club)), Game.fmt(par_journee),
 			" · vous parlez au président" if Football.peut_decider(club) else ""], 16, INK_LIGHT)
+	for club in _obligations_basket():
+		rien = false
+		var rangs: Array = Basket.mes_obligations(club)
+		_text(page, "Obligations de %s (basket)" % Basket.fiche(club).nom, 18, INK, true)
+		_text(page, "%d %s, %s investis, un dividende par journée jouée : la recette moins les salaires%s" % [rangs.size(),
+			"tenue" if rangs.size() == 1 else "tenues", Game.fmt(Basket.investi(club)), " · vous dirigez le club" if Basket.peut_decider(club) else ""], 16, INK_LIGHT)
 	for p in Bourse.ouvertes():
 		rien = false
 		var appel := Bourse.en_appel(p)

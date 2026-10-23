@@ -89,6 +89,14 @@ func _ready() -> void:
 	actualiser()
 	telecharger.call_deferred()
 	lire.call_deferred()
+	# Les dividendes tombent après chaque journée jouée, où que soit le joueur (comme au football) : une
+	# passe au lancement, puis toutes les minutes ; le courrier l'annonce.
+	var minuteur := Timer.new()
+	minuteur.wait_time = 60.0
+	minuteur.autostart = true
+	minuteur.timeout.connect(tic)
+	add_child(minuteur)
+	tic.call_deferred()
 
 
 # ---------------------------------------------------------------- le calendrier
@@ -414,7 +422,14 @@ func clore_saison() -> void:
 		for g in niveaux[n].size():
 			rangs.append(classement(saison, n, g, JOURNEES).map(func(l): return l.club))
 		finals.append(rangs)
-	historique.append({"saison": saison, "champion": finals[0][0][0]})
+	# La place finale de chaque club, pour le palmarès du carnet (« Ma carrière ») : club -> [n, g, rang].
+	var places := {}
+	for n in finals.size():
+		for g in finals[n].size():
+			for i in finals[n][g].size():
+				if not str(finals[n][g][i]).begins_with("fig/"):
+					places[finals[n][g][i]] = [n, g, i + 1]
+	historique.append({"saison": saison, "champion": finals[0][0][0], "rangs": places})
 	for n in range(niveaux.size() - 2, -1, -1):
 		for g in niveaux[n].size():
 			var pere: Array = finals[n][g]
@@ -776,6 +791,34 @@ func dividendes_dus() -> Array:
 				t += dividende(club, r, j)
 			out.append({"club": club, "j": j, "montant": t})
 	return out
+
+
+## Verse les dividendes dus et l'annonce au courrier (autoload Avis), un avis par club.
+func tic() -> void:
+	var dus := dividendes_dus()
+	if verser_dividendes() <= 0:
+		return
+	var avis: Node = get_tree().root.get_node_or_null("Avis")
+	if avis == null:
+		return
+	var par_club := {}
+	var journees := {}
+	for d in dus:
+		par_club[d.club] = int(par_club.get(d.club, 0)) + int(d.montant)
+		journees[d.club] = (journees.get(d.club, []) as Array) + [int(d.j)]
+	for club in par_club:
+		if int(par_club[club]) <= 0:
+			continue
+		var js: Array = journees[club]
+		avis.publier({"id": "dividende_basket/%s/%d/%d" % [club, saison, js[-1]], "genre": "dividende", "montant": int(par_club[club]),
+			"titre": "%s : %s crédits de dividende%s" % [fiche(club).nom, Game.fmt(int(par_club[club])), "" if js.size() == 1 else "s"],
+			"texte": "Basket, journée %d." % js[0] if js.size() == 1 else "Basket, journées %d à %d." % [js[0], js[-1]],
+			"lien": {"vers": "carnet", "onglet": "compte"}})
+
+
+## Le nom d'une division : « Division 1 », « Division 2, groupe B » (comme au football).
+static func nom_division(n: int, g: int) -> String:
+	return "Division %d" % (n + 1) if n == 0 else "Division %d, groupe %s" % [n + 1, char(65 + g)]
 
 
 func verser_dividendes() -> int:
