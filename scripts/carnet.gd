@@ -92,6 +92,9 @@ func _ready() -> void:
 	Communes.etat_change.connect(func(_id):
 		if _root.visible:
 			_refresh.call_deferred())
+	Doublure.change.connect(func():
+		if _root.visible and _sheet.visible and _sheet_mode == "doublure":
+			_refresh.call_deferred())
 	# Chaque passage dans une commune qui tient des compteurs se note, pour la date de la page.
 	if get_tree().has_signal("scene_changed"):
 		get_tree().connect("scene_changed", _noter_passage)
@@ -514,6 +517,12 @@ func _fill_compte() -> void:
 		_row(_left, "Gagné au comptoir", Game.fmt(int(paris.gagne)), INK_LIGHT)
 	_fill_agenda(_right)
 	_fill_engagements(_right)
+	_gap(_right)
+	_title(_right, "Ma doublure")
+	_text(_right, "Un habitant tenu par votre modèle de langage, qui joue sans vous quelques fois par semaine.", 16, PENCIL)
+	_link(_right, "→ ouvrir sa fiche", func():
+		_show_sheet(true, "doublure")
+		Doublure.lire()).custom_minimum_size.y = 48
 
 
 ## « Mes engagements » (docs/ACTIVITES.md, « Ce que rassemble le carnet ») : ce qui court et où le
@@ -792,6 +801,12 @@ func _show_sheet(open: bool, mode := "plan") -> void:
 func _fill_sheet() -> void:
 	if _sheet_mode == "agenda":
 		_fill_sheet_agenda()
+		return
+	if _sheet_mode == "doublure":
+		var ecran := _ecran()
+		var etroit := ecran.x < 1300.0 or ecran.y < 760.0
+		_sheet.custom_minimum_size = Vector2(minf(1148.0, ecran.x - (440.0 if etroit else 24.0)), minf(728.0, ecran.y - 24.0))
+		Doublure.remplir(self, _sheet_box, _show_sheet.bind(false, "doublure"))
 		return
 	if _page_origine == null or not _page_origine.feuille(_sheet_box, _sheet_mode):
 		_sheet.visible = false
