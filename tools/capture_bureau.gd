@@ -2,6 +2,9 @@ extends SceneTree
 ## Captures du bureau du club, le mercredi de la troisième journée à 21 h, l'Étoile dirigée par vous :
 ## godot --path . --resolution 1600x900 -s tools/capture_bureau.gd -- --sortie=<fichier.png> [--bureau-page=tactique]
 ##   [--bureau-onglet=buteurs] [--base=600] (--base=600 et --resolution 1067x600 imitent un téléphone, comme Tactile).
+##   [--entrainement=finition] : les trois semaines déjà jouées à ce programme ; [--bureau-courrier] : le dernier
+##   message ouvert ; [--bureau-programme=defense] : un programme choisi, pas encore posé ;
+##   [--bureau-repetition] : la répétition jouée.
 
 const TMP := "user://capture_bureau/"
 
@@ -34,6 +37,10 @@ func _lancer() -> void:
 	load("res://scripts/socle/foot_mercato.gd").demo(m, club)
 	# Le crochet des renforts se pose en différé au démarrage : ici, tout de suite.
 	foot.renforts = m.renforts
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--entrainement="):
+			for k in range(1, 4):
+				foot.decisions["1/%d/%s" % [k, club]] = foot.consigne({"entrainement": arg.get_slice("=", 1)})
 	foot.oublier_effectifs()
 	var fond := ColorRect.new()
 	fond.color = Color(0.05, 0.07, 0.08)
