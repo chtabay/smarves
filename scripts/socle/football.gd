@@ -74,7 +74,7 @@ const COULEURS := [["#1b3c8c", "#f2c94c"], ["#a3192e", "#ffffff"], ["#0f6b3f", "
 ## La saison en cours (1 au départ) et la pyramide : niveaux[n] est la liste des groupes du niveau n
 ## (le niveau 0 est le haut), un groupe est une liste d'ids de clubs (de zéro à TAILLE). clubs : id ->
 ## {nom, court, couleurs, commune, insee, stade, fondation (la saison où le club est entré)}.
-## historique : [{saison, champion, montes, descendus}].
+## historique : [{saison, champion, montes, descendus, rangs (club -> [n, g, rang final])}].
 var saison := 1
 var niveaux: Array = []
 var clubs := {}
@@ -295,7 +295,13 @@ func clore_saison() -> void:
 				pere[i] = monte
 				montes.append(monte)
 				descendus.append(descend)
-	historique.append({"saison": saison, "champion": champion, "montes": montes, "descendus": descendus})
+	# La place finale de chaque club, pour le palmarès du carnet (« Ma carrière ») : club -> [n, g, rang].
+	var rangs := {}
+	for n in finals.size():
+		for g in finals[n].size():
+			for i in finals[n][g].size():
+				rangs[finals[n][g][i]] = [n, g, i + 1]
+	historique.append({"saison": saison, "champion": champion, "montes": montes, "descendus": descendus, "rangs": rangs})
 	for n in suivants.size():
 		for g in suivants[n].size():
 			suivants[n][g].sort()
