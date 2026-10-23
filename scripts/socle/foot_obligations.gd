@@ -10,8 +10,12 @@ extends FootTableau
 ## Elle emprunte au tableau du dimanche son ardoise et ses petites pièces ; s'ouvre et se ferme comme
 ## lui (signal closed, Échap).
 
+const DIRIGER := preload("res://scripts/socle/diriger.gd")
+
 var club := ""
 var _ligne_etat: Label
+## Le rang libre le moins cher qui suffit à diriger (0 : aucun), marqué dans sa rangée.
+var _suffit := 0
 
 
 func _ready() -> void:
@@ -26,6 +30,11 @@ func remplir(colonne: VBoxContainer) -> void:
 	colonne.add_child(_mot("L E   R E G I S T R E   D E S   O B L I G A T I O N S", 13, DOUX))
 	colonne.add_child(_mot(str(c.get("nom", "Le club")), 26 if _etroit() else 34, CRAIE, Polices.titre(), _etroit()))
 	colonne.add_child(_mot(str(f.phrase_actionnaires(club)), 16, OR, null, true))
+	# Ce qui manque pour diriger, calculé plutôt que laissé au joueur.
+	var pour_diriger := _mot(DIRIGER.phrase(f, club), 16, CRAIE, Polices.gras(), true)
+	pour_diriger.name = "PourDiriger"
+	colonne.add_child(pour_diriger)
+	_suffit = int(DIRIGER.etat(f, club).suffit)
 	var facteur: float = f.recette_facteur(club)
 	colonne.add_child(_mot("Une obligation verse 50 crédits par cran à chaque journée jouée, ×%.1f au classement d'aujourd'hui. L'étude reprend à 80 %%, et une plus grosse s'échange contre une des vôtres pour la différence." % facteur, 14, DOUX, null, true))
 	colonne.add_child(_filet())
@@ -54,6 +63,8 @@ func _rangee(rang: int, miennes: Array, facteur: float) -> Control:
 		b.name = "Prendre_%d" % rang
 		b.disabled = Game.credits < f.valeur(rang)
 		h.add_child(b)
+		if rang == _suffit:
+			h.add_child(_mot("← pour diriger", 15, OR, Polices.gras()))
 		# L'échange, depuis la plus grosse des siennes qui soit plus petite que celle-ci.
 		var bas := -1
 		for m in miennes:
@@ -64,6 +75,10 @@ func _rangee(rang: int, miennes: Array, facteur: float) -> Control:
 			e.name = "Echanger_%d" % rang
 			e.disabled = Game.credits < f.valeur(rang) - f.valeur(bas)
 			h.add_child(e)
+		# Un bouton éteint dit ce qui manque.
+		var cout: int = f.valeur(rang) - (f.valeur(bas) if bas > 0 else 0)
+		if Game.credits < cout:
+			h.add_child(_mot(DIRIGER.manque_credits(cout) + (" en échangeant" if bas > 0 else ""), 14, DOUX))
 	elif bool(p.moi):
 		h.add_child(_mot("à vous", 15, OR))
 		var r := _bouton("Rendre  (%s)" % Game.fmt(int(round(f.valeur(rang) * f.RACHAT))), func(): agir(f.rendre(club, rang)), 15)

@@ -46,6 +46,9 @@ func _init() -> void:
 	check(textes.any(func(x): return x.begins_with("n° 1  ·  500 crédits")) and textes.any(func(x): return x.begins_with("n° 9  ·  7 500 crédits")), "les neuf obligations, de 500 à 7 500")
 	check(textes.has("tenue par Lucien") and fenetre.find_children("Prendre_*", "Button", true, false).size() == 8, "la n° 9 est à Lucien, les huit autres se prennent")
 	check(fenetre.find_child("Prendre_8", true, false).disabled and not fenetre.find_child("Prendre_7", true, false).disabled, "avec 6 000 crédits, la n° 8 (6 250) est hors de portée, pas la n° 7")
+	check(textes.has("il manque %s" % game.fmt(250)), "et la fenêtre dit ce qui manque pour la n° 8")
+	var pd: Label = fenetre.find_child("PourDiriger", true, false)
+	check(pd != null and pd.text.contains("Il vous manque %s" % game.fmt(7500)) and pd.text.contains("plusieurs obligations"), "ce qui manque pour diriger : Lucien tient la plus grosse (%s)" % (pd.text if pd else ""))
 	(fenetre.find_child("Prendre_3", true, false) as Button).pressed.emit()
 	await process_frame
 	check(game.credits == 4500 and foot.mes_obligations(club) == [3], "la n° 3 prise depuis la fenêtre : 1 500 débités")

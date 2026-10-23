@@ -6,6 +6,8 @@ extends "res://scripts/socle/basket_ecran.gd"
 ## valeur de l'obligation. On en prend une libre, on en rend une (reprise à 80 %). Les porteurs sont
 ## publics, comme le championnat ; il faut son compte Pyramides pour en prendre.
 
+const DIRIGER := preload("res://scripts/socle/diriger.gd")
+
 var _etat: Label
 var _message := ""
 
@@ -28,6 +30,9 @@ func remplir(col: VBoxContainer) -> void:
 		_fermer(col)
 		return
 	_mot(col, b.phrase_actionnaires(commune), OR)
+	# Ce qui manque pour diriger, calculé plutôt que laissé au joueur.
+	_mot(col, DIRIGER.phrase(b, commune), TEXTE, 17).name = "PourDiriger"
+	var suffit: int = int(DIRIGER.etat(b, commune).suffit)
 	var facteur: float = b.recette_facteur(commune)
 	var benefice := maxf(0.0, b.RECETTE * facteur - b.masse_salariale(commune))
 	_mot(col, "À chaque journée jouée, le club partage sa recette (%s crédits, ×%.1f au classement d'aujourd'hui) moins ses salaires (%s) entre les obligations, au prorata de leur valeur. On en rend une à 80 %%." \
@@ -42,6 +47,10 @@ func remplir(col: VBoxContainer) -> void:
 		if p.is_empty():
 			var bt := _bouton(h, "Prendre", func(): agir(b.prendre(commune, r)), "Prendre_%d" % r)
 			bt.disabled = Game.credits < b.valeur(r)
+			if r == suffit:
+				_mot(h, "← pour diriger", OR, 15)
+			if bt.disabled:
+				_mot(h, DIRIGER.manque_credits(b.valeur(r)), DOUX, 14)
 		elif bool(p.moi):
 			_mot(h, "à vous", OR, 15)
 			_bouton(h, "Rendre  (%s)" % Game.fmt(int(round(b.valeur(r) * b.RACHAT))), func(): agir(b.rendre(commune, r)), "Rendre_%d" % r)

@@ -242,6 +242,10 @@ func _init() -> void:
 	await process_frame
 	tout = textes(bureau)
 	check(tout.contains("LE BUREAU DU PRÉSIDENT") and tout.contains("Consigne pour la journée") and tout.contains("par journée"), "le bureau : l'équipe et la consigne")
+	var bb := load("res://scripts/socle/basket_bureau.gd")
+	check(bb.nom_lisible("HORTON TUCKER, TALEN") == "Talen Horton Tucker" and bb.poste_fr("Guard") == "arrière", "les noms en clair, le poste en français")
+	check(bb.match_lisible({"date": "2026-03-20", "pts": 23, "reb": 1, "pd": 2, "pir": 19, "adv": "MIL"}) == "20/03 · 23 pts, 1 rbd, 2 pd · éval. 19 · contre MIL", "le dernier match en clair")
+	check(not tout.contains("PIR"), "plus de sigle PIR dans l'effectif")
 	(trouver(bureau, "Onglet_marche") as Button).pressed.emit()
 	await process_frame
 	tout = textes(bureau)

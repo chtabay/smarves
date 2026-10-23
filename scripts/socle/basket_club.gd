@@ -79,8 +79,7 @@ func etapes() -> Array:
 	elif dirige:
 		texte = "Vous avez %s crédits dans le club : c'est vous qui le dirigez. Son nom se change au bureau du président." % Game.fmt(inv)
 	else:
-		texte = "%s dirige avec %s crédits de parts (vous : %s). Celui qui a mis le plus décide ; les parts sont au tableau de l'entrée." \
-			% [str(a[0].nom).capitalize(), Game.fmt(int(a[0].investi)), Game.fmt(inv)]
+		texte = preload("res://scripts/socle/diriger.gd").phrase(b, commune) + " Les parts sont au tableau de l'entrée."
 	out.append({"titre": "Prendre des parts du club", "texte": texte, "fait": inv > 0 and dirige})
 	var connecte: bool = b.connecte()
 	var connexion := {"titre": "Être connecté à son compte Pyramides", "fait": connecte,
