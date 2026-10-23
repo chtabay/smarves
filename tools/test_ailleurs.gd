@@ -341,7 +341,7 @@ func _init() -> void:
 
 	# Le stade de la Fortune : on y va en taxi depuis la porte-cochère (les portes du casino le disent) ; fermé sous
 	# son seuil, puis le stade du socle dans le décor que Minuit a bâti, branché par ses ancres (socle 1.13 ; décor
-	# vivant, socle 1.18), d'où le taxi ramène au casino.
+	# vivant, socle 1.20), d'où le taxi ramène au casino.
 	gagne = game.won
 	game.won = 0
 	var porte: Node = s.find_child("stade", true, false)

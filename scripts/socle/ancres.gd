@@ -23,7 +23,7 @@ const STADE := {
 	"Buvette": {"requis": false, "role": "la buvette : le socle y fait parler la tenancière"},
 }
 
-## Ce qu'un décor de stade peut faire de plus (socle 1.18), s'il en a la méthode ; aucune n'est requise. Le
+## Ce qu'un décor de stade peut faire de plus (socle 1.20), s'il en a la méthode ; aucune n'est requise. Le
 ## décor connaît alors le stade : c'est le cas d'un décor de commune qui vit (Casino Minuit, le stade de la
 ## Fortune), pas d'une brique de la bibliothèque, qui se suffit de ses ancres.
 const CROCHETS := {

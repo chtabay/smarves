@@ -1,6 +1,6 @@
 extends Node3D
 ## Le stade de la Fortune, où joue le Racing Club Minuit : le décor du stade, branché par ses ancres (socle 1.13,
-## champ « modele » du terrain ; décor vivant, socle 1.18). Le socle y pose la pelouse, le match, le président et
+## champ « modele » du terrain ; décor vivant, socle 1.20). Le socle y pose la pelouse, le match, le président et
 ## sa gestion, le panneau et le tableau ; le décor bâtit le reste et le fait vivre. Un bol à l'américaine sous une
 ## roue de roulette géante qui tourne (roue.gd), deux étages de tribunes, la promenade, les Suites impériales, la
 ## piscine des parieurs, le Jackpot Lounge et sa scène, le penthouse du président (batiment.gd, sur le plan de
@@ -75,7 +75,7 @@ func _ancre(nom: String, p: Vector3, lacet: float) -> void:
 	add_child(m)
 
 
-## La nuit du Strip (socle 1.18, à la place de celle du socle) : le ciel violet sombre, la lueur des diodes, et
+## La nuit du Strip (socle 1.20, à la place de celle du socle) : le ciel violet sombre, la lueur des diodes, et
 ## quatre projecteurs pendus au bord de la roue, qui font le jour sur la pelouse.
 func nuit(s: Node3D) -> void:
 	var we: WorldEnvironment = null
@@ -118,7 +118,7 @@ func nuit(s: Node3D) -> void:
 		spot.look_at(Vector3(sin(a) * 6.0, 0, cos(a) * 4.0), Vector3.UP)
 
 
-## Le stade est posé (socle 1.18) : M. Castellane dans son costume, l'écran à 360° qui reprend le score du
+## Le stade est posé (socle 1.20) : M. Castellane dans son costume, l'écran à 360° qui reprend le score du
 ## socle, la sortie qui devient la station de taxis, la semaine du stade et ce qu'on entend en arrivant.
 func brancher(s: Node3D) -> void:
 	stade = s
@@ -324,7 +324,7 @@ func _process(delta: float) -> void:
 		mat.emission_energy_multiplier = 2.4 + 1.2 * sin(_t * 1.3)
 
 
-## Les interactions passent d'abord par le décor (socle 1.18) : les siennes, et la sortie, qui est un taxi.
+## Les interactions passent d'abord par le décor (socle 1.20) : les siennes, et la sortie, qui est un taxi.
 func interagir(cle: String, cible: Node) -> bool:
 	var player: CharacterBody3D = stade.player
 	match cle:
