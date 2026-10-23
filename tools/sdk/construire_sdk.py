@@ -61,7 +61,9 @@ TELS_QUELS = [
     # modèle de note du kit. docs/.gdignore garde les images hors de l'import de Godot.
     "docs/.gdignore", "docs/exemples/INTENTIONS-isle-jourdain.md", "docs/references/minuit.jpg",
     "docs/references/isle-jourdain.jpg", "tools/kit/INTENTIONS.md",
-]
+] + sorted("communes/departements/" + p.name for p in (RACINE / "communes/departements").glob("*.json"))
+# (Les communes des autres départements connus, Departements : le jeu les lit par leur code, aucun lien
+# ne mène à elles.)
 ## Les parties de la bible et du cadrage qui valent pour toutes les communes ; COMMUNE.md et CONCEPTION.md y
 ## renvoient. Le SDK en reçoit un extrait tiré à chaque construction (EXTRAITS), pas les fichiers entiers :
 ## ce qui est propre à Smarves (ses lieux, ses personnages, son casino, l'ordre du récit) reste au jeu.

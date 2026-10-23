@@ -89,9 +89,32 @@ def _modeles(famille):
 
 
 def _vienne():
-    """Les communes de la Vienne par code INSEE (communes/vienne.json, le référentiel du jeu)."""
+    """Les communes que le jeu connaît par code INSEE : la Vienne (communes/vienne.json) et, depuis le
+    socle 1.18, les autres départements connus (communes/departements/<code>.json, Departements)."""
     v = json.loads(_lire("communes/vienne.json"))
-    return {c["insee"]: c for c in v["communes"]}
+    out = {c["insee"]: c for c in v["communes"]}
+    for p in sorted((RACINE / "communes/departements").glob("*.json")):
+        out.update({c["insee"]: c for c in json.loads(p.read_text(encoding="utf-8"))["communes"]})
+    return out
+
+
+def _socle_du_lieu(insee):
+    """Le socle qui connaît le département d'une commune : 1.18 pour la Nouvelle-Aquitaine hors Vienne,
+    1.19 pour l'Auvergne-Rhône-Alpes, rien de plus pour la Vienne."""
+    dep = str(insee)[:2]
+    if dep == "86":
+        return ""
+    region = next((d["region"] for d in json.loads(_lire("communes/france.json"))["departements"] if d["code"] == dep), "")
+    return "1.18" if region == "75" else "1.19"
+
+
+def _version(v):
+    return tuple(int(x) for x in re.findall(r"\d+", str(v))[:2]) or (0,)
+
+
+def _inconnu(insee):
+    return ("code INSEE inconnu : « %s » n'est ni dans la Vienne ni dans un département que le jeu connaît "
+            "(Nouvelle-Aquitaine, Auvergne-Rhône-Alpes)" % insee)
 
 
 def _requis():
@@ -239,7 +262,9 @@ def verifier_manifeste(id="", dossier="", texte=""):
         erreurs.append("« id » doit être en minuscules, chiffres et _ (« la_villedieu_du_clain »)")
     insee = str(m.get("insee", ""))
     if insee not in _vienne():
-        erreurs.append("code INSEE inconnu dans la Vienne : « %s »" % insee)
+        erreurs.append(_inconnu(insee))
+    elif _socle_du_lieu(insee) and _version(m.get("socle_min", "")) < _version(_socle_du_lieu(insee)):
+        erreurs.append("« socle_min » doit valoir au moins « %s » : un jeu plus ancien ne connaît pas les communes de ce département" % _socle_du_lieu(insee))
     if i and str(m.get("scene", "")) and not str(m["scene"]).startswith("res://communes/%s/" % i):
         erreurs.append("« scene » doit être sous res://communes/%s/" % i)
     if "__" in texte:
@@ -273,7 +298,7 @@ def nom_de_caisse(nom):
 def nouvelle_commune(insee, id="", nom="", dossier=""):
     ref = _vienne().get(str(insee))
     if not ref:
-        raise Erreur("Code INSEE inconnu dans la Vienne : « %s »" % insee)
+        raise Erreur(_inconnu(insee)[0].upper() + _inconnu(insee)[1:])
     nom = nom or ref["nom"]
     if not id:
         id = re.sub(r"[^a-z0-9]+", "_", _normal(nom).replace("œ", "oe")).strip("_")
@@ -289,6 +314,8 @@ def nouvelle_commune(insee, id="", nom="", dossier=""):
         t = _lire("tools/kit/" + nom_f).replace("La caisse de __NOM__", nom_de_caisse(nom)).replace("__ID__", id).replace("__NOM__", nom).replace("__INSEE__", str(insee))
         if nom_f == "commune.json":
             t = t.replace('"population": 0', '"population": %d' % int(ref.get("population", 0)))
+            if _socle_du_lieu(insee):
+                t = re.sub(r'"socle_min": "[^"]*"', '"socle_min": "%s"' % _socle_du_lieu(insee), t)
         (d / nom_f).write_text(t, encoding="utf-8")
         faits.append(str((d / nom_f).relative_to(RACINE)) if RACINE in d.parents else str(d / nom_f))
     return ("Commune « %s » (id « %s ») créée depuis le kit :\n%s\nD'abord la note d'intentions (INTENTIONS.md, "
@@ -374,7 +401,7 @@ OUTILS = {
     "nouvelle_commune": (nouvelle_commune, "Crée une commune depuis le kit de départ dans communes/<id>/ : le "
                          "manifeste, une scène sans décor (habitant, caméra, lumière réglable, sol, arrivée et trois "
                          "repères de vue) et la note d'intentions à remplir avant le premier modèle.",
-                         {"insee": {"type": "string", "description": "le code INSEE (« 86290 ») : le nom et la population viennent du référentiel du jeu"},
+                         {"insee": {"type": "string", "description": "le code INSEE (« 86290 », ou « 01034 » pour Belley hors de la Vienne) : le nom et la population viennent du référentiel du jeu"},
                           "id": {"type": "string", "description": "l'id, sinon tiré du nom (« la_villedieu_du_clain »)"},
                           "nom": {"type": "string", "description": "le nom affiché, sinon celui du référentiel"}, "dossier": _DOSSIER}, ["insee"]),
     "tester_commune": (tester_commune, "Le test minimal, avec Godot : le pack se greffe comme chez un joueur, le "
