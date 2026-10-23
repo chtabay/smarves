@@ -87,6 +87,8 @@ Trois crans de molette, la caméra glisse de l'un à l'autre :
 
 **Retenu sur captures** (fil « Extension du village ») : le cran Rue était proposé à 22 u ; avec les personnages en ligne claire, on n'y voit plus que des points d'environ 30 px. À 18 u, on reconnaît encore une coiffure et la couleur des épaules, et toute la place tient à l'écran. Les crans sont dans `scripts/village/village.gd` (`CAMERA_NOTCHES`) ; la molette passe de l'un à l'autre.
 
+**Rapproché le 23 octobre 2026** (« la vue de dessus du joueur me semble un peu loin ») : quatre crans au lieu de trois. Proche 7 u (42°, champ 34°), **Rue 12 u par défaut** (47°, champ 32° : l'habitant fait environ 70 px de haut sur 900, la moitié de la place tient à l'écran), Large 20 u (52°, champ 30°, l'ancien cran Rue un peu reculé, pour voir le bout de la rue), Quartier 40 u inchangé. Le kit des communes garde ses trois crans.
+
 Au-delà du cran « quartier », on ne dézoome plus : on ouvre le plan du village (carnet) ou, plus tard, la carte de la Vienne. Le flou de bascule (tilt-shift) reste à tous les crans et s'accorde à la distance, comme aujourd'hui ; c'est lui qui garde l'effet maquette quand on s'éloigne. Sur téléphone en paysage, le cran par défaut se rapproche d'environ 20 % (le fil web et mobile tranchera).
 
 ### Ce que cela impose aux personnages
