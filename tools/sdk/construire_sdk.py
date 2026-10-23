@@ -39,7 +39,7 @@ ENTREES = [
     "tools/budget_lieu.gd",
     "scripts/socle/etude.gd", "scenes/etude.tscn",
     "scripts/socle/commerce.gd", "scripts/socle/articles.gd", "scenes/commerce.tscn",
-    "scenes/stade.tscn", "communes/vienne.json",
+    "scenes/stade.tscn", "communes/vienne.json", "communes/france.json",
     "tools/kit/commune.gd", "tools/kit/commune.tscn", "tools/kit/commune.json",
     "tools/test_commune.gd", "tools/parcours_commune.gd", "tools/emballer_commune.gd", "tools/test_atelier.gd", "tools/test_salle_jeu.gd",
     "tools/fixtures/salle_jeu/commune.json", "tools/fixtures/salle_jeu/commune.tscn",
