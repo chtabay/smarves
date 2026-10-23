@@ -73,6 +73,12 @@ et trois repères `Vue1_…`, `Vue2_…`, `Vue3_…`, un par scène forte.
   Smarves et leurs panneaux, dernière version, pour une salle de jeu bâtie à la main. Ne fabriquez
   pas de table avec les modèles de l'atelier et ne recopiez pas les panneaux : voir `docs/COMMUNE.md`,
   « Les tables du casino ».
+- **Les autres joueurs** (socle 1.23, autoload `Presences`) : deux joueurs connectés dans la même
+  scène se voient, sans une ligne de réseau dans la commune. Le manifeste règle la portée et découpe
+  une grande scène en zones (`"presences"`) ; une commune peut aussi diffuser ses propres messages et
+  apparier deux joueurs dans un salon à 10 positions par seconde. Voir `docs/COMMUNE.md`, « Les autres
+  joueurs ». Essai sans réseau : lancer avec `-- --presences-essai` ; tests : `tools/test_presences.gd`,
+  et `tools/test_presences_deux.gd` sur le vrai canal.
 - **Le vrai bourg** : `python3 -I tools/bourg_reel.py <id>` tire d'OpenStreetMap et de l'IGN les
   rues, les bâtiments, l'eau et le relief.
 - **Juger à hauteur de joueur** : `tools/parcours_commune.gd` pose l'habitant sur chaque repère `Vue…`

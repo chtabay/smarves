@@ -81,6 +81,11 @@ func _init() -> void:
 		_fin()
 		return
 
+	# Les autres joueurs (socle 1.23) : le socle fait entrer la scène dans son lieu, sans rien dans la commune.
+	await process_frame
+	var pr: Node = root.get_node("Presences")
+	check(pr.get("_scene") == s and pr.commune == id and pr.lieu != "", "le socle entre dans le lieu de la commune (%s:%s)" % [pr.commune, pr.lieu])
+
 	# Ce que le jeu lit dans la scène pour la vue, le tactile et la carte.
 	var p = s.get("player")
 	var cam = s.get("camera")

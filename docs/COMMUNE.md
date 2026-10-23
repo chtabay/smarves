@@ -102,7 +102,7 @@ Un dossier `communes/<id>/` avec au moins un manifeste `commune.json` et la scè
 | `auteur` | non | qui a fait la commune, tel qu'il s'affiche dans sa fiche (carte, carnet) ; « » par défaut |
 | `version` | non (oui pour publier) | trois nombres (`0.1.0`), à monter à chaque dépôt |
 | `description` | non | deux phrases, montrées dans le carnet du joueur ; « » par défaut |
-| `socle_min` | non | la version du socle demandée (`1.0` par défaut ; le socle est aujourd'hui en `1.22`). Le kit de départ demande `1.12`, la version où `Cast.moi()` est arrivé : un jeu plus ancien refuse la commune proprement au lieu de planter |
+| `socle_min` | non | la version du socle demandée (`1.0` par défaut ; le socle est aujourd'hui en `1.23`). Le kit de départ demande `1.12`, la version où `Cast.moi()` est arrivé : un jeu plus ancien refuse la commune proprement au lieu de planter |
 | `ailleurs` | non | socle 1.5 : une destination hors de la Vienne, rejointe en avion (section « Les destinations lointaines ») ; `{ville, pays, aeroport, vol}`, la ville seule obligatoire. Avec lui, `insee` est absent ou vide |
 | `insee` | oui (sauf `ailleurs`) | le code INSEE d'une commune actuelle de la Vienne (`86263` pour Smarves) ou, depuis le socle 1.18 (`"socle_min": "1.18"`), d'un autre département de la Nouvelle-Aquitaine (`33063` pour Bordeaux ; référentiels dans `communes/departements/`) et, depuis le socle 1.19, de l'Auvergne-Rhône-Alpes (`69123` pour Lyon) : c'est lui qui place la commune sur la carte, à sa vraie place ; deux communes développées ne peuvent pas avoir le même |
 | `carte` | non | plus tard, la scène du petit socle posé sur la carte |
@@ -123,6 +123,7 @@ Un dossier `communes/<id>/` avec au moins un manifeste `commune.json` et la scè
 | `notaire` | non | le notaire de la commune et son registre : toutes les adresses à vendre et le plan de l'étude (section « Le notaire ») |
 | `carnet` | non | socle 1.3 : les compteurs que la commune tient au carnet du joueur, une liste de 24 au plus `{id, libelle, genre, rubrique}` (section « Le carnet du joueur ») ; vide par défaut |
 | `quartiers` | non | socle 1.21 : les quartiers enregistrés d'avance, par nom : `{batir, scene}`, le script qui bâtit le quartier et la scène où il est rangé, dans le dossier de la commune (section « Les quartiers enregistrés ») ; vide par défaut |
+| `presences` | non | socle 1.23 : les autres joueurs dans la commune, `{portee, echelle, zones}` : la portée à laquelle on se voit, la taille des silhouettes, et les zones qui découpent une grande scène en canaux (section « Les autres joueurs ») ; sans le champ, chaque scène est un lieu, à 60 unités de portée |
 | `page_carnet` | non | la page de la commune d'origine dans le carnet, un script du jeu (`res://scripts/carnet_smarves.gd`) ; lu pour la commune d'origine seulement, jamais dans un paquet |
 
 Les champs facultatifs gardent le format 1 : un manifeste qui ne les a pas reste valide et prend leur valeur par défaut. Présents, ils doivent avoir le bon type (un texte, un objet, un nombre entier positif, une liste de textes), sinon la commune est refusée, par le jeu comme par le portail. `Commune.auteur()`, `arrivee_nom()`, `population()`, `licence()` et `sources()` les lisent.
@@ -590,6 +591,49 @@ Une petite table que tous les joueurs d'une commune lisent et écrivent : la pla
 | `Partage.refus(commune, cle, valeur)` | ce qui ne va pas dans une demande, avant de la poser (« » si elle passe) |
 
 Chaque appel rend `{ok, valeur, erreur}`. `commune` est l'id du manifeste ; une clé tient en 1 à 48 caractères parmi `a-z`, `0-9`, `_`, `.`, `-` ; une valeur est du JSON de 4 Ko au plus. Sans compte, hors ligne ou sur un refus, `ok` est faux et `erreur` dit pourquoi en une phrase : la commune garde alors ce qu'elle a (sa plaque à elle, sur l'appareil) au lieu d'attendre. Le serveur ne sait pas quelle commune appelle : une commune n'écrit que sous son propre id, par politesse entre auteurs.
+
+### Les autres joueurs (autoload `Presences`, `scripts/socle/presences.gd`) — socle 1.23
+
+Deux joueurs connectés à leur compte qui se tiennent dans la même scène d'une commune se voient : la silhouette de l'autre (un figurant ordinaire, dans sa tenue, son nom au-dessus de la tête) marche là où il marche. **La commune n'écrit aucune ligne de réseau** : à l'ouverture de chacune de ses scènes (celle du manifeste, ses autres scènes, une salle de jeu ou un commerce du socle ouverts pour elle), le socle trouve l'habitant (`player`, ou le premier nœud du groupe `player`) et entre dans le lieu de la scène. Le lieu porte l'id de la structure pour une scène du socle, le nom du fichier de la scène sinon (`commune` pour `commune.tscn`). Sans compte, hors ligne ou avec « Voir les autres joueurs » éteint dans les réglages, rien ne s'ouvre et la commune est celle d'un joueur seul.
+
+Ce qui se passe derrière, pour comprendre les limites : la base inscrit le joueur au lieu (`public.smarves_lieu_entrer`) et rend la liste des présents avec leur nom et leur tenue, relue toutes les 20 s ; les positions vont de joueur à joueur sur un canal Supabase Realtime propre au lieu, 3 fois par seconde quand on bouge (1 au-delà de 8 joueurs, 1 aussi quand personne n'est à portée), une fois toutes les 10 s à l'arrêt, sans passer par la base. **16 joueurs au plus par lieu** : au-delà, la base ouvre une deuxième copie du lieu, où l'on ne voit pas ceux de la première. Un joueur sans nouvelles depuis 60 s s'éclipse ; un joueur qui s'en va le dit, et on le voit encore 3 s à sa dernière place.
+
+**Le manifeste** règle trois choses, toutes facultatives :
+
+```json
+"presences": {
+  "portee": 40,
+  "echelle": 1.0,
+  "zones": [
+    {"id": "loge", "aire": "AireLoge"},
+    {"id": "carriere", "aire": ["AireGalerieNord", "AireGalerieSud"]}
+  ]
+}
+```
+
+- `portee` : la distance (en unités de la scène, 1 unité = 2,4 m) à laquelle on voit un autre joueur ; 60 par défaut (environ 150 m), multipliée par l'échelle des figurants ; `0` : tout le lieu. Un joueur qui s'éloigne se cache un peu plus loin qu'il n'apparaît, pour ne pas clignoter à la limite.
+- `echelle` : la taille des silhouettes, quand les figurants de la commune ne sont pas à l'échelle 1 (sans le champ, la constante `PEOPLE_SCALE` du script de la scène, sinon 1).
+- `zones` : 32 au plus, chacune un canal à part. Une zone est une ou plusieurs aires de la scène, nommées par leur nœud : un `Area3D` (ou tout `Node3D`) dont les `CollisionShape3D` (boîte, sphère, cylindre, capsule) dessinent l'étendue. On change de zone après deux secondes dans la nouvelle (un aller-retour sur la limite ne change rien) ; hors de toute zone, on est dans le lieu de la scène. Deux aires qui se voient l'une l'autre (une mezzanine et la salle du dessous) vont dans la même zone. L'id d'une zone : `a-z`, `0-9`, `_`, 32 caractères au plus.
+
+**Ce que la commune peut en faire**, si elle veut aller plus loin que voir passer les autres :
+
+| | |
+|---|---|
+| `Presences.presents` | les autres joueurs du lieu (ou de la zone) : `{membre: {nom, tenue, a_portee, etat, …}}` ; le membre est un identifiant public stable, qui ne révèle pas le compte |
+| `Presences.autour()` | ceux qui sont à portée et situés : `[{membre, nom, tenue, position, distance}]`, du plus proche au plus loin |
+| `Presences.etat_de(membre)` | où en est un joueur à portée, tel qu'on le voit : `{position, cap, regard, etat, noeud}` ; `regard` est `Vector2(lacet, tangage)` de sa caméra à la première personne (la direction de son corps en vue de dessus) ; `noeud` est sa silhouette, où accrocher une lampe |
+| `Presences.etat_libre = {…}` | un petit état porté avec chacune de ses positions (la lampe allumée, la clé portée, le geste en cours) : quelques champs, 256 octets en JSON au plus ; le changer l'envoie tout de suite |
+| `Presences.envoyer(evenement, donnees)` | diffuse un message aux autres joueurs du canal (pas à soi) : un nom `[a-z0-9_]{1,24}`, des données en JSON d'1 Ko au plus, dix par seconde au plus ; faux s'il n'est pas parti |
+| `Presences.salon(id)` | passe dans un salon, un canal à part dérivé de celui du lieu, que seuls partagent ceux qui y entrent sous le même id (`[a-z0-9_]{1,40}`) : on n'y voit et on n'y entend que son partenaire, à **10 positions par seconde** ; `salon("")` revient au lieu |
+| `Presences.zone_changee(lieu)` | signal : on a changé de zone |
+| `Presences.arrive(membre, nom)`, `parti(membre, nom)` | signaux : un joueur arrive dans le lieu ou le salon, en part (il l'a dit, il n'est plus dans la liste, ou plus de nouvelles depuis 60 s) |
+| `Presences.a_portee(membre, nom, oui)` | signal : un joueur entre à portée ou en sort |
+| `Presences.message(membre, nom, evenement, donnees)` | signal : un message diffusé par un autre (envoyer) |
+| `Presences.etat_change(membre, etat)` | signal : l'état libre d'un autre a changé |
+
+**Un jeu à deux** (la galerie de Colaby, à Chauvigny) : une zone pour la loge, où chacun voit tous les présents ; deux joueurs s'y apparient (par exemple le premier arrivé propose, l'autre accepte, par `envoyer`), puis passent tous deux dans le salon `"<salle>_<membre du premier>_<membre du second>"`, où ils ne voient qu'eux, à 10 positions par seconde, avec le regard et l'état libre de l'autre ; le départ de l'un se voit tout de suite chez l'autre (`parti`). Les messages et les positions ne sont **ni signés ni vérifiés** : n'importe qui sur le canal peut écrire. Rien de ce qui vaut de l'argent ne doit en dépendre : une prime, une descente payante ou un appariement garanti se demandent au serveur (à venir : les salles à plusieurs tenues par le serveur, besoins B1 à B6 de Chauvigny). Une plaque partagée se range dans la table de la commune (`Partage`, plus haut).
+
+**Dans le SDK** : `--presences-essai` sur la ligne de commande fait se promener deux faux joueurs devant soi dans chaque scène et chaque zone, sans compte ni réseau, pour régler l'échelle et la portée. Avec deux comptes connectés (deux copies du jeu, ou le jeu et la version web), on se voit pour de vrai. Les tests : `tools/test_presences.gd` (sans réseau : portée, zones, messages, manifeste) et `tools/test_presences_deux.gd` (deux joueurs sur le vrai canal Realtime : ils se voient, se suivent, se perdent hors de portée, se parlent, passent dans un salon à 10 positions par seconde) ; `tools/test_commune.gd` vérifie que la scène d'une commune entre seule dans son lieu.
 
 ### `Vienne` (classe, `scripts/socle/vienne.gd`)
 

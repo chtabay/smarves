@@ -37,6 +37,9 @@ ENTREES = [
     "tools/test_bibliotheque.gd", "tools/planche_facadier.gd", "tools/capture_decor.gd", "tools/capture_interieur_modele.gd",
     # Les règles des paquets (socle 1.15) : l'emballeur les applique, leur test les vérifie.
     "tools/regles_paquet.gd", "tools/test_regles_paquet.gd",
+    # Les autres joueurs (socle 1.23) : la synchro réelle, ses tests sans réseau et à deux clients.
+    "scripts/socle/presences.gd", "scripts/socle/temps_reel.gd", "tools/test_presences.gd",
+    "tools/test_presences_deux.gd", "tools/test_temps_reel.gd",
     # Le budget par lieu (socle 1.16) : l'emballeur mesure, budget_lieu.gd mesure un paquet sans l'emballer.
     "tools/budget_lieu.gd",
     "scripts/socle/etude.gd", "scenes/etude.tscn",
