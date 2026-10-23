@@ -55,7 +55,7 @@ Le joueur sort du café et a envie d'aller voir ce qu'il y a au bout de la rue. 
 | Un projet extérieur occupe un lot en ajoutant une ligne à un annuaire | les lots libres (`lot_reserve`, `lot_a_ceder`) et les communes greffées (section 5) |
 | Les îlots construits en détail près du joueur, en boîtes au-delà | même principe, par quartier, pour tenir la vue dézoomée et une machine modeste |
 | Les salles en 3D construites à la première visite, figurants animés seulement près du joueur | les intérieurs du village (boutiques, maisons, caves) suivent la même règle |
-| Le taxi qu'on hèle de n'importe quelle rue | **le véhicule qu'on possède** (Mobylette, 2 CV, DS, achetés chez Roger Fradin) sert de déplacement rapide vers les lieux déjà découverts ; sans véhicule, on marche |
+| Le taxi qu'on hèle de n'importe quelle rue | **le véhicule qu'on possède** (vélo, Mobylette, Terrot, 2 CV, DS, achetés chez Roger Fradin) : on monte dessus et l'on roule dans le village, plus vite qu'à pied (GESTION.md) ; sans véhicule, on marche |
 | Une ville qui existe avant qu'on la voie, et qu'un seuil révèle | **les rues fermées par des barrières de chantier** (« Travaux. Le comité des fêtes vous remercie. ») tant que leur seuil n'est pas atteint |
 
 ### Ce qu'on ne reprend pas

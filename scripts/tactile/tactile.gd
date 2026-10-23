@@ -22,6 +22,8 @@ var active := false
 
 var _surface: Control
 var _act: Button
+## Le bouton tient l'invite « V : … » (descendre du véhicule) plutôt qu'une action E.
+var _act_v := false
 var _view_btn: Button
 var _carnet_btn: Button
 var _menu_btn: Button
@@ -278,9 +280,12 @@ func _fit_carnet() -> void:
 func _update_act(p: CharacterBody3D, walking: bool) -> void:
 	var s := _scene()
 	var prompt = s.get("_prompt") if s != null else null
-	var show := walking and p.focus_target != null and prompt is Label and (prompt as Label).visible
-	if show and (prompt as Label).text.begins_with("E : "):
-		_act.text = (prompt as Label).text.trim_prefix("E : ")
+	var show := walking and prompt is Label and (prompt as Label).visible
+	# « V : descendre de la 2 CV » : en roulant, sans rien à portée (scripts/village/conduite.gd).
+	_act_v = show and p.focus_target == null and (prompt as Label).text.begins_with("V : ")
+	show = show and (p.focus_target != null or _act_v)
+	if show and ((prompt as Label).text.begins_with("E : ") or _act_v):
+		_act.text = (prompt as Label).text.substr(4)
 		_act.reset_size()
 		var r: Rect2 = (prompt as Label).get_global_rect()
 		_act.position = r.get_center() - _act.size / 2.0
@@ -290,6 +295,10 @@ func _update_act(p: CharacterBody3D, walking: bool) -> void:
 
 
 func _on_act() -> void:
+	if _act_v:
+		_stop_goal()
+		press_key(KEY_V)
+		return
 	var p := _player()
 	if p != null and p.focus_target != null:
 		_stop_goal()

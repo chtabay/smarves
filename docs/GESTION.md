@@ -50,11 +50,15 @@ Prix du premier exemplaire ; les parts se rachètent plusieurs fois, chaque exem
 | Le costume du dimanche | couture | 250 | 1 | — | 3 | 1 | dès le départ |
 | Le trois-pièces prince-de-galles | couture | 900 | 1 | — | 8 | 2 | 1 000 gagnés |
 | Le smoking de soirée | couture | 3 000 | 1 | — | 20 | 4 | 5 000 gagnés |
+| Le vélo de facteur | garage | 120 | 1 | — | 1 | — | dès le départ |
 | La Mobylette bleue | garage | 500 | 1 | — | 5 | 1 | dès le départ |
+| La Terrot 500 | garage | 1 200 | 1 | — | 12 | 2 | 500 gagnés |
 | La 2 CV | garage | 2 200 | 1 | — | 20 | 3 | 1 000 gagnés |
 | La DS 21 | garage | 9 000 | 1 | — | 70 | 6 | 20 000 gagnés |
 
 On ne porte qu'une tenue et on ne conduit qu'un véhicule à la fois : seuls ceux-là comptent pour le standing et les charges. La tenue portée habille le personnage du joueur.
+
+**On roule avec son véhicule.** Le véhicule conduit attend garé sur la place ; on le touche (E) pour monter dessus ou dedans, V fait monter et descendre (au téléphone, le bouton de l'invite). On va plus vite qu'à pied, d'autant plus que le véhicule est beau : 2,2 fois le pas à vélo, 3 en Mobylette, 3,6 en 2 CV, 4 en Terrot, 4,4 en DS (champ `vitesse` du catalogue). Au guidon d'un deux-roues, l'habitant est assis sur la selle ; au volant, il disparaît dans la voiture, qui prend sa largeur. Une porte prise en roulant fait garer le véhicule devant elle, et l'on le retrouve là en sortant, le temps de la partie ; les panneaux des environs se prennent sans descendre. `scripts/village/conduite.gd` ; test : `godot --headless --path . -s tools/test_conduite.gd` ; capture : `godot --path . -s tools/capture_conduite.gd -- --vehicule=moto --capture=sortie.png`.
 
 La rente annoncée vaut 10 % du prix par recette : sur la brochure, un bien se rembourse en dix recettes, soit 200 mises, un petit quart d'heure. En vrai, à 65 % de l'annonce, il en faut plutôt quinze, si l'on mise assez pour que la recette soit pleine.
 
@@ -138,7 +142,7 @@ Chaque vendeur a son intérieur, à la première personne, comme le casino : l'�
 Les devantures et les entrées appartiennent au fil « Extension du village » (voir `docs/VILLAGE.md`). Les intérieurs sont dans `scenes/notaire.tscn`, `scenes/couture.tscn`, `scenes/garage.tscn` (un seul script, `scripts/shop_interior.gd`) ; on y entre par `Biens.SELLERS[id].scene`. En attendant les portes, le carnet y mène directement. À la sortie, `Game.return_point` vaut `notaire`, `couture` ou `garage`, pour réapparaître devant la bonne porte.
 
 - La tournée générale se déclenche par `Biens.offer_tournee()` (faux si les crédits manquent ; prix : `Biens.tournee_price()`).
-- Le véhicule conduit se pose avec `Biens.build_vehicle(Biens.driven)`, à l'échelle des voitures KayKit de la maquette ; la Mobylette est dessinée dans le code.
+- Le véhicule conduit se pose avec `Biens.build_vehicle(Biens.driven)`, à l'échelle des voitures KayKit de la maquette ; le vélo, la Mobylette et la Terrot sont dessinés dans le code (`Biens.DEUX_ROUES`).
 - La tenue portée habille le personnage du joueur (`Biens.outfit_color()`, dans `main.gd`).
 - Les maisons possédées : `Biens.count("maison")`, `Biens.count("maison_place")`.
 
