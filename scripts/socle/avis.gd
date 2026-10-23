@@ -230,7 +230,7 @@ func nom_du_lien(l) -> String:
 		"registre":
 			return "Le registre des parts"
 		"carnet":
-			return {"compte": "Mon compte", "cartes": "Mes cartes"}.get(str(l.get("onglet", "")), "Le carnet")
+			return {"compte": "Ma carrière", "cartes": "Mes cartes", "clubs": "Mes clubs", "aujourdhui": "Aujourd'hui"}.get(str(l.get("onglet", "")), "Le carnet")
 		"agenda":
 			return "La semaine"
 	return ""

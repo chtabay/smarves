@@ -121,10 +121,10 @@ func _init() -> void:
 	var pb: Dictionary = cal.page(basket, "basket")
 	check(pb.lignes.map(func(l): return l[0]).has("Le marché"), "la page du basket dit le marché")
 	var carnet: Node = root.get_node("Carnet")
-	check(carnet.onglets().map(func(o): return o[0]).has("calendrier"), "le carnet a son onglet « Le calendrier »")
+	check(carnet.onglets().map(func(o): return o[0]).has("clubs") and carnet.pages_clubs()[-1][0] == "calendrier", "le carnet a « Le calendrier », dernière page de « Mes clubs »")
 	carnet.ouvrir_calendrier()
 	await process_frame
-	check(carnet.is_open(), "et il s'ouvre dessus")
+	check(carnet.is_open() and carnet.get("_onglet") == "clubs" and carnet.get("_club_vu") == "calendrier", "et il s'ouvre dessus")
 	carnet.toggle()
 
 	foot.effacer()

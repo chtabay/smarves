@@ -101,9 +101,9 @@ func _init() -> void:
 	check(_texte(carnet.get("_sheet_box")).contains("Ambassadeurs"), "en bas, ce qui se joue tous les jours : le poker des Ambassadeurs")
 	carnet.call("_show_sheet", false, "agenda")
 	await process_frame
-	carnet.call("ouvrir_onglet", "compte")
+	carnet.call("ouvrir_onglet", "aujourdhui")
 	await process_frame
-	check(_texte(carnet.get("_right")).begins_with("Cette semaine"), "« Mon compte » : la page de droite commence par « Cette semaine »")
+	check(_texte(carnet.get("_right")).contains("Prochains rendez-vous\n"), "« Aujourd'hui » : la page de droite dit les prochains rendez-vous")
 
 	foot.regler_horloge(Callable())
 	foot.effacer()

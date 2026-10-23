@@ -9,14 +9,16 @@ extends CanvasLayer
 ##   qu'il y a à faire, le plus pressé d'abord et chaque ligne avec son bouton (la décision de la semaine se
 ##   tranche là), ce qui est arrivé depuis la dernière visite, une carte par club suivi (rang, forme,
 ##   prochain match, direction), et les prochains rendez-vous (scripts/socle/aujourdhui.gd) ;
-## - « Mon compte », tenu par le socle : ce qui suit le joueur d'une commune à l'autre (crédits, dettes
-##   par banque, biens, obligations, bourse, fortune nette), la semaine et les engagements en cours ;
 ## - « Courrier » : les avis du courrier (autoload Avis), les nouveaux sur la page de gauche, les déjà lus
 ##   à droite, chacun avec le bouton de l'écran où il mène ; le nombre de non lus est sur l'intercalaire ;
+## - « Mes clubs » : une page par club suivi (le classement du groupe, sa ligne soulignée, les quatorze
+##   journées, l'effectif, les parts et la direction), puis « Le calendrier » des deux championnats, la
+##   journée, l'intersaison (où se prennent les parts), le mercato et le marché (scripts/socle/calendrier.gd) ;
+## - « Ma carrière », tenu par le socle : ce qui suit le joueur d'une commune à l'autre (crédits, dettes
+##   par banque, biens, obligations, bourse, fortune nette et sa courbe semaine après semaine), le
+##   palmarès des clubs suivis, les records et les engagements en cours (scripts/socle/carriere.gd) ;
 ## - « Mes cartes » : le classeur des cartes possédées, un sous-onglet par village, avec le topo complet
 ##   des parts de club (scripts/carnet_cartes.gd) ;
-## - « Le calendrier » : les deux championnats, la journée, le prochain match, l'intersaison (où se prennent
-##   les parts), le mercato et le marché (scripts/socle/calendrier.gd) ;
 ## - un onglet par commune : la commune d'origine d'abord, dont la page vient du jeu (le champ
 ##   « page_carnet » de son manifeste), puis chaque commune qui tient des compteurs au carnet
 ##   (docs/COMMUNE.md, « Le carnet du joueur ») : ils se lisent de partout, et ne bougent que quand
@@ -66,6 +68,8 @@ var _onglet := "aujourdhui"
 ## Ce que dit la pastille, relu chaque seconde : [choses à faire, nouvelles].
 var _compte_pastille := [0, 0]
 var _pastille_lue := -1.0
+## La page de « Mes clubs » ouverte : l'id d'un club suivi, « calendrier », ou « » (le premier club).
+var _club_vu := ""
 ## La page de la commune d'origine (son manifeste, « page_carnet ») : un nœud qui remplit les deux pages.
 var _page_origine: Node
 ## Les deux pages ouvertes, et le classeur de cartes qui prend leur place sous l'onglet « Mes cartes ».
@@ -171,6 +175,7 @@ func toggle() -> void:
 		_paused_before = get_tree().paused
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		_noter_passage()
+		CARRIERE.noter(fortune_nette(), Agenda.maintenant(), Game.saving_enabled)
 		# Quelque chose attend : le carnet s'ouvre sur « Aujourd'hui », comme la boîte de Football Manager.
 		if not a_faire().is_empty() or not Avis.non_lus().is_empty():
 			_onglet = "aujourdhui"
@@ -184,7 +189,7 @@ func toggle() -> void:
 ## Les onglets du cahier, dans l'ordre : [[clé, nom]].
 func onglets() -> Array:
 	var n: int = Avis.non_lus().size()
-	var out := [["aujourdhui", "Aujourd'hui"], ["compte", "Mon compte"], ["courrier", "Courrier (%d)" % n if n > 0 else "Courrier"], ["cartes", "Mes cartes"], ["calendrier", "Le calendrier"]]
+	var out := [["aujourdhui", "Aujourd'hui"], ["courrier", "Courrier (%d)" % n if n > 0 else "Courrier"], ["clubs", "Mes clubs"], ["compte", "Ma carrière"], ["cartes", "Mes cartes"]]
 	var o: Commune = Communes.origine()
 	if _page_origine != null and o != null:
 		out.append([o.id, o.nom])
@@ -215,6 +220,10 @@ func _communes_au_carnet() -> Array:
 
 
 func ouvrir_onglet(cle: String) -> void:
+	# L'ancien onglet « Le calendrier » est la dernière page de « Mes clubs ».
+	if cle == "calendrier":
+		_club_vu = "calendrier"
+		cle = "clubs"
 	if cle != _onglet and _album.zoom_ouvert():
 		_album.fermer_zoom()
 	if cle != _onglet and _onglet == "courrier":
@@ -446,8 +455,8 @@ func _refresh() -> void:
 			_fill_compte()
 		"cartes":
 			_album.remplir()
-		"calendrier":
-			_fill_calendrier()
+		"clubs":
+			_fill_clubs()
 		"courrier":
 			_fill_courrier()
 		"vienne":
@@ -608,6 +617,197 @@ func _pastille_forme(parent: Control, lettre: String) -> void:
 	l.autowrap_mode = TextServer.AUTOWRAP_OFF
 
 
+# --- Ma carrière : la fortune, le palmarès, les records ------------------------------------------
+
+const CARRIERE := preload("res://scripts/socle/carriere.gd")
+
+
+## La fortune nette, semaine après semaine : une courbe à l'encre, la plus haute et la plus basse notées.
+func _fill_courbe(page: VBoxContainer) -> void:
+	var c: Array = CARRIERE.courbe()
+	if c.size() < 2:
+		_text(page, "La courbe de la fortune se dessine semaine après semaine, à chaque ouverture du carnet.", 15, PENCIL)
+		return
+	_gap(page, 4)
+	_text(page, "La fortune, sur %d semaines" % c.size(), 16, INK, true)
+	var k := Courbe.new()
+	k.points = c.map(func(x): return int(x[1]))
+	k.custom_minimum_size = Vector2(0, 90)
+	k.name = "Courbe"
+	page.add_child(k)
+	var vals: Array = k.points
+	_text(page, "de %s à %s" % [Game.fmt(vals.min()), Game.fmt(vals.max())], 14, PENCIL)
+
+
+class Courbe extends Control:
+	var points: Array = []
+
+	func _draw() -> void:
+		if points.size() < 2:
+			return
+		var lo: float = points.min()
+		var hi: float = points.max()
+		var h := maxf(1.0, hi - lo)
+		var pts := PackedVector2Array()
+		for i in points.size():
+			pts.append(Vector2(6 + (size.x - 12) * i / float(points.size() - 1), size.y - 6 - (size.y - 12) * (float(points[i]) - lo) / h))
+		if lo < 0 and hi > 0:
+			var y0 := size.y - 6 - (size.y - 12) * (0.0 - lo) / h
+			draw_line(Vector2(0, y0), Vector2(size.x, y0), Color(0.7, 0.12, 0.12, 0.4), 1.0)
+		draw_polyline(pts, Color(0.12, 0.2, 0.5), 2.0, true)
+		draw_circle(pts[pts.size() - 1], 3.5, Color(0.7, 0.12, 0.12))
+
+
+## Le palmarès des clubs suivis (Football.historique), et quelques records.
+func _fill_palmares(page: VBoxContainer) -> void:
+	_title(page, "Mon palmarès")
+	var rien := true
+	for club in AUJOURDHUI.clubs(Football, Avis):
+		for x in CARRIERE.palmares(Football, club):
+			rien = false
+			var place := "%s %s" % [AUJOURDHUI.rang(int(x.rang)), x.division] if int(x.rang) > 0 else ""
+			var mots: Array = [place, str(x.titre).to_lower() if place != "" else str(x.titre)].filter(func(m): return m != "")
+			_text(page, "Saison %d, %s : %s" % [int(x.saison), _nom_club(club), ", ".join(mots)], 17, RED_INK if str(x.titre) in ["Champion", "Montée"] else INK)
+	if rien:
+		_text(page, "Aucune saison close avec un club suivi. Le palmarès s'écrit à chaque fin de saison : la place finale, les titres, les montées.", 15, PENCIL)
+	_gap(page, 4)
+	_text(page, "Records", 18, INK, true)
+	_row(page, "La plus haute fortune notée", Game.fmt(maxi(CARRIERE.record(), fortune_nette())), INK_LIGHT)
+	_row(page, "Dividendes reçus", Game.fmt(Football.dividendes_total), INK_LIGHT)
+	var n := 0
+	for club in AUJOURDHUI.clubs(Football, Avis):
+		if Football.peut_decider(club):
+			n += 1
+	_row(page, "Clubs dirigés aujourd'hui", str(n), INK_LIGHT)
+
+
+# --- Mes clubs : un club par page, et le calendrier ----------------------------------------------
+
+## Les pages de « Mes clubs » : [[clé, nom]], un club suivi par page, puis le calendrier.
+func pages_clubs() -> Array:
+	var out: Array = AUJOURDHUI.clubs(Football, Avis).map(func(c): return [c, _nom_club(c)])
+	out.append(["calendrier", "Le calendrier"])
+	return out
+
+
+func _fill_clubs() -> void:
+	var pages := pages_clubs()
+	if not pages.any(func(p): return p[0] == _club_vu):
+		_club_vu = str(pages[0][0])
+	# Les sous-onglets : un mot par page, le sien en gras.
+	var rangee := HFlowContainer.new()
+	rangee.add_theme_constant_override("h_separation", 6)
+	_left.add_child(rangee)
+	for p in pages:
+		var b := _link(rangee, str(p[1]), func():
+			_club_vu = str(p[0])
+			_refresh(), str(p[0]) != _club_vu)
+		b.name = "Page_" + str(p[0])
+		if str(p[0]) == _club_vu:
+			b.add_theme_font_override("font", _hand_bold)
+			b.add_theme_color_override("font_disabled_color", INK)
+	_gap(_left, 4)
+	if _club_vu == "calendrier":
+		_fill_calendrier()
+		return
+	_fill_un_club(_club_vu)
+
+
+## La page d'un club suivi : le classement de son groupe (sa ligne soulignée), ses quatorze journées ; en
+## face, l'effectif, les parts et la direction, le calendrier en bref.
+func _fill_un_club(club: String) -> void:
+	var c: Dictionary = AUJOURDHUI.carte(Football, club)
+	if c.is_empty():
+		_text(_left, "Ce club n'est plus dans la pyramide.", 16, PENCIL)
+		return
+	var t: int = Agenda.maintenant()
+	_title(_left, str(c.nom))
+	_text(_left, "%s, saison %d" % [c.division, int(Football.saison)], 15, PENCIL)
+	_gap(_left, 4)
+	var place: Array = Football.place_de(club)
+	var cl: Array = Football.classement(Football.saison, place[0], place[1])
+	var g := GridContainer.new()
+	g.columns = 5
+	g.add_theme_constant_override("h_separation", 12)
+	g.name = "Classement"
+	_left.add_child(g)
+	for h in ["", "Club", "J", "Diff.", "Pts"]:
+		_text(g, h, 14, PENCIL).autowrap_mode = TextServer.AUTOWRAP_OFF
+	var sauve: int = cl.size() - int(Football.DESCENDENT)
+	for i in cl.size():
+		var l: Dictionary = cl[i]
+		var moi: bool = l.club == club
+		var couleur := RED_INK if moi else (INK_LIGHT if i >= sauve and sauve >= 2 else INK)
+		for v in [str(i + 1), _nom_club(str(l.club)), str(int(l.j)), ("+" if int(l.diff) > 0 else "") + str(int(l.diff)), str(int(l.pts))]:
+			var x := _text(g, v, 16, couleur, moi)
+			x.autowrap_mode = TextServer.AUTOWRAP_OFF
+			if v == _nom_club(str(l.club)):
+				x.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				x.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+				x.clip_text = true
+	var ecarts: Array = []
+	if int(c.joues) > 0:
+		ecarts.append("en tête" if int(c.rang) == 1 and int(c.ecart_tete) == 0 and int(c.taille) > 1 else ("à égalité avec le 1er" if int(c.ecart_tete) == 0 else "à %d pts du 1er" % int(c.ecart_tete)))
+		if sauve >= 2 and int(c.rang) <= sauve:
+			ecarts.append("%d pts d'avance sur la descente" % int(c.ecart_relegation))
+		elif sauve >= 2:
+			ecarts.append("dans la zone de descente")
+	if not ecarts.is_empty():
+		_text(_left, ", ".join(ecarts).substr(0, 1).to_upper() + ", ".join(ecarts).substr(1) + ".", 15, INK)
+	_text(_left, "Le premier monte, les %d derniers descendent." % int(Football.DESCENDENT), 14, PENCIL)
+	_gap(_left, 8)
+	_text(_left, "Les quatorze journées", 18, INK, true)
+	for j in range(1, int(Football.JOURNEES) + 1):
+		var m: Dictionary = FootCourrier.match_de(Football, club, Football.saison, j)
+		if m.is_empty():
+			continue
+		var dom: bool = m.dom == club
+		var adv := _nom_club(str(m.ext if dom else m.dom))
+		var jour := preload("res://scripts/socle/calendrier.gd").jour_court(Football.coup_envoi(Football.saison, j))
+		if not (m.score as Array).is_empty():
+			var i := FootCourrier.issue(m, club)
+			_text(_left, "J%d  %s  %s %d-%d %s %s" % [j, jour, i.lettre, i.pour, i.contre, "contre" if dom else "chez", adv], 15,
+				VERT if i.lettre == "V" else (RED_INK if i.lettre == "D" else OCRE))
+		else:
+			var prochain: bool = not c.prochain.is_empty() and int(c.prochain.j) == j
+			_text(_left, "J%d  %s  %s %s%s" % [j, jour, "contre" if dom else "chez", adv, "  ·  " + AUJOURDHUI.dans(int(c.prochain.quand), t) if prochain else ""], 15,
+				INK if prochain else INK_LIGHT, prochain)
+	# En face : l'effectif, les parts, le calendrier.
+	_title(_right, "L'effectif")
+	var eff: Dictionary = Football.effectif(club, Football.saison)
+	var ids: Array = eff.keys()
+	ids.sort_custom(func(a, b): return int(eff[a].note) > int(eff[b].note) if int(eff[a].note) != int(eff[b].note) else str(a) < str(b))
+	var ge := GridContainer.new()
+	ge.columns = 4
+	ge.add_theme_constant_override("h_separation", 12)
+	ge.name = "Effectif"
+	_right.add_child(ge)
+	for h in ["Joueur", "Poste", "Note", "Moral"]:
+		_text(ge, h, 14, PENCIL).autowrap_mode = TextServer.AUTOWRAP_OFF
+	for id in ids.slice(0, 11):
+		var p: Dictionary = eff[id]
+		var nom := _text(ge, "%s %s" % [str(p.get("prenom", "")).left(1) + ".", p.get("nom", "")], 15, INK)
+		nom.autowrap_mode = TextServer.AUTOWRAP_OFF
+		nom.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		for v in [str(p.get("poste", "")), str(int(p.get("note", 0))), str(int(p.get("moral", 70)))]:
+			_text(ge, v, 15, RED_INK if v == str(int(p.get("moral", 70))) and int(p.get("moral", 70)) < 40 else INK).autowrap_mode = TextServer.AUTOWRAP_OFF
+	if ids.size() > 11:
+		_text(_right, "et %d autres au bureau du club." % (ids.size() - 11), 14, PENCIL)
+	_gap(_right, 8)
+	_title(_right, "Les parts")
+	var miennes: Array = Football.mes_obligations(club)
+	_text(_right, "Vous en tenez %d, %s investis." % [miennes.size(), Game.fmt(Football.investi(club))] if not miennes.is_empty() else "Vous n'en tenez aucune.", 16, INK)
+	for a in (Football.actionnaires(club) as Array).slice(0, 3):
+		_row(_right, "vous" if bool(a.moi) else str(a.nom), Game.fmt(int(a.investi)), INK if bool(a.moi) else INK_LIGHT)
+	_text(_right, str(c.direction), 15, PENCIL)
+	for x in [["→ le bureau du club", {"vers": "bureau", "club": club, "page": ""}], ["→ le registre des parts", {"vers": "registre", "club": club}]]:
+		var l: Dictionary = x[1]
+		var ok: bool = Avis.peut_aller(l)
+		_link(_right, str(x[0]) + ("" if ok else " (une fois levé de table)"), func(): Avis.aller({"id": "", "lien": l}), ok).custom_minimum_size.y = 34
+	_gap(_right, 6)
+	_text(_right, preload("res://scripts/socle/calendrier.gd").resume(Football, "football"), 14, PENCIL)
+
+
 # --- Mon compte : ce qui suit le joueur partout --------------------------------------------------
 
 ## Le nom de la banque d'un prêteur, d'après le manifeste de la commune qui le déclare.
@@ -670,6 +870,10 @@ func _fill_compte() -> void:
 	for preteur in Game.debts:
 		_row(_left, "Dette " + _a_la(_banque(str(preteur))), Game.fmt(-Game.debt_of(str(preteur))), RED_INK)
 	_row(_left, "Fortune nette", Game.fmt(fortune_nette()), INK, true)
+	var v = CARRIERE.variation(fortune_nette(), Agenda.maintenant())
+	if v != null:
+		_row(_left, "Depuis la semaine dernière", ("+" if int(v) > 0 else "") + Game.fmt(int(v)), VERT if int(v) > 0 else (RED_INK if int(v) < 0 else INK_LIGHT))
+	_fill_courbe(_left)
 	_gap(_left)
 	_text(_left, "Depuis le début", 20, INK, true)
 	_row(_left, "Gagné au jeu", Game.fmt(Game.won), INK_LIGHT)
@@ -683,7 +887,7 @@ func _fill_compte() -> void:
 	if int(paris.tickets) > 0:
 		_row(_left, "Parié au comptoir", Game.fmt(int(paris.mise)), INK_LIGHT)
 		_row(_left, "Gagné au comptoir", Game.fmt(int(paris.gagne)), INK_LIGHT)
-	_fill_agenda(_right)
+	_fill_palmares(_right)
 	_fill_engagements(_right)
 	_gap(_right)
 	_title(_right, "Mon pensionnaire")
@@ -857,6 +1061,12 @@ func ouvrir_calendrier() -> void:
 	if not _root.visible:
 		toggle()
 	ouvrir_onglet("calendrier")
+
+
+## Ouvre « Mes clubs » sur la page d'un club.
+func ouvrir_club(club: String) -> void:
+	_club_vu = club
+	ouvrir_sur("clubs")
 
 
 func _fill_calendrier() -> void:
@@ -1064,20 +1274,6 @@ func _visiter(id: String) -> void:
 
 
 # --- L'agenda de la semaine (autoload Agenda) ------------------------------------------------
-
-## « Cette semaine », en tête de « Mon compte » (sur un téléphone, la page ne tient pas dans l'écran) : les trois
-## prochains rendez-vous, et de quoi déplier toute la semaine.
-func _fill_agenda(page: VBoxContainer) -> void:
-	_title(page, "Cette semaine")
-	var t := Agenda.maintenant()
-	var liste := Agenda.prochains(3, t)
-	if liste.is_empty():
-		_text(page, "Rien d'annoncé d'ici la semaine prochaine.", 16, INK_LIGHT)
-	for rv in liste:
-		var quand := "en ce moment" if Agenda.en_cours(rv, t) else "%s, %s" % [Agenda.jour_relatif(rv.quand, t), Agenda.heure(rv.quand)]
-		_text(page, "%s  ·  %s%s" % [quand, rv.titre, "  (annoncé)" if rv.annonce else ""], 17, INK_LIGHT if rv.annonce else INK)
-	_link(page, "→ toute la semaine", _show_sheet.bind(true, "agenda")).custom_minimum_size.y = 48
-
 
 ## L'écran, dans les unités de l'interface (1600 × 900 sur un ordinateur, moins sur un téléphone).
 func _ecran() -> Vector2:
