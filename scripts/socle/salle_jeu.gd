@@ -27,6 +27,8 @@ const JEUX := {
 const DECORS := ["cafe", "salle", "cave"]
 ## La grille des tables : trois par rang, une case de 4,2 sur 4 chacune (la table du casino et la place
 ## du joueur devant elle).
+## Le poker à plusieurs (scripts/jeux/poker_multi.gd), quand le joueur est connecté à son compte.
+const POKER_MULTI := "res://scripts/jeux/poker_multi.gd"
 const COLONNES := 3
 const CASE := Vector2(4.2, 4.0)
 const REPLIQUES := ["« Installez-vous. Ici, la chance n'a pas de préférence. »",
@@ -269,7 +271,14 @@ func open_game() -> void:
 	var f := Tables.fiche(_jeu_ouvert)
 	if f.is_empty():
 		f = JEUX.machine
-	var p: PanelContainer = load(f.panneau).new()
+	var p: PanelContainer
+	if _jeu_ouvert == "poker" and Compte.connecte():
+		# Connecté, on joue à plusieurs : chaque salle de jeu a sa table au serveur, aux tarifs des
+		# Ambassadeurs (fonction casino du dépôt chtabay/addict, smarves-poker.js).
+		p = load(POKER_MULTI).new()
+		p.configurer_table(table_serveur(commune, str(structure.get("id", ""))), p.SB, p.BB, p.CAP)
+	else:
+		p = load(f.panneau).new()
 	if "game" in p:
 		p.game = self
 	if "title" in p:
@@ -278,6 +287,11 @@ func open_game() -> void:
 	var t: Node3D = _table_choisie if _table_choisie else _tables3d.get(_jeu_ouvert, null)
 	_table_choisie = null
 	_ouvrir_panneau(p, t)
+
+
+## La table à plusieurs d'une salle, chez le serveur : « salle:<commune>:<salle> ».
+static func table_serveur(id_commune: String, id_salle: String) -> String:
+	return "salle:%s:%s" % [id_commune, id_salle]
 
 
 ## Ouvre un panneau ; avec une table 3D, comme au casino : on s'y assoit, la caméra glisse jusqu'à la

@@ -70,6 +70,14 @@ func _init() -> void:
 		if a.get_meta("interact", "") == "jeu":
 			tables.append(str(a.get_meta("jeu")))
 	check(tables.size() == 10, "une table ou une machine par jeu : %s" % ", ".join(tables))
+	check(salle_jeu.table_serveur("essai_salle", "tripot") == "salle:essai_salle:tripot", "connecté, le poker du tripot se joue à plusieurs à sa table du serveur")
+	# La table partagée d'une commune (Partage) : mêmes règles que le serveur, et rien ne bloque sans compte.
+	check(Partage.refus("essai_salle", "plaque.sorties", [{"a": 1}]) == "", "une clé partagée bien formée passe")
+	check(Partage.refus("Essai", "plaque") != "" and Partage.refus("essai_salle", "a b") != "", "une commune ou une clé mal formée est refusée")
+	check(Partage.refus("essai_salle", "plaque", "x".repeat(Partage.OCTETS)) != "", "une valeur de plus de 4 Ko est refusée")
+	var hors: Dictionary = await Partage.lire("essai_salle", "plaque")
+	check(not hors.ok and hors.erreur != "", "sans compte, la lecture rend ok faux et une raison : %s" % hors.erreur)
+	check(Partage.reponse({"code": 200, "corps": {"valeur": [1]}}) == {"ok": true, "valeur": [1], "erreur": ""}, "une réponse du serveur se lit")
 	check(s._salle.host == "Mme Rivière" and s._salle.name == "Le tripot de la gare", "la tenancière et le nom viennent du manifeste")
 	var tables3d: GDScript = load("res://scripts/socle/tables.gd")
 	for j in tables:

@@ -10,7 +10,7 @@ const FORMAT := 1
 ## La version du socle, comparée au champ « socle_min » des manifestes. La monter ici, c'est aussi monter
 ## SOCLE dans le portail (Pyramides2, src/lib/communes/paquet.ts) et y recopier les règles nouvelles du
 ## manifeste (structures.ts) : sinon le portail refuse les paquets qui demandent ce socle.
-const SOCLE := "1.20"
+const SOCLE := "1.21"
 ## Les compteurs du carnet (champ « carnet ») : leurs genres et leurs bornes.
 const CARNET_GENRES := ["nombre", "credits", "texte", "case"]
 const CARNET_COMPTEURS_MAX := 24
@@ -199,6 +199,7 @@ static func verifier_facultatifs(m: Dictionary) -> PackedStringArray:
 		if not ok:
 			out.append("sources doit être un texte ou une liste de textes")
 	out.append_array(verifier_carnet(m.get("carnet")))
+	out.append_array(Quartiers.verifier(m.get("quartiers")))
 	return out
 
 

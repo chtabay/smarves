@@ -254,6 +254,8 @@ func entrer(id: String, chemin: String) -> void:
 	# paquet dans des fils puis bâtir prend plus longtemps que bâtir directement.
 	if _id != id:
 		_lacher()
+	# Les quartiers enregistrés (Quartiers) se lisent dans des fils pendant que la scène se bâtit.
+	Quartiers.demander(c)
 	var t0 := Time.get_ticks_msec()
 	var pendant := t0 - _debut_prechargement if not _requetes.is_empty() else 0
 	var lues := _lues() if not _requetes.is_empty() else 0.0
