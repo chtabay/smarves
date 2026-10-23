@@ -11,7 +11,7 @@ const CLICHE := "res://tools/fixtures/basket_cliche.json"
 var fails := 0
 var t := 0
 ## Le faux serveur : ce que les tables tiendraient.
-var serveur := {"obligations": [], "encheres": [], "liberations": [], "consignes": []}
+var serveur := {"obligations": [], "encheres": [], "liberations": [], "consignes": [], "noms": []}
 var appels: Array = []
 var quand := 0
 var basket: Node
@@ -71,6 +71,16 @@ func appel(f: String, c: Dictionary) -> Dictionary:
 		"smarves_basket_consigne":
 			serveur.consignes = serveur.consignes.filter(func(x): return not (int(x.saison) == c.p_saison and int(x.journee) == c.p_journee and x.club == c.p_club))
 			serveur.consignes.append({"saison": c.p_saison, "journee": c.p_journee, "club": c.p_club, "consigne": c.p_consigne, "par": "Moi"})
+			return {"code": 200, "corps": {"ok": true}}
+		"smarves_basket_nommer":
+			if not basket.nom_valide(c.p_nom):
+				return {"code": 200, "corps": {"ok": false, "raison": "nom"}}
+			if not serveur.obligations.any(func(o): return o.club == c.p_club and o.par == "Moi"):
+				return {"code": 200, "corps": {"ok": false, "raison": "detenir"}}
+			if not dirige(c.p_club, "Moi"):
+				return {"code": 200, "corps": {"ok": false, "raison": "parts"}}
+			serveur.noms = serveur.noms.filter(func(x): return x.club != c.p_club)
+			serveur.noms.append({"club": c.p_club, "nom": c.p_nom, "par": "Moi"})
 			return {"code": 200, "corps": {"ok": true}}
 	return {"code": 404, "corps": null}
 
@@ -239,6 +249,24 @@ func _init() -> void:
 	(trouver(bureau, "Onglet_comptes") as Button).pressed.emit()
 	await process_frame
 	check(textes(bureau).contains("Masse salariale"), "les comptes")
+
+	# Renommer le club : son dirigeant, s'il en tient des parts ; le nom vaut pour tous, et revient du serveur.
+	check(basket.peut_decider("smarves") and basket.investi("smarves") > 0 and trouver(bureau, "Renommer") != null, "le dirigeant voit la case du nom du club")
+	check(not basket.nom_valide("ab") and not basket.nom_valide("<b>Club</b>") and basket.nom_valide("L'Étoile du Clain & Co."), "un nom de 3 à 40 caractères, sans balise")
+	var r_nom: Dictionary = await basket.renommer("smarves", "x")
+	check(not r_nom.ok and r_nom.raison == "nom", "un nom trop court est refusé")
+	(trouver(bureau, "NomDuClub") as LineEdit).text = "  Les  Grues   du Clain "
+	(trouver(bureau, "Renommer") as Button).pressed.emit()
+	await process_frame
+	await process_frame
+	check(basket.fiche("smarves").nom == "Les Grues du Clain" and basket.clubs.smarves.nom == "Les Hérons du Clain", "le club s'appelle les Grues du Clain ; le gymnase garde son nom d'origine")
+	check(textes(bureau).contains("LES GRUES DU CLAIN"), "le bureau prend le nouveau nom")
+	basket.bureau.noms = []
+	await basket.lire()
+	check(basket.nom_choisi("smarves") == "Les Grues du Clain", "le nom revient du serveur, pour tous les joueurs")
+	serveur.obligations.append({"club": "rivale", "rang": 9, "par": "Lucien"})
+	r_nom = await basket.renommer("rivale", "Les Grues de Rivale")
+	check(not r_nom.ok and r_nom.raison in ["detenir", "parts"], "on ne renomme pas un club dont on n'a pas de part")
 	bureau.queue_free()
 
 	print("\n%s" % ("TOUT EST BON" if fails == 0 else "%d ÉCHEC(S)" % fails))

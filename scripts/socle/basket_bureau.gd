@@ -16,6 +16,8 @@ var page := "equipe"
 var tri := "note"
 var _message := ""
 var _mises := {}
+## Le nom en cours de saisie, gardé quand la fenêtre se redessine.
+var _nom_saisi := ""
 
 
 func ouvert() -> void:
@@ -37,6 +39,18 @@ func remplir(col: VBoxContainer) -> void:
 	var refus: String = b.refus_bureau(commune)
 	if refus != "":
 		_mot(col, pourquoi(refus) + (" Vous pouvez tout lire, sans rien changer." if refus in ["compte", "parts"] else ""), ROUGE, 15)
+	# Renommer le club : son dirigeant, s'il en tient des parts (demande de Guillaume du 23 octobre 2026).
+	if refus == "" and b.investi(commune) > 0:
+		var r := _rangee(col)
+		_mot(r, "Le nom du club :", DOUX, 15)
+		var saisie := LineEdit.new()
+		saisie.name = "NomDuClub"
+		saisie.text = _nom_saisi if _nom_saisi != "" else str(club.nom)
+		saisie.max_length = 40
+		saisie.custom_minimum_size.x = 320
+		saisie.text_changed.connect(func(t): _nom_saisi = t)
+		r.add_child(saisie)
+		_bouton(r, "Renommer", func(): _renommer(saisie.text), "Renommer")
 	var onglets := _rangee(col)
 	for p in [["equipe", "L'équipe"], ["marche", "Le marché"], ["comptes", "Les comptes"]]:
 		var bt := _bouton(onglets, p[1], func(): page = p[0]; _message = ""; rafraichir(), "Onglet_" + p[0])
@@ -97,6 +111,13 @@ func _equipe(col: VBoxContainer) -> void:
 			_bouton(r, "Libérer", func(): _liberer(e.code), "Liberer_" + e.code)
 	if jm > 0:
 		_mot(col, "Un joueur libéré quitte le club à la clôture du jeudi %s ; il compte pour la moitié de son salaire jusqu'à la fin de la saison." % _date(b.cloture(b.saison, jm)), DOUX, 13)
+
+
+func _renommer(nom: String) -> void:
+	var r: Dictionary = await basket().renommer(commune, nom)
+	if r.get("ok", false):
+		_nom_saisi = ""
+	_apres(r, "Le club s'appelle désormais %s, pour tous les joueurs." % basket().fiche(commune).nom)
 
 
 func _consigne(c: String) -> void:
