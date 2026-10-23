@@ -214,7 +214,7 @@ static func _facade(K, Bo) -> void:
 ## étages : on passe la verrière et l'on a devant soi six mètres et demi de marbre libre, la rosace en roulette, le
 ## lustre de jetons qui pend du plafond des gradins, et au fond l'escalier impérial dont les deux volées montent
 ## vers le palier, en balcon sous la baie ouverte sur la pelouse. Sous le palier, l'allée du club : le tunnel des
-## joueurs, la feuille du dernier match (le panneau du club est posé par fortune.gd, _entree). De part et
+## joueurs, la feuille du dernier match (le panneau du club est posé par fortune.gd, _panneau). De part et
 ## d'autre, sous le plafond bas, la billetterie (ouest) et la boutique (est) ; derrière les volées, la galerie
 ## des trophées. L'accueil et le plan du stade attendent le visiteur à la porte.
 static func _hall(K) -> void:
@@ -440,7 +440,7 @@ static func _rampe_x(K, a: Vector2, b: Vector2, z0: float, z1: float) -> void:
 
 
 ## L'allée du club, sous le palier, dans l'axe de la porte : au fond le tunnel des joueurs, entre la feuille du
-## dernier match (à droite en entrant) et le panneau du club (à gauche, fortune.gd, _entree).
+## dernier match (à droite en entrant) et le panneau du club (à gauche, fortune.gd, _panneau).
 static func _allee_du_club(K, zn: float) -> void:
 	# Le tunnel des joueurs, au nord : deux vantaux d'acier sous un fronton rouge, fermés (les joueurs passent par là).
 	K.box("acier_sombre", 3.0, 2.8, 0.1, 0, 1.4, zn - 0.36)

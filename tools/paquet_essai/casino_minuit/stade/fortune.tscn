@@ -4,4 +4,3 @@
 
 [node name="StadeFortune" type="Node3D"]
 script = ExtResource("1")
-shop = "stade"

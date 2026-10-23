@@ -118,6 +118,10 @@ func carte() -> Array:
 func actuelle() -> String:
 	var scene := get_tree().current_scene
 	var chemin := scene.scene_file_path if scene else ""
+	# Une scène du socle ouverte pour une commune (son stade bâti sur un décor, socle 1.20) le dit elle-même.
+	var sienne := str(scene.get("commune")) if scene != null and "commune" in scene else ""
+	if sienne != "" and communes.has(sienne):
+		return sienne
 	for id in ordre:
 		if id != ORIGINE and str(communes[id].data.get("scene", "")) == chemin:
 			return id
