@@ -29,6 +29,7 @@ var _act_v := false
 ## Le bouton joue la touche F de la scène (action_tactile()) plutôt que E.
 var _act_f := false
 var _view_btn: Button
+var _carte_btn: Button
 var _carnet_btn: Button
 var _menu_btn: Button
 var _stick_base: Panel
@@ -163,6 +164,12 @@ func _build() -> void:
 	_view_btn = _button("Vue", 22)
 	_view_btn.pressed.connect(press_key.bind(KEY_TAB))
 	corner.add_child(_view_btn)
+	# La carte de la Vienne : au doigt, rien ne la montrait que le pincer au-delà du dernier cran.
+	_carte_btn = _button("Carte", 22)
+	_carte_btn.pressed.connect(func():
+		if Carte.peut_ouvrir():
+			Carte.ouvrir())
+	corner.add_child(_carte_btn)
 	_carnet_btn = _button("Carnet", 22)
 	_carnet_btn.pressed.connect(press_key.bind(KEY_C))
 	corner.add_child(_carnet_btn)
@@ -235,6 +242,7 @@ func _process(delta: float) -> void:
 		_release_stick()
 	var s := _scene()
 	_view_btn.visible = walking and s != null and (s.has_method("set_fps") or Vue.gere(s))
+	_carte_btn.visible = walking and not Carnet.is_open() and Carte.peut_ouvrir()
 	_carnet_btn.visible = (walking or Carnet.is_open()) and not Settings.is_open()
 	_carnet_btn.text = "Fermer" if Carnet.is_open() else "Carnet"
 	# Dans un lieu (café, banque, table…), l'habitant est figé et Échap en sort : le bouton le dit.
