@@ -92,7 +92,7 @@ func _lancer() -> void:
 	foot.forcer_porteurs("vous:2", club)
 	foot.dividendes[club] = {"s": 1, "j": 2}
 	avis.verifier()
-	check(avis.liste.is_empty(), "la première lecture ne refait pas l'histoire de la saison")
+	check(avis.liste.all(func(x): return x.genre == "dilemme"), "la première lecture ne refait pas l'histoire de la saison (seule la décision de la semaine arrive)")
 	check(str(avis.suivi.matchs.get(club, "")) == "1/3", "elle note où l'on en est : %s" % str(avis.suivi.get("matchs")))
 
 	# Une semaine plus tard, la journée 4 est jouée : un avis, qui mène au classement.
