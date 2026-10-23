@@ -144,9 +144,9 @@ func encaisser(p: Dictionary) -> void:
 	crediter(rendu, garantie)
 	var info := {"position": p, "rendu": rendu, "garantie": garantie}
 	encaissee.emit(info)
-	var carnet = get_tree().root.get_node_or_null("Carnet")
-	if carnet != null:
-		carnet.show_slip(phrase_encaissee(info))
+	var avis = get_tree().root.get_node_or_null("Avis")
+	if avis != null:
+		avis.publier({"id": "bourse/%s" % id, "genre": "bourse", "titre": phrase_encaissee(info), "lien": {"vers": "carnet", "onglet": "compte"}})
 	change.emit()
 
 

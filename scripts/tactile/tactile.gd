@@ -244,7 +244,8 @@ func _process(delta: float) -> void:
 	_view_btn.visible = walking and s != null and (s.has_method("set_fps") or Vue.gere(s))
 	_carte_btn.visible = walking and not Carnet.is_open() and Carte.peut_ouvrir()
 	_carnet_btn.visible = (walking or Carnet.is_open()) and not Settings.is_open()
-	_carnet_btn.text = "Fermer" if Carnet.is_open() else "Carnet"
+	var lettres: int = Avis.non_lus().size()
+	_carnet_btn.text = "Fermer" if Carnet.is_open() else ("Carnet (%d)" % lettres if lettres > 0 else "Carnet")
 	# Dans un lieu (café, banque, table…), l'habitant est figé et Échap en sort : le bouton le dit.
 	var inside: bool = p != null and p.frozen and not get_tree().paused and not (Carnet.is_open() or Settings.is_open())
 	_menu_btn.visible = walking or inside

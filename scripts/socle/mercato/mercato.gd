@@ -793,10 +793,11 @@ func _regler() -> void:
 func _nouvelle(t: String) -> void:
 	nouvelles.push_front(t)
 	nouvelles = nouvelles.slice(0, 6)
-	# La fiche du carnet glisse en bas de l'écran, où que l'on soit (docs/ACTIVITES.md, brique 4).
-	var carnet := get_node_or_null("/root/Carnet")
-	if carnet != null and carnet.has_method("show_slip") and get_tree().get_script() == null and not "--capture" in " ".join(OS.get_cmdline_user_args()):
-		carnet.show_slip(t)
+	# Le courrier (autoload Avis) fait glisser la fiche du carnet, où que l'on soit (docs/ACTIVITES.md, brique 4).
+	var avis := get_node_or_null("/root/Avis")
+	if avis != null and get_tree().get_script() == null and not "--capture" in " ".join(OS.get_cmdline_user_args()):
+		avis.publier({"id": "mercato/%d/%s" % [int(maintenant() / 86400), t.md5_text().left(10)], "genre": "mercato", "titre": t,
+			"lien": {"vers": "courrier"}})
 
 
 ## Ce qui nous concerne au marché : nos offres sur des enchères ouvertes et nos ventes ouvertes, avec leur

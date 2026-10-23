@@ -50,7 +50,7 @@ func _init() -> void:
 
 	# Les onglets, sans autre commune : Mon compte, Mes cartes, Smarves, La Vienne.
 	var cles: Array = carnet.onglets().map(func(o): return o[0])
-	check(cles == ["compte", "cartes", "smarves", "vienne"], "les onglets : Mon compte, Mes cartes, Smarves, La Vienne (%s)" % str(cles))
+	check(cles == ["compte", "courrier", "cartes", "smarves", "vienne"], "les onglets : Mon compte, Courrier, Mes cartes, Smarves, La Vienne (%s)" % str(cles))
 
 	# Une commune d'essai qui tient quatre compteurs.
 	var m: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://tools/commune_essai/commune.json"))
@@ -59,7 +59,7 @@ func _init() -> void:
 	check(c.valide(), "la commune d'essai et ses compteurs se valident (%s)" % "; ".join(c.erreurs))
 	check(communes.inscrire(c), "la commune d'essai s'inscrit")
 	cles = carnet.onglets().map(func(o): return o[0])
-	check(cles == ["compte", "cartes", "smarves", "essai", "vienne"], "elle a son onglet, entre Smarves et La Vienne")
+	check(cles == ["compte", "courrier", "cartes", "smarves", "essai", "vienne"], "elle a son onglet, entre Smarves et La Vienne")
 
 	# Ailleurs que chez elle, elle n'écrit rien.
 	check(not carnet.noter("essai", "parts_moulin", 2), "hors de la commune, noter est refusé")

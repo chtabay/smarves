@@ -66,6 +66,9 @@ var _causerie: PanelContainer
 ## La commune dont c'est le stade, posée par ouvrir() avant le changement de scène (Smarves sinon), son
 ## terrain au registre, et son club dans la pyramide ("" tant qu'il attend la saison prochaine).
 static var prochaine_commune := ""
+## La fenêtre à ouvrir en arrivant, posée par ouvrir_sur (un avis du courrier qui y mène) : « bureau:page »
+## (le bureau du club, sur une page : « bureau: » pour l'accueil) ou « registre » ; "" pour arriver à pied.
+static var prochaine_fenetre := ""
 var commune := ""
 var _terrain := {}
 var _club := ""
@@ -83,6 +86,12 @@ static func ouvrir(id: String) -> void:
 	prochaine_commune = id
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	(Engine.get_main_loop() as SceneTree).change_scene_to_file(scene_de(id))
+
+
+## Ouvre le stade d'une commune directement sur une fenêtre (prochaine_fenetre) : le courrier y mène.
+static func ouvrir_sur(id: String, fenetre: String) -> void:
+	prochaine_fenetre = fenetre
+	ouvrir(id)
 
 
 ## La scène du stade d'une commune : celle de son terrain (champ « scene ») si elle existe, sinon celle du socle.
@@ -145,7 +154,21 @@ func _ready() -> void:
 	# Le décor qui le demande reçoit le stade une fois tout posé (socle 1.20) : sa vie, ses foules, ses annonces.
 	if _modele != null and _modele.has_method("brancher"):
 		_modele.brancher(self)
+	if prochaine_fenetre != "":
+		_ouvrir_fenetre.call_deferred(prochaine_fenetre)
+		prochaine_fenetre = ""
 	_maybe_capture()
+
+
+## La fenêtre où mène un avis du courrier : le bureau sur sa page, ou le registre des obligations.
+func _ouvrir_fenetre(fenetre: String) -> void:
+	if fenetre == "registre":
+		open_obligations()
+		return
+	open_locaux()
+	var page := fenetre.trim_prefix("bureau:")
+	if page != "" and _causerie != null and _causerie.has_method("aller"):
+		_causerie.aller(page)
 
 
 func _place_name() -> String:
