@@ -28,6 +28,8 @@ const SUPABASE := "https://alvxrjftenialifyktyz.supabase.co/rest/v1/rpc/"
 const CLE_PUBLIQUE := "sb_publishable_JTwbhl8YTGJ9dPUmIwxctQ_vlu96NgE"
 ## La fonction casino, qui tient les tables à plusieurs de Smarves (poker des Ambassadeurs).
 const CASINO := "https://alvxrjftenialifyktyz.supabase.co/functions/v1/casino?jeu=smarves"
+## La fonction des doublures (docs/DOUBLURES.md, scripts/socle/doublure.gd).
+const DOUBLURES := "https://alvxrjftenialifyktyz.supabase.co/functions/v1/doublures"
 ## Dans un navigateur : la demande de connexion en cours, gardée pendant l'aller-retour chez Pyramides.
 const ATTENTE_WEB := "smarves_connexion"
 ## Les ports essayés pour le retour, tous déclarés à l'enregistrement (l'adresse doit être exacte).
@@ -510,6 +512,14 @@ func casino(action: String, args := {}) -> Dictionary:
 	if not connecte():
 		return {"code": 401, "corps": {"error": "Connexion expirée."}}
 	return await _http(CASINO, ["Content-Type: application/json", "Authorization: Bearer " + _jeton],
+		JSON.stringify({"action": action, "args": args}))
+
+
+## Une demande à la fonction des doublures : {code, corps}. Code 401 sans compte valable.
+func doublures(action: String, args := {}) -> Dictionary:
+	if not connecte():
+		return {"code": 401, "corps": {"error": "Connexion expirée."}}
+	return await _http(DOUBLURES, ["Content-Type: application/json", "Authorization: Bearer " + _jeton],
 		JSON.stringify({"action": action, "args": args}))
 
 
