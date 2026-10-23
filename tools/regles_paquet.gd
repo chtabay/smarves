@@ -7,7 +7,9 @@ extends RefCounted
 ##   - une donnée de plus de 100 Ko part compressée (gzip, « .gz »), lue par Atelier.donnees ;
 ##   - ce qui est déjà dans le jeu (l'atelier, la bibliothèque) se référence au lieu de partir dans le paquet.
 ## L'emballeur convertit les textures quand il recopie la commune (--depuis) ; il ne touche jamais aux fichiers
-## d'un dossier du projet, dont il signale seulement ce qui pèse. Rien de ceci ne refuse un paquet.
+## d'un dossier du projet, dont il signale seulement ce qui pèse. Rien de ceci ne refuse un paquet, sauf
+## deux règles partagées avec le portail : la version (refus_version) et les notes de travail, qui ne partent
+## pas (note_de_travail).
 
 const REGLAGES := "emballage.json"
 const COTE_MAX_SANS_PERTE := 256
@@ -15,8 +17,29 @@ const QUALITE := 0.85
 const DONNEE_MAX := 100 * 1024
 const IMAGES := ["png", "jpg", "jpeg", "webp", "tga", "bmp"]
 const DONNEES := ["json", "txt", "csv", "tsv", "xml", "cfg"]
+## Les textes qui partent avec le paquet : la licence et le mode d'emploi. Les autres .md (note d'intentions,
+## plans de travail, critiques) restent chez l'auteur.
+const TEXTES_PUBLICS := ["LICENCE", "LICENSE", "LIRE-MOI", "LISEZMOI", "NOTICE"]
 ## Les dossiers du jeu où chercher ce qu'un paquet embarque déjà.
 const DU_JEU := ["res://assets/", "res://bibliotheque/"]
+
+
+## La règle de version du portail (src/lib/communes/paquet.ts dans Pyramides2) : trois nombres, comme 0.2.0.
+## Le refus en une phrase, ou « » si la version passe. Une préversion ne s'écrit pas « 0.2.0-beta » : elle
+## prend le numéro suivant (0.1.1, 0.1.2…) et la version annoncée garde le sien (docs/COMMUNE.md).
+static func refus_version(v: String) -> String:
+	var r := RegEx.create_from_string("^\\d+\\.\\d+\\.\\d+$")
+	if r.search(v) != null:
+		return ""
+	return "version « %s » : trois nombres, comme 0.2.0 (une préversion prend le numéro suivant, 0.1.1, pas « -beta »)" % v
+
+
+## Un .md qui ne part pas dans le paquet : tout sauf la licence et le mode d'emploi (TEXTES_PUBLICS).
+static func note_de_travail(fichier: String) -> bool:
+	if fichier.get_extension().to_lower() != "md":
+		return false
+	var nom := fichier.get_file().get_basename().to_upper()
+	return not TEXTES_PUBLICS.any(func(p): return nom.begins_with(p))
 
 
 ## Les réglages d'emballage d'une commune (emballage.json à la racine de son dossier) : {sans_perte: […]}.

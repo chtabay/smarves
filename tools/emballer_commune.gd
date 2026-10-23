@@ -4,7 +4,7 @@ extends SceneTree
 ##   --depuis=res://chemin/  le dossier source (par défaut res://communes/<id>/) ; un autre dossier, dans
 ##                           le projet ou hors de lui (--depuis=/chemin/vers/vegas, le dépôt d'une
 ##                           commune), est d'abord recopié sous res://communes/<id>/, là où le jeu le
-##                           chargera, et importé là (sans .git, tests/ ni .md), puis retiré après
+##                           chargera, et importé là (sans .git ni tests/), puis retiré après
 ##                           l'emballage : un modèle importé nomme ses textures par leur chemin, qui doit
 ##                           être celui du paquet
 ##   --sortie=chemin.pck     où écrire le paquet (par défaut build/<id>.pck)
@@ -13,7 +13,8 @@ extends SceneTree
 ## part pas. Le contrat est dans docs/COMMUNE.md, section « Publier sa commune ».
 ## Les règles des paquets (tools/regles_paquet.gd) : à la recopie, une texture de plus de 256 px sans perte
 ## passe en WebP avec perte (sauf celles qu'emballage.json garde sans perte) ; ce qui pèse encore (textures,
-## données non compressées, fichiers déjà dans le jeu) est dit à la fin, sans refuser le paquet.
+## données non compressées, fichiers déjà dans le jeu) est dit à la fin, sans refuser le paquet. Les .md
+## restent dehors, sauf la licence et le mode d'emploi ; une version que le portail refuserait arrête tout.
 
 const REGLES := preload("res://tools/regles_paquet.gd")
 
@@ -60,6 +61,10 @@ func _init() -> void:
 	# fiche fautive arrête l'emballage, pour que la proposition arrive lisible au portail.
 	var fautes := _propositions(depuis)
 	fautes.append_array(REGLES.verifier_reglages(depuis))
+	var manifeste = JSON.parse_string(FileAccess.get_file_as_string(depuis + "commune.json"))
+	var refus := REGLES.refus_version(str(manifeste.get("version", "")) if typeof(manifeste) == TYPE_DICTIONARY else "")
+	if refus != "":
+		fautes.append(refus)
 	if not fautes.is_empty():
 		if recopie:
 			_retirer(id)
@@ -158,7 +163,7 @@ func _scenes_du_manifeste(data: Dictionary) -> Array:
 func _parcourir(dossier: String, racine: String, cible: String, out: Dictionary) -> void:
 	var d := DirAccess.open(dossier)
 	for f in d.get_files():
-		if f == TEMOIN or f == REGLES.REGLAGES:
+		if f == TEMOIN or f == REGLES.REGLAGES or REGLES.note_de_travail(f):
 			continue
 		var chemin := dossier + f
 		var dans_le_paquet := cible + chemin.trim_prefix(racine)
@@ -231,7 +236,7 @@ func _recopier(source: String, id: String) -> String:
 func _copier(de: String, vers: String, racine: String, r: Dictionary) -> void:
 	var d := DirAccess.open(de)
 	for f in d.get_files():
-		if f.ends_with(".md") or f.ends_with(".uid"):
+		if REGLES.note_de_travail(f) or f.ends_with(".uid"):
 			continue
 		if f.ends_with(".import"):
 			# les réglages d'import suivent, pas l'identifiant : la copie reçoit le sien

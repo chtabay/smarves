@@ -17,7 +17,15 @@ echo "--- erreurs de script à l'import"
 grep -E "SCRIPT ERROR|Parse Error|Failed to load" import.log | head -20 || true
 for t in test_commune parcours_commune test_atelier test_salle_jeu test_availles; do
 	"$godot" --headless --path . -s tools/$t.gd > $t.log 2>&1 && echo "ok      $t" || { echo "ÉCHEC   $t"; tail -20 $t.log; exit 1; }
+	# Un test qui passe en traînant des erreurs de script cache un fichier du socle qui ne se compile pas
+	# dans le SDK (le registre de Smarves, retour de l'auteur de Chauvigny).
+	! grep -E "SCRIPT ERROR" $t.log || { echo "ÉCHEC   $t : erreurs de script"; exit 1; }
 done
+# Les morceaux de shader nommés par #include partent avec leurs shaders (les maisons de l'atelier).
+for f in $(grep -rhoE 'res://[^"]+\.gdshaderinc' --include=*.gdshader . | sort -u); do
+	[ -s "${f#res://}" ] || { echo "ÉCHEC   ${f#res://} manque au SDK"; exit 1; }
+done
+echo "ok      les morceaux de shader sont là"
 "$godot" --headless --path . --quit-after 120 > lanceur.log 2>&1 || true
 grep -E "SCRIPT ERROR" lanceur.log && { echo "ÉCHEC   le lanceur"; exit 1; } || echo "ok      le lanceur s'ouvre"
 # La méthode de conception voyage avec le SDK : la note modèle, l'exemple, les planches et les extraits

@@ -99,6 +99,10 @@ func _physics_process(delta: float) -> void:
 			avatar.pose = 2 if assis else (1 if dir.length() > 0.1 else 0)
 	else:
 		dir = (transform.basis * dir).normalized()
+		# À la première personne, l'œil est dans la tête : un avatar visible boucherait la vue (une scène
+		# sans caméra à crans, que Vue ne bascule jamais). Une autre caméra (une table, un plan) le montre.
+		if avatar and avatar.visible and camera.current:
+			avatar.visible = false
 	var run := 1.8 if Input.is_key_pressed(KEY_SHIFT) else 1.0
 	velocity.x = dir.x * speed * run
 	velocity.z = dir.z * speed * run

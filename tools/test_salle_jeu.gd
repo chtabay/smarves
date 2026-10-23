@@ -117,6 +117,7 @@ func _init() -> void:
 		"la porte ramène dans la commune, devant la porte de la salle")
 	await _etude(game)
 	await _commerces(game)
+	await _sorties()
 	_fin()
 
 
@@ -204,6 +205,75 @@ func _commerces(game: Node) -> void:
 		"structure b : article x : un meuble a besoin d'un modele", "structure b : un article sans id", "structure b : article y : couleur « #rrggbb »",
 		"structure b : article y : un meuble a besoin d'un modele", "structure b : article y : emplacement inconnu « plafond » (lit, sol, grand, mur, petit, jardin)"],
 		"un article mal écrit est refusé, phrase par phrase : %s" % [fautes])
+
+
+## Chaque lieu, ouvert par la touche E devant sa porte, et quitté par la touche E sur sa sortie : la
+## commune revient telle qu'on l'a laissée (Chargement.lieu), et la touche de la sortie ne fait pas rentrer
+## l'habitant resté devant la porte (retour de l'auteur de Chauvigny, octobre 2026).
+func _sorties() -> void:
+	var lieux := {
+		"le tripot": func(): return load("res://scripts/socle/salle_jeu.gd").ouvrir("essai_salle", "tripot"),
+		"l'étude": func(): return load("res://scripts/socle/etude.gd").ouvrir("essai_salle"),
+		"la mercerie": func(): return load("res://scripts/socle/commerce.gd").ouvrir("essai_salle", "mercerie"),
+		"la maison achetée chez le notaire": func(): return root.get_node("Biens").enter("essai_salle/maison_gare"),
+	}
+	var biens: Node = root.get_node("Biens")
+	check(biens.buy("essai_salle/maison_gare", true, "essai_salle") and biens.logements.has("essai_salle/maison_gare"), "on achète la maison du chef de gare")
+	for nom in lieux:
+		var commune: Node = current_scene
+		if commune == null or commune.scene_file_path != "res://communes/essai_salle/commune.tscn":
+			check(false, "on part de la commune pour entrer dans %s" % nom)
+			return
+		# L'habitant de la commune, en vue de dessus, devant la porte du lieu.
+		var cam := Camera3D.new()
+		commune.add_child(cam)
+		var habitant: CharacterBody3D = load("res://scripts/fp_player.gd").new()
+		habitant.follow_camera = cam
+		commune.add_child(habitant)
+		var porte := Area3D.new()
+		porte.set_meta("interact", "porte")
+		commune.add_child(porte)
+		var entrees := [0]
+		habitant.interact.connect(func(t: Node):
+			if t == porte:
+				entrees[0] += 1
+				lieux[nom].call())
+		habitant.focus_target = porte
+		_touche_e()
+		await process_frame
+		await process_frame
+		var s: Node = current_scene
+		check(entrees[0] == 1 and s != null and s != commune and s.get("player") != null, "la touche E devant la porte fait entrer dans %s" % nom)
+		if s == null or s == commune or s.get("player") == null:
+			return
+		var sortie: Node = null
+		for a in s.find_children("*", "Area3D", true, false):
+			if a.get_meta("interact", "") == "exit":
+				sortie = a
+		s.player.focus_target = sortie
+		_touche_e()
+		await process_frame
+		await process_frame
+		while root.get_node("Chargement").actif():
+			await process_frame
+		check(current_scene == commune and entrees[0] == 1, "  la touche E sur la sortie rend la commune gardée, sans y faire rentrer (%d entrée(s))" % entrees[0])
+		if current_scene != commune:
+			return
+		for n in [habitant, porte, cam]:
+			n.free()
+	biens.sell("essai_salle/maison_gare")
+
+
+## Une pression de la touche E, comme la reçoit le jeu.
+func _touche_e() -> void:
+	var e := InputEventKey.new()
+	e.physical_keycode = KEY_E
+	e.keycode = KEY_E
+	e.pressed = true
+	root.push_input(e)
+	var r := e.duplicate()
+	r.pressed = false
+	root.push_input(r)
 
 
 func _fin() -> void:
