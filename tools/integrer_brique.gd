@@ -83,6 +83,7 @@ static func integrer(commune: String, brique: String, source: String, racine: St
 	if fiche.has("apercu"):
 		entree.apercu = dest + str(fiche.apercu)
 	existante.versions[str(version)] = entree
+	cat["format"] = int(cat.get("format", 1))  # (JSON lit les nombres en flottants : « 1.0 » sinon)
 	FileAccess.open(catalogue, FileAccess.WRITE).store_string(JSON.stringify(cat, "\t", false) + "\n")
 	Bibliotheque._catalogue = {}
 	Bibliotheque._matieres = {}

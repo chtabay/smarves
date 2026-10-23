@@ -1,0 +1,8 @@
+Le façadier du Poitou — repris de Chauvigny pour Smarves (version 0.2.2), licence MIT.
+Copyright (c) 2026 Le duke · création avec Claude.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files, to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, subject to inclusion of this copyright and permission notice.
+THE SOFTWARE IS PROVIDED AS IS, WITHOUT WARRANTY OF ANY KIND.
+
+Les outils (outils.gd) et les shaders de matière et de feuillage (matieres.gdshader, feuillage.gdshader) adaptent ceux des créations antérieures de Civaux et de Château-Larcher (MIT), comme le dit la licence de Chauvigny.
+Généralisé pour la bibliothèque commune de Smarves (octobre 2026) : les outils ne gardent que ce que le façadier emploie, sans le terrain de Chauvigny, et la maison se pose par une scène (maison.tscn).

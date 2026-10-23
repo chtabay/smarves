@@ -40,6 +40,21 @@
 					"socle": "1.17"
 				}
 			}
+		},
+		"facadier-du-poitou": {
+			"genre": "decor",
+			"nom": "Le façadier du Poitou",
+			"description": "Une maison de bourg composée par type et graine : dix types (médiévale, échoppe, balet, vigneron, notable, tailleur de pierre, grange, maison de quai, ouvrière, maison forte) et quatre axes de diversité (silhouette, matière, décoration, habillage végétal), deux voisines jamais pareilles. Venu de Chauvigny 0.2.2.",
+			"auteur": "Le duke · création avec Claude",
+			"licence": "MIT (voir LICENCE.txt)",
+			"commune": "chauvigny",
+			"versions": {
+				"1": {
+					"scene": "res://bibliotheque/facadier-du-poitou/1/maison.tscn",
+					"apercu": "res://bibliotheque/facadier-du-poitou/1/apercu.png",
+					"socle": "1.18"
+				}
+			}
 		}
 	}
 }
