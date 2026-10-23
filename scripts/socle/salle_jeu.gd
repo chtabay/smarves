@@ -7,6 +7,8 @@ extends "res://scripts/village/salle.gd"
 ## ouvre sa salle depuis sa scène par SalleJeu.ouvrir("<commune>", "<id de la structure>"). Avec
 ## « guichet » (socle 1.2), le banquier de la commune tient un bureau près de la porte : le prêt pour jouer,
 ## au nom de la banque du manifeste (scripts/loan_panel.gd, de_commune).
+## Avec « modele » (socle 1.22), la salle se pose sur un décor de la bibliothèque ou de la commune, branché par
+## ses ancres (Ancres.SALLE_JEU) : le socle n'y bâtit plus sa pièce.
 ## Capture : godot --path . res://scenes/salle_jeu.tscn -- --commune=<id> --salle=<id> --capture=sortie.png
 
 ## Les jeux du socle, par nom de manifeste : le panneau, ce que dit l'invite, l'enseigne de la table.
@@ -119,6 +121,32 @@ func _ready() -> void:
 	if "roue" in jeux:
 		# La grande roue du casino monte à trois mètres.
 		H = maxf(H, 4.2)
+	var modele := _charger_decor(str(champs.get("modele", "")), "salle_jeu", "Salle de jeu")
+	if modele:
+		_brancher_decor(modele, jeux, tenancier, champs)
+	else:
+		_batir(jeux, tenancier, champs, decor)
+	for a in find_children("*", "Area3D", true, false):
+		if a.get_meta("interact", "") == "exit":
+			a.set_meta("prompt", _salle.sortie)
+	_build_ui()
+	# Les panneaux s'habillent comme au casino de Smarves.
+	_panel_layer.get_parent().theme = Tables.theme()
+	player = PLAYER.new()
+	player.position = Vector3(0, 0, D / 2.0 - 1.2)
+	var arrivee := Ancres.trouver(modele, "Arrivee") if modele else null
+	if arrivee:
+		player.position = arrivee.global_position
+		player.rotation.y = arrivee.global_rotation.y + PI
+	add_child(player)
+	player.interact.connect(_on_interact)
+	Sfx.set_ambience("casino")
+	_capture_commune()
+
+
+## La pièce du socle, quand la salle ne nomme pas de décor : les murs de son décor, le comptoir, les tables en
+## rangs de trois, le guichet, l'enseigne et la porte.
+func _batir(jeux: Array, tenancier: String, champs: Dictionary, decor: String) -> void:
 	_environment()
 	match decor:
 		"salle":
@@ -136,18 +164,6 @@ func _ready() -> void:
 	_bulb(Vector3(-W / 4.0, H - 0.7, 0.4), Color(0.85, 0.55, 0.3))
 	_bulb(Vector3(W / 4.0, H - 0.7, 0.4), Color(0.85, 0.55, 0.3))
 	_door()
-	for a in find_children("*", "Area3D", true, false):
-		if a.get_meta("interact", "") == "exit":
-			a.set_meta("prompt", _salle.sortie)
-	_build_ui()
-	# Les panneaux s'habillent comme au casino de Smarves.
-	_panel_layer.get_parent().theme = Tables.theme()
-	player = PLAYER.new()
-	player.position = Vector3(0, 0, D / 2.0 - 1.2)
-	add_child(player)
-	player.interact.connect(_on_interact)
-	Sfx.set_ambience("casino")
-	_capture_commune()
 
 
 ## Le comptoir au fond et le tenancier derrière, un habitant tiré de la graine de la structure.
@@ -192,55 +208,139 @@ func _guichet() -> void:
 ## tables 3D du casino de Smarves (Tables, scripts/socle/tables.gd), la place du joueur face au comptoir.
 ## Le loto et les courses, qui n'ont pas de table au casino, gardent une table de café.
 func _tables(jeux: Array) -> void:
-	var feutre := _std(Color(0.05, 0.3, 0.16), 0.95)
-	var bois := _std(Color(0.28, 0.17, 0.09), 0.6)
 	var n := jeux.size()
 	for i in n:
-		var jeu := str(jeux[i])
-		if Tables.fiche(jeu).is_empty():
-			continue
 		var rang := i / COLONNES
 		var dans_le_rang := mini(n - rang * COLONNES, COLONNES)
 		var x := ((i % COLONNES) - (dans_le_rang - 1) / 2.0) * CASE.x
-		var p := Vector3(x, 0, -D / 2.0 + 3.6 + rang * CASE.y)
-		var spot := Node3D.new()
-		spot.position = p
-		add_child(spot)
-		var e := Vector2(1.7, 0.9)
-		var t := Tables.table(jeu)
-		if t:
-			# La lampe de la salle éclaire la table (plus bas) : celle de la table, un projecteur, ne passe pas
-			# partout (le rendu web et mobile en compte peu par objet).
-			e = Tables.emprise(jeu)
-			t.with_lamp = false
-			spot.add_child(t)
-			spot.set_meta("table3d", t)
-			_tables3d[jeu] = _tables3d.get(jeu, t)
-			_solid_box_at(Vector3(e.x, 3.0 if jeu == "roue" else 1.0, e.y), p + Vector3(0, 1.5 if jeu == "roue" else 0.5, 0))
-			if jeu in ["blackjack", "roulette", "baccara", "des", "poker"]:
-				# Pas de chaise au milieu : c'est la place du joueur, d'où la caméra regarde le tapis.
-				for dx in [-0.9, 0.9]:
-					_place(KK + "furniture/chair_A_wood.gltf", p + Vector3(dx, 0, e.y / 2.0 + 0.45), 0.8, 180.0)
-			if jeu != "machine" and jeu != "roue":
-				_regular(p + Vector3(0.55, 0, -e.y / 2.0 - 0.45), 0.0, 60 + i)
+		_poser_table(str(jeux[i]), Transform3D(Basis(), Vector3(x, 0, -D / 2.0 + 3.6 + rang * CASE.y)), i)
+
+
+## Une table ou une machine, dans le repère « t » (au sol, au centre de la table, la place du joueur vers +Z),
+## sous sa lampe et son enseigne, avec sa zone d'interaction : la grille de la salle du socle, ou l'ancre
+## TableN d'un décor (socle 1.22).
+func _poser_table(jeu: String, t: Transform3D, i: int) -> void:
+	if Tables.fiche(jeu).is_empty():
+		return
+	var feutre := _std(Color(0.05, 0.3, 0.16), 0.95)
+	var bois := _std(Color(0.28, 0.17, 0.09), 0.6)
+	var cap := rad_to_deg(t.basis.get_euler().y)
+	# Un quart de tour échange la largeur et la profondeur des collisions, qui restent alignées sur la salle.
+	var travers := absf(sin(t.basis.get_euler().y)) > 0.5
+	var spot := Node3D.new()
+	spot.transform = t
+	add_child(spot)
+	var e := Vector2(1.7, 0.9)
+	var table := Tables.table(jeu)
+	if table:
+		# La lampe de la salle éclaire la table (plus bas) : celle de la table, un projecteur, ne passe pas
+		# partout (le rendu web et mobile en compte peu par objet).
+		e = Tables.emprise(jeu)
+		table.with_lamp = false
+		spot.add_child(table)
+		spot.set_meta("table3d", table)
+		_tables3d[jeu] = _tables3d.get(jeu, table)
+		var boite := Vector3(e.x, 3.0 if jeu == "roue" else 1.0, e.y)
+		_solid_box_at(Vector3(boite.z, boite.y, boite.x) if travers else boite, t * Vector3(0, 1.5 if jeu == "roue" else 0.5, 0))
+		if jeu in ["blackjack", "roulette", "baccara", "des", "poker"]:
+			# Pas de chaise au milieu : c'est la place du joueur, d'où la caméra regarde le tapis.
+			for dx in [-0.9, 0.9]:
+				_place(KK + "furniture/chair_A_wood.gltf", t * Vector3(dx, 0, e.y / 2.0 + 0.45), 0.8, 180.0 + cap)
+		if jeu != "machine" and jeu != "roue":
+			_regular(t * Vector3(0.55, 0, -e.y / 2.0 - 0.45), cap, 60 + i)
+	else:
+		_box(Vector3(1.9, 0.06, 1.1), Vector3(0, 0.78, 0), feutre, false, spot)
+		_box(Vector3(2.0, 0.06, 1.2), Vector3(0, 0.73, 0), bois, false, spot)
+		_box(Vector3(1.7, 0.7, 0.9), Vector3(0, 0.35, 0), bois, false, spot)
+		_solid_box_at(Vector3(0.9, 0.7, 1.7) if travers else Vector3(1.7, 0.7, 0.9), t * Vector3(0, 0.35, 0))
+		for dx in [-0.5, 0.5]:
+			_place(KK + "furniture/chair_A_wood.gltf", t * Vector3(dx, 0, 0.85), 0.8, 180.0 + cap)
+		_regular(t * Vector3(0.55, 0, -0.85), cap, 60 + i)
+	if jeu == "machine":
+		_lamp(t * Vector3(0, 1.8, 0.6), Color(1.0, 0.45, 0.75), 0.6, 2.5)
+	elif table == null:
+		_lamp(t * Vector3(0, 1.9, 0), Color(1.0, 0.8, 0.5), 1.4, 3.5, i == 0)
+	else:
+		_lamp(t * Vector3(0, 2.2, 0.2), Color(1.0, 0.82, 0.55), 1.8, 4.0, i == 0)
+	# L'enseigne de la table, suspendue au-dessus : on lit le jeu en entrant.
+	var haut: float = {"machine": 2.55, "roue": H - 0.35}.get(jeu, 2.15)
+	_label3d(str(Tables.fiche(jeu).titre), t * Vector3(0, haut, 0), 40, Color(1.0, 0.85, 0.6), cap).shaded = false
+	var a := _interactive(spot, "jeu", "E : %s" % Tables.fiche(jeu).invite, Vector3(maxf(e.x, 1.2) + 0.6, 1.8, e.y + 1.6), Vector3(0, 0.9, 0.5))
+	a.set_meta("jeu", jeu)
+
+
+# --- Le décor d'une brique (socle 1.22) -------------------------------------------------------------
+
+## La salle sur le décor que nomme « modele » : le socle n'y bâtit rien, il branche ses ancres (Ancres.SALLE_JEU).
+## Le tenancier au comptoir, une table par ancre TableN dans l'ordre des jeux, le guichet, l'enseigne et la sortie.
+func _brancher_decor(m: Node3D, jeux: Array, tenancier: String, champs: Dictionary) -> void:
+	# Un décor apporte d'ordinaire sa lumière ; sans environnement à lui, il prend celui des salles du socle.
+	if m.find_children("*", "WorldEnvironment", true, false).is_empty():
+		_environment()
+	var places := Ancres.tables(m)
+	if jeux.size() > places.size():
+		push_warning("Salle de jeu : le décor n'a que %d places de table pour %d jeux, les derniers ne sont pas posés" % [places.size(), jeux.size()])
+	for i in mini(jeux.size(), places.size()):
+		_poser_table(str(jeux[i]), _repere(places[i]), i)
+	_keeper = _pied(Ancres.trouver(m, "Comptoir"))
+	var c := CRITTER.new()
+	c.randomize_look(int(champs.get("graine", 0)))
+	c.idle_anim = "bar"
+	c.scale = Vector3.ONE * PEOPLE_SCALE
+	_keeper.add_child(c)
+	# Le comptoir est entre le tenancier et le visiteur : la zone le déborde de son côté.
+	_interactive(_keeper, "keeper", "E : parler à %s" % tenancier, Vector3(2.2, 2.2, 1.6), Vector3(0, 1.1, 2.2))
+	if champs.get("guichet", false):
+		var g := Ancres.trouver(m, "Guichet")
+		if g:
+			_guichet_sur(_pied(g))
 		else:
-			_box(Vector3(1.9, 0.06, 1.1), p + Vector3(0, 0.78, 0), feutre)
-			_box(Vector3(2.0, 0.06, 1.2), p + Vector3(0, 0.73, 0), bois)
-			_box(Vector3(1.7, 0.7, 0.9), p + Vector3(0, 0.35, 0), bois, true)
-			for dx in [-0.5, 0.5]:
-				_place(KK + "furniture/chair_A_wood.gltf", p + Vector3(dx, 0, 0.85), 0.8, 180.0)
-			_regular(p + Vector3(0.55, 0, -0.85), 0.0, 60 + i)
-		if jeu == "machine":
-			_lamp(p + Vector3(0, 1.8, 0.6), Color(1.0, 0.45, 0.75), 0.6, 2.5)
-		elif t == null:
-			_lamp(p + Vector3(0, 1.9, 0), Color(1.0, 0.8, 0.5), 1.4, 3.5, i == 0)
-		else:
-			_lamp(p + Vector3(0, 2.2, 0.2), Color(1.0, 0.82, 0.55), 1.8, 4.0, i == 0)
-		# L'enseigne de la table, suspendue au-dessus : on lit le jeu en entrant.
-		var haut: float = {"machine": 2.55, "roue": H - 0.35}.get(jeu, 2.15)
-		_label3d(str(Tables.fiche(jeu).titre), p + Vector3(0, haut, 0), 40, Color(1.0, 0.85, 0.6)).shaded = false
-		var a := _interactive(spot, "jeu", "E : %s" % Tables.fiche(jeu).invite, Vector3(maxf(e.x, 1.2) + 0.6, 1.8, e.y + 1.6), Vector3(0, 0.9, 0.5))
-		a.set_meta("jeu", jeu)
+			push_warning("Salle de jeu : le décor n'a pas d'ancre « Guichet », le banquier ne vient pas")
+	var e := Ancres.trouver(m, "Enseigne")
+	if e:
+		_ecrire(e, str(champs.get("enseigne", _salle.name)))
+	_interactive(_pied(Ancres.trouver(m, "Sortie")), "exit", _salle.sortie, Vector3(2.4, 2.6, 1.6), Vector3(0, 1.2, 0))
+
+
+## Le repère d'une ancre dans celui de la salle, sans échelle.
+func _repere(ancre: Node3D) -> Transform3D:
+	var t := global_transform.affine_inverse() * ancre.global_transform
+	return Transform3D(t.basis.orthonormalized(), t.origin)
+
+
+## Un texte du socle sur une ancre, lisible depuis son +Z ; les métas de l'ancre « hauteur » et « largeur » (en
+## mètres) le mesurent, « couleur » le teinte et « espace » l'écrit en capitales espacées.
+func _ecrire(ancre: Node3D, texte: String) -> void:
+	# « espace » : en capitales espacées, comme une enseigne peinte sur un bandeau.
+	if ancre.get_meta("espace", false):
+		texte = " ".join(texte.to_upper().split(""))
+	var l := _label3d(texte, Vector3.ZERO, 64, Color(ancre.get_meta("couleur", Color(0.95, 0.85, 0.6))))
+	l.shaded = false
+	# « hauteur » donne la taille des lettres, que « largeur » réduit si le texte est trop long.
+	var hauteur := float(ancre.get_meta("hauteur", 0.0))
+	if hauteur > 0.0:
+		l.pixel_size = hauteur / 64.0
+	var largeur := float(ancre.get_meta("largeur", 0.0))
+	if largeur > 0.0:
+		l.pixel_size = minf(l.pixel_size, largeur / maxf(1.0, texte.length() * 0.62 * 64))
+	remove_child(l)
+	ancre.add_child(l)
+
+
+## Le banquier de la commune, debout à une ancre et tourné vers son +Z, sous son enseigne.
+func _guichet_sur(pied: Node3D) -> void:
+	var c: Commune = Communes.commune(commune)
+	var b: Dictionary = c.banque() if c else {}
+	var f := CRITTER.new()
+	f.randomize_look(hash(str(b.get("banquier", "banquier"))))
+	f.idle_anim = "stand_table"
+	f.scale = Vector3.ONE * PEOPLE_SCALE
+	pied.add_child(f)
+	var l := _label3d(str(b.get("nom", "La banque")), Vector3(0, 2.3, 0), 36, Color(0.7, 0.82, 1.0))
+	l.shaded = false
+	remove_child(l)
+	pied.add_child(l)
+	_interactive(pied, "guichet", "E : voir %s" % str(b.get("banquier", "le banquier")), Vector3(1.8, 2.0, 1.8), Vector3(0, 1.0, 1.2))
 
 
 func _on_interact(target: Node) -> void:

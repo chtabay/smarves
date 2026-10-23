@@ -127,6 +127,7 @@ func _init() -> void:
 	await _commerces(game)
 	await _sorties()
 	await _tarifs()
+	await _sur_decors(game)
 	_fin()
 
 
@@ -166,6 +167,80 @@ func _etude(game: Node) -> void:
 			await process_frame
 		check(current_scene != null and current_scene.scene_file_path == "res://communes/essai_salle/commune.tscn" and game.return_point == "place", "la porte de l'étude ramène dans la commune")
 	biens.sell("essai_salle/buffet")
+
+
+## La salle de jeu et l'étude sur un décor de la bibliothèque (socle 1.22, champ « modele ») : le socle n'y bâtit
+## rien, il branche ses ancres.
+func _sur_decors(game: Node) -> void:
+	var registre: Node = root.get_node("Registre")
+	var tripot: Dictionary = registre.structure("essai_salle/tripot")
+	var champs_avant: Dictionary = tripot.champs.duplicate(true)
+	tripot.champs.modele = "bar-des-sports@1"
+	tripot.champs.jeux = ["poker", "machine", "blackjack", "roulette", "craps"]
+	check(load("res://scripts/socle/salle_jeu.gd").ouvrir("essai_salle", "tripot"), "le tripot s'ouvre sur le bar des sports")
+	await process_frame
+	await process_frame
+	var s: Node = current_scene
+	var modele: Node = s.get_node_or_null("Modele") if s else null
+	check(modele != null and Ancres.verifier_genre(modele, "salle_jeu").is_empty(), "le décor est posé et tient le contrat de la salle de jeu")
+	if modele:
+		var jeux := s.find_children("*", "Area3D", true, false).filter(func(a): return a.get_meta("interact", "") == "jeu").map(func(a): return str(a.get_meta("jeu")))
+		check(jeux == ["poker", "machine", "blackjack", "roulette"], "une table par ancre, dans l'ordre des jeux ; le cinquième n'a pas de place : %s" % str(jeux))
+		var t1: Node3D = Ancres.trouver(modele, "Table1")
+		var poker: Node3D = s._tables3d.get("poker", null)
+		check(poker != null and poker.global_position.distance_to(t1.global_position) < 0.01 and absf(poker.global_rotation.y - t1.global_rotation.y) < 0.01,
+			"la table de poker est à sa place et tournée comme son ancre")
+		check(s._keeper != null and s._keeper.global_position.distance_to(Ancres.trouver(modele, "Comptoir").global_position) < 0.01, "la tenancière est au comptoir")
+		var arrivee: Node3D = Ancres.trouver(modele, "Arrivee")
+		var ecart := Vector2(s.player.global_position.x - arrivee.global_position.x, s.player.global_position.z - arrivee.global_position.z)
+		check(ecart.length() < 0.3, "on entre par l'arrivée du décor (à %.2f m)" % ecart.length())
+		var enseigne: Label3D = Ancres.trouver(modele, "Enseigne").get_child(0)
+		check(enseigne.text == "A U   T R I P O T", "l'enseigne de la salle s'écrit au portique, en capitales espacées : « %s »" % enseigne.text)
+		check(s.find_children("*", "Area3D", true, false).filter(func(a): return a.get_meta("interact", "") == "exit").size() == 1, "la sortie est à la porte du décor")
+		s._jeu_ouvert = "poker"
+		s._table_choisie = null
+		s.open_game()
+		await process_frame
+		check(s._game != null and s._assis == poker, "on s'assoit à la table de poker du décor")
+		if s._game:
+			s._game.closed.emit()
+			await process_frame
+		s._sortir()
+		await process_frame
+		await process_frame
+		while root.get_node("Chargement").actif():
+			await process_frame
+	tripot.champs = champs_avant
+
+	var c: Commune = root.get_node("Communes").commune("essai_salle")
+	c.data.notaire.modele = "etude-de-notaire@1"
+	check(load("res://scripts/socle/etude.gd").ouvrir("essai_salle"), "l'étude s'ouvre sur l'étude de notaire")
+	await process_frame
+	await process_frame
+	s = current_scene
+	modele = s.get_node_or_null("Modele") if s else null
+	check(modele != null and Ancres.verifier_genre(modele, "etude").is_empty(), "le décor est posé et tient le contrat de l'étude")
+	if modele:
+		var notaire: Node = s._keeper.get_child(0)
+		check(s._keeper.global_position.distance_to(Ancres.trouver(modele, "Notaire").global_position) < 0.01 and notaire.pose == 2, "Maître Lucas est assis à son bureau")
+		check((Ancres.trouver(modele, "Enseigne").get_child(0) as Label3D).text == "L'étude de Maître Lucas"
+			and (Ancres.trouver(modele, "Plaque").get_child(0) as Label3D).text == "Maître Lucas", "l'enseigne et la plaque disent l'étude et le notaire")
+		check(Ancres.trouver(modele, "Plan").find_children("*", "MeshInstance3D", false, false).size() >= 3, "le plan du registre est dessiné au mur")
+		var accueil := s.find_children("*", "Area3D", true, false).filter(func(a): return a.get_meta("interact", "") == "registre")
+		check(accueil.size() == 1, "l'accueil ouvre aussi le registre")
+		if accueil.size() == 1:
+			s._on_interact(accueil[0])
+			await process_frame
+			check(s._game != null and s._game.commune == "essai_salle", "  le registre de la commune")
+			if s._game:
+				s._game.closed.emit()
+				await process_frame
+		s._sortir()
+		await process_frame
+		await process_frame
+		while root.get_node("Chargement").actif():
+			await process_frame
+	c.data.notaire.erase("modele")
 
 
 ## Les commerces de la commune d'essai : leurs articles au catalogue, la vitrine, l'achat, et ce que le

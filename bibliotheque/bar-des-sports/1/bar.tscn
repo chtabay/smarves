@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://bibliotheque/bar-des-sports/1/bar.gd" id="1"]
+
+[node name="BarDesSports" type="Node3D"]
+script = ExtResource("1")

@@ -46,12 +46,51 @@ const SALLE := {
 	"Fronton": {"requis": false, "role": "l'enseigne de la salle : le socle y écrit le nom du club et de la salle, à ses couleurs"},
 }
 
+## La salle de jeu (socle 1.22) : ce que le socle branche sur un décor de salle de jeu, de la bibliothèque ou
+## d'une commune (champ « modele » de la structure « salle_jeu »), à la place de la pièce qu'il bâtit.
+## Les tables vont aux ancres Table1, Table2… dans l'ordre des jeux de la structure ; un jeu sans ancre n'est
+## pas posé. Une ancre de table est au sol, au centre de la table, son +Z vers la place du joueur.
+const SALLE_JEU := {
+	"Arrivee": {"requis": true, "role": "où le visiteur paraît en entrant, tourné vers son +Z"},
+	"Sortie": {"requis": true, "role": "la porte du retour : le socle y met la sortie vers la commune"},
+	"Comptoir": {"requis": true, "role": "où se tient le tenancier, derrière son comptoir, tourné vers son +Z : on lui parle de ce côté"},
+	"Table1": {"requis": true, "role": "la place de la première table (Table2, Table3… pour les suivantes, jusqu'à Table9)"},
+	"Guichet": {"requis": false, "role": "où se tient le banquier de la commune, si la salle a un guichet, tourné vers son +Z"},
+	"Enseigne": {"requis": false, "role": "le socle y écrit l'enseigne de la salle, lisible depuis son +Z"},
+}
+
+## L'étude du notaire (socle 1.22) : ce que le socle branche sur un décor d'étude (champ « modele » du
+## notaire), à la place de la pièce qu'il bâtit.
+const ETUDE := {
+	"Arrivee": {"requis": true, "role": "où le visiteur paraît en entrant, tourné vers son +Z"},
+	"Sortie": {"requis": true, "role": "la porte du retour : le socle y met la sortie vers la commune"},
+	"Notaire": {"requis": true, "role": "où se tient le notaire, derrière son bureau, tourné vers son +Z : on y consulte le registre. Avec la méta « assis » à vrai, il est assis"},
+	"Registre": {"requis": false, "role": "un second endroit où consulter le registre (un comptoir d'accueil, un lutrin)"},
+	"Enseigne": {"requis": false, "role": "le socle y écrit le nom de l'étude, lisible depuis son +Z"},
+	"Plaque": {"requis": false, "role": "le socle y écrit le nom du notaire (la plaque du bureau), lisible depuis son +Z"},
+	"Plan": {"requis": false, "role": "le centre d'un papier de 3,2 × 1,45 m tourné vers son +Z : le socle y dessine le premier quartier du registre"},
+}
+
+## Le nombre de tables qu'un décor de salle de jeu peut offrir (Table1 à Table9).
+const TABLES_MAX := 9
+
 ## Les contrats par genre de brique, et l'ancre qui doit être à l'origine du décor.
-const CONTRATS := {"stade": STADE, "salle": SALLE}
+const CONTRATS := {"stade": STADE, "salle": SALLE, "salle_jeu": SALLE_JEU, "etude": ETUDE}
 const ORIGINES := {"stade": "Pelouse", "salle": "Parquet"}
 
 ## La tolérance sur la place de la pelouse (en unités du jeu, et en radians).
 const ECART := 0.05
+
+
+## Les ancres de table d'un décor de salle de jeu, dans l'ordre (Table1, Table2…), jusqu'à la première absente.
+static func tables(racine: Node) -> Array:
+	var out := []
+	for i in range(1, TABLES_MAX + 1):
+		var t := trouver(racine, "Table%d" % i)
+		if t == null:
+			break
+		out.append(t)
+	return out
 
 
 ## Une ancre du décor, cherchée par son nom sous la racine, ou null.
@@ -73,10 +112,12 @@ static func verifier_salle(racine: Node) -> PackedStringArray:
 	return verifier_genre(racine, "salle")
 
 
-## Les fautes d'un décor au regard du contrat de son genre (« stade », « salle ») : les ancres requises, et
-## celle du terrain à l'origine du décor, sans rotation.
+## Les fautes d'un décor au regard du contrat de son genre (« stade », « salle », « salle_jeu », « etude ») :
+## les ancres requises, et pour le stade et la salle, celle du terrain à l'origine du décor, sans rotation.
 static func verifier_genre(racine: Node, genre: String) -> PackedStringArray:
 	var erreurs := verifier(racine, CONTRATS[genre])
+	if not ORIGINES.has(genre):
+		return erreurs
 	var nom: String = ORIGINES[genre]
 	var p := trouver(racine, nom)
 	if p != null and racine is Node3D:

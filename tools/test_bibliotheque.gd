@@ -11,6 +11,9 @@ extends SceneTree
 var fails := 0
 
 
+const Notaire := preload("res://scripts/socle/notaire.gd")
+
+
 func check(ok: bool, what: String) -> void:
 	print(("ok      " if ok else "ÉCHEC   ") + what)
 	if not ok:
@@ -153,11 +156,31 @@ func _init() -> void:
 		"les options passent au façadier, et deux graines font deux maisons")
 	bancs.queue_free()
 
-	# Tous les décors : chacun se bâtit seul, sur un sol plat, ne nomme rien hors de son dossier et du socle, et
-	# garde sa notice quand sa licence la demande.
+	# Les intérieurs (socle 1.22) : chaque salle de jeu et chaque étude tient le contrat de son genre.
+	check("bar-des-sports@1" in Bibliotheque.references("salle_jeu") and "etude-de-notaire@1" in Bibliotheque.references("etude"),
+		"la bibliothèque a le bar des sports et l'étude de notaire")
+	for genre in ["salle_jeu", "etude"]:
+		for ref in Bibliotheque.references(genre):
+			var n: Node3D = load(Bibliotheque.scene(ref, genre)).instantiate()
+			root.add_child(n)
+			check(Ancres.verifier_genre(n, genre).is_empty(), "%s tient le contrat %s %s" % [ref, "de la salle de jeu" if genre == "salle_jeu" else "de l'étude", str(Ancres.verifier_genre(n, genre))])
+			if genre == "salle_jeu":
+				check(Ancres.tables(n).size() >= 1, "%s offre %d places de table" % [ref, Ancres.tables(n).size()])
+			n.queue_free()
+	var bar: Node3D = load(Bibliotheque.scene("bar-des-sports@1", "salle_jeu")).instantiate()
+	root.add_child(bar)
+	check(Ancres.tables(bar).size() == 4, "le bar des sports a quatre places de table")
+	bar.queue_free()
+	var vide_jeu := Node3D.new()
+	check(Ancres.verifier_genre(vide_jeu, "salle_jeu").size() == 4 and Ancres.verifier_genre(vide_jeu, "etude").size() == 3,
+		"un intérieur sans ancres : quatre ancres manquent à la salle de jeu, trois à l'étude")
+	vide_jeu.free()
+
+	# Tous les décors, et les intérieurs : chacun se bâtit seul, sur un sol plat, ne nomme rien hors de son dossier
+	# et du socle, et garde sa notice quand sa licence la demande.
 	var decors := Bibliotheque.references("decor")
 	check(decors.has("donjon-en-ruine@1") and decors.has("eglise-romane@1"), "la bibliothèque a le donjon en ruine et l'église romane %s" % str(decors))
-	for ref in decors:
+	for ref in decors + Bibliotheque.references("salle_jeu") + Bibliotheque.references("etude"):
 		var b: Dictionary = Bibliotheque.brique(ref)
 		var dossier := str(b.scene).get_base_dir() + "/"
 		var hors := []
@@ -170,10 +193,18 @@ func _init() -> void:
 		var d: Node3D = load(b.scene).instantiate()
 		root.add_child(d)
 		var boite := AABB()
-		var maillages := d.find_children("*", "MeshInstance3D", true, false)
+		# Les intérieurs regroupent leur géométrie en multimaillages.
+		var maillages := d.find_children("*", "MeshInstance3D", true, false) + d.find_children("*", "MultiMeshInstance3D", true, false)
 		for mi in maillages:
 			boite = boite.merge(mi.global_transform * mi.get_aabb()) if boite.has_volume() else mi.global_transform * mi.get_aabb()
 		var corps := d.find_children("*", "StaticBody3D", true, false)
+		if not ref in decors:
+			# Sans rendu, un multimaillage n'a pas de boîte : celle d'un intérieur est celle de ses collisions.
+			boite = AABB()
+			for cs in d.find_children("*", "CollisionShape3D", true, false):
+				if cs.shape is BoxShape3D:
+					var bb := AABB(-cs.shape.size / 2.0, cs.shape.size)
+					boite = boite.merge(cs.global_transform * bb) if boite.has_volume() else cs.global_transform * bb
 		check(hors.is_empty() and notice and not maillages.is_empty() and not corps.is_empty() and boite.position.y > -4.0 and boite.position.y < 0.0,
 			"%s se bâtit seul (%d maillages, %d corps, boîte %s), sans fichier hors de son dossier %s" % [ref, maillages.size(), corps.size(), str(boite.size), str(hors)])
 		if ref == "donjon-en-ruine@1":
@@ -248,6 +279,15 @@ func _init() -> void:
 	var deux := ok.duplicate()
 	deux.scene = "res://communes/essai/stade.tscn"
 	check(Structures.verifier([deux]).size() == 1, "« scene » et « modele » ensemble sont refusés")
+	var jeu := {"type": "salle_jeu", "id": "bar", "nom": "Le bar", "jeux": ["poker"], "modele": "bar-des-sports@1"}
+	check(Structures.verifier([jeu]).is_empty(), "« modele » d'une salle de jeu : une brique de la bibliothèque (socle 1.22)")
+	var jeu_stade := jeu.duplicate()
+	jeu_stade.modele = "stade-de-campagne@1"
+	check(" ".join(Structures.verifier([jeu_stade])).contains("n'est pas une salle de jeu"), "un stade n'est pas une salle de jeu")
+	check(Notaire.verifier({"nom": "Maître X", "modele": "etude-de-notaire@1"}).is_empty() and Notaire.verifier({"modele": "res://communes/x/etude.tscn"}).is_empty(),
+		"« notaire.modele » : une étude de la bibliothèque, ou une scène de la commune")
+	check(" ".join(Notaire.verifier({"modele": "bar-des-sports@1"})).contains("n'est pas une étude") and Notaire.verifier({"modele": "etude.tscn"}).size() == 1
+		and Notaire.verifier({"modele": 3}).size() == 1, "un bar, un chemin hors de la commune ou un nombre ne font pas une étude")
 	var gym := {"type": "gymnase", "id": "gymnase", "nom": "La salle", "club": "Le club", "modele": "salle-de-quartier@1"}
 	check(Structures.verifier([gym]).is_empty(), "le gymnase : « modele » nomme une salle de la bibliothèque")
 	var gym_stade := gym.duplicate()
