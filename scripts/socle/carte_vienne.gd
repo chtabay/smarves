@@ -9,7 +9,7 @@ extends Control
 ## (France, communes/france.json) : la Vienne en or, l'épingle sur la commune où l'on est, les régions
 ## cernées d'un trait franc et nommées, quelques grandes villes pour se repérer ; dézoomer encore sur le
 ## département entier y mène (recul). La carte montre de même, commune par commune, tout département
-## dont le jeu connaît les communes (Departements : ceux de la Nouvelle-Aquitaine).
+## dont le jeu connaît les communes (Departements : ceux de la Nouvelle-Aquitaine et de l'Auvergne-Rhône-Alpes).
 
 ## Le joueur survole une commune (« » : plus aucune).
 signal survol(insee: String)
@@ -386,6 +386,9 @@ func _draw() -> void:
 				draw_dashed_line(depart, _formes[_par_insee[i]][2], Color(OR, 0.75), 2.0 * fin, 7.0 * fin, true, true)
 		if trajet != "" and trajet != ici and _par_insee.has(trajet) and not lignes.has(trajet):
 			draw_dashed_line(depart, _formes[_par_insee[trajet]][2], Color(1, 1, 1, 0.8), 2.0 * fin, 5.0 * fin, true, true)
+	elif niveau == "departement" and trajet != "" and _par_insee.has(trajet) and _par_insee.has(_gare()) and trajet != _gare():
+		# Venu d'un autre département, on arrive à la gare du chef-lieu : le trajet part d'elle.
+		draw_dashed_line(_formes[_par_insee[_gare()]][2], _formes[_par_insee[trajet]][2], Color(1, 1, 1, 0.8), 2.0 * fin, 5.0 * fin, true, true)
 	if niveau == "france":
 		for r in _regions:
 			for pts in r[1]:
@@ -517,6 +520,11 @@ func _france() -> void:
 	_epingle(at)
 
 
+## La gare du département montré : son chef-lieu (Departements.chef_lieu).
+func _gare() -> String:
+	return Departements.chef_lieu(departement)
+
+
 ## Poitiers dans la brume : des nappes pâles qui dérivent lentement et débordent un peu.
 func _brume() -> void:
 	if not _par_insee.has(POITIERS_INSEE):
@@ -555,6 +563,18 @@ func _noms() -> void:
 	if ici != "" and _par_insee.has(ici):
 		poses.append(Rect2(vers_ecran(_formes[_par_insee[ici]][2]) - Vector2(8, 34), Vector2(16, 34)))
 	var t15 := 15 if not interactive else 17
+	# La gare du département, son chef-lieu : un carré, et son nom toujours (hors de la Vienne, où
+	# Poitiers reste dans la brume).
+	var g := _gare()
+	if niveau == "departement" and departement != France.VIENNE and _par_insee.has(g) and not _marquee(g):
+		var f: Array = _formes[_par_insee[g]]
+		var at := vers_ecran(f[2])
+		var w := police.get_string_size(f[3], HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x
+		draw_rect(Rect2(at - Vector2(5, 5), Vector2(10, 10)), Color(0.08, 0.1, 0.14))
+		draw_rect(Rect2(at - Vector2(5, 5), Vector2(10, 10)), OR, false, 2.0)
+		draw_string_outline(police, at + Vector2(10, 5), f[3], HORIZONTAL_ALIGNMENT_LEFT, -1, 15, 5, Color(0, 0, 0, 0.8))
+		draw_string(police, at + Vector2(10, 5), f[3], HORIZONTAL_ALIGNMENT_LEFT, -1, 15, OR)
+		poses.append(Rect2(at - Vector2(6, 11), Vector2(w + 18, 18)))
 	for f in vus:
 		var at := vers_ecran(f[2])
 		var t: String = f[3]

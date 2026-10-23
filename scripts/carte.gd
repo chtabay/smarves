@@ -9,7 +9,7 @@ extends CanvasLayer
 ## de Poitiers donne leurs vols, et l'on y part en avion (voler). Dézoomer encore sur le département
 ## entier montre la France (vers_france) : les régions cernées, la Vienne en or, l'épingle sur la
 ## commune où l'on est. On y désigne une région, puis on la regarde (vers_region) pour désigner ses
-## départements ; zoomer sur un département que le jeu connaît (la Nouvelle-Aquitaine), ou « Voir ses
+## départements ; zoomer sur un département que le jeu connaît (la Nouvelle-Aquitaine, l'Auvergne-Rhône-Alpes), ou « Voir ses
 ## communes », y redescend (vers_departement). En haut à gauche, le fil d'Ariane (France › région ›
 ## département) dit où l'on regarde et y remonte d'un clic, et « Où aller » liste les villes ouvertes ou
 ## à installer, les plus proches d'abord ; la fiche d'une ville dit ce qu'on y trouve et le trajet.
@@ -269,21 +269,71 @@ func _depart() -> String:
 	return _ici() if not _loin() else CarteVienne.POITIERS_INSEE
 
 
-## Le trajet d'ici à une commune : [kilomètres par la route, mot du trajet]. La route fait environ
-## 1,3 fois la distance à vol d'oiseau ; le car départemental roule à 45 km/h et s'arrête cinq
-## minutes, le car régional à 60 km/h ; au-delà de la région, on prend l'avion à Poitiers-Biard.
-func trajet(insee: String) -> Array:
-	var de := _depart()
-	if insee == de or Departements.commune(insee).is_empty():
-		return [0, ""]
-	var km := int(round(France.distance_km(Departements.centre(de), Departements.centre(insee)) * 1.3))
-	var dep := Departements.de(insee)
-	if dep == France.VIENNE and Departements.de(de) == France.VIENNE:
-		return [km, "%d km  ·  %d min en car départemental" % [km, 5 + int(round(km / 45.0 * 60.0))]]
-	if France.region_de(dep) == France.REGION:
-		var mn := 10 + int(round(km / 60.0 * 60.0))
-		return [km, "%d km  ·  %s en car régional" % [km, ("%d h %02d" % [mn / 60, mn % 60]) if mn >= 60 else "%d min" % mn]]
-	return [km, "%d km  ·  en avion depuis Poitiers-Biard" % km]
+## Le trajet d'ici à une commune : [kilomètres, mot du trajet, étapes]. Dans un département, le car
+## départemental va de commune en commune (45 km/h, cinq minutes d'arrêt). D'un département à l'autre,
+## on passe par les chefs-lieux, les gares des départements : le car départemental jusqu'au sien, le car
+## régional (60 km/h, dix minutes) vers un chef-lieu de la même région ou l'avion (600 km/h, trois
+## quarts d'heure d'embarquement) vers celui d'une autre région, puis le car départemental jusqu'au
+## bout ; le retour fait le même chemin. La route fait environ 1,3 fois la distance à vol d'oiseau.
+## Chaque étape : [mode, code INSEE de départ, code INSEE d'arrivée, kilomètres, minutes]. On part
+## d'ici, ou de la commune « de ».
+func trajet(insee: String, de := "") -> Array:
+	if de == "":
+		de = _depart()
+	if insee == de or Departements.commune(insee).is_empty() or Departements.commune(de).is_empty():
+		return [0, "", []]
+	var etapes := []
+	var da := Departements.de(de)
+	var db := Departements.de(insee)
+	if da == db:
+		etapes.append(_etape("car départemental", de, insee))
+	else:
+		var ga := Departements.chef_lieu(da)
+		var gb := Departements.chef_lieu(db)
+		if Departements.commune(ga).is_empty() or Departements.commune(gb).is_empty():
+			ga = de
+			gb = insee
+		if de != ga:
+			etapes.append(_etape("car départemental", de, ga))
+		etapes.append(_etape("car régional" if France.region_de(da) == France.region_de(db) else "avion", ga, gb))
+		if insee != gb:
+			etapes.append(_etape("car départemental", gb, insee))
+	var km := 0
+	var mn := 0
+	for e in etapes:
+		km += e[3]
+		mn += e[4]
+	var duree := ("%d h %02d" % [mn / 60, mn % 60]) if mn >= 60 else "%d min" % mn
+	if etapes.size() == 1 and etapes[0][0] != "avion":
+		return [km, "%d km  ·  %s en %s" % [km, duree, etapes[0][0]], etapes]
+	var mots := []
+	for e in etapes:
+		mots.append(("avion de %s à %s" % [_gare(e[1]), _gare(e[2])]) if e[0] == "avion" else "%s jusqu'à %s" % [e[0], str(Departements.commune(e[2]).nom)])
+	return [km, "%d km  ·  %s  ·  %s" % [km, duree, ", puis ".join(mots)], etapes]
+
+
+func _etape(mode: String, a: String, b: String) -> Array:
+	var vol := France.distance_km(Departements.centre(a), Departements.centre(b))
+	if mode == "avion":
+		return [mode, a, b, int(round(vol)), 45 + int(round(vol / 600.0 * 60.0))]
+	var km := int(round(vol * 1.3))
+	var vitesse := 45.0 if mode == "car départemental" else 60.0
+	return [mode, a, b, km, (5 if mode == "car départemental" else 10) + int(round(km / vitesse * 60.0))]
+
+
+## Le nom d'une gare : la commune, ou son aéroport quand il a un nom (Poitiers-Biard).
+func _gare(insee: String) -> String:
+	return "Poitiers-Biard" if insee == CarteVienne.POITIERS_INSEE else str(Departements.commune(insee).get("nom", ""))
+
+
+## Comment on va d'ici dans un département : le car régional ou l'avion, depuis le chef-lieu d'ici.
+func _moyen(code: String) -> String:
+	var da := Departements.de(_depart())
+	var gare := _gare(Departements.chef_lieu(da))
+	if France.region_de(code) == France.region_de(da):
+		return "le car régional y va depuis %s" % gare
+	return "en avion depuis %s" % gare
+
 
 ## Le joueur est-il dans une destination lointaine (hors de la Vienne) ?
 func _loin() -> bool:
@@ -342,6 +392,8 @@ func vers_region(code: String) -> void:
 	_carte.aller_a(cadre[0], cadre[1], 0.9)
 	_remplir_legende()
 	_rafraichir(false)
+	for c in _fiche_box.get_children():
+		c.queue_free()
 	_montrer_region(code)
 
 
@@ -376,8 +428,8 @@ func villes_de(code: String) -> Array:
 	return _allumees().filter(func(i): return Departements.de(i) == code)
 
 
-## La fiche d'un département : la Vienne, un département de la région (le car régional y va), ou un
-## département plus loin, qu'on rejoindra en avion depuis Poitiers-Biard.
+## La fiche d'un département : la Vienne, un département de la même région (le car régional y va de
+## chef-lieu à chef-lieu), ou un département plus loin, où l'on va en avion (trajet).
 func _montrer_departement(code: String) -> void:
 	var d := France.departement(code)
 	var depart := _depart()
@@ -395,7 +447,7 @@ func _montrer_departement(code: String) -> void:
 	var villes := villes_de(code)
 	if code == France.VIENNE:
 		_fiche_box.add_child(_mot("Votre département  ·  %s  ·  %s  ·  %s" % [code, _villes_mot(villes.size()), str(region.get("nom", ""))], 15, DOUX, null, true))
-		_fiche_box.add_child(_mot("Smarves, au sud de Poitiers, sur le Clain : c'est d'ici que tout part. Les villes de la Vienne s'y allument une à une, à mesure qu'on les construit.", 16, TEXTE, null, true))
+		_fiche_box.add_child(_mot("Smarves, au sud de Poitiers, sur le Clain : c'est d'ici que tout part. Les villes de la Vienne s'y allument une à une, à mesure qu'on les construit.\n\nPoitiers, son chef-lieu, est sa gare : le car régional en part vers la région, l'avion de Poitiers-Biard vers plus loin.", 16, TEXTE, null, true))
 		if _carte.niveau == "france":
 			actions.add_child(_bouton("Voir la Vienne  →", OR, Color(0.08, 0.06, 0.03), Color(0, 0, 0, 0), vers_departement.bind(code), 16))
 	else:
@@ -404,11 +456,14 @@ func _montrer_departement(code: String) -> void:
 			Game.fmt(int(round(km / 10.0) * 10)).replace(" ", "\u00a0"), str(ici.get("nom", "Smarves"))], 15, DOUX, null, true))
 		var texte := ""
 		if not villes.is_empty():
-			texte = "%s, %s." % [_villes_mot(villes.size()), "le car régional y va depuis l'arrêt de la place" if region.get("code", "") == France.REGION else "en avion depuis Poitiers-Biard"]
+			texte = "%s, %s." % [_villes_mot(villes.size()), _moyen(code)]
 		elif Departements.connu(code):
-			texte = "Votre région : le car régional y ira depuis l'arrêt de la place. Ses %d communes attendent qu'on les construise%s ; la première s'allumera ici." % [Departements.communes(code).size(), (", de %s au moindre village" % chef) if chef != "" else ""]
+			texte = "%s ; ses %d communes attendent qu'on les construise%s, la première s'allumera ici." % [_moyen(code).left(1).to_upper() + _moyen(code).substr(1),
+				Departements.communes(code).size(), (", de %s au moindre village" % chef) if chef != "" else ""]
 		else:
-			texte = "Pas encore dans le jeu. Les villes se construisent d'abord dans la Vienne et sa région ; d'ici, on y ira en avion depuis Poitiers-Biard."
+			texte = "Pas encore dans le jeu : ses communes ne sont pas encore sur la carte. Le jour venu, %s." % _moyen(code)
+		if chef != "" and Departements.connu(code):
+			texte += "\n\n%s, son chef-lieu, est sa gare : le car régional et l'avion en partent vers les autres départements, et l'on y revient pour rentrer." % chef
 		_fiche_box.add_child(_mot(texte, 16, TEXTE, null, true))
 		if Departements.connu(code) and _carte.niveau == "france":
 			actions.add_child(_bouton("Voir ses communes  →", EAU, Color(0.04, 0.1, 0.1), Color(0, 0, 0, 0), vers_departement.bind(code), 16))
@@ -436,7 +491,8 @@ func _montrer_region(code: String) -> void:
 		villes += villes_de(str(d)).size()
 	_fiche_box.add_child(_mot("Région  ·  %d départements  ·  %s" % [deps.size(), _villes_mot(villes)], 15, DOUX, null, true))
 	_fiche_box.add_child(_mot(("La Vienne et ses voisines : le car départemental dessert la Vienne, le car régional les %d autres départements." % (deps.size() - 1)) if code == France.REGION
-		else "Pas encore dans le jeu. On y ira en avion depuis Poitiers-Biard, le jour où ses villes seront construites.", 16, TEXTE, null, true))
+		else ("Ses départements sont sur la carte, commune par commune : %s, jusqu'au chef-lieu de chacun." % _moyen(str(deps[0]))) if deps.any(func(d): return Departements.connu(str(d)))
+		else "Pas encore dans le jeu. Le jour où ses villes seront construites, %s." % _moyen(str(deps[0])), 16, TEXTE, null, true))
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 10)
 	actions.add_child(_bouton("Voir la région  →", EAU if code == France.REGION else Color(0, 0, 0, 0), Color(0.04, 0.1, 0.1) if code == France.REGION else EAU,
@@ -752,7 +808,7 @@ func _rafraichir(garder := true) -> void:
 		var n := 1 + _carte.actifs.size()
 		_compte.text = ("%d département%s dans le jeu sur %d" % [n, "s" if n > 1 else "", France.departements().size()]) + (" : la Vienne" if n == 1 else "")
 		if not region.is_empty():
-			_compte.text = "%d départements  ·  %s" % [region.departements.size(), "le car régional y va" if region.code == France.REGION else "en avion depuis Poitiers-Biard"]
+			_compte.text = "%d départements  ·  %s" % [region.departements.size(), _moyen(str(region.departements[0]))]
 	else:
 		var ouvertes := villes_de(_carte.departement)
 		var a_telecharger := Communes.publiees().filter(func(e): return Communes.commune(e.id) == null and Departements.de(str(e.insee)) == _carte.departement).size()
@@ -880,7 +936,8 @@ func _remplir_ou_aller() -> void:
 ## Désigne une ville de la liste : la carte s'en approche, sa fiche s'ouvre, le trajet se dessine.
 func _designer(insee: String) -> void:
 	_carte.choix.emit(insee)
-	_carte.aller_a((_carte.centre_de(_depart()) + _carte.centre_de(insee)) / 2.0 if Departements.de(_depart()) == _carte.departement and insee != _depart() else _carte.centre_de(insee), 3.0, 0.7)
+	var de := _depart() if Departements.de(_depart()) == _carte.departement else Departements.chef_lieu(_carte.departement)
+	_carte.aller_a((_carte.centre_de(de) + _carte.centre_de(insee)) / 2.0 if insee != de and Departements.de(de) == _carte.departement else _carte.centre_de(insee), 3.0, 0.7)
 
 
 ## Les destinations lointaines partent de Poitiers-Biard : on redescend dans la Vienne, sur sa fiche.
@@ -955,7 +1012,7 @@ func _montrer(insee: String, alerte := "") -> void:
 			texte += ("\n\n" if texte != "" else "") + Communes.resume(id)
 	else:
 		etat = "Pas encore développée"
-		texte = ("La route continue jusqu'à %s, mais la ville n'est pas encore construite. " % v.nom if _mode == "route" else "Les développeurs construisent les villes de la Vienne et de sa région sur le portail. ") \
+		texte = ("La route continue jusqu'à %s, mais la ville n'est pas encore construite. " % v.nom if _mode == "route" else "Les développeurs construisent les villes sur le portail. ") \
 			+ "Elle s'allumera ici le jour où elle sera publiée."
 	_fiche_box.add_child(_mot(etat + ("  ·  %s\u00a0habitants" % Game.fmt(pop).replace(" ", "\u00a0") if pop > 0 and insee != CarteVienne.POITIERS_INSEE else ""), 15, DOUX, null, true))
 	if _mode == "car" and not ici and insee != CarteVienne.POITIERS_INSEE:
