@@ -26,7 +26,7 @@ godot --path .
 
 - **La place de la Mairie** : la machine à sous du Café de la Place, les paris sur la pétanque, la roulette de la boulangerie, le loto de la salle Rabelais, la roue de la kermesse, le Crédit Smarvois.
 - **Les environs** : la course des trois zèbres de béton au bois de Saint-Pierre, le blackjack du Moulin des Dames, le poker clandestin des rochers de Passelourdin.
-- **Le Casino de Smarves**, sur le plan d'Addict : hall d'honneur, bar Le Nocturne, salle des jeux (17 machines, roulette, blackjack, craps), Salle des Ambassadeurs (poker), salon privé (baccara), et à l'étage la Galerie de la Verrière, le Bar du Fumoir, le restaurant Le Lustre, la Loggia (Grand Hasard), le Salon de musique (la Boule), la Salle des fêtes (Roue de la fortune) et les Salons particuliers (Banco).
+- **Le Casino de Smarves**, sur le plan d'Addict : hall d'honneur, bar Le Nocturne, salle des jeux (17 machines, roulette, blackjack, craps, et la table de poker du Miosson, ouverte à tous à 5/10), Salle des Ambassadeurs (poker), salon privé (baccara), et à l'étage la Galerie de la Verrière, le Bar du Fumoir, le restaurant Le Lustre, la Loggia (Grand Hasard), le Salon de musique (la Boule), la Salle des fêtes (Roue de la fortune) et les Salons particuliers (Banco).
 
 Les lieux et les salles s'ouvrent par seuils, sur le total gagné au jeu (la Salle des fêtes sur le total misé). La partie est sauvegardée automatiquement.
 

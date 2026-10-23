@@ -1,6 +1,6 @@
 extends PanelContainer
 ## Le poker des Ambassadeurs, d'après Addict : Texas Hold'em sans limite, blindes 25/50, six places,
-## 2 000 au plus engagés par donne pour le joueur, la maison prend 5 % du pot après le flop (100 au plus).
+## 2 000 au plus engagés par donne pour chacun, la maison prend 5 % du pot après le flop (100 au plus).
 ## Une commune peut donner d'autres tarifs à sa table (socle 1.7) : configurer_blindes(), avant que le
 ## panneau entre dans la scène ; il faut au moins la grosse blinde pour s'asseoir.
 ## Les habitués ont chacun leur manière : le Commandant serré et agressif, Mme Duval paie pour voir,
@@ -357,6 +357,7 @@ func _new_hand() -> void:
 		s.bet = 0
 		s.folded = false
 		s.acted = false
+		s.engage = 0
 		if s.ai and s.stack < 1000:
 			s.stack = 5000  # un habitué n'arrive jamais à court : il « réinvestit »
 	_post((dealer + 1) % seats.size(), SB)
@@ -379,8 +380,10 @@ func _post(i: int, amount: int) -> int:
 			pay = 0
 		player_in += pay
 	else:
-		pay = mini(amount, s.stack)
+		# Un habitué non plus ne met jamais plus que le plafond dans une donne (comme au serveur).
+		pay = mini(amount, mini(s.stack, CAP - int(s.get("engage", 0))))
 		s.stack -= pay
+		s.engage = int(s.get("engage", 0)) + pay
 	s.bet += pay
 	pot += pay
 	return pay
@@ -432,7 +435,7 @@ func _betting_round(start: int) -> void:
 func _all_in(i: int) -> bool:
 	var s: Dictionary = seats[i]
 	if s.ai:
-		return s.stack <= 0
+		return s.stack <= 0 or int(s.get("engage", 0)) >= CAP
 	return player_in >= CAP or Game.credits <= 0
 
 
@@ -447,7 +450,7 @@ func _ai_act(i: int) -> void:
 		_log.text = "%s se couche." % s.name
 		return
 	if strength > need + 0.15 and randf() < s.aggr:
-		var target: int = current_bet + maxi(BB, int(pot * (0.5 + s.aggr * 0.5) / 25.0) * 25)
+		var target: int = current_bet + maxi(BB, int(pot * (0.5 + s.aggr * 0.5) / float(SB)) * SB)
 		var pay := _post(i, target - s.bet)
 		if s.bet > current_bet:
 			current_bet = s.bet
