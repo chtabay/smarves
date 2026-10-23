@@ -174,3 +174,14 @@ static func appliquer(effectif: Dictionary, liste: Array) -> void:
 			var p: Dictionary = effectif[id]
 			p.moral = clampi(int(p.get("moral", 70)) + int(e.moral), 0, 100)
 			p.condition = clampi(int(p.get("condition", 100)) + int(e.condition), 0, 100)
+
+
+## La tactique d'une journée est posée : une consigne existe, et elle dit autre chose que la consigne par
+## défaut (trancher la décision de la semaine enregistre la consigne telle qu'elle est, sans la poser).
+static func tactique_posee(f: Node, club: String, s: int, j: int) -> bool:
+	var c: Dictionary = f.consigne_de(s, j, club)
+	if str(c.etat) == "aucune":
+		return false
+	var x: Dictionary = (c.consigne as Dictionary).duplicate()
+	x.erase("dilemme")
+	return x != f.consigne({})
