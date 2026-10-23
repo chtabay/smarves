@@ -66,7 +66,7 @@ def main():
         formes[code] = forme.buffer(0)
         centre, contour = forme_et_centre(forme.simplify(TOLERANCE, preserve_topology=True))
         out.append({"code": code, "nom": f["properties"]["nom"], "region": region_de[code],
-            "chef_lieu": noms_communes.get(deps[code]["chefLieu"], ""), "centre": centre, "contour": contour})
+            "chef_lieu": noms_communes.get(deps[code]["chefLieu"], ""), "chef_lieu_insee": deps[code]["chefLieu"], "centre": centre, "contour": contour})
     regions = []
     for r in sorted(set(region_de[d["code"]] for d in out)):
         deps = [d["code"] for d in out if d["region"] == r]

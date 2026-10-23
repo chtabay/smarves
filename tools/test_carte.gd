@@ -125,9 +125,22 @@ func _france(carte: CanvasLayer) -> void:
 	c.choix.emit("33063")
 	await _attendre(0.1)
 	textes = _textes(carte.get("_fiche_box"))
-	check(textes.any(func(t): return "en car régional" in t), "Bordeaux est au bout du car régional : %s" % str(textes))
+	check(textes.any(func(t): return "car régional jusqu'à Bordeaux" in t), "Bordeaux est au bout du car régional : %s" % str(textes))
 	check(carte.trajet("86133")[1].ends_with("en car départemental") and carte.trajet("86133")[0] < 15, "Ligugé, à quelques kilomètres en car départemental : %s" % str(carte.trajet("86133")))
-	check(carte.trajet("19272")[1].ends_with("en car régional"), "Tulle, en car régional")
+	var modes := func(t: Array) -> Array: return t[2].map(func(e): return [e[0], e[2]])
+	check(modes.call(carte.trajet("19272")) == [["car départemental", "86194"], ["car régional", "19272"]],
+		"Tulle : le car jusqu'à Poitiers, puis le car régional jusqu'à Tulle, son chef-lieu : %s" % str(carte.trajet("19272")))
+	check(modes.call(carte.trajet("33243")) == [["car départemental", "86194"], ["car régional", "33063"], ["car départemental", "33243"]],
+		"Libourne : par les chefs-lieux, Poitiers puis Bordeaux : %s" % str(carte.trajet("33243")))
+	check(modes.call(carte.trajet("86263", "33243")) == [["car départemental", "33063"], ["car régional", "86194"], ["car départemental", "86263"]],
+		"et le retour fait le même chemin : %s" % str(carte.trajet("86263", "33243")))
+	check(modes.call(carte.trajet("69266")) == [["car départemental", "86194"], ["avion", "69123"], ["car départemental", "69266"]]
+		and "avion de Poitiers-Biard à Lyon" in carte.trajet("69266")[1], "Villeurbanne : l'avion de Poitiers-Biard à Lyon, puis le car : %s" % str(carte.trajet("69266")))
+	check(modes.call(carte.trajet("15014", "69266")) == [["car départemental", "69123"], ["car régional", "15014"]],
+		"de Villeurbanne à Aurillac, le car régional d'Auvergne-Rhône-Alpes part de Lyon : %s" % str(carte.trajet("15014", "69266")))
+	var gares := Departements.connus().filter(func(d): return Departements.commune(Departements.chef_lieu(d)).is_empty())
+	check(gares.is_empty(), "chaque département connu a sa gare, son chef-lieu, dans ses communes : %s" % str(gares))
+	check(France.region("84").departements.all(func(d): return Departements.connu(str(d))), "l'Auvergne-Rhône-Alpes est sur la carte, commune par commune")
 	carte.vers_france()
 	await _attendre(1.3)
 	carte.vers_departement("86")
