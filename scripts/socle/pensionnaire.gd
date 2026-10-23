@@ -1,31 +1,32 @@
 extends Node
-## La doublure du joueur (autoload « Doublure », docs/DOUBLURES.md) : un habitant tenu par le modèle de
-## langage du joueur, qui se réveille quelques fois par semaine au village. Ici, la fiche « Ma doublure »
-## que le carnet déplie (onglet « Mon compte ») : l'inscrire avec sa clé, la régler, poser son humeur, lire
-## son carnet et son journal ; et le signal de session, une fois par lancement, quand la partie est au
-## compte. Tout passe par la fonction `doublures` (dépôt chtabay/addict) : le jeu ne garde ni la clé ni
-## l'humeur. Sans compte, ou tant que la fonction n'est pas en ligne, la fiche le dit et rien d'autre ne
-## change.
+## Le pensionnaire (autoload « Pensionnaire », docs/PENSIONNAIRES.md) : un habitant à part entière que le
+## joueur crée depuis son compte, tenu par son propre modèle de langage. En jeu, ils ne se connaissent pas.
+## Le pensionnaire se réveille aux événements du jeu (le tournoi du mercredi, le poker du vendredi, le loto
+## du samedi, le match du dimanche), jamais à la demande de son créateur. Ici, la fiche « Mon pensionnaire »
+## que le carnet déplie (onglet « Mon compte ») : le créer avec sa clé, le régler, poser son humeur, lire son
+## carnet et son journal. Tout passe par la fonction `doublures` (dépôt chtabay/addict, nom du premier lot) :
+## le jeu ne garde ni la clé ni l'humeur. Sans compte, ou tant que la fonction n'est pas en ligne, la fiche le
+## dit et rien d'autre ne change.
 
 ## La fiche a changé (lecture, réponse, erreur) : le carnet se redessine.
 signal change
 
-const SERVEUR := "https://alvxrjftenialifyktyz.supabase.co/functions/v1/doublures"
-const NOMS_HUMEURS := {"fatiguee": "fatiguée", "euphorique": "euphorique", "morose": "morose", "agacee": "agacée",
-	"sereine": "sereine", "pressee": "pressée"}
+## Les événements qui le réveillent, pour lire son journal.
+const EVENEMENTS := {"tournoi": "tournoi du mercredi", "poker": "poker du vendredi", "loto": "loto du samedi", "match": "match du dimanche"}
+const NOMS_HUMEURS := {"fatiguee": "fatigué", "euphorique": "euphorique", "morose": "morose", "agacee": "agacé",
+	"sereine": "serein", "pressee": "pressé"}
 const NOMS_RAISONS := {"pari": "pari inconnu", "mise": "mise hors limites", "solde": "solde trop bas", "coups": "trop de coups",
 	"texte": "texte refusé", "jour": "déjà une annonce aujourd'hui", "porte": "porte inconnue", "heure": "trop de mots cette heure",
 	"soi": "à sa propre porte", "type": "geste inconnu", "trop": "trop d'actions", "forme": "illisible"}
 
 ## « » rien lu, « lecture », « ok », « absente » (la fonction n'est pas en ligne), « hors_ligne ».
 var etat := ""
-## La dernière fiche du serveur : {doublure, journal, trente_jours, humeur, personnalites, humeurs, fournisseurs}.
+## La dernière fiche du serveur : {pensionnaire, journal, trente_jours, humeur, personnalites, humeurs, fournisseurs}.
 var fiche := {}
 ## Le mot de la dernière réponse (une erreur, un réveil).
 var message := ""
 ## Le formulaire en cours, gardé ici : le carnet se redessine à chaque réponse.
 var brouillon := {"nom": "", "personnalite": "bon_vivant", "fournisseur": "anthropic", "modele": "", "adresse": "", "cle": "", "reveils": 3}
-var _session_envoyee := false
 var _effacer_arme := false
 var _oublier_aussi := false
 var _occupe := false
@@ -34,18 +35,10 @@ var _essai := false
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	_essai = "--doublure-essai" in " ".join(OS.get_cmdline_user_args())
+	_essai = "--pensionnaire-essai" in " ".join(OS.get_cmdline_user_args())
 	if _essai:
 		_mise_en_scene()
 		return
-	if get_tree().get_script() != null or "--capture" in " ".join(OS.get_cmdline_user_args()):
-		return
-	# La session : une fois par lancement, quand la partie est au compte. La doublure se réveille peut-être,
-	# en arrière-plan ; le jeu n'attend rien.
-	Compte.change.connect(func():
-		if Compte.etat == "a_jour" and not _session_envoyee:
-			_session_envoyee = true
-			_appeler("session", {}, false))
 
 
 ## Relit la fiche (à l'ouverture de la feuille).
@@ -67,7 +60,7 @@ func _appeler(action: String, args: Dictionary, montrer := true) -> void:
 		return
 	if montrer:
 		_occupe = true
-	var r: Dictionary = await Compte.doublures(action, args)
+	var r: Dictionary = await Compte.pensionnaire(action, args)
 	_occupe = false
 	if not montrer:
 		return
@@ -82,29 +75,10 @@ func _appeler(action: String, args: Dictionary, montrer := true) -> void:
 	elif r.corps is Dictionary:
 		etat = "ok"
 		var corps: Dictionary = r.corps
-		if corps.has("fiche"):
-			message = _mot_du_reveil(corps)
-			corps = corps.fiche
-		elif action != "fiche":
+		if action != "fiche":
 			message = ""
 		fiche = corps
 	change.emit()
-
-
-func _mot_du_reveil(r: Dictionary) -> String:
-	if r.get("ok", false):
-		return "Elle s'est réveillée : %d geste%s, %d refusé%s. Voir son journal." % [int(r.actions), "s" if int(r.actions) > 1 else "",
-			int(r.refusees), "s" if int(r.refusees) > 1 else ""]
-	match str(r.get("raison", "")):
-		"semaine":
-			return "Elle a déjà eu tous ses réveils de la semaine."
-		"ecart":
-			return "Elle s'est réveillée il y a moins de six heures."
-		"pause":
-			return "Elle est en pause."
-		"erreur":
-			return "Le réveil a échoué : %s." % str(r.get("erreur", "")).substr(str(r.get("erreur", "")).find(" ") + 1)
-	return "Elle ne s'est pas réveillée."
 
 
 # --- La feuille -------------------------------------------------------------------------------
@@ -113,10 +87,10 @@ func _mot_du_reveil(r: Dictionary) -> String:
 func remplir(carnet: Node, box: VBoxContainer, fermer: Callable) -> void:
 	var tete := HBoxContainer.new()
 	box.add_child(tete)
-	var titre: Label = carnet._text(tete, "Ma doublure", 26, carnet.INK, true)
+	var titre: Label = carnet._text(tete, "Mon pensionnaire", 26, carnet.INK, true)
 	titre.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	carnet._link(tete, "← revenir au carnet", fermer).custom_minimum_size = Vector2(200, 48)
-	carnet._text(box, "Un habitant de plus, tenu par votre propre modèle de langage. Il se réveille quelques fois par semaine, joue, écrit au panneau et laisse des mots. Personne ne le briefe, pas même vous.", 16, carnet.PENCIL)
+	carnet._text(box, "Un habitant de plus, que vous créez et que votre propre modèle de langage fait vivre. Il se réveille aux événements du village (tournoi du mercredi, poker du vendredi, loto du samedi, match du dimanche), joue, écrit au panneau et laisse des mots. Il ne vous connaît pas, et personne ne le briefe, pas même vous.", 16, carnet.PENCIL)
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -140,7 +114,7 @@ func remplir(carnet: Node, box: VBoxContainer, fermer: Callable) -> void:
 		carnet._text(gauche, "Il faut un compte Pyramides : connectez-vous depuis la bienvenue, puis revenez ici.", 18, carnet.INK_LIGHT)
 		return
 	if etat == "absente":
-		carnet._text(gauche, "Les doublures arrivent bientôt au village.", 18, carnet.INK_LIGHT)
+		carnet._text(gauche, "Les pensionnaires arrivent bientôt au village.", 18, carnet.INK_LIGHT)
 		return
 	if etat == "" or (etat == "lecture" and fiche.is_empty()):
 		carnet._text(gauche, "Lecture de la fiche…", 18, carnet.INK_LIGHT)
@@ -151,9 +125,9 @@ func remplir(carnet: Node, box: VBoxContainer, fermer: Callable) -> void:
 	if message != "":
 		carnet._text(gauche, message, 17, carnet.RED_INK)
 		carnet._gap(gauche, 6)
-	var d = fiche.get("doublure")
+	var d = fiche.get("pensionnaire")
 	if d is Dictionary:
-		_fiche_doublure(carnet, gauche, d)
+		_fiche_pensionnaire(carnet, gauche, d)
 	else:
 		_formulaire(carnet, gauche)
 	_humeur(carnet, droite)
@@ -162,9 +136,9 @@ func remplir(carnet: Node, box: VBoxContainer, fermer: Callable) -> void:
 
 
 func _formulaire(carnet: Node, page: VBoxContainer) -> void:
-	carnet._text(page, "Confier une doublure", 20, carnet.INK, true)
+	carnet._text(page, "Créer un pensionnaire", 20, carnet.INK, true)
 	_champ(carnet, page, "Son nom", "nom", "Léonce")
-	carnet._text(page, "Il portera « (doublure) » partout où il paraît.", 14, carnet.PENCIL)
+	carnet._text(page, "Il portera « (pensionnaire) » partout où il paraît ; personne ne saura qu'il vient de vous, et lui non plus.", 14, carnet.PENCIL)
 	carnet._text(page, "Sa personnalité", 17, carnet.INK)
 	var perso := OptionButton.new()
 	var liste: Array = fiche.get("personnalites", [])
@@ -205,18 +179,18 @@ func _formulaire(carnet: Node, page: VBoxContainer) -> void:
 	carnet._text(page, "Chiffrée par le serveur, elle ne ressort jamais : la fiche n'en montrera que les quatre derniers caractères. À chaque réveil, votre modèle lit ce que tout joueur voit au panneau de la mairie (classement, annonces, noms sur les maisons) et les mots laissés à sa porte.", 14, carnet.PENCIL)
 	_reveils(carnet, page, int(brouillon.reveils), func(n):
 		brouillon.reveils = n)
-	carnet._text(page, "Un appel au modèle par réveil, au plus un toutes les six heures : avec un petit modèle, de l'ordre d'un centime par réveil, payé sur votre clé.", 14, carnet.PENCIL)
+	carnet._text(page, "Un appel au modèle par réveil, seulement aux événements du village : avec un petit modèle, de l'ordre d'un centime par réveil, payé sur votre clé.", 14, carnet.PENCIL)
 	carnet._gap(page, 4)
-	var confier: Button = carnet._link(page, "→ confier la doublure", func():
+	var confier: Button = carnet._link(page, "→ créer le pensionnaire", func():
 		await _appeler("inscrire", brouillon.duplicate())
-		if fiche.get("doublure") is Dictionary:
+		if fiche.get("pensionnaire") is Dictionary:
 			brouillon.cle = ""
 			change.emit())
 	confier.custom_minimum_size.y = 44
 	confier.disabled = _occupe
 
 
-func _fiche_doublure(carnet: Node, page: VBoxContainer, d: Dictionary) -> void:
+func _fiche_pensionnaire(carnet: Node, page: VBoxContainer, d: Dictionary) -> void:
 	carnet._text(page, str(d.nom), 22, carnet.INK, true)
 	var perso := str(d.personnalite)
 	for p in fiche.get("personnalites", []):
@@ -235,8 +209,7 @@ func _fiche_doublure(carnet: Node, page: VBoxContainer, d: Dictionary) -> void:
 	carnet._gap(page, 6)
 	_reveils(carnet, page, int(d.reveils_semaine), func(n):
 		_appeler("regler", {"reveils": n}))
-	carnet._link(page, "→ la réveiller maintenant", _appeler.bind("reveiller", {}), d.actif and not _occupe)
-	carnet._link(page, "→ la reprendre" if not d.actif else "→ la mettre en pause", _appeler.bind("regler", {"actif": not d.actif}), not _occupe)
+	carnet._link(page, "→ le reprendre" if not d.actif else "→ le mettre en pause", _appeler.bind("regler", {"actif": not d.actif}), not _occupe)
 	carnet._gap(page, 6)
 	_champ(carnet, page, "Nouvelle clé", "cle", "collez la nouvelle clé", true)
 	var remplacer: Button = carnet._link(page, "→ remplacer la clé", func():
@@ -248,14 +221,14 @@ func _fiche_doublure(carnet: Node, page: VBoxContainer, d: Dictionary) -> void:
 	carnet._link(page, "→ vider son carnet", _appeler.bind("oublier", {}), not _occupe)
 	if _effacer_arme:
 		carnet._text(page, "Tout s'efface : sa clé, son carnet, son journal, ses crédits, ses annonces et ses mots.", 15, carnet.RED_INK)
-		carnet._link(page, "→ oui, effacer la doublure", func():
+		carnet._link(page, "→ oui, effacer le pensionnaire", func():
 			_effacer_arme = false
 			_appeler("effacer", {})).disabled = _occupe
-		carnet._link(page, "→ non, la garder", func():
+		carnet._link(page, "→ non, le garder", func():
 			_effacer_arme = false
 			change.emit())
 	else:
-		carnet._link(page, "→ effacer la doublure", func():
+		carnet._link(page, "→ effacer le pensionnaire", func():
 			_effacer_arme = true
 			change.emit()).disabled = _occupe
 
@@ -264,7 +237,7 @@ func _humeur(carnet: Node, page: VBoxContainer) -> void:
 	carnet._text(page, "Son humeur", 20, carnet.INK, true)
 	var h: Dictionary = fiche.get("humeur", {})
 	var oui := bool(h.get("consentement", false))
-	carnet._text(page, "Votre doublure peut prendre l'humeur de votre journée. Vous la posez vous-même, d'un mot : rien de votre journée n'est lu. Seul ce mot part au modèle ; les autres joueurs ne voient que les gestes de la doublure, et ne savent pas à qui elle est. Une fois sur quatre, elle prend plutôt l'humeur de sa propre soirée. Le mot s'efface au bout de dix-huit heures ; aucun historique n'est gardé.", 15, carnet.INK_LIGHT)
+	carnet._text(page, "Votre pensionnaire peut prendre l'humeur de votre journée, sans savoir d'où elle lui vient. Vous la posez vous-même, d'un mot : rien de votre journée n'est lu. Seul ce mot part au modèle ; les autres joueurs ne voient que ses gestes, et ne savent pas qui l'a créé. Une fois sur quatre, il prend plutôt l'humeur de sa propre soirée. Le mot s'efface au bout de dix-huit heures ; aucun historique n'est gardé.", 15, carnet.INK_LIGHT)
 	var case := CheckBox.new()
 	case.text = "J'accepte que ce mot parte à mon modèle"
 	case.button_pressed = oui
@@ -301,7 +274,7 @@ func _humeur(carnet: Node, page: VBoxContainer) -> void:
 func _carnet_et_journal(carnet: Node, page: VBoxContainer, d: Dictionary) -> void:
 	carnet._gap(page, 10)
 	carnet._text(page, "Son carnet", 20, carnet.INK, true)
-	carnet._text(page, str(d.memoire) if str(d.memoire) != "" else "Vide : elle ne s'est pas encore réveillée.", 15, carnet.INK_LIGHT)
+	carnet._text(page, str(d.memoire) if str(d.memoire) != "" else "Vide : il ne s'est pas encore réveillé.", 15, carnet.INK_LIGHT)
 	carnet._gap(page, 10)
 	carnet._text(page, "Son journal", 20, carnet.INK, true)
 	var journal: Array = fiche.get("journal", [])
@@ -310,7 +283,7 @@ func _carnet_et_journal(carnet: Node, page: VBoxContainer, d: Dictionary) -> voi
 	for r in journal.slice(0, 10):
 		var quand := Time.get_datetime_dict_from_unix_time(int(r.quand) + _decalage())
 		var motif := str(r.motif)
-		var pourquoi := "match du dimanche" if motif.begins_with("evenement:match") else ("loto du samedi" if motif.begins_with("evenement:loto") else "session")
+		var pourquoi: String = EVENEMENTS.get(motif.get_slice(":", 1), "passage au village")
 		var tete := "%02d/%02d %02dh%02d · %s" % [quand.day, quand.month, quand.hour, quand.minute, pourquoi]
 		if r.statut == "erreur":
 			carnet._text(page, "%s · erreur : %s" % [tete, str(r.erreur).substr(str(r.erreur).find(" ") + 1)], 15, carnet.RED_INK)
@@ -322,7 +295,7 @@ func _carnet_et_journal(carnet: Node, page: VBoxContainer, d: Dictionary) -> voi
 		for a in r.actions:
 			carnet._text(page, "   " + _geste(a), 15, carnet.INK_LIGHT)
 		if r.actions.is_empty() and r.refusees.is_empty():
-			carnet._text(page, "   Elle n'a rien fait.", 15, carnet.INK_LIGHT)
+			carnet._text(page, "   Il n'a rien fait.", 15, carnet.INK_LIGHT)
 		for x in r.refusees:
 			carnet._text(page, "   refusé (%s) : %s" % [str(x.type), NOMS_RAISONS.get(str(x.raison), str(x.raison))], 14, carnet.PENCIL)
 
@@ -364,7 +337,7 @@ func _reveils(carnet: Node, page: VBoxContainer, valeur: int, poser: Callable) -
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var s := SpinBox.new()
 	s.min_value = 1
-	s.max_value = 7
+	s.max_value = int(fiche.get("reglages", {}).get("reveilsMax", 4))
 	s.value = valeur
 	s.editable = not _occupe
 	s.value_changed.connect(func(v): poser.call(int(v)))
@@ -388,15 +361,15 @@ func _mise_en_scene() -> void:
 		"fournisseurs": [{"id": "anthropic", "nom": "Anthropic (Claude)", "modele": "claude-haiku-5-5"}, {"id": "openai", "nom": "OpenAI", "modele": "gpt-5-mini"},
 			{"id": "compatible", "nom": "Compatible OpenAI", "modele": ""}],
 		"humeur": {"consentement": true, "humeur": "fatiguee", "expire": maintenant + 11 * 3600},
-		"doublure": null,
+		"pensionnaire": null,
 	}
-	if "--doublure-essai=inscrite" in args:
-		fiche.doublure = {"nom": "Léonce (doublure)", "personnalite": "commere", "modele": "claude-haiku-5-5", "cle_fin": "x9Qa",
+	if "--pensionnaire-essai=inscrit" in args:
+		fiche.pensionnaire = {"nom": "Léonce (pensionnaire)", "personnalite": "commere", "modele": "claude-haiku-5-5", "cle_fin": "x9Qa",
 			"solde": 1240, "net_total": 240, "reveils_semaine": 3, "reveils_7_jours": 2, "actif": true, "pause_raison": null,
 			"memoire": "Mardi, le rouge m'a souri deux fois. Paulette cherche un tuyau sur la roulette : je lui ai laissé un mot. Penser au match de dimanche."}
 		fiche.trente_jours = {"entree": 14200, "sortie": 2100, "reveils": 6}
 		fiche.journal = [
-			{"quand": maintenant - 5 * 3600, "motif": "session", "statut": "fait", "jetons_entree": 2300, "jetons_sortie": 380,
+			{"quand": maintenant - 5 * 3600, "motif": "evenement:loto:2026-10-24", "statut": "fait", "jetons_entree": 2300, "jetons_sortie": 380,
 				"actions": [{"type": "roulette", "pari": "rouge", "mise": 100, "numero": 14, "net": 100},
 					{"type": "roulette", "pari": "plein:17", "mise": 20, "numero": 3, "net": -20},
 					{"type": "annonce", "texte": "Le rouge me réussit, qui vient au loto samedi ?"},
