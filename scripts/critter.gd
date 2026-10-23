@@ -82,9 +82,12 @@ func _ready() -> void:
 func set_look(l: Dictionary) -> void:
 	look = l
 	if skeleton:
-		skeleton.queue_free()
-		tree.queue_free()
-		_look_target.queue_free()
+		# Retirés de l'arbre tout de suite : les mouvements visent « Skeleton3D » par son nom, et le nouveau
+		# squelette, posé à côté de l'ancien encore là, s'appellerait autrement et resterait raide, debout
+		# même assis (retour de l'auteur de Chauvigny).
+		for n in [skeleton, tree, _look_target]:
+			remove_child(n)
+			n.queue_free()
 		skeleton = null
 		_base = ""
 		_build()
