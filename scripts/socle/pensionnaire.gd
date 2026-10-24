@@ -114,7 +114,7 @@ func remplir(carnet: Node, box: VBoxContainer, fermer: Callable) -> void:
 	cols.add_child(droite)
 
 	if not _essai and not Compte.connecte():
-		carnet._text(gauche, "Il faut un compte Pyramides : connectez-vous depuis la bienvenue, puis revenez ici.", 18, carnet.INK_LIGHT)
+		carnet._text(gauche, "Il faut un compte Pyramides : connectez-vous dans les réglages (rubrique Compte), puis revenez ici.", 18, carnet.INK_LIGHT)
 		return
 	if etat == "absente":
 		carnet._text(gauche, "Les pensionnaires arrivent bientôt au village.", 18, carnet.INK_LIGHT)

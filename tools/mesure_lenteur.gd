@@ -61,7 +61,7 @@ func _init() -> void:
 		var t0 := Time.get_ticks_usec()
 		if s == "jouer":
 			# « Jouer » depuis l'écran titre (qui doit être la scène en cours).
-			current_scene._play()
+			current_scene.jouer()
 		else:
 			change_scene_to_file(s)
 		await process_frame

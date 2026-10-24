@@ -161,7 +161,7 @@ func _appeler(action: String, args := {}) -> void:
 		_etat.text = "Le casino ne répond pas. Vérifiez la connexion à Internet."
 		return
 	if r.code == 401:
-		_etat.text = "Votre connexion au compte a expiré : reconnectez-vous dans la bienvenue."
+		_etat.text = "Votre connexion au compte a expiré : reconnectez-vous dans les réglages."
 		_minuteur.stop()
 		return
 	if not r.corps is Dictionary:

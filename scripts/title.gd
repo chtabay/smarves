@@ -1,7 +1,8 @@
 extends Node3D
-## L'écran titre : la place de Smarves qui tourne lentement en fond, le nom du jeu, et quatre boutons :
-## Jouer, La carte (la Vienne, d'où l'on peut aussi entrer dans une commune), Réglages, Quitter. À
-## droite, le panneau de la bienvenue : le compte Pyramides et les mises à jour, dès le premier écran.
+## L'écran titre : la place de Smarves qui tourne lentement en fond, le nom du jeu, et trois boutons :
+## Jouer, Réglages, Quitter. La carte de la Vienne n'y est plus (choix du 24 octobre 2026) : le joueur
+## la découvre au premier voyage. À droite, l'encart « Ce soir à Smarves », et en bas la barre des mises
+## à jour et du compte : les deux sont à la bienvenue (scripts/bienvenue.gd).
 
 const MAIN := preload("res://scenes/main.tscn")
 
@@ -48,7 +49,7 @@ func _build_ui() -> void:
 	veil.stretch_mode = TextureRect.STRETCH_SCALE
 	veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(veil)
-	# Le nom et les boutons à gauche : la droite est au panneau du compte et des mises à jour (Bienvenue).
+	# Le nom et les boutons à gauche : la droite est à l'encart de la bienvenue, le bas à sa barre.
 	var gauche := Control.new()
 	gauche.set_anchors_preset(Control.PRESET_FULL_RECT)
 	gauche.anchor_right = 0.56
@@ -89,7 +90,7 @@ func _build_ui() -> void:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 16)
 	v.add_child(row)
-	for b in [["Jouer", _play], ["La carte", func(): Carte.ouvrir(true)], ["Réglages", func(): Settings.toggle()], ["Quitter", func(): get_tree().quit()]]:
+	for b in [["Jouer", jouer], ["Réglages", func(): Settings.toggle()], ["Quitter", func(): get_tree().quit()]]:
 		var btn := Button.new()
 		btn.text = b[0]
 		btn.custom_minimum_size = Vector2(150, 52)
@@ -108,7 +109,7 @@ func _build_ui() -> void:
 	_maybe_capture()
 
 
-func _play() -> void:
+func jouer() -> void:
 	# Le village du fond devient la partie, sans être rebâti (main.gd, quitter_vitrine).
 	var tree := get_tree()
 	var v := village

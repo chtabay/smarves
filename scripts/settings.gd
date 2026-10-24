@@ -1,9 +1,10 @@
 extends CanvasLayer
 ## Le menu de réglages (autoload « Settings »), ouvert par Échap quand aucun jeu n'est ouvert :
-## volume général, ambiance, bruitages, plein écran, et le chemin vers le compte Pyramides. Pas de « Nouvelle partie » ici : le joueur tient à sa
-## partie, qui le suit sur son compte ; l'effacer se fait tout au fond de la bienvenue (scripts/bienvenue.gd).
+## volume général, ambiance, bruitages, plein écran, et la rubrique Compte : le compte Pyramides et « Effacer
+## ma partie… », seul endroit où l'on efface sa partie (la page de confirmation est celle de scripts/bienvenue.gd).
 
 const PATH := "user://reglages.cfg"
+const ACCUEIL := preload("res://scripts/socle/accueil.gd")
 
 var _root: Control
 var _panel: PanelContainer
@@ -35,6 +36,8 @@ var _qualite: OptionButton
 var fiches := "toutes"
 const FICHES := [["toutes", "Toutes"], ["important", "L'important"], ["aucune", "Aucune"]]
 var _fiches: OptionButton
+## La ligne de la rubrique Compte, relue à chaque ouverture.
+var _compte: Label
 var _mouse_before := Input.MOUSE_MODE_VISIBLE
 
 
@@ -151,6 +154,7 @@ func toggle() -> void:
 	else:
 		_mouse_before = Input.mouse_mode
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		_compte.text = ACCUEIL.compte(Compte)
 		_root.visible = true
 		get_tree().paused = true
 		_ajuster()
@@ -255,13 +259,6 @@ func _build() -> void:
 	test.text = "Tester le son"
 	test.pressed.connect(func(): Sfx.play("big_win", 0.0))
 	v.add_child(test)
-	# Le compte Pyramides vit dans la fenêtre de bienvenue, qui ne s'ouvre seule qu'à l'arrivée sur la place.
-	var compte := Button.new()
-	compte.text = "Votre compte Pyramides"
-	compte.pressed.connect(func():
-		toggle()
-		Bienvenue.ouvrir())
-	v.add_child(compte)
 	_joueurs = CheckButton.new()
 	_joueurs.text = "Voir les autres joueurs (avec un compte)"
 	_joueurs.button_pressed = true
@@ -301,6 +298,37 @@ func _build() -> void:
 	_fullscreen.text = "Plein écran"
 	_fullscreen.toggled.connect(_set_fullscreen)
 	v.add_child(_fullscreen)
+	# La rubrique Compte (demande de Guillaume du 24 octobre 2026) : le compte Pyramides et l'effacement de
+	# la partie ont quitté l'écran titre. La ligne dit où en est le compte ; les deux pages sont celles de la
+	# bienvenue, à droite de l'écran titre ou au milieu sur la place.
+	var tete := Label.new()
+	tete.text = "COMPTE"
+	tete.add_theme_font_override("font", Polices.gras())
+	tete.add_theme_font_size_override("font_size", 15)
+	tete.add_theme_color_override("font_color", Color(0.96, 0.8, 0.45))
+	v.add_child(tete)
+	_compte = Label.new()
+	_compte.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(_compte)
+	var crow := HBoxContainer.new()
+	crow.add_theme_constant_override("separation", 12)
+	v.add_child(crow)
+	var gerer := Button.new()
+	gerer.text = "Votre compte Pyramides"
+	gerer.pressed.connect(func():
+		toggle()
+		Bienvenue.ouvrir_page("compte"))
+	crow.add_child(gerer)
+	var effacer := Button.new()
+	effacer.text = "Effacer ma partie…"
+	effacer.flat = true
+	effacer.focus_mode = Control.FOCUS_NONE
+	effacer.add_theme_font_size_override("font_size", 15)
+	effacer.add_theme_color_override("font_color", Color(0.75, 0.6, 0.55))
+	effacer.pressed.connect(func():
+		toggle()
+		Bienvenue.ouvrir_page("effacer"))
+	crow.add_child(effacer)
 	var row2 := HBoxContainer.new()
 	row2.alignment = BoxContainer.ALIGNMENT_CENTER
 	row2.add_theme_constant_override("separation", 12)

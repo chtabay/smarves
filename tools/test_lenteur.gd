@@ -47,7 +47,7 @@ func _init() -> void:
 	var titre := current_scene
 	var village: Node = titre.village
 	_verifier(village.has_meta("vitrine") and village.player == null and _calques_visibles(village) == 0, "le village de l'écran titre est en vitrine, sans habitant ni interface")
-	titre._play()
+	titre.jouer()
 	for i in 3:
 		await process_frame
 	var place := current_scene

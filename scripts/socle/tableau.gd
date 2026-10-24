@@ -212,7 +212,7 @@ func _remplir_maison(lot: String) -> void:
 				_remplir(), 15))
 		_box.add_child(l)
 	if not Compte.connecte():
-		_box.add_child(_mot("Connectez-vous à votre compte Pyramides, depuis la bienvenue, pour leur laisser un mot.", 15, DOUX, null, true))
+		_box.add_child(_mot("Connectez-vous à votre compte Pyramides, dans les réglages, pour leur laisser un mot.", 15, DOUX, null, true))
 	elif not _pour.is_empty():
 		_box.add_child(_filet())
 		_box.add_child(_saisie("Un mot pour %s" % _pour.nom, 200, func(t):
@@ -232,7 +232,7 @@ func _saisie(invite: String, longueur: int, envoyer: Callable) -> Control:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 6)
 	if not Compte.connecte():
-		v.add_child(_mot("Pour afficher la vôtre, connectez-vous à votre compte Pyramides depuis la bienvenue.", 14, DOUX, null, true))
+		v.add_child(_mot("Pour afficher la vôtre, connectez-vous à votre compte Pyramides dans les réglages.", 14, DOUX, null, true))
 		return v
 	var champ := LineEdit.new()
 	champ.placeholder_text = invite

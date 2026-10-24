@@ -1261,7 +1261,7 @@ func _etat_consigne(actuelle: Dictionary) -> String:
 		"commune":
 			return "Au championnat%s : tout le monde verra ce match joué ainsi." % (" (posée par %s)" % actuelle.par if actuelle.par != "" else "")
 		"locale":
-			return "Gardée sur cet appareil, en route vers le championnat." if connecte else "Gardée sur cet appareil seulement : connectez-vous à votre compte Pyramides (dans la bienvenue) pour qu'elle compte pour tout le monde."
+			return "Gardée sur cet appareil, en route vers le championnat." if connecte else "Gardée sur cet appareil seulement : connectez-vous à votre compte Pyramides (dans les réglages) pour qu'elle compte pour tout le monde."
 	return "Rien n'est encore posé : sans consigne, l'adjoint aligne l'équipe type en 4-4-2."
 
 

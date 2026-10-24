@@ -1,20 +1,25 @@
 extends CanvasLayer
-## La bienvenue (autoload « Bienvenue ») : dès l'écran titre, un panneau à droite qui dit les
-## crédits, le compte Pyramides (autoload Compte : connexion, partie gardée au compte, choix entre
-## deux parties), les mises à jour du jeu et des villes (autoloads Version et Communes), et les villes
-## de la Vienne (« Villes et mises à jour → » déplie la liste). La carte de la Vienne est un bouton de
-## l'écran titre, pas une deuxième fois ici. Sur la place, la même fenêtre s'ouvre au milieu depuis
-## le menu Échap (« Votre compte Pyramides »), ou seule quand deux parties sont à départager, avec
-## « Jouer ». Tout en bas, en tout petit, « Effacer ma partie… » : le seul endroit où l'on efface sa
-## partie (il n'y a plus de « Nouvelle partie » dans le menu Échap), derrière une page qui demande
-## d'écrire EFFACER. Direction « La Vienne », choisie par Guillaume le 17 octobre
-## 2026.
+## La bienvenue (autoload « Bienvenue »). Sur l'écran titre (demande de Guillaume du 24 octobre 2026 :
+## « cet encart de droite pourrait être dédié à mettre le joueur dans l'action ») :
+## - à droite, l'encart « Ce soir à Smarves » : la banque, ce qui s'est passé depuis la dernière visite,
+##   ce qui attend, le courrier, le village (les blocs de scripts/socle/accueil.gd, que le mode léger
+##   reprendra) ; chaque ligne mène où elle parle, la partie lancée ;
+## - en bas, une seule ligne, comme Steam pendant un téléchargement : « À jour », la ville qui se
+##   télécharge et sa jauge, ou la nouvelle version en or ; le compte en un nom ; « détails ▴ » déplie
+##   à droite la liste des villes et des mises à jour.
+## Le compte Pyramides (autoload Compte : connexion, partie gardée au compte, choix entre deux parties)
+## et « Effacer ma partie… » sont des pages ouvertes depuis la rubrique Compte des réglages : à droite
+## sur l'écran titre, au milieu sur la place. La fenêtre s'ouvre seule sur la place quand deux parties
+## sont à départager. Effacer demande d'écrire EFFACER. La carte de la Vienne n'est plus à l'accueil :
+## on la découvre au premier voyage (carnet, « Les villages », et la gare).
 
 const OR := Color(0.96, 0.8, 0.45)
 const EAU := Color(0.35, 0.8, 0.75)
 const TEXTE := Color(0.88, 0.9, 0.92)
 const DOUX := Color(0.65, 0.7, 0.75)
 const ROUGE := Color(0.95, 0.45, 0.42)
+const ACCUEIL := preload("res://scripts/socle/accueil.gd")
+const AUJOURDHUI := preload("res://scripts/socle/aujourdhui.gd")
 
 var _root: Control
 var _centre: CenterContainer
@@ -26,9 +31,13 @@ var _scroll: ScrollContainer
 ## Sous la colonne, hors du défilement : « Jouer » reste en vue quelle que soit la longueur.
 var _pied: VBoxContainer
 var _style_fenetre: StyleBoxFlat
-var _liste := false
-## La page qui efface la partie, ouverte par le petit lien du bas.
-var _effacer := false
+## La page montrée : « soiree » (l'encart de l'écran titre), « liste » (villes et mises à jour),
+## « compte » ou « effacer » (ouvertes depuis les réglages).
+var _page := "soiree"
+## La barre du bas de l'écran titre, et sa rangée.
+var _barre: PanelContainer
+var _barre_rang: HBoxContainer
+const BARRE := 44.0
 ## Sur la place, la fenêtre ne s'ouvre seule que pour départager deux parties (Compte « choix »).
 var _attendue := false
 ## Jamais dans les captures ni les outils de test (-s), qui mènent leur propre partie.
@@ -80,6 +89,9 @@ func _essayer() -> void:
 	var titre := _sur_le_titre()
 	if _dock and not titre:
 		fermer()
+	# La jauge et son pourcentage avancent d'eux-mêmes.
+	if _dock and is_open() and Communes.en_cours != "":
+		_remplir_barre()
 	if not _seule or get_tree().get_script() != null:
 		return
 	if titre:
@@ -102,6 +114,11 @@ func _sur_le_titre() -> bool:
 
 
 func ouvrir(liste := false) -> void:
+	ouvrir_page("liste" if liste else ("soiree" if _sur_le_titre() else "compte"))
+
+
+## Ouvre une page (soiree, liste, compte, effacer) : à droite de l'écran titre, ailleurs au milieu.
+func ouvrir_page(page: String) -> void:
 	_dock = _sur_le_titre()
 	if not is_open() and not _dock:
 		_mouse_before = Input.mouse_mode
@@ -112,9 +129,12 @@ func ouvrir(liste := false) -> void:
 	_voile.visible = not _dock
 	# Ancré à droite de l'écran titre, qui garde la gauche pour son nom et ses boutons.
 	_centre.anchor_left = 0.56 if _dock else 0.0
+	_centre.offset_bottom = -BARRE if _dock else 0.0
+	_barre.visible = _dock
 	_root.visible = true
-	_liste = liste
-	_effacer = false
+	_page = page if not (page == "soiree" and not _dock) else "compte"
+	if _dock:
+		Voisinage.lire()
 	_remplir()
 
 
@@ -172,7 +192,14 @@ func _construire() -> void:
 	_box.alignment = BoxContainer.ALIGNMENT_CENTER
 	_box.add_theme_constant_override("separation", 12)
 	_scroll.add_child(_box)
+	_construire_barre()
 	get_viewport().size_changed.connect(_ajuster)
+	Avis.change.connect(func():
+		if is_open() and _page == "soiree":
+			_remplir.call_deferred())
+	Voisinage.lu.connect(func():
+		if is_open() and _page == "soiree":
+			_remplir.call_deferred())
 
 
 ## La colonne défile dans ce que laisse l'écran : sur un téléphone en paysage (600 de haut), « Jouer »
@@ -184,59 +211,117 @@ func _ajuster() -> void:
 	var bas := ecran.y < 760.0
 	_style_fenetre.set_content_margin_all(16 if bas else 28)
 	var pied := _pied.get_combined_minimum_size().y + 14.0 if _pied.get_child_count() > 0 else 0.0
-	var autour := pied + _style_fenetre.content_margin_top + _style_fenetre.content_margin_bottom + 24.0
-	_scroll.custom_minimum_size.y = clampf(ecran.y - autour, 160.0, 540.0)
+	var autour := pied + _style_fenetre.content_margin_top + _style_fenetre.content_margin_bottom + 24.0 + (BARRE if _dock else 0.0)
+	var haut := clampf(ecran.y - autour, 160.0, 540.0)
+	# L'encart du titre se tient à ce qu'il dit : pas de grand cadre vide pour un joueur qui commence.
+	if _dock and _page == "soiree":
+		haut = clampf(_box.get_combined_minimum_size().y, 160.0, haut)
+	_scroll.custom_minimum_size.y = haut
 
 
 func _remplir() -> void:
 	for c in _box.get_children() + _pied.get_children():
+		# Hors de l'arbre tout de suite : _ajuster mesure la nouvelle colonne, pas l'ancienne.
+		c.get_parent().remove_child(c)
 		c.queue_free()
-	if _effacer:
-		_remplir_effacer()
-	elif _liste:
-		_remplir_liste()
-	else:
-		_remplir_accueil()
+	match _page:
+		"effacer":
+			_remplir_effacer()
+		"liste":
+			_remplir_liste()
+		"soiree":
+			_remplir_soiree()
+		_:
+			_remplir_page_compte()
+	if _dock:
+		_remplir_barre()
 	_ajuster.call_deferred()
 
 
-func _remplir_accueil() -> void:
-	_box.add_child(_mot("S M A R V E S  ·  V I E N N E", 13, Color(0.55, 0.75, 0.75)))
-	# Sur l'écran titre, le nom du jeu est déjà en grand à gauche.
-	if not _dock:
-		_box.add_child(_mot("Bienvenue à Smarves", 38, Color.WHITE, Polices.titre()))
-	# Deux parties à départager : la fenêtre ne parle que de cela.
+## L'encart de l'écran titre : la vie du joueur, pas celle du jeu. Les blocs viennent de ACCUEIL ; un bloc
+## vide ne s'écrit pas.
+func _remplir_soiree() -> void:
+	# Deux parties à départager : l'encart ne parle que de cela.
 	if Compte.etat == "choix":
+		_remplir_page_compte()
+		return
+	_box.alignment = BoxContainer.ALIGNMENT_BEGIN
+	_box.add_child(_mot(_moment(), 15, Color(0.55, 0.75, 0.75), Polices.gras()))
+	var b := ACCUEIL.banque(Game, Biens)
+	_box.add_child(_mot("%s cr." % Game.fmt(b.credits), 40, OR, Polices.titre()))
+	_box.add_child(_mot("fortune nette %s  ·  dette %s" % [Game.fmt(b.fortune), Game.fmt(b.dette)], 16, DOUX))
+	var d := ACCUEIL.depuis(Avis)
+	if str(d.texte) != "":
+		var h := HBoxContainer.new()
+		h.add_theme_constant_override("separation", 10)
+		h.add_child(_mot("Depuis votre passage", 15, DOUX))
+		h.add_child(_mot(d.texte, 16, EAU, Polices.gras()))
+		_box.add_child(h)
+	var t: int = Football.maintenant()
+	var faire := ACCUEIL.a_faire(AUJOURDHUI.a_faire(Football, Avis, Bourse, Basket), t)
+	if not faire.is_empty():
 		_box.add_child(_filet())
-		_remplir_compte()
+		_box.add_child(_mot("À FAIRE", 14, OR, Polices.gras()))
+		for x in faire:
+			_box.add_child(_ligne("%s  ·  %s" % [x.titre, x.quand], TEXTE, _suivre.bind(x.avis if not (x.avis as Dictionary).is_empty() else {"id": "", "lien": x.lien})))
+	var courrier := ACCUEIL.courrier(Avis)
+	if not courrier.is_empty():
+		_box.add_child(_filet())
+		_box.add_child(_mot("COURRIER", 14, EAU, Polices.gras()))
+		for x in courrier:
+			_box.add_child(_ligne(str(x.titre), TEXTE, _suivre.bind(x.avis)))
+	var village := ACCUEIL.village(Voisinage)
+	if str(village.texte) != "":
+		_box.add_child(_filet())
+		_box.add_child(_mot("AU VILLAGE", 14, Color(0.55, 0.6, 0.66), Polices.gras()))
+		_box.add_child(_mot(village.texte, 17, TEXTE, null, true))
+
+
+## « Ce soir à Smarves », « Ce matin… », « Cet après-midi… », à l'heure de l'appareil.
+static func _moment() -> String:
+	var h := int(Time.get_datetime_dict_from_system().hour)
+	return "CE MATIN À SMARVES" if h >= 5 and h < 12 else ("CET APRÈS-MIDI À SMARVES" if h >= 12 and h < 18 else "CE SOIR À SMARVES")
+
+
+## Une ligne de l'encart qui mène où elle parle : sur l'écran titre, la partie se lance d'abord.
+func _ligne(t: String, encre: Color, action: Callable) -> Button:
+	var b := _bouton(t, Color(0, 0, 0, 0), encre, Color(0, 0, 0, 0), action, 16)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	b.add_theme_font_override("font", Polices.texte())
+	for etat in ["normal", "hover", "pressed", "focus"]:
+		var st: StyleBoxFlat = b.get_theme_stylebox(etat)
+		st.content_margin_left = 0
+		st.content_margin_top = 2
+		st.content_margin_bottom = 2
+	return b
+
+
+## Suit le lien d'un avis (ou d'une ligne « À faire ») : depuis l'écran titre, la partie se lance, puis le
+## carnet ou le bureau s'ouvre par-dessus la place.
+func _suivre(avis: Dictionary) -> void:
+	var titre := get_tree().current_scene
+	if _dock and titre != null and titre.has_method("jouer"):
+		titre.jouer()
+		await get_tree().create_timer(0.6).timeout
+	Avis.aller(avis)
+
+
+## La page du compte (réglages, rubrique Compte ; seule quand deux parties sont à départager).
+func _remplir_page_compte() -> void:
+	_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	if not _dock:
+		_box.add_child(_mot("Votre compte Pyramides", 34, Color.WHITE, Polices.titre()))
+	_box.add_child(_filet())
+	_remplir_compte()
+	if Compte.etat == "choix":
 		if not _dock:
 			_pied.add_child(_bouton("Décider plus tard", Color(0, 0, 0, 0), DOUX, Color(1, 1, 1, 0.3), fermer, 16))
 		return
-	_box.add_child(_mot("%s crédits en poche  ·  fortune nette %s" % [Game.fmt(Game.credits), Game.fmt(Game.credits + Biens.value() - Game.debt)], 17, DOUX))
-	# Le compte en premier : c'est lui qui ouvre la table à plusieurs, et on le voit sans faire défiler.
-	_box.add_child(_filet())
-	_remplir_compte()
-	_box.add_child(_filet())
-	_remplir_mises_a_jour()
-	_box.add_child(_filet())
-	var n := Communes.nouvelles.size()
-	_box.add_child(_mot(("%d VILLE%s NOUVELLE%s" % [n, "S" if n > 1 else "", "S" if n > 1 else ""]) if n > 0 else "LES VILLES DE LA VIENNE", 14, EAU, Polices.gras()))
-	_box.add_child(_mot(_villes_en_une_ligne(), 18, TEXTE, null, true))
-	var rang := HBoxContainer.new()
-	rang.add_theme_constant_override("separation", 10)
-	if not Communes.publiees().is_empty() or not Communes.installees().is_empty():
-		rang.add_child(_bouton("Villes et mises à jour  →", Color(0, 0, 0, 0), EAU, EAU, ouvrir.bind(true)))
-	if not _dock:
-		rang.add_child(_bouton("Ouvrir la carte  (M)", Color(0, 0, 0, 0), TEXTE, Color(1, 1, 1, 0.3), _vers_la_carte))
-	_box.add_child(rang)
-	# Tout au fond, à peine lisible : on n'efface pas sa partie par mégarde.
-	var effacer := _bouton("Effacer ma partie…", Color(0, 0, 0, 0), Color(DOUX, 0.45), Color(0, 0, 0, 0), func():
-		_effacer = true
-		_remplir(), 12)
-	effacer.focus_mode = Control.FOCUS_NONE
-	_box.add_child(effacer)
-	# Sur l'écran titre, « Jouer » est déjà sous le nom du jeu.
 	if _dock:
+		_box.add_child(_filet())
+		_box.add_child(_bouton("←  Retour", Color(0, 0, 0, 0), TEXTE, Color(1, 1, 1, 0.3), ouvrir_page.bind("soiree"), 16))
 		return
 	var jouer := _bouton("Jouer", OR, Color(0.1, 0.07, 0.03), Color(0, 0, 0, 0), fermer, 22)
 	jouer.custom_minimum_size.x = 220
@@ -244,9 +329,68 @@ func _remplir_accueil() -> void:
 	jouer.grab_focus.call_deferred()
 
 
+# --- La barre du bas ---------------------------------------------------------------------------
+
+func _construire_barre() -> void:
+	_barre = PanelContainer.new()
+	_barre.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	_barre.offset_top = -BARRE
+	_barre.mouse_filter = Control.MOUSE_FILTER_STOP
+	var st := _boite(Color(0.03, 0.04, 0.06, 0.92), Color(0, 0, 0, 0), 0, 0)
+	st.content_margin_left = 16
+	st.content_margin_right = 16
+	st.border_color = Color(EAU, 0.25)
+	st.border_width_top = 1
+	_barre.add_theme_stylebox_override("panel", st)
+	_barre.visible = false
+	_root.add_child(_barre)
+	_barre_rang = HBoxContainer.new()
+	_barre_rang.add_theme_constant_override("separation", 14)
+	_barre.add_child(_barre_rang)
+
+
+## Une ligne : l'état du jeu et des villes (ACCUEIL.etat), sa jauge et son geste, puis le compte en un
+## nom, puis « détails » qui déplie la liste à droite (et la replie).
+func _remplir_barre() -> void:
+	for c in _barre_rang.get_children():
+		c.queue_free()
+	var e := ACCUEIL.etat(Version, Communes)
+	var teinte: Color = {"ok": Color(0.55, 0.85, 0.6), "or": OR, "rouge": ROUGE}.get(e.teinte, DOUX)
+	var etat := _mot(e.texte, 15, teinte, Polices.gras())
+	etat.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_barre_rang.add_child(etat)
+	if str(e.en_cours) != "":
+		_barre_rang.add_child(BarreProgres.pour(e.en_cours, OR, 160.0))
+	if not (e.geste as Array).is_empty():
+		var g := _petit(e.geste[0], teinte, e.geste[1])
+		g.pressed.connect(_remplir)
+		_barre_rang.add_child(g)
+	var vide := Control.new()
+	vide.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vide.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_barre_rang.add_child(vide)
+	_barre_rang.add_child(_petit(ACCUEIL.compte(Compte), DOUX, ouvrir_page.bind("compte")))
+	var liste := _page == "liste"
+	_barre_rang.add_child(_petit("détails  ▾" if liste else "détails  ▴", TEXTE, ouvrir_page.bind("soiree" if liste else "liste")))
+
+
+func _petit(t: String, encre: Color, action: Callable) -> Button:
+	var b := _bouton(t, Color(0, 0, 0, 0), encre, Color(0, 0, 0, 0), action, 14)
+	b.focus_mode = Control.FOCUS_NONE
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	for etat in ["normal", "hover", "pressed", "focus", "disabled"]:
+		var st: StyleBoxFlat = b.get_theme_stylebox(etat)
+		st.content_margin_left = 8
+		st.content_margin_right = 8
+		st.content_margin_top = 4
+		st.content_margin_bottom = 4
+	return b
+
+
 ## Effacer sa partie : ce n'est pas recommencer, c'est tout perdre, ici et au compte. Il faut écrire
 ## EFFACER pour que le bouton réponde ; « Garder ma partie » a le focus.
 func _remplir_effacer() -> void:
+	_box.alignment = BoxContainer.ALIGNMENT_CENTER
 	_box.add_child(_mot("EFFACER MA PARTIE", 14, ROUGE, Polices.gras()))
 	var compte := " et sur votre compte Pyramides, donc sur tous vos appareils" if Compte.connecte() else ""
 	_box.add_child(_mot("Vos %s crédits, vos biens, vos paris et tout ce que vous avez gagné seront effacés sur cet appareil%s. Rien ne pourra être récupéré." \
@@ -265,8 +409,10 @@ func _remplir_effacer() -> void:
 	_box.add_child(bouton)
 	champ.text_changed.connect(func(t: String): bouton.disabled = t.strip_edges().to_upper() != "EFFACER")
 	var garder := _bouton("Garder ma partie", OR, Color(0.1, 0.07, 0.03), Color(0, 0, 0, 0), func():
-		_effacer = false
-		_remplir(), 22)
+		if _dock:
+			ouvrir_page("soiree")
+		else:
+			fermer(), 22)
 	garder.custom_minimum_size.x = 220
 	_pied.add_child(garder)
 	garder.grab_focus.call_deferred()
@@ -348,54 +494,6 @@ static func _il_y_a(quand: int) -> String:
 	return "il y a %d jours" % (s / 86400)
 
 
-## Les mises à jour en un seul bloc : une ligne qui dit tout (le jeu, les villes à mettre à jour, ce qui
-## se télécharge, ce qui attend le prochain lancement, ce qui s'est fait tout seul), et les gestes.
-func _remplir_mises_a_jour() -> void:
-	var faire := Communes.a_faire()
-	var compte := func(etats: Array) -> int: return faire.filter(func(id): return Communes.etat(id) in etats).size()
-	var parts: Array[String] = []
-	if Version.disponible():
-		parts.append("une nouvelle version du jeu")
-	var n: int = compte.call(["mise_a_jour"])
-	if n > 0:
-		parts.append("%d ville%s à mettre à jour" % [n, "s" if n > 1 else ""])
-	n = compte.call(["echec"])
-	if n > 0:
-		parts.append("%d téléchargement%s à réessayer" % [n, "s" if n > 1 else ""])
-	n = compte.call(["telechargement", "attente"])
-	if n > 0:
-		parts.append("%d en téléchargement" % n)
-	n = compte.call(["a_relancer"])
-	if n > 0:
-		parts.append("%d prête%s au prochain lancement" % [n, "s" if n > 1 else ""])
-	_box.add_child(_mot("MISES À JOUR", 14, OR if not parts.is_empty() else DOUX, Polices.gras()))
-	var ligne := "Tout est à jour." if Version.etat != "hors_ligne" else "Hors ligne : rien n'a pu être vérifié."
-	if not parts.is_empty():
-		var phrase := (", ".join(parts.slice(0, -1)) + " et " + parts[-1]) if parts.size() > 1 else parts[0]
-		ligne = phrase.left(1).to_upper() + phrase.substr(1) + "."
-	if not Communes.mises_a_jour_seules.is_empty():
-		var noms: Array = Communes.mises_a_jour_seules.map(func(id): return Communes.commune(id).nom if Communes.commune(id) else id)
-		ligne += " %s %s mise%s à jour toute%s seule%s." % [" et ".join(noms), "s'est" if noms.size() == 1 else "se sont",
-			"" if noms.size() == 1 else "s", "" if noms.size() == 1 else "s", "" if noms.size() == 1 else "s"]
-	if not Communes.arrivees_seules.is_empty():
-		var noms: Array = Communes.arrivees_seules.map(func(id): return Communes.commune(id).nom if Communes.commune(id) else id)
-		ligne += " Nouvelle%s sur la carte : %s." % ["" if noms.size() == 1 else "s", " et ".join(noms)]
-	_box.add_child(_mot(ligne, 17, TEXTE, null, true))
-	for id in faire:
-		if Communes.etat(id) == "telechargement":
-			_box.add_child(_progres(id))
-	if Version.disponible():
-		_box.add_child(_ligne_jeu())
-	var rang := HBoxContainer.new()
-	rang.add_theme_constant_override("separation", 10)
-	if compte.call(["mise_a_jour", "echec"]) > 0:
-		rang.add_child(_bouton("Tout mettre à jour", Color(0, 0, 0, 0), OR, OR, Communes.tout_mettre_a_jour, 16))
-	if compte.call(["a_relancer"]) > 0 and Communes.peut_relancer():
-		rang.add_child(_bouton("Relancer maintenant", Color(0, 0, 0, 0), OR, OR, Communes.relancer, 16))
-	if rang.get_child_count() > 0:
-		_box.add_child(rang)
-
-
 ## Le jeu lui-même : ce qui a changé, le téléchargement pour cet appareil, et quoi faire ensuite.
 func _ligne_jeu() -> VBoxContainer:
 	var v := VBoxContainer.new()
@@ -428,6 +526,7 @@ func _progres(id: String) -> HBoxContainer:
 ## « Villes et mises à jour » : le jeu, puis les villes qui demandent un geste, les nouvelles, et
 ## les autres. Chaque ligne dit son état et son geste, avec les mêmes mots que la carte et le carnet.
 func _remplir_liste() -> void:
+	_box.alignment = BoxContainer.ALIGNMENT_BEGIN
 	_box.add_child(_mot("L E S   V I L L E S   D E   L A   V I E N N E", 13, Color(0.55, 0.75, 0.75)))
 	_box.add_child(_mot("Villes et mises à jour", 32, Color.WHITE, Polices.titre()))
 	_box.add_child(_filet())
@@ -487,11 +586,6 @@ func _ligne_ville(id: String) -> VBoxContainer:
 	if actions.get_child_count() > 0:
 		fiche.add_child(actions)
 	return fiche
-
-
-func _vers_la_carte() -> void:
-	fermer()
-	Carte.ouvrir()
 
 
 func _visiter(id: String) -> void:
