@@ -29,8 +29,6 @@ const JEUX := {
 const DECORS := ["cafe", "salle", "cave"]
 ## La grille des tables : trois par rang, une case de 4,2 sur 4 chacune (la table du casino et la place
 ## du joueur devant elle).
-## Le poker à plusieurs (scripts/jeux/poker_multi.gd), quand le joueur est connecté à son compte.
-const POKER_MULTI := "res://scripts/jeux/poker_multi.gd"
 const COLONNES := 3
 const CASE := Vector2(4.2, 4.0)
 const REPLIQUES := ["« Installez-vous. Ici, la chance n'a pas de préférence. »",
@@ -48,7 +46,10 @@ var _jeu_ouvert := ""
 ## jouer, et celle où le joueur est assis.
 var _tables3d := {}
 var _table_choisie: Node3D
-var _assis: Node3D
+## La table où l'on est assis. Un nom qu'une salle de commune n'emploie pas : celles qui étendent
+## SalleJeu ont leurs propres membres (le salon de Saint-Savin a déjà son « _assis »), et deux membres
+## du même nom empêchent leur script de compiler.
+var _table_assise: Node3D
 
 
 ## Ouvre la salle de jeu « id » de la commune. Rend false sans rien faire si la structure n'existe pas,
@@ -375,7 +376,9 @@ func open_game() -> void:
 	if _jeu_ouvert == "poker" and Compte.connecte():
 		# Connecté, on joue à plusieurs : chaque salle de jeu a sa table au serveur, aux tarifs des
 		# Ambassadeurs (fonction casino du dépôt chtabay/addict, smarves-poker.js).
-		p = load(POKER_MULTI).new()
+		# Le chemin écrit ici, pas en constante : une salle de commune qui étend celle-ci peut déjà
+		# avoir sa constante POKER_MULTI (le Sport Bar de Cloué 1.6.2), et une seconde ne compilerait pas.
+		p = load("res://scripts/jeux/poker_multi.gd").new()
 		p.configurer_table(table_serveur(commune, str(structure.get("id", ""))), p.SB, p.BB, p.CAP)
 	else:
 		p = load(f.panneau).new()
@@ -400,9 +403,9 @@ func _ouvrir_panneau(p: PanelContainer, t: Node3D = null) -> void:
 	if _game != null:
 		return
 	p.closed.connect(func():
-		if _assis:
-			Tables.lever(_assis)
-			_assis = null
+		if _table_assise:
+			Tables.lever(_table_assise)
+			_table_assise = null
 		p.queue_free()
 		_game = null
 		player.frozen = false
@@ -410,7 +413,7 @@ func _ouvrir_panneau(p: PanelContainer, t: Node3D = null) -> void:
 	player.frozen = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	if t:
-		_assis = t
+		_table_assise = t
 		Tables.asseoir(t, p, player.camera, _panel_layer.get_parent())
 	else:
 		_panel_layer.add_child(p)
