@@ -182,7 +182,7 @@ func _lien(carnet: Node, page: VBoxContainer) -> void:
 		DisplayServer.clipboard_set(lien)
 		message = "Lien copié."
 		change.emit())
-	for etape in ["1. Dans Claude : Paramètres, Connecteurs, « Ajouter un connecteur personnalisé », et collez le lien. Avec Claude Code : claude mcp add --transport http smarves suivi du lien.",
+	for etape in ["1. Dans Claude : Paramètres, Connecteurs, « Ajouter un connecteur personnalisé », collez le lien et choisissez « Aucune connexion » pour l'authentification. Avec Claude Code : claude mcp add --transport http smarves suivi du lien.",
 			"2. Dites-lui : « Crée mon pensionnaire de Smarves », et racontez-lui qui il est : d'où il vient, ce qu'il veut, ce qui lui manque, un secret.",
 			"3. Demandez-lui une tâche planifiée aux heures des événements : mercredi 18 h, vendredi 11 h, samedi 18 h, dimanche 10 h. Il vient alors tout seul."]:
 		carnet._text(page, etape, 15, carnet.INK)
