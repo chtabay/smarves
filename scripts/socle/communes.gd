@@ -339,16 +339,28 @@ func installer(id: String, seule := false) -> void:
 	# Dans un navigateur, la réponse arrive déjà décompressée : Godot ne doit pas la décompresser encore.
 	http.accept_gzip = not OS.has_feature("web")
 	http.timeout = 0.0 if OS.has_feature("web") else 120.0
-	http.download_file = part
+	# Dans un navigateur, Godot 4.7.2 ne connaît pas la taille de la réponse et efface le fichier
+	# téléchargé juste avant de le rendre (corrigé après la 4.7.2) : le paquet arrive en mémoire et
+	# on l'écrit nous-mêmes.
+	var en_memoire := OS.has_feature("web")
+	if not en_memoire:
+		http.download_file = part
 	http.body_size_limit = Portail.TAILLE_MAX + 1
 	# Un téléchargement lancé depuis la bienvenue ou la carte, jeu en pause, doit aboutir.
 	http.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(http)
 	_http = http
-	http.request_completed.connect(func(resultat: int, code: int, _h, _c):
+	http.request_completed.connect(func(resultat: int, code: int, _h, corps: PackedByteArray):
 		http.queue_free()
 		_http = null
-		_installe(e, part, resultat == HTTPRequest.RESULT_SUCCESS and code == 200))
+		var recu := resultat == HTTPRequest.RESULT_SUCCESS and code == 200
+		if recu and en_memoire:
+			var f := FileAccess.open(part, FileAccess.WRITE)
+			recu = f != null
+			if f:
+				f.store_buffer(corps)
+				f.close()
+		_installe(e, part, recu))
 	if http.request(e.paquet) != OK:
 		http.queue_free()
 		_http = null
