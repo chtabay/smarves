@@ -197,7 +197,7 @@ func _comptes(col: VBoxContainer) -> void:
 			par_journee += b.dividende(commune, r, maxi(1, b.journee_jouee()))
 		_mot(col, "Vous avez %s crédits dans le club (obligations n° %s), qui rapportent environ %s crédits par journée." % [Game.fmt(inv), ", ".join(b.mes_obligations(commune).map(func(x): return str(x))), Game.fmt(par_journee)], TEXTE)
 	else:
-		_mot(col, "Vous n'avez pas d'obligation du club : le tableau des parts est à l'entrée du grand hall.", DOUX)
+		_mot(col, "Vous n'avez pas d'obligation du club : Maître Garnier les cède à l'étude.", DOUX)
 	var mises := 0
 	for lot in b.retenues:
 		mises += int(b.retenues[lot])

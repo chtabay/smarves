@@ -73,7 +73,7 @@ func _lancer() -> void:
 	check(g.find_child("Classement", true, false) != null and tg.contains(foot.clubs[club].nom), "le classement du groupe")
 	check(g.find_child("Tuiles", true, false) != null and tg.contains("RANG") and tg.contains("POINTS") and tg.contains("FORME"), "trois tuiles : le rang, les points, la forme")
 	var actions: Node = g.find_child("Actions", true, false)
-	check(actions != null and ["Gerer", "Tactique", "Entrainement", "Mercato", "Stade", "Registre"].all(func(n): return actions.find_child("Action_" + n, true, false) != null)
+	check(actions != null and ["Gerer", "Tactique", "Entrainement", "Mercato", "Stade", "Notaire"].all(func(n): return actions.find_child("Action_" + n, true, false) != null)
 		and (actions.find_child("Action_Gerer", true, false) as Button).icon != null, "la barre d'actions, chaque bouton son picto")
 	var td := _textes(carnet.get("_right"))
 	check(td.contains("JOURNÉES") and td.contains("J1  ") and td.contains("J14  "), "les quatorze journées, en face")
@@ -92,6 +92,24 @@ func _lancer() -> void:
 		bureau.closed.emit()
 	await process_frame
 	check(carnet.is_open() and carnet.gestion() == null and carnet.get("_onglet") == "clubs", "refermé, on retrouve la page du club")
+	# ---- Le notaire, par téléphone : le registre des obligations par-dessus le carnet.
+	(carnet.get("_left").find_child("Action_Notaire", true, false) as Button).pressed.emit()
+	await process_frame
+	var reg: Node = carnet.gestion().find_child("Registre", true, false) if carnet.gestion() != null else null
+	check(carnet.is_open() and reg != null and reg.get_script().get_global_name() == "FootObligations" and reg.club == club and carnet.gestion().find_child("AuTelephone", true, false) != null,
+		"« Le notaire » ouvre le registre de l'Étoile, au téléphone, dans le carnet")
+	if reg != null:
+		reg.closed.emit()
+	await process_frame
+	check(carnet.is_open() and carnet.gestion() == null, "refermé, on retrouve la page du club")
+	# Le bouton du registre, au bureau : le notaire prend sa place.
+	carnet.gerer("football", club)
+	await process_frame
+	carnet.gestion().find_child("Bureau", true, false).obligations.emit()
+	await process_frame
+	await process_frame
+	check(carnet.gestion() != null and carnet.gestion().name == "Notaire", "« Le registre des obligations » du bureau appelle le notaire")
+	carnet.fermer_gestion()
 	(barre.find_child("Page_calendrier", true, false) as Button).pressed.emit()
 	await process_frame
 	check(carnet.get("_club_vu") == "calendrier" and _textes(carnet.get("_left")).contains("Les journées de la saison"), "le sous-onglet du calendrier")

@@ -40,6 +40,7 @@ const TOO_POOR := "« Il vous manque quelques crédits. M. Brunet finance, vous 
 const CARTE := preload("res://scripts/carte_biens.gd")
 const NOTAIRE := preload("res://scripts/socle/notaire.gd")
 const OBLIGATIONS := preload("res://scripts/socle/foot_obligations.gd")
+const PARTS_BASKET := preload("res://scripts/socle/basket_parts.gd")
 const ARTICLES := preload("res://scripts/socle/articles.gd")
 
 var _list: VBoxContainer
@@ -319,6 +320,7 @@ func _detail(id: String) -> void:
 			if it.seller == seller and str(it.get("commune", "")) == ("" if _banque().is_empty() else str(_c().data.id)) and Biens.count(it.id) > 0:
 				mine.append(it.name if Biens.count(it.id) == 1 else "%s ×%d" % [it.name, Biens.count(it.id)])
 		_label(_list, "Vos biens chez %s : " % NOTAIRE.etude(_c()).nom + (", ".join(mine) if not mine.is_empty() else "aucun pour l'instant."), 15, INK_LIGHT)
+		_registres_des_clubs()
 		return
 	var adr := NOTAIRE.adresse(_c(), id)
 	id = NOTAIRE.cle_adresse(_c(), adr) if not adr.is_empty() else id
@@ -377,6 +379,39 @@ func _detail(id: String) -> void:
 		_list.add_child(resell)
 
 
+## Les registres des clubs que l'étude tient (demande de Guillaume du 24 octobre 2026 : « les achats de parts
+## se font chez le notaire comme le reste ») : le football et le basket de la commune, et ceux dont on tient
+## déjà une part. Chacun ouvre son registre par-dessus l'étude.
+func _registres_des_clubs() -> void:
+	var clubs := registres_des_clubs()
+	if clubs.is_empty():
+		return
+	_label(_list, "Les registres des clubs", 17, INK, true)
+	for x in clubs:
+		var b := _button("%s  ·  %s" % [x.nom, "football" if x.sport == "football" else "basket"], _ouvrir_registre.bind(str(x.sport), str(x.club)))
+		b.name = "Registre_%s_%s" % [x.sport, x.club]
+		b.custom_minimum_size.y = 44
+		_list.add_child(b)
+
+
+## [{sport, club, nom}] : les clubs dont l'étude ouvre le registre, le football d'abord.
+func registres_des_clubs() -> Array:
+	var out: Array = []
+	var ici := str(_c().data.get("id", ""))
+	var f := get_node_or_null("/root/Football")
+	if f != null:
+		for id in f.clubs:
+			var c: Dictionary = f.clubs[id]
+			if not bool(c.get("invite", false)) and (str(c.get("commune", "")) == ici or not (f.mes_obligations(id) as Array).is_empty()):
+				out.append({"sport": "football", "club": str(id), "nom": str(c.get("nom", id))})
+	var b := get_node_or_null("/root/Basket")
+	if b != null:
+		for id in b.clubs:
+			if str(id) == ici or int(b.investi(id)) > 0:
+				out.append({"sport": "basket", "club": str(id), "nom": str(b.fiche(id).nom)})
+	return out
+
+
 func _legend(t: String, c: Color) -> void:
 	var h := HBoxContainer.new()
 	var sw := ColorRect.new()
@@ -414,8 +449,17 @@ func _ouvrir_cabine() -> void:
 
 ## Le registre des obligations du club, par-dessus l'étude ; il revient à la fiche en se fermant.
 func _ouvrir_obligations(club: String) -> void:
-	var p: PanelContainer = OBLIGATIONS.new()
-	p.club = club
+	_ouvrir_registre("football", club)
+
+
+## Le registre d'un club, football (FootObligations) ou basket (le tableau des parts), par-dessus l'étude.
+func _ouvrir_registre(sport: String, club: String) -> void:
+	var p: PanelContainer = (PARTS_BASKET if sport == "basket" else OBLIGATIONS).new()
+	if sport == "basket":
+		p.commune = club
+		p.name = "PartsBasket"
+	else:
+		p.club = club
 	p.closed.connect(func():
 		p.queue_free()
 		visible = true

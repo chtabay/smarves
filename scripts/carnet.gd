@@ -217,29 +217,20 @@ func toggle() -> void:
 
 const BUREAU_FOOT := "res://scripts/socle/bureau.gd"
 const BUREAU_BASKET := "res://scripts/socle/basket_bureau.gd"
+const PARTS_FOOT := "res://scripts/socle/foot_obligations.gd"
+const PARTS_BASKET := "res://scripts/socle/basket_parts.gd"
+const NOTAIRE := preload("res://scripts/socle/notaire.gd")
 
 
 ## Ouvre le bureau d'un club par-dessus le carnet, où qu'on soit (demande de Guillaume du 24 octobre 2026 :
 ## « le carnet permet d'aller au stade d'un club mais pas de le gérer »). Football : le bureau du stade
 ## (bureau.gd), sur la page donnée (tactique, entrainement, offres...). Basket : le bureau du président
 ## (basket_bureau.gd), page equipe, marche ou comptes. On le referme (Échap) et l'on retrouve le carnet.
-## Acheter des parts reste au stade, au registre : c'est le seul geste qui demande d'y être.
+## Les parts s'achètent chez le notaire (notaire, ci-dessous).
 func gerer(sport: String, club: String, page := "") -> void:
 	if club == "":
 		return
-	if not _root.visible:
-		toggle()
-	fermer_gestion()
-	var voile := Control.new()
-	voile.name = "Gestion"
-	voile.set_anchors_preset(Control.PRESET_FULL_RECT)
-	voile.mouse_filter = Control.MOUSE_FILTER_STOP
-	var dim := ColorRect.new()
-	dim.color = Color(0, 0, 0, 0.55)
-	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	voile.add_child(dim)
-	add_child(voile)
-	_gestion = voile
+	var voile := _voile()
 	var b: Control
 	if sport == "basket":
 		b = load(BUREAU_BASKET).new()
@@ -255,10 +246,8 @@ func gerer(sport: String, club: String, page := "") -> void:
 		b.club = club
 		if page != "":
 			b.page = page
-		# Le registre des parts : on referme le bureau, le stade s'ouvre au registre (si l'on peut s'y rendre).
-		b.obligations.connect(func():
-			fermer_gestion()
-			Avis.aller({"id": "", "lien": {"vers": "registre", "club": club}}))
+		# Le registre des parts : le notaire prend la place du bureau.
+		b.obligations.connect(func(): notaire.call_deferred("football", club))
 		voile.add_child(b)
 	b.name = "Bureau"
 	b.closed.connect(func():
@@ -269,7 +258,77 @@ func gerer(sport: String, club: String, page := "") -> void:
 		_refresh())
 
 
-## Le bureau ouvert par-dessus le carnet, ou null.
+## Le registre des parts d'un club, chez le notaire, ouvert « par téléphone » par-dessus le carnet (demande de
+## Guillaume du 24 octobre 2026 : « les achats de parts se font chez le notaire comme le reste »). C'est le
+## registre de l'étude, où qu'on soit : Maître Garnier signe. Football : FootObligations ; basket : le
+## tableau des parts (basket_parts.gd). On le referme (Échap) et l'on retrouve le carnet.
+func notaire(sport: String, club: String) -> void:
+	if club == "":
+		return
+	var voile := _voile()
+	voile.name = "Notaire"
+	var centre := CenterContainer.new()
+	centre.set_anchors_preset(Control.PRESET_FULL_RECT)
+	voile.add_child(centre)
+	var pile := VBoxContainer.new()
+	pile.add_theme_constant_override("separation", 6)
+	centre.add_child(pile)
+	# Une étiquette sur fond plein : le haut du carnet ne passe pas au travers.
+	var tel := PanelContainer.new()
+	tel.name = "AuTelephone"
+	tel.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	var st := StyleBoxFlat.new()
+	st.bg_color = BARRE
+	st.set_corner_radius_all(6)
+	st.content_margin_left = 12
+	st.content_margin_right = 12
+	st.content_margin_top = 4
+	st.content_margin_bottom = 4
+	tel.add_theme_stylebox_override("panel", st)
+	pile.add_child(tel)
+	_text(tel, "%s, au téléphone" % str(NOTAIRE.etude(Commune.smarves()).nom), 15, INK).autowrap_mode = TextServer.AUTOWRAP_OFF
+	var p: Control = load(PARTS_BASKET if sport == "basket" else PARTS_FOOT).new()
+	if sport == "basket":
+		p.commune = club
+	else:
+		p.club = club
+	p.name = "Registre"
+	# Le registre du football ne défile pas sur un grand écran : il tient ici dans la hauteur, et défile au-delà.
+	var defile := ScrollContainer.new()
+	defile.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	pile.add_child(defile)
+	defile.add_child(p)
+	var tenir := func():
+		var m: Vector2 = p.get_combined_minimum_size()
+		defile.custom_minimum_size = Vector2(m.x, minf(m.y, get_viewport().get_visible_rect().size.y - 90.0))
+	p.minimum_size_changed.connect(tenir)
+	tenir.call()
+	p.closed.connect(func():
+		if get_viewport() != null:
+			get_viewport().set_input_as_handled()
+		fermer_gestion()
+		_refresh())
+
+
+## Le voile sombre par-dessus le carnet (ouvert s'il ne l'est pas), qui tient le bureau ou le notaire.
+func _voile() -> Control:
+	if not _root.visible:
+		toggle()
+	fermer_gestion()
+	var voile := Control.new()
+	voile.name = "Gestion"
+	voile.set_anchors_preset(Control.PRESET_FULL_RECT)
+	voile.mouse_filter = Control.MOUSE_FILTER_STOP
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.55)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	voile.add_child(dim)
+	add_child(voile)
+	_gestion = voile
+	return voile
+
+
+## Le bureau ou le notaire ouvert par-dessus le carnet, ou null.
 func gestion() -> Control:
 	return _gestion
 
@@ -951,7 +1010,7 @@ static func _picto_du_lien(l) -> String:
 		"bureau", "gerer":
 			return {"tactique": "tactique", "entrainement": "entrainement", "offres": "mercato", "recherche": "mercato", "marche": "mercato",
 				"comptes": "comptes", "effectif": "effectif", "championnat": "classement", "equipe": "effectif"}.get(str(l.get("page", "")), "gerer")
-		"registre":
+		"notaire", "registre":
 			return "registre"
 		"stade", "salle":
 			return "lieu"
@@ -1303,7 +1362,7 @@ func _fill_un_club(club: String) -> void:
 		{"picto": "entrainement", "mot": "Entraînement", "lien": bureau.call("entrainement"), "nom": "Entrainement", "aide": "Le programme de la semaine."},
 		{"picto": "mercato", "mot": "Mercato", "lien": bureau.call("recherche"), "nom": "Mercato", "aide": "Chercher des joueurs, suivre les offres."},
 		{"picto": "lieu", "mot": "Stade", "lien": {"vers": "stade", "club": club}, "nom": "Stade", "aide": "Aller au stade du club."},
-		{"picto": "registre", "mot": "Registre", "lien": {"vers": "registre", "club": club}, "nom": "Registre", "aide": "Le registre des parts, au stade : acheter ou revendre des parts."},
+		{"picto": "registre", "mot": "Le notaire", "lien": {"vers": "notaire", "sport": "football", "club": club}, "nom": "Notaire", "aide": "Acheter ou rendre des parts, chez le notaire, par téléphone."},
 	])
 	_aide(_rubrique(_left, "Classement"), "Le premier monte, les %d derniers descendent." % int(Football.DESCENDENT))
 	var g := _grille(_left, "Classement", ["", "Club", "J", "Diff.", "Pts"])
@@ -1368,7 +1427,8 @@ func _fill_un_club_basket(club: String) -> void:
 		{"picto": "gerer", "mot": "Gérer", "lien": bureau.call("equipe"), "nom": "Gerer", "principal": true, "aide": "Le bureau du président : l'équipe, la consigne du match."},
 		{"picto": "mercato", "mot": "Marché", "lien": bureau.call("marche"), "nom": "Marche", "aide": "Les joueurs libres, aux enchères jusqu'au jeudi 22 h."},
 		{"picto": "comptes", "mot": "Comptes", "lien": bureau.call("comptes"), "nom": "Comptes", "aide": "La masse salariale, la recette, les obligations."},
-		{"picto": "lieu", "mot": "Salle", "lien": {"vers": "salle", "club": club}, "nom": "Salle", "aide": "Aller à la salle : on y achète les parts du club."},
+		{"picto": "lieu", "mot": "Salle", "lien": {"vers": "salle", "club": club}, "nom": "Salle", "aide": "Aller à la salle du club."},
+		{"picto": "registre", "mot": "Le notaire", "lien": {"vers": "notaire", "sport": "basket", "club": club}, "nom": "Notaire", "aide": "Acheter ou rendre des parts, chez le notaire, par téléphone."},
 	])
 	_aide(_rubrique(_left, "Classement"), "Deux points la victoire, un la défaite. Le premier monte, les %d derniers descendent." % int(Basket.DESCENDENT))
 	var g := _grille(_left, "Classement", ["", "Club", "V-D", "Diff.", "Pts"])

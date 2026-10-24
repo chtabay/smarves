@@ -9,8 +9,10 @@ extends Node
 ##   courrier (la recette des vingt mises tombe trop souvent pour une fiche à chaque fois) ;
 ## - lien : où mène le bouton de l'avis. {vers: "courrier"}, {vers: "carnet", onglet}, {vers: "agenda"},
 ##   {vers: "bureau", club, page} (le bureau du club de football, ouvert par-dessus le carnet, où qu'on soit),
-##   {vers: "gerer", sport: "basket", club, page} (le bureau du club de basket, de même), {vers: "registre",
-##   club} (au stade), {vers: "stade", club} (le stade du club), {vers: "salle", club} (la salle de basket).
+##   {vers: "gerer", sport: "basket", club, page} (le bureau du club de basket, de même), {vers: "notaire",
+##   sport, club} (le registre des parts chez le notaire, ouvert par téléphone par-dessus le carnet ; l'ancien
+##   {vers: "registre", club} y mène aussi, au football), {vers: "stade", club} (le stade du club),
+##   {vers: "salle", club} (la salle de basket).
 ##
 ## Il s'affiche à trois endroits : la fiche (une seule à la fois, cliquable, celles qui arrivent ensemble
 ## se fondent en une), la pastille « Messages : 3 nouvelles » tant qu'il reste du non lu, et la rubrique
@@ -272,8 +274,8 @@ func nom_du_lien(l) -> String:
 			return str(pages.get(str(l.get("page", "")), "Le bureau du club"))
 		"gerer":
 			return {"marche": "Le marché", "comptes": "Les comptes"}.get(str(l.get("page", "")), "Le bureau du club")
-		"registre":
-			return "Le registre des parts"
+		"notaire", "registre":
+			return "Le notaire"
 		"stade":
 			return "Le stade du club"
 		"salle":
@@ -299,10 +301,11 @@ func occupe() -> bool:
 
 # ---------------------------------------------------------------- aller où l'avis mène
 
-## Un lien qui change de lieu (le stade, la salle) ne s'ouvre pas en pleine main. Le bureau d'un club, lui,
-## s'ouvre par-dessus le carnet, où qu'on soit (demande de Guillaume du 24 octobre : gérer sans aller au stade).
+## Un lien qui change de lieu (le stade, la salle) ne s'ouvre pas en pleine main. Le bureau d'un club et le
+## notaire, eux, s'ouvrent par-dessus le carnet, où qu'on soit (demandes de Guillaume du 24 octobre : gérer
+## sans aller au stade, acheter ses parts chez le notaire comme le reste).
 func change_de_lieu(l) -> bool:
-	return l is Dictionary and str(l.get("vers", "")) in ["registre", "stade", "salle"]
+	return l is Dictionary and str(l.get("vers", "")) in ["stade", "salle"]
 
 
 func peut_aller(l) -> bool:
@@ -329,10 +332,12 @@ func aller(a: Dictionary) -> void:
 			Carnet.gerer("football", str(l.get("club", "")), str(l.get("page", "")))
 		"gerer":
 			Carnet.gerer(str(l.get("sport", "football")), str(l.get("club", "")), str(l.get("page", "")))
-		"registre", "stade":
+		"notaire", "registre":
+			Carnet.notaire(str(l.get("sport", "football")), str(l.get("club", "")))
+		"stade":
 			if Carnet.is_open():
 				Carnet.toggle()
-			load("res://scripts/village/stade.gd").ouvrir_sur(str(l.get("club", "")), "registre" if str(l.vers) == "registre" else "")
+			load("res://scripts/village/stade.gd").ouvrir_sur(str(l.get("club", "")), "")
 		"salle":
 			if Carnet.is_open():
 				Carnet.toggle()
@@ -504,7 +509,7 @@ func _porteurs(f: Node) -> bool:
 			publier({"id": "parts/%s/%s/%s" % [club, r, qui], "genre": "parts", "importance": "forte",
 				"titre": "%s a pris l'obligation n° %s de %s" % [qui, r, _nom(f, club)],
 				"texte": "Elle était à vous : un autre l'avait prise avant, elle vous est rendue à sa valeur." if etait == "vous" else "",
-				"lien": {"vers": "registre", "club": club}})
+				"lien": {"vers": "notaire", "sport": "football", "club": club}})
 		if dir_avant.has(club) and bool(dir_avant[club]) != bool(dir_apres[club]):
 			var ac: Array = f.actionnaires(club)
 			var tete: String = "" if ac.is_empty() or bool(ac[0].get("moi", false)) else str(ac[0].get("nom", ""))

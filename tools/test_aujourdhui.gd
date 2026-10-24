@@ -125,7 +125,7 @@ func _lancer() -> void:
 	t = foot.coup_envoi(1, 14) + 4 * 3600
 	liste = carnet.a_faire()
 	check(liste.size() == 1 and liste[0].genre == "diriger" and str(liste[0].texte).contains("Il vous manque"), "à l'intersaison, on ne dirige pas l'Étoile : %s" % (str(liste[0].texte) if not liste.is_empty() else "rien"))
-	check(int(liste[0].quand) == foot.coup_envoi(2, 1) and str(liste[0].lien.vers) == "registre", "jusqu'au premier coup d'envoi de la saison 2, vers le registre")
+	check(int(liste[0].quand) == foot.coup_envoi(2, 1) and str(liste[0].lien.vers) == "notaire", "jusqu'au premier coup d'envoi de la saison 2, vers le notaire")
 
 	avis.effacer()
 	foot.effacer()
