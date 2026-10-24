@@ -32,6 +32,13 @@ extends Node
 ##   petit état libre (etat_libre : la lampe, la clé portée) ;
 ## - les départs : un joueur qui s'en va le dit sur le canal ; on le voit encore 3 s à sa dernière place,
 ##   puis il s'éclipse (signaux arrive et parti).
+##
+## Les pensionnaires (docs/PENSIONNAIRES.md, « Le corps ») : sur la place de Smarves, la vue de la base donne
+## aussi les pensionnaires présents, avec leur trajet minuté [[t (ms), x, y, z], …] et leurs bulles
+## [[t, texte], …], écrits par le serveur à chaque tour. Chacun est un présent comme un autre (membre
+## « p:… »), sa silhouette et son nom, que le jeu fait marcher le long de son trajet à l'heure du serveur
+## (la vue la donne : maintenant) ; sa bulle se montre dix secondes au-dessus de sa tête. Le battement
+## donne à la base la position du joueur : c'est ainsi qu'un pensionnaire sait qui il voit.
 
 const CRITTER := preload("res://scripts/critter.gd")
 const TEMPS_REEL := preload("res://scripts/socle/temps_reel.gd")
@@ -60,6 +67,8 @@ const CADENCE_SALON := 10
 const ETAT_MAX := 256
 ## Un joueur parti reste visible à sa dernière place, puis s'éclipse.
 const DEPART := 3.0
+## La bulle d'un pensionnaire reste dix secondes.
+const BULLE := 10000.0
 
 ## La liste des présents a changé (arrivée, départ) : [{membre, nom, tenue}].
 signal presents_changes(presents: Array)
@@ -127,6 +136,9 @@ var _zone_vise := ""
 var _zone_depuis := 0.0
 var _zone_lu := 0.0
 var _jetons := MESSAGES_PAR_SECONDE
+## L'heure du serveur moins la nôtre, en millisecondes (la vue la donne) : les trajets des pensionnaires
+## sont minutés à l'heure du serveur.
+var _decalage := 0.0
 
 
 ## Pour les captures (--presences-essai) : deux faux joueurs se promènent devant soi.
@@ -262,6 +274,25 @@ func appliquer_vue(v: Dictionary) -> void:
 			if p.tenue != str(x.get("tenue", "")):
 				p.tenue = str(x.get("tenue", ""))
 				_effacer_noeud(p)
+	if v.has("maintenant"):
+		_decalage = float(v.maintenant) - Time.get_unix_time_from_system() * 1000.0
+	var pensionnaires = v.get("pensionnaires", [])
+	if salon_id == "" and pensionnaires is Array:
+		for x in pensionnaires:
+			if not x is Dictionary or str(x.get("membre", "")) == "" or not x.get("trajet") is Array:
+				continue
+			var m := "p:" + str(x.membre)
+			vus[m] = true
+			if not presents.has(m):
+				presents[m] = {"nom": str(x.get("nom", "")), "tenue": str(x.get("tenue", "")), "noeud": null,
+					"points": [], "vu": -1000.0, "a_portee": false, "part": -1.0, "etat": {}, "corps": true, "cap": 0.0}
+				arrive.emit(m, presents[m].nom)
+			elif presents[m].get("hors_liste", false):
+				presents[m].hors_liste = false
+				presents[m].part = -1.0
+				arrive.emit(m, presents[m].nom)
+			presents[m].trajet = x.trajet
+			presents[m].bulles = x.get("bulles", []) if x.get("bulles") is Array else []
 	for m in presents.keys():
 		if not vus.has(m):
 			presents[m].hors_liste = true
@@ -456,6 +487,7 @@ func _process(delta: float) -> void:
 	_envoyer(delta)
 	if _essai:
 		_promener(delta)
+	_animer_corps()
 	for m in presents.keys():
 		_placer(m)
 		if presents[m].part >= 0.0 and _t - presents[m].part > DEPART:
@@ -632,7 +664,11 @@ func _basculer(nouveau: String) -> void:
 func _battre() -> void:
 	_battement = BATTEMENT
 	var g := _gen
-	var r: Dictionary = await Compte.appeler("smarves_lieu_battement", {})
+	var args := {}
+	var mp := ma_position()
+	if not mp.is_empty():
+		args = {"p_x": snappedf(mp[0].x, 0.1), "p_z": snappedf(mp[0].z, 0.1)}
+	var r: Dictionary = await Compte.appeler("smarves_lieu_battement", args)
 	if g != _gen or etat != "present":
 		return
 	if r.code == 200 and r.corps is Dictionary and (r.corps.has("canal") or r.corps.has("sorti")):
@@ -717,6 +753,85 @@ func _distance(pos: Vector3) -> float:
 	var d := pos - _joueur.global_position
 	d.y = 0.0
 	return d.length()
+
+
+## Les pensionnaires marchent le long de leur trajet, à l'heure du serveur, et parlent à l'heure dite.
+func _animer_corps() -> void:
+	if salon_id != "":
+		return
+	var maintenant := Time.get_unix_time_from_system() * 1000.0 + _decalage
+	for m in presents:
+		var p: Dictionary = presents[m]
+		if not p.get("corps", false) or p.part >= 0.0:
+			continue
+		var e := au_trajet(p.get("trajet", []), maintenant, float(p.cap))
+		if e.is_empty():
+			continue
+		p.cap = e.cap
+		p.points = [[_t, e.position, e.cap, Vector2(e.cap, 0.0)]]
+		p.vu = _t
+		if is_instance_valid(p.noeud):
+			_bulle(p, bulle_a(p.get("bulles", []), maintenant))
+
+
+## Où en est un trajet [[t (ms), x, y, z], …] à l'instant t : {position, cap} ; le cap suit le pas (la
+## silhouette regarde +Z) et garde `cap` à l'arrêt. {} pour un trajet vide.
+static func au_trajet(trajet: Array, t: float, cap := 0.0) -> Dictionary:
+	var pts: Array = []
+	for x in trajet:
+		if x is Array and x.size() >= 4:
+			pts.append([float(x[0]), Vector3(float(x[1]), float(x[2]), float(x[3]))])
+	if pts.is_empty():
+		return {}
+	if t <= pts[0][0]:
+		return {"position": pts[0][1], "cap": cap}
+	for k in range(1, pts.size()):
+		if t <= pts[k][0]:
+			var a: Vector3 = pts[k - 1][1]
+			var b: Vector3 = pts[k][1]
+			var duree: float = pts[k][0] - pts[k - 1][0]
+			var f: float = (t - float(pts[k - 1][0])) / duree if duree > 0.0 else 1.0
+			var d := b - a
+			d.y = 0.0
+			return {"position": a.lerp(b, f), "cap": atan2(d.x, d.z) if d.length() > 0.01 else cap}
+	return {"position": pts[-1][1], "cap": cap}
+
+
+## La parole d'un pensionnaire à l'instant t (montrée BULLE ms), ou « ».
+static func bulle_a(bulles: Array, t: float) -> String:
+	var dit := ""
+	for b in bulles:
+		if b is Array and b.size() >= 2 and float(b[0]) <= t and t < float(b[0]) + BULLE:
+			dit = str(b[1])
+	return dit
+
+
+func _bulle(p: Dictionary, texte: String) -> void:
+	var l: Label3D = p.noeud.get_node_or_null("Bulle")
+	if texte == "":
+		if l != null:
+			l.visible = false
+		return
+	if l == null:
+		l = Label3D.new()
+		l.name = "Bulle"
+		l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		l.fixed_size = true
+		l.pixel_size = 0.0008
+		l.font_size = 20
+		l.modulate = Color("#16151b")
+		l.outline_modulate = Color("#fbf8ef")
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		l.width = 420.0
+		l.outline_size = 12
+		# La bulle passe devant le décor : on la lit même derrière un arbre.
+		l.no_depth_test = true
+		l.render_priority = 2
+		l.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+		l.position = Vector3(0, 1.08, 0)
+		p.noeud.add_child(l)
+	l.text = "« %s »" % texte
+	l.visible = true
 
 
 ## La silhouette d'un présent, là où ses positions la mettent, 300 ms en arrière.
@@ -837,20 +952,34 @@ func _quitter(oublier := true) -> void:
 # --- Les captures ----------------------------------------------------------------------------
 
 func _mise_en_scene() -> void:
-	appliquer_vue({"canal": "essai", "moi": "moi", "cadence": 3, "presents": [
+	var mp := ma_position()
+	var pensionnaires := []
+	if not mp.is_empty():
+		# Devant soi, à quelques pas : le joueur regarde -Z de son corps.
+		var devant: Vector3 = -_joueur.global_basis.z
+		devant.y = 0.0
+		_essai_centre = mp[0] + devant.normalized() * 2.2 * _echelle
+		# Un pensionnaire passe de gauche à droite, en parlant.
+		var cote: Vector3 = _joueur.global_basis.x
+		cote.y = 0.0
+		cote = cote.normalized() * 1.6 * _echelle
+		var t := Time.get_unix_time_from_system() * 1000.0
+		var a := _essai_centre - cote - devant.normalized() * 0.6 * _echelle
+		var b := _essai_centre + cote - devant.normalized() * 0.6 * _echelle
+		pensionnaires.append({"membre": "essai3", "nom": "Billy Bob (pensionnaire)", "tenue": "canotier",
+			"trajet": [[t - 2000.0, a.x, a.y, a.z], [t + 6000.0, b.x, b.y, b.z], [t + 14000.0, a.x, a.y, a.z]],
+			"bulles": [[t - 1000.0, "Belle journée pour un match ! Quelqu'un parie sur Smarves ?"]]})
+	appliquer_vue({"canal": "essai", "moi": "moi", "cadence": 3, "maintenant": Time.get_unix_time_from_system() * 1000.0,
+		"pensionnaires": pensionnaires, "presents": [
 		{"membre": "essai1", "nom": "Paulette", "tenue": "smoking"},
 		{"membre": "essai2", "nom": "Bastien", "tenue": "dimanche"}]})
-	var mp := ma_position()
 	if mp.is_empty():
 		return
-	# Devant soi, à quelques pas : le joueur regarde -Z de son corps.
-	var devant: Vector3 = -_joueur.global_basis.z
-	devant.y = 0.0
-	_essai_centre = mp[0] + devant.normalized() * 2.2 * _echelle
 	_essai_envoi = 0.0
 	_promener(0.0)
 	for m in presents:
-		presents[m].points[0][0] -= 1.0
+		if not presents[m].points.is_empty():
+			presents[m].points[0][0] -= 1.0
 
 
 func _promener(delta: float) -> void:
@@ -860,6 +989,8 @@ func _promener(delta: float) -> void:
 	_essai_envoi = 1.0 / 3.0
 	var k := 0
 	for m in presents:
+		if presents[m].get("corps", false):
+			continue
 		var a := _t * 0.25 + k * PI
 		var r := (0.5 + 0.3 * k) * _echelle
 		var pos := _essai_centre + Vector3(cos(a) * r, 0.0, sin(a) * r)

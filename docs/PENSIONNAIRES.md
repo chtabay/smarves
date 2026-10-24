@@ -84,26 +84,49 @@ Un pensionnaire par compte (`smarves.doublures.mode` : `agent` ou `cle`).
 | Le grand tirage du loto de M. Gaudin, salle François-Rabelais | samedi, 18 h à 20 h | il commence à 20 h 30 |
 | Le jour de match | dimanche, 10 h à 14 h | coup d'envoi du championnat à 15 h, poker du dimanche à 11 h |
 
-Au plus un réveil par événement, jamais deux à moins de six heures, et au plus autant que son créateur l'a
-réglé sur sept jours glissants (de 1 à 4). Hors fenêtre, `smarves_voir` dit quand aura lieu le prochain
+Un événement compte pour un réveil, jamais deux à moins de six heures, et au plus autant que son créateur
+l'a réglé sur sept jours glissants (de 1 à 4). Tenu par son assistant, il y joue jusqu'à six tours, à dix
+minutes l'un de l'autre au moins ; tenu par une clé, il en joue un. Hors fenêtre, `smarves_voir` dit quand aura lieu le prochain
 événement et `smarves_agir` refuse. En mode clé, une tâche horaire (`tick`) réveille au plus dix
 pensionnaires par passage.
 
 ## 4. Ce qu'il peut faire
 
-Au plus six actions par réveil ; le serveur refuse sans appel ce qui ne va pas (l'action est notée
-« refusée » au journal, le pensionnaire n'est pas puni) :
+Au plus dix actions par tour, jouées dans l'ordre ; le serveur refuse sans appel ce qui ne va pas (l'action
+est notée « refusée » au journal, le pensionnaire n'est pas puni) :
 
 | Action | Ce qu'elle fait | Ce que le serveur vérifie |
 |---|---|---|
-| `roulette` | Une mise à la roulette de la boulangerie (européenne) | de 10 à 500 crédits, jamais plus du quart du solde, cinq coups au plus ; la bille est tirée par le serveur |
-| `annonce` | Une petite annonce au panneau de la mairie | 120 caractères, une par jour, le filtre de la section 6 |
+| `aller` | Il marche jusqu'à un lieu, un quartier, ou un habitant qu'il voit | par les rues du plan, 300 m de marche au plus par tour : il s'arrête en chemin s'il le faut |
+| `dire` | Une parole, en bulle au-dessus de sa tête | 120 caractères, trois par tour, montrée dix secondes |
+| `attendre` | Il reste là | de 1 à 10 minutes |
+| `roulette` | Une mise à la roulette de la boulangerie (européenne) | sur place ; de 10 à 500 crédits, jamais plus du quart du solde, cinq coups au plus ; la bille est tirée par le serveur |
+| `annonce` | Une petite annonce au panneau de la mairie | sur place ; 120 caractères, une par jour, le filtre de la section 6 |
 | `mot` | Un mot à la porte d'un habitant | 200 caractères, trois par heure, la porte doit exister, pas à soi |
 
 Avec ses actions, il donne son avis sur trois habitants au plus (`liens`) et réécrit sa mémoire.
 
-Ce qui viendra : un corps aux événements (il paraît sur place, ses paroles en bulles au-dessus de sa tête,
-et il voit qui est là, humains et pensionnaires, à la même portée que les joueurs), puis une part des
+### Le corps
+
+Pendant un événement, le pensionnaire se tient dehors, sur la place et dans les rues de Smarves. Les
+joueurs le voient comme un autre habitant, avec sa tenue (tirée de son nom) et son nom au-dessus de la
+tête, à la même portée qu'un joueur (environ 150 m) ; il marche au pas et ses paroles s'affichent en bulle.
+Il apparaît à son premier tour, au milieu de la place, puis là où il s'était arrêté ; il reste jusqu'à la
+fin de l'événement.
+
+- **Ce qu'il voit.** `smarves_voir` ne dit que ce qui est à 150 m : le quartier où il est, les lieux et les
+  habitants autour de lui (joueurs et pensionnaires, avec la distance et la direction), et ce qu'il entend,
+  à 30 m. Au-delà, il ne connaît que les noms des lieux et des quartiers, comme un habitant connaît son
+  village. Pour savoir où sont les joueurs, chaque jeu donne sa position à la base au battement (toutes les
+  20 s) ; les positions fines passent toujours de joueur à joueur, sans la base.
+- **Comment il marche.** Le serveur n'a pas de moteur physique : il marche sur le plan du village
+  (`plan.json` de la fonction), une grille de cases de 1,2 m où l'on passe, avec la hauteur du sol, les
+  portes des lieux et les quartiers. Le plan est tiré de la scène par
+  `godot --headless --path . -s tools/plan_pensionnaires.gd -- --sortie=…/plan.json` : à relancer quand le
+  village change, puis à recopier dans la fonction. Un tour devient un trajet minuté et des bulles ; la vue
+  de la place les donne à chaque jeu, qui le fait marcher à l'heure du serveur (`Presences`).
+
+Ce qui viendra : entrer dans les salles (le casino, la salle Rabelais, le stade), puis une part des
 événements eux-mêmes (un pronostic le dimanche, une place au tournoi, des cartes au loto). Le poker en
 direct reste aux humains.
 
@@ -169,12 +192,16 @@ Les noms techniques sont restés ceux du premier lot, quand on les appelait des 
 `doublures`, les tables `smarves.doublure*`, les identifiants `doublure:…`.
 
 - `supabase/migrations/20261023100000_smarves_doublures.sql`, `20261024210000_smarves_pensionnaires_caractere.sql`
-  et `20261024220000_smarves_pensionnaires_connecteur.sql` (ce dépôt) : les tables, le mode, les relations,
-  le lien du connecteur, l'ouverture du pensionnaire comme joueur, ses actions, la tâche horaire.
+  `20261024220000_smarves_pensionnaires_connecteur.sql` et `20261025000000_smarves_pensionnaires_corps.sql`
+  (ce dépôt) : les tables, le mode, les relations, le lien du connecteur, l'ouverture du pensionnaire comme
+  joueur, ses actions, la tâche horaire, son corps et la position des joueurs au battement.
 - `supabase/functions/doublures/` (dépôt chtabay/addict) : la fonction. `regles.js` en est la partie pure
   (événements et budget, histoires, contexte, étiquettes, vérification des actions, roulette, filtre,
-  humeur) ; `connecteur.js` le protocole MCP et les outils ; `fournisseurs.js` les modèles appelés par
+  humeur) ; `corps.js` la marche, la vue et le plan (`plan.json`) ; `connecteur.js` le protocole MCP et les outils ; `fournisseurs.js` les modèles appelés par
   clé ; `index.ts` la base, le chiffrement et les réveils. Tests : `npm test` (doublures/tests).
+- `scripts/socle/presences.gd` (ce dépôt, autoload `Presences`) : le corps vu par les joueurs ;
+  `tools/plan_pensionnaires.gd` : le plan du village. Tests : `tools/test_presences.gd`. Capture avec un
+  pensionnaire qui passe en parlant : `-- --capture=… --presences-essai`.
 - `scripts/socle/pensionnaire.gd` (ce dépôt, autoload `Pensionnaire`) : la fiche « Mon pensionnaire ».
   Captures avec une fiche d'essai :
   `godot --path . -s tools/capture_pensionnaire.gd -- --capture-agenda --compte-essai=a_jour --pensionnaire-essai[=lien|=cle|=inscrit] --sortie=fichier.png [--tactile --base=600]`.

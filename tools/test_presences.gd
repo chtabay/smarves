@@ -113,6 +113,8 @@ func _init() -> void:
 	await attendre(0.05)
 	check(not is_instance_valid(P.presents.aaa111.noeud), "sans nouvelles, elle s'éclipse")
 
+	await pensionnaires(P)
+
 	# La scène s'en va : tout se range.
 	scene.queue_free()
 	await process_frame
@@ -122,6 +124,35 @@ func _init() -> void:
 	await communes(P)
 	print("%s : %d échec(s)" % ["test_presences", fails])
 	quit(1 if fails else 0)
+
+
+## Les pensionnaires : la vue de la place les donne avec leur trajet et leurs bulles ; le jeu les fait
+## marcher à l'heure du serveur, montre leur bulle, et les range quand la liste ne les a plus.
+func pensionnaires(P: Node) -> void:
+	var t := Time.get_unix_time_from_system() * 1000.0
+	var e: Dictionary = P.au_trajet([[0, 0, 0, 0], [1000, 10, 0, 0]], 500.0)
+	check(e.position.is_equal_approx(Vector3(5, 0, 0)) and is_equal_approx(e.cap, PI / 2.0), "au milieu du trajet, tourné vers l'est")
+	check(P.au_trajet([[0, 0, 0, 0], [1000, 10, 0, 0]], 5000.0, 1.0).cap == 1.0, "à l'arrêt, il garde son cap")
+	check(P.au_trajet([], 0.0).is_empty(), "sans trajet, nulle part")
+	check(P.bulle_a([[100, "a"], [5000, "b"]], 200.0) == "a" and P.bulle_a([[100, "a"]], 20000.0) == "", "une bulle dure dix secondes")
+	var vue := {"canal": "smarves:smarves:place:1:x", "moi": "moi000", "cadence": 3, "maintenant": t + 60000.0, "presents": [
+		{"membre": "aaa111", "nom": "Paulette", "tenue": "smoking"}], "pensionnaires": [
+		{"membre": "ccc333", "nom": "Billy Bob (pensionnaire)", "tenue": "canotier",
+			"trajet": [[t + 59000.0, 0, 0, 2], [t + 61000.0, 4, 0, 2], [t + 80000.0, 4, 0, 2]],
+			"bulles": [[t + 59500.0, "Bonjour la place !"]]}]}
+	P.appliquer_vue(vue)
+	check(P.presents.has("p:ccc333") and P.presents["p:ccc333"].corps, "un pensionnaire présent sur la place")
+	await attendre(0.1)
+	var n: Node3D = P.presents["p:ccc333"].noeud
+	check(is_instance_valid(n) and n.position.x > 0.5 and n.position.x < 3.5, "il marche le long de son trajet, à l'heure du serveur (x = %.2f)" % (n.position.x if is_instance_valid(n) else -1.0))
+	var b: Label3D = n.get_node_or_null("Bulle") if is_instance_valid(n) else null
+	check(b != null and b.visible and b.text.contains("Bonjour la place !"), "sa bulle au-dessus de la tête")
+	await attendre(1.2)
+	check(is_equal_approx(n.position.x, 4.0), "arrivé, il s'arrête")
+	vue.erase("pensionnaires")
+	P.appliquer_vue(vue)
+	await attendre(3.2)
+	check(not P.presents.has("p:ccc333") and not is_instance_valid(n), "la liste ne l'a plus : il s'en va")
 
 
 ## Socle 1.23 : ce qu'une commune en paquet reçoit du socle.
