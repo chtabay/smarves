@@ -229,6 +229,8 @@ func nom_du_lien(l) -> String:
 			return str(pages.get(str(l.get("page", "")), "Le bureau du club"))
 		"registre":
 			return "Le registre des parts"
+		"salle":
+			return "La salle du club"
 		"carnet":
 			return {"compte": "Ma carrière", "cartes": "Mes cartes", "clubs": "Mes clubs", "aujourdhui": "Aujourd'hui"}.get(str(l.get("onglet", "")), "Le carnet")
 		"agenda":
@@ -251,7 +253,7 @@ func occupe() -> bool:
 
 ## Un lien qui change de lieu (le stade) ne s'ouvre pas en pleine main.
 func change_de_lieu(l) -> bool:
-	return l is Dictionary and str(l.get("vers", "")) in ["bureau", "registre"]
+	return l is Dictionary and str(l.get("vers", "")) in ["bureau", "registre", "salle"]
 
 
 func peut_aller(l) -> bool:
@@ -278,6 +280,10 @@ func aller(a: Dictionary) -> void:
 			if Carnet.is_open():
 				Carnet.toggle()
 			load("res://scripts/village/stade.gd").ouvrir_sur(str(l.get("club", "")), "registre" if str(l.vers) == "registre" else "bureau:" + str(l.get("page", "")))
+		"salle":
+			if Carnet.is_open():
+				Carnet.toggle()
+			Basket.ouvrir_salle(str(l.get("club", "")))
 		"agenda":
 			Carnet.ouvrir_sur("agenda")
 		"carnet":
@@ -288,21 +294,58 @@ func aller(a: Dictionary) -> void:
 
 # ---------------------------------------------------------------- ce que Football ne dit pas de lui-même
 
-## Relit Football : les matchs joués, les porteurs des parts, la direction, la composition, le calendrier.
+## Relit Football (les matchs joués, les porteurs des parts, la direction, la composition, le calendrier)
+## et le basket (les matchs joués des clubs dont on tient une part).
 func verifier() -> void:
 	var f := get_node_or_null("/root/Football")
-	if f == null or f.niveaux.is_empty():
-		return
-	var bouge := false
-	for club in _clubs_suivis(f):
-		bouge = _matchs(f, club) or bouge
-		bouge = _compo(f, club) or bouge
-		bouge = _dilemme(f, club) or bouge
-		bouge = _suite(f, club) or bouge
-	bouge = _porteurs(f) or bouge
-	bouge = _periode(f) or bouge
+	var bouge := _basket()
+	if f != null and not f.niveaux.is_empty():
+		for club in _clubs_suivis(f):
+			bouge = _matchs(f, club) or bouge
+			bouge = _compo(f, club) or bouge
+			bouge = _dilemme(f, club) or bouge
+			bouge = _suite(f, club) or bouge
+		bouge = _porteurs(f) or bouge
+		bouge = _periode(f) or bouge
 	if bouge:
 		sauver()
+
+
+## Le basket des clubs dont on tient une part : chaque journée jouée depuis la dernière lecture, un avis
+## (la première fois, rien, comme au football). Sans cliché gardé, aucun match ne se joue ici.
+func _basket() -> bool:
+	var b := get_node_or_null("/root/Basket")
+	if b == null or b.niveaux.is_empty() or b.cliches.is_empty():
+		return false
+	var aujourdhui: GDScript = load("res://scripts/socle/aujourdhui.gd")
+	var vus: Dictionary = suivi.get("basket", {})
+	var s: int = b.saison
+	var jj: int = b.journee_jouee()
+	var bouge := false
+	for club in aujourdhui.clubs_basket(b):
+		var cle := "%d/%d" % [s, jj]
+		if str(vus.get(club, "")) == cle:
+			continue
+		var depuis := 0
+		if vus.has(club):
+			var p: PackedStringArray = str(vus[club]).split("/")
+			depuis = int(p[1]) if int(p[0]) == s else 0
+			for k in range(depuis + 1, jj + 1):
+				var m: Dictionary = aujourdhui.match_basket(b, club, s, k)
+				if m.is_empty() or (m.score as Array).is_empty():
+					continue
+				var gagne: bool = int(m.score[0]) > int(m.score[1])
+				var c: Dictionary = aujourdhui.carte_basket(b, club) if k == jj else {}
+				publier({"id": "basket/%d/%d/%s" % [s, k, club], "quand": int(m.quand) + 2 * 3600, "genre": "match",
+					"titre": "%s : %s %d-%d %s %s" % [b.fiche(club).nom, "victoire" if gagne else "défaite", int(m.score[0]), int(m.score[1]),
+						"contre" if m.dom else "chez", b.fiche(str(m.adv)).nom],
+					"texte": "Basket, journée %d.%s" % [k, (" %s du groupe après la journée." % _rang(int(c.rang))) if not c.is_empty() and int(c.rang) > 0 else ""],
+					"lien": {"vers": "carnet", "onglet": "clubs"}})
+		vus[club] = cle
+		bouge = true
+	if bouge:
+		suivi["basket"] = vus
+	return bouge
 
 
 ## Les clubs dont on tient au moins une part.
