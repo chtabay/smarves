@@ -112,6 +112,8 @@ func _lancer() -> void:
 	var variation: Label = carnet.get("_left").find_child("Variation", true, false)
 	check(variation != null and variation.text.begins_with("+") and carnet.get("_left").find_child("Courbe", true, false) != null and gauche.contains("LA FORTUNE, SUR 3 SEMAINES"), "la variation et la courbe")
 	check(_textes(carnet.get("_right")).contains("Aucune saison close") and gauche.contains("RECORDS"), "pas encore de palmarès ; les records")
+	var cartes_droite: Array = carnet.get("_right").get_children().filter(func(n): return n is PanelContainer)
+	check(not cartes_droite.is_empty() and cartes_droite[0].name == "Pensionnaire" and cartes_droite[0].find_child("Ouvrir_pensionnaire", true, false) != null, "le pensionnaire en tête de la page de droite, avec son bouton")
 	carnet.ouvrir_onglet("compte")
 	await process_frame
 	check(carnet.get("_onglet") == "biens" and _textes(carnet.get("_left")).contains("Depuis la semaine dernière\n+"), "« compte » ouvre Mes biens, ses comptes et la variation")
