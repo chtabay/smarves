@@ -8,7 +8,9 @@ extends Node
 ## - importance : « forte » et « normale » font glisser la fiche du carnet, « discrete » va seulement au
 ##   courrier (la recette des vingt mises tombe trop souvent pour une fiche à chaque fois) ;
 ## - lien : où mène le bouton de l'avis. {vers: "courrier"}, {vers: "carnet", onglet}, {vers: "agenda"},
-##   {vers: "bureau", club, page} (le bureau du club, au stade), {vers: "registre", club}.
+##   {vers: "bureau", club, page} (le bureau du club de football, ouvert par-dessus le carnet, où qu'on soit),
+##   {vers: "gerer", sport: "basket", club, page} (le bureau du club de basket, de même), {vers: "registre",
+##   club} (au stade), {vers: "stade", club} (le stade du club), {vers: "salle", club} (la salle de basket).
 ##
 ## Il s'affiche à trois endroits : la fiche (une seule à la fois, cliquable, celles qui arrivent ensemble
 ## se fondent en une), la pastille « Messages : 3 nouvelles » tant qu'il reste du non lu, et la rubrique
@@ -268,8 +270,12 @@ func nom_du_lien(l) -> String:
 		"bureau":
 			var pages := {"championnat": "Le classement", "tactique": "Préparer la tactique", "entrainement": "L'entraînement", "offres": "Les offres en cours", "adversaire": "Le rapport de l'adjoint"}
 			return str(pages.get(str(l.get("page", "")), "Le bureau du club"))
+		"gerer":
+			return {"marche": "Le marché", "comptes": "Les comptes"}.get(str(l.get("page", "")), "Le bureau du club")
 		"registre":
 			return "Le registre des parts"
+		"stade":
+			return "Le stade du club"
 		"salle":
 			return "La salle du club"
 		"carnet":
@@ -293,9 +299,10 @@ func occupe() -> bool:
 
 # ---------------------------------------------------------------- aller où l'avis mène
 
-## Un lien qui change de lieu (le stade) ne s'ouvre pas en pleine main.
+## Un lien qui change de lieu (le stade, la salle) ne s'ouvre pas en pleine main. Le bureau d'un club, lui,
+## s'ouvre par-dessus le carnet, où qu'on soit (demande de Guillaume du 24 octobre : gérer sans aller au stade).
 func change_de_lieu(l) -> bool:
-	return l is Dictionary and str(l.get("vers", "")) in ["bureau", "registre", "salle"]
+	return l is Dictionary and str(l.get("vers", "")) in ["registre", "stade", "salle"]
 
 
 func peut_aller(l) -> bool:
@@ -318,10 +325,14 @@ func aller(a: Dictionary) -> void:
 	if not peut_aller(l):
 		l = {"vers": "courrier"}
 	match str(l.get("vers", "courrier")):
-		"bureau", "registre":
+		"bureau":
+			Carnet.gerer("football", str(l.get("club", "")), str(l.get("page", "")))
+		"gerer":
+			Carnet.gerer(str(l.get("sport", "football")), str(l.get("club", "")), str(l.get("page", "")))
+		"registre", "stade":
 			if Carnet.is_open():
 				Carnet.toggle()
-			load("res://scripts/village/stade.gd").ouvrir_sur(str(l.get("club", "")), "registre" if str(l.vers) == "registre" else "bureau:" + str(l.get("page", "")))
+			load("res://scripts/village/stade.gd").ouvrir_sur(str(l.get("club", "")), "registre" if str(l.vers) == "registre" else "")
 		"salle":
 			if Carnet.is_open():
 				Carnet.toggle()

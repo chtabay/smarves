@@ -1,7 +1,8 @@
 extends SceneTree
 ## Capture de « Mes clubs » et de « Ma carrière » :
 ## godot --path . --resolution 1600x900 -s tools/capture_mes_clubs.gd -- --sortie=<dossier/>
-## Images : club.png (la page de l'Étoile, journée 5 jouée), calendrier.png (la dernière page de Mes
+## Images : club.png (la page de l'Étoile, journée 5 jouée), gerer.png (son bureau ouvert par-dessus le
+## carnet, sur la tactique), boite.png (les messages, la carte du club et ses actions), calendrier.png (la dernière page de Mes
 ## clubs), carriere.png (la saison 1 close : la courbe de la fortune, le palmarès).
 
 const TMP := "user://capture_mes_clubs/"
@@ -43,6 +44,12 @@ func _lancer() -> void:
 	var carnet: Node = root.get_node("Carnet")
 	carnet.ouvrir_club("smarves")
 	await _photo(sortie + "club.png")
+	# « Gérer » : le bureau du club par-dessus le carnet, sur la tactique.
+	carnet.gerer("football", "smarves", "tactique")
+	await _photo(sortie + "gerer.png")
+	carnet.fermer_gestion()
+	carnet.ouvrir_onglet("boite")
+	await _photo(sortie + "boite.png")
 	carnet.ouvrir_onglet("calendrier")
 	await _photo(sortie + "calendrier.png")
 	carnet.toggle()
