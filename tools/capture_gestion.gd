@@ -3,7 +3,7 @@ extends SceneTree
 ## godot --path . --resolution 1600x900 -s tools/capture_gestion.gd -- --sortie=<dossier/> [--base=600]
 ## Images : debutant-cartes.png, debutant-compte.png et calendrier.png (400 gagnés, rien en poche), premiers-gains.png (3 500
 ## gagnés, une part de la Smarvoise et une obligation de l'Étoile ; premiers-gains-cartes.png, plus bas), foot-obligations.png (le registre du
-## stade ; foot-obligations-en-saison.png, hors de l'intersaison), basket-accueil.png, basket-parts.png et basket-bureau.png (le club de basket, Lucien dirige, vous
+## stade ; foot-obligations-en-saison.png, hors de l'intersaison ; foot-panneau.png, le panneau de l'entrée), basket-accueil.png, basket-parts.png, basket-bureau.png, basket-panneau.png et basket-partenaires.png (le club de basket, Lucien dirige, vous
 ## tenez la n° 2), notaire-telephone-basket.png et notaire-telephone-foot.png (le registre ouvert du carnet),
 ## notaire-etude.png et notaire-etude-basket.png (l'étude et son registre du basket), sur un faux serveur qui suit les règles de tools/test_basket_bureau.gd.
 
@@ -119,6 +119,11 @@ func _lancer() -> void:
 		hote.add_child(reg)
 		await _photo(sortie + "foot-obligations-en-saison.png")
 		reg.queue_free()
+		reg = load("res://scripts/socle/foot_panneau.gd").new()
+		reg.set("club", "smarves")
+		hote.add_child(reg)
+		await _photo(sortie + "foot-panneau.png")
+		reg.queue_free()
 		foot.regler_horloge(func(): return t0)
 	game.won = 12000
 	game.credits = 4200
@@ -126,7 +131,8 @@ func _lancer() -> void:
 	serveur.obligations = [{"club": "smarves", "rang": 5, "par": "Lucien"}, {"club": "smarves", "rang": 2, "par": "Moi"}]
 	await basket.lire()
 	for quoi in [["basket-accueil", "res://scripts/socle/basket_club.gd"], ["basket-parts", "res://scripts/socle/basket_parts.gd"],
-			["basket-bureau", "res://scripts/socle/basket_bureau.gd"]]:
+			["basket-bureau", "res://scripts/socle/basket_bureau.gd"], ["basket-panneau", "res://scripts/socle/basket_panneau.gd"],
+			["basket-partenaires", "res://scripts/socle/basket_partenaires.gd"]]:
 		if seul != "" and seul != "basket":
 			break
 		var p: Control = load(quoi[1]).new()

@@ -76,7 +76,7 @@ func _init() -> void:
 	var clairsemee: int = salle._foule.get_meta("prises")
 	check(clairsemee > 0 and clairsemee < salle._places.size() / 4, "à l'entraînement, la salle est clairsemée : %d" % clairsemee)
 	for n in ["StatueBigHeron", "ArretDuCar", "PanneauDuClub", "BureauDuClub", "EnseigneFacade", "Enceinte", "Foule", "RondCentral",
-			"GrandHall", "Coursive", "TableauDesParts", "BureauDuPresident", "Parking"]:
+			"GrandHall", "Coursive", "MurDesPartenaires", "BureauDuPresident", "Parking"]:
 		check(salle.get_node_or_null(n) != null, "la salle a son élément %s" % n)
 	# La vitesse : la foule reste légère et le décor immobile est fondu (64 millions de triangles par image avant).
 	var mm: MultiMesh = salle._foule.multimesh
@@ -137,6 +137,17 @@ func _init() -> void:
 	check(salle._ecran != null and salle._ecran.get_script().resource_path.ends_with("basket_bureau.gd"), "de l'accueil, on passe au bureau du président")
 	salle._ecran.closed.emit()
 	await process_frame
+	# De l'accueil, Inès appelle le notaire : les parts se signent chez lui, au téléphone.
+	salle.open_club()
+	check(salle._ecran.find_child("Aller_notaire", true, false) != null and salle._ecran.find_child("Aller_parts", true, false) == null, "l'accueil mène au notaire, plus aux parts")
+	salle._ecran.suite = "notaire"
+	salle._ecran.closed.emit()
+	await process_frame
+	var carnet: Node = root.get_node("Carnet")
+	check(carnet.is_open() and carnet.gestion() != null and carnet.gestion().name == "Notaire", "le notaire s'ouvre au téléphone, dans le carnet")
+	carnet.fermer_gestion()
+	carnet.toggle()
+	await process_frame
 	var comptoir: Node = null
 	for a in salle.find_children("*", "Area3D", true, false):
 		if a.get_meta("interact", "") == "accueil":
@@ -156,9 +167,10 @@ func _init() -> void:
 	check(salle.player.global_position.distance_to(salle.BUREAU_POS) < 8.0, "la porte des vestiaires mène au bureau du président")
 	check(salle._ecran_loge.text.contains(salle._court()), "le mur d'écrans du bureau répète le cube : %s" % salle._ecran_loge.text.replace("\n", " / "))
 	var genres := salle.find_children("*", "Area3D", true, false).map(func(a): return a.get_meta("interact", ""))
-	check("bureau" in genres and "tactique" in genres and "conseil" in genres and "parts" in genres, "le grand bureau, le tableau tactique, la table du conseil, le tableau des parts")
-	salle.open_parts()
-	check(salle._ecran != null and salle._ecran.get_script() != null and salle._ecran.get_script().resource_path.ends_with("basket_parts.gd") and salle._ecran.commune == "smarves", "les parts du club s'ouvrent : l'écran des parts du fil basket")
+	check("bureau" in genres and "tactique" in genres and "conseil" in genres and "partenaires" in genres and not "parts" in genres, "le grand bureau, le tableau tactique, la table du conseil, le mur des partenaires ; rien ne s'achète")
+	salle.open_partenaires()
+	check(salle._ecran != null and salle._ecran.get_script() != null and salle._ecran.get_script().resource_path.ends_with("basket_partenaires.gd") and salle._ecran.commune == "smarves"
+		and salle._ecran.find_child("ChezLeNotaire", true, false) != null and salle._ecran.find_child("Prendre_1", true, false) == null, "le mur des partenaires s'ouvre, sans rien à acheter")
 	salle._ecran.closed.emit()
 	await process_frame
 	salle.sortir_bureau()
