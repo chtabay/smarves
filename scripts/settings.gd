@@ -7,6 +7,13 @@ const PATH := "user://reglages.cfg"
 
 var _root: Control
 var _panel: PanelContainer
+## Le milieu du menu défile quand l'écran est trop bas (un téléphone en paysage) : le titre en haut et
+## « Reprendre » et « Quitter » en bas restent toujours visibles.
+var _defile: ScrollContainer
+var _corps: VBoxContainer
+var _marge: MarginContainer
+var _cadre: VBoxContainer
+var _style_panneau: StyleBoxFlat
 var _sliders := {}
 var _fullscreen: CheckButton
 var _device: OptionButton
@@ -146,6 +153,7 @@ func toggle() -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		_root.visible = true
 		get_tree().paused = true
+		_ajuster()
 
 
 func _build() -> void:
@@ -160,6 +168,7 @@ func _build() -> void:
 	panel.set_corner_radius_all(6)
 	panel.set_content_margin_all(26)
 	theme.set_stylebox("panel", "PanelContainer", panel)
+	_style_panneau = panel
 	for st in ["normal", "hover", "pressed", "focus"]:
 		var b := StyleBoxFlat.new()
 		b.bg_color = {"normal": Color(0.14, 0.08, 0.04), "hover": Color(0.28, 0.15, 0.06), "pressed": Color(0.38, 0.22, 0.08), "focus": Color(0.14, 0.08, 0.04)}[st]
@@ -186,15 +195,26 @@ func _build() -> void:
 	_panel = PanelContainer.new()
 	_panel.custom_minimum_size = Vector2(520, 0)
 	center.add_child(_panel)
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 14)
-	_panel.add_child(v)
+	_cadre = VBoxContainer.new()
+	_cadre.add_theme_constant_override("separation", 14)
+	_panel.add_child(_cadre)
 	var t := Label.new()
 	t.text = "Réglages"
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	t.add_theme_font_size_override("font_size", 32)
 	t.add_theme_color_override("font_color", Color(0.96, 0.8, 0.45))
-	v.add_child(t)
+	_cadre.add_child(t)
+	_defile = ScrollContainer.new()
+	_defile.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_cadre.add_child(_defile)
+	# La marge de droite laisse la place à la barre de défilement, quand elle paraît.
+	_marge = MarginContainer.new()
+	_marge.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_defile.add_child(_marge)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 14)
+	_marge.add_child(v)
+	_corps = v
 	for bus in [["Master", "Volume général"], ["Ambiance", "Ambiance et musique"], ["Bruitages", "Bruitages et fanfares"]]:
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 12)
@@ -284,7 +304,7 @@ func _build() -> void:
 	var row2 := HBoxContainer.new()
 	row2.alignment = BoxContainer.ALIGNMENT_CENTER
 	row2.add_theme_constant_override("separation", 12)
-	v.add_child(row2)
+	_cadre.add_child(row2)
 	var resume := Button.new()
 	resume.text = "Reprendre (Échap)"
 	resume.pressed.connect(toggle)
@@ -293,6 +313,30 @@ func _build() -> void:
 	quit.text = "Quitter le jeu"
 	quit.pressed.connect(func(): get_tree().quit())
 	row2.add_child(quit)
+	get_viewport().size_changed.connect(_ajuster)
+
+
+## La hauteur du milieu : tout le contenu s'il tient, sinon ce que laisse l'écran (et il défile). Sur
+## un écran bas, les marges et les écarts se resserrent pour que le défilement reste rare.
+func _ajuster() -> void:
+	if _root == null or not _root.visible:
+		return
+	var ecran := get_viewport().get_visible_rect().size
+	var bas := ecran.y < 760.0
+	_style_panneau.set_content_margin_all(14 if bas else 26)
+	_cadre.add_theme_constant_override("separation", 8 if bas else 14)
+	_corps.add_theme_constant_override("separation", 8 if bas else 14)
+	_panel.custom_minimum_size.x = minf(520.0, ecran.x - 24.0)
+	var contenu := _corps.get_combined_minimum_size().y
+	var autour := 0.0
+	for c in _cadre.get_children():
+		if c != _defile:
+			autour += c.get_combined_minimum_size().y + _cadre.get_theme_constant("separation")
+	autour += _style_panneau.content_margin_top + _style_panneau.content_margin_bottom + 24.0
+	_defile.custom_minimum_size.y = clampf(ecran.y - autour, 80.0, contenu)
+	var defile := contenu > ecran.y - autour
+	_defile.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO if defile else ScrollContainer.SCROLL_MODE_DISABLED
+	_marge.add_theme_constant_override("margin_right", 14 if defile else 0)
 
 
 func _set_volume(value: float, bus: String) -> void:
