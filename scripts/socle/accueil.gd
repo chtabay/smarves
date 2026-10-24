@@ -21,6 +21,26 @@ static func banque(game: Node, biens: Node) -> Dictionary:
 		"dette": int(game.debt), "gagne": int(game.won)}
 
 
+## Les biens possédés, comptés par famille : {total, maisons (maisons et murs), parts (parts et obligations
+## de club), objets (tenues, véhicules, meubles), texte (« 2 maisons · 5 parts », « aucun bien »)}.
+static func biens(b: Node) -> Dictionary:
+	var n := {"maisons": 0, "parts": 0, "objets": 0}
+	for id in b.owned:
+		var k := int(b.count(id))
+		if k <= 0:
+			continue
+		var famille: String = {"maison": "maisons", "murs": "maisons", "part": "parts", "club": "parts"}.get(str(b.item(id).get("kind", "")), "objets")
+		n[famille] += k
+	var mots := {"maisons": ["maison", "maisons"], "parts": ["part", "parts"], "objets": ["objet", "objets"]}
+	var morceaux: Array[String] = []
+	for f in ["maisons", "parts", "objets"]:
+		if n[f] > 0:
+			morceaux.append("%d %s" % [n[f], mots[f][0 if n[f] == 1 else 1]])
+	n.total = n.maisons + n.parts + n.objets
+	n.texte = " · ".join(morceaux) if not morceaux.is_empty() else "aucun bien"
+	return n
+
+
 ## Ce qui est arrivé sans le joueur : {dividendes (crédits), matchs, autres, texte}. texte est vide quand
 ## rien n'attend : la ligne disparaît plutôt que de dire « rien ».
 static func depuis(avis: Node) -> Dictionary:

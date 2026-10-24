@@ -36,6 +36,7 @@ func _lancer() -> void:
 		avis.publier({"id": "div/1", "genre": "dividende", "titre": "Dividende de l'ES Smarves", "montant": 1240, "importance": "discrete"})
 		avis.publier({"id": "match/1", "genre": "match", "titre": "Victoire 2-1 à Availles"})
 		avis.publier({"id": "cal/1", "genre": "calendrier", "titre": "L'intersaison ouvre samedi"})
+		root.get_node("Biens").owned = {"maison": 1, "smarvoise": 2, "fournil": 1}
 	if ecran == "carte":
 		root.get_node("Carte").ouvrir()
 		await create_timer(1.5).timeout

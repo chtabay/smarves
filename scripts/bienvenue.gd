@@ -253,6 +253,8 @@ func _remplir_soiree() -> void:
 	var fortune := _mot("fortune nette %s  ·  dette %s" % [Game.fmt(b.fortune), Game.fmt(b.dette)], 16, DOUX)
 	_box.add_child(fortune)
 	AIDE.poser(fortune, "La fortune nette : vos crédits, plus ce que valent vos biens, moins ce que vous devez à M. Brunet.")
+	var possede := ACCUEIL.biens(Biens)
+	_box.add_child(_ligne("Vos biens  ·  %s" % possede.texte, TEXTE, _suivre.bind({"id": "", "lien": {"vers": "carnet", "onglet": "biens"}})))
 	var d := ACCUEIL.depuis(Avis)
 	if str(d.texte) != "":
 		var h := HBoxContainer.new()
@@ -278,7 +280,7 @@ func _remplir_soiree() -> void:
 	if str(village.texte) != "":
 		_box.add_child(_filet())
 		_box.add_child(_mot("AU VILLAGE", 14, Color(0.55, 0.6, 0.66), Polices.gras()))
-		_box.add_child(_mot(village.texte, 17, TEXTE, null, true))
+		_box.add_child(_ligne(village.texte, TEXTE, _suivre.bind({"id": "", "lien": {"vers": "agenda"}})))
 
 
 ## « Ce soir à Smarves », « Ce matin… », « Cet après-midi… », à l'heure de l'appareil.
@@ -289,16 +291,23 @@ static func _moment() -> String:
 
 ## Une ligne de l'encart qui mène où elle parle : sur l'écran titre, la partie se lance d'abord.
 func _ligne(t: String, encre: Color, action: Callable) -> Button:
-	var b := _bouton(t, Color(0, 0, 0, 0), encre, Color(0, 0, 0, 0), action, 16)
+	# Une rangée qui se voit cliquable d'emblée (Guillaume, 24 octobre : « ne semble pas assez cliquable ») :
+	# un fond léger, un filet à gauche, la flèche au bout ; au survol, le fond s'allume.
+	var b := _bouton(t + "   ›", Color(0, 0, 0, 0), encre, Color(0, 0, 0, 0), action, 16)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	b.add_theme_font_override("font", Polices.texte())
 	for etat in ["normal", "hover", "pressed", "focus"]:
-		var st: StyleBoxFlat = b.get_theme_stylebox(etat)
-		st.content_margin_left = 0
-		st.content_margin_top = 2
-		st.content_margin_bottom = 2
+		var st := _boite(Color(1, 1, 1, 0.05) if etat in ["normal", "focus"] else Color(EAU, 0.16), Color(0, 0, 0, 0), 4, 8)
+		st.content_margin_left = 12
+		st.content_margin_right = 12
+		st.content_margin_top = 6
+		st.content_margin_bottom = 6
+		st.border_color = Color(EAU, 0.55 if etat in ["normal", "focus"] else 0.95)
+		st.border_width_left = 2
+		b.add_theme_stylebox_override(etat, st)
+	b.add_theme_color_override("font_hover_color", Color.WHITE)
 	return b
 
 
@@ -307,6 +316,8 @@ func _ligne(t: String, encre: Color, action: Callable) -> Button:
 func _suivre(avis: Dictionary) -> void:
 	var titre := get_tree().current_scene
 	if _dock and titre != null and titre.has_method("jouer"):
+		# L'encart se ferme avant que la partie s'ouvre : rien de la bienvenue ne reste par-dessus la place.
+		fermer()
 		titre.jouer()
 		await get_tree().create_timer(0.6).timeout
 	Avis.aller(avis)
