@@ -105,7 +105,7 @@ func _lancer() -> void:
 	carnet.toggle()
 
 	# ---- la pastille compte les deux
-	check(carnet.texte_pastille(1, 3).begins_with("Boîte : une chose à faire · 3 nouvelles") and carnet.texte_pastille(0, 1).begins_with("Boîte : une nouvelle"), "la pastille : %s" % carnet.texte_pastille(1, 3))
+	check(carnet.texte_pastille(1, 3).begins_with("Messages : une chose à faire · 3 nouvelles") and carnet.texte_pastille(0, 1).begins_with("Messages : une nouvelle"), "la pastille : %s" % carnet.texte_pastille(1, 3))
 
 	# ---- la composition posée : plus rien ; tout lu : le carnet garde son onglet
 	var c: Dictionary = (foot.consigne_de(1, 4, club).consigne as Dictionary).duplicate(true)

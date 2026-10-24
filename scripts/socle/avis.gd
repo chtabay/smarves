@@ -11,8 +11,8 @@ extends Node
 ##   {vers: "bureau", club, page} (le bureau du club, au stade), {vers: "registre", club}.
 ##
 ## Il s'affiche à trois endroits : la fiche (une seule à la fois, cliquable, celles qui arrivent ensemble
-## se fondent en une), la pastille « Courrier : 3 nouvelles » tant qu'il reste du non lu, et l'onglet
-## « Courrier » du carnet. Jamais en pleine main : quand l'habitant est figé à une table ou dans une
+## se fondent en une), la pastille « Messages : 3 nouvelles » tant qu'il reste du non lu, et la rubrique
+## « Messages » du carnet. Jamais en pleine main : quand l'habitant est figé à une table ou dans une
 ## fenêtre, la fiche attend qu'il se lève. Au lancement, ce qui est arrivé pendant l'absence tient en une
 ## seule fiche.
 ##
@@ -133,6 +133,47 @@ func tout_lu() -> void:
 		change.emit()
 
 
+## Marque lu un avis qu'on vient d'ouvrir (comme un message ouvert dans Football Manager).
+func lire(id: String) -> void:
+	for x in liste:
+		if x.id == id and not bool(x.lu):
+			x.lu = true
+			sauver()
+			change.emit()
+			return
+
+
+## Marque lus les avis dont la chose à faire est faite (demande de Guillaume du 24 octobre 2026 : « la boîte
+## me donne 2 tâches, je les remplis, les messages apparaissent encore en non lus ») : la décision de la
+## semaine tranchée (où que ce soit) ou close, le rappel de la composition une fois la tactique posée ou le
+## match passé. Vrai si un avis a changé.
+func solder() -> bool:
+	var f := get_node_or_null("/root/Football")
+	if f == null:
+		return false
+	var bouge := false
+	for x in liste:
+		if bool(x.lu):
+			continue
+		var fait := false
+		if str(x.get("genre", "")) == "dilemme":
+			var ch := choix_de(x)
+			fait = ch.is_empty() or not ch[0].ouvert or ch.any(func(c): return c.fait)
+		elif str(x.id).begins_with("compo/"):
+			var p := str(x.id).split("/")
+			if p.size() >= 4:
+				var s := int(p[1])
+				var j := int(p[2])
+				fait = FootDilemmes.tactique_posee(f, p[3], s, j) or int(f.maintenant()) >= int(f.coup_envoi(s, j)) or not f.peut_decider(p[3])
+		if fait:
+			x.lu = true
+			bouge = true
+	if bouge:
+		sauver()
+		change.emit()
+	return bouge
+
+
 ## Les secondes locales « maintenant », à l'horloge de l'agenda (celle du football).
 func maintenant() -> int:
 	return Agenda.maintenant()
@@ -233,7 +274,7 @@ func nom_du_lien(l) -> String:
 			return "La salle du club"
 		"carnet":
 			return {"compte": "Mes comptes", "biens": "Mes comptes", "cartes": "Mes cartes", "clubs": "Mes clubs", "carriere": "Ma carrière",
-				"aujourdhui": "La boîte", "boite": "La boîte"}.get(str(l.get("onglet", "")), "Le carnet")
+				"aujourdhui": "Les messages", "boite": "Les messages", "courrier": "Les messages"}.get(str(l.get("onglet", "")), "Le carnet")
 		"agenda":
 			return "La semaine"
 	return ""
@@ -308,6 +349,7 @@ func verifier() -> void:
 			bouge = _suite(f, club) or bouge
 		bouge = _porteurs(f) or bouge
 		bouge = _periode(f) or bouge
+	solder()
 	if bouge:
 		sauver()
 
