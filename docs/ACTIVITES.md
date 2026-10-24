@@ -153,6 +153,7 @@ Les paris ne se prennent pas sur le lieu mais **au comptoir du café** (Josiane)
 - **Chaque fenêtre dit si ce qu'on y fait compte pour les autres** (« au championnat », « sur cet appareil seulement ») : c'est la phrase qui a le mieux marché au football.
 - **La morale sort des chiffres** : un bilan depuis le début, sans commentaire. Personne ne fait la leçon.
 - **Le bouton de sortie est un geste** (« Reposer le stylo », « Laisser le président ») suivi de « (Échap) ».
+- **Un panneau dit ce qui est, pas comment ça marche** (règle du 24 octobre 2026, chantier « Le (i) et la chasse aux textes »). Une ligne au plus sous un titre. Les règles, les calculs et les « où aller » partent dans un **(i)** (`scripts/socle/aide.gd` : `AIDE.poser(texte, explication)`), qui s'ouvre au survol sur ordinateur et au toucher sur téléphone ; jamais dans une infobulle Godot (`tooltip_text`), que le doigt n'ouvre pas. L'infobulle reste permise pour doubler un bouton qui se comprend sans elle (son picto et son mot). La voix des personnages reste : Josiane, M. Brunet, Maître Garnier font le charme du jeu, pas son mode d'emploi ; on ne les raccourcit que quand ils répètent un texte système. Avant et après une passe, `tools/compter_textes.gd` donne les mots visibles de chaque écran.
 
 ### L'ordre des seuils d'une activité
 

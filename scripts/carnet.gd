@@ -722,6 +722,7 @@ func _row(parent: Control, label: String, value: String, color := INK, bold := f
 
 
 const PICTOS := preload("res://scripts/socle/pictos.gd")
+const AIDE := preload("res://scripts/socle/aide.gd")
 
 
 ## Un bouton plat, à la couleur de l'écran, son picto devant le mot (scripts/socle/pictos.gd). La flèche
@@ -1423,7 +1424,7 @@ func _tuiles_club(c: Dictionary, sauve: int) -> void:
 	var danger: bool = joues > 0 and sauve >= 2 and int(c.rang) > sauve
 	var rang := _tuile(h, "Rang", AUJOURDHUI.rang(int(c.rang)) if joues > 0 else "—", "sur %d, %s" % [int(c.taille), ecart] if joues > 0 else "sur %d" % int(c.taille), RED_INK if danger else INK)
 	if joues > 0 and sauve >= 2:
-		rang.tooltip_text = "Dans la zone de descente." if danger else "%s d'avance sur la descente." % _pts(int(c.ecart_relegation))
+		AIDE.poser(rang.get_child(0).get_child(0), "Dans la zone de descente." if danger else "%s d'avance sur la descente." % _pts(int(c.ecart_relegation)))
 	_tuile(h, "Points", str(int(c.pts)), "en %d %s" % [joues, "match" if joues <= 1 else "matchs"])
 	var f := _tuile(h, "Forme", "", "" if str(c.forme) != "" else "aucun match")
 	var ligne := HBoxContainer.new()
@@ -1517,10 +1518,9 @@ func _principal(b: Button) -> void:
 		b.add_theme_color_override(k, FOND)
 
 
-## Une infobulle sur un texte (qui laisse passer la souris).
+## Un (i) juste après un texte : l'explication au survol ou au toucher (scripts/socle/aide.gd).
 func _aide(c: Control, t: String) -> void:
-	c.tooltip_text = t
-	c.mouse_filter = Control.MOUSE_FILTER_PASS
+	AIDE.poser(c, t)
 
 
 ## Une grille à en-têtes (le classement, l'effectif).
@@ -1551,12 +1551,12 @@ func _ligne_grille(g: GridContainer, valeurs: Array, large: int, couleur: Color,
 
 
 ## Les parts en une ligne (combien on en tient, ce qu'on y a mis), puis le premier actionnaire ; qui dirige
-## en infobulle.
+## dans le (i).
 func _parts(parent: Control, n: int, investi: int, actionnaires: Array, direction: String) -> void:
 	var l := _text(parent, "Vous en tenez %d, %s investis." % [n, Game.fmt(investi)] if n > 0 else "Vous n'en tenez aucune.", 15, INK)
 	l.name = "Parts"
-	l.tooltip_text = direction
-	l.mouse_filter = Control.MOUSE_FILTER_PASS
+	if direction != "":
+		_aide(l, direction)
 	for a in actionnaires.slice(0, 2):
 		_row(parent, "vous" if bool(a.moi) else str(a.nom), Game.fmt(int(a.investi)), INK if bool(a.moi) else INK_LIGHT)
 
