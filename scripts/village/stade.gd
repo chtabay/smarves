@@ -54,7 +54,6 @@ const TABLEAU := preload("res://scripts/socle/foot_tableau.gd")
 ## Le président Chauvin, et sa causerie (les consignes du prochain match) quand elle est ouverte.
 const CAUSERIE := preload("res://scripts/socle/foot_causerie.gd")
 const MERCATO := preload("res://scripts/socle/foot_mercato.gd")
-const OBLIGATIONS := preload("res://scripts/socle/foot_obligations.gd")
 const LOCAUX := preload("res://scripts/socle/foot_locaux.gd")
 const PANNEAU := preload("res://scripts/socle/foot_panneau.gd")
 ## L'intérieur du siège, hors les murs du stade : on y entre par la porte du siège, on en sort par la sienne.
@@ -375,7 +374,7 @@ func _entree() -> void:
 	sortie.position = Vector3(gx, 0, gz)
 	add_child(sortie)
 	_interactive(sortie, "exit", "E : sortir sur la route du Bois" if commune == Communes.ORIGINE else "E : sortir du stade", Vector3(2.6, 2.6, 2.4), Vector3(0, 1.2, 0))
-	# Le panneau du club, juste passé le portail : l'essentiel du club et le registre des obligations,
+	# Le panneau du club, juste passé le portail : l'essentiel du club et ses partenaires,
 	# pour qui entre, qu'il dirige le club ou non (demande de Guillaume du 19 octobre 2026).
 	var panneau := Node3D.new()
 	panneau.position = Vector3(gx + 3.6, 0, gz + 0.3)
@@ -386,7 +385,7 @@ func _entree() -> void:
 	_box(Vector3(2.2, 0.1, 0.5), Vector3(0, 2.45, 0.1), bleu, false, panneau)
 	_label3d("LE PANNEAU DU CLUB", Vector3(0, 2.15, 0.06), 30, Color(1.0, 0.9, 0.55)).position += panneau.position
 	_label3d(_enseigne(_nom_club()), Vector3(0, 1.75, 0.06), 34, Color(0.95, 0.95, 0.9)).position += panneau.position
-	_label3d("Classement  ·  Prochain match  ·  Les obligations", Vector3(0, 1.4, 0.06), 20, Color(0.75, 0.8, 0.78)).position += panneau.position
+	_label3d("Classement  ·  Prochain match  ·  Partenaires", Vector3(0, 1.4, 0.06), 20, Color(0.75, 0.8, 0.78)).position += panneau.position
 	_lamp(panneau.position + Vector3(0, 2.6, 0.9), Color(1.0, 0.85, 0.6), 1.0, 5.0)
 	_interactive(panneau, "panneau", "E : lire le panneau du club", Vector3(2.4, 2.4, 1.6), Vector3(0, 1.2, 0.8))
 
@@ -496,7 +495,7 @@ func _depuis_ancres() -> void:
 	var lp := rad_to_deg(pn.global_rotation.y)
 	_label3d("LE PANNEAU DU CLUB", _vers(pn, Vector3(0, 2.15, 0.06)), 30, Color(1.0, 0.9, 0.55), lp)
 	_label3d(_enseigne(_nom_club()), _vers(pn, Vector3(0, 1.75, 0.06)), 34, Color(0.95, 0.95, 0.9), lp)
-	_label3d("Classement  ·  Prochain match  ·  Les obligations", _vers(pn, Vector3(0, 1.4, 0.06)), 20, Color(0.75, 0.8, 0.78), lp)
+	_label3d("Classement  ·  Prochain match  ·  Partenaires", _vers(pn, Vector3(0, 1.4, 0.06)), 20, Color(0.75, 0.8, 0.78), lp)
 	_lamp(_vers(pn, Vector3(0, 2.6, 0.9)), Color(1.0, 0.85, 0.6), 1.0, 5.0)
 	_interactive(_pied(pn), "panneau", "E : lire le panneau du club", Vector3(2.4, 2.4, 1.6), Vector3(0, 1.2, 0.8))
 	var origine := commune == Communes.ORIGINE
@@ -656,7 +655,7 @@ func open_game() -> void:
 	open_locaux()
 
 
-## Le panneau du club, à l'entrée : l'essentiel du club, ses porteurs d'obligations, et le registre.
+## Le panneau du club, à l'entrée : l'essentiel du club et le mur des partenaires.
 func open_panneau() -> void:
 	if _causerie != null:
 		return
@@ -673,23 +672,14 @@ func open_panneau() -> void:
 	_causerie = p
 
 
-## Le registre des obligations du club, le même qu'à l'étude de Maître Garnier.
+## Le registre des obligations du club : chez Maître Garnier, au téléphone, par-dessus le carnet. Rien ne
+## s'achète au stade (demande de Guillaume du 24 octobre 2026 : « les achats de parts se font chez le notaire »).
 func open_obligations() -> void:
 	if _causerie != null:
 		return
 	if _sans_club():
 		return
-	var p: PanelContainer = OBLIGATIONS.new()
-	p.club = _club
-	p.closed.connect(func():
-		p.queue_free()
-		_causerie = null
-		player.frozen = false
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED)
-	player.frozen = true
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	_panel_layer.add_child(p)
-	_causerie = p
+	Carnet.notaire("football", _club)
 
 
 ## Le club de la commune dans la pyramide (celui de son terrain), ou "" s'il attend la saison prochaine.

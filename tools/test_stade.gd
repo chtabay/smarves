@@ -109,7 +109,7 @@ func _init() -> void:
 	var direct: Dictionary = foot.rencontre_en_direct(1, 6, foot.prochain_match("smarves").dom, foot.prochain_match("smarves").ext)
 	var mienne: Dictionary = direct.etat.equipes[0] if direct.etat.equipes[0].club == "smarves" else direct.etat.equipes[1]
 	check(mienne.formation == "3-5-2" and mienne.mentalite == "offensive", "le match de dimanche se jouera avec : %s, %s" % [mienne.formation, mienne.mentalite])
-	# Le siège du club : la porte ouvre le bureau, pleine page, d'où l'on gagne le registre des obligations.
+	# Le siège du club : la porte ouvre le bureau, pleine page, d'où l'on appelle le notaire.
 	causerie.closed.emit()
 	await process_frame
 	var sieges: Array = stade.find_children("*", "Area3D", true, false).filter(func(a): return a.get_meta("interact", "") == "locaux")
@@ -123,13 +123,18 @@ func _init() -> void:
 	bureau.obligations.emit()
 	await process_frame
 	await process_frame
-	check(stade._causerie != null and stade._causerie != bureau and stade._causerie.find_child("Prendre_1", true, false) != null, "le registre des obligations s'ouvre depuis le bureau")
-	stade._causerie.closed.emit()
+	var carnet: Node = root.get_node("Carnet")
+	var reg: Node = carnet.gestion().find_child("Registre", true, false) if carnet.gestion() != null else null
+	check(stade._causerie == null and reg != null and reg.find_child("Prendre_1", true, false) != null, "le registre du bureau s'ouvre chez le notaire, au téléphone, dans le carnet")
+	if reg != null:
+		reg.closed.emit()
+	await process_frame
+	carnet.toggle()
 	await process_frame
 	check(stade._bandeau != null and stade._bandeau_score != null, "le bandeau du direct est en place")
-	check(stade._causerie == null, "Échap referme le registre")
+	check(not carnet.is_open(), "on referme le registre et le carnet")
 	# L'entrée du stade (demande de Guillaume du 19 octobre) : un portail qui dit SORTIE, et le panneau du club,
-	# l'essentiel du club et ses porteurs d'obligations, avec le registre pour en prendre une sans entrer au siège.
+	# l'essentiel du club et le mur des partenaires ; rien ne s'y achète (24 octobre).
 	var ecriteaux: Array = stade.find_children("*", "Label3D", true, false).map(func(l): return str(l.text))
 	check(ecriteaux.any(func(x): return x.begins_with("SORTIE")), "le portail dit SORTIE")
 	var panneaux: Array = stade.find_children("*", "Area3D", true, false).filter(func(a): return a.get_meta("interact", "") == "panneau")
@@ -141,10 +146,10 @@ func _init() -> void:
 	check(panneau != null and panneau.club == "smarves" and mots.any(func(x): return str(x).contains("Division 1")) and mots.any(func(x): return str(x).begins_with("Prochain match")), "le panneau dit la place du club et le prochain match")
 	var porteur1: Label = panneau.find_child("Porteur_1", true, false)
 	if foot.actionnaires("smarves").is_empty():
-		check(mots.any(func(x): return str(x).begins_with("Personne ne tient d'obligation")), "sans porteur, le panneau le dit")
+		check(mots.any(func(x): return str(x).begins_with("Votre nom ici")), "sans porteur, le mur des partenaires attend le premier")
 	else:
-		check(porteur1 != null and str(porteur1.text).contains("dirige le club"), "le panneau dit qui tient les obligations et qui dirige : %s" % (porteur1.text if porteur1 else "—"))
-	check(panneau.find_child("Prendre_1", true, false) != null or panneau.find_child("Rendre_1", true, false) != null, "le registre se lit et s'achète depuis le panneau")
+		check(porteur1 != null and str(porteur1.text).contains("président"), "le mur des partenaires, président en tête : %s" % (porteur1.text if porteur1 else "—"))
+	check(panneau.find_child("Prendre_1", true, false) == null and panneau.find_child("Rendre_1", true, false) == null and panneau.find_child("ChezLeNotaire", true, false) != null, "rien ne s'achète au panneau : les obligations se signent chez le notaire")
 	panneau.closed.emit()
 	await process_frame
 	# Le siège a un intérieur : la porte y mène, le bureau ouvre la gestion, sa porte ramène au stade.

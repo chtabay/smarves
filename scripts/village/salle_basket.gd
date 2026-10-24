@@ -5,8 +5,8 @@ extends "res://scripts/shop_interior.gd"
 ## stade de football de Casino Minuit »). Smarves l'a d'abord : le Clain Garden, où l'on descend du car.
 ## La fiche est au dossier du projet, basket/salle/fiche-salle.md.
 ## Le parvis (l'arrêt du car, le tapis rouge, les projecteurs, la statue de Big Héron, la façade de diodes) et
-## le parking ; le grand hall (la verrière, le grand escalier, le Ballon d'or, le mur des légendes, le tableau
-## des parts du club) ; la coursive et ses échoppes derrière les gradins ; la salle (le parquet, deux étages de
+## le parking ; le grand hall (la verrière, le grand escalier, le Ballon d'or, le mur des légendes, le mur
+## des partenaires) ; la coursive et ses échoppes derrière les gradins ; la salle (le parquet, deux étages de
 ## gradins, l'anneau de diodes, le cube d'écrans, les bannières) ; le bureau du président, où l'on gère l'équipe.
 ## Le club, son sigle, ses couleurs et le nom de la salle viennent de la structure « gymnase » de la commune
 ## (fil « Basket sur les résultats réels ») ; le président, du lieu du manifeste de même id. Le match vient de
@@ -59,7 +59,7 @@ const COULEURS_SECOURS := ["#14213d", "#d4a93a"]
 ## Les écrans du club, du fil basket : ouverts dès qu'ils existent.
 const PANNEAU_BASKET := "res://scripts/socle/basket_panneau.gd"
 const BUREAU_BASKET := "res://scripts/socle/basket_bureau.gd"
-const PARTS_BASKET := "res://scripts/socle/basket_parts.gd"
+const PARTENAIRES := "res://scripts/socle/basket_partenaires.gd"
 ## L'accueil du club : qui dirige, ce qu'il reste à faire pour diriger, et les trois écrans. On l'ouvre de
 ## partout (le bouton « Le club », la touche B) et au comptoir de l'accueil du hall.
 const CLUB_BASKET := "res://scripts/socle/basket_club.gd"
@@ -223,7 +223,7 @@ func _ready() -> void:
 
 
 ## Ce que le socle pose sur les ancres d'un décor (Ancres.SALLE) : le président, le bureau (la gestion de
-## l'équipe), le panneau et le tableau des parts du club, l'arrêt du car, et, si le décor l'a, l'enseigne. Le
+## l'équipe), le panneau du club et le mur des partenaires, l'arrêt du car, et, si le décor l'a, l'enseigne. Le
 ## parquet, les paniers, les bancs et le cube sont déjà là ; il n'y a pas de pièce à part pour le président.
 func _depuis_ancres() -> void:
 	var p := Ancres.trouver(_modele, "President")
@@ -235,15 +235,15 @@ func _depuis_ancres() -> void:
 	var lp := rad_to_deg(pn.global_rotation.y)
 	_label3d("LE PANNEAU DU CLUB", _vers(pn, Vector3(0, 2.25, 0.06)), 28, _c2(), lp)
 	_label3d(_enseigne(_nom_club()), _vers(pn, Vector3(0, 1.85, 0.06)), 34, Color(1, 1, 1), lp)
-	_label3d("Classement  ·  Prochain match  ·  L'effectif", _vers(pn, Vector3(0, 1.45, 0.06)), 20, Color(0.8, 0.82, 0.9), lp)
+	_label3d("Le prochain match  ·  La poule  ·  L'équipe", _vers(pn, Vector3(0, 1.45, 0.06)), 20, Color(0.8, 0.82, 0.9), lp)
 	_interactive(_pied(pn), "panneau", "E : lire le panneau du club", Vector3(2.4, 2.4, 1.6), Vector3(0, 1.2, 0.8))
 	var pa := Ancres.trouver(_modele, "Parts")
 	var la := rad_to_deg(pa.global_rotation.y)
-	_label3d("LES PARTS DU CLUB", _vers(pa, Vector3(0, 2.6, 0.06)), 36, _c2(), la)
+	_label3d("NOS PARTENAIRES", _vers(pa, Vector3(0, 2.6, 0.06)), 36, _c2(), la)
 	_label3d(_enseigne(_nom_club()), _vers(pa, Vector3(0, 2.1, 0.06)), 32, Color(1, 1, 1), la)
-	_label3d("Les actionnaires  ·  Acheter des parts", _vers(pa, Vector3(0, 1.6, 0.06)), 22, Color(0.85, 0.87, 0.95), la)
+	_label3d("Ils font vivre le club", _vers(pa, Vector3(0, 1.6, 0.06)), 22, Color(0.85, 0.87, 0.95), la)
 	_lamp(_vers(pa, Vector3(0, 3.2, 1.0)), Color(1.0, 0.88, 0.65), 1.0, 5.0)
-	_interactive(_pied(pa), "parts", "E : les parts du club", Vector3(3.0, 3.0, 2.0), Vector3(0, 1.5, 1.0))
+	_interactive(_pied(pa), "partenaires", "E : le mur des partenaires", Vector3(3.0, 3.0, 2.0), Vector3(0, 1.5, 1.0))
 	_interactive(_pied(Ancres.trouver(_modele, "Sortie")), "exit", "E : reprendre le car pour %s" % _place_commune(), Vector3(3.0, 2.6, 2.4), Vector3(0, 1.2, 0))
 	var f := Ancres.trouver(_modele, "Fronton")
 	if f:
@@ -940,7 +940,7 @@ func _poser_president(pos: Vector3, lacet: float) -> void:
 ## face au parquet. On y entre de plain-pied par la porte du balcon du hall (en haut du grand escalier), ou
 ## par l'ascenseur des vestiaires. Derrière la vitre, toute la salle. Le grand bureau (E : la gestion de
 ## l'équipe, scripts/socle/basket_bureau.gd) dos à la vitre, le président à côté ; le tableau tactique (le
-## panneau du club) ; la table du conseil (les parts) ; le mur d'écrans qui répète le cube ; les coupes ;
+## panneau du club) ; la table du conseil (les partenaires) ; le mur d'écrans qui répète le cube ; les coupes ;
 ## l'ascenseur qui redescend au parquet. Au-dessus de la loge, son écran, face au parquet.
 func _bureau_du_president() -> void:
 	var piece := Node3D.new()
@@ -1019,7 +1019,7 @@ func _bureau_du_president() -> void:
 	for k in 6:
 		var cz := -1.1 if k < 3 else 1.1
 		_box(Vector3(0.55, 1.0, 0.55), Vector3(-1.3 + (k % 3) * 1.3, 0.5, cz), _std(Color(0.12, 0.1, 0.1), 0.5), false, conseil)
-	_interactive(conseil, "conseil", "E : la table du conseil (les parts du club)", Vector3(4.4, 2.0, 3.2), Vector3(0, 1.0, 0))
+	_interactive(conseil, "conseil", "E : la table du conseil (les partenaires du club)", Vector3(4.4, 2.0, 3.2), Vector3(0, 1.0, 0))
 	# Le mur d'écrans, au fond, à gauche de la porte : le score du cube, en direct.
 	_box(Vector3(3.6, 1.8, 0.08), Vector3(-3.6, 2.5, d / 2.0 - 0.12), _neon(Color(0.06, 0.08, 0.15), 0.8), false, piece)
 	_ecran_loge = Label3D.new()
@@ -1233,7 +1233,7 @@ func _marbre() -> StandardMaterial3D:
 ## Le grand hall, entre l'enceinte et la façade : vingt-deux mètres sous une verrière, des colonnes noires
 ## baguées d'or, le grand escalier qui monte de part et d'autre au balcon des loges, le lustre de ballons d'or
 ## et le Ballon d'or suspendu dessous, le mur des légendes, l'écran géant, les trophées, le panneau du club
-## et, à l'entrée, le tableau des parts du club.
+## et, à l'entrée, le mur des partenaires.
 func _grand_hall() -> void:
 	var z0 := ENCEINTE_Z
 	var z1 := FACADE_Z
@@ -1342,7 +1342,7 @@ func _grand_hall() -> void:
 	_lamp(Vector3(0, LOGE_Y + 2.0, z0 + 2.4), Color(1.0, 0.85, 0.6), 1.6, 6.0)
 	_accueil_du_club(Vector3(-8.0, 0, z0 + 7.0))
 	_panneau_du_club()
-	_tableau_des_parts()
+	_mur_des_partenaires()
 
 
 ## L'accueil du club, dans le grand hall, au pied du balcon : un comptoir aux couleurs du club et Inès, qui
@@ -1377,18 +1377,18 @@ func _accueil_du_club(pos: Vector3) -> void:
 	_interactive(a, "accueil", "E : l'accueil du club (gérer le club)", Vector3(4.8, 2.4, 2.6), Vector3(0, 1.2, 1.2))
 
 
-## Le tableau des parts du club, à l'entrée du grand hall, à gauche des portes : qui possède le club, et les
-## parts à acheter (l'écran du fil basket, scripts/socle/basket_parts.gd).
-func _tableau_des_parts() -> void:
+## Le mur des partenaires, à l'entrée du grand hall, à gauche des portes : qui finance le club, le président
+## en tête, comme dans une vraie salle (basket_partenaires.gd). Les parts se signent chez le notaire.
+func _mur_des_partenaires() -> void:
 	var t := Node3D.new()
 	t.position = Vector3(-10.0, 0, FACADE_Z - 4.0)
-	t.name = "TableauDesParts"
+	t.name = "MurDesPartenaires"
 	add_child(t)
 	var or_ := _std(_c2(), 0.3, 0.8)
 	_box(Vector3(5.0, 3.4, 0.3), Vector3(0, 2.6, 0), _std(Color(0.05, 0.05, 0.06), 0.4), true, t)
 	_box(Vector3(5.3, 3.7, 0.2), Vector3(0, 2.6, -0.08), or_, false, t)
 	_box(Vector3(4.6, 2.2, 0.05), Vector3(0, 2.4, 0.17), _neon(_c1().darkened(0.3), 0.8), false, t)
-	for l in [["LES PARTS DU CLUB", 3.9, 44, _c2()], [_enseigne(_nom_club()), 3.1, 40, Color(1, 1, 1)], ["Les actionnaires  ·  Acheter des parts", 2.2, 26, Color(0.85, 0.87, 0.95)]]:
+	for l in [["NOS PARTENAIRES", 3.9, 44, _c2()], [_enseigne(_nom_club()), 3.1, 40, Color(1, 1, 1)], ["Ils font vivre le club", 2.2, 26, Color(0.85, 0.87, 0.95)]]:
 		var lab := Label3D.new()
 		lab.text = l[0]
 		lab.font = _serif
@@ -1399,7 +1399,7 @@ func _tableau_des_parts() -> void:
 		lab.position = Vector3(0, l[1], 0.2)
 		t.add_child(lab)
 	_lamp(t.position + Vector3(0, 4.6, 1.4), Color(1.0, 0.88, 0.65), 1.6, 6.0)
-	_interactive(t, "parts", "E : les parts du club", Vector3(5.2, 3.0, 2.0), Vector3(0, 1.5, 1.2))
+	_interactive(t, "partenaires", "E : le mur des partenaires", Vector3(5.2, 3.0, 2.0), Vector3(0, 1.5, 1.2))
 
 
 # --- Dehors ---------------------------------------------------------------------------------------
@@ -1865,8 +1865,8 @@ func _on_interact(target: Node) -> void:
 			open_club()
 		"panneau", "tactique":
 			open_panneau()
-		"parts", "conseil":
-			open_parts()
+		"partenaires", "conseil":
+			open_partenaires()
 		"echoppe":
 			_dire(str(target.get_meta("replique", "")))
 		"trophees":
@@ -1917,8 +1917,8 @@ func _ecran_ferme(p: Control) -> void:
 	match suite:
 		"bureau":
 			open_bureau()
-		"parts":
-			open_parts()
+		"notaire":
+			Carnet.notaire("basket", commune)
 		"panneau":
 			open_panneau()
 
@@ -1931,8 +1931,9 @@ func open_bureau() -> void:
 	_ouvrir_ecran(BUREAU_BASKET, "Le bureau du club", "%s : « Le bureau est encore en travaux. Le championnat de basket commence bientôt, et on y fera tout ici : l'effectif, le mercato, les comptes. »" % _nom_president())
 
 
-func open_parts() -> void:
-	_ouvrir_ecran(PARTS_BASKET, "Les parts du club", "Le club met ses parts en vente pour la première saison, de 500 à 7 500 crédits. Le plus gros porteur dirige le club, et chaque journée verse un dividende selon le classement.")
+## Le mur des partenaires : qui finance le club. Les parts, elles, se signent chez le notaire.
+func open_partenaires() -> void:
+	_ouvrir_ecran(PARTENAIRES, "Nos partenaires", "Le club cherche ses premiers partenaires. Les parts se signent chez le notaire.")
 
 
 func open_panneau() -> void:

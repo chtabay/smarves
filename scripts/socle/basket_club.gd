@@ -2,10 +2,10 @@ extends "res://scripts/socle/basket_ecran.gd"
 ## L'accueil du club de basket : la porte d'entrée de la gestion, qu'on ouvre de partout dans la salle (le
 ## bouton « Le club », la touche B, le comptoir de l'accueil du hall). Guillaume n'avait trouvé ni son club
 ## ni comment le gérer (22 octobre 2026) : ici, d'un coup d'œil, qui dirige, ce qu'il reste à faire pour
-## diriger, et les trois écrans du club (le bureau du président, les parts, le panneau). Le bouton choisi
+## diriger, et les trois écrans du club (le bureau du président, le notaire au téléphone, le panneau). Le bouton choisi
 ## est rangé dans « suite » avant la fermeture : la salle ouvre alors l'écran demandé.
 
-## L'écran que la salle doit ouvrir en refermant l'accueil : « bureau », « parts », « panneau » ou « ».
+## L'écran que la salle doit ouvrir en refermant l'accueil : « bureau », « notaire », « panneau » ou « ».
 var suite := ""
 
 
@@ -60,8 +60,8 @@ func remplir(col: VBoxContainer) -> void:
 			_bouton(detail, e.action[0], e.action[1], e.action[2]).size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	_filet(col)
 	for x in [["bureau", "Le bureau du président", "l'équipe, la consigne, le marché, les comptes"],
-			["parts", "Les parts du club", "prendre ou rendre une obligation, qui dirige"],
-			["panneau", "Le classement et le match", "le groupe, le prochain match, l'effectif"]]:
+			["notaire", "Le notaire", "prendre ou rendre une part, par téléphone"],
+			["panneau", "Le classement et le match", "l'affiche, la poule, l'équipe"]]:
 		var bt := _bouton(col, "%s  ·  %s" % [x[1], x[2]], func(): suite = x[0]; closed.emit(), "Aller_" + x[0])
 		bt.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		bt.add_theme_font_size_override("font_size", 17)
@@ -84,7 +84,7 @@ func etapes() -> Array:
 	elif dirige:
 		texte = "Vous avez %s crédits dans le club : c'est vous qui le dirigez. Son nom se change au bureau du président." % Game.fmt(inv)
 	else:
-		texte = preload("res://scripts/socle/diriger.gd").phrase(b, commune) + " Les parts sont au tableau de l'entrée."
+		texte = preload("res://scripts/socle/diriger.gd").phrase(b, commune) + " Les parts se signent chez le notaire."
 	out.append({"titre": "Prendre des parts du club", "texte": texte, "fait": inv > 0 and dirige})
 	var connecte: bool = b.connecte()
 	var connexion := {"titre": "Être connecté à son compte Pyramides", "fait": connecte,

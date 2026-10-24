@@ -1,7 +1,7 @@
 extends PanelContainer
-## Le panneau du club de basket, à l'entrée de la salle (scène du socle, fil de la salle) : le groupe et son
-## classement, le dernier match et le prochain, et l'effectif de vrais joueurs avec leur note de la
-## semaine, leur forme et leur dernier match réel. On lit, on ne décide rien : le mercato viendra au
+## Le panneau du club de basket, à l'entrée de la salle (scène du socle, fil de la salle) : ce qu'on lit
+## dans le hall d'une vraie salle (demande de Guillaume du 24 octobre 2026). L'affiche du match, le
+## tableau de la poule, et l'équipe par ses noms. Les notes de la semaine et les statistiques sont au
 ## bureau du club. Tout vient de l'autoload Basket ; la fenêtre se ferme par son bouton ou Échap.
 
 signal closed
@@ -71,16 +71,18 @@ func remplir(col: VBoxContainer) -> void:
 		return
 	var n: int = ici[0]
 	var g: int = ici[1]
-	var jj: int = b.journee_jouee()
-	_ligne(col, "Saison %d · niveau %d%s · %d journée%s jouée%s sur %d" % [b.saison, n + 1,
-		" (groupe %d)" % (g + 1) if b.niveaux[n].size() > 1 else "", jj, "s" if jj > 1 else "", "s" if jj > 1 else "", b.JOURNEES], DOUX)
-	if b.cliches.is_empty():
-		_ligne(col, "Les notes des joueurs ne sont pas encore arrivées : il faut être connecté une première fois.", DOUX)
-		_fermer(col)
-		return
 
-	# Le classement du groupe.
+	# L'affiche du match : le prochain, ou le score du dernier tant qu'il est frais.
+	var m: Dictionary = b.match_pour_salle(commune)
+	if not m.is_empty():
+		var affiche := _ligne(col, ("%s %d – %d %s" % [m.dom, m.score[0], m.score[1], m.ext]) if m.fini else ("%s  –  %s\n%s" % [m.dom, m.ext, m.quand]), TEXTE, 22)
+		affiche.name = "Affiche"
+		affiche.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+
+	# Le tableau de la poule.
+	_ligne(col, b.nom_division(n, g), OR, 18)
 	var grille := GridContainer.new()
+	grille.name = "Poule"
 	grille.columns = 6
 	grille.add_theme_constant_override("h_separation", 18)
 	col.add_child(grille)
@@ -97,30 +99,23 @@ func remplir(col: VBoxContainer) -> void:
 		_ligne(grille, "%+d" % (l.pour - l.contre), c, 15)
 		_ligne(grille, str(l.pts), c, 15)
 
-	# Le match du moment.
-	var m: Dictionary = b.match_pour_salle(commune)
-	if not m.is_empty():
-		if m.fini:
-			_ligne(col, "%s %d – %d %s" % [m.dom, m.score[0], m.score[1], m.ext], TEXTE, 20)
-		else:
-			_ligne(col, "Prochain match : %s – %s, %s" % [m.dom, m.ext, m.quand], TEXTE, 18)
-
-	# L'effectif, avec la note de la semaine.
+	# Le trombinoscope : les noms, sans notes ni statistiques (elles sont au bureau du club).
+	if b.cliches.is_empty():
+		_fermer(col)
+		return
 	var mm: Array = b.match_du_club(commune)
-	var e: Dictionary = b.equipe(b.saison, n, g, ici[2], mm[3] if not mm.is_empty() else maxi(1, jj))
-	_ligne(col, "L'effectif (notes de la semaine, de 1 à 99)", OR, 18)
-	if e.joueurs.is_empty():
-		_ligne(col, "Pas encore de joueurs : l'effectif se tire avec les premières notes, le vendredi soir avant la première journée.", DOUX, 15)
-	var joueurs: Array = e.joueurs.duplicate()
-	joueurs.sort_custom(func(a, x): return a.note > x.note)
-	for j in joueurs:
-		var fleche: String = ["▼", "=", "▲"][int(j.get("forme", 0)) + 1]
-		var d: Dictionary = j.get("derniere", {})
-		var reel := ""
-		if not d.is_empty():
-			reel = " — %s : %d pts, %d reb, %d pd (PIR %d) contre %s" % [d.date, d.pts, d.reb, d.pd, d.pir, d.adv]
-		var etat := "" if j.dispo else " · indisponible"
-		_ligne(col, "%d %s  %s (%s)%s%s" % [j.note, fleche, j.nom, j.get("club", "?"), etat, reel], TEXTE if j.dispo else DOUX, 14)
+	var e: Dictionary = b.equipe(b.saison, n, g, ici[2], mm[3] if not mm.is_empty() else maxi(1, b.journee_jouee()))
+	if not e.joueurs.is_empty():
+		_ligne(col, "L'équipe", OR, 18)
+		var trombi := GridContainer.new()
+		trombi.name = "Trombinoscope"
+		trombi.columns = 2
+		trombi.add_theme_constant_override("h_separation", 28)
+		col.add_child(trombi)
+		var joueurs: Array = e.joueurs.duplicate()
+		joueurs.sort_custom(func(a, x): return str(a.nom) < str(x.nom))
+		for j in joueurs:
+			_ligne(trombi, str(j.nom), TEXTE, 15)
 	_fermer(col)
 
 

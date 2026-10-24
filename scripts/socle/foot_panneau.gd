@@ -3,9 +3,9 @@ extends FootObligations
 ## Le panneau du club, à l'entrée du stade (demande de Guillaume du 19 octobre 2026 : « que les parts
 ## possédées par les différents joueurs soient visibles à l'entrée du stade dans un panneau qui permet
 ## d'avoir les éléments essentiels du club, même si on ne le dirige pas ; c'est aussi une interface qui
-## permet l'achat de parts »). Pour qui passe la grille, l'essentiel : le nom du club, sa place, le
-## prochain match, le dernier résultat, qui tient quelles obligations et qui dirige ; puis le registre,
-## les mêmes lignes qu'à l'étude de Maître Garnier, pour en prendre une sans entrer au siège.
+## permet l'achat de parts »), puis ramené à ce qu'on voit dans une vraie tribune (24 octobre : « les achats de
+## parts se font chez le notaire comme le reste »). Pour qui passe la grille, l'essentiel : le nom du club,
+## sa place, le prochain match, le dernier résultat, et le mur des partenaires, président en tête.
 ##
 ## Même ardoise que le registre (FootObligations) : s'ouvre et se ferme comme lui (signal closed, Échap).
 
@@ -22,29 +22,22 @@ func remplir(colonne: VBoxContainer) -> void:
 		for ligne in essentiel():
 			colonne.add_child(_mot(str(ligne), 16, CRAIE, null, true))
 	colonne.add_child(_filet())
-	colonne.add_child(_mot("Les porteurs d'obligations", 15, DOUX))
+	# Le mur des partenaires, comme dans une vraie tribune : les porteurs, du plus gros au plus petit.
+	colonne.add_child(_mot("Nos partenaires", 15, DOUX))
 	var porteurs: Array = f.actionnaires(club)
 	if porteurs.is_empty():
-		colonne.add_child(_mot("Personne ne tient d'obligation du club : le président écoute tout le monde.", 16, OR, null, true))
+		colonne.add_child(_mot("Votre nom ici : le club cherche ses premiers partenaires.", 16, OR, null, true))
+	var dg: Dictionary = DIRIGER.dirigeant(f, club)
 	for i in porteurs.size():
 		var x: Dictionary = porteurs[i]
-		var rangs: Array = x.rangs.map(func(r): return "n° %d" % int(r))
-		var texte := "%s  ·  %s crédits  ·  %s" % ["Vous" if bool(x.moi) else str(x.nom), Game.fmt(int(x.investi)), ", ".join(rangs)]
-		if i == 0:
-			texte += "  ·  dirige le club"
-		var l := _mot(texte, 16, OR if bool(x.moi) else CRAIE, null, true)
+		var president: bool = not dg.is_empty() and bool(x.moi) == bool(dg.moi) and (bool(x.moi) or str(x.nom) == str(dg.nom))
+		var l := _mot(("Vous" if bool(x.moi) else str(x.nom)) + ("  ·  président" if president else ""), maxi(16, 26 - 3 * i), OR if president else CRAIE, null, true)
 		l.name = "Porteur_%d" % (i + 1)
 		colonne.add_child(l)
 	colonne.add_child(_filet())
-	colonne.add_child(_mot("Le registre : prendre une obligation", 15, DOUX))
-	var facteur: float = f.recette_facteur(club)
-	colonne.add_child(_mot("Une obligation verse 50 crédits par cran à chaque journée jouée, ×%.1f au classement d'aujourd'hui. L'étude reprend à 80 %%, et une plus grosse s'échange contre une des vôtres pour la différence." % facteur, 14, DOUX, null, true))
-	var miennes: Array = f.mes_obligations(club)
-	for r in f.OBLIGATIONS.size():
-		colonne.add_child(_rangee(r + 1, miennes, facteur))
-	colonne.add_child(_filet())
-	_ligne_etat = _mot(_etat_texte(), 15, DOUX, null, true)
-	colonne.add_child(_ligne_etat)
+	var notaire := _mot("Les obligations du club se signent chez Maître Garnier.", 14, DOUX, null, true)
+	notaire.name = "ChezLeNotaire"
+	colonne.add_child(notaire)
 	var bas := _pied(colonne)
 	bas.add_child(_bouton_cartes())
 	bas.add_child(_bouton("Quitter le panneau  (Échap)", func(): closed.emit()))
