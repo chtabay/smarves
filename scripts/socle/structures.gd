@@ -73,6 +73,15 @@ const TYPES := {
 		"unique": false,
 		"relie": "rien : ses articles entrent au catalogue de Biens sous « <commune>/<id> »",
 	},
+	# Socle 1.24. Une salle où l'on joue à deux (scripts/socle/salle_duo.gd) : la commune nomme ses variantes ;
+	# l'appariement, les tarifs, la prime et la plaque sont tenus par le serveur, qui connaît la salle par son id.
+	"salle_duo": {
+		"nom": "la salle à deux",
+		"champs": {"variantes": TYPE_ARRAY},
+		"requis": ["variantes"],
+		"unique": false,
+		"relie": "rien : ses parties, ses tarifs et sa plaque sont tenus par le serveur (SalleDuo)",
+	},
 }
 
 ## Les jeux d'une salle de jeu, et ses décors (scripts/socle/salle_jeu.gd, JEUX et DECORS).
@@ -170,6 +179,9 @@ static func verifier(liste: Variant) -> PackedStringArray:
 						erreurs.append("structure %s : jeu inconnu « %s »" % [id, str(j)])
 			if s.has("decor") and typeof(s.decor) == TYPE_STRING and not s.decor in DECORS:
 				erreurs.append("structure %s : décor inconnu « %s »" % [id, s.decor])
+		if t == "salle_duo":
+			if typeof(s.get("variantes")) == TYPE_ARRAY and s.variantes.any(func(v): return typeof(v) != TYPE_STRING or RegEx.create_from_string("^[a-z0-9_]{1,24}$").search(v) == null):
+				erreurs.append("structure %s : chaque variante est un id de 1 à 24 caractères (a-z, 0-9, « _ »)" % id)
 		if t in ["salle_jeu", "commerce"] and typeof(s.get("repliques")) == TYPE_ARRAY and s.repliques.any(func(r): return typeof(r) != TYPE_STRING):
 			erreurs.append("structure %s : « repliques » est une liste de phrases" % id)
 		if t == "commerce":

@@ -79,6 +79,9 @@ et trois repères `Vue1_…`, `Vue2_…`, `Vue3_…`, un par scène forte.
   apparier deux joueurs dans un salon à 10 positions par seconde. Voir `docs/COMMUNE.md`, « Les autres
   joueurs ». Essai sans réseau : lancer avec `-- --presences-essai` ; tests : `tools/test_presences.gd`,
   et `tools/test_presences_deux.gd` sur le vrai canal.
+- **Les salles à deux** (socle 1.24, classe `SalleDuo`) : appariement, descente payante, prime unique et
+  plaque tenus par le serveur ; un faux serveur (`SalleDuoEssai`) pour jouer à deux sans compte ni réseau.
+  Notice : `docs/COMMUNE.md`, « Les salles à deux » ; essai bout à bout : `tools/test_salle_duo.gd`.
 - **Le vrai bourg** : `python3 -I tools/bourg_reel.py <id>` tire d'OpenStreetMap et de l'IGN les
   rues, les bâtiments, l'eau et le relief.
 - **Juger à hauteur de joueur** : `tools/parcours_commune.gd` pose l'habitant sur chaque repère `Vue…`
