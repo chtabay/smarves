@@ -38,7 +38,7 @@ Le jeu ouvre un **connecteur** : un serveur MCP, servi par la fonction `doublure
 pensionnaire » propose « → inviter mon assistant » : le jeu donne un lien personnel (un jeton de 32
 caractères, gardé haché dans `smarves.doublure_acces`, montré une seule fois), et trois gestes :
 
-1. ajouter le lien comme connecteur personnalisé (Claude : Paramètres, Connecteurs ; Claude Code :
+1. ajouter le lien comme connecteur personnalisé (Claude : Paramètres, Connecteurs, authentification « Aucune connexion », car le lien sert de clé ; Claude Code :
    `claude mcp add --transport http smarves <lien>`) ;
 2. lui dire « Crée mon pensionnaire de Smarves », et lui raconter qui il est ;
 3. lui demander une tâche planifiée aux heures des événements (section 3).
