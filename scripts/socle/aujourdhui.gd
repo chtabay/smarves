@@ -68,7 +68,7 @@ static func a_faire(f: Node, avis: Node, bourse: Node = null, b: Node = null) ->
 			var e: Dictionary = DIRIGER.etat(f, club)
 			if str(e.ailleurs) == "" and not bool(e.dirige):
 				out.append({"genre": "diriger", "quand": int(DIRIGER.intersaison(f)[1]), "titre": "%s : l'intersaison est ouverte, vous ne dirigez pas" % _nom(f, club),
-					"texte": DIRIGER.phrase(f, club), "lien": {"vers": "registre", "club": club}, "bouton": "Le registre des parts"})
+					"texte": DIRIGER.phrase(f, club), "lien": {"vers": "notaire", "sport": "football", "club": club}, "bouton": "Le notaire"})
 	if bourse != null:
 		for p in bourse.ouvertes():
 			if bourse.en_appel(p):
@@ -194,7 +194,7 @@ static func a_faire_basket(b: Node) -> Array:
 	var s: int = b.saison
 	for club in clubs_basket(b):
 		var nom := str(b.fiche(club).nom)
-		var salle := {"vers": "salle", "club": club}
+		var notaire := {"vers": "notaire", "sport": "basket", "club": club}
 		var bureau := {"vers": "gerer", "sport": "basket", "club": club, "page": "equipe"}
 		var marche := {"vers": "gerer", "sport": "basket", "club": club, "page": "marche"}
 		if b.peut_decider(club):
@@ -224,5 +224,5 @@ static func a_faire_basket(b: Node) -> Array:
 			var e: Dictionary = DIRIGER.etat(b, club)
 			if str(e.ailleurs) == "" and not bool(e.dirige):
 				out.append({"genre": "diriger", "quand": int(DIRIGER.intersaison(b)[1]), "titre": "%s : l'intersaison est ouverte, vous ne dirigez pas" % nom,
-					"texte": DIRIGER.phrase(b, club), "lien": salle, "bouton": "Les parts, à la salle"})
+					"texte": DIRIGER.phrase(b, club), "lien": notaire, "bouton": "Le notaire"})
 	return out

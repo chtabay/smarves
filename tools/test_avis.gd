@@ -66,7 +66,7 @@ func _lancer() -> void:
 	settings.fiches = "toutes"
 	avis.tout_lu()
 	check(avis.non_lus().is_empty(), "tout lu")
-	check(avis.peut_aller({"vers": "bureau"}) and avis.nom_du_lien({"vers": "registre"}) == "Le registre des parts", "les liens ont leur nom")
+	check(avis.peut_aller({"vers": "bureau"}) and avis.nom_du_lien({"vers": "notaire"}) == "Le notaire" and avis.peut_aller({"vers": "notaire"}) and not avis.change_de_lieu({"vers": "registre"}), "les liens ont leur nom ; le notaire s'ouvre où qu'on soit")
 
 	# Le carnet : l'onglet Courrier compte les non lus, et les marque lus quand on le quitte.
 	avis.publier({"id": "h", "titre": "Nouveau", "texte": "Un mot.", "lien": {"vers": "carnet", "onglet": "compte"}})
@@ -130,7 +130,7 @@ func _lancer() -> void:
 	foot.forcer_porteurs("vous:2,Lucien:5+6", club)
 	avis.verifier()
 	var p: Array = avis.liste.filter(func(x): return x.genre == "parts")
-	check(p.size() == 2 and p.all(func(x): return str(x.titre).begins_with("Lucien a pris l'obligation n° ") and x.importance == "forte" and x.lien.vers == "registre"), "deux parts prises par Lucien : %s" % str(p.map(func(x): return x.titre)))
+	check(p.size() == 2 and p.all(func(x): return str(x.titre).begins_with("Lucien a pris l'obligation n° ") and x.importance == "forte" and x.lien.vers == "notaire"), "deux parts prises par Lucien : %s" % str(p.map(func(x): return x.titre)))
 	var dir: Array = avis.liste.filter(func(x): return x.genre == "direction")
 	check(dir.size() == 1 and str(dir[0].titre).begins_with("Vous ne dirigez plus") and "Lucien" in str(dir[0].texte), "la direction perdue : %s" % (str(dir[0].texte) if not dir.is_empty() else "rien"))
 	foot.forcer_porteurs("vous:2+9", club)

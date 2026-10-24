@@ -105,6 +105,40 @@ func _lancer() -> void:
 	var gd := _textes(carnet.get("_right"))
 	check(carnet.get("_left").find_child("Classement", true, false) != null and g.contains("V-D") and gd.contains("J4  ") and gd.contains("J5  "), "sa page : le classement, les journées")
 	check(carnet.get("_right").find_child("Effectif", true, false) != null and _textes(carnet.get("_right")).contains("Masse salariale"), "en face : l'effectif et la masse salariale")
+	# ---- le notaire, par téléphone : le tableau des parts par-dessus le carnet ; Échap ramène à la page.
+	var notaire: Button = carnet.get("_left").find_child("Action_Notaire", true, false)
+	check(notaire != null and notaire.text == "Le notaire" and carnet.get("_left").find_child("Action_Salle", true, false) != null, "la page du club : « Le notaire » à côté de « Salle »")
+	notaire.pressed.emit()
+	await process_frame
+	var reg: Node = carnet.gestion().find_child("Registre", true, false) if carnet.gestion() != null else null
+	check(carnet.is_open() and carnet.gestion().name == "Notaire" and reg != null and reg.get_script().resource_path.ends_with("basket_parts.gd") and reg.commune == club,
+		"« Le notaire » ouvre le tableau des parts des Hérons, dans le carnet")
+	check(carnet.gestion().find_child("AuTelephone", true, false) != null and (_textes(reg).contains("Prendre") or _textes(reg).contains("à vous")), "au téléphone, les neuf parts")
+	reg.closed.emit()
+	await process_frame
+	check(carnet.is_open() and carnet.gestion() == null, "refermé, on retrouve la page du club")
+	# ---- chez le notaire : l'étude tient aussi le registre du basket.
+	var etude: PanelContainer = load("res://scripts/shop_panel.gd").new()
+	etude.seller = "notaire"
+	var ecran := Control.new()
+	root.add_child(ecran)
+	ecran.add_child(etude)
+	await process_frame
+	check(etude.registres_des_clubs().any(func(x): return x.sport == "basket" and x.club == club), "l'étude de Smarves ouvre le registre des Hérons")
+	var bouton: Button = etude.find_child("Registre_basket_" + club, true, false)
+	check(bouton != null, "un bouton pour le registre du basket, sans lot choisi")
+	if bouton != null:
+		bouton.pressed.emit()
+		await process_frame
+		var parts: Node = ecran.find_child("PartsBasket", true, false)
+		check(parts != null and parts.commune == club and not etude.visible, "il ouvre le tableau des parts par-dessus l'étude")
+		if parts != null:
+			parts.closed.emit()
+			await process_frame
+			check(etude.visible and ecran.find_child("PartsBasket", true, false) == null, "refermé, on revient à l'étude")
+	ecran.queue_free()
+	# Le tableau des parts relit le serveur en s'ouvrant : l'appel factice n'en rend aucune, on remet la nôtre.
+	basket.bureau.obligations = [{"club": club, "rang": 3, "par": "Moi", "moi": true}]
 	carnet.ouvrir_onglet("compte")
 	await process_frame
 	check(_textes(carnet.get("_left")).contains("(basket)"), "Mes biens : les obligations de basket")
