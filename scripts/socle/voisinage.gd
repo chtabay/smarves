@@ -113,7 +113,7 @@ func _raison(r: Dictionary, raisons: Dictionary) -> String:
 	if r.code == 0:
 		return "Hors ligne : rien n'est parti."
 	if r.corps is Dictionary and r.corps.get("erreur", "") == "jeton":
-		return "La connexion a expiré : reconnectez-vous depuis la bienvenue."
+		return "La connexion a expiré : reconnectez-vous dans les réglages."
 	return raisons.get(str(r.corps.get("raison", "")) if r.corps is Dictionary else "", "Le panneau n'a pas pris votre texte.")
 
 

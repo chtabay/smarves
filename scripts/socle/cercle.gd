@@ -201,7 +201,7 @@ func ouvrir_table(id: String, titre := "", hors_ligne := false) -> Control:
 	if _game != null:
 		return null
 	if not hors_ligne and not Compte.connecte():
-		say("« Le Cercle joue sur le registre du casino : connectez-vous à votre compte, dans la bienvenue. »")
+		say("« Le Cercle joue sur le registre du casino : connectez-vous à votre compte, dans les réglages. »")
 		return null
 	var p: PanelContainer = PANNEAU.new()
 	p.table_id = id

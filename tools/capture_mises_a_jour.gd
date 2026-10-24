@@ -1,6 +1,6 @@
 extends SceneTree
 ## Captures des écrans de mises à jour, chaque état posé à la main :
-## godot --path . -s tools/capture_mises_a_jour.gd -- --greffes=<dossier> --sortie=<dossier> --ecran=titre|titre-liste|accueil|liste|carte|effacer
+## godot --path . -s tools/capture_mises_a_jour.gd -- --greffes=<dossier> --sortie=<dossier> --ecran=titre|titre-liste|titre-compte|accueil|liste|carte|effacer
 
 func _initialize() -> void:
 	_lancer.call_deferred()
@@ -27,6 +27,15 @@ func _lancer() -> void:
 	communes.echecs["croutelle"] = "Croutelle n'a pas pu être téléchargée : pas de réponse du serveur."
 	communes.en_cours = "la_villedieu_du_clain"
 	communes.etat_change.emit("liguge")
+	# L'encart du titre parle du joueur : un courrier posé à la main, dans un dossier à part.
+	if ecran.begins_with("titre"):
+		var avis: Node = root.get_node("Avis")
+		avis.dossier = OS.get_cache_dir().path_join("capture_accueil/")
+		DirAccess.make_dir_recursive_absolute(avis.dossier)
+		avis.effacer()
+		avis.publier({"id": "div/1", "genre": "dividende", "titre": "Dividende de l'ES Smarves", "montant": 1240, "importance": "discrete"})
+		avis.publier({"id": "match/1", "genre": "match", "titre": "Victoire 2-1 à Availles"})
+		avis.publier({"id": "cal/1", "genre": "calendrier", "titre": "L'intersaison ouvre samedi"})
 	if ecran == "carte":
 		root.get_node("Carte").ouvrir()
 		await create_timer(1.5).timeout
@@ -35,9 +44,8 @@ func _lancer() -> void:
 	else:
 		var bienvenue: Node = root.get_node("Bienvenue")
 		bienvenue.ouvrir(ecran.ends_with("liste"))
-		if ecran == "effacer":
-			bienvenue.set("_effacer", true)
-			bienvenue.call("_remplir")
+		if ecran in ["effacer", "compte", "titre-effacer", "titre-compte"]:
+			bienvenue.ouvrir_page(ecran.trim_prefix("titre-"))
 	await create_timer(2.5).timeout
 	await RenderingServer.frame_post_draw
 	root.get_viewport().get_texture().get_image().save_png(sortie.path_join(ecran + ".png"))
