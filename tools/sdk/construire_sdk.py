@@ -40,6 +40,7 @@ ENTREES = [
     # Les autres joueurs (socle 1.23) : la synchro réelle, ses tests sans réseau et à deux clients.
     "scripts/socle/presences.gd", "scripts/socle/temps_reel.gd", "tools/test_presences.gd",
     "tools/test_presences_deux.gd", "tools/test_temps_reel.gd",
+    "scripts/socle/salle_duo.gd", "scripts/socle/salle_duo_essai.gd", "tools/test_salle_duo.gd",
     # Le budget par lieu (socle 1.16) : l'emballeur mesure, budget_lieu.gd mesure un paquet sans l'emballer.
     "tools/budget_lieu.gd",
     "scripts/socle/etude.gd", "scenes/etude.tscn",

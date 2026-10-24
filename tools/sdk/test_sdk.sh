@@ -15,7 +15,7 @@ godot=${GODOT:-godot}
 "$godot" --headless --path . --import > import.log 2>&1 || true
 echo "--- erreurs de script à l'import"
 grep -E "SCRIPT ERROR|Parse Error|Failed to load" import.log | head -20 || true
-for t in test_commune parcours_commune test_atelier test_salle_jeu test_quartiers test_availles test_presences; do
+for t in test_commune parcours_commune test_atelier test_salle_jeu test_quartiers test_availles test_presences test_salle_duo; do
 	"$godot" --headless --path . -s tools/$t.gd > $t.log 2>&1 && echo "ok      $t" || { echo "ÉCHEC   $t"; tail -20 $t.log; exit 1; }
 	# Un test qui passe en traînant des erreurs de script cache un fichier du socle qui ne se compile pas
 	# dans le SDK (le registre de Smarves, retour de l'auteur de Chauvigny).
