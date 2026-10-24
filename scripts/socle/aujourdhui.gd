@@ -195,12 +195,14 @@ static func a_faire_basket(b: Node) -> Array:
 	for club in clubs_basket(b):
 		var nom := str(b.fiche(club).nom)
 		var salle := {"vers": "salle", "club": club}
+		var bureau := {"vers": "gerer", "sport": "basket", "club": club, "page": "equipe"}
+		var marche := {"vers": "gerer", "sport": "basket", "club": club, "page": "marche"}
 		if b.peut_decider(club):
 			var c := carte_basket(b, club)
 			var p: Dictionary = c.prochain
 			if not p.is_empty() and int(p.quand) - t < 2 * 86400 and not consigne_posee_basket(b, club, s, int(p.j)):
 				out.append({"genre": "consigne", "quand": int(p.quand), "titre": "%s : la consigne contre %s n'est pas posée" % [nom, p.nom_adv],
-					"texte": "Sans consigne, l'entraîneur garde « %s ». Titulaires ou rotation, au bureau de la salle." % c.consigne, "lien": salle, "bouton": "Le bureau de la salle"})
+					"texte": "Sans consigne, l'entraîneur garde « %s ». Titulaires ou rotation, au bureau du club." % c.consigne, "lien": bureau, "bouton": "Poser la consigne"})
 			var j: int = b.journee_du_marche()
 			var ici: Array = b.place_de(club)
 			if j > 0 and b.tirage_fait(club):
@@ -214,10 +216,10 @@ static func a_faire_basket(b: Node) -> Array:
 				for code in depassees:
 					var qui := str((cl.get("joueurs", {}) as Dictionary).get(code, {}).get("nom", code))
 					out.append({"genre": "enchere", "quand": int(b.cloture(s, j)), "titre": "%s : votre enchère sur %s est dépassée" % [nom, qui],
-						"texte": "La meilleure offre est à %s crédits. Le marché ferme jeudi à 22 h." % Game.fmt(int(depassees[code])), "lien": salle, "bouton": "Le marché, à la salle"})
+						"texte": "La meilleure offre est à %s crédits. Le marché ferme jeudi à 22 h." % Game.fmt(int(depassees[code])), "lien": marche, "bouton": "Le marché"})
 				if mes.is_empty() and int(b.cloture(s, j)) - t < 2 * 86400:
 					out.append({"genre": "marche", "quand": int(b.cloture(s, j)), "titre": "%s : le marché ferme jeudi à 22 h" % nom,
-						"texte": "Aucune enchère de votre part pour la journée %d. Les joueurs libres sont au bureau de la salle." % j, "lien": salle, "bouton": "Le marché, à la salle"})
+						"texte": "Aucune enchère de votre part pour la journée %d. Les joueurs libres sont au marché du club." % j, "lien": marche, "bouton": "Le marché"})
 		elif DIRIGER.en_intersaison(b):
 			var e: Dictionary = DIRIGER.etat(b, club)
 			if str(e.ailleurs) == "" and not bool(e.dirige):

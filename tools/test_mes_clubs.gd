@@ -1,6 +1,7 @@
 extends SceneTree
 ## Vérifie « Mes clubs » et « Ma carrière » sans affichage : godot --headless --path . -s tools/test_mes_clubs.gd
-## Une page par club suivi (le classement, sa ligne soulignée, les quatorze journées, l'effectif, les parts),
+## Une page par club suivi (ses tuiles, sa barre d'actions, le classement, les quatorze journées, l'effectif,
+## les parts ; « Gérer » ouvre le bureau par-dessus le carnet),
 ## puis le calendrier ; la fortune notée semaine après semaine, sa courbe, sa variation ; le palmarès lu
 ## dans l'historique de la pyramide (la place finale de chaque club).
 
@@ -70,13 +71,27 @@ func _lancer() -> void:
 	check(g.find_child("Bandeau_club", true, false) != null, "la page s'ouvre sur un bandeau aux couleurs du club")
 	var cl: Array = foot.classement(1, 0, 0)
 	check(g.find_child("Classement", true, false) != null and tg.contains(foot.clubs[club].nom), "le classement du groupe")
-	check(tg.contains("Les quatorze journées") and tg.contains("J1  ") and tg.contains("J14  "), "les quatorze journées")
-	var lignes: Array = Array(tg.split("\n")).filter(func(l): return RegEx.create_from_string("^J\\d+  ").search(l) != null)
+	check(g.find_child("Tuiles", true, false) != null and tg.contains("RANG") and tg.contains("POINTS") and tg.contains("FORME"), "trois tuiles : le rang, les points, la forme")
+	var actions: Node = g.find_child("Actions", true, false)
+	check(actions != null and ["Gerer", "Tactique", "Entrainement", "Mercato", "Stade", "Registre"].all(func(n): return actions.find_child("Action_" + n, true, false) != null)
+		and (actions.find_child("Action_Gerer", true, false) as Button).icon != null, "la barre d'actions, chaque bouton son picto")
+	var td := _textes(carnet.get("_right"))
+	check(td.contains("JOURNÉES") and td.contains("J1  ") and td.contains("J14  "), "les quatorze journées, en face")
+	var lignes: Array = Array(td.split("\n")).filter(func(l): return RegEx.create_from_string("^J\\d+  ").search(l) != null)
 	var scores := RegEx.create_from_string("^J\\d+  .+  [VND] \\d+-\\d+ ")
 	check(lignes.slice(0, 5).all(func(l): return scores.search(l) != null) and str(lignes[5]).begins_with("J6  ") and str(lignes[5]).contains("  ·  dans "), "cinq journées jouées avec leur score, la sixième avec son compte à rebours (%s)" % str(lignes.slice(4, 6)))
 	var d := _textes(carnet.get("_right"))
 	check(carnet.get("_right").find_child("Effectif", true, false) != null and d.contains("Note") and d.contains("Moral"), "en face, l'effectif")
-	check(d.contains("Vous en tenez 1, ") and d.contains("le registre des parts"), "les parts qu'on tient, et le registre")
+	check(d.contains("Vous en tenez 1, "), "les parts qu'on tient, en une ligne")
+	# ---- Gérer : le bureau s'ouvre par-dessus le carnet, sur sa page ; Échap ramène au carnet.
+	(actions.find_child("Action_Tactique", true, false) as Button).pressed.emit()
+	await process_frame
+	var bureau: Node = carnet.gestion().find_child("Bureau", true, false) if carnet.gestion() != null else null
+	check(carnet.is_open() and bureau != null and bureau.get_script().get_global_name() == "Bureau" and bureau.club == club and bureau.page == "tactique", "Tactique ouvre le bureau du club sur la tactique, dans le carnet")
+	if bureau != null:
+		bureau.closed.emit()
+	await process_frame
+	check(carnet.is_open() and carnet.gestion() == null and carnet.get("_onglet") == "clubs", "refermé, on retrouve la page du club")
 	(barre.find_child("Page_calendrier", true, false) as Button).pressed.emit()
 	await process_frame
 	check(carnet.get("_club_vu") == "calendrier" and _textes(carnet.get("_left")).contains("Les journées de la saison"), "le sous-onglet du calendrier")

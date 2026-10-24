@@ -97,6 +97,8 @@ var _page_origine: Node
 ## Les deux pages ouvertes, et le classeur de cartes qui prend leur place sous « Mes cartes ».
 var _spread: HBoxContainer
 var _album: Control
+## Le bureau d'un club ouvert par-dessus le carnet (gerer), ou null.
+var _gestion: Control
 
 
 func _ready() -> void:
@@ -157,6 +159,9 @@ func page_origine() -> Node:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	# Le bureau d'un club ouvert par-dessus : c'est lui qui répond (Échap le referme, pas le carnet).
+	if _gestion != null:
+		return
 	if _root.visible and not _sheet.visible and _onglet == "cartes" and _album.saisir(event):
 		get_viewport().set_input_as_handled()
 	elif event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_C:
@@ -178,6 +183,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func toggle() -> void:
 	if _root.visible:
+		fermer_gestion()
 		_root.visible = false
 		_sheet.visible = false
 		if _album.zoom_ouvert():
@@ -205,6 +211,75 @@ func toggle() -> void:
 		_refresh()
 		_root.visible = true
 		get_tree().paused = true
+
+
+# --- Gérer un club sans aller au stade ------------------------------------------------------------
+
+const BUREAU_FOOT := "res://scripts/socle/bureau.gd"
+const BUREAU_BASKET := "res://scripts/socle/basket_bureau.gd"
+
+
+## Ouvre le bureau d'un club par-dessus le carnet, où qu'on soit (demande de Guillaume du 24 octobre 2026 :
+## « le carnet permet d'aller au stade d'un club mais pas de le gérer »). Football : le bureau du stade
+## (bureau.gd), sur la page donnée (tactique, entrainement, offres...). Basket : le bureau du président
+## (basket_bureau.gd), page equipe, marche ou comptes. On le referme (Échap) et l'on retrouve le carnet.
+## Acheter des parts reste au stade, au registre : c'est le seul geste qui demande d'y être.
+func gerer(sport: String, club: String, page := "") -> void:
+	if club == "":
+		return
+	if not _root.visible:
+		toggle()
+	fermer_gestion()
+	var voile := Control.new()
+	voile.name = "Gestion"
+	voile.set_anchors_preset(Control.PRESET_FULL_RECT)
+	voile.mouse_filter = Control.MOUSE_FILTER_STOP
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.55)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	voile.add_child(dim)
+	add_child(voile)
+	_gestion = voile
+	var b: Control
+	if sport == "basket":
+		b = load(BUREAU_BASKET).new()
+		b.commune = club
+		if page in ["equipe", "marche", "comptes"]:
+			b.page = page
+		var centre := CenterContainer.new()
+		centre.set_anchors_preset(Control.PRESET_FULL_RECT)
+		voile.add_child(centre)
+		centre.add_child(b)
+	else:
+		b = load(BUREAU_FOOT).new()
+		b.club = club
+		if page != "":
+			b.page = page
+		# Le registre des parts : on referme le bureau, le stade s'ouvre au registre (si l'on peut s'y rendre).
+		b.obligations.connect(func():
+			fermer_gestion()
+			Avis.aller({"id": "", "lien": {"vers": "registre", "club": club}}))
+		voile.add_child(b)
+	b.name = "Bureau"
+	b.closed.connect(func():
+		# Échap a refermé le bureau : il ne referme pas aussi le carnet.
+		if get_viewport() != null:
+			get_viewport().set_input_as_handled()
+		fermer_gestion()
+		_refresh())
+
+
+## Le bureau ouvert par-dessus le carnet, ou null.
+func gestion() -> Control:
+	return _gestion
+
+
+func fermer_gestion() -> void:
+	if _gestion == null:
+		return
+	remove_child(_gestion)
+	_gestion.queue_free()
+	_gestion = null
 
 
 # --- Les rubriques --------------------------------------------------------------------------------
@@ -646,10 +721,20 @@ func _row(parent: Control, label: String, value: String, color := INK, bold := f
 	b.autowrap_mode = TextServer.AUTOWRAP_OFF
 
 
-## Un bouton plat, à la couleur de l'écran. La flèche d'avant (« → le bureau ») tombe : c'est un bouton.
-func _link(parent: Control, t: String, action: Callable, enabled := true) -> Button:
+const PICTOS := preload("res://scripts/socle/pictos.gd")
+
+
+## Un bouton plat, à la couleur de l'écran, son picto devant le mot (scripts/socle/pictos.gd). La flèche
+## d'avant (« → le bureau ») tombe : c'est un bouton ; « ← » devient le picto du retour.
+func _link(parent: Control, t: String, action: Callable, enabled := true, picto := "") -> Button:
 	var b := Button.new()
 	b.text = t.trim_prefix("→ ")
+	if t.begins_with("→ ") and picto == "":
+		picto = "aller"
+	if b.text.begins_with("← "):
+		b.text = b.text.trim_prefix("← ")
+		if picto == "":
+			picto = "retour"
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.disabled = not enabled
 	b.focus_mode = Control.FOCUS_NONE
@@ -659,15 +744,21 @@ func _link(parent: Control, t: String, action: Callable, enabled := true) -> But
 		b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	b.add_theme_font_override("font", _hand_bold)
 	b.add_theme_font_size_override("font_size", 15)
-	for k in ["font_color", "font_pressed_color", "font_focus_color"]:
+	for k in ["font_color", "font_pressed_color", "font_focus_color", "icon_normal_color", "icon_pressed_color", "icon_focus_color"]:
 		b.add_theme_color_override(k, ACCENT.lightened(0.25))
 	b.add_theme_color_override("font_hover_color", INK)
+	b.add_theme_color_override("icon_hover_color", INK)
 	b.add_theme_color_override("font_disabled_color", PENCIL)
+	b.add_theme_color_override("icon_disabled_color", PENCIL)
+	if picto != "":
+		# Dessiné en blanc, teinté par les couleurs du bouton.
+		b.icon = PICTOS.texture(picto, Color.WHITE, 18)
+		b.add_theme_constant_override("h_separation", 7)
 	for k in ["normal", "hover", "pressed", "focus", "disabled"]:
 		var st := StyleBoxFlat.new()
 		st.bg_color = {"hover": BOUTON.lightened(0.12), "pressed": BOUTON.darkened(0.1), "disabled": Color(0, 0, 0, 0)}.get(k, BOUTON)
 		st.set_corner_radius_all(5)
-		st.content_margin_left = 12
+		st.content_margin_left = 10 if picto != "" else 12
 		st.content_margin_right = 12
 		st.content_margin_top = 5
 		st.content_margin_bottom = 5
@@ -775,7 +866,7 @@ func _fill_boite() -> void:
 	if not nouveaux.is_empty():
 		var tout := _link(_left, "Tout marquer comme lu", func():
 			Avis.tout_lu()
-			_refresh())
+			_refresh(), true, "choix")
 		tout.name = "ToutLu"
 	var lus: Array = Avis.liste.filter(func(x): return bool(x.lu) and not en_attente.has(x.id))
 	_rubrique(_left, "Déjà lu")
@@ -813,7 +904,7 @@ func _fill_resume(t: int) -> void:
 		_text(_right, "%s  ·  %s" % [quand, rv.titre], 15, INK_LIGHT if rv.annonce else INK)
 	_text(_right, preload("res://scripts/socle/calendrier.gd").resume(Football, "football"), 14, PENCIL)
 	_gap(_right, 4)
-	_link(_right, "→ toute la semaine", _show_sheet.bind(true, "agenda"))
+	_link(_right, "Toute la semaine", _show_sheet.bind(true, "agenda"), true, "semaine")
 
 
 ## Une chose à faire : l'échéance, ce qu'il faut faire, et le bouton qui le fait (ou les deux choix d'une
@@ -835,18 +926,39 @@ func _une_chose(col: VBoxContainer, x: Dictionary, t: int) -> void:
 	if x.genre == "dilemme":
 		_gap(v, 2)
 		for c in Avis.choix_de(x.avis):
-			var b := _link(v, "→ " + str(c.libelle), func():
+			var b := _link(v, str(c.libelle), func():
 				Avis.trancher(x.avis, str(c.choix))
 				# Le message reste ouvert à droite : ce qu'on a choisi, et l'autre choix jusqu'au coup d'envoi.
 				_avis_vu = str(x.avis.id)
-				_refresh(), true)
+				_refresh(), true, "choix")
 			b.name = "Choix_" + str(c.choix)
 	elif str(x.bouton) != "":
 		var l: Dictionary = x.lien
 		var ok: bool = Avis.peut_aller(l)
 		_gap(v, 2)
-		var b := _link(v, "→ " + str(x.bouton) + ("" if ok else " (une fois levé de table)"), func(): Avis.aller({"id": "", "lien": l}), ok)
+		var b := _link(v, str(x.bouton), func(): Avis.aller({"id": "", "lien": l}), ok, _picto_du_lien(l))
 		b.name = "Faire_" + str(x.genre)
+		if not ok:
+			b.tooltip_text = "Une fois levé de table."
+
+
+## Le picto d'un lien d'avis : le bureau et ses pages, le stade, le registre, la semaine.
+static func _picto_du_lien(l) -> String:
+	if not l is Dictionary:
+		return "aller"
+	match str(l.get("vers", "")):
+		"bureau", "gerer":
+			return {"tactique": "tactique", "entrainement": "entrainement", "offres": "mercato", "recherche": "mercato", "marche": "mercato",
+				"comptes": "comptes", "effectif": "effectif", "championnat": "classement", "equipe": "effectif"}.get(str(l.get("page", "")), "gerer")
+		"registre":
+			return "registre"
+		"stade", "salle":
+			return "lieu"
+		"agenda":
+			return "semaine"
+		"carnet":
+			return "cartes" if str(l.get("onglet", "")) == "cartes" else "aller"
+	return "aller"
 
 
 ## Une ligne de la boîte : un point bleu tant qu'il n'est pas lu, le titre, l'heure. Un clic l'ouvre à droite.
@@ -941,10 +1053,16 @@ func _une_carte(col: VBoxContainer, c: Dictionary, t: int) -> void:
 		_text(v, "Consigne du match : %s." % ("tous les titulaires" if str(c.consigne) == "titulaires" else "rotation"), 13, INK_LIGHT)
 	if not c.dirige:
 		_text(v, str(c.direction), 13, PENCIL)
-	var l := {"vers": "salle", "club": str(c.club)} if basket else {"vers": "bureau", "club": str(c.club), "page": ""}
-	var ok: bool = Avis.peut_aller(l)
 	_gap(v, 2)
-	_link(v, ("→ la salle du club" if basket else "→ le bureau du club") + ("" if ok else " (une fois levé de table)"), func(): Avis.aller({"id": "", "lien": l}), ok)
+	if basket:
+		_actions(v, [
+			{"picto": "gerer", "mot": "Gérer", "lien": {"vers": "gerer", "sport": "basket", "club": str(c.club), "page": "equipe"}, "nom": "Gerer", "principal": true, "aide": "Le bureau du président, ici même."},
+			{"picto": "lieu", "mot": "Salle", "lien": {"vers": "salle", "club": str(c.club)}, "nom": "Salle", "aide": "Aller à la salle du club."}])
+	else:
+		_actions(v, [
+			{"picto": "gerer", "mot": "Gérer", "lien": {"vers": "bureau", "club": str(c.club), "page": ""}, "nom": "Gerer", "principal": true, "aide": "Le bureau du club, ici même."},
+			{"picto": "tactique", "mot": "Tactique", "lien": {"vers": "bureau", "club": str(c.club), "page": "tactique"}, "nom": "Tactique", "aide": "La composition du prochain match."},
+			{"picto": "lieu", "mot": "Stade", "lien": {"vers": "stade", "club": str(c.club)}, "nom": "Stade", "aide": "Aller au stade du club."}])
 
 
 ## « 1 pt », « 7 pts ».
@@ -993,9 +1111,9 @@ func _fill_carriere() -> void:
 	_fill_succes(_right)
 	_rubrique(_right, "Mon pensionnaire")
 	_text(_right, "Un habitant que vous créez et que votre modèle de langage fait vivre, aux événements du village.", 14, PENCIL)
-	_link(_right, "→ ouvrir sa fiche", func():
+	_link(_right, "Sa fiche", func():
 		_show_sheet(true, "pensionnaire")
-		Pensionnaire.lire())
+		Pensionnaire.lire(), true, "fiche")
 
 
 ## La fortune nette, semaine après semaine : une courbe, la plus haute et la plus basse notées.
@@ -1144,48 +1262,39 @@ func _tete_club(sport: String, club: String, nom: String, sous_titre: String) ->
 	_gap(_left, 6)
 
 
-## La page d'un club suivi : le classement de son groupe (sa ligne soulignée), ses quatorze journées ; en
-## face, l'effectif, les parts et la direction, le calendrier en bref.
+## La page d'un club suivi, à la Football Manager : le bandeau, trois tuiles (rang, points, forme), le
+## prochain match en une ligne, la barre d'actions (le bureau s'ouvre ici même), le classement ; en face,
+## les journées, les cinq meilleurs joueurs, les parts en une ligne. Les explications vont aux infobulles.
 func _fill_un_club(club: String) -> void:
 	var c: Dictionary = AUJOURDHUI.carte(Football, club)
 	if c.is_empty():
 		_text(_left, "Ce club n'est plus dans la pyramide.", 16, PENCIL)
 		return
 	var t: int = Agenda.maintenant()
-	_tete_club("football", club, str(c.nom), "%s, saison %d" % [c.division, int(Football.saison)])
+	_tete_club("football", club, str(c.nom), "%s, saison %d%s" % [c.division, int(Football.saison), "  ·  vous dirigez" if c.dirige else ""])
 	var place: Array = Football.place_de(club)
 	var cl: Array = Football.classement(Football.saison, place[0], place[1])
-	var g := GridContainer.new()
-	g.columns = 5
-	g.add_theme_constant_override("h_separation", 12)
-	g.name = "Classement"
-	_left.add_child(g)
-	for h in ["", "Club", "J", "Diff.", "Pts"]:
-		_text(g, h, 14, PENCIL).autowrap_mode = TextServer.AUTOWRAP_OFF
 	var sauve: int = cl.size() - int(Football.DESCENDENT)
+	_tuiles_club(c, sauve)
+	_prochain_club(c, t)
+	var bureau := func(p: String) -> Dictionary: return {"vers": "bureau", "club": club, "page": p}
+	_actions(_left, [
+		{"picto": "gerer", "mot": "Gérer", "lien": bureau.call(""), "nom": "Gerer", "principal": true, "aide": "Le bureau du club : l'accueil, le courrier, la direction."},
+		{"picto": "tactique", "mot": "Tactique", "lien": bureau.call("tactique"), "nom": "Tactique", "aide": "La composition et les consignes du prochain match."},
+		{"picto": "entrainement", "mot": "Entraînement", "lien": bureau.call("entrainement"), "nom": "Entrainement", "aide": "Le programme de la semaine."},
+		{"picto": "mercato", "mot": "Mercato", "lien": bureau.call("recherche"), "nom": "Mercato", "aide": "Chercher des joueurs, suivre les offres."},
+		{"picto": "lieu", "mot": "Stade", "lien": {"vers": "stade", "club": club}, "nom": "Stade", "aide": "Aller au stade du club."},
+		{"picto": "registre", "mot": "Registre", "lien": {"vers": "registre", "club": club}, "nom": "Registre", "aide": "Le registre des parts, au stade : acheter ou revendre des parts."},
+	])
+	_aide(_rubrique(_left, "Classement"), "Le premier monte, les %d derniers descendent." % int(Football.DESCENDENT))
+	var g := _grille(_left, "Classement", ["", "Club", "J", "Diff.", "Pts"])
 	for i in cl.size():
 		var l: Dictionary = cl[i]
 		var moi: bool = l.club == club
 		var couleur := ACCENT if moi else (INK_LIGHT if i >= sauve and sauve >= 2 else INK)
-		for v in [str(i + 1), _nom_club(str(l.club)), str(int(l.j)), ("+" if int(l.diff) > 0 else "") + str(int(l.diff)), str(int(l.pts))]:
-			var x := _text(g, v, 16, couleur, moi)
-			x.autowrap_mode = TextServer.AUTOWRAP_OFF
-			if v == _nom_club(str(l.club)):
-				x.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-				x.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-				x.clip_text = true
-	var ecarts: Array = []
-	if int(c.joues) > 0:
-		ecarts.append("en tête" if int(c.rang) == 1 and int(c.ecart_tete) == 0 and int(c.taille) > 1 else ("à égalité avec le 1er" if int(c.ecart_tete) == 0 else "à %s du 1er" % _pts(int(c.ecart_tete))))
-		if sauve >= 2 and int(c.rang) <= sauve:
-			ecarts.append("%s d'avance sur la descente" % _pts(int(c.ecart_relegation)))
-		elif sauve >= 2:
-			ecarts.append("dans la zone de descente")
-	if not ecarts.is_empty():
-		_text(_left, ", ".join(ecarts).substr(0, 1).to_upper() + ", ".join(ecarts).substr(1) + ".", 15, INK)
-	_text(_left, "Le premier monte, les %d derniers descendent." % int(Football.DESCENDENT), 14, PENCIL)
-	_gap(_left, 8)
-	_text(_left, "Les quatorze journées", 18, INK, true)
+		_ligne_grille(g, [str(i + 1), _nom_club(str(l.club)), str(int(l.j)), ("+" if int(l.diff) > 0 else "") + str(int(l.diff)), str(int(l.pts))], 1, couleur, moi)
+	# En face : les journées, l'effectif, les parts.
+	_rubrique(_right, "Journées")
 	for j in range(1, int(Football.JOURNEES) + 1):
 		var m: Dictionary = FootCourrier.match_de(Football, club, Football.saison, j)
 		if m.is_empty():
@@ -1195,50 +1304,31 @@ func _fill_un_club(club: String) -> void:
 		var jour := preload("res://scripts/socle/calendrier.gd").jour_court(Football.coup_envoi(Football.saison, j))
 		if not (m.score as Array).is_empty():
 			var i := FootCourrier.issue(m, club)
-			_text(_left, "J%d  %s  %s %d-%d %s %s" % [j, jour, i.lettre, i.pour, i.contre, "contre" if dom else "chez", adv], 15,
+			_text(_right, "J%d  %s  %s %d-%d %s %s" % [j, jour, i.lettre, i.pour, i.contre, "contre" if dom else "chez", adv], 14,
 				VERT if i.lettre == "V" else (RED_INK if i.lettre == "D" else OCRE))
 		else:
 			var prochain: bool = not c.prochain.is_empty() and int(c.prochain.j) == j
-			_text(_left, "J%d  %s  %s %s%s" % [j, jour, "contre" if dom else "chez", adv, "  ·  " + AUJOURDHUI.dans(int(c.prochain.quand), t) if prochain else ""], 15,
+			_text(_right, "J%d  %s  %s %s%s" % [j, jour, "contre" if dom else "chez", adv, "  ·  " + AUJOURDHUI.dans(int(c.prochain.quand), t) if prochain else ""], 14,
 				INK if prochain else INK_LIGHT, prochain)
-	# En face : l'effectif, les parts, le calendrier.
-	_title(_right, "L'effectif")
+	_rubrique(_right, "Effectif")
 	var eff: Dictionary = Football.effectif(club, Football.saison)
 	var ids: Array = eff.keys()
 	ids.sort_custom(func(a, b): return int(eff[a].note) > int(eff[b].note) if int(eff[a].note) != int(eff[b].note) else str(a) < str(b))
-	var ge := GridContainer.new()
-	ge.columns = 4
-	ge.add_theme_constant_override("h_separation", 12)
-	ge.name = "Effectif"
-	_right.add_child(ge)
-	for h in ["Joueur", "Poste", "Note", "Moral"]:
-		_text(ge, h, 14, PENCIL).autowrap_mode = TextServer.AUTOWRAP_OFF
-	for id in ids.slice(0, 11):
+	var ge := _grille(_right, "Effectif", ["Joueur", "Poste", "Note", "Moral"])
+	for id in ids.slice(0, 5):
 		var p: Dictionary = eff[id]
-		var nom := _text(ge, "%s %s" % [str(p.get("prenom", "")).left(1) + ".", p.get("nom", "")], 15, INK)
-		nom.autowrap_mode = TextServer.AUTOWRAP_OFF
-		nom.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		for v in [str(p.get("poste", "")), str(int(p.get("note", 0))), str(int(p.get("moral", 70)))]:
-			_text(ge, v, 15, RED_INK if v == str(int(p.get("moral", 70))) and int(p.get("moral", 70)) < 40 else INK).autowrap_mode = TextServer.AUTOWRAP_OFF
-	if ids.size() > 11:
-		_text(_right, "et %d autres au bureau du club." % (ids.size() - 11), 14, PENCIL)
-	_gap(_right, 8)
-	_title(_right, "Les parts")
+		var moral := int(p.get("moral", 70))
+		var cases := _ligne_grille(ge, ["%s %s" % [str(p.get("prenom", "")).left(1) + ".", p.get("nom", "")], str(p.get("poste", "")), str(int(p.get("note", 0))), str(moral)], 0, INK, false)
+		if moral < 40:
+			cases[3].add_theme_color_override("font_color", RED_INK)
+	if ids.size() > 5:
+		_link(_right, "Les %d joueurs" % ids.size(), func(): gerer("football", club, "effectif"), true, "effectif").name = "Tout_effectif"
+	_rubrique(_right, "Parts")
 	var miennes: Array = Football.mes_obligations(club)
-	_text(_right, "Vous en tenez %d, %s investis." % [miennes.size(), Game.fmt(Football.investi(club))] if not miennes.is_empty() else "Vous n'en tenez aucune.", 16, INK)
-	for a in (Football.actionnaires(club) as Array).slice(0, 3):
-		_row(_right, "vous" if bool(a.moi) else str(a.nom), Game.fmt(int(a.investi)), INK if bool(a.moi) else INK_LIGHT)
-	_text(_right, str(c.direction), 15, PENCIL)
-	for x in [["→ le bureau du club", {"vers": "bureau", "club": club, "page": ""}], ["→ le registre des parts", {"vers": "registre", "club": club}]]:
-		var l: Dictionary = x[1]
-		var ok: bool = Avis.peut_aller(l)
-		_link(_right, str(x[0]) + ("" if ok else " (une fois levé de table)"), func(): Avis.aller({"id": "", "lien": l}), ok).custom_minimum_size.y = 34
-	_gap(_right, 6)
-	_text(_right, preload("res://scripts/socle/calendrier.gd").resume(Football, "football"), 14, PENCIL)
+	_parts(_right, miennes.size(), Football.investi(club), Football.actionnaires(club), str(c.direction))
 
 
-## La page d'un club de basket suivi : le classement du groupe de huit, les quatorze journées et leurs
-## scores ; en face, l'effectif (de vrais joueurs, notés chaque vendredi), les parts, la masse salariale.
+## La page d'un club de basket suivi : la même ordonnance ; le bureau du président s'ouvre ici même.
 func _fill_un_club_basket(club: String) -> void:
 	var c: Dictionary = AUJOURDHUI.carte_basket(Basket, club)
 	if c.is_empty():
@@ -1246,38 +1336,30 @@ func _fill_un_club_basket(club: String) -> void:
 		return
 	var t: int = Agenda.maintenant()
 	var s: int = Basket.saison
-	_tete_club("basket", club, str(c.nom), "Basket, %s, saison %d" % [c.division, s])
+	_tete_club("basket", club, str(c.nom), "Basket, %s, saison %d%s" % [c.division, s, "  ·  vous dirigez" if c.dirige else ""])
 	var ici: Array = Basket.place_de(club)
 	var cl: Array = Basket.classement(s, ici[0], ici[1])
-	var g := GridContainer.new()
-	g.columns = 5
-	g.add_theme_constant_override("h_separation", 12)
-	g.name = "Classement"
-	_left.add_child(g)
-	for h in ["", "Club", "V-D", "Diff.", "Pts"]:
-		_text(g, h, 14, PENCIL).autowrap_mode = TextServer.AUTOWRAP_OFF
 	var sauve: int = cl.size() - int(Basket.DESCENDENT)
+	_tuiles_club(c, sauve)
+	_prochain_club(c, t)
+	if not c.prochain.is_empty():
+		_text(_left, "Consigne : %s" % ("tous les titulaires" if str(c.consigne) == "titulaires" else "rotation"), 13, INK_LIGHT)
+	var bureau := func(p: String) -> Dictionary: return {"vers": "gerer", "sport": "basket", "club": club, "page": p}
+	_actions(_left, [
+		{"picto": "gerer", "mot": "Gérer", "lien": bureau.call("equipe"), "nom": "Gerer", "principal": true, "aide": "Le bureau du président : l'équipe, la consigne du match."},
+		{"picto": "mercato", "mot": "Marché", "lien": bureau.call("marche"), "nom": "Marche", "aide": "Les joueurs libres, aux enchères jusqu'au jeudi 22 h."},
+		{"picto": "comptes", "mot": "Comptes", "lien": bureau.call("comptes"), "nom": "Comptes", "aide": "La masse salariale, la recette, les obligations."},
+		{"picto": "lieu", "mot": "Salle", "lien": {"vers": "salle", "club": club}, "nom": "Salle", "aide": "Aller à la salle : on y achète les parts du club."},
+	])
+	_aide(_rubrique(_left, "Classement"), "Deux points la victoire, un la défaite. Le premier monte, les %d derniers descendent." % int(Basket.DESCENDENT))
+	var g := _grille(_left, "Classement", ["", "Club", "V-D", "Diff.", "Pts"])
 	for i in cl.size():
 		var l: Dictionary = cl[i]
 		var moi: bool = str(l.club) == club
-		var couleur := ACCENT if moi else (INK_LIGHT if i >= sauve else INK)
-		var nom := str(Basket.fiche(str(l.club)).nom)
 		var diff: int = int(l.pour) - int(l.contre)
-		for v in [str(i + 1), nom, "%d-%d" % [int(l.v), int(l.d)], ("+" if diff > 0 else "") + str(diff), str(int(l.pts))]:
-			var x := _text(g, v, 16, couleur, moi)
-			x.autowrap_mode = TextServer.AUTOWRAP_OFF
-			if v == nom:
-				x.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-				x.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-				x.clip_text = true
-	if int(c.joues) > 0:
-		var ecarts: Array = ["en tête" if int(c.rang) == 1 else ("à égalité avec le 1er" if int(c.ecart_tete) == 0 else "à %s du 1er" % _pts(int(c.ecart_tete)))]
-		ecarts.append("%s d'avance sur la descente" % _pts(int(c.ecart_relegation)) if int(c.rang) <= sauve else "dans la zone de descente")
-		var e := ", ".join(ecarts)
-		_text(_left, e.substr(0, 1).to_upper() + e.substr(1) + ".", 15, INK)
-	_text(_left, "Deux points la victoire, un la défaite. Le premier monte, les %d derniers descendent." % int(Basket.DESCENDENT), 14, PENCIL)
-	_gap(_left, 8)
-	_text(_left, "Les quatorze journées", 18, INK, true)
+		_ligne_grille(g, [str(i + 1), str(Basket.fiche(str(l.club)).nom), "%d-%d" % [int(l.v), int(l.d)], ("+" if diff > 0 else "") + str(diff), str(int(l.pts))], 1,
+			ACCENT if moi else (INK_LIGHT if i >= sauve else INK), moi)
+	_rubrique(_right, "Journées")
 	var jour_court: Callable = preload("res://scripts/socle/calendrier.gd").jour_court
 	for j in range(1, int(Basket.JOURNEES) + 1):
 		var m: Dictionary = AUJOURDHUI.match_basket(Basket, club, s, j)
@@ -1287,45 +1369,178 @@ func _fill_un_club_basket(club: String) -> void:
 		var jour: String = jour_court.call(int(m.quand))
 		if not (m.score as Array).is_empty():
 			var v: bool = int(m.score[0]) > int(m.score[1])
-			_text(_left, "J%d  %s  %s %d-%d %s %s" % [j, jour, "V" if v else "D", int(m.score[0]), int(m.score[1]), "contre" if m.dom else "chez", adv], 15, VERT if v else RED_INK)
+			_text(_right, "J%d  %s  %s %d-%d %s %s" % [j, jour, "V" if v else "D", int(m.score[0]), int(m.score[1]), "contre" if m.dom else "chez", adv], 14, VERT if v else RED_INK)
 		else:
 			var prochain: bool = not c.prochain.is_empty() and int(c.prochain.j) == j
-			_text(_left, "J%d  %s  %s %s%s" % [j, jour, "contre" if m.dom else "chez", adv, "  ·  " + AUJOURDHUI.dans(int(m.quand), t) if prochain else ""], 15,
+			_text(_right, "J%d  %s  %s %s%s" % [j, jour, "contre" if m.dom else "chez", adv, "  ·  " + AUJOURDHUI.dans(int(m.quand), t) if prochain else ""], 14,
 				INK if prochain else INK_LIGHT, prochain)
-	# En face : l'effectif, les parts.
-	_title(_right, "L'effectif")
+	_rubrique(_right, "Effectif")
 	var j0: int = mini(int(Basket.journee_jouee()) + 1, int(Basket.JOURNEES))
 	var joueurs: Array = (Basket.equipe(s, ici[0], ici[1], ici[2], j0).joueurs as Array).duplicate()
 	if joueurs.is_empty():
-		_text(_right, "L'effectif se tire le vendredi soir d'avant la première journée.", 15, PENCIL)
+		_text(_right, "Tiré le vendredi d'avant la première journée.", 14, PENCIL)
 	else:
 		joueurs.sort_custom(func(a, b): return int(a.note) > int(b.note) if int(a.note) != int(b.note) else str(a.code) < str(b.code))
-		var ge := GridContainer.new()
-		ge.columns = 3
-		ge.add_theme_constant_override("h_separation", 12)
-		ge.name = "Effectif"
-		_right.add_child(ge)
-		for h in ["Joueur", "Son club", "Note"]:
-			_text(ge, h, 14, PENCIL).autowrap_mode = TextServer.AUTOWRAP_OFF
-		for x in joueurs:
-			var nom := _text(ge, str(x.nom) + ("" if bool(x.get("dispo", true)) else " (absent)"), 15, INK if bool(x.get("dispo", true)) else PENCIL)
-			nom.autowrap_mode = TextServer.AUTOWRAP_OFF
-			nom.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			_text(ge, str(x.get("club", "")), 14, INK_LIGHT).autowrap_mode = TextServer.AUTOWRAP_OFF
-			_text(ge, str(int(x.note)), 15, INK).autowrap_mode = TextServer.AUTOWRAP_OFF
-		_text(_right, "Masse salariale : %s par journée, sous le plafond de %s." % [Game.fmt(Basket.masse_salariale(club)), Game.fmt(int(Basket.PLAFOND))], 14, PENCIL)
-	_gap(_right, 8)
-	_title(_right, "Les parts")
-	var miennes: Array = Basket.mes_obligations(club)
-	_text(_right, "Vous en tenez %d, %s investis." % [miennes.size(), Game.fmt(Basket.investi(club))] if not miennes.is_empty() else "Vous n'en tenez aucune.", 16, INK)
-	for a in (Basket.actionnaires(club) as Array).slice(0, 3):
-		_row(_right, "vous" if bool(a.moi) else str(a.nom), Game.fmt(int(a.investi)), INK if bool(a.moi) else INK_LIGHT)
-	_text(_right, str(c.direction), 15, PENCIL)
-	var l := {"vers": "salle", "club": club}
-	var ok: bool = Avis.peut_aller(l)
-	_link(_right, "→ la salle du club" + ("" if ok else " (une fois levé de table)"), func(): Avis.aller({"id": "", "lien": l}), ok).custom_minimum_size.y = 34
-	_gap(_right, 6)
-	_text(_right, preload("res://scripts/socle/calendrier.gd").resume(Basket, "basket"), 14, PENCIL)
+		var ge := _grille(_right, "Effectif", ["Joueur", "Son club", "Note"])
+		for x in joueurs.slice(0, 5):
+			var dispo := bool(x.get("dispo", true))
+			_ligne_grille(ge, [str(x.nom) + ("" if dispo else " (absent)"), str(x.get("club", "")), str(int(x.note))], 0, INK if dispo else PENCIL, false)
+		_row(_right, "Masse salariale", "%s / %s" % [Game.fmt(Basket.masse_salariale(club)), Game.fmt(int(Basket.PLAFOND))], INK_LIGHT)
+		if joueurs.size() > 5:
+			_link(_right, "Les %d joueurs" % joueurs.size(), func(): gerer("basket", club, "equipe"), true, "effectif").name = "Tout_effectif"
+	_rubrique(_right, "Parts")
+	_parts(_right, (Basket.mes_obligations(club) as Array).size(), Basket.investi(club), Basket.actionnaires(club), str(c.direction))
+
+
+## Trois tuiles sous le bandeau : le rang (et l'écart au premier), les points, la forme.
+func _tuiles_club(c: Dictionary, sauve: int) -> void:
+	var h := HBoxContainer.new()
+	h.name = "Tuiles"
+	h.add_theme_constant_override("separation", 8)
+	_left.add_child(h)
+	var joues := int(c.joues)
+	var ecart := "—"
+	if joues > 0:
+		ecart = "en tête" if int(c.rang) == 1 and int(c.ecart_tete) == 0 and int(c.taille) > 1 else ("à égalité" if int(c.ecart_tete) == 0 else "à %s du 1er" % _pts(int(c.ecart_tete)))
+	var danger: bool = joues > 0 and sauve >= 2 and int(c.rang) > sauve
+	var rang := _tuile(h, "Rang", AUJOURDHUI.rang(int(c.rang)) if joues > 0 else "—", "sur %d, %s" % [int(c.taille), ecart] if joues > 0 else "sur %d" % int(c.taille), RED_INK if danger else INK)
+	if joues > 0 and sauve >= 2:
+		rang.tooltip_text = "Dans la zone de descente." if danger else "%s d'avance sur la descente." % _pts(int(c.ecart_relegation))
+	_tuile(h, "Points", str(int(c.pts)), "en %d %s" % [joues, "match" if joues <= 1 else "matchs"])
+	var f := _tuile(h, "Forme", "", "" if str(c.forme) != "" else "aucun match")
+	var ligne := HBoxContainer.new()
+	ligne.add_theme_constant_override("separation", 3)
+	f.get_child(0).add_child(ligne)
+	f.get_child(0).move_child(ligne, 1)
+	for x in str(c.forme):
+		_pastille_forme(ligne, x)
+	_gap(_left, 4)
+
+
+## Une tuile : un intitulé en petites capitales, un chiffre, une précision.
+func _tuile(parent: Control, titre: String, valeur: String, sous: String, couleur := INK) -> PanelContainer:
+	var p := PanelContainer.new()
+	p.name = "Tuile_" + titre
+	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	p.mouse_filter = Control.MOUSE_FILTER_PASS
+	var st := StyleBoxFlat.new()
+	st.bg_color = CARTE
+	st.set_corner_radius_all(6)
+	st.content_margin_left = 10
+	st.content_margin_right = 8
+	st.content_margin_top = 6
+	st.content_margin_bottom = 6
+	p.add_theme_stylebox_override("panel", st)
+	parent.add_child(p)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 0)
+	p.add_child(v)
+	_text(v, titre.to_upper(), 11, PENCIL, true)
+	if valeur != "":
+		_text(v, valeur, 22, couleur, true).autowrap_mode = TextServer.AUTOWRAP_OFF
+	if sous != "":
+		var s := _text(v, sous, 12, INK_LIGHT)
+		s.autowrap_mode = TextServer.AUTOWRAP_OFF
+		s.clip_text = true
+		s.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	return p
+
+
+## Le prochain match, en une ligne, avec son picto.
+func _prochain_club(c: Dictionary, t: int) -> void:
+	var p: Dictionary = c.prochain
+	if p.is_empty():
+		return
+	var h := HBoxContainer.new()
+	h.name = "Prochain"
+	h.add_theme_constant_override("separation", 6)
+	_left.add_child(h)
+	var ic := TextureRect.new()
+	ic.texture = PICTOS.texture("semaine", INK_LIGHT, 16)
+	ic.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
+	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(ic)
+	var adv := "%s%s" % [p.nom_adv, " (%s)" % AUJOURDHUI.rang(int(p.rang_adv)) if int(c.joues) > 0 and int(p.rang_adv) > 0 else ""]
+	var l := _text(h, "J%d, %s %s  ·  %s" % [int(p.j), "contre" if p.domicile else "chez", adv, AUJOURDHUI.dans(int(p.quand), t)], 15, INK, true)
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l.tooltip_text = "%s à %s" % [Agenda.jour_relatif(int(p.quand), t), Agenda.heure(int(p.quand))]
+	l.mouse_filter = Control.MOUSE_FILTER_PASS
+	_gap(_left, 2)
+
+
+## La barre d'actions : un picto et un mot par bouton, l'explication en infobulle. Chaque action est un lien
+## (Avis.aller) ; un lien qui change de lieu reste grisé à table. [{picto, mot, lien, nom, principal, aide}]
+func _actions(parent: Control, liste: Array) -> HFlowContainer:
+	var f := HFlowContainer.new()
+	f.name = "Actions"
+	f.add_theme_constant_override("h_separation", 6)
+	f.add_theme_constant_override("v_separation", 6)
+	parent.add_child(f)
+	for x in liste:
+		var l: Dictionary = x.lien
+		var ok: bool = Avis.peut_aller(l)
+		var b := _link(f, str(x.mot), func(): Avis.aller({"id": "", "lien": l}), ok, str(x.picto))
+		b.name = "Action_" + str(x.nom)
+		b.tooltip_text = str(x.get("aide", "")) + ("" if ok else "\nUne fois levé de table.")
+		b.custom_minimum_size.y = 34
+		if bool(x.get("principal", false)):
+			_principal(b)
+	_gap(parent, 4)
+	return f
+
+
+## Le bouton principal : plein, à la couleur d'accent.
+func _principal(b: Button) -> void:
+	for k in ["normal", "hover", "pressed", "focus"]:
+		var st: StyleBoxFlat = (b.get_theme_stylebox(k) as StyleBoxFlat).duplicate()
+		st.bg_color = {"hover": ACCENT.lightened(0.12), "pressed": ACCENT.darkened(0.12)}.get(k, ACCENT)
+		b.add_theme_stylebox_override(k, st)
+	for k in ["font_color", "font_pressed_color", "font_focus_color", "font_hover_color", "icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_focus_color"]:
+		b.add_theme_color_override(k, FOND)
+
+
+## Une infobulle sur un texte (qui laisse passer la souris).
+func _aide(c: Control, t: String) -> void:
+	c.tooltip_text = t
+	c.mouse_filter = Control.MOUSE_FILTER_PASS
+
+
+## Une grille à en-têtes (le classement, l'effectif).
+func _grille(parent: Control, nom: String, titres: Array) -> GridContainer:
+	var g := GridContainer.new()
+	g.columns = titres.size()
+	g.add_theme_constant_override("h_separation", 12)
+	g.add_theme_constant_override("v_separation", 1)
+	g.name = nom
+	parent.add_child(g)
+	for h in titres:
+		_text(g, h, 13, PENCIL).autowrap_mode = TextServer.AUTOWRAP_OFF
+	return g
+
+
+## Une ligne de grille ; la colonne « large » prend la place qui reste, coupée au besoin.
+func _ligne_grille(g: GridContainer, valeurs: Array, large: int, couleur: Color, gras: bool) -> Array:
+	var out := []
+	for i in valeurs.size():
+		var x := _text(g, str(valeurs[i]), 15, couleur, gras)
+		x.autowrap_mode = TextServer.AUTOWRAP_OFF
+		if i == large:
+			x.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			x.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			x.clip_text = true
+		out.append(x)
+	return out
+
+
+## Les parts en une ligne (combien on en tient, ce qu'on y a mis), puis le premier actionnaire ; qui dirige
+## en infobulle.
+func _parts(parent: Control, n: int, investi: int, actionnaires: Array, direction: String) -> void:
+	var l := _text(parent, "Vous en tenez %d, %s investis." % [n, Game.fmt(investi)] if n > 0 else "Vous n'en tenez aucune.", 15, INK)
+	l.name = "Parts"
+	l.tooltip_text = direction
+	l.mouse_filter = Control.MOUSE_FILTER_PASS
+	for a in actionnaires.slice(0, 2):
+		_row(parent, "vous" if bool(a.moi) else str(a.nom), Game.fmt(int(a.investi)), INK if bool(a.moi) else INK_LIGHT)
 
 
 # --- Mon compte : ce qui suit le joueur partout --------------------------------------------------
@@ -1448,7 +1663,7 @@ func _fill_possessions(page: VBoxContainer) -> void:
 		_text(tete, " · ".join(mots) if not mots.is_empty() else "rien pour l'instant", 14, INK_LIGHT if not mots.is_empty() else PENCIL).autowrap_mode = TextServer.AUTOWRAP_OFF
 		_album.vignettes(page, id, 0.3, 10)
 		_gap(page, 4)
-	_link(page, "→ ouvrir le classeur de cartes", ouvrir_onglet.bind("cartes"))
+	_link(page, "Le classeur de cartes", ouvrir_onglet.bind("cartes"), true, "cartes")
 
 
 ## « Mes engagements » (docs/ACTIVITES.md, « Ce que rassemble le carnet ») : ce qui court et où le
@@ -1608,10 +1823,10 @@ func _fill_mes_cartes(page: VBoxContainer, id: String) -> void:
 	if Communes.origine() != null and id == Communes.origine().id:
 		notaire = "Pour acheter autre chose, Maître Garnier, à l'étude."
 	_text(page, notaire, 14, PENCIL)
-	_link(page, "→ ouvrir mes cartes", func():
+	_link(page, "Mes cartes d'ici", func():
 		ouvrir_onglet("cartes")
 		await get_tree().process_frame
-		_album.choisir_village(id))
+		_album.choisir_village(id), true, "cartes")
 	_gap(page)
 
 
@@ -1653,7 +1868,7 @@ func _fill_calendrier() -> void:
 		_gap(page, 6)
 		_text(page, d.regle, 15, INK_LIGHT)
 	_gap(_right, 6)
-	_link(_right, "→ la semaine, jour par jour", _show_sheet.bind(true, "agenda"))
+	_link(_right, "La semaine, jour par jour", _show_sheet.bind(true, "agenda"), true, "semaine")
 
 
 # --- Les villages : la liste, et la Vienne --------------------------------------------------------
@@ -1702,8 +1917,8 @@ func _fill_villages() -> void:
 	_rubrique(_right, "La Vienne")
 	var n: int = Communes.a_faire().size()
 	_text(_right, "Les communes publiées sur le portail, à installer et à visiter%s." % (" : %d demande%s un geste" % [n, "nt" if n > 1 else ""] if n > 0 else ""), 14, PENCIL)
-	_link(_right, "→ les communes à installer", ouvrir_onglet.bind("vienne"))
-	_link(_right, "→ déplier la carte de la Vienne", _carte)
+	_link(_right, "Les communes à installer", ouvrir_onglet.bind("vienne"), true, "installer")
+	_link(_right, "La carte de la Vienne", _carte, true, "carte")
 
 
 ## Les lignes de la liste des villages : une carte par village dont le nom contient ce qu'on a tapé.
@@ -1794,7 +2009,7 @@ func _fill_vienne() -> void:
 		if villages().any(func(o): return o[0] == id):
 			_link(_right, "→ ouvrir sa page", ouvrir_onglet.bind(id))
 	_gap(_right)
-	_link(_right, "→ déplier la carte de la Vienne", _carte)
+	_link(_right, "La carte de la Vienne", _carte, true, "carte")
 
 
 func _carte() -> void:
@@ -1924,7 +2139,7 @@ func _fill_communes(page: VBoxContainer = null, titre := true) -> void:
 	var ids: Array = faire + Communes.a_installer().filter(func(id): return not faire.has(id)) \
 		+ Communes.installees().filter(func(id): return not faire.has(id))
 	if faire.any(func(id): return Communes.etat(id) in ["mise_a_jour", "echec"]):
-		_link(page, "→ tout mettre à jour", Communes.tout_mettre_a_jour)
+		_link(page, "Tout mettre à jour", Communes.tout_mettre_a_jour, true, "installer")
 	for id in ids:
 		_gap(page, 4)
 		var e := Communes.au_catalogue(id)
@@ -1947,7 +2162,7 @@ func _fill_communes(page: VBoxContainer = null, titre := true) -> void:
 		_text(page, "Aucune autre commune publiée pour l'instant." if Communes.catalogue_etat == "en_ligne" else "Le catalogue se lit quand le jeu est en ligne.", 15, INK_LIGHT)
 	for r in Communes.refusees():
 		_text(page, "%s : paquet refusé, %s" % [r.nom, r.raison], 16, RED_INK)
-	_link(page, "→ relire la liste" if Communes.catalogue_etat != "lecture" else "Lecture de la liste…", Communes.lire_catalogue, Communes.catalogue_etat != "lecture")
+	_link(page, "Relire la liste" if Communes.catalogue_etat != "lecture" else "Lecture de la liste…", Communes.lire_catalogue, Communes.catalogue_etat != "lecture", "relire")
 	Communes.marquer_vues.call_deferred()
 
 
@@ -2138,9 +2353,9 @@ func _un_avis(col: VBoxContainer, a: Dictionary, t: int) -> void:
 			for c in choix:
 				if c.fait:
 					continue
-				var b := _link(col, "→ " + str(c.libelle), func():
+				var b := _link(col, str(c.libelle), func():
 					Avis.trancher(a, str(c.choix))
-					_refresh(), true)
+					_refresh(), true, "choix")
 				b.name = "Choix_" + str(c.choix)
 		elif fait.is_empty():
 			_text(col, "Trop tard pour trancher : le match a commencé, ou vous ne dirigez plus le club.", 14, PENCIL)
@@ -2148,8 +2363,10 @@ func _un_avis(col: VBoxContainer, a: Dictionary, t: int) -> void:
 	var nom: String = Avis.nom_du_lien(a.get("lien", {}))
 	if nom != "":
 		var ok: bool = Avis.peut_aller(a.lien)
-		var b := _link(col, "→ " + nom + ("" if ok else " (une fois levé de table)"), func(): Avis.aller(a), ok)
+		var b := _link(col, nom, func(): Avis.aller(a), ok, _picto_du_lien(a.lien))
 		b.name = "Aller"
+		if not ok:
+			b.tooltip_text = "Une fois levé de table."
 
 
 ## La pastille : « Messages : 2 choses à faire · 3 nouvelles  (C) », en bas à gauche, quand rien d'autre n'y est

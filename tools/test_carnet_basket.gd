@@ -102,7 +102,8 @@ func _lancer() -> void:
 	carnet.ouvrir_club("basket:" + club)
 	await process_frame
 	var g := _textes(carnet.get("_left"))
-	check(carnet.get("_left").find_child("Classement", true, false) != null and g.contains("V-D") and g.contains("J4  ") and g.contains("J5  "), "sa page : le classement, les journées")
+	var gd := _textes(carnet.get("_right"))
+	check(carnet.get("_left").find_child("Classement", true, false) != null and g.contains("V-D") and gd.contains("J4  ") and gd.contains("J5  "), "sa page : le classement, les journées")
 	check(carnet.get("_right").find_child("Effectif", true, false) != null and _textes(carnet.get("_right")).contains("Masse salariale"), "en face : l'effectif et la masse salariale")
 	carnet.ouvrir_onglet("compte")
 	await process_frame
@@ -127,6 +128,22 @@ func _lancer() -> void:
 	basket.tic()
 	var dv: Array = avis.liste.filter(func(a): return str(a.id).begins_with("dividende_basket/"))
 	check(basket.dividendes_total == 0 or (dv.size() == 1 and str(dv[0].texte) == "Basket, journée 5."), "le dividende de la journée 5 au courrier (%d crédits)" % basket.dividendes_total)
+
+	# Le bureau du président relit le serveur en s'ouvrant : en dernier, l'état de l'essai ne compte plus.
+	carnet.ouvrir_club("basket:" + club)
+	await process_frame
+	var marche: Button = carnet.get("_left").find_child("Action_Marche", true, false)
+	check(marche != null and marche.icon != null and carnet.get("_left").find_child("Action_Gerer", true, false) != null, "la barre d'actions : Gérer, le marché")
+	if marche != null:
+		marche.pressed.emit()
+	await process_frame
+	var bb: Node = carnet.gestion().find_child("Bureau", true, false) if carnet.gestion() != null else null
+	check(bb != null and bb.get_script().resource_path.ends_with("basket_bureau.gd") and bb.commune == club and bb.page == "marche", "le marché ouvre le bureau du président par-dessus le carnet")
+	if bb != null:
+		bb.closed.emit()
+	await process_frame
+	check(carnet.is_open() and carnet.gestion() == null, "refermé, retour au carnet")
+	carnet.toggle()
 
 	avis.effacer()
 	basket.effacer()
