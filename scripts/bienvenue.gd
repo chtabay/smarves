@@ -20,6 +20,7 @@ const DOUX := Color(0.65, 0.7, 0.75)
 const ROUGE := Color(0.95, 0.45, 0.42)
 const ACCUEIL := preload("res://scripts/socle/accueil.gd")
 const AUJOURDHUI := preload("res://scripts/socle/aujourdhui.gd")
+const AIDE := preload("res://scripts/socle/aide.gd")
 
 var _root: Control
 var _centre: CenterContainer
@@ -213,8 +214,8 @@ func _ajuster() -> void:
 	var pied := _pied.get_combined_minimum_size().y + 14.0 if _pied.get_child_count() > 0 else 0.0
 	var autour := pied + _style_fenetre.content_margin_top + _style_fenetre.content_margin_bottom + 24.0 + (BARRE if _dock else 0.0)
 	var haut := clampf(ecran.y - autour, 160.0, 540.0)
-	# L'encart du titre se tient à ce qu'il dit : pas de grand cadre vide pour un joueur qui commence.
-	if _dock and _page == "soiree":
+	# À droite du titre, le cadre se tient à ce qu'il dit : pas de grand vide pour un joueur qui commence.
+	if _dock:
 		haut = clampf(_box.get_combined_minimum_size().y, 160.0, haut)
 	_scroll.custom_minimum_size.y = haut
 
@@ -249,7 +250,9 @@ func _remplir_soiree() -> void:
 	_box.add_child(_mot(_moment(), 15, Color(0.55, 0.75, 0.75), Polices.gras()))
 	var b := ACCUEIL.banque(Game, Biens)
 	_box.add_child(_mot("%s cr." % Game.fmt(b.credits), 40, OR, Polices.titre()))
-	_box.add_child(_mot("fortune nette %s  ·  dette %s" % [Game.fmt(b.fortune), Game.fmt(b.dette)], 16, DOUX))
+	var fortune := _mot("fortune nette %s  ·  dette %s" % [Game.fmt(b.fortune), Game.fmt(b.dette)], 16, DOUX)
+	_box.add_child(fortune)
+	AIDE.poser(fortune, "La fortune nette : vos crédits, plus ce que valent vos biens, moins ce que vous devez à M. Brunet.")
 	var d := ACCUEIL.depuis(Avis)
 	if str(d.texte) != "":
 		var h := HBoxContainer.new()
@@ -257,6 +260,7 @@ func _remplir_soiree() -> void:
 		h.add_child(_mot("Depuis votre passage", 15, DOUX))
 		h.add_child(_mot(d.texte, 16, EAU, Polices.gras()))
 		_box.add_child(h)
+		AIDE.poser(h.get_child(1), "Ce que la partie a fait sans vous, d'après le courrier pas encore lu : il est au carnet, rubrique « Messages ».")
 	var t: int = Football.maintenant()
 	var faire := ACCUEIL.a_faire(AUJOURDHUI.a_faire(Football, Avis, Bourse, Basket), t)
 	if not faire.is_empty():
@@ -313,7 +317,7 @@ func _remplir_page_compte() -> void:
 	_box.alignment = BoxContainer.ALIGNMENT_CENTER
 	if not _dock:
 		_box.add_child(_mot("Votre compte Pyramides", 34, Color.WHITE, Polices.titre()))
-	_box.add_child(_filet())
+		_box.add_child(_filet())
 	_remplir_compte()
 	if Compte.etat == "choix":
 		if not _dock:
@@ -432,7 +436,7 @@ func _remplir_compte() -> void:
 	_box.add_child(_mot(titre, 14, Color(0.55, 0.6, 0.66), Polices.gras()))
 	match Compte.etat:
 		"deconnecte":
-			_box.add_child(_mot("Votre partie est gardée sur cet appareil. Avec votre compte Pyramides, elle vous suit sur vos autres appareils.", 17, DOUX, null, true))
+			AIDE.poser(_ajoute(_mot("Partie gardée sur cet appareil.", 17, DOUX)), "Avec votre compte Pyramides, elle vous suit sur vos autres appareils, et vous jouez aux tables à plusieurs.")
 			_box.add_child(_bouton("Se connecter avec Pyramides", Color(0, 0, 0, 0), EAU, EAU, Compte.se_connecter))
 		"connexion":
 			_box.add_child(_mot(Compte.message, 17, TEXTE, null, true))
@@ -441,7 +445,7 @@ func _remplir_compte() -> void:
 			_box.add_child(_mot(Compte.message, 17, ROUGE, null, true))
 			_box.add_child(_bouton("Réessayer", Color(0, 0, 0, 0), EAU, EAU, Compte.se_connecter))
 		"expire":
-			_box.add_child(_mot("La connexion a expiré. Votre partie continue sur cet appareil et partira au compte dès que vous vous reconnectez.", 17, DOUX, null, true))
+			AIDE.poser(_ajoute(_mot("La connexion a expiré.", 17, DOUX)), "Votre partie continue sur cet appareil et partira au compte dès que vous vous reconnectez.")
 			_box.add_child(_bouton("Se reconnecter", Color(0, 0, 0, 0), EAU, EAU, Compte.se_connecter))
 		"choix":
 			_remplir_choix()
@@ -505,12 +509,15 @@ func _ligne_jeu() -> VBoxContainer:
 		lignes.append("et %d autre%s changement%s" % [reste, "s" if reste > 1 else "", "s" if reste > 1 else ""])
 	if not lignes.is_empty():
 		v.add_child(_mot("\n".join(lignes), 16, TEXTE, null, true))
-	v.add_child(_bouton("Télécharger la nouvelle version", Color(0, 0, 0, 0), OR, OR, func():
+	var telecharger := _bouton("Télécharger la nouvelle version", Color(0, 0, 0, 0), OR, OR, func():
 		Version.telecharger()
-		_remplir(), 16))
-	v.add_child(_mot(Version.resume() if Version.telechargement_ouvert else
-		{"Android": "Installez l'APK par-dessus le jeu : votre partie vous suit."}.get(OS.get_name(),
-			"Lancez l'installateur : il remplace le jeu, et votre partie vous suit."), 15, DOUX, null, true))
+		_remplir(), 16)
+	v.add_child(telecharger)
+	if Version.telechargement_ouvert:
+		v.add_child(_mot(Version.resume(), 15, DOUX, null, true))
+	else:
+		AIDE.poser(telecharger, {"Android": "Installez l'APK par-dessus le jeu : votre partie vous suit."}.get(OS.get_name(),
+			"Lancez l'installateur : il remplace le jeu, et votre partie vous suit."))
 	return v
 
 
@@ -636,6 +643,12 @@ func _mot(t: String, taille: int, couleur: Color, police: Font = null, replie :=
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		l.custom_minimum_size.x = 400
 	return l
+
+
+## Ajoute c à la colonne et le rend (pour lui poser un (i)).
+func _ajoute(c: Control) -> Control:
+	_box.add_child(c)
+	return c
 
 
 func _filet() -> ColorRect:

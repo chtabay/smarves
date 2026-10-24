@@ -38,6 +38,13 @@ func _bouton(n: Node, texte: String) -> Button:
 	return null
 
 
+func _aides(n: Node) -> int:
+	var k := 1 if n.get_script() != null and (n.get_script() as Script).resource_path == "res://scripts/socle/aide.gd" else 0
+	for c in n.get_children():
+		k += _aides(c)
+	return k
+
+
 func _initialize() -> void:
 	_lancer.call_deferred()
 
@@ -120,6 +127,7 @@ func _lancer() -> void:
 	check(not "Se déconnecter" in ecrit and not "Se connecter" in ecrit and not "Effacer ma partie" in ecrit, "ni compte ni effacement dans l'encart")
 	check(not "MISES À JOUR" in ecrit, "les mises à jour ont quitté l'encart")
 	check("AU VILLAGE" in ecrit, "le prochain rendez-vous est au village")
+	check(_aides(bv) >= 1, "la fortune nette s'explique dans un (i), pas en toutes lettres")
 	var barre: Control = bv.get("_barre")
 	check(barre.visible and "✓ À jour" in _textes(barre) and "Partie sur cet appareil" in _textes(barre), "la barre du bas : l'état et le compte")
 	var details := _bouton(barre, "détails  ▴")
