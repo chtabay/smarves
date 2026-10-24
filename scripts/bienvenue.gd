@@ -25,6 +25,7 @@ var _box: VBoxContainer
 var _scroll: ScrollContainer
 ## Sous la colonne, hors du défilement : « Jouer » reste en vue quelle que soit la longueur.
 var _pied: VBoxContainer
+var _style_fenetre: StyleBoxFlat
 var _liste := false
 ## La page qui efface la partie, ouverte par le petit lien du bas.
 var _effacer := false
@@ -150,6 +151,7 @@ func _construire() -> void:
 	st.shadow_color = Color(0, 0, 0, 0.5)
 	st.shadow_size = 24
 	fenetre.add_theme_stylebox_override("panel", st)
+	_style_fenetre = st
 	_centre.add_child(fenetre)
 	var rang := HBoxContainer.new()
 	rang.add_theme_constant_override("separation", 28)
@@ -170,6 +172,20 @@ func _construire() -> void:
 	_box.alignment = BoxContainer.ALIGNMENT_CENTER
 	_box.add_theme_constant_override("separation", 12)
 	_scroll.add_child(_box)
+	get_viewport().size_changed.connect(_ajuster)
+
+
+## La colonne défile dans ce que laisse l'écran : sur un téléphone en paysage (600 de haut), « Jouer »
+## et « Entrer » restent en vue sous elle au lieu de sortir par le bas.
+func _ajuster() -> void:
+	if not is_open():
+		return
+	var ecran := get_viewport().get_visible_rect().size
+	var bas := ecran.y < 760.0
+	_style_fenetre.set_content_margin_all(16 if bas else 28)
+	var pied := _pied.get_combined_minimum_size().y + 14.0 if _pied.get_child_count() > 0 else 0.0
+	var autour := pied + _style_fenetre.content_margin_top + _style_fenetre.content_margin_bottom + 24.0
+	_scroll.custom_minimum_size.y = clampf(ecran.y - autour, 160.0, 540.0)
 
 
 func _remplir() -> void:
@@ -181,6 +197,7 @@ func _remplir() -> void:
 		_remplir_liste()
 	else:
 		_remplir_accueil()
+	_ajuster.call_deferred()
 
 
 func _remplir_accueil() -> void:
