@@ -91,12 +91,12 @@ func _init() -> void:
 		await process_frame
 		check(s._game != null and s._game.has_signal("played"), "le jeu « %s » ouvre son panneau" % j)
 		if tables3d.a_une_table(j) and s._game:
-			check(s._assis == s._tables3d[j] and s._assis.active and s._game.get_parent() == s._panel_layer.get_parent(),
+			check(s._table_assise == s._tables3d[j] and s._table_assise.active and s._game.get_parent() == s._panel_layer.get_parent(),
 				"  on s'assoit à la table, le panneau en barre basse")
 		if s._game:
 			s._game.closed.emit()
 			await process_frame
-			check(s._assis == null, "  on se relève en refermant")
+			check(s._table_assise == null, "  on se relève en refermant")
 	var guichets := s.find_children("*", "Area3D", true, false).filter(func(a): return a.get_meta("interact", "") == "guichet")
 	check(guichets.size() == 1, "le tripot a le guichet de la banque de la commune")
 	if guichets.size() == 1:
@@ -201,7 +201,7 @@ func _sur_decors(game: Node) -> void:
 		s._table_choisie = null
 		s.open_game()
 		await process_frame
-		check(s._game != null and s._assis == poker, "on s'assoit à la table de poker du décor")
+		check(s._game != null and s._table_assise == poker, "on s'assoit à la table de poker du décor")
 		if s._game:
 			s._game.closed.emit()
 			await process_frame
