@@ -96,7 +96,7 @@ func _lancer() -> void:
 	carnet.ouvrir_sur("aujourdhui")
 	await process_frame
 	var d := _textes(carnet.get("_right"))
-	check(carnet.get("_right").find_child("Basket_" + club, true, false) != null and d.contains("Basket · ") and d.contains("Consigne du match : rotation."), "Aujourd'hui : la carte des Hérons, avec sa consigne")
+	check(carnet.get("_right").find_child("Basket_" + club, true, false) != null and d.contains("Basket · ") and d.contains("Consigne du match : rotation."), "la boîte : la carte des Hérons, avec sa consigne")
 	carnet.toggle()
 	check(carnet.pages_clubs().map(func(p): return p[0]) == ["basket:" + club, "calendrier"], "Mes clubs : une page pour les Hérons, puis le calendrier")
 	carnet.ouvrir_club("basket:" + club)
@@ -106,7 +106,10 @@ func _lancer() -> void:
 	check(carnet.get("_right").find_child("Effectif", true, false) != null and _textes(carnet.get("_right")).contains("Masse salariale"), "en face : l'effectif et la masse salariale")
 	carnet.ouvrir_onglet("compte")
 	await process_frame
-	check(_textes(carnet.get("_left")).contains("(basket)") and _textes(carnet.get("_right")).contains("Dividendes reçus, basket"), "Ma carrière : les obligations de basket, ses dividendes")
+	check(_textes(carnet.get("_left")).contains("(basket)"), "Mes biens : les obligations de basket")
+	carnet.ouvrir_onglet("carriere")
+	await process_frame
+	check(_textes(carnet.get("_left")).contains("Dividendes reçus, basket"), "Ma carrière : ses dividendes")
 	var avant: int = carnet.fortune_nette()
 	basket.bureau.obligations = []
 	check(carnet.fortune_nette() == avant - int(round(basket.valeur(3) * basket.RACHAT)), "la part de basket compte dans la fortune nette")

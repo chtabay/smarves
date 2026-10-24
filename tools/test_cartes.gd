@@ -126,7 +126,7 @@ func _init() -> void:
 	album.fermer_zoom()
 
 	# Les onglets de village rappellent les cartes qu'on y tient.
-	check(carnet.onglets().any(func(o): return o[0] == "essai_basket"), "un village où l'on tient des cartes a son onglet")
+	check(carnet.villages().any(func(o): return o[0] == "essai_basket"), "un village où l'on tient des cartes a sa page dans Les villages")
 	carnet.ouvrir_onglet("smarves")
 	await process_frame
 	var vig := _vignettes(carnet)
@@ -143,7 +143,7 @@ func _init() -> void:
 		check(carnet.get("_onglet") == "cartes" and album.zoom_ouvert() and str(album.get("_affichees")[album.get("_index")].id) == "basket:essai_basket:4", "un clic sur une vignette ouvre le classeur sur la carte")
 		album.fermer_zoom()
 	carnet.ouvrir_onglet("compte")
-	check(not album.zoom_ouvert() and not album.visible, "changer d'onglet range la carte et le classeur")
+	check(not album.zoom_ouvert() and not album.visible, "changer de page range la carte et le classeur")
 	carnet.toggle()
 
 	# À l'entrée du club : les cartes de ce club seulement.

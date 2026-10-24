@@ -103,7 +103,7 @@ func _init() -> void:
 	await process_frame
 	carnet.call("ouvrir_onglet", "aujourdhui")
 	await process_frame
-	check(_texte(carnet.get("_right")).contains("Prochains rendez-vous\n"), "« Aujourd'hui » : la page de droite dit les prochains rendez-vous")
+	check(_texte(carnet.get("_right")).contains("PROCHAINS RENDEZ-VOUS\n"), "la boîte : le résumé du jour dit les prochains rendez-vous")
 
 	foot.regler_horloge(Callable())
 	foot.effacer()

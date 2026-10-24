@@ -51,7 +51,7 @@ func _lancer() -> void:
 	var f := [800, 1200, 950, 1600, 2100, 1850, 2600, 3100]
 	for i in f.size():
 		carriere.noter(f[i], t - (f.size() - i) * 7 * 86400, false)
-	carnet.ouvrir_sur("compte")
+	carnet.ouvrir_sur("carriere")
 	await _photo(sortie + "carriere.png")
 	carriere.effacer()
 	avis.effacer()

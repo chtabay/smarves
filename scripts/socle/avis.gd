@@ -232,7 +232,8 @@ func nom_du_lien(l) -> String:
 		"salle":
 			return "La salle du club"
 		"carnet":
-			return {"compte": "Ma carrière", "cartes": "Mes cartes", "clubs": "Mes clubs", "aujourdhui": "Aujourd'hui"}.get(str(l.get("onglet", "")), "Le carnet")
+			return {"compte": "Mes comptes", "biens": "Mes comptes", "cartes": "Mes cartes", "clubs": "Mes clubs", "carriere": "Ma carrière",
+				"aujourdhui": "La boîte", "boite": "La boîte"}.get(str(l.get("onglet", "")), "Le carnet")
 		"agenda":
 			return "La semaine"
 	return ""
