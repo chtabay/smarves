@@ -316,6 +316,8 @@ func _ligne(t: String, encre: Color, action: Callable) -> Button:
 func _suivre(avis: Dictionary) -> void:
 	var titre := get_tree().current_scene
 	if _dock and titre != null and titre.has_method("jouer"):
+		# L'encart se ferme avant que la partie s'ouvre : rien de la bienvenue ne reste par-dessus la place.
+		fermer()
 		titre.jouer()
 		await get_tree().create_timer(0.6).timeout
 	Avis.aller(avis)
