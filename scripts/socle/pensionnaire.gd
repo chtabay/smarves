@@ -26,8 +26,11 @@ var fiche := {}
 ## Le mot de la dernière réponse (une erreur, un réveil).
 var message := ""
 ## Le formulaire en cours, gardé ici : le carnet se redessine à chaque réponse.
-var brouillon := {"nom": "", "personnalite": "bon_vivant", "fournisseur": "anthropic", "modele": "", "adresse": "", "cle": "", "reveils": 3}
+var brouillon := {"nom": "", "personnalite": "bon_vivant", "caractere": "", "fournisseur": "anthropic", "modele": "", "adresse": "", "cle": "", "reveils": 3}
 var _effacer_arme := false
+## Le (i) de la clé déplié ; le choix de personnalité ouvert sur la fiche d'un pensionnaire déjà créé.
+var _aide_cle := false
+var _perso_ouvert := false
 var _oublier_aussi := false
 var _occupe := false
 var _essai := false
@@ -140,19 +143,7 @@ func _formulaire(carnet: Node, page: VBoxContainer) -> void:
 	_champ(carnet, page, "Son nom", "nom", "Léonce")
 	carnet._text(page, "Il portera « (pensionnaire) » partout où il paraît ; personne ne saura qu'il vient de vous, et lui non plus.", 14, carnet.PENCIL)
 	carnet._text(page, "Sa personnalité", 17, carnet.INK)
-	var perso := OptionButton.new()
-	var liste: Array = fiche.get("personnalites", [])
-	for i in liste.size():
-		perso.add_item(str(liste[i].nom), i)
-		if liste[i].id == brouillon.personnalite:
-			perso.select(i)
-	perso.item_selected.connect(func(i):
-		brouillon.personnalite = liste[i].id
-		change.emit())
-	page.add_child(perso)
-	for p in liste:
-		if p.id == brouillon.personnalite:
-			carnet._text(page, str(p.texte), 15, carnet.INK_LIGHT)
+	_choix_personnalite(carnet, page)
 	carnet._gap(page, 6)
 	carnet._text(page, "Son modèle, sur votre clé", 17, carnet.INK)
 	var four := OptionButton.new()
@@ -175,14 +166,17 @@ func _formulaire(carnet: Node, page: VBoxContainer) -> void:
 	_champ(carnet, page, "Modèle", "modele", "nom du modèle")
 	if brouillon.fournisseur == "compatible":
 		_champ(carnet, page, "Adresse (https)", "adresse", "https://api.exemple.com/v1")
-	_champ(carnet, page, "Clé", "cle", "collez votre clé", true)
+	_champ_cle(carnet, page, "Clé", "collez votre clé", brouillon.fournisseur)
 	carnet._text(page, "Chiffrée par le serveur, elle ne ressort jamais : la fiche n'en montrera que les quatre derniers caractères. À chaque réveil, votre modèle lit ce que tout joueur voit au panneau de la mairie (classement, annonces, noms sur les maisons) et les mots laissés à sa porte.", 14, carnet.PENCIL)
 	_reveils(carnet, page, int(brouillon.reveils), func(n):
 		brouillon.reveils = n)
 	carnet._text(page, "Un appel au modèle par réveil, seulement aux événements du village : avec un petit modèle, de l'ordre d'un centime par réveil, payé sur votre clé.", 14, carnet.PENCIL)
 	carnet._gap(page, 4)
 	var confier: Button = carnet._link(page, "→ créer le pensionnaire", func():
-		await _appeler("inscrire", brouillon.duplicate())
+		var a := brouillon.duplicate()
+		if a.personnalite != "autre":
+			a.erase("caractere")
+		await _appeler("inscrire", a)
 		if fiche.get("pensionnaire") is Dictionary:
 			brouillon.cle = ""
 			change.emit())
@@ -196,7 +190,9 @@ func _fiche_pensionnaire(carnet: Node, page: VBoxContainer, d: Dictionary) -> vo
 	for p in fiche.get("personnalites", []):
 		if p.id == d.personnalite:
 			perso = str(p.nom)
-	carnet._row(page, "Personnalité", perso)
+	carnet._row(page, "Personnalité", "Son caractère, écrit par vous" if d.personnalite == "autre" else perso)
+	if d.personnalite == "autre" and d.get("caractere") != null:
+		carnet._text(page, "« %s »" % str(d.caractere), 14, carnet.INK_LIGHT)
 	carnet._row(page, "Modèle", str(d.modele))
 	carnet._row(page, "Clé", "•••• " + str(d.cle_fin))
 	carnet._row(page, "Crédits", Game.fmt(int(d.solde)))
@@ -211,7 +207,30 @@ func _fiche_pensionnaire(carnet: Node, page: VBoxContainer, d: Dictionary) -> vo
 		_appeler("regler", {"reveils": n}))
 	carnet._link(page, "→ le reprendre" if not d.actif else "→ le mettre en pause", _appeler.bind("regler", {"actif": not d.actif}), not _occupe)
 	carnet._gap(page, 6)
-	_champ(carnet, page, "Nouvelle clé", "cle", "collez la nouvelle clé", true)
+	if _perso_ouvert:
+		carnet._text(page, "Sa personnalité", 17, carnet.INK)
+		_choix_personnalite(carnet, page)
+		var poser: Button = carnet._link(page, "→ lui donner cette personnalité", func():
+			var a := {"personnalite": brouillon.personnalite}
+			if brouillon.personnalite == "autre":
+				a.caractere = brouillon.caractere
+			await _appeler("regler", a)
+			if message == "":
+				_perso_ouvert = false
+			change.emit())
+		poser.disabled = _occupe
+		carnet._link(page, "→ ne rien changer", func():
+			_perso_ouvert = false
+			change.emit())
+	else:
+		var changer: Button = carnet._link(page, "→ changer sa personnalité", func():
+			brouillon.personnalite = str(d.personnalite)
+			brouillon.caractere = str(d.caractere) if d.get("caractere") != null else ""
+			_perso_ouvert = true
+			change.emit())
+		changer.disabled = _occupe
+	carnet._gap(page, 6)
+	_champ_cle(carnet, page, "Nouvelle clé", "collez la nouvelle clé", str(d.get("fournisseur", "")))
 	var remplacer: Button = carnet._link(page, "→ remplacer la clé", func():
 		await _appeler("regler", {"cle": brouillon.cle})
 		brouillon.cle = ""
@@ -313,7 +332,58 @@ func _geste(a: Dictionary) -> String:
 	return str(a.type)
 
 
-func _champ(carnet: Node, page: VBoxContainer, libelle: String, cle: String, indice: String, secret := false) -> void:
+## Le choix de personnalité, et le caractère à écrire quand c'est « Autre… ».
+func _choix_personnalite(carnet: Node, page: VBoxContainer) -> void:
+	var perso := OptionButton.new()
+	var liste: Array = fiche.get("personnalites", [])
+	for i in liste.size():
+		perso.add_item(str(liste[i].nom), i)
+		if liste[i].id == brouillon.personnalite:
+			perso.select(i)
+	perso.item_selected.connect(func(i):
+		brouillon.personnalite = liste[i].id
+		change.emit())
+	page.add_child(perso)
+	if brouillon.personnalite != "autre":
+		for p in liste:
+			if p.id == brouillon.personnalite:
+				carnet._text(page, str(p.texte), 15, carnet.INK_LIGHT)
+		return
+	var r: Dictionary = fiche.get("reglages", {})
+	var te := TextEdit.new()
+	te.text = str(brouillon.caractere)
+	te.placeholder_text = "Tu es un vieux marin bourru : tu ne mises que sur le noir, tu parles en proverbes et tu te méfies des beaux parleurs."
+	te.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
+	te.custom_minimum_size.y = 110
+	te.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	te.text_changed.connect(func():
+		brouillon.caractere = te.text)
+	page.add_child(te)
+	carnet._text(page, "Écrivez son caractère en le tutoyant : comment il joue, comment il écrit, ce qu'il aime. De %d à %d caractères, sans parler d'humains, d'IA ni du monde réel, sans lien ni numéro. Ce n'est pas une consigne : les règles du jeu restent les mêmes, et il ne saura toujours pas qui l'a créé." % [int(r.get("caractereMin", 20)), int(r.get("caractereMax", 600))], 14, carnet.PENCIL)
+
+
+## Le champ de la clé, avec son (i) : où trouver sa clé chez ce fournisseur.
+func _champ_cle(carnet: Node, page: VBoxContainer, libelle: String, indice: String, fournisseur: String) -> void:
+	var h := _champ(carnet, page, libelle, "cle", indice, true)
+	var i := Button.new()
+	i.text = "(i)"
+	i.flat = true
+	i.focus_mode = Control.FOCUS_NONE
+	i.tooltip_text = "Où trouver sa clé"
+	i.custom_minimum_size = Vector2(40, 36)
+	i.add_theme_color_override("font_color", carnet.RED_INK)
+	i.pressed.connect(func():
+		_aide_cle = not _aide_cle
+		change.emit())
+	h.add_child(i)
+	if not _aide_cle:
+		return
+	for f in fiche.get("fournisseurs", []):
+		if f.id == fournisseur and str(f.get("aide", "")) != "":
+			carnet._text(page, str(f.aide), 14, carnet.INK_LIGHT)
+
+
+func _champ(carnet: Node, page: VBoxContainer, libelle: String, cle: String, indice: String, secret := false) -> HBoxContainer:
 	var h := HBoxContainer.new()
 	page.add_child(h)
 	var l: Label = carnet._text(h, libelle, 17, carnet.INK)
@@ -328,6 +398,7 @@ func _champ(carnet: Node, page: VBoxContainer, libelle: String, cle: String, ind
 	e.text_changed.connect(func(t):
 		brouillon[cle] = t)
 	h.add_child(e)
+	return h
 
 
 func _reveils(carnet: Node, page: VBoxContainer, valeur: int, poser: Callable) -> void:
@@ -356,15 +427,20 @@ func _mise_en_scene() -> void:
 	fiche = {
 		"personnalites": [{"id": "prudent", "nom": "Le Prudent", "texte": "Tu comptes tes sous."},
 			{"id": "commere", "nom": "La Commère", "texte": "Tu joues pour avoir de quoi raconter. Tu lis tout ce qui se dit au panneau, tu réponds, tu laisses des mots aux portes."},
-			{"id": "bon_vivant", "nom": "Le Bon Vivant", "texte": "Tu joues pour la compagnie."}],
+			{"id": "bon_vivant", "nom": "Le Bon Vivant", "texte": "Tu joues pour la compagnie."},
+			{"id": "autre", "nom": "Autre…", "texte": ""}],
+		"reglages": {"reveilsMin": 1, "reveilsMax": 4, "reveilsDefaut": 3, "caractereMin": 20, "caractereMax": 600},
 		"humeurs": NOMS_HUMEURS.keys(),
-		"fournisseurs": [{"id": "anthropic", "nom": "Anthropic (Claude)", "modele": "claude-haiku-5-5"}, {"id": "openai", "nom": "OpenAI", "modele": "gpt-5-mini"},
-			{"id": "compatible", "nom": "Compatible OpenAI", "modele": ""}],
+		"fournisseurs": [{"id": "anthropic", "nom": "Anthropic (Claude)", "modele": "claude-haiku-5-5",
+				"aide": "Sur console.anthropic.com, menu Settings puis API Keys, « Create Key ». La clé commence par sk-ant-. Il faut avoir ajouté du crédit dans Billing ; quelques euros suffisent pour des mois."},
+			{"id": "openai", "nom": "OpenAI", "modele": "gpt-5-mini", "aide": "Sur platform.openai.com, menu API keys."},
+			{"id": "compatible", "nom": "Compatible OpenAI", "modele": "", "aide": "Mistral, OpenRouter, ou un serveur à soi."}],
 		"humeur": {"consentement": true, "humeur": "fatiguee", "expire": maintenant + 11 * 3600},
 		"pensionnaire": null,
 	}
 	if "--pensionnaire-essai=inscrit" in args:
-		fiche.pensionnaire = {"nom": "Léonce (pensionnaire)", "personnalite": "commere", "modele": "claude-haiku-5-5", "cle_fin": "x9Qa",
+		fiche.pensionnaire = {"nom": "Léonce (pensionnaire)", "personnalite": "autre", "fournisseur": "anthropic", "modele": "claude-haiku-5-5", "cle_fin": "x9Qa",
+			"caractere": "Tu es un vieux marin bourru : tu ne mises que sur le noir, tu parles en proverbes et tu te méfies des beaux parleurs.",
 			"solde": 1240, "net_total": 240, "reveils_semaine": 3, "reveils_7_jours": 2, "actif": true, "pause_raison": null,
 			"memoire": "Mardi, le rouge m'a souri deux fois. Paulette cherche un tuyau sur la roulette : je lui ai laissé un mot. Penser au match de dimanche."}
 		fiche.trente_jours = {"entree": 14200, "sortie": 2100, "reveils": 6}
@@ -381,6 +457,8 @@ func _mise_en_scene() -> void:
 		brouillon.cle = ""
 	else:
 		brouillon.nom = "Léonce"
-		brouillon.personnalite = "commere"
+		brouillon.personnalite = "autre"
+		_aide_cle = true
+		brouillon.caractere = "Tu es un vieux marin bourru : tu ne mises que sur le noir, tu parles en proverbes et tu te méfies des beaux parleurs."
 		brouillon.modele = "claude-haiku-5-5"
 		fiche.humeur = {"consentement": false, "humeur": null, "expire": null}

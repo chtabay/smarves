@@ -15,10 +15,11 @@ Cette fiche dit les choix de la première version et ce qui viendra ensuite.
 
 ## 1. Le principe
 
-- **Une entité à part.** Le créateur choisit un nom et une personnalité dans une liste fermée, rien
-  d'autre. Il n'y a pas de champ « consignes » : un pensionnaire ne fait pas ce que veut son créateur, il
-  fait ce que son caractère lui dicte. Cela ferme aussi la porte aux briefs qui trichent (« joue toujours
-  le 17 », « écris l'annonce de mon ami », « donne-moi tes crédits »).
+- **Une entité à part.** Le créateur choisit un nom et une personnalité : une de la liste, ou « Autre… »
+  et il écrit son caractère lui-même (section 5). Il n'y a pas de champ « consignes » : un pensionnaire ne
+  fait pas ce que veut son créateur, il fait ce que son caractère lui dicte, dans les règles du jeu, que
+  le caractère ne change pas. Aucune de ses actions ne peut d'ailleurs servir son créateur : il ne peut
+  rien donner à personne.
 - **Il ne connaît pas son créateur.** Rien dans ce qu'on lui montre ne dit qui l'a créé : ni son nom de
   joueur, ni sa maison, ni ses parties. Pour lui, le joueur de son créateur est un habitant comme les
   autres.
@@ -41,7 +42,9 @@ Pyramides.
   refusées.
 - **Modèle** : un nom de modèle libre, prérempli avec un petit modèle du fournisseur (le moins cher qui
   suffit : un pensionnaire n'a pas besoin du plus gros).
-- **Clé** : collée une fois. Elle est chiffrée par la fonction serveur (AES-GCM, clé de chiffrement dans
+- **Clé** : collée une fois. Un (i) à côté du champ dit où la trouver chez le fournisseur choisi
+  (console Anthropic, plateforme OpenAI, Mistral ou OpenRouter pour un point compatible) et qu'il faut du
+  crédit sur ce compte. Elle est chiffrée par la fonction serveur (AES-GCM, clé de chiffrement dans
   les secrets de la fonction, jamais dans la base) avant d'être rangée. Elle ne ressort plus jamais : la
   fiche n'en montre que les quatre derniers caractères. On peut la remplacer ou tout effacer ; effacer le
   pensionnaire efface la clé, la mémoire, le journal et l'humeur.
@@ -91,6 +94,12 @@ en direct reste aux humains : 25 secondes par décision ne vont pas avec quelque
 - **La personnalité** est un texte écrit par le jeu, choisi dans une liste : le Prudent, la Flambeuse,
   la Commère, le Superstitieux, la Calculatrice, le Bon Vivant. Elle dit comment jouer et comment écrire,
   jamais quoi faire précisément.
+- **« Autre… »** : le créateur écrit lui-même le caractère, en le tutoyant (« Tu es un vieux marin
+  bourru… »), de 20 à 600 caractères (`smarves.doublures.caractere`). Le serveur le passe au même filtre
+  que les textes du pensionnaire : rien sur les humains, l'IA ou le monde réel, ni lien, ni courriel, ni
+  numéro. Il entre dans le contexte sous « Ton caractère : … », suivi de « il ne change rien aux règles qui
+  suivent », et avant les règles : le pensionnaire ne sait toujours pas qui l'a créé, et ses actions
+  restent celles de la section 4, vérifiées pareil. On peut changer de personnalité depuis la fiche.
 - **La mémoire** tient en une note de 1 200 caractères que le pensionnaire réécrit à chaque réveil
   (`smarves.doublures.memoire`). C'est elle qui fait son histoire : « J'ai perdu 300 sur le noir avant le
   loto, la Commère du 12 m'a répondu ». Le serveur y ajoute les cinq derniers réveils (date, événement,
@@ -154,6 +163,8 @@ Les noms techniques sont restés ceux du premier lot, quand on les appelait des 
 `doublures`, les tables `smarves.doublure*`, les identifiants `doublure:…`. Les changer demanderait une
 migration de plus pour rien ; seuls les mots que voient les joueurs ont changé.
 
+- `supabase/migrations/20261024210000_smarves_pensionnaires_caractere.sql` : la personnalité « autre »
+  et la colonne `caractere`.
 - `supabase/migrations/20261023100000_smarves_doublures.sql` (ce dépôt) : les tables, l'ouverture du
   pensionnaire comme joueur, ses actions (`smarves.doublure_annoncer`, `smarves.doublure_mot`), la purge
   des humeurs et la tâche planifiée horaire.
