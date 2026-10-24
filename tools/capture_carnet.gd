@@ -2,7 +2,8 @@ extends SceneTree
 ## Captures du carnet à onglets, le dimanche 18 octobre 2026 à 20 h, sur la place, avec quelques biens,
 ## une dette, un ticket au comptoir et une commune d'essai qui tient ses compteurs :
 ## godot --path . -s tools/capture_carnet.gd -- --capture-agenda --sortie=<dossier/> [--base=600]
-## (une image par onglet : compte.png, smarves.png, essai.png, vienne.png ; --capture-agenda tient la
+## (une image par page : biens.png, cartes.png, carriere.png, villages.png (neuf villages au carnet, puis
+## villages_filtre.png, la liste filtrée), smarves.png, essai.png, vienne.png ; --capture-agenda tient la
 ## bienvenue fermée ; --base=600 imite un téléphone, comme Tactile.)
 
 func _initialize() -> void:
@@ -48,15 +49,28 @@ func _lancer() -> void:
 	root.get_node("Communes").inscrire(c)
 	game.carnet = {"essai": {"nom": "Ligugé", "compteurs": m.carnet, "vu": t - 86400 - 3 * 3600,
 		"valeurs": {"parts_moulin": 3, "caisse": 420, "carte_peche": true, "surnom": "le pointeur du dimanche"}}}
+	# Sept autres villages visités, désinstallés depuis : la liste en compte neuf.
+	var autres := ["Vouneuil-sous-Biard", "Iteuil", "Fontaine-le-Comte", "Croutelle", "Nouaillé-Maupertuis", "Mignaloux-Beauvoir", "Saint-Benoît"]
+	for i in autres.size():
+		game.carnet["v%d" % i] = {"nom": autres[i], "compteurs": [{"id": "fete", "libelle": "La fête du village", "genre": "case"}, {"id": "mise", "libelle": "Misé ici", "genre": "credits"}],
+			"vu": t - (i + 2) * 86400, "valeurs": {"fete": i % 2 == 0, "mise": 100 * (i + 1)}}
 	change_scene_to_file("res://scenes/main.tscn")
 	await create_timer(3.0).timeout
 	var carnet: Node = root.get_node("Carnet")
 	carnet.toggle()
-	for onglet in ["compte", "smarves", "essai", "vienne"]:
+	for onglet in ["biens", "cartes", "carriere", "villages", "smarves", "essai", "vienne"]:
 		carnet.ouvrir_onglet(onglet)
 		await create_timer(1.0).timeout
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png(sortie + onglet + ".png")
+		if onglet == "villages":
+			var champ: LineEdit = carnet.get("_left").find_child("Recherche", true, false)
+			champ.text = "vou"
+			champ.text_changed.emit("vou")
+			await create_timer(0.5).timeout
+			await RenderingServer.frame_post_draw
+			root.get_texture().get_image().save_png(sortie + "villages_filtre.png")
+			carnet.set("_recherche", "")
 	foot.effacer()
 	paris.tickets = []
 	quit()

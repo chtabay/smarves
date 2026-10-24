@@ -58,8 +58,8 @@ func _lancer() -> void:
 	check(carnet.a_faire().is_empty(), "sans part, rien à faire")
 	carnet.ouvrir_sur("aujourdhui")
 	await process_frame
-	check(carnet.onglets()[0][0] == "aujourdhui", "« Aujourd'hui » est le premier onglet")
-	check(_textes(carnet.get("_left")).contains("Rien ne presse.") and _textes(carnet.get("_right")).contains("Vous ne suivez aucun club"), "la page dit qu'il n'y a rien et qu'on ne suit aucun club")
+	check(carnet.onglets()[0][0] == "boite" and carnet.get("_onglet") == "boite", "la boîte est la première rubrique, et « aujourdhui » y mène")
+	check(_textes(carnet.get("_left")).contains("RIEN NE PRESSE.") and _textes(carnet.get("_right")).contains("Vous ne suivez aucun club"), "la page dit qu'il n'y a rien et qu'on ne suit aucun club")
 	carnet.toggle()
 
 	# ---- on dirige l'Étoile : la décision de la semaine et la composition attendent
@@ -72,14 +72,15 @@ func _lancer() -> void:
 	check(int(liste[0].quand) == foot.coup_envoi(1, 4) and str(liste[1].titre).contains("la composition contre"), "toutes deux avant le coup d'envoi de la journée 4 : %s" % str(liste[1].titre))
 	carnet.toggle()
 	await process_frame
-	check(carnet.get("_onglet") == "aujourdhui", "quelque chose attend : le carnet s'ouvre sur « Aujourd'hui »")
+	check(carnet.get("_onglet") == "boite", "quelque chose attend : le carnet s'ouvre sur la boîte")
+	check(carnet.pastille_de("boite") == 3 and carnet.get("_onglets").find_child("Rubrique_boite", true, false).find_child("Pastille", true, false) != null, "la rubrique porte la pastille : deux choses à faire et un message")
 	var gauche: Node = carnet.get("_left")
 	var g := _textes(gauche)
-	check(g.contains("À faire (2)") and g.contains("avant le coup d'envoi, dans "), "la page compte deux choses à faire, avec leur échéance")
+	check(g.contains("À FAIRE (2)") and g.contains("avant le coup d'envoi, dans "), "la page compte deux choses à faire, avec leur échéance")
 	check(gauche.find_child("Choix_a", true, false) != null and gauche.find_child("Choix_b", true, false) != null, "la décision a ses deux boutons sur la page")
 	check(gauche.find_child("Faire_compo", true, false) != null and (gauche.find_child("Faire_compo", true, false) as Button).text.contains("Préparer la tactique"), "la composition, son bouton vers la tactique")
 	var nouv: Array = gauche.find_children("Nouveau", "Label", true, false).map(func(l): return l.text)
-	check(nouv.size() == 1 and str(nouv[0]).ends_with("Un mot du président") and g.contains("→ le courrier (1)"), "depuis la dernière visite : le mot du président, la décision n'y est pas répétée (%s)" % str(nouv))
+	check(nouv.size() == 1 and str(nouv[0]).ends_with("Un mot du président") and g.contains("NOUVEAU (1)"), "depuis la dernière visite : le mot du président, la décision n'y est pas répétée (%s)" % str(nouv))
 	var droite: Node = carnet.get("_right")
 	var d := _textes(droite)
 	var carte: Dictionary = AUJ.carte(foot, club)
@@ -87,7 +88,7 @@ func _lancer() -> void:
 	check(d.contains("%s sur %d, %d pt" % [AUJ.rang(int(carte.rang)), int(carte.taille), int(carte.pts)]) and d.contains(" en 3 matchs"), "son rang et ses points après trois journées")
 	check(droite.find_children("Forme_*", "", true, false).size() == 3 and str(carte.forme).length() == 3, "sa forme : trois pastilles (%s)" % carte.forme)
 	check(d.contains("Journée 4, ") and d.contains("Objectif : ") and d.contains("confiance "), "son prochain match, son objectif et la confiance")
-	check(d.contains("Prochains rendez-vous"), "en bas, les prochains rendez-vous")
+	check(d.contains("PROCHAINS RENDEZ-VOUS"), "en bas, les prochains rendez-vous")
 
 	# ---- trancher ici : la décision quitte la liste
 	(gauche.find_child("Choix_a", true, false) as Button).pressed.emit()
@@ -95,11 +96,16 @@ func _lancer() -> void:
 	check(FootDilemmes.choix_de(foot, club, 1, 4) == "a", "le bouton tranche la décision")
 	check(carnet.a_faire().map(func(x): return x.genre) == ["compo"], "il ne reste que la composition")
 	await process_frame
-	check(_textes(carnet.get("_left")).contains("À faire (1)"), "la page se redessine : une chose à faire")
+	check(_textes(carnet.get("_left")).contains("À FAIRE (1)"), "la page se redessine : une chose à faire")
+	var ouvert: Node = carnet.get("_right")
+	check(ouvert.find_child("Ouvert", true, false) != null and _textes(ouvert).contains("Vous avez choisi : ") and ouvert.find_child("Choix_b", true, false) != null, "à droite, la décision ouverte : le choix fait, et l'autre jusqu'au coup d'envoi")
+	(ouvert.find_child("Retour", true, false) as Button).pressed.emit()
+	await process_frame
+	check(carnet.get("_right").find_child("Club_" + club, true, false) != null, "le retour ramène au résumé du jour")
 	carnet.toggle()
 
 	# ---- la pastille compte les deux
-	check(carnet.texte_pastille(1, 3).begins_with("Aujourd'hui : une chose à faire · 3 nouvelles") and carnet.texte_pastille(0, 1).begins_with("Aujourd'hui : une nouvelle"), "la pastille : %s" % carnet.texte_pastille(1, 3))
+	check(carnet.texte_pastille(1, 3).begins_with("Boîte : une chose à faire · 3 nouvelles") and carnet.texte_pastille(0, 1).begins_with("Boîte : une nouvelle"), "la pastille : %s" % carnet.texte_pastille(1, 3))
 
 	# ---- la composition posée : plus rien ; tout lu : le carnet garde son onglet
 	var c: Dictionary = (foot.consigne_de(1, 4, club).consigne as Dictionary).duplicate(true)

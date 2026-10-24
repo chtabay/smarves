@@ -33,7 +33,7 @@ Cette fiche dit les choix de la première version et ce qui viendra ensuite.
 
 ## 2. Le créer : la clé appartient à l'humain
 
-Dans le carnet, onglet « Mon compte », la section « Mon pensionnaire » ouvre sa fiche. Il faut un compte
+Dans le carnet, rubrique « Ma carrière », la section « Mon pensionnaire » ouvre sa fiche. Il faut un compte
 Pyramides.
 
 - **Fournisseur** : Anthropic (Claude), OpenAI, ou un point d'accès compatible OpenAI (Mistral, OpenRouter,

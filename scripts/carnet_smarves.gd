@@ -284,7 +284,7 @@ class Plan extends Control:
 		return off + (p - PLAN_WORLD.position) * k
 
 	func _draw() -> void:
-		var pencil := Color(0.38, 0.36, 0.34)
+		var pencil := Color(0.71, 0.76, 0.84)
 		for id in zones:
 			if not VILLAGE.ZONES.has(id):
 				continue
@@ -292,26 +292,26 @@ class Plan extends Control:
 			var a := _to_page(r.position)
 			var b := _to_page(r.end)
 			var box := Rect2(a, b - a)
-			draw_rect(box, Color(0.55, 0.68, 0.85, 0.22))
-			draw_rect(box, Color(0.12, 0.2, 0.5, 0.8), false, 1.5)
+			draw_rect(box, Color(0.38, 0.7, 1.0, 0.14))
+			draw_rect(box, Color(0.38, 0.7, 1.0, 0.7), false, 1.5)
 			_label(str(VILLAGE.ZONES[id].nom), box)
 		for id in caches:
 			if not VILLAGE.CACHES.has(id):
 				continue
 			var c: Dictionary = VILLAGE.CACHES[id]
 			var p := _to_page(Vector2(c.pos.x, c.pos.z))
-			var red := Color(0.7, 0.12, 0.12)
+			var red := Color(0.98, 0.46, 0.41)
 			draw_line(p + Vector2(-7, -7), p + Vector2(7, 7), red, 3.0)
 			draw_line(p + Vector2(-7, 7), p + Vector2(7, -7), red, 3.0)
 			_ink(str(c.nom), p + Vector2(11, 6), 18, red)
 		if show_here:
 			var h := _to_page(here)
-			draw_circle(h, 7.0, Color(0.12, 0.2, 0.5))
+			draw_circle(h, 7.0, Color(0.95, 0.75, 0.32))
 			_ink("vous êtes ici", h + Vector2(11, 22), 18, pencil)
 
 	## Le nom du quartier, coupé en deux lignes s'il déborde de son rectangle.
 	func _label(t: String, box: Rect2) -> void:
-		var ink := Color(0.12, 0.2, 0.5)
+		var ink := Color(0.93, 0.95, 0.98)
 		var fs := 18
 		var lines := [t]
 		if font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > box.size.x - 6:
@@ -337,4 +337,4 @@ class Plan extends Control:
 		draw_string(font, p, t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, color)
 
 	func _paper(r: Rect2) -> void:
-		draw_rect(r, Color(0.97, 0.95, 0.88, 0.85))
+		draw_rect(r, Color(0.12, 0.14, 0.185, 0.85))

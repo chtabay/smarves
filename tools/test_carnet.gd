@@ -1,6 +1,6 @@
 extends SceneTree
 ## Vérifie le carnet du joueur sans affichage : godot --headless --path . -s tools/test_carnet.gd
-## Les onglets (Mon compte, la commune d'origine, les communes à compteurs, La Vienne), la vérification
+## Les rubriques et la liste des villages (la commune d'origine, les communes à compteurs), la vérification
 ## du champ « carnet » d'un manifeste, Carnet.noter (ce qu'il refuse, ce qu'il range), la page d'une
 ## commune lue de partout, même retirée, et la section relue par la sauvegarde du socle.
 
@@ -48,9 +48,11 @@ func _init() -> void:
 		trop.append({"id": "c%d" % i, "libelle": "x", "genre": "nombre"})
 	check(Commune.verifier_carnet(trop).has("carnet : 24 compteurs au plus"), "25 compteurs, c'est trop")
 
-	# Les onglets, sans autre commune : Aujourd'hui, Courrier, Mes clubs, Ma carrière, Mes cartes, Smarves, La Vienne.
+	# Les cinq rubriques, fixes ; les villages sont une liste, Smarves d'abord.
 	var cles: Array = carnet.onglets().map(func(o): return o[0])
-	check(cles == ["aujourdhui", "courrier", "clubs", "compte", "cartes", "smarves", "vienne"], "les onglets : Aujourd'hui, Courrier, Mes clubs, Ma carrière, Mes cartes, Smarves, La Vienne (%s)" % str(cles))
+	check(cles == ["boite", "clubs", "biens", "carriere", "villages"], "les rubriques : Boîte, Mes clubs, Mes biens, Ma carrière, Les villages (%s)" % str(cles))
+	cles = carnet.villages().map(func(o): return o[0])
+	check(cles == ["smarves"], "un seul village au carnet : Smarves (%s)" % str(cles))
 
 	# Une commune d'essai qui tient quatre compteurs.
 	var m: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://tools/commune_essai/commune.json"))
@@ -58,8 +60,8 @@ func _init() -> void:
 	var c := Commune.depuis_texte(JSON.stringify(m), "user://communes/essai/commune.json", "user://essai.pck")
 	check(c.valide(), "la commune d'essai et ses compteurs se valident (%s)" % "; ".join(c.erreurs))
 	check(communes.inscrire(c), "la commune d'essai s'inscrit")
-	cles = carnet.onglets().map(func(o): return o[0])
-	check(cles == ["aujourdhui", "courrier", "clubs", "compte", "cartes", "smarves", "essai", "vienne"], "elle a son onglet, entre Smarves et La Vienne")
+	cles = carnet.villages().map(func(o): return o[0])
+	check(cles == ["smarves", "essai"] and carnet.onglets().size() == 5, "elle a sa page dans Les villages, après Smarves ; les rubriques ne bougent pas")
 
 	# Ailleurs que chez elle, elle n'écrit rien.
 	check(not carnet.noter("essai", "parts_moulin", 2), "hors de la commune, noter est refusé")
@@ -110,16 +112,28 @@ func _init() -> void:
 	check(_texte(carnet.get("_right")).contains("Mes engagements"), "en face, la semaine et les engagements")
 	game.debts = {}
 
-	# Chaque onglet se remplit sans erreur, et les flèches tournent les pages.
-	for o in carnet.onglets():
+	# Chaque rubrique et chaque page se remplit sans erreur, et les flèches passent d'une rubrique à l'autre.
+	for o in carnet.onglets() + carnet.villages() + [["cartes", "Mes cartes"], ["vienne", "La Vienne"]]:
 		carnet.ouvrir_onglet(o[0])
 		await process_frame
-		check(_texte(carnet.get("_album") if o[0] == "cartes" else carnet.get("_left")) != "", "l'onglet « %s » a une page" % o[1])
-	carnet.ouvrir_onglet("vienne")
+		check(_texte(carnet.get("_album") if o[0] == "cartes" else carnet.get("_left")) != "", "la page « %s » se remplit" % o[1])
+	check(carnet.get("_onglet") == "vienne" and carnet.rubrique() == "villages", "La Vienne est une page des villages")
 	carnet.tourner(1)
-	check(carnet.get("_onglet") == "aujourdhui", "après La Vienne, on revient à Aujourd'hui")
+	check(carnet.get("_onglet") == "boite", "après Les villages, on revient à la boîte")
 	carnet.tourner(-1)
-	check(carnet.get("_onglet") == "vienne", "et dans l'autre sens")
+	check(carnet.get("_onglet") == "villages", "et dans l'autre sens")
+	# La liste des villages se filtre en tapant un nom.
+	var champ: LineEdit = carnet.get("_left").find_child("Recherche", true, false)
+	check(champ != null and carnet.get("_left").find_child("Village_essai", true, false) != null and carnet.get("_left").find_child("Village_smarves", true, false) != null, "la liste montre Smarves et la commune d'essai")
+	champ.text_changed.emit("essai")
+	await process_frame
+	var liste: Array = carnet.get("_left").find_children("Village_*", "Button", true, false).filter(func(b): return not b.is_queued_for_deletion())
+	check(liste.size() == 1 and liste[0].name == "Village_essai", "« essai » ne laisse que la commune d'essai")
+	liste[0].pressed.emit()
+	await process_frame
+	check(carnet.get("_onglet") == "essai" and carnet.rubrique() == "villages" and carnet.get("_left").find_child("Retour", true, false) != null, "un clic ouvre sa page, avec le retour à la liste")
+	check(carnet.get("_onglets").find_child("Page_essai", true, false) != null, "et elle s'ajoute sous Les villages, dans la barre")
+	carnet.set("_recherche", "")
 	carnet.toggle()
 
 	# La section part avec le socle et se relit ; la commune retirée garde sa page.
@@ -130,8 +144,8 @@ func _init() -> void:
 	check(game.carnet.has("essai") and int(game.carnet.essai.valeurs.caisse) == 1250, "la page de la commune se relit de la sauvegarde du socle")
 	communes.communes.erase("essai")
 	communes.ordre.erase("essai")
-	cles = carnet.onglets().map(func(o): return o[0])
-	check(cles.has("essai"), "désinstallée, la commune garde son onglet, de sa copie de la déclaration")
+	cles = carnet.villages().map(func(o): return o[0])
+	check(cles.has("essai"), "désinstallée, la commune garde sa page, de sa copie de la déclaration")
 	check(carnet._compteurs("essai").size() == 4, "la copie suffit à dessiner la page")
 	SAUVEGARDE.effacer(DIR)
 	game.carnet = {}

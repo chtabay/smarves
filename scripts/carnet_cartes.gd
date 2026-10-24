@@ -26,13 +26,14 @@ extends Control
 
 signal ferme_zoom
 
-## Les encres et le papier du carnet (scripts/carnet.gd).
-const PAPER := Color(0.97, 0.95, 0.88)
-const MARGIN_RED := Color(0.85, 0.3, 0.3, 0.55)
-const INK := Color(0.12, 0.2, 0.5)
-const INK_LIGHT := Color(0.3, 0.38, 0.62)
-const PENCIL := Color(0.38, 0.36, 0.34)
-const RED_INK := Color(0.65, 0.15, 0.15)
+## Les couleurs de l'écran du carnet (scripts/carnet.gd) : le panneau sombre, le texte clair, le bleu des
+## boutons. Les cartes, elles, restent claires (VISAGE).
+const PAPER := Color(0.12, 0.14, 0.185)
+const MARGIN_RED := Color(0.38, 0.7, 1.0)
+const INK := Color(0.93, 0.95, 0.98)
+const INK_LIGHT := Color(0.71, 0.76, 0.84)
+const PENCIL := Color(0.53, 0.58, 0.66)
+const RED_INK := Color(0.98, 0.46, 0.41)
 const OR := Color(0.86, 0.68, 0.25)
 const ARDOISE := Color(0.36, 0.42, 0.5)
 const VISAGE := Color(0.995, 0.985, 0.955)
@@ -88,8 +89,8 @@ func _ready() -> void:
 	custom_minimum_size = Vector2(1120, 680)
 	var marge := MarginContainer.new()
 	marge.set_anchors_preset(Control.PRESET_FULL_RECT)
-	marge.add_theme_constant_override("margin_left", 62)
-	marge.add_theme_constant_override("margin_right", 30)
+	marge.add_theme_constant_override("margin_left", 24)
+	marge.add_theme_constant_override("margin_right", 20)
 	marge.add_theme_constant_override("margin_top", 22)
 	marge.add_theme_constant_override("margin_bottom", 18)
 	add_child(marge)
@@ -125,7 +126,7 @@ func _ready() -> void:
 	_zoom.visible = false
 	add_child(_zoom)
 	var voile := ColorRect.new()
-	voile.color = Color(0.16, 0.12, 0.08, 0.72)
+	voile.color = Color(0.02, 0.03, 0.05, 0.78)
 	voile.set_anchors_preset(Control.PRESET_FULL_RECT)
 	voile.gui_input.connect(func(e: InputEvent):
 		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
@@ -140,22 +141,12 @@ func _ready() -> void:
 	centre.add_child(_zoom_boite)
 
 
-## Le papier à petits carreaux et la marge rouge, comme les pages du carnet.
+## Un panneau sombre et plat, comme ceux du carnet.
 func _draw() -> void:
 	var st := StyleBoxFlat.new()
 	st.bg_color = PAPER
-	st.set_corner_radius_all(4)
+	st.set_corner_radius_all(8)
 	draw_style_box(st, Rect2(Vector2.ZERO, size))
-	var pas := 18.0
-	var y := 64.0
-	while y < size.y:
-		draw_line(Vector2(0, y), Vector2(size.x, y), Color(0.55, 0.68, 0.85, 0.32), 1.0)
-		y += pas
-	var x := pas
-	while x < size.x:
-		draw_line(Vector2(x, 64), Vector2(x, size.y), Color(0.55, 0.68, 0.85, 0.16), 1.0)
-		x += pas
-	draw_line(Vector2(46, 0), Vector2(46, size.y), MARGIN_RED, 2.0)
 
 
 func _mot(parent: Control, t: String, taille := 16, couleur := INK, police: Font = null) -> Label:
@@ -651,7 +642,7 @@ func _style_village(b: Button, actif: bool) -> void:
 		b.add_theme_color_override(k, INK if actif or k == "font_hover_color" else INK_LIGHT)
 	for k in ["normal", "hover", "pressed", "focus"]:
 		var st := StyleBoxFlat.new()
-		st.bg_color = Color(0.55, 0.68, 0.85, 0.18) if k == "hover" and not actif else Color(0, 0, 0, 0)
+		st.bg_color = Color(1, 1, 1, 0.06) if k == "hover" and not actif else Color(0, 0, 0, 0)
 		st.content_margin_left = 10
 		st.content_margin_right = 10
 		st.content_margin_top = 2
@@ -878,7 +869,7 @@ func _fleche(parent: Control, t: String, sens: int) -> void:
 		b.add_theme_color_override(k, INK if k != "font_hover_color" else RED_INK)
 	for k in ["normal", "hover", "pressed", "focus"]:
 		var st := StyleBoxFlat.new()
-		st.bg_color = PAPER if k != "hover" else PAPER.darkened(0.05)
+		st.bg_color = PAPER if k != "hover" else PAPER.lightened(0.08)
 		st.set_corner_radius_all(26)
 		st.shadow_color = Color(0, 0, 0, 0.25)
 		st.shadow_size = 4
@@ -930,7 +921,7 @@ func _fiche(c: Dictionary) -> Control:
 
 func _filet(v: VBoxContainer) -> void:
 	var r := ColorRect.new()
-	r.color = Color(0.55, 0.68, 0.85, 0.5)
+	r.color = Color(1, 1, 1, 0.1)
 	r.custom_minimum_size.y = 1
 	v.add_child(r)
 
@@ -1055,9 +1046,9 @@ func _geste(parent: Control, t: String, action: Callable) -> Button:
 	b.custom_minimum_size.y = 40
 	b.add_theme_font_override("font", _texte)
 	b.add_theme_font_size_override("font_size", 18)
-	b.add_theme_color_override("font_color", RED_INK)
-	b.add_theme_color_override("font_hover_color", Color(0.85, 0.2, 0.2))
-	b.add_theme_color_override("font_pressed_color", Color(0.85, 0.2, 0.2))
+	b.add_theme_color_override("font_color", MARGIN_RED.lightened(0.25))
+	b.add_theme_color_override("font_hover_color", INK)
+	b.add_theme_color_override("font_pressed_color", INK)
 	b.pressed.connect(func():
 		action.call()
 		if is_inside_tree() and _zoom.visible:
@@ -1127,7 +1118,7 @@ class Vitrine extends Control:
 			fermer.add_theme_color_override(e, INK if e != "font_hover_color" else RED_INK)
 		for e in ["normal", "hover", "pressed", "focus"]:
 			var st := StyleBoxFlat.new()
-			st.bg_color = PAPER if e != "hover" else PAPER.darkened(0.05)
+			st.bg_color = PAPER if e != "hover" else PAPER.lightened(0.08)
 			st.set_corner_radius_all(4)
 			st.content_margin_left = 18
 			st.content_margin_right = 18

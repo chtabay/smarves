@@ -2,7 +2,8 @@ extends SceneTree
 ## Capture de la page « Aujourd'hui » du carnet :
 ## godot --path . --resolution 1600x900 -s tools/capture_aujourdhui.gd -- --sortie=<dossier/>
 ## Images : aujourdhui.png (on dirige l'Étoile : la décision et la composition attendent), rien.png (tout est
-## fait), intersaison.png (on ne dirige plus : ce qu'il manque), pastille.png (le carnet fermé, la pastille).
+## fait), intersaison.png (on ne dirige plus : ce qu'il manque), pastille.png (le carnet fermé, la pastille),
+## message.png (un message ouvert à droite de la boîte).
 
 const TMP := "user://capture_aujourdhui/"
 var t := 0
@@ -36,12 +37,18 @@ func _lancer() -> void:
 	foot.actualiser()
 	foot.forcer_porteurs("vous:3", "smarves")
 	avis.verifier()
+	avis.publier({"id": "capture/mot", "quand": t - 3 * 3600, "titre": "Un mot du président", "texte": "« Le groupe a besoin de sentir que vous croyez en lui. Dimanche, le stade sera plein. »"})
 	avis.set("_file", [])
 	var carnet: Node = root.get_node("Carnet")
 	carnet._process(0.0)
 	await _photo(sortie + "pastille.png")
-	carnet.ouvrir_sur("aujourdhui")
+	carnet.ouvrir_sur("boite")
 	await _photo(sortie + "aujourdhui.png")
+	# Le message du président, ouvert à droite.
+	var lignes: Array = carnet.get("_left").find_children("Message*", "Button", true, false)
+	if not lignes.is_empty():
+		(lignes[0] as Button).pressed.emit()
+		await _photo(sortie + "message.png")
 	carnet.toggle()
 	var a: Array = avis.liste.filter(func(x): return x.genre == "dilemme")
 	if not a.is_empty():

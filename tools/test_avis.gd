@@ -70,15 +70,19 @@ func _lancer() -> void:
 
 	# Le carnet : l'onglet Courrier compte les non lus, et les marque lus quand on le quitte.
 	avis.publier({"id": "h", "titre": "Nouveau", "texte": "Un mot.", "lien": {"vers": "carnet", "onglet": "compte"}})
-	var onglet: Array = carnet.onglets().filter(func(o): return o[0] == "courrier")
-	check(not onglet.is_empty() and onglet[0][1] == "Courrier (1)", "l'intercalaire dit le nombre de non lus : %s" % str(onglet))
+	check(carnet.pastille_de("boite") == 1, "la boîte compte le non lu : %d" % carnet.pastille_de("boite"))
 	carnet.ouvrir_sur("courrier")
 	await process_frame
 	var gauche: Node = carnet.get("_left")
-	var titres: Array = gauche.find_children("Avis", "Label", true, false).map(func(l): return l.text)
+	var titres: Array = gauche.find_children("Nouveau", "Label", true, false).map(func(l): return l.text)
 	check(carnet.is_open() and titres == ["Nouveau"], "la page de gauche montre le nouveau : %s" % str(titres))
+	(gauche.find_children("Message*", "Button", true, false)[0] as Button).pressed.emit()
+	await process_frame
+	var droite: Node = carnet.get("_right")
+	var aller: Button = droite.find_child("Aller", true, false)
+	check((droite.find_child("Ouvert", true, false) as Label).text == "Nouveau" and aller != null and aller.text == "Mes comptes", "un clic l'ouvre à droite, avec son bouton : %s" % (aller.text if aller else "rien"))
 	carnet.ouvrir_onglet("compte")
-	check(avis.non_lus().is_empty(), "quitter l'onglet marque le courrier lu")
+	check(avis.non_lus().is_empty(), "quitter la boîte marque les messages lus")
 	carnet.toggle()
 	await process_frame
 	avis.effacer()
