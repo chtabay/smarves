@@ -81,6 +81,18 @@ func _lancer() -> void:
 	var droite: Node = carnet.get("_right")
 	var aller: Button = droite.find_child("Aller", true, false)
 	check((droite.find_child("Ouvert", true, false) as Label).text == "Nouveau" and aller != null and aller.text == "Mes comptes", "un clic l'ouvre à droite, avec son bouton : %s" % (aller.text if aller else "rien"))
+	check(avis.non_lus().is_empty(), "ouvert, le message est lu")
+	await process_frame
+	check(carnet.get("_left").find_children("Nouveau", "Label", true, false).is_empty() and carnet.get("_left").find_child("ToutLu", true, false) == null, "il passe dans « Déjà lu »")
+	avis.publier({"id": "h2", "titre": "Encore un"})
+	avis.publier({"id": "h3", "titre": "Et un autre"})
+	await process_frame
+	await process_frame
+	var tout: Button = carnet.get("_left").find_child("ToutLu", true, false)
+	check(tout != null, "deux nouveaux : « Tout marquer comme lu »")
+	if tout != null:
+		tout.pressed.emit()
+	check(avis.non_lus().is_empty(), "un clic, et tout est lu")
 	carnet.ouvrir_onglet("compte")
 	check(avis.non_lus().is_empty(), "quitter la boîte marque les messages lus")
 	carnet.toggle()
@@ -131,6 +143,13 @@ func _lancer() -> void:
 	avis.verifier()
 	var r: Array = avis.liste.filter(func(x): return x.genre == "rappel")
 	check(r.size() == 1 and r[0].lien.page == "tactique" and "aujourd'hui" in str(r[0].texte), "le rappel de la composition : %s" % (str(r[0].texte) if not r.is_empty() else "rien"))
+	# La tactique posée, le rappel est lu de lui-même (« je les remplis, les messages apparaissent encore en non lus »).
+	check(not bool(r[0].lu) if not r.is_empty() else false, "tant que la tactique n'est pas posée, le rappel reste à lire")
+	var consigne: Dictionary = (foot.consigne_de(1, 5, club).consigne as Dictionary).duplicate(true)
+	consigne.formation = "4-3-3"
+	foot.decider(1, 5, club, consigne)
+	avis.verifier()
+	check(avis.non_lus().filter(func(x): return str(x.id).begins_with("compo/") or x.genre == "dilemme").is_empty(), "la tactique posée : le rappel est lu, et la décision de la semaine close aussi")
 
 	# Un ticket réglé : gagné, il fait glisser la fiche ; perdu, il va au courrier.
 	game.credits = 1000

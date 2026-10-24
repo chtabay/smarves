@@ -7,11 +7,12 @@ extends CanvasLayer
 ##
 ## En haut, le bandeau : la date, le prochain match des clubs suivis et son compte à rebours, les crédits et
 ## la fortune nette. À gauche, cinq rubriques fixes, quel que soit le nombre de villages visités :
-## - « Boîte », la page où le carnet s'ouvre quand quelque chose attend, comme la boîte de réception de
+## - « Messages » (la boîte, la clé « boite »), la page où le carnet s'ouvre quand quelque chose attend, comme la boîte de réception de
 ##   Football Manager : à gauche ce qu'il y a à faire, le plus pressé d'abord et chaque ligne avec son bouton
 ##   (la décision de la semaine se tranche là), puis les messages, nouveaux puis lus ; à droite le message
 ##   ouvert et ses boutons, ou le résumé du jour : une carte par club suivi, les prochains rendez-vous
-##   (scripts/socle/aujourdhui.gd). Les messages sont marqués lus en quittant la boîte ;
+##   (scripts/socle/aujourdhui.gd). Un message est lu dès qu'on l'ouvre, ou quand ce qu'il demandait est
+##   fait (Avis.solder) ; tous le sont en quittant la boîte, ou d'un clic sur « Tout marquer comme lu » ;
 ## - « Mes clubs » : une page par club suivi (le classement du groupe, sa ligne soulignée, les quatorze
 ##   journées, l'effectif, les parts et la direction), puis « Le calendrier » des deux championnats, la
 ##   journée, l'intersaison (où se prennent les parts), le mercato et le marché (scripts/socle/calendrier.gd) ;
@@ -46,7 +47,7 @@ const OCRE := Color(0.95, 0.75, 0.32)
 ## Au-delà, les compteurs d'une commune passent sur la page de droite.
 const LIGNES_A_GAUCHE := 14
 ## Les cinq rubriques, dans l'ordre de la barre.
-const RUBRIQUES := [["boite", "Boîte"], ["clubs", "Mes clubs"], ["biens", "Mes biens"], ["carriere", "Ma carrière"], ["villages", "Les villages"]]
+const RUBRIQUES := [["boite", "Messages"], ["clubs", "Mes clubs"], ["biens", "Mes biens"], ["carriere", "Ma carrière"], ["villages", "Les villages"]]
 ## Les anciens noms d'onglet (les liens du courrier, les écrans du jeu) : la page qu'ils ouvrent maintenant.
 const ALIAS := {"aujourdhui": "boite", "courrier": "boite", "compte": "biens"}
 
@@ -197,6 +198,7 @@ func toggle() -> void:
 		_noter_passage()
 		CARRIERE.noter(fortune_nette(), Agenda.maintenant(), Game.saving_enabled)
 		# Quelque chose attend : le carnet s'ouvre sur la boîte, comme Football Manager.
+		Avis.solder()
 		if not a_faire().is_empty() or not Avis.non_lus().is_empty():
 			_onglet = "boite"
 			_avis_vu = ""
@@ -756,7 +758,8 @@ func a_faire() -> Array:
 
 func _fill_boite() -> void:
 	var t: int = Agenda.maintenant()
-	_title(_left, "Boîte")
+	Avis.solder()
+	_title(_left, "Messages")
 	var liste := a_faire()
 	_rubrique(_left, "À faire (%d)" % liste.size() if not liste.is_empty() else "Rien ne presse.", RED_INK if not liste.is_empty() else PENCIL)
 	if liste.is_empty():
@@ -769,6 +772,11 @@ func _fill_boite() -> void:
 	_rubrique(_left, "Nouveau (%d)" % nouveaux.size() if not nouveaux.is_empty() else "Rien de nouveau.", ACCENT if not nouveaux.is_empty() else PENCIL)
 	for a in nouveaux:
 		_ligne_avis(_left, a, t, true)
+	if not nouveaux.is_empty():
+		var tout := _link(_left, "Tout marquer comme lu", func():
+			Avis.tout_lu()
+			_refresh())
+		tout.name = "ToutLu"
 	var lus: Array = Avis.liste.filter(func(x): return bool(x.lu) and not en_attente.has(x.id))
 	_rubrique(_left, "Déjà lu")
 	if lus.is_empty():
@@ -854,8 +862,10 @@ func _ligne_avis(col: VBoxContainer, a: Dictionary, t: int, nouveau: bool) -> vo
 		st.bg_color = BOUTON if ouvert else (CARTE if k == "hover" else Color(0, 0, 0, 0))
 		st.set_corner_radius_all(5)
 		b.add_theme_stylebox_override(k, st)
+	# Ouvert, il est lu : il passe dans « Déjà lu » (Football Manager fait de même).
 	b.pressed.connect(func():
 		_avis_vu = str(a.id)
+		Avis.lire(str(a.id))
 		_refresh())
 	col.add_child(b)
 	var h := HBoxContainer.new()
@@ -2142,7 +2152,7 @@ func _un_avis(col: VBoxContainer, a: Dictionary, t: int) -> void:
 		b.name = "Aller"
 
 
-## La pastille : « Boîte : 2 choses à faire · 3 nouvelles  (C) », en bas à gauche, quand rien d'autre n'y est
+## La pastille : « Messages : 2 choses à faire · 3 nouvelles  (C) », en bas à gauche, quand rien d'autre n'y est
 ## (ni fiche, ni carnet, ni table). Un clic ouvre la boîte. Le compte se relit chaque seconde.
 func texte_pastille(f: int, n: int) -> String:
 	var mots: Array = []
@@ -2150,13 +2160,14 @@ func texte_pastille(f: int, n: int) -> String:
 		mots.append("une chose à faire" if f == 1 else "%d choses à faire" % f)
 	if n > 0:
 		mots.append("une nouvelle" if n == 1 else "%d nouvelles" % n)
-	return "Boîte : %s%s" % [" · ".join(mots), "" if Tactile.active else "  (C)"]
+	return "Messages : %s%s" % [" · ".join(mots), "" if Tactile.active else "  (C)"]
 
 
 func _process(_delta: float) -> void:
 	var horloge := Time.get_ticks_msec() / 1000.0
 	if horloge - _pastille_lue >= 1.0 or _pastille_lue < 0:
 		_pastille_lue = horloge
+		Avis.solder()
 		_compte_pastille = [a_faire().size(), Avis.non_lus().size()]
 	var f: int = _compte_pastille[0]
 	var n: int = _compte_pastille[1]
