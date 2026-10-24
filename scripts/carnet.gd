@@ -1091,7 +1091,7 @@ const CARRIERE := preload("res://scripts/socle/carriere.gd")
 
 
 ## « Ma carrière » : à gauche la fortune nette en grand, sa variation et sa courbe, les records ; à droite
-## le palmarès des clubs suivis, les réussites cochées dans chaque village, le pensionnaire.
+## le pensionnaire, le palmarès des clubs suivis, les réussites cochées dans chaque village.
 func _fill_carriere() -> void:
 	_title(_left, "Ma carrière")
 	_rubrique(_left, "Fortune nette")
@@ -1104,16 +1104,34 @@ func _fill_carriere() -> void:
 	if v != null:
 		var l := _text(h, "%s%s depuis la semaine dernière" % ["+" if int(v) > 0 else "", Game.fmt(int(v))], 15, VERT if int(v) > 0 else (RED_INK if int(v) < 0 else INK_LIGHT), true)
 		l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		# Sans largeur, le texte replié tombait lettre par lettre.
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		l.name = "Variation"
 	_fill_courbe(_left)
 	_fill_records(_left)
+	# Le pensionnaire en tête de page : sous les réussites, qui s'allongent à chaque village, il ne se voyait
+	# plus sans faire défiler (remarque de Guillaume du 24 octobre 2026).
+	_fill_pensionnaire(_right)
 	_fill_palmares(_right)
 	_fill_succes(_right)
-	_rubrique(_right, "Mon pensionnaire")
-	_text(_right, "Un habitant que vous créez et que votre modèle de langage fait vivre, aux événements du village.", 14, PENCIL)
-	_link(_right, "Sa fiche", func():
+
+
+## « Mon pensionnaire » : l'habitant que le modèle de langage du joueur fait vivre. Une carte, et le bouton qui
+## ouvre sa fiche (ou le formulaire pour l'enregistrer, s'il n'existe pas encore).
+func _fill_pensionnaire(page: VBoxContainer) -> void:
+	var v := _cadre(page, ACCENT, "Pensionnaire")
+	_text(v, "MON PENSIONNAIRE", 13, PENCIL, true)
+	var nom := str((Pensionnaire.fiche as Dictionary).get("nom", ""))
+	if nom != "":
+		_text(v, nom, 17, INK, true)
+	else:
+		_text(v, "Un habitant que vous créez et que votre modèle de langage fait vivre, aux événements du village.", 14, INK_LIGHT)
+	_gap(v, 2)
+	var b := _link(v, "Sa fiche" if nom != "" else "Enregistrer mon pensionnaire", func():
 		_show_sheet(true, "pensionnaire")
 		Pensionnaire.lire(), true, "fiche")
+	b.name = "Ouvrir_pensionnaire"
+	_gap(page, 4)
 
 
 ## La fortune nette, semaine après semaine : une courbe, la plus haute et la plus basse notées.
