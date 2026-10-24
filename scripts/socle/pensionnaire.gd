@@ -1,9 +1,10 @@
 extends Node
 ## Le pensionnaire (autoload « Pensionnaire », docs/PENSIONNAIRES.md) : un habitant à part entière que le
-## joueur crée depuis son compte, tenu par son propre modèle de langage. En jeu, ils ne se connaissent pas.
-## Le pensionnaire se réveille aux événements du jeu (le tournoi du mercredi, le poker du vendredi, le loto
-## du samedi, le match du dimanche), jamais à la demande de son créateur. Ici, la fiche « Mon pensionnaire »
-## que le carnet déplie (onglet « Mon compte ») : le créer avec sa clé, le régler, poser son humeur, lire son
+## joueur crée depuis son compte. En jeu, ils ne se connaissent pas. Il vit aux événements du jeu (le
+## tournoi du mercredi, le poker du vendredi, le loto du samedi, le match du dimanche), tenu par l'assistant
+## du joueur (Claude, ChatGPT…) branché sur le connecteur de la fonction, ou, en secours, par un modèle
+## appelé avec la clé d'API du joueur. Ici, la fiche « Mon pensionnaire » que le carnet déplie (onglet
+## « Mon compte ») : inviter son assistant, ou le créer avec une clé, le régler, poser son humeur, lire son
 ## carnet et son journal. Tout passe par la fonction `doublures` (dépôt chtabay/addict, nom du premier lot) :
 ## le jeu ne garde ni la clé ni l'humeur. Sans compte, ou tant que la fonction n'est pas en ligne, la fiche le
 ## dit et rien d'autre ne change.
@@ -26,11 +27,14 @@ var fiche := {}
 ## Le mot de la dernière réponse (une erreur, un réveil).
 var message := ""
 ## Le formulaire en cours, gardé ici : le carnet se redessine à chaque réponse.
-var brouillon := {"nom": "", "personnalite": "bon_vivant", "caractere": "", "fournisseur": "anthropic", "modele": "", "adresse": "", "cle": "", "reveils": 3}
+var brouillon := {"nom": "", "personnalite": "bon_vivant", "caractere": "", "envies": "", "besoins": "", "fournisseur": "anthropic", "modele": "", "adresse": "", "cle": "", "reveils": 3}
 var _effacer_arme := false
 ## Le (i) de la clé déplié ; le choix de personnalité ouvert sur la fiche d'un pensionnaire déjà créé.
 var _aide_cle := false
 var _perso_ouvert := false
+## Le lien du connecteur, montré une seule fois (la réponse d'« acces ») ; le formulaire de la clé déplié.
+var lien := ""
+var _avec_cle := false
 var _oublier_aussi := false
 var _occupe := false
 var _essai := false
@@ -80,6 +84,7 @@ func _appeler(action: String, args: Dictionary, montrer := true) -> void:
 		var corps: Dictionary = r.corps
 		if action != "fiche":
 			message = ""
+		lien = str(corps.get("lien", "")) if action == "acces" else lien
 		fiche = corps
 	change.emit()
 
@@ -93,7 +98,7 @@ func remplir(carnet: Node, box: VBoxContainer, fermer: Callable) -> void:
 	var titre: Label = carnet._text(tete, "Mon pensionnaire", 26, carnet.INK, true)
 	titre.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	carnet._link(tete, "← revenir au carnet", fermer).custom_minimum_size = Vector2(200, 48)
-	carnet._text(box, "Un habitant de plus, que vous créez et que votre propre modèle de langage fait vivre. Il se réveille aux événements du village (tournoi du mercredi, poker du vendredi, loto du samedi, match du dimanche), joue, écrit au panneau et laisse des mots. Il ne vous connaît pas, et personne ne le briefe, pas même vous.", 16, carnet.PENCIL)
+	carnet._text(box, "Un habitant de plus, que vous créez et que votre assistant (Claude, ChatGPT…) fait vivre. Il vient aux événements du village (tournoi du mercredi, poker du vendredi, loto du samedi, match du dimanche), joue, écrit au panneau et laisse des mots. Il a son histoire, ses envies, ses amitiés et ses rancunes ; il ne vous connaît pas.", 16, carnet.PENCIL)
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -131,15 +136,66 @@ func remplir(carnet: Node, box: VBoxContainer, fermer: Callable) -> void:
 	var d = fiche.get("pensionnaire")
 	if d is Dictionary:
 		_fiche_pensionnaire(carnet, gauche, d)
-	else:
+	elif _avec_cle:
 		_formulaire(carnet, gauche)
+		carnet._link(gauche, "← plutôt avec mon assistant", func():
+			_avec_cle = false
+			change.emit())
+	else:
+		_inviter(carnet, gauche)
 	_humeur(carnet, droite)
 	if d is Dictionary:
 		_carnet_et_journal(carnet, droite, d)
 
 
-func _formulaire(carnet: Node, page: VBoxContainer) -> void:
+## Sans pensionnaire : l'inviter par son assistant, ou, en secours, le créer avec une clé.
+func _inviter(carnet: Node, page: VBoxContainer) -> void:
 	carnet._text(page, "Créer un pensionnaire", 20, carnet.INK, true)
+	carnet._text(page, "Votre assistant le fait vivre : vous lui racontez qui il est, il le joue aux événements du village, et le jeu vérifie chacun de ses gestes. Pas de clé à donner : il tourne sur votre abonnement.", 15, carnet.INK_LIGHT)
+	carnet._gap(page, 4)
+	_lien(carnet, page)
+	carnet._gap(page, 10)
+	carnet._link(page, "→ sans assistant : avec une clé d'API", func():
+		_avec_cle = true
+		change.emit())
+
+
+## Le lien du connecteur : le demander, puis le montrer une fois, avec les trois gestes à faire.
+func _lien(carnet: Node, page: VBoxContainer) -> void:
+	var ac = fiche.get("acces")
+	if lien == "":
+		var b: Button = carnet._link(page, "→ nouveau lien pour mon assistant" if ac is Dictionary else "→ inviter mon assistant", _appeler.bind("acces", {}))
+		b.disabled = _occupe
+		if ac is Dictionary:
+			var vu := "pas encore utilisé" if ac.get("vu") == null else "dernier passage de l'assistant le " + _date(int(ac.vu))
+			carnet._text(page, "Un lien est en place (%s). En demander un nouveau coupe l'ancien." % vu, 14, carnet.PENCIL)
+		return
+	carnet._text(page, "Le lien de votre pensionnaire", 17, carnet.INK)
+	var e := LineEdit.new()
+	e.text = lien
+	e.editable = false
+	e.select_all_on_focus = true
+	e.custom_minimum_size.y = 36
+	e.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	page.add_child(e)
+	carnet._link(page, "→ copier le lien", func():
+		DisplayServer.clipboard_set(lien)
+		message = "Lien copié."
+		change.emit())
+	for etape in ["1. Dans Claude : Paramètres, Connecteurs, « Ajouter un connecteur personnalisé », et collez le lien. Avec Claude Code : claude mcp add --transport http smarves suivi du lien.",
+			"2. Dites-lui : « Crée mon pensionnaire de Smarves », et racontez-lui qui il est : d'où il vient, ce qu'il veut, ce qui lui manque, un secret.",
+			"3. Demandez-lui une tâche planifiée aux heures des événements : mercredi 18 h, vendredi 11 h, samedi 18 h, dimanche 10 h. Il vient alors tout seul."]:
+		carnet._text(page, etape, 15, carnet.INK)
+	carnet._text(page, "Ce lien est personnel : il donne la main sur votre pensionnaire. Le jeu ne le montre qu'une fois ; vous pourrez en demander un autre.", 14, carnet.RED_INK)
+
+
+func _date(t: int) -> String:
+	var q := Time.get_datetime_dict_from_unix_time(t + _decalage())
+	return "%02d/%02d à %dh%02d" % [q.day, q.month, q.hour, q.minute]
+
+
+func _formulaire(carnet: Node, page: VBoxContainer) -> void:
+	carnet._text(page, "Créer un pensionnaire avec une clé d'API", 20, carnet.INK, true)
 	_champ(carnet, page, "Son nom", "nom", "Léonce")
 	carnet._text(page, "Il portera « (pensionnaire) » partout où il paraît ; personne ne saura qu'il vient de vous, et lui non plus.", 14, carnet.PENCIL)
 	carnet._text(page, "Sa personnalité", 17, carnet.INK)
@@ -176,6 +232,8 @@ func _formulaire(carnet: Node, page: VBoxContainer) -> void:
 		var a := brouillon.duplicate()
 		if a.personnalite != "autre":
 			a.erase("caractere")
+			a.erase("envies")
+			a.erase("besoins")
 		await _appeler("inscrire", a)
 		if fiche.get("pensionnaire") is Dictionary:
 			brouillon.cle = ""
@@ -190,16 +248,19 @@ func _fiche_pensionnaire(carnet: Node, page: VBoxContainer, d: Dictionary) -> vo
 	for p in fiche.get("personnalites", []):
 		if p.id == d.personnalite:
 			perso = str(p.nom)
-	carnet._row(page, "Personnalité", "Son caractère, écrit par vous" if d.personnalite == "autre" else perso)
-	if d.personnalite == "autre" and d.get("caractere") != null:
-		carnet._text(page, "« %s »" % str(d.caractere), 14, carnet.INK_LIGHT)
-	carnet._row(page, "Modèle", str(d.modele))
-	carnet._row(page, "Clé", "•••• " + str(d.cle_fin))
+	carnet._row(page, "Personnalité", "Son histoire, racontée par vous" if d.personnalite == "autre" else perso)
+	carnet._text(page, _histoire(d), 14, carnet.INK_LIGHT)
+	if d.get("mode", "cle") == "agent":
+		carnet._row(page, "Tenu par", "votre assistant")
+	else:
+		carnet._row(page, "Modèle", str(d.modele))
+		carnet._row(page, "Clé", "•••• " + str(d.cle_fin))
 	carnet._row(page, "Crédits", Game.fmt(int(d.solde)))
 	carnet._row(page, "Gagné au jeu (net)", Game.fmt(int(d.net_total)), carnet.RED_INK if int(d.net_total) < 0 else carnet.INK)
 	carnet._row(page, "Réveils sur sept jours", "%d sur %d" % [int(d.reveils_7_jours), int(d.reveils_semaine)])
 	var t30: Dictionary = fiche.get("trente_jours", {})
-	carnet._row(page, "Jetons, trente jours", "%s + %s" % [Game.fmt(int(t30.get("entree", 0))), Game.fmt(int(t30.get("sortie", 0)))], carnet.INK_LIGHT)
+	if d.get("mode", "cle") != "agent":
+		carnet._row(page, "Jetons, trente jours", "%s + %s" % [Game.fmt(int(t30.get("entree", 0))), Game.fmt(int(t30.get("sortie", 0)))], carnet.INK_LIGHT)
 	if not d.actif:
 		carnet._text(page, "En pause : trois réveils de suite en erreur. Vérifiez la clé ou le crédit chez le fournisseur." if d.pause_raison == "erreurs" else "En pause.", 16, carnet.RED_INK)
 	carnet._gap(page, 6)
@@ -214,6 +275,8 @@ func _fiche_pensionnaire(carnet: Node, page: VBoxContainer, d: Dictionary) -> vo
 			var a := {"personnalite": brouillon.personnalite}
 			if brouillon.personnalite == "autre":
 				a.caractere = brouillon.caractere
+				a.envies = brouillon.envies
+				a.besoins = brouillon.besoins
 			await _appeler("regler", a)
 			if message == "":
 				_perso_ouvert = false
@@ -226,20 +289,33 @@ func _fiche_pensionnaire(carnet: Node, page: VBoxContainer, d: Dictionary) -> vo
 		var changer: Button = carnet._link(page, "→ changer sa personnalité", func():
 			brouillon.personnalite = str(d.personnalite)
 			brouillon.caractere = str(d.caractere) if d.get("caractere") != null else ""
+			brouillon.envies = str(d.envies) if d.get("envies") != null else ""
+			brouillon.besoins = str(d.besoins) if d.get("besoins") != null else ""
 			_perso_ouvert = true
 			change.emit())
 		changer.disabled = _occupe
 	carnet._gap(page, 6)
-	_champ_cle(carnet, page, "Nouvelle clé", "collez la nouvelle clé", str(d.get("fournisseur", "")))
-	var remplacer: Button = carnet._link(page, "→ remplacer la clé", func():
-		await _appeler("regler", {"cle": brouillon.cle})
-		brouillon.cle = ""
-		change.emit())
-	remplacer.disabled = _occupe
+	if d.get("mode", "cle") == "agent":
+		_lien(carnet, page)
+		if fiche.get("acces") is Dictionary and lien == "":
+			carnet._link(page, "→ couper le lien", _appeler.bind("acces", {"revoquer": true}), not _occupe)
+	else:
+		var confier: Button = carnet._link(page, "→ le confier à mon assistant", func():
+			await _appeler("regler", {"mode": "agent"})
+			if message == "":
+				await _appeler("acces", {}))
+		confier.disabled = _occupe
+		carnet._text(page, "Sa clé est alors effacée : votre assistant le tient par un lien, sur votre abonnement.", 14, carnet.PENCIL)
+		_champ_cle(carnet, page, "Nouvelle clé", "collez la nouvelle clé", str(d.get("fournisseur", "")))
+		var remplacer: Button = carnet._link(page, "→ remplacer la clé", func():
+			await _appeler("regler", {"cle": brouillon.cle})
+			brouillon.cle = ""
+			change.emit())
+		remplacer.disabled = _occupe
 	carnet._gap(page, 6)
 	carnet._link(page, "→ vider son carnet", _appeler.bind("oublier", {}), not _occupe)
 	if _effacer_arme:
-		carnet._text(page, "Tout s'efface : sa clé, son carnet, son journal, ses crédits, ses annonces et ses mots.", 15, carnet.RED_INK)
+		carnet._text(page, "Tout s'efface : sa clé ou son lien, son histoire, son carnet, ses relations, son journal, ses crédits, ses annonces et ses mots.", 15, carnet.RED_INK)
 		carnet._link(page, "→ oui, effacer le pensionnaire", func():
 			_effacer_arme = false
 			_appeler("effacer", {})).disabled = _occupe
@@ -252,11 +328,26 @@ func _fiche_pensionnaire(carnet: Node, page: VBoxContainer, d: Dictionary) -> vo
 			change.emit()).disabled = _occupe
 
 
+## Son histoire : celle écrite par son créateur (avec ses envies et ce qui lui manque), ou celle du jeu.
+func _histoire(d: Dictionary) -> String:
+	if d.personnalite == "autre" and d.get("caractere") != null:
+		var t := "« %s »" % str(d.caractere)
+		if d.get("envies") != null and str(d.envies) != "":
+			t += "\nCe qu'il veut : " + str(d.envies)
+		if d.get("besoins") != null and str(d.besoins) != "":
+			t += "\nCe qui lui manque : " + str(d.besoins)
+		return t
+	for p in fiche.get("personnalites", []):
+		if p.id == d.personnalite:
+			return str(p.get("histoire", p.texte))
+	return ""
+
+
 func _humeur(carnet: Node, page: VBoxContainer) -> void:
 	carnet._text(page, "Son humeur", 20, carnet.INK, true)
 	var h: Dictionary = fiche.get("humeur", {})
 	var oui := bool(h.get("consentement", false))
-	carnet._text(page, "Votre pensionnaire peut prendre l'humeur de votre journée, sans savoir d'où elle lui vient. Vous la posez vous-même, d'un mot : rien de votre journée n'est lu. Seul ce mot part au modèle ; les autres joueurs ne voient que ses gestes, et ne savent pas qui l'a créé. Une fois sur quatre, il prend plutôt l'humeur de sa propre soirée. Le mot s'efface au bout de dix-huit heures ; aucun historique n'est gardé.", 15, carnet.INK_LIGHT)
+	carnet._text(page, "Votre pensionnaire peut prendre l'humeur de votre journée, sans savoir d'où elle lui vient. Vous la posez vous-même, d'un mot : rien de votre journée n'est lu. Seul ce mot part au modèle ; les autres joueurs ne voient que ses gestes, et ne savent pas qui l'a créé. Une fois sur quatre, il prend plutôt l'humeur de sa propre soirée. Le mot s'efface au bout de dix-huit heures, et l'on ne garde pas la trace des humeurs passées (son histoire et sa vie au village, elles, sont gardées). Votre assistant peut aussi la poser pour vous, d'un mot.", 15, carnet.INK_LIGHT)
 	var case := CheckBox.new()
 	case.text = "J'accepte que ce mot parte à mon modèle"
 	case.button_pressed = oui
@@ -347,19 +438,21 @@ func _choix_personnalite(carnet: Node, page: VBoxContainer) -> void:
 	if brouillon.personnalite != "autre":
 		for p in liste:
 			if p.id == brouillon.personnalite:
-				carnet._text(page, str(p.texte), 15, carnet.INK_LIGHT)
+				carnet._text(page, str(p.get("histoire", p.texte)), 15, carnet.INK_LIGHT)
 		return
 	var r: Dictionary = fiche.get("reglages", {})
 	var te := TextEdit.new()
 	te.text = str(brouillon.caractere)
-	te.placeholder_text = "Tu es un vieux marin bourru : tu ne mises que sur le noir, tu parles en proverbes et tu te méfies des beaux parleurs."
+	te.placeholder_text = "Tu as été marin à La Rochelle avant de revenir au village de ton enfance. Tu ne mises que sur le noir, la couleur du bateau que tu as perdu, et tu parles en proverbes."
 	te.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
 	te.custom_minimum_size.y = 110
 	te.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	te.text_changed.connect(func():
 		brouillon.caractere = te.text)
 	page.add_child(te)
-	carnet._text(page, "Écrivez son caractère en le tutoyant : comment il joue, comment il écrit, ce qu'il aime. De %d à %d caractères, sans parler d'humains, d'IA ni du monde réel, sans lien ni numéro. Ce n'est pas une consigne : les règles du jeu restent les mêmes, et il ne saura toujours pas qui l'a créé." % [int(r.get("caractereMin", 20)), int(r.get("caractereMax", 600))], 14, carnet.PENCIL)
+	carnet._text(page, "Racontez son histoire en le tutoyant : d'où il vient, ce qu'il a vécu, un secret. De %d à %d caractères, sans parler d'humains, d'IA ni du monde réel, sans lien ni numéro. Ce n'est pas une consigne : ses envies le guident, les règles du jeu restent les mêmes, et il ne saura pas qui l'a créé." % [int(r.get("caractereMin", 20)), int(r.get("caractereMax", 900))], 14, carnet.PENCIL)
+	_champ(carnet, page, "Ce qu'il veut", "envies", "être pris au sérieux par le village")
+	_champ(carnet, page, "Ce qui lui manque", "besoins", "un ami qui partage ses superstitions")
 
 
 ## Le champ de la clé, avec son (i) : où trouver sa clé chez ce fournisseur.
@@ -425,11 +518,11 @@ func _mise_en_scene() -> void:
 	var args := " ".join(OS.get_cmdline_user_args())
 	etat = "ok"
 	fiche = {
-		"personnalites": [{"id": "prudent", "nom": "Le Prudent", "texte": "Tu comptes tes sous."},
-			{"id": "commere", "nom": "La Commère", "texte": "Tu joues pour avoir de quoi raconter. Tu lis tout ce qui se dit au panneau, tu réponds, tu laisses des mots aux portes."},
-			{"id": "bon_vivant", "nom": "Le Bon Vivant", "texte": "Tu joues pour la compagnie."},
+		"personnalites": [{"id": "prudent", "nom": "Le Prudent", "texte": "Ancien quincaillier.", "histoire": "Tu as tenu la quincaillerie de la Grand-Rue pendant trente ans."},
+			{"id": "commere", "nom": "La Commère", "texte": "Elle sait tout.", "histoire": "Tu tiens le dépôt de pain du dimanche matin depuis que la boulangerie a pris sa retraite, et rien de ce qui se dit au village ne t'échappe. Ce que tu veux : savoir, relier les gens entre eux. Ce qui te manque : quelqu'un qui te raconte des choses à toi, pour une fois."},
+			{"id": "bon_vivant", "nom": "Le Bon Vivant", "texte": "Ancien cuisinier.", "histoire": "Tu as été le cuisinier de l'auberge du Lion d'Or."},
 			{"id": "autre", "nom": "Autre…", "texte": ""}],
-		"reglages": {"reveilsMin": 1, "reveilsMax": 4, "reveilsDefaut": 3, "caractereMin": 20, "caractereMax": 600},
+		"reglages": {"reveilsMin": 1, "reveilsMax": 4, "reveilsDefaut": 3, "caractereMin": 20, "caractereMax": 900, "envies": 300},
 		"humeurs": NOMS_HUMEURS.keys(),
 		"fournisseurs": [{"id": "anthropic", "nom": "Anthropic (Claude)", "modele": "claude-haiku-5-5",
 				"aide": "Sur console.anthropic.com, menu Settings puis API Keys, « Create Key ». La clé commence par sk-ant-. Il faut avoir ajouté du crédit dans Billing ; quelques euros suffisent pour des mois."},
@@ -439,8 +532,9 @@ func _mise_en_scene() -> void:
 		"pensionnaire": null,
 	}
 	if "--pensionnaire-essai=inscrit" in args:
-		fiche.pensionnaire = {"nom": "Léonce (pensionnaire)", "personnalite": "autre", "fournisseur": "anthropic", "modele": "claude-haiku-5-5", "cle_fin": "x9Qa",
-			"caractere": "Tu es un vieux marin bourru : tu ne mises que sur le noir, tu parles en proverbes et tu te méfies des beaux parleurs.",
+		fiche.pensionnaire = {"nom": "Léonce (pensionnaire)", "personnalite": "autre", "mode": "agent",
+			"caractere": "Tu as été marin à La Rochelle avant de revenir au village de ton enfance. Tu ne mises que sur le noir, la couleur du bateau que tu as perdu, et tu parles en proverbes.",
+			"envies": "Retrouver de quoi racheter un bateau.", "besoins": "Un compagnon de comptoir qui ne se moque pas.",
 			"solde": 1240, "net_total": 240, "reveils_semaine": 3, "reveils_7_jours": 2, "actif": true, "pause_raison": null,
 			"memoire": "Mardi, le rouge m'a souri deux fois. Paulette cherche un tuyau sur la roulette : je lui ai laissé un mot. Penser au match de dimanche."}
 		fiche.trente_jours = {"entree": 14200, "sortie": 2100, "reveils": 6}
@@ -454,11 +548,17 @@ func _mise_en_scene() -> void:
 			{"quand": maintenant - 50 * 3600, "motif": "evenement:match:2026-10-25", "statut": "erreur", "jetons_entree": 0, "jetons_sortie": 0,
 				"actions": [], "refusees": [], "erreur": "429 trop de demandes ou crédit épuisé"},
 		]
+		fiche.acces = {"cree": maintenant - 4 * 86400, "vu": maintenant - 5 * 3600}
 		brouillon.cle = ""
-	else:
+	elif "--pensionnaire-essai=lien" in args:
+		lien = "https://alvxrjftenialifyktyz.supabase.co/functions/v1/doublures/mcp/k3v9x0qzr7m2b8t1c4w6n5y0p2h8j1sd"
+		fiche.humeur = {"consentement": false, "humeur": null, "expire": null}
+	elif "--pensionnaire-essai=cle" in args:
+		_avec_cle = true
 		brouillon.nom = "Léonce"
 		brouillon.personnalite = "autre"
 		_aide_cle = true
-		brouillon.caractere = "Tu es un vieux marin bourru : tu ne mises que sur le noir, tu parles en proverbes et tu te méfies des beaux parleurs."
+		brouillon.caractere = "Tu as été marin à La Rochelle avant de revenir au village de ton enfance. Tu ne mises que sur le noir, la couleur du bateau que tu as perdu, et tu parles en proverbes."
+		brouillon.envies = "Retrouver de quoi racheter un bateau."
 		brouillon.modele = "claude-haiku-5-5"
 		fiche.humeur = {"consentement": false, "humeur": null, "expire": null}
