@@ -38,6 +38,16 @@ func _bouton(n: Node, texte: String) -> Button:
 	return null
 
 
+func _bouton_qui_commence(n: Node, debut: String) -> Button:
+	if n is Button and (n as Button).text.begins_with(debut):
+		return n
+	for c in n.get_children():
+		var b := _bouton_qui_commence(c, debut)
+		if b != null:
+			return b
+	return null
+
+
 func _aides(n: Node) -> int:
 	var k := 1 if n.get_script() != null and (n.get_script() as Script).resource_path == "res://scripts/socle/aide.gd" else 0
 	for c in n.get_children():
@@ -63,6 +73,16 @@ func _lancer() -> void:
 	game.credits = 20346
 	var b: Dictionary = A.banque(game, root.get_node("Biens"))
 	check(b.credits == 20346 and b.fortune == 20346 + int(root.get_node("Biens").value()) - int(game.debt), "la banque dit les crédits et la fortune nette")
+
+	# ---- les biens, comptés par famille
+	var biens: Node = root.get_node("Biens")
+	var avant: Dictionary = biens.owned.duplicate()
+	biens.owned = {}
+	check(A.biens(biens).texte == "aucun bien", "sans bien, la ligne le dit")
+	biens.owned = {"maison": 1, "chambre": 1, "smarvoise": 3, "smoking": 1}
+	var p: Dictionary = A.biens(biens)
+	check(p.total == 6 and p.texte == "2 maisons · 3 parts · 1 objet", "les biens : %s" % p.texte)
+	biens.owned = avant
 
 	# ---- depuis votre passage : le courrier non lu, résumé
 	check(str(A.depuis(avis).texte) == "", "rien de neuf : la ligne se tait")
@@ -127,6 +147,9 @@ func _lancer() -> void:
 	check(not "Se déconnecter" in ecrit and not "Se connecter" in ecrit and not "Effacer ma partie" in ecrit, "ni compte ni effacement dans l'encart")
 	check(not "MISES À JOUR" in ecrit, "les mises à jour ont quitté l'encart")
 	check("AU VILLAGE" in ecrit, "le prochain rendez-vous est au village")
+	check("Vos biens" in ecrit, "le nombre de biens est sur l'encart")
+	var rangee := _bouton_qui_commence(bv, "Vos biens")
+	check(rangee != null and rangee.text.ends_with("›") and (rangee.get_theme_stylebox("normal") as StyleBoxFlat).bg_color.a > 0.0, "les lignes se voient cliquables : un fond et une flèche")
 	check(_aides(bv) >= 1, "la fortune nette s'explique dans un (i), pas en toutes lettres")
 	var barre: Control = bv.get("_barre")
 	check(barre.visible and "✓ À jour" in _textes(barre) and "Partie sur cet appareil" in _textes(barre), "la barre du bas : l'état et le compte")
