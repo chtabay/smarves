@@ -98,7 +98,7 @@ func _equipe(col: VBoxContainer) -> void:
 	joueurs.sort_custom(func(a, x): return int(fiches[a.code].get("note", 0)) > int(fiches[x.code].get("note", 0)))
 	var masse: int = b.masse_salariale(commune, maxi(1, j))
 	_tuiles(col, [["Effectif", "%d / %d" % [joueurs.size(), b.EFFECTIF], "joueurs", TEXTE, ""],
-		["Salaires", Game.fmt(masse), "sur %s / j." % Game.fmt(b.PLAFOND), ROUGE if masse > b.PLAFOND else TEXTE,
+		["Salaires", _cr(masse), "par journée, sur %s permis" % Game.fmt(b.PLAFOND), ROUGE if masse > b.PLAFOND else TEXTE,
 			"La masse salariale d'une journée, sous le plafond de la ligue. Au-dessus, le marché refuse les offres qui ne tiennent pas."]])
 	var t := _mot(col, "L'EFFECTIF", TEINTES.CRAYON, 12)
 	AIDE.poser(t, "Note de la semaine sur 100, ▲ en forme, ▼ en baisse ; en gris, un joueur absent de son dernier match. Éval. : l'évaluation du match (points, rebonds, passes, moins les tirs manqués et les ballons perdus)."
@@ -150,8 +150,8 @@ func _marche(col: VBoxContainer) -> void:
 	var reste: int = b.PLAFOND - b.masse_salariale(commune, jm - 1)
 	_tuiles(col, [["Clôture", "jeu. %s" % _date(b.cloture(b.saison, jm)), "à 22 h · journée %d" % jm, OR,
 			"Les joueurs libres du groupe, aux enchères jusqu'au jeudi 22 h ; le joueur arrive avant le cliché du vendredi. Une mise dépassée est rendue."],
-		["Places", str(maxi(0, places)), "dans l'effectif", TEXTE if places > 0 else ROUGE, ""],
-		["Salaires permis", Game.fmt(maxi(0, reste)), "par journée", TEXTE if reste > 0 else ROUGE,
+		["Places", str(maxi(0, places)), "libre%s dans l'effectif" % ("s" if places > 1 else ""), TEXTE if places > 0 else ROUGE, ""],
+		["Salaires permis", _cr(maxi(0, reste)), "de plus par journée", TEXTE if reste > 0 else ROUGE,
 			"Une offre qui ne tient pas dans l'effectif ou sous le plafond à la clôture ne compte pas."]])
 	var t := _mot(col, "LES JOUEURS LIBRES DU GROUPE", TEINTES.CRAYON, 12)
 	t.name = "Libres"
@@ -208,22 +208,27 @@ func _comptes(col: VBoxContainer) -> void:
 	for lot in b.retenues:
 		mises += int(b.retenues[lot])
 	# Un tableau de comptes, à la Football Manager : le chiffre à droite, le calcul dans le (i).
-	_tuiles(col, [["Bénéfice", Game.fmt(benefice), "par journée", OR if benefice > 0 else ROUGE,
+	_tuiles(col, [["Bénéfice", _cr(benefice), "par journée", OR if benefice > 0 else ROUGE,
 			"La recette d'une journée moins la masse salariale, partagée entre les obligations du club."],
-		["Vos obligations", Game.fmt(inv) if inv > 0 else "—", "≈ %s par journée" % Game.fmt(par_journee) if inv > 0 else "aucune", TEXTE,
+		["Vos obligations", _cr(inv) if inv > 0 else "—", "rapportent ≈ %s par journée" % _cr(par_journee) if inv > 0 else "aucune", TEXTE,
 			"Maître Garnier cède les obligations du club à l'étude." if inv == 0 else "Obligations n° %s." % ", ".join(b.mes_obligations(commune).map(func(x): return str(x)))]])
 	_mot(col, "LES COMPTES D'UNE JOURNÉE", TEINTES.CRAYON, 12)
-	var lignes := [["Recette", "%s × %.1f" % [Game.fmt(b.RECETTE), facteur], TEXTE, "La recette de base, multipliée selon le classement d'aujourd'hui."],
-		["Masse salariale", "%s / %s" % [Game.fmt(masse), Game.fmt(b.PLAFOND)], ROUGE if masse > b.PLAFOND else TEXTE, "Les salaires d'une journée, sur le plafond permis."],
-		["Bénéfice partagé", Game.fmt(benefice), OR, ""], [],
-		["Dividendes touchés", Game.fmt(int(b.dividendes_total)), TEXTE, "Depuis le début, toutes saisons du basket."]]
+	var lignes := [["Recette", "%s × %s selon le classement" % [_cr(b.RECETTE), str(snappedf(facteur, 0.1)).replace(".", ",")], TEXTE, "La recette de base, multipliée selon le classement d'aujourd'hui."],
+		["Masse salariale", "%s sur %s permis" % [Game.fmt(masse), _cr(b.PLAFOND)], ROUGE if masse > b.PLAFOND else TEXTE, "Les salaires d'une journée, sur le plafond permis."],
+		["Bénéfice partagé", _cr(benefice), OR, ""], [],
+		["Dividendes touchés", "%s depuis le début" % _cr(int(b.dividendes_total)), TEXTE, "Toutes saisons du basket."]]
 	if mises > 0:
-		lignes.append(["Mises au marché", Game.fmt(mises), TEXTE, "Retenues jusqu'à la clôture ; rendues si l'offre est dépassée."])
-	lignes.append(["Vos crédits", Game.fmt(Game.credits), DOUX, ""])
+		lignes.append(["Mises au marché", "%s retenus" % _cr(mises), TEXTE, "Retenues jusqu'à la clôture ; rendues si l'offre est dépassée."])
+	lignes.append(["Vos crédits", "%s en poche" % _cr(Game.credits), DOUX, ""])
 	_comptes_en_lignes(col, lignes)
 
 
 # ---------------------------------------------------------------- outils
+
+## « 2 980 crédits », « 1 crédit ».
+static func _cr(n: int) -> String:
+	return "%s crédit%s" % [Game.fmt(n), "" if absi(n) <= 1 else "s"]
+
 
 ## Un tableau à colonnes, sa ligne de titres en petit : rend la grille, qu'on remplit rangée par rangée.
 func _tableau(col: VBoxContainer, titres: Array) -> GridContainer:
