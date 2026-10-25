@@ -133,9 +133,45 @@ fin de l'événement.
   village change, puis à recopier dans la fonction. Un tour devient un trajet minuté et des bulles ; la vue
   de la place les donne à chaque jeu, qui le fait marcher à l'heure du serveur (`Presences`).
 
-Ce qui viendra : entrer dans les salles (le casino, la salle Rabelais, le stade), puis une part des
-événements eux-mêmes (un pronostic le dimanche, une place au tournoi, des cartes au loto). Le poker en
-direct reste aux humains.
+### Le pilote : il joue dans le vrai jeu
+
+Un pensionnaire doit pouvoir faire exactement ce que fait un joueur : arriver devant un bâtiment, appuyer
+sur E pour entrer, prendre le car, s'asseoir à une table et jouer, sans que celui qui dessine une nouvelle
+carte ait pensé à lui. Le corps simulé du serveur ne le peut pas ; le **pilote** le peut, parce que c'est le
+jeu lui-même.
+
+- **Où il tourne.** Pendant un événement, la tâche GitHub `.github/workflows/pilote.yml` (lancée dix minutes
+  avant l'ouverture, l'hiver comme l'été) installe Godot et attend. Elle prouve qui elle est à la fonction
+  par son jeton OIDC de GitHub, sans secret à garder ; la fonction lui rend un jeton pour l'événement. Dès
+  qu'un assistant veut jouer, son superviseur lance pour ce pensionnaire le vrai jeu sans écran
+  (`godot --headless -- --pilote`), avec son solde, sur la place. Le dépôt étant public, ces minutes ne
+  coûtent rien.
+- **Ce qu'il voit.** `scripts/socle/pilote.gd` (autoload `Pilote`) ne connaît aucun lieu : il lit ce que le
+  socle montre à tout joueur. Les zones où l'on appuie sur E (toute `Area3D` qui porte la méta `interact`,
+  avec son invite : la méta `prompt`, ou la méthode `invite_de` de la scène), à combien de secondes de marche
+  et de quel côté, une seule fois par invite ; l'invite affichée quand il est devant ; les boutons à l'écran
+  (leur texte, sinon leur bulle d'aide) ; les cases du tapis d'une table 3D (`scripts/jeux/table_3d.gd`) ;
+  les textes affichés.
+- **Ce qu'il fait.** Les gestes d'un joueur : aller devant une zone (il marche, contourne ce qui le bute,
+  et s'arrête quand le jeu montre son invite), marcher quelques secondes, une touche (E, Espace, Échap…,
+  envoyée au jeu comme un clavier), cliquer un bouton ou une case (un clic de souris à sa place à l'écran),
+  attendre, dire. Une nouvelle carte, un nouveau bâtiment, un nouveau jeu se pilotent donc sans une ligne
+  de plus, tant qu'ils passent par ces briques du socle.
+- **Le passage.** L'assistant fait un geste avec l'outil `smarves_geste` ; la fonction le pose dans
+  `smarves.doublure_pilote`, le jeu l'y prend (il attend vingt secondes au plus par appel), le fait, et y
+  remet ce qu'il voit ensuite, que l'outil rend à l'assistant. Ce que les jeux ont fait bouger dans sa poche
+  part au solde du pensionnaire (`smarves.doublure_mouvement`), qui fait foi.
+- **Ce que voient les joueurs.** Sur la place, ses pas deviennent son trajet minuté, avec vingt-deux
+  secondes de retard pour qu'il marche sans à-coups entre deux relectures ; ses paroles, ses bulles. Quand il
+  entre au casino, il quitte la place.
+- **Sans tâche en marche** (GitHub en retard, un événement manqué), tout reste comme avant : les tours du
+  serveur, `smarves_voir` puis `smarves_agir`.
+
+Les essais : `godot --headless --path . -s tools/test_pilote.gd [-- --bavard]` (sans réseau : de la place au
+casino, la roulette, puis se relever).
+
+Ce qui viendra : il voit les autres joueurs dans le jeu lui-même (aujourd'hui, la fonction lui dit qui la
+base voit autour de lui), et les autres le voient dans les salles. Le poker en direct reste aux humains.
 
 ## 5. Son histoire, sa mémoire, ses relations
 
@@ -204,16 +240,20 @@ Les noms techniques sont restés ceux du premier lot, quand on les appelait des 
 
 - `supabase/migrations/20261023100000_smarves_doublures.sql`, `20261024210000_smarves_pensionnaires_caractere.sql`
   `20261024220000_smarves_pensionnaires_connecteur.sql`, `20261025000000_smarves_pensionnaires_corps.sql` et
-  `20261025080000_smarves_pensionnaires_journal_intime.sql` (ce dépôt) : les tables, le mode, les relations,
-  le lien du connecteur, l'ouverture du pensionnaire comme joueur, ses actions, la tâche horaire, son corps,
-  la position des joueurs au battement et son journal intime.
+  `20261025080000_smarves_pensionnaires_journal_intime.sql` et `20261025100000_smarves_pensionnaires_pilote.sql`
+  (ce dépôt) : les tables, le mode, les relations, le lien du connecteur, l'ouverture du pensionnaire comme
+  joueur, ses actions, la tâche horaire, son corps, la position des joueurs au battement, son journal intime
+  et le passage des gestes du pilote.
 - `supabase/functions/doublures/` (dépôt chtabay/addict) : la fonction. `regles.js` en est la partie pure
   (événements et budget, histoires, contexte, étiquettes, vérification des actions, roulette, filtre,
-  humeur) ; `corps.js` la marche, la vue et le plan (`plan.json`) ; `connecteur.js` le protocole MCP et les outils ; `fournisseurs.js` les modèles appelés par
+  humeur) ; `corps.js` la marche, la vue et le plan (`plan.json`) ; `pilote.js` les gestes, la vue du jeu et le
+  jeton de la tâche ; `connecteur.js` le protocole MCP et les outils ; `fournisseurs.js` les modèles appelés par
   clé ; `index.ts` la base, le chiffrement et les réveils. Tests : `npm test` (doublures/tests).
 - `scripts/socle/presences.gd` (ce dépôt, autoload `Presences`) : le corps vu par les joueurs ;
   `tools/plan_pensionnaires.gd` : le plan du village. Tests : `tools/test_presences.gd`. Capture avec un
   pensionnaire qui passe en parlant : `-- --capture=… --presences-essai`.
+- `scripts/socle/pilote.gd` et `pilote_reseau.gd` (ce dépôt, autoload `Pilote`) : le jeu tenu par
+  l'assistant ; `.github/workflows/pilote.yml` : la tâche qui le lance. Tests : `tools/test_pilote.gd`.
 - `scripts/socle/pensionnaire.gd` (ce dépôt, autoload `Pensionnaire`) : la fiche « Mon pensionnaire », une
   colonne qui tient sur un téléphone : en tête son nom et trois chiffres, puis quatre onglets (sa vie, son
   histoire, humeur, réglages).

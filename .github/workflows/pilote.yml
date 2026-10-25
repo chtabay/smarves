@@ -1,0 +1,100 @@
+name: Pilote des pensionnaires
+
+# Pendant les événements du village, le vrai jeu sans écran pour chaque pensionnaire dont l'assistant
+# veut jouer (docs/PENSIONNAIRES.md, « Le pilote »). La tâche prouve qui elle est à la fonction doublures
+# par son jeton OIDC de GitHub, sans secret ; la fonction dit si un événement est ouvert, et quels
+# pensionnaires lancer.
+#
+# Les événements, à l'heure de Paris : mercredi 18-20 h, vendredi 11-13 h, samedi 18-20 h, dimanche
+# 10-14 h. Les heures ci-dessous sont en UTC, dix minutes avant l'ouverture, l'hiver et l'été : celle qui
+# tombe hors de l'événement s'arrête tout de suite.
+on:
+  schedule:
+    - cron: "50 15,16 * * 3"
+    - cron: "50 8,9 * * 5"
+    - cron: "50 15,16 * * 6"
+    - cron: "50 7,8 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: pilote
+  cancel-in-progress: false
+
+env:
+  GODOT_VERSION: "4.7.2"
+  SMARVES_PILOTE_URL: https://alvxrjftenialifyktyz.supabase.co/functions/v1/doublures/pilote
+
+jobs:
+  pilote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Attendre l'ouverture de l'événement
+        id: ouvrir
+        run: |
+          # Jusqu'à vingt minutes d'avance : on redemande chaque minute.
+          for i in $(seq 1 25); do
+            oidc=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=smarves-pilote" | jq -r .value)
+            r=$(curl -sS -X POST "$SMARVES_PILOTE_URL" -H "authorization: Bearer $oidc" -H 'content-type: application/json' -d '{"action":"pilote_ouvrir"}')
+            if [ "$(echo "$r" | jq -r .ok)" = "true" ]; then
+              echo "::add-mask::$(echo "$r" | jq -r .jeton)"
+              echo "jeton=$(echo "$r" | jq -r .jeton)" >> "$GITHUB_OUTPUT"
+              echo "Événement ouvert : $(echo "$r" | jq -r .evenement)"
+              exit 0
+            fi
+            echo "Pas encore : $(echo "$r" | jq -c '{raison}')"
+            [ "$(echo "$r" | jq -r .raison)" = "ferme" ] || exit 1
+            [ "$i" -lt 25 ] && sleep 60
+          done
+          echo "Pas d'événement dans les vingt minutes : rien à faire."
+
+      - name: Récupérer Godot
+        if: steps.ouvrir.outputs.jeton != ''
+        run: |
+          base="https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable"
+          curl -sSL -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip
+          mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot
+
+      - name: Importer les ressources
+        if: steps.ouvrir.outputs.jeton != ''
+        run: ./godot --headless --path . --import || true
+
+      - name: Tenir les pensionnaires jusqu'à la fin de l'événement
+        if: steps.ouvrir.outputs.jeton != ''
+        env:
+          SMARVES_PILOTE_JETON: ${{ steps.ouvrir.outputs.jeton }}
+        run: |
+          declare -A pid
+          mkdir -p journaux
+          while true; do
+            r=$(curl -sS --max-time 40 -X POST "$SMARVES_PILOTE_URL" -H "authorization: Bearer $SMARVES_PILOTE_JETON" \
+              -H 'content-type: application/json' -d '{"action":"pilote_demandes"}' || echo '{}')
+            if [ "$(echo "$r" | jq -r '.fin // false')" = "true" ]; then
+              echo "Fin : $(echo "$r" | jq -r '.raison // ""')"
+              break
+            fi
+            for p in $(echo "$r" | jq -r '.pensionnaires // [] | .[]'); do
+              if [ -n "${pid[$p]:-}" ] && kill -0 "${pid[$p]}" 2>/dev/null; then continue; fi
+              n=$(echo -n "$p" | sha1sum | cut -c1-8)
+              echo "Lancer le jeu de $n"
+              # Chaque pensionnaire a son propre dossier de partie (user://).
+              XDG_DATA_HOME="$RUNNER_TEMP/partie-$n" SMARVES_PENSIONNAIRE="$p" \
+                ./godot --headless --path . -- --pilote > "journaux/$n.log" 2>&1 &
+              pid[$p]=$!
+            done
+            [ -z "$r" ] || [ "$r" = "{}" ] && sleep 5
+          done
+          for p in "${!pid[@]}"; do kill "${pid[$p]}" 2>/dev/null || true; done
+          sleep 2
+
+      - name: Journaux des jeux
+        if: always() && steps.ouvrir.outputs.jeton != ''
+        run: |
+          for f in journaux/*.log; do [ -f "$f" ] && { echo "::group::$f"; tail -n 200 "$f"; echo "::endgroup::"; }; done; true
