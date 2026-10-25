@@ -41,6 +41,11 @@ const BUTE := 0.6
 const ATTENTE_MAX := 30.0
 ## Après un geste, le temps que l'écran se pose (une porte qui charge sa scène, un panneau qui s'ouvre).
 const POSE := 1.2
+## Au-delà de cette différence de hauteur, une zone est à un autre étage.
+const ETAGE := 2.5
+## La grille du chemin : tant de cases de côté au plus, tant de cases visitées au plus.
+const GRILLE_MAX := 320
+const VISITES_MAX := 80000
 
 ## Vrai quand le pilote tient le jeu (réseau compris) ; les essais l'allument à la main.
 var actif := false
@@ -142,7 +147,7 @@ func _zones(j: CharacterBody3D) -> Array:
 	var liste := []
 	for z in _toutes_les_zones():
 		var d := _a_plat(z.global_position - j.global_position).length()
-		if d > ZONES_LOIN or absf(z.global_position.y - j.global_position.y) > 4.0:
+		if d > ZONES_LOIN:
 			continue
 		liste.append([d, z])
 	liste.sort_custom(func(a, b): return a[0] < b[0])
@@ -160,6 +165,9 @@ func _zones(j: CharacterBody3D) -> Array:
 		var id := "z%d" % (out.size() + 1)
 		_reperes[id] = z
 		var d := {"id": id, "invite": invite, "secondes": snappedf(e[0] / maxf(j.speed, 0.1), 1.0), "cote": _cote(j, z.global_position)}
+		var dy := z.global_position.y - j.global_position.y
+		if absf(dy) > ETAGE + 1.0:
+			d["cote"] += ", à l'étage au-dessus" if dy > 0.0 else ", à l'étage en dessous"
 		par_invite[invite] = d
 		out.append(d)
 	return out
@@ -452,17 +460,21 @@ func _chercher_du_regard(j: CharacterBody3D, zone: Area3D) -> bool:
 
 
 ## Le chemin (points du monde) du corps jusqu'à portée de la zone, par une recherche A* sur une grille
-## où l'on teste, case par case, que le corps y tient sans toucher un obstacle. Rien de propre à un
-## lieu : seulement la physique de la scène. `ecart` élargit la recherche aux essais suivants.
+## où l'on teste, case par case, que le corps y tient sans toucher un obstacle. Chaque case porte la
+## hauteur de son sol, cherchée d'un rayon vers le bas à une marche près de la case d'où l'on vient :
+## ainsi le chemin monte les escaliers et passe d'un étage à l'autre, comme un joueur. Rien de propre à
+## un lieu : seulement la physique de la scène. `ecart` élargit la recherche aux essais suivants.
 func _chemin(j: CharacterBody3D, zone: Area3D, ecart := 0) -> Array:
-	var pas: float = maxf(j.radius * 1.2, 0.12)
 	var depart := j.global_position
 	var but := _centre_zone(zone)
-	var marge := 6.0 + 4.0 * ecart
+	# Une zone d'un autre étage : l'escalier peut être loin, on cherche plus large.
+	var etage := absf(but.y - depart.y) > ETAGE
+	var marge := (30.0 if etage else 6.0) + 4.0 * ecart
+	var pas: float = maxf(j.radius * 1.2, 0.12)
 	var lo := Vector2(minf(depart.x, but.x) - marge, minf(depart.z, but.z) - marge)
 	var hi := Vector2(maxf(depart.x, but.x) + marge, maxf(depart.z, but.z) + marge)
-	var nx := mini(int((hi.x - lo.x) / pas) + 1, 220)
-	var nz := mini(int((hi.y - lo.y) / pas) + 1, 220)
+	var nx := mini(int((hi.x - lo.x) / pas) + 1, GRILLE_MAX)
+	var nz := mini(int((hi.y - lo.y) / pas) + 1, GRILLE_MAX)
 	pas = maxf((hi.x - lo.x) / nx, (hi.y - lo.y) / nz)
 	var espace := j.get_world_3d().direct_space_state
 	var q := PhysicsShapeQueryParameters3D.new()
@@ -472,59 +484,83 @@ func _chemin(j: CharacterBody3D, zone: Area3D, ecart := 0) -> Array:
 	q.shape = cap
 	q.collide_with_areas = false
 	q.exclude = [j.get_rid()]
-	var y: float = depart.y + j.step_height + cap.height / 2.0 + 0.02
+	var r := PhysicsRayQueryParameters3D.new()
+	r.collide_with_areas = false
+	r.exclude = [j.get_rid()]
+	var marche: float = j.step_height
+	var centre := func(x: int, z: int) -> Vector2:
+		return Vector2(lo.x + (x + 0.5) * pas, lo.y + (z + 0.5) * pas)
+	# Le sol d'une case, à une marche près de la hauteur « y » : sa hauteur, ou NAN s'il n'y en a pas (un
+	# vide, un mur, une pente trop raide).
+	var sol := func(x: int, z: int, y: float) -> float:
+		var c: Vector2 = centre.call(x, z)
+		r.from = Vector3(c.x, y + marche + 0.1, c.y)
+		r.to = Vector3(c.x, y - marche - 0.1, c.y)
+		var h := espace.intersect_ray(r)
+		if h.is_empty() or (h.normal as Vector3).y < 0.6:
+			return NAN
+		return (h.position as Vector3).y
 	var libre := {}
-	var case_de := func(p: Vector3) -> Vector2i:
-		return Vector2i(clampi(int((p.x - lo.x) / pas), 0, nx - 1), clampi(int((p.z - lo.y) / pas), 0, nz - 1))
-	var monde := func(c: Vector2i) -> Vector3:
-		return Vector3(lo.x + (c.x + 0.5) * pas, depart.y, lo.y + (c.y + 0.5) * pas)
-	var passe := func(c: Vector2i) -> bool:
-		if libre.has(c):
-			return libre[c]
-		var w: Vector3 = monde.call(c)
-		q.transform = Transform3D(Basis(), Vector3(w.x, y, w.z))
+	var tient := func(x: int, z: int, y: float) -> bool:
+		var k := Vector3i(x, z, roundi(y * 4.0))
+		if libre.has(k):
+			return libre[k]
+		var c: Vector2 = centre.call(x, z)
+		q.transform = Transform3D(Basis(), Vector3(c.x, y + marche + cap.height / 2.0 + 0.02, c.y))
 		var ok := espace.intersect_shape(q, 1).is_empty()
-		libre[c] = ok
+		libre[k] = ok
 		return ok
-	var s: Vector2i = case_de.call(depart)
+	var sx := clampi(int((depart.x - lo.x) / pas), 0, nx - 1)
+	var sz := clampi(int((depart.z - lo.y) / pas), 0, nz - 1)
+	var s := Vector3i(sx, sz, roundi(depart.y * 4.0))
+	var hauteur := {s: depart.y}
 	var portee: float = j.reach * (0.8 - 0.15 * ecart)
-	# A* : les cases à portée de la zone sont le but.
-	var ouverts := [[0.0, s]]
+	var voisins := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(-1, -1)]
+	var h0 := func(x: int, z: int, y: float) -> float:
+		var c: Vector2 = centre.call(x, z)
+		return (Vector2(but.x, but.z) - c).length() / pas + absf(but.y - y) / pas
+	# A* sur un tas binaire : les cases à portée de la zone, à son étage, sont le but.
+	var tas := _Tas.new()
+	tas.mettre(0.0, s)
 	var cout := {s: 0.0}
 	var venu := {}
-	var fin := Vector2i(-1, -1)
-	var voisins := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(-1, -1)]
+	var fin := Vector3i(-1, -1, 0)
 	var visites := 0
-	while not ouverts.is_empty() and visites < 30000:
-		var mi := 0
-		for i in ouverts.size():
-			if ouverts[i][0] < ouverts[mi][0]:
-				mi = i
-		var c: Vector2i = ouverts[mi][1]
-		ouverts.remove_at(mi)
+	while not tas.vide() and visites < VISITES_MAX:
+		var c: Vector3i = tas.prendre()
 		visites += 1
-		var w: Vector3 = monde.call(c)
-		if _a_plat(but - w).length() <= portee and c != s:
+		var y: float = hauteur[c]
+		var w: Vector2 = centre.call(c.x, c.y)
+		if c != s and (Vector2(but.x, but.z) - w).length() <= portee and but.y - y > -1.0 and but.y - y < ETAGE:
 			fin = c
 			break
 		for d in voisins:
-			var n: Vector2i = c + d
-			if n.x < 0 or n.y < 0 or n.x >= nx or n.y >= nz or not passe.call(n):
+			var x: int = c.x + d.x
+			var z: int = c.y + d.y
+			if x < 0 or z < 0 or x >= nx or z >= nz:
 				continue
-			if d.x != 0 and d.y != 0 and (not passe.call(Vector2i(c.x + d.x, c.y)) or not passe.call(Vector2i(c.x, c.y + d.y))):
+			var yn: float = sol.call(x, z, y)
+			if is_nan(yn) or not tient.call(x, z, yn):
 				continue
-			var g: float = cout[c] + (1.414 if d.x != 0 and d.y != 0 else 1.0)
+			if d.x != 0 and d.y != 0:
+				var ya: float = sol.call(c.x + d.x, c.y, y)
+				var yb: float = sol.call(c.x, c.y + d.y, y)
+				if is_nan(ya) or is_nan(yb) or not tient.call(c.x + d.x, c.y, ya) or not tient.call(c.x, c.y + d.y, yb):
+					continue
+			var n := Vector3i(x, z, roundi(yn * 4.0))
+			var g: float = cout[c] + (1.414 if d.x != 0 and d.y != 0 else 1.0) + absf(yn - y) / pas
 			if g < cout.get(n, INF):
 				cout[n] = g
 				venu[n] = c
-				var h := _a_plat(but - monde.call(n)).length() / pas
-				ouverts.append([g + h, n])
+				hauteur[n] = yn
+				tas.mettre(g + h0.call(x, z, yn), n)
 	if fin.x < 0:
 		return [but]
 	var pts := []
 	var c := fin
 	while venu.has(c):
-		pts.push_front(monde.call(c))
+		var w: Vector2 = centre.call(c.x, c.y)
+		pts.push_front(Vector3(w.x, hauteur[c], w.y))
 		c = venu[c]
 	# Un point sur trois suffit : le corps lisse entre eux.
 	var out := []
@@ -532,6 +568,54 @@ func _chemin(j: CharacterBody3D, zone: Area3D, ecart := 0) -> Array:
 		if i % 3 == 2 or i == pts.size() - 1:
 			out.append(pts[i])
 	return out
+
+
+## Un tas binaire (le plus petit d'abord), pour la recherche du chemin.
+class _Tas:
+	var _cles: Array[float] = []
+	var _vals: Array = []
+
+	func vide() -> bool:
+		return _cles.is_empty()
+
+	func mettre(cle: float, val: Variant) -> void:
+		_cles.append(cle)
+		_vals.append(val)
+		var i := _cles.size() - 1
+		while i > 0:
+			var p := (i - 1) / 2
+			if _cles[p] <= _cles[i]:
+				break
+			_echanger(i, p)
+			i = p
+
+	func prendre() -> Variant:
+		var v: Variant = _vals[0]
+		var n := _cles.size() - 1
+		_echanger(0, n)
+		_cles.pop_back()
+		_vals.pop_back()
+		var i := 0
+		while true:
+			var g := 2 * i + 1
+			var m := i
+			if g < n and _cles[g] < _cles[m]:
+				m = g
+			if g + 1 < n and _cles[g + 1] < _cles[m]:
+				m = g + 1
+			if m == i:
+				break
+			_echanger(i, m)
+			i = m
+		return v
+
+	func _echanger(a: int, b: int) -> void:
+		var k := _cles[a]
+		_cles[a] = _cles[b]
+		_cles[b] = k
+		var v: Variant = _vals[a]
+		_vals[a] = _vals[b]
+		_vals[b] = v
 
 
 ## Le milieu de la zone : celui de sa forme, posé où elle est.

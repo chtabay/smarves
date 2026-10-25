@@ -45,7 +45,7 @@ func attendre_scene(nom: String, s: float) -> bool:
 
 func _init() -> void:
 	bavard = "--bavard" in OS.get_cmdline_user_args()
-	create_timer(240.0).timeout.connect(func():
+	create_timer(400.0).timeout.connect(func():
 		print("ÉCHEC   trop long : l'essai s'arrête")
 		quit(1))
 	await process_frame
@@ -98,6 +98,18 @@ func _init() -> void:
 	if r.vue.assis:
 		r = await P.geste({"geste": "cliquer", "quoi": "quitter"})
 	check(not r.vue.assis, "il se relève")
+	# L'étage : une zone en haut de l'escalier d'honneur, que le chemin rejoint par les marches.
+	v = P.vue()
+	var haut := ""
+	for z in v.zones:
+		if str(z.cote).contains("au-dessus"):
+			haut = z.id
+			break
+	check(haut != "", "une zone de l'étage est dans la vue")
+	if haut != "":
+		var y0: float = P.joueur().global_position.y
+		r = await P.geste({"geste": "aller", "vers": haut})
+		check(r.ok and P.joueur().global_position.y > y0 + 3.0, "il monte l'escalier jusqu'à elle : %s (%.1f m -> %.1f m)" % [r.dit, y0, P.joueur().global_position.y])
 	r = await P.geste({"geste": "dire", "texte": "Bonne soirée à tous !"})
 	check(r.ok and root.get_node("Presences").etat_libre.get("dit") == "Bonne soirée à tous !", "dire : la phrase part en bulle avec sa position")
 	var pres: Node = root.get_node("Presences")
