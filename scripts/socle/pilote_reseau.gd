@@ -22,6 +22,7 @@ var _n := 0
 ## Le dernier geste reçu (son numéro à la fonction).
 var _dernier := 0
 var _poche := 0
+var _gains := 0
 var _pas_a := 0.0
 var _dernier_pas := Vector3.INF
 var _en_marche := false
@@ -49,6 +50,7 @@ func _demarrer() -> void:
 	Game.credits = int(e.get("solde", 0))
 	Game.won = maxi(int(e.get("gagne", 0)), 0)
 	_poche = Game.credits
+	_gains = Game.won
 	_dernier = int(e.get("n", 0))
 	if str(e.get("compte", "")) != "":
 		# Il joue sous son nom, comme un joueur connecté : les autres le voient, il les voit, il s'assoit aux
@@ -89,8 +91,10 @@ func _boucle() -> void:
 		var corps := {"n": _dernier, "resultat": res, "paroles": get_parent().paroles.duplicate()}
 		get_parent().paroles.clear()
 		var bouge := Game.credits - _poche
-		if bouge != 0:
-			corps["argent"] = {"cle": "p%s:%d:%d" % [pensionnaire.right(8), int(Time.get_unix_time_from_system()), _n], "montant": bouge}
+		# Ses gains, comme ceux d'un joueur (Game.won) : le « gagné au jeu » ne baisse pas quand il perd.
+		var gain := maxi(Game.won - _gains, 0)
+		if bouge != 0 or gain > 0:
+			corps["argent"] = {"cle": "p%s:%d:%d" % [pensionnaire.right(8), int(Time.get_unix_time_from_system()), _n], "montant": bouge, "gain": gain}
 		_n += 1
 		corps.merge(_ou())
 		var v := await _appeler("pilote_vue", corps)
@@ -98,6 +102,7 @@ func _boucle() -> void:
 			# Le solde du serveur fait foi : un mouvement refusé repart de la poche.
 			Game.credits = int(v.solde)
 			_poche = Game.credits
+			_gains = Game.won
 
 
 func _process(_delta: float) -> void:
