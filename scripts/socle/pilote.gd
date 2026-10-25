@@ -50,15 +50,32 @@ var paroles: Array = []
 ## Les repères de la dernière vue : id -> nœud (z… zone, b… bouton, c… case de tapis -> [table, clé]).
 var _reperes := {}
 var _dits := 0
+## Ce qu'on a entendu autour de soi depuis le dernier geste : [{nom, dit}] ; une bulle ne dure que dix
+## secondes, et l'assistant réfléchit souvent plus longtemps entre deux gestes.
+var entendu: Array = []
+const ENTENDU_MAX := 12
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	var pr: Node = get_node_or_null("/root/Presences")
+	if pr:
+		pr.etat_change.connect(_on_etat_change)
 	if "--pilote" in OS.get_cmdline_user_args():
 		actif = true
 		var reseau: Node = load("res://scripts/socle/pilote_reseau.gd").new()
 		reseau.name = "Reseau"
 		add_child(reseau)
+
+
+func _on_etat_change(membre: String, e: Dictionary) -> void:
+	var pr: Node = get_node_or_null("/root/Presences")
+	var p: Dictionary = pr.presents.get(membre, {}) if pr else {}
+	if p.is_empty() or not p.get("a_portee", false) or not (e.get("dit") is String) or str(e.dit) == "":
+		return
+	entendu.append({"nom": str(p.get("nom", "")), "dit": str(e.dit).left(200)})
+	if entendu.size() > ENTENDU_MAX:
+		entendu.pop_front()
 
 
 # --- Ce que voit le joueur ------------------------------------------------------------------------
@@ -320,6 +337,9 @@ func geste(g: Dictionary) -> Dictionary:
 		_:
 			r = {"ok": false, "dit": "geste inconnu"}
 	r["vue"] = vue()
+	if not entendu.is_empty():
+		r["entendu"] = entendu.duplicate()
+		entendu.clear()
 	return r
 
 
