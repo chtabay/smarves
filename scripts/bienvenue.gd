@@ -120,6 +120,11 @@ func ouvrir(liste := false) -> void:
 
 ## Ouvre une page (soiree, liste, compte, effacer) : à droite de l'écran titre, ailleurs au milieu.
 func ouvrir_page(page: String) -> void:
+	# L'encart du titre resté à l'écran le temps que la place s'ouvre (un téléphone lent, un second toucher) :
+	# ses boutons ne doivent pas rouvrir la fenêtre du compte au milieu de la place. Il se ferme.
+	if _dock and is_open() and not _sur_le_titre():
+		fermer()
+		return
 	_dock = _sur_le_titre()
 	if not is_open() and not _dock:
 		_mouse_before = Input.mouse_mode

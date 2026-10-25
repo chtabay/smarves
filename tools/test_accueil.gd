@@ -181,5 +181,15 @@ func _lancer() -> void:
 	check(bv.get("_page") == "soiree", "« Garder ma partie » ramène à l'encart")
 	root.get_tree().paused = false
 
+	# ---- la partie lancée, l'encart encore là (téléphone lent) : un second toucher ne rouvre pas le compte
+	bv.ouvrir()
+	await process_frame
+	titre.jouer()
+	await process_frame
+	bv.ouvrir_page("compte")
+	await process_frame
+	check(not bv.is_open(), "sur la place, un bouton de l'encart resté à l'écran le ferme au lieu d'ouvrir le compte")
+	root.get_tree().paused = false
+
 	print("\n%s" % ("TOUT EST BON" if fails == 0 else "%d ÉCHEC(S)" % fails))
 	quit(1 if fails > 0 else 0)
