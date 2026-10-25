@@ -388,6 +388,10 @@ func recevoir(d: Dictionary) -> void:
 		arrive.emit(m, p.nom)
 	var e = d.get("e", {})
 	if e is Dictionary and e != p.etat:
+		# Une parole (un pensionnaire qui joue dans le jeu, scripts/socle/pilote.gd) : sa bulle dix secondes.
+		if e.get("dit") is String and (e.get("dit") != p.etat.get("dit") or e.get("k") != p.etat.get("k")):
+			p["dit"] = str(e.dit).left(200)
+			p["dit_fin"] = _t + BULLE / 1000.0
 		p.etat = e
 		etat_change.emit(m, e)
 
@@ -449,7 +453,8 @@ func autour() -> Array:
 		var p: Dictionary = presents[m]
 		if p.a_portee and not p.points.is_empty():
 			var pos: Vector3 = p.points[-1][1]
-			out.append({"membre": m, "nom": p.nom, "tenue": p.tenue, "position": pos, "distance": _distance(pos)})
+			out.append({"membre": m, "nom": p.nom, "tenue": p.tenue, "position": pos, "distance": _distance(pos),
+				"dit": str(p.get("dit", "")) if _t < float(p.get("dit_fin", -1.0)) else ""})
 	out.sort_custom(func(a, b): return a.distance < b.distance)
 	return out
 
@@ -878,6 +883,10 @@ func _placer(m: String) -> void:
 	p.noeud.global_position = pos
 	p.noeud.rotation.y = cap
 	p.regard_vu = regard
+	if p.has("dit_fin"):
+		_bulle(p, str(p.dit) if _t < float(p.dit_fin) else "")
+		if _t >= float(p.dit_fin):
+			p.erase("dit_fin")
 
 
 func _portee_de(m: String, oui: bool) -> void:

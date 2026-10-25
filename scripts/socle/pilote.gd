@@ -49,9 +49,7 @@ var paroles: Array = []
 
 ## Les repères de la dernière vue : id -> nœud (z… zone, b… bouton, c… case de tapis -> [table, clé]).
 var _reperes := {}
-var _marche_vers: Node3D = null
-var _marche_dir := Vector3.ZERO
-var _marche_fin := 0.0
+var _dits := 0
 
 
 func _ready() -> void:
@@ -89,6 +87,9 @@ func vue() -> Dictionary:
 		v["devant"] = _invite_de(j.focus_target) if j.focus_target and not j.frozen else ""
 		v["assis"] = j.frozen
 		v["zones"] = [] if j.frozen else _zones(j)
+	var gens := _gens(j)
+	if not gens.is_empty():
+		v["gens"] = gens
 	v["boutons"] = _boutons()
 	var cases := _cases()
 	if not cases.is_empty():
@@ -175,6 +176,22 @@ func _a_plat(v: Vector3) -> Vector3:
 	return Vector3(v.x, 0.0, v.z)
 
 
+## Les autres joueurs et pensionnaires à portée (autoload Presences), et ce qu'ils disent.
+func _gens(j: CharacterBody3D) -> Array:
+	var out := []
+	var pr: Node = get_node_or_null("/root/Presences")
+	if pr == null or j == null:
+		return out
+	for a in pr.autour():
+		var e := {"nom": str(a.nom), "secondes": snappedf(float(a.distance) / maxf(j.speed, 0.1), 1.0), "cote": _cote(j, a.position)}
+		if str(a.get("dit", "")) != "":
+			e["dit"] = str(a.dit)
+		out.append(e)
+		if out.size() >= 12:
+			break
+	return out
+
+
 ## Les racines de ce qui est à l'écran : la scène en cours et les autoloads (une scène gardée par
 ## Chargement, cachée, n'en est pas).
 func _racines() -> Array:
@@ -236,13 +253,14 @@ func _cases() -> Array:
 func _textes(sauf: String) -> Array:
 	var out := []
 	var vus := {sauf: true}
-	var ecran := get_viewport().get_visible_rect()
 	for r in _racines():
 		for n in r.find_children("*", "Control", true, false):
 			if not (n is Label or n is RichTextLabel):
 				continue
 			var c := n as Control
-			if not c.is_visible_in_tree() or c.modulate.a < 0.1 or not ecran.intersects(c.get_global_rect()):
+			# Ce qui est posé sur l'écran, même un peu au-delà de son bord (une bulle au-dessus d'une tête
+			# proche, le nom d'un joueur à la table) ; pas ce qui s'efface.
+			if not c.is_visible_in_tree() or _opacite(c) < 0.1:
 				continue
 			if c.get_parent() is BaseButton:
 				continue
@@ -255,6 +273,16 @@ func _textes(sauf: String) -> Array:
 			if out.size() >= TEXTES_MAX:
 				return out
 	return out
+
+
+## L'opacité d'un contrôle avec celle de ses parents (une bulle qui s'efface par son cadre).
+func _opacite(c: CanvasItem) -> float:
+	var a := 1.0
+	var n: Node = c
+	while n is CanvasItem:
+		a *= (n as CanvasItem).modulate.a * (n as CanvasItem).self_modulate.a
+		n = n.get_parent()
+	return a
 
 
 # --- Les gestes -----------------------------------------------------------------------------------
@@ -283,7 +311,12 @@ func geste(g: Dictionary) -> Dictionary:
 				r = {"ok": false, "dit": "rien à dire"}
 			else:
 				paroles.append(t)
-				r = {"ok": true, "dit": ""}
+				# Les joueurs autour la lisent en bulle au-dessus de sa tête (Presences, l'état porté).
+				_dits += 1
+				var pr: Node = get_node_or_null("/root/Presences")
+				if pr:
+					pr.etat_libre = {"dit": t, "k": _dits}
+				r = {"ok": true, "dit": "tu dis : « %s » (en bulle, lue par qui est autour de toi)" % t}
 		_:
 			r = {"ok": false, "dit": "geste inconnu"}
 	r["vue"] = vue()
@@ -327,39 +360,166 @@ func _aller(vers: String) -> Dictionary:
 	if j.focus_target == zone:
 		return {"ok": true, "dit": "déjà devant"}
 	var t0 := Time.get_ticks_msec() / 1000.0
-	var dernier := j.global_position
-	var depuis := t0
-	var detour := 0.0
-	var signe := 1.0
 	var sc := scene()
+	# Un chemin entre les obstacles, sur une grille où le corps tient debout, jusqu'à portée de la zone.
+	var chemin := _chemin(j, zone)
+	var essais := 0
+	while true:
+		var fin := await _suivre(j, zone, chemin, t0, sc)
+		if fin != "":
+			_arreter(j)
+			return {"ok": fin == "arrivé" or fin == "le lieu a changé en chemin", "dit": fin}
+		# Au bout du chemin sans voir l'invite : on regarde autour, comme à la souris.
+		if await _chercher_du_regard(j, zone):
+			return {"ok": true, "dit": "arrivé"}
+		essais += 1
+		if essais >= 3 or Time.get_ticks_msec() / 1000.0 - t0 > MARCHE_MAX:
+			_arreter(j)
+			return {"ok": false, "dit": "pas trouvé de chemin jusque-là : quelque chose barre le passage (une porte fermée, un cordon ?)"}
+		chemin = _chemin(j, zone, essais)
+	return {}
+
+
+## Suit le chemin : « » au bout, sinon ce qui l'arrête (arrivé, le lieu a changé, trop long).
+func _suivre(j: CharacterBody3D, zone: Area3D, chemin: Array, t0: float, sc: Node) -> String:
+	var k := 0
+	var dernier := j.global_position
+	var depuis := Time.get_ticks_msec() / 1000.0
 	while true:
 		await get_tree().physics_frame
 		if not is_instance_valid(j) or scene() != sc:
-			_arreter(j)
-			return {"ok": true, "dit": "le lieu a changé en chemin"}
+			return "le lieu a changé en chemin"
+		if is_instance_valid(zone) and j.focus_target == zone:
+			return "arrivé"
 		var maintenant := Time.get_ticks_msec() / 1000.0
-		if j.focus_target == zone:
-			_arreter(j)
-			return {"ok": true, "dit": "arrivé"}
 		if maintenant - t0 > MARCHE_MAX:
+			return "pas trouvé de chemin jusque-là"
+		while k < chemin.size() and _a_plat(chemin[k] - j.global_position).length() < 0.25 * maxf(j.radius / 0.3, 0.5):
+			k += 1
+		var cible: Vector3 = chemin[k] if k < chemin.size() else zone.global_position
+		var to := _a_plat(cible - j.global_position)
+		if k >= chemin.size() and to.length() < j.reach * 0.6:
 			_arreter(j)
-			return {"ok": false, "dit": "pas trouvé de chemin jusque-là"}
-		var to := _a_plat(zone.global_position - j.global_position)
-		var dir := to.normalized()
-		if j.global_position.distance_to(dernier) > 0.15:
+			return ""
+		if j.global_position.distance_to(dernier) > 0.1:
 			dernier = j.global_position
 			depuis = maintenant
-		elif maintenant - depuis > BUTE and detour <= 0.0:
-			# On bute : on contourne d'un côté, puis de l'autre.
-			detour = 1.0
-			signe = -signe
-			depuis = maintenant
-		if detour > 0.0:
-			detour -= get_physics_process_delta_time()
-			dir = dir.rotated(Vector3.UP, signe * deg_to_rad(75.0))
-		_viser(j, zone.global_position, to.length() < j.reach * 1.5)
-		_pousser(j, dir)
-	return {}
+		elif maintenant - depuis > BUTE * 2.0:
+			_arreter(j)
+			return ""
+		_viser(j, zone.global_position if k >= chemin.size() - 1 else cible, _a_plat(zone.global_position - j.global_position).length() < j.reach * 1.5)
+		_pousser(j, to.normalized())
+	return ""
+
+
+## Devant la zone sans son invite : on tourne la tête et le regard, un cran à la fois.
+func _chercher_du_regard(j: CharacterBody3D, zone: Area3D) -> bool:
+	var to := zone.global_position - j.global_position
+	var lacet := atan2(-to.x, -to.z)
+	for dl in [0.0, 0.3, -0.3, 0.6, -0.6, 0.9, -0.9]:
+		for tangage in [0.0, -0.35, -0.7, 0.3]:
+			if j.follow_camera == null:
+				j.rotation.y = lacet + dl
+				if j.camera:
+					j.camera.rotation.x = tangage
+			else:
+				j.rotation.y = lacet + dl
+			await get_tree().physics_frame
+			await get_tree().physics_frame
+			if is_instance_valid(zone) and j.focus_target == zone:
+				return true
+	return false
+
+
+## Le chemin (points du monde) du corps jusqu'à portée de la zone, par une recherche A* sur une grille
+## où l'on teste, case par case, que le corps y tient sans toucher un obstacle. Rien de propre à un
+## lieu : seulement la physique de la scène. `ecart` élargit la recherche aux essais suivants.
+func _chemin(j: CharacterBody3D, zone: Area3D, ecart := 0) -> Array:
+	var pas: float = maxf(j.radius * 1.2, 0.12)
+	var depart := j.global_position
+	var but := _centre_zone(zone)
+	var marge := 6.0 + 4.0 * ecart
+	var lo := Vector2(minf(depart.x, but.x) - marge, minf(depart.z, but.z) - marge)
+	var hi := Vector2(maxf(depart.x, but.x) + marge, maxf(depart.z, but.z) + marge)
+	var nx := mini(int((hi.x - lo.x) / pas) + 1, 220)
+	var nz := mini(int((hi.y - lo.y) / pas) + 1, 220)
+	pas = maxf((hi.x - lo.x) / nx, (hi.y - lo.y) / nz)
+	var espace := j.get_world_3d().direct_space_state
+	var q := PhysicsShapeQueryParameters3D.new()
+	var cap := CapsuleShape3D.new()
+	cap.radius = j.radius * 0.9
+	cap.height = maxf(j.body_height - j.step_height, cap.radius * 2.0)
+	q.shape = cap
+	q.collide_with_areas = false
+	q.exclude = [j.get_rid()]
+	var y: float = depart.y + j.step_height + cap.height / 2.0 + 0.02
+	var libre := {}
+	var case_de := func(p: Vector3) -> Vector2i:
+		return Vector2i(clampi(int((p.x - lo.x) / pas), 0, nx - 1), clampi(int((p.z - lo.y) / pas), 0, nz - 1))
+	var monde := func(c: Vector2i) -> Vector3:
+		return Vector3(lo.x + (c.x + 0.5) * pas, depart.y, lo.y + (c.y + 0.5) * pas)
+	var passe := func(c: Vector2i) -> bool:
+		if libre.has(c):
+			return libre[c]
+		var w: Vector3 = monde.call(c)
+		q.transform = Transform3D(Basis(), Vector3(w.x, y, w.z))
+		var ok := espace.intersect_shape(q, 1).is_empty()
+		libre[c] = ok
+		return ok
+	var s: Vector2i = case_de.call(depart)
+	var portee: float = j.reach * (0.8 - 0.15 * ecart)
+	# A* : les cases à portée de la zone sont le but.
+	var ouverts := [[0.0, s]]
+	var cout := {s: 0.0}
+	var venu := {}
+	var fin := Vector2i(-1, -1)
+	var voisins := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(-1, -1)]
+	var visites := 0
+	while not ouverts.is_empty() and visites < 30000:
+		var mi := 0
+		for i in ouverts.size():
+			if ouverts[i][0] < ouverts[mi][0]:
+				mi = i
+		var c: Vector2i = ouverts[mi][1]
+		ouverts.remove_at(mi)
+		visites += 1
+		var w: Vector3 = monde.call(c)
+		if _a_plat(but - w).length() <= portee and c != s:
+			fin = c
+			break
+		for d in voisins:
+			var n: Vector2i = c + d
+			if n.x < 0 or n.y < 0 or n.x >= nx or n.y >= nz or not passe.call(n):
+				continue
+			if d.x != 0 and d.y != 0 and (not passe.call(Vector2i(c.x + d.x, c.y)) or not passe.call(Vector2i(c.x, c.y + d.y))):
+				continue
+			var g: float = cout[c] + (1.414 if d.x != 0 and d.y != 0 else 1.0)
+			if g < cout.get(n, INF):
+				cout[n] = g
+				venu[n] = c
+				var h := _a_plat(but - monde.call(n)).length() / pas
+				ouverts.append([g + h, n])
+	if fin.x < 0:
+		return [but]
+	var pts := []
+	var c := fin
+	while venu.has(c):
+		pts.push_front(monde.call(c))
+		c = venu[c]
+	# Un point sur trois suffit : le corps lisse entre eux.
+	var out := []
+	for i in pts.size():
+		if i % 3 == 2 or i == pts.size() - 1:
+			out.append(pts[i])
+	return out
+
+
+## Le milieu de la zone : celui de sa forme, posé où elle est.
+func _centre_zone(zone: Area3D) -> Vector3:
+	for c in zone.get_children():
+		if c is CollisionShape3D:
+			return (c as CollisionShape3D).global_position
+	return zone.global_position
 
 
 ## Tourner le corps (et le regard) vers ce qu'on vise, comme à la souris.

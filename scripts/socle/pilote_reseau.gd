@@ -50,6 +50,11 @@ func _demarrer() -> void:
 	Game.won = maxi(int(e.get("gagne", 0)), 0)
 	_poche = Game.credits
 	_dernier = int(e.get("n", 0))
+	if str(e.get("compte", "")) != "":
+		# Il joue sous son nom, comme un joueur connecté : les autres le voient, il les voit, il s'assoit aux
+		# tables à plusieurs. Son argent passe par la fonction (pilote_vue), pas par Argent.
+		Argent.appel = func(_f: String, _c: Dictionary) -> Dictionary: return {"code": 404, "corps": {}}
+		Compte.pilote(str(e.compte))
 	print("pilote : %s, %d crédits" % [str(e.get("nom", "")), Game.credits])
 	get_tree().change_scene_to_file("res://scenes/main.tscn")
 	while get_parent().joueur() == null:

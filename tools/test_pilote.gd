@@ -98,6 +98,8 @@ func _init() -> void:
 	if r.vue.assis:
 		r = await P.geste({"geste": "cliquer", "quoi": "quitter"})
 	check(not r.vue.assis, "il se relève")
+	r = await P.geste({"geste": "dire", "texte": "Bonne soirée à tous !"})
+	check(r.ok and root.get_node("Presences").etat_libre.get("dit") == "Bonne soirée à tous !", "dire : la phrase part en bulle avec sa position")
 	r = await P.geste({"geste": "cliquer", "quoi": "z1"})
 	check(not r.ok, "on ne clique pas une zone de loin")
 	print("%d échec(s)" % fails)
