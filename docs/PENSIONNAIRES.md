@@ -187,6 +187,10 @@ promotion, les quatre pièces sont des cases (« c:promotion-dame »…).
 
 La marche cherche son chemin sur une grille où le corps tient debout (une recherche A* faite de tests
 physiques, sans plan propre au lieu), puis, devant la zone, tourne le regard jusqu'à voir son invite.
+Les tests ne voient que ce que le corps heurte (son masque de collision : pas les houppiers que seule
+la caméra évite). Un long trajet se fait en plusieurs gestes : faute de chemin entier en six secondes de
+recherche, il marche jusqu'au plus près, et le geste dit « en route, encore N m » ; un nouveau « aller »
+vers la même zone continue.
 
 ## 5. Son histoire, sa mémoire, ses relations
 

@@ -38,7 +38,7 @@ const BOUTONS_MAX := 40
 const TEXTES_MAX := 30
 const TEXTE_LONG := 240
 ## Marcher vers une zone : le plus long qu'on y consacre, et le temps sans avancer avant de contourner.
-const MARCHE_MAX := 45.0
+const MARCHE_MAX := 30.0
 const BUTE := 0.6
 const ATTENTE_MAX := 30.0
 ## Après un geste, le temps que l'écran se pose (une porte qui charge sa scène, un panneau qui s'ouvre).
@@ -47,7 +47,11 @@ const POSE := 1.2
 const ETAGE := 2.5
 ## La grille du chemin : tant de cases de côté au plus, tant de cases visitées au plus.
 const GRILLE_MAX := 320
-const VISITES_MAX := 80000
+const VISITES_MAX := 120000
+## La recherche du chemin : son temps au plus, et le poids de l'estimation (au-dessus de 1, elle file
+## droit vers le but au prix d'un chemin un peu moins court, et visite bien moins de cases).
+const CHERCHE_MAX := 6.0
+const POIDS := 2.5
 
 ## Vrai quand le pilote tient le jeu (réseau compris) ; les essais l'allument à la main.
 var actif := false
@@ -415,13 +419,18 @@ func _aller(vers: String) -> Dictionary:
 		return {"ok": true, "dit": "déjà devant"}
 	var t0 := Time.get_ticks_msec() / 1000.0
 	var sc := scene()
+	var loin := zone.global_position.distance_to(j.global_position)
 	# Un chemin entre les obstacles, sur une grille où le corps tient debout, jusqu'à portée de la zone.
 	var chemin := _chemin(j, zone)
+	# Le temps de chercher ne se compte pas dans celui de marcher.
+	t0 = Time.get_ticks_msec() / 1000.0
 	var essais := 0
 	while true:
 		var fin := await _suivre(j, zone, chemin, t0, sc)
 		if fin != "":
 			_arreter(j)
+			if fin == "pas trouvé de chemin jusque-là" and _en_route(j, zone, loin) != "":
+				return {"ok": false, "dit": _en_route(j, zone, loin)}
 			return {"ok": fin == "arrivé" or fin == "le lieu a changé en chemin", "dit": fin}
 		# Au bout du chemin sans voir l'invite : on regarde autour, comme à la souris.
 		if await _chercher_du_regard(j, zone):
@@ -429,9 +438,25 @@ func _aller(vers: String) -> Dictionary:
 		essais += 1
 		if essais >= 3 or Time.get_ticks_msec() / 1000.0 - t0 > MARCHE_MAX:
 			_arreter(j)
+			if _en_route(j, zone, loin) != "":
+				return {"ok": false, "dit": _en_route(j, zone, loin)}
 			return {"ok": false, "dit": "pas trouvé de chemin jusque-là : quelque chose barre le passage (une porte fermée, un cordon ?)"}
+		var t1 := Time.get_ticks_msec() / 1000.0
 		chemin = _chemin(j, zone, essais)
+		t0 += Time.get_ticks_msec() / 1000.0 - t1
 	return {}
+
+
+## Un long trajet se fait en plusieurs gestes, comme un joueur qui marche longtemps : s'il a bien
+## avancé, il le dit et l'on continue d'un nouveau « aller » vers la même zone.
+func _en_route(j: CharacterBody3D, zone: Area3D, loin: float) -> String:
+	if not is_instance_valid(zone):
+		return ""
+	var reste := zone.global_position.distance_to(j.global_position)
+	if reste > loin - 5.0:
+		return ""
+	return "en route, encore une cinquantaine de mètres au plus : refais « aller » vers la même zone pour continuer" if reste < 50.0 \
+		else "en route, encore environ %d m : refais « aller » vers la même zone pour continuer" % int(snappedf(reste, 10.0))
 
 
 ## Suit le chemin : « » au bout, sinon ce qui l'arrête (arrivé, le lieu a changé, trop long).
@@ -495,7 +520,7 @@ func _chemin(j: CharacterBody3D, zone: Area3D, ecart := 0) -> Array:
 	var but := _centre_zone(zone)
 	# Une zone d'un autre étage : l'escalier peut être loin, on cherche plus large.
 	var etage := absf(but.y - depart.y) > ETAGE
-	var marge := (30.0 if etage else 6.0) + 4.0 * ecart
+	var marge := (60.0 + 15.0 * ecart if etage else 6.0 + 4.0 * ecart)
 	var pas: float = maxf(j.radius * 1.2, 0.12)
 	var lo := Vector2(minf(depart.x, but.x) - marge, minf(depart.z, but.z) - marge)
 	var hi := Vector2(maxf(depart.x, but.x) + marge, maxf(depart.z, but.z) + marge)
@@ -510,9 +535,12 @@ func _chemin(j: CharacterBody3D, zone: Area3D, ecart := 0) -> Array:
 	q.shape = cap
 	q.collide_with_areas = false
 	q.exclude = [j.get_rid()]
+	# Seulement ce que le corps heurte : pas les volumes que seule la caméra évite (les houppiers).
+	q.collision_mask = j.collision_mask
 	var r := PhysicsRayQueryParameters3D.new()
 	r.collide_with_areas = false
 	r.exclude = [j.get_rid()]
+	r.collision_mask = j.collision_mask
 	var marche: float = j.step_height
 	var centre := func(x: int, z: int) -> Vector2:
 		return Vector2(lo.x + (x + 0.5) * pas, lo.y + (z + 0.5) * pas)
@@ -551,15 +579,26 @@ func _chemin(j: CharacterBody3D, zone: Area3D, ecart := 0) -> Array:
 	var cout := {s: 0.0}
 	var venu := {}
 	var fin := Vector3i(-1, -1, 0)
+	# La case la plus proche du but déjà atteinte : faute de chemin entier, on y va, et l'on cherche de
+	# nouveau de là (un long trajet se fait en plusieurs morceaux).
+	var proche := s
+	var h_proche: float = h0.call(s.x, s.y, depart.y)
 	var visites := 0
+	var limite := Time.get_ticks_msec() + int(CHERCHE_MAX * 1000.0)
 	while not tas.vide() and visites < VISITES_MAX:
 		var c: Vector3i = tas.prendre()
 		visites += 1
+		if visites % 512 == 0 and Time.get_ticks_msec() > limite:
+			break
 		var y: float = hauteur[c]
 		var w: Vector2 = centre.call(c.x, c.y)
 		if c != s and (Vector2(but.x, but.z) - w).length() <= portee and but.y - y > -1.0 and but.y - y < ETAGE:
 			fin = c
 			break
+		var hc: float = h0.call(c.x, c.y, y)
+		if hc < h_proche:
+			h_proche = hc
+			proche = c
 		for d in voisins:
 			var x: int = c.x + d.x
 			var z: int = c.y + d.y
@@ -579,9 +618,11 @@ func _chemin(j: CharacterBody3D, zone: Area3D, ecart := 0) -> Array:
 				cout[n] = g
 				venu[n] = c
 				hauteur[n] = yn
-				tas.mettre(g + h0.call(x, z, yn), n)
+				tas.mettre(g + POIDS * h0.call(x, z, yn), n)
 	if fin.x < 0:
-		return [but]
+		if proche == s:
+			return [but]
+		fin = proche
 	var pts := []
 	var c := fin
 	while venu.has(c):
