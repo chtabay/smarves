@@ -100,6 +100,15 @@ func _init() -> void:
 	check(not r.vue.assis, "il se relève")
 	r = await P.geste({"geste": "dire", "texte": "Bonne soirée à tous !"})
 	check(r.ok and root.get_node("Presences").etat_libre.get("dit") == "Bonne soirée à tous !", "dire : la phrase part en bulle avec sa position")
+	var pres: Node = root.get_node("Presences")
+	pres.presents["essai-voisin"] = {"nom": "Paulette", "tenue": "", "noeud": null, "points": [], "vu": -1000.0,
+		"a_portee": true, "part": -1.0, "etat": {}}
+	P._on_etat_change("essai-voisin", {"dit": "Bonjour Frick !", "k": 1})
+	r = await P.geste({"geste": "regarder"})
+	check(r.get("entendu", []).size() == 1 and r.entendu[0].nom == "Paulette", "il entend ce qu'on a dit près de lui depuis son dernier geste")
+	r = await P.geste({"geste": "regarder"})
+	check(not r.has("entendu"), "et ne l'entend qu'une fois")
+	pres.presents.erase("essai-voisin")
 	r = await P.geste({"geste": "cliquer", "quoi": "z1"})
 	check(not r.ok, "on ne clique pas une zone de loin")
 	print("%d échec(s)" % fails)
