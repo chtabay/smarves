@@ -44,6 +44,8 @@ const TRAITS := {
 	"plan": "<rect x='3' y='3' width='18' height='18' rx='2'/><path d='M3 9 h6 v12'/><path d='M9 13 h12'/><path d='M15 3 v10'/>",
 	# Le classement : des marches de podium.
 	"classement": "<rect x='9' y='4' width='6' height='17'/><rect x='2' y='10' width='7' height='11'/><rect x='15' y='14' width='7' height='7'/>",
+	# Fermer : une croix.
+	"fermer": "<line x1='6' y1='6' x2='18' y2='18'/><line x1='18' y1='6' x2='6' y2='18'/>",
 	# Habiter, un logement.
 	"maison": "<path d='M3 10 L12 3 L21 10 V20 a1 1 0 0 1 -1 1 H4 a1 1 0 0 1 -1 -1z'/><polyline points='9 21 9 13 15 13 15 21'/>",
 }

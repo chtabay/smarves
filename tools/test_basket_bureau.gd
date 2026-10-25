@@ -250,7 +250,7 @@ func _init() -> void:
 	root.add_child(bureau)
 	await process_frame
 	tout = textes(bureau)
-	check(tout.contains("LE BUREAU DU PRÉSIDENT") and tout.contains("Consigne pour la journée") and tout.contains("par journée"), "le bureau : l'équipe et la consigne")
+	check(tout.contains("LE BUREAU DU PRÉSIDENT") and tout.contains("Consigne pour la journée") and tout.contains("/ j."), "le bureau : l'équipe et la consigne")
 	var bb := load("res://scripts/socle/basket_bureau.gd")
 	check(bb.nom_lisible("HORTON TUCKER, TALEN") == "Talen Horton Tucker" and bb.poste_fr("Guard") == "arrière", "les noms en clair, le poste en français")
 	check(bb.match_lisible({"date": "2026-03-20", "pts": 23, "reb": 1, "pd": 2, "pir": 19, "adv": "MIL"}) == "20/03 · 23 pts, 1 rbd, 2 pd · éval. 19 · contre MIL", "le dernier match en clair")
@@ -258,7 +258,7 @@ func _init() -> void:
 	(trouver(bureau, "Onglet_marche") as Button).pressed.emit()
 	await process_frame
 	tout = textes(bureau)
-	check(tout.contains("Les joueurs libres du groupe") and trouver(bureau, "Encherir_" + str(basket.joueurs_libres("smarves")[1].code)) != null, "le marché : les joueurs libres et la case de mise")
+	check(tout.contains("LES JOUEURS LIBRES DU GROUPE") and trouver(bureau, "Encherir_" + str(basket.joueurs_libres("smarves")[1].code)) != null, "le marché : les joueurs libres et la case de mise")
 	(trouver(bureau, "Onglet_comptes") as Button).pressed.emit()
 	await process_frame
 	check(textes(bureau).contains("Masse salariale"), "les comptes")

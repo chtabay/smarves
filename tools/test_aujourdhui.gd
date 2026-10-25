@@ -59,7 +59,7 @@ func _lancer() -> void:
 	carnet.ouvrir_sur("aujourdhui")
 	await process_frame
 	check(carnet.onglets()[0][0] == "boite" and carnet.get("_onglet") == "boite", "la boîte est la première rubrique, et « aujourdhui » y mène")
-	check(_textes(carnet.get("_left")).contains("RIEN NE PRESSE.") and _textes(carnet.get("_right")).contains("Vous ne suivez aucun club"), "la page dit qu'il n'y a rien et qu'on ne suit aucun club")
+	check(_textes(carnet.get("_left")).contains("✓ RIEN NE PRESSE") and _textes(carnet.get("_right")).contains("Aucun club suivi"), "la page dit qu'il n'y a rien et qu'on ne suit aucun club")
 	carnet.toggle()
 
 	# ---- on dirige l'Étoile : la décision de la semaine et la composition attendent
@@ -84,10 +84,10 @@ func _lancer() -> void:
 	var droite: Node = carnet.get("_right")
 	var d := _textes(droite)
 	var carte: Dictionary = AUJ.carte(foot, club)
-	check(droite.find_child("Club_" + club, true, false) != null and d.contains(str(carte.nom) + "  ·  vous dirigez"), "la carte de l'Étoile, qu'on dirige")
-	check(d.contains("%s sur %d, %d pt" % [AUJ.rang(int(carte.rang)), int(carte.taille), int(carte.pts)]) and d.contains(" en 3 matchs"), "son rang et ses points après trois journées")
+	check(droite.find_child("Club_" + club, true, false) != null and d.contains(str(carte.nom)) and d.contains("✓ vous dirigez"), "la carte de l'Étoile, qu'on dirige")
+	check(d.contains("%s / %d  ·  %d pt" % [AUJ.rang(int(carte.rang)), int(carte.taille), int(carte.pts)]), "son rang et ses points après trois journées")
 	check(droite.find_children("Forme_*", "", true, false).size() == 3 and str(carte.forme).length() == 3, "sa forme : trois pastilles (%s)" % carte.forme)
-	check(d.contains("Journée 4, ") and d.contains("Objectif : ") and d.contains("confiance "), "son prochain match, son objectif et la confiance")
+	check(d.contains("J4 · ") and d.contains("Objectif : ") and droite.find_child("Jauge_Confiance", true, false) != null, "son prochain match, son objectif et la jauge de confiance")
 	check(d.contains("PROCHAINS RENDEZ-VOUS"), "en bas, les prochains rendez-vous")
 
 	# ---- trancher ici : la décision quitte la liste
