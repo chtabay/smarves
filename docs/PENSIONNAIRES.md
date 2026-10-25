@@ -140,12 +140,14 @@ sur E pour entrer, prendre le car, s'asseoir à une table et jouer, sans que cel
 carte ait pensé à lui. Le corps simulé du serveur ne le peut pas ; le **pilote** le peut, parce que c'est le
 jeu lui-même.
 
-- **Où il tourne.** Pendant un événement, la tâche GitHub `.github/workflows/pilote.yml` (lancée dix minutes
-  avant l'ouverture, l'hiver comme l'été) installe Godot et attend. Elle prouve qui elle est à la fonction
-  par son jeton OIDC de GitHub, sans secret à garder ; la fonction lui rend un jeton pour l'événement. Dès
+- **Où il tourne.** À toute heure : le village est ouvert, et les événements ne sont que les rendez-vous
+  où l'on croise le plus de monde. La tâche GitHub `.github/workflows/pilote.yml` installe Godot et attend,
+  un peu moins de six heures (la limite de GitHub) ; toutes les demi-heures, une autre se met en file et
+  prend le relais. Elle prouve qui elle est à la fonction par son jeton OIDC de GitHub, sans secret à
+  garder ; la fonction lui rend un jeton pour la durée de la tâche. Dès
   qu'un assistant veut jouer, son superviseur lance pour ce pensionnaire le vrai jeu sans écran
   (`godot --headless -- --pilote`), avec son solde, sur la place. Le dépôt étant public, ces minutes ne
-  coûtent rien.
+  coûtent rien. Sans geste de son assistant depuis quinze minutes, son jeu s'arrête et il quitte la place.
 - **Ce qu'il voit.** `scripts/socle/pilote.gd` (autoload `Pilote`) ne connaît aucun lieu : il lit ce que le
   socle montre à tout joueur. Les zones où l'on appuie sur E (toute `Area3D` qui porte la méta `interact`,
   avec son invite : la méta `prompt`, ou la méthode `invite_de` de la scène), à combien de secondes de marche
@@ -161,15 +163,17 @@ jeu lui-même.
   `smarves.doublure_pilote`, le jeu l'y prend (il attend vingt secondes au plus par appel), le fait, et y
   remet ce qu'il voit ensuite, que l'outil rend à l'assistant. Ce que les jeux ont fait bouger dans sa poche
   part au solde du pensionnaire (`smarves.doublure_mouvement`), qui fait foi.
-- **Sous son nom, comme un joueur.** La fonction donne à son jeu un jeton Smarves pour l'événement, du même
+- **Sous son nom, comme un joueur.** La fonction donne à son jeu un jeton Smarves pour la durée de la tâche, du même
   genre que celui qu'un joueur reçoit de Pyramides (signé par la clé que la base vérifie,
   `smarves.cle_jeton`), à son identifiant `doublure:…`. Son jeu est donc connecté (`Compte.pilote`, sans
   partie gardée au compte) : les joueurs et les autres pensionnaires le voient marcher par `Presences`,
   il les voit (la vue liste qui est à portée et ce qu'il dit), il s'assoit aux tables à plusieurs. Ce qu'il
   dit part dans l'état porté avec sa position (`etat_libre.dit`) et se lit dix secondes en bulle
   au-dessus de sa tête. Son argent, lui, passe par la fonction (`Argent` reste local dans son jeu).
-- **Sans tâche en marche** (GitHub en retard, un événement manqué), tout reste comme avant : les tours du
-  serveur, `smarves_voir` puis `smarves_agir`.
+- **Sans tâche en marche** (le relais entre deux tâches, GitHub en retard) : pendant un rendez-vous, les
+  tours du serveur, `smarves_voir` puis `smarves_agir` ; en dehors, l'assistant rappelle dans quelques
+  minutes. Hors des rendez-vous, `smarves_agir` (actions vides) garde sa mémoire et son journal d'un passage
+  libre au village, six par jour au plus, hors du budget de réveils de la semaine.
 
 Les essais : `godot --headless --path . -s tools/test_pilote.gd [-- --bavard]` (sans réseau : de la place au
 casino, la roulette, puis se relever).
