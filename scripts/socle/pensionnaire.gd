@@ -385,9 +385,10 @@ func _carnet_et_journal(carnet: Node, page: VBoxContainer, d: Dictionary) -> voi
 	carnet._gap(page, 10)
 	carnet._text(page, "Son carnet", 20, carnet.INK, true)
 	carnet._text(page, str(d.memoire) if str(d.memoire) != "" else "Vide : il ne s'est pas encore réveillé.", 15, carnet.INK_LIGHT)
+	var journal: Array = fiche.get("journal", [])
+	_journal_intime(carnet, page, journal)
 	carnet._gap(page, 10)
 	carnet._text(page, "Son journal", 20, carnet.INK, true)
-	var journal: Array = fiche.get("journal", [])
 	if journal.is_empty():
 		carnet._text(page, "Aucun réveil pour l'instant.", 15, carnet.INK_LIGHT)
 	for r in journal.slice(0, 10):
@@ -410,6 +411,34 @@ func _carnet_et_journal(carnet: Node, page: VBoxContainer, d: Dictionary) -> voi
 			carnet._text(page, "   refusé (%s) : %s" % [str(x.type), NOMS_RAISONS.get(str(x.raison), str(x.raison))], 14, carnet.PENCIL)
 
 
+## Son journal intime : ce qu'il écrit pour lui-même à chaque tour, au moment d'agir. Vous seul le lisez ;
+## lui ne le relit pas. Les tours d'un même événement se suivent, du plus récent au plus ancien.
+func _journal_intime(carnet: Node, page: VBoxContainer, journal: Array) -> void:
+	carnet._gap(page, 10)
+	carnet._text(page, "Son journal intime", 20, carnet.INK, true)
+	var pages := entrees_intimes(journal, _decalage())
+	if pages.is_empty():
+		carnet._text(page, "Rien d'écrit pour l'instant : il y note quelques lignes à chaque tour.", 15, carnet.INK_LIGHT)
+		return
+	carnet._text(page, "Ce qu'il écrit pour lui seul, au moment d'agir. Personne au village ne le lit.", 14, carnet.PENCIL)
+	for e in pages.slice(0, 8):
+		carnet._text(page, e.tete, 14, carnet.PENCIL)
+		carnet._text(page, "« %s »" % e.texte, 15, carnet.INK_LIGHT)
+
+
+## Les pages du journal intime, tirées des réveils de la fiche : [{tete, texte}], sans les réveils muets.
+static func entrees_intimes(journal: Array, decalage: int) -> Array:
+	var out := []
+	for r in journal:
+		var texte := str(r.get("intime", "")) if r.get("intime") != null else ""
+		if r.get("statut") != "fait" or texte.strip_edges() == "":
+			continue
+		var quand := Time.get_datetime_dict_from_unix_time(int(r.quand) + decalage)
+		var pourquoi: String = EVENEMENTS.get(str(r.motif).get_slice(":", 1), "passage au village")
+		out.append({"tete": "%02d/%02d %02dh%02d · %s" % [quand.day, quand.month, quand.hour, quand.minute, pourquoi], "texte": texte.strip_edges()})
+	return out
+
+
 func _geste(a: Dictionary) -> String:
 	match str(a.type):
 		"roulette":
@@ -420,6 +449,12 @@ func _geste(a: Dictionary) -> String:
 			return "Une annonce : « %s »" % str(a.texte)
 		"mot":
 			return "Un mot à la porte (%s) : « %s »" % [str(a.lot), str(a.texte)]
+		"aller":
+			return "%s %s (%d m)." % ["Marche jusqu'à" if a.get("arrive", false) else "Marche vers", str(a.get("nom", "")), int(a.get("metres", 0))]
+		"dire":
+			return "Il dit : « %s »" % str(a.texte)
+		"attendre":
+			return "Attend %d min." % int(a.get("minutes", 0))
 	return str(a.type)
 
 
@@ -539,12 +574,17 @@ func _mise_en_scene() -> void:
 			"memoire": "Mardi, le rouge m'a souri deux fois. Paulette cherche un tuyau sur la roulette : je lui ai laissé un mot. Penser au match de dimanche."}
 		fiche.trente_jours = {"entree": 14200, "sortie": 2100, "reveils": 6}
 		fiche.journal = [
+			{"quand": maintenant - 4 * 3600, "motif": "evenement:loto:2026-10-24", "statut": "fait", "jetons_entree": 0, "jetons_sortie": 0,
+				"actions": [{"type": "aller", "nom": "le Café de la Place", "arrive": true, "metres": 40},
+					{"type": "dire", "texte": "Un café, et la marée remontera."}, {"type": "attendre", "minutes": 5}],
+				"refusees": [], "intime": "Paulette n'est pas venue. J'ai fait semblant de lire le journal au café pour ne pas avoir l'air d'attendre. Le noir n'a rien voulu me dire ce soir ; je garde mes crédits pour dimanche."},
 			{"quand": maintenant - 5 * 3600, "motif": "evenement:loto:2026-10-24", "statut": "fait", "jetons_entree": 2300, "jetons_sortie": 380,
 				"actions": [{"type": "roulette", "pari": "rouge", "mise": 100, "numero": 14, "net": 100},
 					{"type": "roulette", "pari": "plein:17", "mise": 20, "numero": 3, "net": -20},
 					{"type": "annonce", "texte": "Le rouge me réussit, qui vient au loto samedi ?"},
 					{"type": "mot", "lot": "maison_place", "texte": "Pour le tuyau, Paulette : il n'y en a pas, mais je vous offre un café."}],
-				"refusees": [{"type": "roulette", "raison": "mise"}]},
+				"refusees": [{"type": "roulette", "raison": "mise"}],
+				"intime": "J'ai trahi le noir pour le rouge, juste une fois. Il m'a souri. Je n'ose pas me dire que mon bateau était peut-être de la mauvaise couleur."},
 			{"quand": maintenant - 50 * 3600, "motif": "evenement:match:2026-10-25", "statut": "erreur", "jetons_entree": 0, "jetons_sortie": 0,
 				"actions": [], "refusees": [], "erreur": "429 trop de demandes ou crédit épuisé"},
 		]
