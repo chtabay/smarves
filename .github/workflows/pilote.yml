@@ -1,19 +1,15 @@
 name: Pilote des pensionnaires
 
-# Pendant les événements du village, le vrai jeu sans écran pour chaque pensionnaire dont l'assistant
-# veut jouer (docs/PENSIONNAIRES.md, « Le pilote »). La tâche prouve qui elle est à la fonction doublures
-# par son jeton OIDC de GitHub, sans secret ; la fonction dit si un événement est ouvert, et quels
-# pensionnaires lancer.
+# À toute heure, le vrai jeu sans écran pour chaque pensionnaire dont l'assistant veut jouer
+# (docs/PENSIONNAIRES.md, « Le pilote »). La tâche prouve qui elle est à la fonction doublures par son
+# jeton OIDC de GitHub, sans secret ; la fonction lui dit quels pensionnaires lancer.
 #
-# Les événements, à l'heure de Paris : mercredi 18-20 h, vendredi 11-13 h, samedi 18-20 h, dimanche
-# 10-14 h. Les heures ci-dessous sont en UTC, dix minutes avant l'ouverture, l'hiver et l'été : celle qui
-# tombe hors de l'événement s'arrête tout de suite.
+# Une tâche dure un peu moins de six heures (la limite de GitHub). Toutes les demi-heures, une autre se
+# met en file (le groupe « pilote » n'en garde qu'une en attente) : elle prend le relais dès que la
+# précédente s'arrête. Le dépôt est public : les minutes ne sont pas comptées.
 on:
   schedule:
-    - cron: "50 15,16 * * 3"
-    - cron: "50 8,9 * * 5"
-    - cron: "50 15,16 * * 6"
-    - cron: "50 7,8 * * 0"
+    - cron: "*/30 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -31,28 +27,21 @@ env:
 jobs:
   pilote:
     runs-on: ubuntu-latest
-    timeout-minutes: 300
+    timeout-minutes: 350
     steps:
       - uses: actions/checkout@v5
 
-      - name: Attendre l'ouverture de l'événement
+      - name: Ouvrir la tâche
         id: ouvrir
         run: |
-          # Jusqu'à vingt minutes d'avance : on redemande chaque minute.
-          for i in $(seq 1 25); do
-            oidc=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=smarves-pilote" | jq -r .value)
-            r=$(curl -sS -X POST "$SMARVES_PILOTE_URL" -H "authorization: Bearer $oidc" -H 'content-type: application/json' -d '{"action":"pilote_ouvrir"}')
-            if [ "$(echo "$r" | jq -r .ok)" = "true" ]; then
-              echo "::add-mask::$(echo "$r" | jq -r .jeton)"
-              echo "jeton=$(echo "$r" | jq -r .jeton)" >> "$GITHUB_OUTPUT"
-              echo "Événement ouvert : $(echo "$r" | jq -r .evenement)"
-              exit 0
-            fi
-            echo "Pas encore : $(echo "$r" | jq -c '{raison}')"
-            [ "$(echo "$r" | jq -r .raison)" = "ferme" ] || exit 1
-            [ "$i" -lt 25 ] && sleep 60
-          done
-          echo "Pas d'événement dans les vingt minutes : rien à faire."
+          oidc=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=smarves-pilote" | jq -r .value)
+          r=$(curl -sS -X POST "$SMARVES_PILOTE_URL" -H "authorization: Bearer $oidc" -H 'content-type: application/json' -d '{"action":"pilote_ouvrir"}')
+          if [ "$(echo "$r" | jq -r .ok)" != "true" ]; then
+            echo "Refusé : $(echo "$r" | jq -c '{raison}')"
+            exit 1
+          fi
+          echo "::add-mask::$(echo "$r" | jq -r .jeton)"
+          echo "jeton=$(echo "$r" | jq -r .jeton)" >> "$GITHUB_OUTPUT"
 
       - name: Récupérer Godot
         if: steps.ouvrir.outputs.jeton != ''
@@ -66,7 +55,7 @@ jobs:
         if: steps.ouvrir.outputs.jeton != ''
         run: ./godot --headless --path . --import || true
 
-      - name: Tenir les pensionnaires jusqu'à la fin de l'événement
+      - name: Tenir les pensionnaires jusqu'à la fin du jeton
         if: steps.ouvrir.outputs.jeton != ''
         env:
           SMARVES_PILOTE_JETON: ${{ steps.ouvrir.outputs.jeton }}
