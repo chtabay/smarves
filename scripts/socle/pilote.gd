@@ -8,13 +8,15 @@ extends Node
 ##   combien de secondes de marche et de quel côté ;
 ## - l'invite affichée quand on est devant l'une d'elles ;
 ## - les boutons à l'écran (le texte, sinon la bulle d'aide), les cases d'un tapis de table 3D
-##   (scripts/jeux/table_3d.gd), et les textes affichés.
+##   (scripts/jeux/table_3d.gd), et les textes affichés ;
+## - les cases d'un plateau dessiné à l'écran (un échiquier) : tout contrôle qui les donne par
+##   pilote_cases() -> {nom: Rect2 dans son repère}, avec ce qu'il montre par pilote_texte() -> String.
 ##
 ## Ce qu'il fait (geste) :
 ## - aller : marcher jusqu'à être devant une zone, comme on le ferait aux flèches ;
 ## - marcher : avancer quelques secondes dans une direction ;
 ## - touche : une touche du clavier (E, Espace, Échap, Entrée, Tab, M, V, 1 à 9) ;
-## - cliquer : un bouton ou une case du tapis, par un clic de souris à sa place à l'écran ;
+## - cliquer : un bouton, une case du tapis ou du plateau, par un clic de souris à sa place à l'écran ;
 ## - attendre : laisser passer quelques secondes (une bille qui roule, une donne) ;
 ## - dire : une phrase en bulle (la partie réseau la porte au village).
 ##
@@ -116,7 +118,13 @@ func vue() -> Dictionary:
 	var cases := _cases()
 	if not cases.is_empty():
 		v["cases"] = cases
-	v["textes"] = _textes(v.get("devant", ""))
+	var textes := _textes(v.get("devant", ""))
+	for c in _plateaux():
+		if c.has_method("pilote_texte"):
+			var t := str(c.pilote_texte()).strip_edges()
+			if t != "":
+				textes.push_front(t)
+	v["textes"] = textes
 	return v
 
 
@@ -264,14 +272,29 @@ func _texte_du_bouton(b: BaseButton) -> String:
 func _cases() -> Array:
 	var out := []
 	var s := scene()
-	if s == null:
-		return out
-	for t in s.find_children("*", "Node3D", true, false):
-		if "cells" in t and "active" in t and t.active and t.has_signal("cell_clicked") and t.get("cam") != null:
-			for k in t.cells:
-				var id := "c:%s" % k
-				_reperes[id] = [t, k]
-				out.append(k)
+	if s != null:
+		for t in s.find_children("*", "Node3D", true, false):
+			if "cells" in t and "active" in t and t.active and t.has_signal("cell_clicked") and t.get("cam") != null:
+				for k in t.cells:
+					var id := "c:%s" % k
+					_reperes[id] = [t, k]
+					out.append(k)
+	for c in _plateaux():
+		var rects: Dictionary = c.pilote_cases()
+		for k in rects:
+			var id := "c:%s" % k
+			_reperes[id] = [c, str(k), rects[k]]
+			out.append(str(k))
+	return out
+
+
+## Les plateaux dessinés à l'écran (un échiquier) : les contrôles visibles qui donnent leurs cases.
+func _plateaux() -> Array:
+	var out := []
+	for r in _racines():
+		for n in r.find_children("*", "Control", true, false):
+			if n.has_method("pilote_cases") and (n as Control).is_visible_in_tree():
+				out.append(n)
 	return out
 
 
@@ -365,6 +388,9 @@ func _repere(quoi: String) -> Variant:
 	var cherche := quoi.to_lower().strip_edges()
 	if cherche == "":
 		return null
+	# Une case nommée sans son « c: » (« e2 »).
+	if _reperes.has("c:" + quoi.strip_edges()):
+		return _repere("c:" + quoi.strip_edges())
 	for z in _toutes_les_zones():
 		if _invite_de(z).to_lower().contains(cherche):
 			return z
@@ -693,6 +719,20 @@ func _cliquer(quoi: String) -> Dictionary:
 	var r = _repere(quoi)
 	if r == null:
 		return {"ok": false, "dit": "rien de tel à l'écran : %s" % quoi}
+	if r is Array and r[0] is Control:
+		# La case d'un plateau à l'écran : un clic de souris en son milieu, appuyé puis relâché.
+		var c: Control = r[0]
+		var at: Vector2 = (r[2] as Rect2).get_center()
+		for appui in [true, false]:
+			var e := InputEventMouseButton.new()
+			e.button_index = MOUSE_BUTTON_LEFT
+			e.position = at
+			e.global_position = c.get_global_transform() * at
+			e.pressed = appui
+			c._gui_input(e)
+			await get_tree().process_frame
+		await _attendre(POSE)
+		return {"ok": true, "dit": ""}
 	if r is Array:
 		var table: Node3D = r[0]
 		var cle: String = r[1]
