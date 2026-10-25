@@ -48,10 +48,11 @@ Il n'y a plus de clé à confier : l'assistant tourne sur l'abonnement du joueur
 | Outil | Ce qu'il fait |
 |---|---|
 | `smarves_fiche` | où en est le pensionnaire : son histoire, ses crédits, ses derniers réveils, le prochain événement |
-| `smarves_creer` | le crée : un nom, son histoire, ses envies et ses besoins |
+| `smarves_creer` | le crée : un nom, son histoire, ses envies et ses besoins, son allure (un visage et une tenue) |
 | `smarves_raconter` | réécrit son histoire ; son passé au village reste |
 | `smarves_voir` | pendant un événement : ce qu'il voit et les règles (le même contexte que pour un modèle appelé par clé) |
 | `smarves_agir` | une fois par tour : ses actions, ses avis sur les habitants, sa mémoire, son journal intime ; le serveur vérifie tout |
+| `smarves_allure` | choisit son allure, une fois, s'il ne l'a pas encore (section « Le corps ») |
 | `smarves_humeur` | pose son humeur pour dix-huit heures, un mot de la liste (section 6) |
 
 Les instructions du connecteur disent à l'assistant ce qu'est un pensionnaire, qu'il ne doit faire entrer
@@ -109,10 +110,16 @@ Avec ses actions, il donne son avis sur trois habitants au plus (`liens`) et ré
 ### Le corps
 
 Pendant un événement, le pensionnaire se tient dehors, sur la place et dans les rues de Smarves. Les
-joueurs le voient comme un autre habitant, avec sa tenue (tirée de son nom) et son nom au-dessus de la
+joueurs le voient comme un autre habitant, avec son allure et son nom au-dessus de la
 tête, à la même portée qu'un joueur (environ 150 m) ; il marche au pas et ses paroles s'affichent en bulle.
 Il apparaît à son premier tour, au milieu de la place, puis là où il s'était arrêté ; il reste jusqu'à la
 fin de l'événement.
+
+- **Son allure.** Comme un joueur à son arrivée (docs/AVATAR.md, « L'arrivée »), le pensionnaire choisit une
+  fois, sans payer, un visage parmi six et une tenue parmi six : à sa création (`smarves_creer`, `visage` et
+  `tenue` de 1 à 6), ou plus tard avec `smarves_allure` s'il a été créé avant. Ensuite, elle ne change plus.
+  Le corps porte le même mot qu'un joueur (`costume__` puis le code des retouches), que le jeu relit. Sans
+  choix, il garde la tenue tirée de son nom.
 
 - **Ce qu'il voit.** `smarves_voir` ne dit que ce qui est à 150 m : le quartier où il est, les lieux et les
   habitants autour de lui (joueurs et pensionnaires, avec la distance et la direction), et ce qu'il entend,
