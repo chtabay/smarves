@@ -103,6 +103,21 @@ const VISAGES := [
 ## Les traits qu'un visage fixe.
 const TRAITS := ["sexe", "peau", "nez"]
 
+## L'arrivée (demande de Guillaume du 25 octobre 2026) : la première fois, avant d'entrer sur la place, le
+## joueur choisit gratuitement un visage parmi six de l'album (indices de VISAGES) et une tenue parmi six
+## (des retouches de la tenue d'origine, qui tombent comme les autres au premier achat chez Raymonde). Le
+## reste se fait ensuite en ville, et se paie (scripts/socle/arrivee_panel.gd).
+const VISAGES_ARRIVEE := [0, 3, 7, 9, 10, 13]
+## [nom, réglages des vêtements].
+const TENUES_ARRIVEE := [
+	["Le costume du dimanche", {}],
+	["Le bleu de travail", {"haut": 3, "couleur_haut": 1, "bas": 0, "couleur_bas": 9, "chapeau": 2}],
+	["La marinière", {"haut": 4, "couleur_haut": 0, "bas": 0, "couleur_bas": 4, "chapeau": 1}],
+	["Le pull tabac", {"haut": 2, "couleur_haut": 10, "bas": 0, "couleur_bas": 9, "cou": 3}],
+	["La robe bordeaux", {"haut": 6, "couleur_haut": 5, "couleur_bas": 5, "cou": 4}],
+	["Le tailleur prince-de-galles", {"haut": 0, "couleur_haut": 13, "bas": 1, "couleur_bas": 13, "chapeau": 6}],
+]
+
 ## Les champs de vêtements, qu'un changement de tenue remet comme la tenue (les accessoires restent).
 const VETEMENTS := ["haut", "couleur_haut", "bas", "couleur_bas"]
 
@@ -338,6 +353,12 @@ static func avec_visage(reglages: Dictionary, i: int) -> Dictionary:
 		r.pilosite = 0
 	r.coupe = coupe_pour(valeur(r, "coupe"), femme)
 	return nettoyer(r)
+
+
+## L'allure d'arrivée : le v-ième visage et la t-ième tenue de VISAGES_ARRIVEE et TENUES_ARRIVEE.
+static func arrivee(v: int, t: int) -> Dictionary:
+	var r: Dictionary = (TENUES_ARRIVEE[clampi(t, 0, TENUES_ARRIVEE.size() - 1)][1] as Dictionary).duplicate()
+	return avec_visage(r, VISAGES_ARRIVEE[clampi(v, 0, VISAGES_ARRIVEE.size() - 1)])
 
 
 # --- Les prix --------------------------------------------------------------------------------------
