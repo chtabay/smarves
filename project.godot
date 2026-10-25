@@ -43,6 +43,7 @@ Tactile="*res://scripts/tactile/tactile.gd"
 Vue="*res://scripts/socle/vue.gd"
 Carte="*res://scripts/carte.gd"
 Chargement="*res://scripts/socle/chargement.gd"
+Pilote="*res://scripts/socle/pilote.gd"
 
 [display]
 

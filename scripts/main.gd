@@ -1038,16 +1038,19 @@ func _update_prompt() -> void:
 		_prompt.visible = v != "" and not player.frozen
 		_prompt.text = v
 		return
+	_prompt.text = invite_de(t)
+
+
+## L'invite d'une zone, telle qu'elle s'affiche devant elle (lue aussi par le pilote, scripts/socle/pilote.gd).
+func invite_de(t: Node) -> String:
 	if t.has_meta("place"):
 		var p := _place_info(t.get_meta("place"))
 		if p.id == "casino":
-			_prompt.text = "E : entrer au Casino de Smarves"
+			return "E : entrer au Casino de Smarves"
 		elif is_open(p.id):
-			_prompt.text = "E : %s — %s" % [p.name, p.game]
-		else:
-			_prompt.text = "%s — %s, ouvre à %s gagnés" % [p.name, _agree(p, "fermé"), _fmt(p.seuil)]
-	else:
-		_prompt.text = str(t.get_meta("prompt", ""))
+			return "E : %s — %s" % [p.name, p.game]
+		return "%s — %s, ouvre à %s gagnés" % [p.name, _agree(p, "fermé"), _fmt(p.seuil)]
+	return str(t.get_meta("prompt", ""))
 
 
 # --- Interface -------------------------------------------------------------------------

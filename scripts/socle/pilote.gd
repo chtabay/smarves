@@ -1,0 +1,479 @@
+extends Node
+## Le pilote d'un pensionnaire (autoload « Pilote », docs/PENSIONNAIRES.md, « Le pilote ») : le vrai jeu,
+## sans écran, tenu par un assistant au lieu d'un clavier. Il ne connaît aucun lieu ni aucun jeu : il lit
+## ce que le socle montre à tout joueur et rejoue les gestes d'un joueur.
+##
+## Ce qu'il voit (vue) :
+## - les zones où l'on appuie sur E (toute Area3D qui porte la méta « interact »), avec leur invite, à
+##   combien de secondes de marche et de quel côté ;
+## - l'invite affichée quand on est devant l'une d'elles ;
+## - les boutons à l'écran (le texte, sinon la bulle d'aide), les cases d'un tapis de table 3D
+##   (scripts/jeux/table_3d.gd), et les textes affichés.
+##
+## Ce qu'il fait (geste) :
+## - aller : marcher jusqu'à être devant une zone, comme on le ferait aux flèches ;
+## - marcher : avancer quelques secondes dans une direction ;
+## - touche : une touche du clavier (E, Espace, Échap, Entrée, Tab, M, V, 1 à 9) ;
+## - cliquer : un bouton ou une case du tapis, par un clic de souris à sa place à l'écran ;
+## - attendre : laisser passer quelques secondes (une bille qui roule, une donne) ;
+## - dire : une phrase en bulle (la partie réseau la porte au village).
+##
+## Une nouvelle carte, un nouveau bâtiment, un nouveau jeu se pilotent donc sans une ligne ici, tant
+## qu'ils passent par ces briques du socle.
+##
+## Sans « --pilote » dans les arguments, rien ne tourne : le jeu d'un joueur n'en sait rien. Les essais
+## (tools/test_pilote.gd) appellent vue() et geste() directement, sans réseau.
+
+const TOUCHES := {
+	"E": KEY_E, "ESPACE": KEY_SPACE, "ECHAP": KEY_ESCAPE, "ÉCHAP": KEY_ESCAPE, "ENTREE": KEY_ENTER,
+	"ENTRÉE": KEY_ENTER, "TAB": KEY_TAB, "M": KEY_M, "V": KEY_V,
+	"1": KEY_1, "2": KEY_2, "3": KEY_3, "4": KEY_4, "5": KEY_5, "6": KEY_6, "7": KEY_7, "8": KEY_8, "9": KEY_9,
+}
+## Les zones montrées : les plus proches, jusqu'à cette distance (unités de la scène).
+const ZONES_MAX := 24
+const ZONES_LOIN := 80.0
+const BOUTONS_MAX := 40
+const TEXTES_MAX := 30
+const TEXTE_LONG := 240
+## Marcher vers une zone : le plus long qu'on y consacre, et le temps sans avancer avant de contourner.
+const MARCHE_MAX := 45.0
+const BUTE := 0.6
+const ATTENTE_MAX := 30.0
+## Après un geste, le temps que l'écran se pose (une porte qui charge sa scène, un panneau qui s'ouvre).
+const POSE := 1.2
+
+## Vrai quand le pilote tient le jeu (réseau compris) ; les essais l'allument à la main.
+var actif := false
+## Ce que la partie réseau doit porter au village : les phrases dites, en attente.
+var paroles: Array = []
+
+## Les repères de la dernière vue : id -> nœud (z… zone, b… bouton, c… case de tapis -> [table, clé]).
+var _reperes := {}
+var _marche_vers: Node3D = null
+var _marche_dir := Vector3.ZERO
+var _marche_fin := 0.0
+
+
+func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	if "--pilote" in OS.get_cmdline_user_args():
+		actif = true
+		var reseau: Node = load("res://scripts/socle/pilote_reseau.gd").new()
+		reseau.name = "Reseau"
+		add_child(reseau)
+
+
+# --- Ce que voit le joueur ------------------------------------------------------------------------
+
+func scene() -> Node:
+	return get_tree().current_scene
+
+
+## Le corps qu'on dirige dans la scène en cours (le groupe « player » de scripts/fp_player.gd).
+func joueur() -> CharacterBody3D:
+	var s := scene()
+	if s == null:
+		return null
+	for p in get_tree().get_nodes_in_group("player"):
+		if p is CharacterBody3D and s.is_ancestor_of(p):
+			return p
+	return null
+
+
+func vue() -> Dictionary:
+	_reperes.clear()
+	var s := scene()
+	var v := {"lieu": _nom_du_lieu(s), "credits": Game.credits, "gagne": Game.won}
+	var j := joueur()
+	if j:
+		v["devant"] = _invite_de(j.focus_target) if j.focus_target and not j.frozen else ""
+		v["assis"] = j.frozen
+		v["zones"] = [] if j.frozen else _zones(j)
+	v["boutons"] = _boutons()
+	var cases := _cases()
+	if not cases.is_empty():
+		v["cases"] = cases
+	v["textes"] = _textes(v.get("devant", ""))
+	return v
+
+
+func _nom_du_lieu(s: Node) -> String:
+	if s == null:
+		return ""
+	if s.has_method("nom_du_lieu"):
+		return str(s.nom_du_lieu())
+	return s.scene_file_path.get_file().get_basename() if s.scene_file_path != "" else str(s.name)
+
+
+## Ce qu'affiche le jeu devant cette zone : la scène qui calcule son invite (invite_de), sinon la méta.
+func _invite_de(z: Node) -> String:
+	if z == null:
+		return ""
+	var s := scene()
+	if s and s.has_method("invite_de"):
+		var t := str(s.invite_de(z))
+		if t != "":
+			return t
+	var p := str(z.get_meta("prompt", ""))
+	if p != "":
+		return p
+	return str(z.get_meta("interact", ""))
+
+
+func _zones(j: CharacterBody3D) -> Array:
+	var liste := []
+	for z in _toutes_les_zones():
+		var d := _a_plat(z.global_position - j.global_position).length()
+		if d > ZONES_LOIN or absf(z.global_position.y - j.global_position.y) > 4.0:
+			continue
+		liste.append([d, z])
+	liste.sort_custom(func(a, b): return a[0] < b[0])
+	# Une invite déjà vue (dix habitants à qui parler) ne se montre qu'une fois, la plus proche.
+	var out := []
+	var par_invite := {}
+	for e in liste:
+		var z: Area3D = e[1]
+		var invite := _invite_de(z)
+		if par_invite.has(invite):
+			par_invite[invite]["aussi"] = int(par_invite[invite].get("aussi", 0)) + 1
+			continue
+		if out.size() >= ZONES_MAX:
+			continue
+		var id := "z%d" % (out.size() + 1)
+		_reperes[id] = z
+		var d := {"id": id, "invite": invite, "secondes": snappedf(e[0] / maxf(j.speed, 0.1), 1.0), "cote": _cote(j, z.global_position)}
+		par_invite[invite] = d
+		out.append(d)
+	return out
+
+
+func _toutes_les_zones() -> Array:
+	var out := []
+	var s := scene()
+	if s == null:
+		return out
+	for n in s.find_children("*", "Area3D", true, false):
+		if n.has_meta("interact") and (n as Area3D).is_visible_in_tree() and (n as Area3D).monitorable:
+			out.append(n)
+	return out
+
+
+func _cote(j: Node3D, at: Vector3) -> String:
+	var to := _a_plat(at - j.global_position)
+	if to.length() < 0.3:
+		return "ici"
+	var face := _a_plat(-j.global_basis.z).normalized()
+	var a := rad_to_deg(face.signed_angle_to(to.normalized(), Vector3.UP))
+	if absf(a) < 35.0:
+		return "devant"
+	if absf(a) > 145.0:
+		return "derrière"
+	return "à gauche" if a > 0.0 else "à droite"
+
+
+func _a_plat(v: Vector3) -> Vector3:
+	return Vector3(v.x, 0.0, v.z)
+
+
+## Les racines de ce qui est à l'écran : la scène en cours et les autoloads (une scène gardée par
+## Chargement, cachée, n'en est pas).
+func _racines() -> Array:
+	var out := []
+	for c in get_tree().root.get_children():
+		if c == scene() or not (c is Node3D):
+			out.append(c)
+	return out
+
+
+func _boutons() -> Array:
+	var out := []
+	var ecran := get_viewport().get_visible_rect()
+	for r in _racines():
+		for b in r.find_children("*", "BaseButton", true, false):
+			var bt := b as BaseButton
+			if not bt.is_visible_in_tree() or bt.disabled or not ecran.intersects(bt.get_global_rect()):
+				continue
+			var t := _texte_du_bouton(bt)
+			if t == "":
+				continue
+			var id := "b%d" % (out.size() + 1)
+			_reperes[id] = bt
+			var e := {"id": id, "texte": t}
+			if bt.toggle_mode and bt.button_pressed:
+				e["choisi"] = true
+			if bt.has_meta("selected") and bt.get_meta("selected"):
+				e["choisi"] = true
+			out.append(e)
+			if out.size() >= BOUTONS_MAX:
+				return out
+	return out
+
+
+func _texte_du_bouton(b: BaseButton) -> String:
+	var t := ""
+	if "text" in b:
+		t = str(b.text).strip_edges()
+	if t == "":
+		t = b.tooltip_text.strip_edges()
+	return t.left(80)
+
+
+## Les cases d'un tapis où l'on est assis (le socle des tables 3D).
+func _cases() -> Array:
+	var out := []
+	var s := scene()
+	if s == null:
+		return out
+	for t in s.find_children("*", "Node3D", true, false):
+		if "cells" in t and "active" in t and t.active and t.has_signal("cell_clicked") and t.get("cam") != null:
+			for k in t.cells:
+				var id := "c:%s" % k
+				_reperes[id] = [t, k]
+				out.append(k)
+	return out
+
+
+func _textes(sauf: String) -> Array:
+	var out := []
+	var vus := {sauf: true}
+	var ecran := get_viewport().get_visible_rect()
+	for r in _racines():
+		for n in r.find_children("*", "Control", true, false):
+			if not (n is Label or n is RichTextLabel):
+				continue
+			var c := n as Control
+			if not c.is_visible_in_tree() or c.modulate.a < 0.1 or not ecran.intersects(c.get_global_rect()):
+				continue
+			if c.get_parent() is BaseButton:
+				continue
+			var t: String = (c as RichTextLabel).get_parsed_text() if c is RichTextLabel else (c as Label).text
+			t = t.strip_edges().replace("\n", " · ")
+			if t == "" or vus.has(t):
+				continue
+			vus[t] = true
+			out.append(t.left(TEXTE_LONG))
+			if out.size() >= TEXTES_MAX:
+				return out
+	return out
+
+
+# --- Les gestes -----------------------------------------------------------------------------------
+
+## Fait un geste et rend {ok, dit}, puis la vue qui suit (vue). Les repères sont ceux de la dernière vue.
+func geste(g: Dictionary) -> Dictionary:
+	var quoi := str(g.get("geste", ""))
+	var r := {}
+	match quoi:
+		"regarder":
+			r = {"ok": true, "dit": ""}
+		"aller":
+			r = await _aller(str(g.get("vers", "")))
+		"marcher":
+			r = await _marcher(str(g.get("vers", "devant")), float(g.get("secondes", 2.0)))
+		"touche":
+			r = await _touche(str(g.get("touche", "")))
+		"cliquer":
+			r = await _cliquer(str(g.get("quoi", "")))
+		"attendre":
+			await _attendre(clampf(float(g.get("secondes", 3.0)), 0.5, ATTENTE_MAX))
+			r = {"ok": true, "dit": ""}
+		"dire":
+			var t := str(g.get("texte", "")).strip_edges().left(200)
+			if t == "":
+				r = {"ok": false, "dit": "rien à dire"}
+			else:
+				paroles.append(t)
+				r = {"ok": true, "dit": ""}
+		_:
+			r = {"ok": false, "dit": "geste inconnu"}
+	r["vue"] = vue()
+	return r
+
+
+func _attendre(s: float) -> void:
+	await get_tree().create_timer(s, true, true).timeout
+
+
+## Le repère d'une vue, ou une zone dont l'invite contient le texte donné.
+func _repere(quoi: String) -> Variant:
+	if _reperes.has(quoi):
+		var n = _reperes[quoi]
+		if n is Array:
+			return n if is_instance_valid(n[0]) else null
+		return n if is_instance_valid(n) else null
+	var cherche := quoi.to_lower().strip_edges()
+	if cherche == "":
+		return null
+	for z in _toutes_les_zones():
+		if _invite_de(z).to_lower().contains(cherche):
+			return z
+	for r in _racines():
+		for b in r.find_children("*", "BaseButton", true, false):
+			if (b as BaseButton).is_visible_in_tree() and _texte_du_bouton(b).to_lower().contains(cherche):
+				return b
+	return null
+
+
+func _aller(vers: String) -> Dictionary:
+	var j := joueur()
+	if j == null:
+		return {"ok": false, "dit": "pas de corps ici"}
+	if j.frozen:
+		return {"ok": false, "dit": "assis : il faut d'abord se lever (Quitter, ou Échap)"}
+	var z = _repere(vers)
+	if not (z is Area3D):
+		return {"ok": false, "dit": "zone inconnue : %s" % vers}
+	var zone: Area3D = z
+	if j.focus_target == zone:
+		return {"ok": true, "dit": "déjà devant"}
+	var t0 := Time.get_ticks_msec() / 1000.0
+	var dernier := j.global_position
+	var depuis := t0
+	var detour := 0.0
+	var signe := 1.0
+	var sc := scene()
+	while true:
+		await get_tree().physics_frame
+		if not is_instance_valid(j) or scene() != sc:
+			_arreter(j)
+			return {"ok": true, "dit": "le lieu a changé en chemin"}
+		var maintenant := Time.get_ticks_msec() / 1000.0
+		if j.focus_target == zone:
+			_arreter(j)
+			return {"ok": true, "dit": "arrivé"}
+		if maintenant - t0 > MARCHE_MAX:
+			_arreter(j)
+			return {"ok": false, "dit": "pas trouvé de chemin jusque-là"}
+		var to := _a_plat(zone.global_position - j.global_position)
+		var dir := to.normalized()
+		if j.global_position.distance_to(dernier) > 0.15:
+			dernier = j.global_position
+			depuis = maintenant
+		elif maintenant - depuis > BUTE and detour <= 0.0:
+			# On bute : on contourne d'un côté, puis de l'autre.
+			detour = 1.0
+			signe = -signe
+			depuis = maintenant
+		if detour > 0.0:
+			detour -= get_physics_process_delta_time()
+			dir = dir.rotated(Vector3.UP, signe * deg_to_rad(75.0))
+		_viser(j, zone.global_position, to.length() < j.reach * 1.5)
+		_pousser(j, dir)
+	return {}
+
+
+## Tourner le corps (et le regard) vers ce qu'on vise, comme à la souris.
+func _viser(j: CharacterBody3D, at: Vector3, de_pres: bool) -> void:
+	var to := at - j.global_position
+	if j.follow_camera == null:
+		j.rotation.y = atan2(-to.x, -to.z)
+		if de_pres and j.camera:
+			var oeil: Vector3 = j.camera.global_position
+			var d: Vector3 = at - oeil
+			j.camera.rotation.x = clampf(atan2(d.y, Vector2(d.x, d.z).length()), deg_to_rad(-60.0), deg_to_rad(50.0))
+		elif j.camera:
+			j.camera.rotation.x = 0.0
+
+
+## Marcher dans une direction du monde : le corps la reçoit dans son repère (ou celui de la caméra de dessus).
+func _pousser(j: CharacterBody3D, dir_monde: Vector3) -> void:
+	if dir_monde == Vector3.ZERO:
+		j.auto_move = Vector3.ZERO
+		return
+	var base := Basis(Vector3.UP, j.global_rotation.y) if j.follow_camera == null else Basis(Vector3.UP, j.follow_camera.global_rotation.y)
+	j.auto_move = (base.inverse() * dir_monde).normalized()
+
+
+func _arreter(j: CharacterBody3D) -> void:
+	if is_instance_valid(j):
+		j.auto_move = Vector3.ZERO
+		j.velocity.x = 0.0
+		j.velocity.z = 0.0
+
+
+func _marcher(vers: String, secondes: float) -> Dictionary:
+	var j := joueur()
+	if j == null or j.frozen:
+		return {"ok": false, "dit": "impossible de marcher maintenant"}
+	var face := _a_plat(-j.global_basis.z).normalized()
+	var angles := {"devant": 0.0, "gauche": 90.0, "derrière": 180.0, "derriere": 180.0, "droite": -90.0}
+	if not angles.has(vers):
+		return {"ok": false, "dit": "direction inconnue : devant, gauche, droite ou derrière"}
+	var dir := face.rotated(Vector3.UP, deg_to_rad(angles[vers]))
+	j.rotation.y = atan2(-dir.x, -dir.z)
+	var fin := Time.get_ticks_msec() / 1000.0 + clampf(secondes, 0.5, 10.0)
+	var sc := scene()
+	while Time.get_ticks_msec() / 1000.0 < fin and is_instance_valid(j) and scene() == sc:
+		_pousser(j, dir)
+		await get_tree().physics_frame
+	_arreter(j)
+	return {"ok": true, "dit": ""}
+
+
+func _touche(nom: String) -> Dictionary:
+	var k: int = TOUCHES.get(nom.strip_edges().to_upper(), KEY_NONE)
+	if k == KEY_NONE:
+		return {"ok": false, "dit": "touche inconnue : %s" % nom}
+	for appui in [true, false]:
+		var e := InputEventKey.new()
+		e.keycode = k
+		e.physical_keycode = k
+		e.pressed = appui
+		Input.parse_input_event(e)
+		await get_tree().process_frame
+	await _attendre(POSE)
+	return {"ok": true, "dit": ""}
+
+
+func _cliquer(quoi: String) -> Dictionary:
+	var r = _repere(quoi)
+	if r == null:
+		return {"ok": false, "dit": "rien de tel à l'écran : %s" % quoi}
+	if r is Array:
+		var table: Node3D = r[0]
+		var cle: String = r[1]
+		var ecran: Vector2 = table.cam.unproject_position(table.global_transform * table.cell_center(cle))
+		var pris := [false]
+		var vu := func(k: String): pris[0] = pris[0] or k == cle
+		table.cell_clicked.connect(vu)
+		await _clic(ecran)
+		if not pris[0]:
+			table.cell_clicked.emit(cle)
+		table.cell_clicked.disconnect(vu)
+		await _attendre(0.3)
+		return {"ok": true, "dit": ""}
+	if r is BaseButton:
+		var b: BaseButton = r
+		if b.disabled or not b.is_visible_in_tree():
+			return {"ok": false, "dit": "ce bouton n'est pas disponible"}
+		var presse := [false]
+		var vu := func(): presse[0] = true
+		b.pressed.connect(vu)
+		await _clic(b.get_global_rect().get_center())
+		if is_instance_valid(b):
+			if not presse[0] and not b.disabled:
+				# Sans écran, le clic ne trouve pas toujours sa cible : on appuie sur le bouton lui-même.
+				if b.toggle_mode:
+					b.button_pressed = not b.button_pressed
+				b.pressed.emit()
+			if b.pressed.is_connected(vu):
+				b.pressed.disconnect(vu)
+		await _attendre(POSE)
+		return {"ok": true, "dit": ""}
+	return {"ok": false, "dit": "on ne clique pas sur une zone : il faut aller devant et appuyer sur E"}
+
+
+func _clic(at: Vector2) -> void:
+	var vp := get_viewport()
+	var m := InputEventMouseMotion.new()
+	m.position = at
+	m.global_position = at
+	vp.push_input(m)
+	for appui in [true, false]:
+		var e := InputEventMouseButton.new()
+		e.button_index = MOUSE_BUTTON_LEFT
+		e.position = at
+		e.global_position = at
+		e.pressed = appui
+		vp.push_input(e)
+		await get_tree().process_frame
