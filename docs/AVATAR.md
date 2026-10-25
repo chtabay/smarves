@@ -26,6 +26,10 @@ On essaie gratuitement : l'aperçu montre le joueur tel qu'il sortira, et l'on n
 
 Perdre coûte plus cher que prendre, comme dans la vie. La corpulence a huit crans, de « sec comme un coup de trique » à « très rond » ; le joueur d'origine est au milieu, « dans la moyenne ».
 
+## L'arrivée
+
+La première fois qu'il entre sur la place (après la connexion au compte, s'il se connecte), le joueur choisit son allure, gratuitement : un visage parmi six de l'album (le jeune premier, le baroudeur, le jazzman, la meneuse de revue, la femme fatale, la chanteuse de cabaret) et une tenue parmi six (le costume du dimanche, le bleu de travail, la marinière, le pull tabac, la robe bordeaux, le tailleur prince-de-galles). Puis Josiane l'accueille, comme avant. Les six tenues sont des retouches de la tenue d'origine : elles tombent comme les autres au premier achat chez Raymonde. Ce choix ne s'ouvre qu'à une partie jamais accueillie (`Game.welcomed`) : un joueur qui a déjà une partie, ou qui reprend celle de son compte, ne le voit jamais. Code : `Avatar.VISAGES_ARRIVEE`, `Avatar.TENUES_ARRIVEE`, `Avatar.arrivee()`, `scripts/socle/arrivee_panel.gd`, ouvert par `main.gd` (`_arrivee`) ; capture : `godot --path . -s tools/capture_arrivee.gd -- --sortie=arrivee.png --visage=4 --tenue=4`.
+
 ## Ce qu'on choisit
 
 - **Le visage** : on ne règle pas les traits un par un, on choisit dans l'album du docteur Maupas un des seize visages tout faits, huit d'homme et huit de femme, qui fixent le sexe, le teint et le nez. Le panneau ne montre que deux flèches : on fait défiler les visages sur l'aperçu, sans nom ni description, et l'on paie celui qu'on garde. Une femme a du rouge aux lèvres et pas de moustache, et garde la tenue qu'elle a achetée : Raymonde lui fait une robe ou une jupe si elle veut.

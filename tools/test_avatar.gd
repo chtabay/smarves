@@ -101,6 +101,40 @@ func _init() -> void:
 	var src := FileAccess.get_file_as_string("res://scripts/biens.gd")
 	check(src.contains("\"avatar\": avatar") and src.contains("avatar = Avatar.nettoyer(data.get(\"avatar\""), "les biens écrivent et relisent l'avatar")
 
+	# L'arrivée : six visages et six tenues, offerts, seulement pour une partie pas encore accueillie.
+	check(Avatar.VISAGES_ARRIVEE.size() == 6 and Avatar.TENUES_ARRIVEE.size() == 6, "l'arrivée propose six visages et six tenues")
+	check(Avatar.arrivee(0, 0).is_empty(), "le premier visage et la première tenue : le joueur d'origine")
+	var allures := {}
+	for vi in 6:
+		for ti in 6:
+			var a := Avatar.arrivee(vi, ti)
+			allures[Avatar.code(a)] = true
+			check(Avatar.visage(a) == Avatar.VISAGES_ARRIVEE[vi], "visage %d, tenue %d : un visage de l'album" % [vi, ti])
+			check(re.search(Avatar.mot("", a)) != null, "visage %d, tenue %d : un mot que la base accepte" % [vi, ti])
+	check(allures.size() == 36, "les trente-six allures sont toutes différentes")
+	var dame := Avatar.fiche("", Avatar.arrivee(4, 4))
+	check(dame.has("lip") and dame.top == "robe", "la femme fatale en robe bordeaux")
+	B.avatar = {}
+	G.credits = 500
+	var AP: GDScript = load("res://scripts/socle/arrivee_panel.gd")
+	var arr: PanelContainer = AP.new()
+	var ferme := [false]
+	arr.closed.connect(func(): ferme[0] = true)
+	root.add_child(arr)
+	await process_frame
+	check(arr.find_child("Visages", true, false).get_child_count() == 6 and arr.find_child("Tenues", true, false).get_child_count() == 6,
+		"le panneau d'arrivée montre six visages et six tenues")
+	arr.choisir_visage(3)
+	arr.choisir_tenue(2)
+	check(B.avatar.is_empty(), "essayer à l'arrivée ne change rien tant qu'on n'entre pas")
+	arr.entrer_a_smarves()
+	check(ferme[0] and B.avatar == Avatar.arrivee(3, 2) and G.credits == 500, "en entrant, l'allure est gardée, sans rien payer")
+	arr.queue_free()
+	var main_src := FileAccess.get_file_as_string("res://scripts/main.gd")
+	check(main_src.contains("if not Game.welcomed") and main_src.contains("_arrivee()"), "l'arrivée ne s'ouvre qu'à une partie pas encore accueillie")
+	B.avatar = {}
+	G.credits = 100000
+
 	# Les panneaux : un par métier, qui se construit, et dont les essais se paient.
 	for metier in Avatar.METIERS:
 		var p: PanelContainer = PR.panneau(metier, {"tenancier": "Essai"})

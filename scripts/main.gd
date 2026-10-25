@@ -4,6 +4,7 @@ extends Node3D
 const ORBIT := preload("res://scripts/orbit_camera.gd")
 const VILLAGER := preload("res://scripts/villager.gd")
 const LOAN := preload("res://scripts/loan_panel.gd")
+const ARRIVEE := preload("res://scripts/socle/arrivee_panel.gd")
 const OUTSKIRTS := preload("res://scripts/outskirts.gd")
 const PLAYER := preload("res://scripts/fp_player.gd")
 const VILLAGE := preload("res://scripts/village/village.gd")
@@ -158,9 +159,34 @@ func revenir() -> void:
 
 
 func _ouvrir_la_partie() -> void:
-	if not Game.welcomed and not "--capture" in " ".join(OS.get_cmdline_user_args()):
-		_welcome()
 	Game.brunet_calls.connect(_on_brunet_calls)
+	if not Game.welcomed and not "--capture" in " ".join(OS.get_cmdline_user_args()):
+		_arrivee()
+
+
+## La première fois, avant Josiane : le joueur choisit son allure (scripts/socle/arrivee_panel.gd). Si le
+## compte vérifie encore sa partie, on attend : reprise, elle rebâtit la place, déjà accueillie, et ce
+## choix ne s'ouvre pas. Un joueur qui a déjà une partie (Game.welcomed) ne le voit jamais.
+func _arrivee() -> void:
+	while Compte.etat == "verification":
+		await Compte.change
+	if not is_inside_tree() or Game.welcomed:
+		return
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	if player:
+		player.frozen = true
+	_hint.visible = false
+	# Les habitants se taisent pendant le choix ; Josiane parle ensuite (_welcome).
+	_bark_timer = INF
+	var panneau: PanelContainer = ARRIVEE.new()
+	panneau.name = "Arrivee"
+	panneau.closed.connect(func():
+		panneau.queue_free()
+		_hint.visible = true
+		if player:
+			player.frozen = false
+		_welcome())
+	_panels.add_child(panneau)
 
 
 ## Au-delà du cran « quartier », le village laisse place à la carte de la Vienne.
