@@ -122,8 +122,10 @@ func _init() -> void:
 	arr.closed.connect(func(): ferme[0] = true)
 	root.add_child(arr)
 	await process_frame
-	check(arr.find_child("Visages", true, false).get_child_count() == 6 and arr.find_child("Tenues", true, false).get_child_count() == 6,
-		"le panneau d'arrivée montre six visages et six tenues")
+	check(arr.find_child("Visage", true, false) != null and arr.find_child("Tenue", true, false) != null,
+		"le panneau d'arrivée a ses flèches pour le visage et la tenue")
+	arr.choisir_visage(-1)
+	check(arr.visage == 5, "les flèches tournent en boucle")
 	arr.choisir_visage(3)
 	arr.choisir_tenue(2)
 	check(B.avatar.is_empty(), "essayer à l'arrivée ne change rien tant qu'on n'entre pas")
