@@ -177,6 +177,13 @@ jeu lui-même.
 
 Les essais : `godot --headless --path . -s tools/test_pilote.gd [-- --bavard]` (sans réseau : de la place au
 casino, la roulette, puis se relever).
+`tools/test_pilote_echecs.gd` : devant un échiquier.
+
+Les plateaux dessinés à l'écran (l'échiquier du Cercle Philidor) se lisent comme un tapis : un contrôle
+visible qui a `pilote_cases()` (le nom de chaque case et son rectangle) donne ses cases à la vue, et
+`pilote_texte()` décrit la position (pièces, qui a le trait, échec, dernier coup, coups permis). Le pilote
+clique la case de départ puis celle d'arrivée (« c:e2 » puis « c:e4 », ou « e2 » tout court) ; à la
+promotion, les quatre pièces sont des cases (« c:promotion-dame »…).
 
 La marche cherche son chemin sur une grille où le corps tient debout (une recherche A* faite de tests
 physiques, sans plan propre au lieu), puis, devant la zone, tourne le regard jusqu'à voir son invite.

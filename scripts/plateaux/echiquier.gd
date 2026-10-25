@@ -232,6 +232,59 @@ func _promotion_sous(p: Vector2) -> String:
 	return ""
 
 
+# --- Pour le pilote d'un pensionnaire (scripts/socle/pilote.gd) -------------------------------------
+
+## Les cases à l'écran, par leur nom (« e2 ») ; pendant une promotion, les quatre pièces au choix
+## (« promotion-dame », …).
+func pilote_cases() -> Dictionary:
+	var out := {}
+	if not _promo.is_empty():
+		var t := _case()
+		var r := _rect(_promo.a)
+		var vers := 1.0 if r.position.y < _origine().y + t * 4.0 else -1.0
+		for i in 4:
+			out["promotion-%s" % ["dame", "cavalier", "tour", "fou"][i]] = Rect2(r.position + Vector2(0, vers * i * t), r.size)
+		return out
+	for s in 64:
+		out[nom(s)] = _rect(s)
+	return out
+
+
+const NOMS_PIECES := {"k": "R", "q": "D", "r": "T", "b": "F", "n": "C", "p": ""}
+
+## La position en mots, comme la verrait un joueur : où sont les pièces, qui a le trait, ce qu'on peut
+## jouer et comment.
+func pilote_texte() -> String:
+	var blancs := []
+	var noirs := []
+	for s in 64:
+		var p := plateau[s]
+		if p == ".":
+			continue
+		var n := "%s%s" % [NOMS_PIECES.get(p.to_lower(), "?"), nom(s)]
+		if p == p.to_upper():
+			blancs.append(n)
+		else:
+			noirs.append(n)
+	var l := ["Échiquier (R roi, D dame, T tour, F fou, C cavalier, sans lettre un pion) — tu joues les %s, en bas." % ("noirs" if retourne else "blancs")]
+	l.append("Blancs : %s." % ", ".join(blancs))
+	l.append("Noirs : %s." % ", ".join(noirs))
+	var au_trait := "Au trait : les %s%s." % [camp_au_trait, ", en échec" if echec else ""]
+	if dernier != "":
+		au_trait += " Dernier coup : %s-%s." % [dernier.substr(0, 2), dernier.substr(2, 2)]
+	l.append(au_trait)
+	if not _promo.is_empty():
+		l.append("Promotion : clique la pièce choisie (c:promotion-dame, c:promotion-cavalier, c:promotion-tour, c:promotion-fou).")
+	elif not legaux.is_empty():
+		var coups := []
+		for m in legaux:
+			coups.append("%s-%s%s" % [m.substr(0, 2), m.substr(2, 2), m.substr(4)])
+		l.append("À toi de jouer. Pour un coup, clique la case de la pièce puis celle d'arrivée (c:e2, puis c:e4). Coups permis : %s." % ", ".join(coups))
+		if _choisie >= 0:
+			l.append("Pièce choisie : %s." % nom(_choisie))
+	return "\n".join(l)
+
+
 # --- Le jeu à la souris et au doigt ----------------------------------------------------------------
 
 func _gui_input(e: InputEvent) -> void:
