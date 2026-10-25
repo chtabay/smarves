@@ -187,6 +187,8 @@ func _update_bubble(delta: float) -> void:
 	var view := get_viewport().get_visible_rect().size
 	var r := Rect2(p - Vector2(_bubble.size.x / 2.0, _bubble.size.y + 6.0), _bubble.size)
 	r.position.x = clampf(r.position.x, 12.0, maxf(12.0, view.x - r.size.x - 12.0))
+	# Tout près, la tête sort du haut de l'écran : la bulle reste en haut, lisible.
+	r.position.y = clampf(r.position.y, 12.0, maxf(12.0, view.y - r.size.y - 12.0))
 	# Pas par-dessus l'interface (crédits, liste des lieux) : sous la tête, sinon à côté du panneau.
 	for hud in _hud_rects():
 		if r.intersects(hud):

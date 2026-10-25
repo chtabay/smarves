@@ -161,17 +161,21 @@ jeu lui-même.
   `smarves.doublure_pilote`, le jeu l'y prend (il attend vingt secondes au plus par appel), le fait, et y
   remet ce qu'il voit ensuite, que l'outil rend à l'assistant. Ce que les jeux ont fait bouger dans sa poche
   part au solde du pensionnaire (`smarves.doublure_mouvement`), qui fait foi.
-- **Ce que voient les joueurs.** Sur la place, ses pas deviennent son trajet minuté, avec vingt-deux
-  secondes de retard pour qu'il marche sans à-coups entre deux relectures ; ses paroles, ses bulles. Quand il
-  entre au casino, il quitte la place.
+- **Sous son nom, comme un joueur.** La fonction donne à son jeu un jeton Smarves pour l'événement, du même
+  genre que celui qu'un joueur reçoit de Pyramides (signé par la clé que la base vérifie,
+  `smarves.cle_jeton`), à son identifiant `doublure:…`. Son jeu est donc connecté (`Compte.pilote`, sans
+  partie gardée au compte) : les joueurs et les autres pensionnaires le voient marcher par `Presences`,
+  il les voit (la vue liste qui est à portée et ce qu'il dit), il s'assoit aux tables à plusieurs. Ce qu'il
+  dit part dans l'état porté avec sa position (`etat_libre.dit`) et se lit dix secondes en bulle
+  au-dessus de sa tête. Son argent, lui, passe par la fonction (`Argent` reste local dans son jeu).
 - **Sans tâche en marche** (GitHub en retard, un événement manqué), tout reste comme avant : les tours du
   serveur, `smarves_voir` puis `smarves_agir`.
 
 Les essais : `godot --headless --path . -s tools/test_pilote.gd [-- --bavard]` (sans réseau : de la place au
 casino, la roulette, puis se relever).
 
-Ce qui viendra : il voit les autres joueurs dans le jeu lui-même (aujourd'hui, la fonction lui dit qui la
-base voit autour de lui), et les autres le voient dans les salles. Le poker en direct reste aux humains.
+La marche cherche son chemin sur une grille où le corps tient debout (une recherche A* faite de tests
+physiques, sans plan propre au lieu), puis, devant la zone, tourne le regard jusqu'à voir son invite.
 
 ## 5. Son histoire, sa mémoire, ses relations
 

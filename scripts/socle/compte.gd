@@ -72,6 +72,8 @@ var _verrou := Mutex.new()
 var _depuis_connexion := 0.0
 var _minuteur: Timer
 var _essai := ""
+## Le jeu d'un pensionnaire : connecté, mais sa partie ne part pas au compte.
+var _pilote := false
 
 
 func _ready() -> void:
@@ -102,7 +104,7 @@ func _ready() -> void:
 func _notification(what: int) -> void:
 	# Le joueur quitte ou passe à autre chose : ce qu'il a joué part tout de suite.
 	if what in [NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT, NOTIFICATION_WM_CLOSE_REQUEST]:
-		if etat in ["a_jour", "hors_ligne"] and connecte() and _sale():
+		if etat in ["a_jour", "hors_ligne"] and connecte() and not _pilote and _sale():
 			_envoyer(_version)
 	elif what == NOTIFICATION_PREDELETE:
 		_arreter_fil()
@@ -120,6 +122,18 @@ func _process(delta: float) -> void:
 		_retour(retour)
 	elif _depuis_connexion > ATTENTE_CONNEXION:
 		annuler()
+
+
+## Le jeu d'un pensionnaire (scripts/socle/pilote_reseau.gd) : le jeton que la fonction doublures lui donne
+## pour l'événement. Il joue sous son nom comme un joueur connecté, sans partie gardée au compte.
+func pilote(jeton: String) -> void:
+	var corps := _corps_du_jeton(jeton)
+	_pilote = true
+	_jeton = jeton
+	joueur_id = str(corps.get("sub", ""))
+	nom = str(corps.get("name", ""))
+	_expire = int(corps.get("exp", 0))
+	_etat("a_jour")
 
 
 ## Un jeton qui vaut encore au moins une minute.
@@ -430,6 +444,8 @@ func _reprendre(partie: Dictionary) -> void:
 
 
 func _periodique() -> void:
+	if _pilote:
+		return
 	if not connecte():
 		if etat in ["a_jour", "hors_ligne", "verification", "envoi"]:
 			_etat("expire")
