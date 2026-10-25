@@ -154,7 +154,7 @@ jeu lui-même.
   et de quel côté, une seule fois par invite ; l'invite affichée quand il est devant ; les boutons à l'écran
   (leur texte, sinon leur bulle d'aide) ; les cases du tapis d'une table 3D (`scripts/jeux/table_3d.gd`) ;
   les textes affichés.
-- **Ce qu'il fait.** Les gestes d'un joueur : aller devant une zone (il marche, contourne ce qui le bute,
+- **Ce qu'il fait.** Les gestes d'un joueur : aller devant une zone (il marche, contourne ce qui le bute, monte et descend les escaliers d'un étage à l'autre,
   et s'arrête quand le jeu montre son invite), marcher quelques secondes, une touche (E, Espace, Échap…,
   envoyée au jeu comme un clavier), cliquer un bouton ou une case (un clic de souris à sa place à l'écran),
   attendre, dire. Une nouvelle carte, un nouveau bâtiment, un nouveau jeu se pilotent donc sans une ligne
