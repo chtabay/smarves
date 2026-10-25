@@ -76,10 +76,15 @@ func _lancer() -> void:
 	check(actions != null and ["Gerer", "Tactique", "Entrainement", "Mercato", "Stade", "Notaire"].all(func(n): return actions.find_child("Action_" + n, true, false) != null)
 		and (actions.find_child("Action_Gerer", true, false) as Button).icon != null, "la barre d'actions, chaque bouton son picto")
 	var td := _textes(carnet.get("_right"))
-	check(td.contains("JOURNÉES") and td.contains("J1  ") and td.contains("J14  "), "les quatorze journées, en face")
-	var lignes: Array = Array(td.split("\n")).filter(func(l): return RegEx.create_from_string("^J\\d+  ").search(l) != null)
-	var scores := RegEx.create_from_string("^J\\d+  .+  [VND] \\d+-\\d+ ")
-	check(lignes.slice(0, 5).all(func(l): return scores.search(l) != null) and str(lignes[5]).begins_with("J6  ") and str(lignes[5]).contains("  ·  dans "), "cinq journées jouées avec leur score, la sixième avec son compte à rebours (%s)" % str(lignes.slice(4, 6)))
+	# Les journées en tableau : cinq colonnes (J, date, domicile ou extérieur, adversaire, résultat).
+	var jg: GridContainer = carnet.get("_right").find_child("Journees", true, false)
+	check(td.contains("JOURNÉES") and jg != null and jg.get_child_count() == 14 * 5 and td.contains("J1\n") and td.contains("J14\n"), "les quatorze journées, en face, en tableau")
+	var cinq := true
+	for i in 5:
+		var res: Node = jg.get_child(i * 5 + 4)
+		cinq = cinq and res.find_children("Forme_*", "", true, false).size() == 1 and RegEx.create_from_string("^\\d+-\\d+$").search(str(res.get_child(1).text)) != null
+	var sixieme: Node = jg.get_child(5 * 5 + 4)
+	check(cinq and sixieme.get_child_count() == 1 and str(sixieme.get_child(0).text).begins_with("dans "), "cinq journées jouées avec leur pastille et leur score, la sixième avec son compte à rebours")
 	var d := _textes(carnet.get("_right"))
 	check(carnet.get("_right").find_child("Effectif", true, false) != null and d.contains("Note") and d.contains("Moral"), "en face, l'effectif")
 	check(d.contains("Vous en tenez 1, "), "les parts qu'on tient, en une ligne")

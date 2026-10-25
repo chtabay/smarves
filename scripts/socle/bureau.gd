@@ -37,9 +37,10 @@ const MOTS_DUELS := {"milieu": ["nous dominerons", "léger avantage", "équilibr
 	"defense": ["solide", "tient", "équilibre", "à surveiller", "danger"]}
 const ROUGE := Color(0.95, 0.45, 0.4)
 const ONGLETS_CHAMPIONNAT := [["classement", "Classement"], ["buteurs", "Buteurs"], ["passeurs", "Passeurs"], ["clean_sheets", "Clean sheets"]]
-## Les fonds : la barre de gauche, plus sombre, et la page.
-const NUIT := Color(0.07, 0.1, 0.11, 0.99)
-const PAGE := Color(0.11, 0.15, 0.16, 0.99)
+## Les fonds : la barre de gauche, plus sombre, et la page ; ceux du carnet depuis le 25 octobre 2026
+## (scripts/socle/teintes.gd), plutôt qu'un vert d'ardoise.
+const NUIT := Color(0.08, 0.07, 0.075, 0.99)
+const PAGE := Color(0.11, 0.098, 0.1, 0.99)
 const LIGNE := Color(1, 1, 1, 0.04)
 const PELOUSE := Color(0.2, 0.45, 0.24)
 const PELOUSE_CLAIRE := Color(0.23, 0.5, 0.27)
@@ -140,6 +141,10 @@ func _ready() -> void:
 	_sous_titre.clip_text = true
 	_sous_titre.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	tete.add_child(_sous_titre)
+	# La croix, en haut à droite (demande de Guillaume du 25 octobre 2026), à la place de « Quitter le bureau ».
+	var croix: Button = preload("res://scripts/socle/croix.gd").creer(func(): closed.emit())
+	croix.name = "Quitter"
+	tete.add_child(croix)
 	page_col.add_child(_filet())
 	_corps = VBoxContainer.new()
 	_corps.name = "Page"
@@ -338,9 +343,6 @@ func _poser_barre() -> void:
 		rangee.add_child(b)
 		_boutons_nav[cle] = b
 	if etroit:
-		var q := _bouton("Quitter  (Échap)", func(): closed.emit(), 14)
-		q.name = "Quitter"
-		rangee.add_child(q)
 		return
 	var ressort := Control.new()
 	ressort.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -348,9 +350,6 @@ func _poser_barre() -> void:
 	_nav.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_solde = _mot("", 14, DOUX)
 	_nav.add_child(_solde)
-	var q := _bouton("Quitter le bureau  (Échap)", func(): closed.emit(), 15)
-	q.name = "Quitter"
-	_nav.add_child(q)
 
 
 ## Ne touche un texte que s'il change : rien ne se remet en page pour rien.

@@ -3,7 +3,7 @@ extends SceneTree
 ## godot --path . --resolution 1600x900 -s tools/capture_gestion.gd -- --sortie=<dossier/> [--base=600]
 ## Images : debutant-cartes.png, debutant-compte.png et calendrier.png (400 gagnés, rien en poche), premiers-gains.png (3 500
 ## gagnés, une part de la Smarvoise et une obligation de l'Étoile ; premiers-gains-cartes.png, plus bas), foot-obligations.png (le registre du
-## stade ; foot-obligations-en-saison.png, hors de l'intersaison ; foot-panneau.png, le panneau de l'entrée), basket-accueil.png, basket-parts.png, basket-bureau.png, basket-panneau.png et basket-partenaires.png (le club de basket, Lucien dirige, vous
+## stade ; foot-obligations-en-saison.png, hors de l'intersaison ; foot-panneau.png, le panneau de l'entrée), basket-accueil.png, basket-parts.png, basket-bureau.png (et -marche, -comptes), basket-panneau.png et basket-partenaires.png (le club de basket, Lucien dirige, vous
 ## tenez la n° 2), notaire-telephone-basket.png et notaire-telephone-foot.png (le registre ouvert du carnet),
 ## notaire-etude.png et notaire-etude-basket.png (l'étude et son registre du basket), sur un faux serveur qui suit les règles de tools/test_basket_bureau.gd.
 
@@ -139,6 +139,12 @@ func _lancer() -> void:
 		p.set("commune", "smarves")
 		hote.add_child(p)
 		await _photo(sortie + quoi[0] + ".png")
+		# Le bureau du président : aussi le marché et les comptes.
+		if quoi[0] == "basket-bureau":
+			for page in ["marche", "comptes"]:
+				p.set("page", page)
+				p.call("rafraichir")
+				await _photo(sortie + "basket-bureau-%s.png" % page)
 		p.queue_free()
 	# Le notaire au téléphone, depuis le carnet, puis l'étude et son registre du basket.
 	if seul == "" or seul == "notaire":

@@ -292,15 +292,15 @@ class Plan extends Control:
 			var a := _to_page(r.position)
 			var b := _to_page(r.end)
 			var box := Rect2(a, b - a)
-			draw_rect(box, Color(0.38, 0.7, 1.0, 0.14))
-			draw_rect(box, Color(0.38, 0.7, 1.0, 0.7), false, 1.5)
+			draw_rect(box, Color(0.96, 0.8, 0.45, 0.14))
+			draw_rect(box, Color(0.96, 0.8, 0.45, 0.7), false, 1.5)
 			_label(str(VILLAGE.ZONES[id].nom), box)
 		for id in caches:
 			if not VILLAGE.CACHES.has(id):
 				continue
 			var c: Dictionary = VILLAGE.CACHES[id]
 			var p := _to_page(Vector2(c.pos.x, c.pos.z))
-			var red := Color(0.98, 0.46, 0.41)
+			var red := Color(0.95, 0.46, 0.41)
 			draw_line(p + Vector2(-7, -7), p + Vector2(7, 7), red, 3.0)
 			draw_line(p + Vector2(-7, 7), p + Vector2(7, -7), red, 3.0)
 			_ink(str(c.nom), p + Vector2(11, 6), 18, red)
@@ -311,7 +311,7 @@ class Plan extends Control:
 
 	## Le nom du quartier, coupé en deux lignes s'il déborde de son rectangle.
 	func _label(t: String, box: Rect2) -> void:
-		var ink := Color(0.93, 0.95, 0.98)
+		var ink := Color(0.95, 0.93, 0.88)
 		var fs := 18
 		var lines := [t]
 		if font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > box.size.x - 6:

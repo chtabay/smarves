@@ -27,22 +27,23 @@ func ouvert() -> void:
 func remplir(col: VBoxContainer) -> void:
 	var b := basket()
 	var club: Dictionary = b.fiche(commune)
-	_mot(col, "LE BUREAU DU PRÉSIDENT", DOUX, 13)
+	_mot(col, "LE BUREAU DU PRÉSIDENT", TEINTES.CRAYON, 12)
 	_mot(col, str(club.nom).to_upper(), OR, 26)
 	var ici: Array = b.place_de(commune)
 	if ici.is_empty() or not b.clubs.has(commune):
 		_mot(col, "Le club n'est pas encore au championnat.", DOUX)
 		_fermer(col)
 		return
-	_mot(col, b.phrase_actionnaires(commune), OR, 15)
-	# Ce qui empêche de décider, dit tout de suite plutôt qu'au premier clic.
+	# Qui dirige, en une ligne et un (i) ; ce qui empêche de décider, dit tout de suite plutôt qu'au
+	# premier clic, en une ligne rouge, le pourquoi dans le (i).
 	var refus: String = b.refus_bureau(commune)
-	if refus != "":
-		_mot(col, pourquoi(refus) + (" Vous pouvez tout lire, sans rien changer." if refus in ["compte", "parts", "division"] else ""), ROUGE, 15)
+	var qui := _rangee(col)
+	var dirige: bool = refus == "" and b.peut_decider(commune)
+	_mot(qui, "✓ Vous dirigez" if dirige else "Lecture seule", VERT if dirige else ROUGE, 15).name = "Direction"
+	qui.add_child(AIDE.creer(b.phrase_actionnaires(commune) + ("\n" + pourquoi(refus) if refus != "" else "")))
 	# Renommer le club : son dirigeant, s'il en tient des parts (demande de Guillaume du 23 octobre 2026).
 	if refus == "" and b.investi(commune) > 0:
 		var r := _rangee(col)
-		_mot(r, "Le nom du club :", DOUX, 15)
 		var saisie := LineEdit.new()
 		saisie.name = "NomDuClub"
 		saisie.text = _nom_saisi if _nom_saisi != "" else str(club.nom)
@@ -50,10 +51,11 @@ func remplir(col: VBoxContainer) -> void:
 		saisie.custom_minimum_size.x = 320
 		saisie.text_changed.connect(func(t): _nom_saisi = t)
 		r.add_child(saisie)
-		_bouton(r, "Renommer", func(): _renommer(saisie.text), "Renommer")
+		saisie.tooltip_text = "Le nom du club, pour tous les joueurs (3 à 40 caractères)."
+		_bouton(r, "Renommer", func(): _renommer(saisie.text), "Renommer", "registre")
 	var onglets := _rangee(col)
-	for p in [["equipe", "L'équipe"], ["marche", "Le marché"], ["comptes", "Les comptes"]]:
-		var bt := _bouton(onglets, p[1], func(): page = p[0]; _message = ""; rafraichir(), "Onglet_" + p[0])
+	for p in [["equipe", "L'équipe", "effectif"], ["marche", "Le marché", "mercato"], ["comptes", "Les comptes", "comptes"]]:
+		var bt := _bouton(onglets, p[1], func(): page = p[0]; _message = ""; rafraichir(), "Onglet_" + p[0], p[2])
 		bt.disabled = page == p[0]
 	if _message != "":
 		_mot(col, _message, ROUGE if _message.begins_with("!") else OR, 15).text = _message.trim_prefix("!")
@@ -61,7 +63,8 @@ func remplir(col: VBoxContainer) -> void:
 	if b.cliches.is_empty():
 		_mot(col, "Les notes des joueurs ne sont pas encore arrivées : il faut être connecté une première fois.", DOUX)
 	elif not b.tirage_fait(commune) and page != "comptes":
-		_mot(col, "L'effectif n'est pas encore tiré : les dix joueurs du club arrivent avec les premières notes, %s au soir. Le marché ouvre ensuite, et la première journée se joue le samedi à 20 h." % preload("res://scripts/socle/basket_club.gd")._jour(b.quand_tirage()), TEXTE, 16)
+		var l := _mot(col, "L'effectif n'est pas encore tiré : il arrive %s au soir." % preload("res://scripts/socle/basket_club.gd")._jour(b.quand_tirage()), TEXTE, 16)
+		AIDE.poser(l, "Les dix joueurs du club arrivent avec les premières notes. Le marché ouvre ensuite, et la première journée se joue le samedi à 20 h.")
 	elif page == "marche":
 		_marche(col)
 	elif page == "comptes":
@@ -82,7 +85,7 @@ func _equipe(col: VBoxContainer) -> void:
 	var decide: bool = b.peut_decider(commune)
 	var consigne: String = b.consigne_de(b.saison, prochaine, commune)
 	var h := _rangee(col)
-	_mot(h, "Consigne pour la journée %d :" % prochaine, TEXTE, 16)
+	_mot(h, "Consigne pour la journée %d" % prochaine, DOUX, 15)
 	for c in [["titulaires", "Les titulaires"], ["rotation", "Rotation large"]]:
 		var bt := _bouton(h, c[1], func(): _consigne(c[0]), "Consigne_" + c[0])
 		bt.disabled = consigne == c[0] or not decide
@@ -93,23 +96,28 @@ func _equipe(col: VBoxContainer) -> void:
 	for e in joueurs:
 		fiches[e.code] = cl.get("joueurs", {}).get(e.code, {})
 	joueurs.sort_custom(func(a, x): return int(fiches[a.code].get("note", 0)) > int(fiches[x.code].get("note", 0)))
-	_mot(col, "L'effectif (%d joueurs, %s crédits de salaires par journée sur %s permis)" % [joueurs.size(), Game.fmt(b.masse_salariale(commune, maxi(1, j))), Game.fmt(b.PLAFOND)], OR, 18)
+	var masse: int = b.masse_salariale(commune, maxi(1, j))
+	_tuiles(col, [["Effectif", "%d / %d" % [joueurs.size(), b.EFFECTIF], "joueurs", TEXTE, ""],
+		["Salaires", Game.fmt(masse), "sur %s / j." % Game.fmt(b.PLAFOND), ROUGE if masse > b.PLAFOND else TEXTE,
+			"La masse salariale d'une journée, sous le plafond de la ligue. Au-dessus, le marché refuse les offres qui ne tiennent pas."]])
+	var t := _mot(col, "L'EFFECTIF", TEINTES.CRAYON, 12)
+	AIDE.poser(t, "Note de la semaine sur 100, ▲ en forme, ▼ en baisse ; en gris, un joueur absent de son dernier match. Éval. : l'évaluation du match (points, rebonds, passes, moins les tirs manqués et les ballons perdus)."
+		+ ("\nUn joueur libéré quitte le club à la clôture du jeudi %s ; il compte pour la moitié de son salaire jusqu'à la fin de la saison." % _date(b.cloture(b.saison, jm)) if jm > 0 else ""))
 	# Un tableau, comme l'effectif de l'Étoile : une colonne par donnée, plutôt qu'une ligne de base de données.
-	var g := _tableau(col, ["Note", "", "Joueur", "Poste", "Club", "Salaire", "Dernier match", ""])
+	# Le dernier match réel en colonnes (points, rebonds, passes, évaluation), comme les statistiques de
+	# Football Manager, plutôt qu'en une phrase.
+	var g := _tableau(col, ["Note", "", "Joueur", "Poste", "Club", "Salaire", "Match", "Pts", "Rbd", "Pd", "Éval.", "Adv.", ""])
 	for e in joueurs:
 		var f: Dictionary = fiches[e.code]
 		var dispo := bool(f.get("dispo", false))
 		_cellules(g, [str(int(f.get("note", 0))), fleche(int(f.get("forme", 0))), nom_lisible(str(f.get("nom", e.code))), poste_fr(str(f.get("poste", ""))),
-			str(f.get("club", "?")), "%s / j." % Game.fmt(int(e.salaire)), match_lisible(f.get("derniere", {}))], dispo)
+			str(f.get("club", "?")), "%s / j." % Game.fmt(int(e.salaire))] + colonnes_match(f.get("derniere", {})), dispo)
 		if liberes.has(e.code):
 			_mot(g, "libéré jeudi", ROUGE, 14)
 		elif jm > 0 and decide:
 			_bouton(g, "Libérer", func(): _liberer(e.code), "Liberer_" + e.code)
 		else:
 			g.add_child(Control.new())
-	_mot(col, "Note de la semaine sur 100, ▲ en forme, ▼ en baisse ; en gris, un joueur absent de son dernier match. Éval. : l'évaluation du match (points, rebonds, passes, moins les tirs manqués et les ballons perdus).", DOUX, 13)
-	if jm > 0:
-		_mot(col, "Un joueur libéré quitte le club à la clôture du jeudi %s ; il compte pour la moitié de son salaire jusqu'à la fin de la saison." % _date(b.cloture(b.saison, jm)), DOUX, 13)
 
 
 func _renommer(nom: String) -> void:
@@ -140,12 +148,17 @@ func _marche(col: VBoxContainer) -> void:
 	var ici: Array = b.place_de(commune)
 	var places: int = b.EFFECTIF - (b.effectif(b.saison, ici[0], ici[1], ici[2], jm - 1) as Array).size() + b.liberations_prevues(commune).size()
 	var reste: int = b.PLAFOND - b.masse_salariale(commune, jm - 1)
-	_mot(col, "Les joueurs libres du groupe, pour la journée %d. Clôture le jeudi %s à 22 h ; le joueur arrive avant le cliché du vendredi." % [jm, _date(b.cloture(b.saison, jm))], TEXTE, 15)
-	_mot(col, "Place pour %d joueur%s ; %s crédits de salaires encore permis par journée. Une offre qui ne tient pas dans l'effectif ou sous le plafond à la clôture ne compte pas." % [maxi(0, places), "s" if places > 1 else "", Game.fmt(maxi(0, reste))], DOUX, 14)
+	_tuiles(col, [["Clôture", "jeu. %s" % _date(b.cloture(b.saison, jm)), "à 22 h · journée %d" % jm, OR,
+			"Les joueurs libres du groupe, aux enchères jusqu'au jeudi 22 h ; le joueur arrive avant le cliché du vendredi. Une mise dépassée est rendue."],
+		["Places", str(maxi(0, places)), "dans l'effectif", TEXTE if places > 0 else ROUGE, ""],
+		["Salaires permis", Game.fmt(maxi(0, reste)), "par journée", TEXTE if reste > 0 else ROUGE,
+			"Une offre qui ne tient pas dans l'effectif ou sous le plafond à la clôture ne compte pas."]])
+	var t := _mot(col, "LES JOUEURS LIBRES DU GROUPE", TEINTES.CRAYON, 12)
+	t.name = "Libres"
 	var h := _rangee(col)
-	for t in [["note", "Les meilleures notes"], ["forme", "Ceux qui montent"]]:
-		var bt := _bouton(h, t[1], func(): tri = t[0]; rafraichir(), "Tri_" + t[0])
-		bt.disabled = tri == t[0]
+	for x in [["note", "Les meilleures notes"], ["forme", "Ceux qui montent"]]:
+		var bt := _bouton(h, x[1], func(): tri = x[0]; rafraichir(), "Tri_" + x[0], "classement")
+		bt.disabled = tri == x[0]
 	var libres: Array = b.joueurs_libres(commune)
 	if tri == "forme":
 		libres = libres.filter(func(x): return int(x.forme) > 0)
@@ -186,24 +199,28 @@ func _comptes(col: VBoxContainer) -> void:
 	var j: int = maxi(1, b.journee_jouee())
 	var masse: int = b.masse_salariale(commune, j)
 	var facteur: float = b.recette_facteur(commune)
-	_mot(col, "Masse salariale : %s crédits par journée, sur %s permis." % [Game.fmt(masse), Game.fmt(b.PLAFOND)], TEXTE)
-	_mot(col, "Recette d'une journée : %s crédits ×%.1f au classement d'aujourd'hui." % [Game.fmt(b.RECETTE), facteur], TEXTE)
-	_mot(col, "Bénéfice partagé entre les obligations : %s crédits par journée." % Game.fmt(int(maxf(0.0, b.RECETTE * facteur - masse))), OR)
-	_filet(col)
+	var benefice := int(maxf(0.0, b.RECETTE * facteur - masse))
 	var inv: int = b.investi(commune)
-	if inv > 0:
-		var par_journee := 0
-		for r in b.mes_obligations(commune):
-			par_journee += b.dividende(commune, r, maxi(1, b.journee_jouee()))
-		_mot(col, "Vous avez %s crédits dans le club (obligations n° %s), qui rapportent environ %s crédits par journée." % [Game.fmt(inv), ", ".join(b.mes_obligations(commune).map(func(x): return str(x))), Game.fmt(par_journee)], TEXTE)
-	else:
-		_mot(col, "Vous n'avez pas d'obligation du club : Maître Garnier les cède à l'étude.", DOUX)
+	var par_journee := 0
+	for r in b.mes_obligations(commune):
+		par_journee += b.dividende(commune, r, maxi(1, b.journee_jouee()))
 	var mises := 0
 	for lot in b.retenues:
 		mises += int(b.retenues[lot])
+	# Un tableau de comptes, à la Football Manager : le chiffre à droite, le calcul dans le (i).
+	_tuiles(col, [["Bénéfice", Game.fmt(benefice), "par journée", OR if benefice > 0 else ROUGE,
+			"La recette d'une journée moins la masse salariale, partagée entre les obligations du club."],
+		["Vos obligations", Game.fmt(inv) if inv > 0 else "—", "≈ %s par journée" % Game.fmt(par_journee) if inv > 0 else "aucune", TEXTE,
+			"Maître Garnier cède les obligations du club à l'étude." if inv == 0 else "Obligations n° %s." % ", ".join(b.mes_obligations(commune).map(func(x): return str(x)))]])
+	_mot(col, "LES COMPTES D'UNE JOURNÉE", TEINTES.CRAYON, 12)
+	var lignes := [["Recette", "%s × %.1f" % [Game.fmt(b.RECETTE), facteur], TEXTE, "La recette de base, multipliée selon le classement d'aujourd'hui."],
+		["Masse salariale", "%s / %s" % [Game.fmt(masse), Game.fmt(b.PLAFOND)], ROUGE if masse > b.PLAFOND else TEXTE, "Les salaires d'une journée, sur le plafond permis."],
+		["Bénéfice partagé", Game.fmt(benefice), OR, ""], [],
+		["Dividendes touchés", Game.fmt(int(b.dividendes_total)), TEXTE, "Depuis le début, toutes saisons du basket."]]
 	if mises > 0:
-		_mot(col, "Mises en cours au marché : %s crédits retenus." % Game.fmt(mises), TEXTE)
-	_mot(col, "Dividendes du basket touchés depuis le début : %s crédits. Vous avez %s crédits." % [Game.fmt(int(b.dividendes_total)), Game.fmt(Game.credits)], DOUX)
+		lignes.append(["Mises au marché", Game.fmt(mises), TEXTE, "Retenues jusqu'à la clôture ; rendues si l'offre est dépassée."])
+	lignes.append(["Vos crédits", Game.fmt(Game.credits), DOUX, ""])
+	_comptes_en_lignes(col, lignes)
 
 
 # ---------------------------------------------------------------- outils
@@ -252,6 +269,16 @@ static func match_lisible(d: Dictionary) -> String:
 	var date := str(d.get("date", ""))
 	var jour := "%s/%s" % [date.substr(8, 2), date.substr(5, 2)] if date.length() >= 10 else date
 	return "%s · %d pts, %d rbd, %d pd · éval. %d · contre %s" % [jour, int(d.pts), int(d.reb), int(d.pd), int(d.pir), str(d.adv)]
+
+## Le dernier match réel en six colonnes : la date, les points, les rebonds, les passes, l'évaluation,
+## l'adversaire ; des tirets s'il n'a pas joué.
+static func colonnes_match(d: Dictionary) -> Array:
+	if d.is_empty():
+		return ["—", "", "", "", "", ""]
+	var date := str(d.get("date", ""))
+	var jour := "%s/%s" % [date.substr(8, 2), date.substr(5, 2)] if date.length() >= 10 else date
+	return [jour, str(int(d.pts)), str(int(d.reb)), str(int(d.pd)), str(int(d.pir)), str(d.adv)]
+
 
 func _apres(r: Dictionary, bien: String) -> void:
 	_message = bien if r.get("ok", false) else "!" + pourquoi(str(r.get("raison", "")))

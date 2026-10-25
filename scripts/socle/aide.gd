@@ -12,10 +12,11 @@ extends Button
 ##   AIDE.poser(label, "Le premier monte, les 2 derniers descendent.")  # le (i) juste après le label
 ##   var i := AIDE.creer("…")  # un (i) seul, à placer soi-même
 
-const ENCRE := Color(0.53, 0.58, 0.66)
-const ENCRE_VIVE := Color(0.93, 0.95, 0.98)
-const FOND := Color(0.085, 0.1, 0.135, 0.98)
-const BORD := Color(1, 1, 1, 0.14)
+const TEINTES := preload("res://scripts/socle/teintes.gd")
+const ENCRE := TEINTES.CRAYON
+const ENCRE_VIVE := TEINTES.TEXTE
+const FOND := Color(TEINTES.BARRE, 0.98)
+const BORD := Color(TEINTES.LAITON, 0.4)
 const LARGEUR := 300
 const CALQUE := 120
 
@@ -56,6 +57,13 @@ static func poser(c: Control, t: String) -> Button:
 		p.move_child(h, idx)
 	h.add_child(c)
 	c.size_flags_horizontal = Control.SIZE_FILL
+	# Un texte qui se replie n'a plus de largeur dans une rangée : il s'écrirait une lettre par ligne. Court,
+	# il ne se replie plus ; long, il prend la largeur, et le (i) se met au bout.
+	if c is Label and (c as Label).autowrap_mode != TextServer.AUTOWRAP_OFF:
+		if (c as Label).text.length() <= 48:
+			(c as Label).autowrap_mode = TextServer.AUTOWRAP_OFF
+		else:
+			c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(i)
 	return i
 

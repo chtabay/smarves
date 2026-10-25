@@ -96,14 +96,14 @@ func _lancer() -> void:
 	carnet.ouvrir_sur("aujourdhui")
 	await process_frame
 	var d := _textes(carnet.get("_right"))
-	check(carnet.get("_right").find_child("Basket_" + club, true, false) != null and d.contains("Basket · ") and d.contains("Consigne du match : rotation."), "la boîte : la carte des Hérons, avec sa consigne")
+	check(carnet.get("_right").find_child("Basket_" + club, true, false) != null and d.contains("Basket · ") and d.contains("Consigne : rotation"), "la boîte : la carte des Hérons, avec sa consigne")
 	carnet.toggle()
 	check(carnet.pages_clubs().map(func(p): return p[0]) == ["basket:" + club, "calendrier"], "Mes clubs : une page pour les Hérons, puis le calendrier")
 	carnet.ouvrir_club("basket:" + club)
 	await process_frame
 	var g := _textes(carnet.get("_left"))
 	var gd := _textes(carnet.get("_right"))
-	check(carnet.get("_left").find_child("Classement", true, false) != null and g.contains("V-D") and gd.contains("J4  ") and gd.contains("J5  "), "sa page : le classement, les journées")
+	check(carnet.get("_left").find_child("Classement", true, false) != null and g.contains("V-D") and carnet.get("_right").find_child("Journees", true, false) != null and gd.contains("J4\n") and gd.contains("J5\n"), "sa page : le classement, les journées")
 	check(carnet.get("_right").find_child("Effectif", true, false) != null and _textes(carnet.get("_right")).contains("Masse salariale"), "en face : l'effectif et la masse salariale")
 	# ---- le notaire, par téléphone : le tableau des parts par-dessus le carnet ; Échap ramène à la page.
 	var notaire: Button = carnet.get("_left").find_child("Action_Notaire", true, false)

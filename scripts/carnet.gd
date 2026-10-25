@@ -29,20 +29,23 @@ extends CanvasLayer
 
 ## Les couleurs de l'écran. Les noms d'origine (papier, encre, crayon) restent : la page de la commune
 ## d'origine, le pensionnaire et le classeur écrivent avec.
-const FOND := Color(0.06, 0.07, 0.095)
-const BARRE := Color(0.085, 0.1, 0.135)
-const PAPER := Color(0.12, 0.14, 0.185)
-const CARTE := Color(0.165, 0.19, 0.245)
-const BOUTON := Color(0.21, 0.25, 0.32)
-const LIGNE := Color(1, 1, 1, 0.08)
-const INK := Color(0.93, 0.95, 0.98)
-const INK_LIGHT := Color(0.71, 0.76, 0.84)
-const PENCIL := Color(0.53, 0.58, 0.66)
-const RED_INK := Color(0.98, 0.46, 0.41)
-const ACCENT := Color(0.38, 0.7, 1.0)
+## Depuis le 25 octobre 2026, les teintes du reste du jeu (scripts/socle/teintes.gd) : la nuit chaude, le
+## laiton et l'or, à la place de l'ardoise et du bleu vif.
+const TEINTES := preload("res://scripts/socle/teintes.gd")
+const FOND := TEINTES.NUIT
+const BARRE := TEINTES.BARRE
+const PAPER := TEINTES.PANNEAU
+const CARTE := TEINTES.CARTE
+const BOUTON := TEINTES.BOUTON
+const LIGNE := TEINTES.FILET
+const INK := TEINTES.TEXTE
+const INK_LIGHT := TEINTES.DOUX
+const PENCIL := TEINTES.CRAYON
+const RED_INK := TEINTES.ROUGE
+const ACCENT := TEINTES.OR
 const MARGIN_RED := ACCENT
-const VERT := Color(0.37, 0.8, 0.5)
-const OCRE := Color(0.95, 0.75, 0.32)
+const VERT := TEINTES.VERT
+const OCRE := TEINTES.OCRE
 
 ## Au-delà, les compteurs d'une commune passent sur la page de droite.
 const LIGNES_A_GAUCHE := 14
@@ -476,14 +479,6 @@ func _fill_onglets() -> void:
 						_refresh())
 				else:
 					sb.pressed.connect(ouvrir_onglet.bind(cle_s))
-	var vide := Control.new()
-	vide.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_onglets.add_child(vide)
-	var aide := MarginContainer.new()
-	aide.add_theme_constant_override("margin_left", 16)
-	aide.add_theme_constant_override("margin_right", 10)
-	_onglets.add_child(aide)
-	_text(aide, "C ou Échap : fermer\n← → : changer de rubrique%s" % ("\n↑ ↓ : villages" if _onglet == "cartes" else ""), 13, PENCIL)
 
 
 ## Un bouton de la barre : une rubrique (en gras, le liseré bleu quand elle est ouverte) ou une de ses pages.
@@ -569,6 +564,8 @@ func _fill_bandeau() -> void:
 		var b := _text(v, str(x[1]), 18, INK, true)
 		b.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		b.autowrap_mode = TextServer.AUTOWRAP_OFF
+	# La croix, en haut à droite ; les raccourcis dans sa bulle.
+	_bandeau.add_child(CROIX.creer(toggle, "Fermer  (C ou Échap)\n← → : changer de rubrique%s" % ("\n↑ ↓ : villages" if _onglet == "cartes" else "")))
 
 
 ## Le prochain match des clubs suivis, football et basket : {sport, club, nom, couleurs, j, quand, domicile,
@@ -634,7 +631,7 @@ func _build() -> void:
 	var cs := StyleBoxFlat.new()
 	cs.bg_color = FOND
 	cs.set_corner_radius_all(10)
-	cs.border_color = LIGNE
+	cs.border_color = Color(TEINTES.LAITON, 0.55)
 	cs.set_border_width_all(1)
 	cs.shadow_color = Color(0, 0, 0, 0.55)
 	cs.shadow_size = 22
@@ -781,6 +778,7 @@ func _row(parent: Control, label: String, value: String, color := INK, bold := f
 
 
 const PICTOS := preload("res://scripts/socle/pictos.gd")
+const CROIX := preload("res://scripts/socle/croix.gd")
 const AIDE := preload("res://scripts/socle/aide.gd")
 
 
@@ -805,9 +803,9 @@ func _link(parent: Control, t: String, action: Callable, enabled := true, picto 
 	b.add_theme_font_override("font", _hand_bold)
 	b.add_theme_font_size_override("font_size", 15)
 	for k in ["font_color", "font_pressed_color", "font_focus_color", "icon_normal_color", "icon_pressed_color", "icon_focus_color"]:
-		b.add_theme_color_override(k, ACCENT.lightened(0.25))
-	b.add_theme_color_override("font_hover_color", INK)
-	b.add_theme_color_override("icon_hover_color", INK)
+		b.add_theme_color_override(k, ACCENT)
+	b.add_theme_color_override("font_hover_color", Color(1, 0.92, 0.7))
+	b.add_theme_color_override("icon_hover_color", Color(1, 0.92, 0.7))
 	b.add_theme_color_override("font_disabled_color", PENCIL)
 	b.add_theme_color_override("icon_disabled_color", PENCIL)
 	if picto != "":
@@ -817,7 +815,10 @@ func _link(parent: Control, t: String, action: Callable, enabled := true, picto 
 	for k in ["normal", "hover", "pressed", "focus", "disabled"]:
 		var st := StyleBoxFlat.new()
 		st.bg_color = {"hover": BOUTON.lightened(0.12), "pressed": BOUTON.darkened(0.1), "disabled": Color(0, 0, 0, 0)}.get(k, BOUTON)
-		st.set_corner_radius_all(5)
+		# Le filet laiton des boutons du jeu (le compteur, les réglages).
+		st.border_color = Color(TEINTES.LAITON, 0.25 if k == "disabled" else 0.6)
+		st.set_border_width_all(1)
+		st.set_corner_radius_all(4)
 		st.content_margin_left = 10 if picto != "" else 12
 		st.content_margin_right = 12
 		st.content_margin_top = 5
@@ -912,15 +913,15 @@ func _fill_boite() -> void:
 	Avis.solder()
 	_title(_left, "Messages")
 	var liste := a_faire()
-	_rubrique(_left, "À faire (%d)" % liste.size() if not liste.is_empty() else "Rien ne presse.", RED_INK if not liste.is_empty() else PENCIL)
+	var a_faire_l := _rubrique(_left, "À faire (%d)" % liste.size() if not liste.is_empty() else "✓ Rien ne presse", RED_INK if not liste.is_empty() else VERT)
 	if liste.is_empty():
-		_text(_left, "Pas de décision en attente, pas de composition à poser.", 15, PENCIL)
+		_aide(a_faire_l, "Pas de décision en attente, pas de composition à poser.")
 	for x in liste:
 		_une_chose(_left, x, t)
 	# Une décision déjà dans « À faire » ne se répète pas dans les messages.
 	var en_attente: Array = liste.filter(func(x): return x.genre == "dilemme").map(func(x): return x.avis.id)
 	var nouveaux: Array = Avis.non_lus().filter(func(a): return not en_attente.has(a.id))
-	_rubrique(_left, "Nouveau (%d)" % nouveaux.size() if not nouveaux.is_empty() else "Rien de nouveau.", ACCENT if not nouveaux.is_empty() else PENCIL)
+	_rubrique(_left, "Nouveau (%d)" % nouveaux.size() if not nouveaux.is_empty() else "Rien de nouveau", ACCENT if not nouveaux.is_empty() else PENCIL)
 	for a in nouveaux:
 		_ligne_avis(_left, a, t, true)
 	if not nouveaux.is_empty():
@@ -929,9 +930,7 @@ func _fill_boite() -> void:
 			_refresh(), true, "choix")
 		tout.name = "ToutLu"
 	var lus: Array = Avis.liste.filter(func(x): return bool(x.lu) and not en_attente.has(x.id))
-	_rubrique(_left, "Déjà lu")
-	if lus.is_empty():
-		_text(_left, "La boîte garde les %d derniers messages." % Avis.GARDES, 15, PENCIL)
+	_aide(_rubrique(_left, "Déjà lu (%d)" % lus.size() if not lus.is_empty() else "Déjà lu"), "La boîte garde les %d derniers messages." % Avis.GARDES)
 	for a in lus.slice(0, 25):
 		_ligne_avis(_left, a, t, false)
 	# À droite : le message ouvert, ou le résumé du jour.
@@ -949,7 +948,7 @@ func _fill_resume(t: int) -> void:
 	var clubs: Array = AUJOURDHUI.clubs(Football, Avis)
 	var paniers: Array = AUJOURDHUI.clubs_basket(Basket)
 	if clubs.is_empty() and paniers.is_empty():
-		_text(_right, "Vous ne suivez aucun club. Une obligation de club se prend au registre du stade (football) ou au tableau des parts de la salle (basket), à l'intersaison ; elle rapporte un dividende chaque journée, et la plus grosse mise dirige.", 15, PENCIL)
+		_aide(_text(_right, "Aucun club suivi.", 15, PENCIL), "Une obligation de club se prend au registre du stade (football) ou au tableau des parts de la salle (basket), à l'intersaison ; elle rapporte un dividende chaque journée, et la plus grosse mise dirige.")
 	for club in clubs:
 		var c: Dictionary = AUJOURDHUI.carte(Football, club)
 		if not c.is_empty():
@@ -958,11 +957,14 @@ func _fill_resume(t: int) -> void:
 		var c: Dictionary = AUJOURDHUI.carte_basket(Basket, club)
 		if not c.is_empty():
 			_une_carte(_right, c, t)
-	_rubrique(_right, "Prochains rendez-vous")
+	# Les rendez-vous en tableau : quand, dans combien, quoi ; la saison dans le (i).
+	_aide(_rubrique(_right, "Prochains rendez-vous"), preload("res://scripts/socle/calendrier.gd").resume(Football, "football"))
+	var g := _grille(_right, "Rendez_vous", ["Quand", "Dans", "Quoi"])
 	for rv in Agenda.prochains(3, t):
-		var quand := "en ce moment" if Agenda.en_cours(rv, t) else "%s, %s (%s)" % [Agenda.jour_relatif(rv.quand, t), Agenda.heure(rv.quand), AUJOURDHUI.dans(rv.quand, t)]
-		_text(_right, "%s  ·  %s" % [quand, rv.titre], 15, INK_LIGHT if rv.annonce else INK)
-	_text(_right, preload("res://scripts/socle/calendrier.gd").resume(Football, "football"), 14, PENCIL)
+		var en_cours: bool = Agenda.en_cours(rv, t)
+		var couleur := INK_LIGHT if rv.annonce else INK
+		_ligne_grille(g, ["%s, %s" % [_jour_court(int(rv.quand), t), Agenda.heure(rv.quand)],
+			"maintenant" if en_cours else AUJOURDHUI.dans(rv.quand, t), str(rv.titre)], 2, couleur, false)[1].add_theme_color_override("font_color", ACCENT)
 	_gap(_right, 4)
 	_link(_right, "Toute la semaine", _show_sheet.bind(true, "agenda"), true, "semaine")
 
@@ -1081,38 +1083,63 @@ func _une_carte(col: VBoxContainer, c: Dictionary, t: int) -> void:
 	tete.add_theme_constant_override("separation", 8)
 	v.add_child(tete)
 	_ecusson(tete, couleurs)
-	var nom := _text(tete, "%s%s%s" % ["Basket · " if basket else "", c.nom, "  ·  vous dirigez" if c.dirige else ""], 17, INK, true)
+	var nom := _text(tete, "%s%s" % ["Basket · " if basket else "", c.nom], 17, INK, true)
+	nom.autowrap_mode = TextServer.AUTOWRAP_OFF
+	nom.clip_text = true
+	nom.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	nom.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var rang := _text(tete, AUJOURDHUI.rang(int(c.rang)), 20, INK, true)
-	rang.autowrap_mode = TextServer.AUTOWRAP_OFF
-	var place := "%s sur %d, %s en %d %s" % [AUJOURDHUI.rang(int(c.rang)), int(c.taille), _pts(int(c.pts)), int(c.joues), "match" if int(c.joues) <= 1 else "matchs"]
-	if int(c.joues) > 0:
-		if int(c.rang) > 1:
-			place += ", à égalité avec le 1er" if int(c.ecart_tete) == 0 else ", à %d du 1er" % int(c.ecart_tete)
-		elif int(c.taille) > 1:
-			place += ", en tête"
-	_text(v, "%s  ·  %s" % [c.division, place], 14, INK_LIGHT)
+	# Qui dirige : un ✓ si c'est vous, sinon le mot de la direction dans le (i).
+	var qui := _text(tete, "✓ vous dirigez" if c.dirige else "", 13, VERT, true)
+	qui.autowrap_mode = TextServer.AUTOWRAP_OFF
+	if not c.dirige:
+		qui.queue_free()
+		tete.add_child(AIDE.creer(str(c.direction)))
+	# Une rangée de chiffres : la division, le rang, les points, la forme.
 	var ligne := HBoxContainer.new()
-	ligne.add_theme_constant_override("separation", 4)
+	ligne.add_theme_constant_override("separation", 6)
 	v.add_child(ligne)
-	_text(ligne, "Forme", 13, PENCIL).autowrap_mode = TextServer.AUTOWRAP_OFF
-	if str(c.forme) == "":
-		_text(ligne, "pas encore de match joué", 13, PENCIL).autowrap_mode = TextServer.AUTOWRAP_OFF
+	var chiffres := "%s  ·  %s / %d  ·  %s" % [c.division, AUJOURDHUI.rang(int(c.rang)), int(c.taille), _pts(int(c.pts))] if int(c.joues) > 0 else "%s  ·  saison à venir" % c.division
+	_text(ligne, chiffres, 14, INK_LIGHT).autowrap_mode = TextServer.AUTOWRAP_OFF
+	var ressort := Control.new()
+	ressort.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ligne.add_child(ressort)
 	for x in str(c.forme):
 		_pastille_forme(ligne, x)
 	var p: Dictionary = c.prochain
 	if not p.is_empty():
+		var h := HBoxContainer.new()
+		h.add_theme_constant_override("separation", 6)
+		v.add_child(h)
+		var ic := TextureRect.new()
+		ic.texture = PICTOS.texture("semaine", INK_LIGHT, 15)
+		ic.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
+		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		h.add_child(ic)
 		var adv := "%s%s" % [p.nom_adv, " (%s)" % AUJOURDHUI.rang(int(p.rang_adv)) if int(c.joues) > 0 and int(p.rang_adv) > 0 else ""]
-		_text(v, "Journée %d, %s à %s, %s : %s %s" % [int(p.j), Agenda.jour_relatif(int(p.quand), t), Agenda.heure(int(p.quand)), AUJOURDHUI.dans(int(p.quand), t),
-			"contre" if p.domicile else "chez", adv], 14, INK)
+		var l := _text(h, "J%d · %s %s" % [int(p.j), "contre" if p.domicile else "chez", adv], 14, INK)
+		l.autowrap_mode = TextServer.AUTOWRAP_OFF
+		l.clip_text = true
+		l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		l.tooltip_text = "%s à %s" % [Agenda.jour_relatif(int(p.quand), t), Agenda.heure(int(p.quand))]
+		l.mouse_filter = Control.MOUSE_FILTER_PASS
+		_text(h, AUJOURDHUI.dans(int(p.quand), t), 14, ACCENT, true).autowrap_mode = TextServer.AUTOWRAP_OFF
 	var o: Dictionary = c.objectif
 	var cf: Dictionary = c.confiance
 	if not o.is_empty():
-		_text(v, "Objectif : %s%s" % [str(o.titre).to_lower(), "  ·  confiance %d sur 100. %s" % [int(cf.valeur), cf.phrase] if not cf.is_empty() else ""], 13, INK_LIGHT)
+		# L'objectif en un mot, la confiance en jauge ; la phrase de la direction dans le (i).
+		var h := HBoxContainer.new()
+		h.add_theme_constant_override("separation", 6)
+		v.add_child(h)
+		_text(h, "Objectif : %s" % str(o.titre).to_lower(), 13, INK_LIGHT).autowrap_mode = TextServer.AUTOWRAP_OFF
+		if not cf.is_empty():
+			var ressort2 := Control.new()
+			ressort2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			h.add_child(ressort2)
+			_jauge(h, int(cf.valeur), "Confiance")
+			h.add_child(AIDE.creer("Confiance de la direction : %d sur 100. %s" % [int(cf.valeur), cf.phrase]))
 	if basket and not p.is_empty():
-		_text(v, "Consigne du match : %s." % ("tous les titulaires" if str(c.consigne) == "titulaires" else "rotation"), 13, INK_LIGHT)
-	if not c.dirige:
-		_text(v, str(c.direction), 13, PENCIL)
+		_text(v, "Consigne : %s" % ("titulaires" if str(c.consigne) == "titulaires" else "rotation"), 13, INK_LIGHT)
 	_gap(v, 2)
 	if basket:
 		_actions(v, [
@@ -1123,6 +1150,75 @@ func _une_carte(col: VBoxContainer, c: Dictionary, t: int) -> void:
 			{"picto": "gerer", "mot": "Gérer", "lien": {"vers": "bureau", "club": str(c.club), "page": ""}, "nom": "Gerer", "principal": true, "aide": "Le bureau du club, ici même."},
 			{"picto": "tactique", "mot": "Tactique", "lien": {"vers": "bureau", "club": str(c.club), "page": "tactique"}, "nom": "Tactique", "aide": "La composition du prochain match."},
 			{"picto": "lieu", "mot": "Stade", "lien": {"vers": "stade", "club": str(c.club)}, "nom": "Stade", "aide": "Aller au stade du club."}])
+
+
+## « aujourd'hui », « demain », ou « mer. 25 nov. ».
+static func _jour_court(quand: int, t: int) -> String:
+	var r := Agenda.jour_relatif(quand, t)
+	if r in ["aujourd'hui", "demain"]:
+		return r
+	return "%s. %s" % [Agenda.date(quand).split(" ")[0].left(3), preload("res://scripts/socle/calendrier.gd").jour_court(quand)]
+
+
+## Les journées d'un club en tableau, à la Football Manager : J, la date, domicile (⌂) ou extérieur,
+## l'adversaire, le résultat en pastille et le score, ou le compte à rebours du prochain match. Chaque
+## journée : {j, quand, dom, adv, score ([] si à jouer), issue (V, N, D ou "")}.
+func _journees(parent: Control, journees: Array, prochain_j: int, t: int) -> void:
+	var g := GridContainer.new()
+	g.name = "Journees"
+	g.columns = 5
+	g.add_theme_constant_override("h_separation", 10)
+	g.add_theme_constant_override("v_separation", 2)
+	parent.add_child(g)
+	var jour_court: Callable = preload("res://scripts/socle/calendrier.gd").jour_court
+	for m in journees:
+		var joue: bool = not (m.score as Array).is_empty()
+		var prochain: bool = int(m.j) == prochain_j
+		var couleur := INK if prochain or joue else INK_LIGHT
+		_text(g, "J%d" % int(m.j), 13, PENCIL, prochain).autowrap_mode = TextServer.AUTOWRAP_OFF
+		_text(g, str(jour_court.call(int(m.quand))), 13, INK_LIGHT).autowrap_mode = TextServer.AUTOWRAP_OFF
+		var ic := TextureRect.new()
+		ic.texture = PICTOS.texture("maison" if m.dom else "aller", PENCIL if not prochain else INK, 14)
+		ic.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
+		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		ic.tooltip_text = "à domicile" if m.dom else "à l'extérieur"
+		ic.mouse_filter = Control.MOUSE_FILTER_PASS
+		g.add_child(ic)
+		var adv := _text(g, str(m.adv), 14, couleur, prochain)
+		adv.autowrap_mode = TextServer.AUTOWRAP_OFF
+		adv.clip_text = true
+		adv.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		adv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var res := HBoxContainer.new()
+		res.add_theme_constant_override("separation", 5)
+		res.alignment = BoxContainer.ALIGNMENT_END
+		g.add_child(res)
+		if joue:
+			_pastille_forme(res, str(m.issue))
+			_text(res, "%d-%d" % [int(m.score[0]), int(m.score[1])], 14, INK, true).autowrap_mode = TextServer.AUTOWRAP_OFF
+		elif prochain:
+			_text(res, AUJOURDHUI.dans(int(m.quand), t), 13, ACCENT, true).autowrap_mode = TextServer.AUTOWRAP_OFF
+
+
+## Une petite jauge sur 100, comme la confiance des écrans de Football Manager : vert, ocre ou rouge.
+func _jauge(parent: Control, valeur: int, nom: String) -> void:
+	var fond := PanelContainer.new()
+	fond.name = "Jauge_" + nom
+	fond.custom_minimum_size = Vector2(70, 8)
+	fond.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	fond.tooltip_text = "%s : %d / 100" % [nom, valeur]
+	var st := StyleBoxFlat.new()
+	st.bg_color = BOUTON.darkened(0.3)
+	st.set_corner_radius_all(3)
+	fond.add_theme_stylebox_override("panel", st)
+	parent.add_child(fond)
+	var plein := ColorRect.new()
+	plein.color = VERT if valeur >= 60 else (OCRE if valeur >= 40 else RED_INK)
+	plein.custom_minimum_size = Vector2(70.0 * clampf(valeur / 100.0, 0.0, 1.0), 8)
+	plein.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	plein.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fond.add_child(plein)
+	_text(parent, str(valeur), 13, INK, true).autowrap_mode = TextServer.AUTOWRAP_OFF
 
 
 ## « 1 pt », « 7 pts ».
@@ -1198,7 +1294,7 @@ func _fill_pensionnaire(page: VBoxContainer) -> void:
 func _fill_courbe(page: VBoxContainer) -> void:
 	var c: Array = CARRIERE.courbe()
 	if c.size() < 2:
-		_text(page, "La courbe de la fortune se dessine semaine après semaine, à chaque ouverture du carnet.", 14, PENCIL)
+		_aide(_text(page, "Pas encore de courbe.", 14, PENCIL), "La courbe de la fortune se dessine semaine après semaine, à chaque ouverture du carnet.")
 		return
 	_rubrique(page, "La fortune, sur %d semaines" % c.size())
 	var k := Courbe.new()
@@ -1225,17 +1321,17 @@ class Courbe extends Control:
 			pts.append(Vector2(10 + (size.x - 20) * i / float(points.size() - 1), size.y - 10 - (size.y - 20) * (float(points[i]) - lo) / h))
 		if lo < 0 and hi > 0:
 			var y0 := size.y - 10 - (size.y - 20) * (0.0 - lo) / h
-			draw_line(Vector2(0, y0), Vector2(size.x, y0), Color(0.98, 0.46, 0.41, 0.4), 1.0)
+			draw_line(Vector2(0, y0), Vector2(size.x, y0), Color(RED_INK, 0.4), 1.0)
 		var aire := PackedVector2Array(pts)
 		aire.append(Vector2(pts[pts.size() - 1].x, size.y - 4))
 		aire.append(Vector2(pts[0].x, size.y - 4))
-		draw_colored_polygon(aire, Color(0.38, 0.7, 1.0, 0.12))
-		draw_polyline(pts, Color(0.38, 0.7, 1.0), 2.5, true)
-		draw_circle(pts[pts.size() - 1], 4.5, Color(0.93, 0.95, 0.98))
+		draw_colored_polygon(aire, Color(ACCENT, 0.12))
+		draw_polyline(pts, ACCENT, 2.5, true)
+		draw_circle(pts[pts.size() - 1], 4.5, INK)
 
 	static func _fond() -> StyleBoxFlat:
 		var st := StyleBoxFlat.new()
-		st.bg_color = Color(0.165, 0.19, 0.245)
+		st.bg_color = CARTE
 		st.set_corner_radius_all(6)
 		return st
 
@@ -1270,7 +1366,7 @@ func _fill_palmares(page: VBoxContainer) -> void:
 			var mots: Array = [place, str(x.titre).to_lower() if place != "" else str(x.titre)].filter(func(m): return m != "")
 			_text(page, "Saison %d, %s : %s" % [int(x.saison), y[2], ", ".join(mots)], 15, OCRE if str(x.titre) in ["Champion", "Montée"] else INK)
 	if rien:
-		_text(page, "Aucune saison close avec un club suivi. Le palmarès s'écrit à chaque fin de saison : la place finale, les titres, les montées.", 14, PENCIL)
+		_aide(_text(page, "Aucune saison close", 14, PENCIL), "Le palmarès s'écrit à chaque fin de saison d'un club suivi : la place finale, les titres, les montées.")
 
 
 ## Les réussites de tous les villages : les compteurs qui se cochent (genre « case »), une fois cochés.
@@ -1373,21 +1469,19 @@ func _fill_un_club(club: String) -> void:
 		_ligne_grille(g, [str(i + 1), _nom_club(str(l.club)), str(int(l.j)), ("+" if int(l.diff) > 0 else "") + str(int(l.diff)), str(int(l.pts))], 1, couleur, moi)
 	# En face : les journées, l'effectif, les parts.
 	_rubrique(_right, "Journées")
+	var journees := []
 	for j in range(1, int(Football.JOURNEES) + 1):
 		var m: Dictionary = FootCourrier.match_de(Football, club, Football.saison, j)
 		if m.is_empty():
 			continue
 		var dom: bool = m.dom == club
-		var adv := _nom_club(str(m.ext if dom else m.dom))
-		var jour := preload("res://scripts/socle/calendrier.gd").jour_court(Football.coup_envoi(Football.saison, j))
+		var x := {"j": j, "quand": Football.coup_envoi(Football.saison, j), "dom": dom, "adv": _nom_club(str(m.ext if dom else m.dom)), "score": [], "issue": ""}
 		if not (m.score as Array).is_empty():
 			var i := FootCourrier.issue(m, club)
-			_text(_right, "J%d  %s  %s %d-%d %s %s" % [j, jour, i.lettre, i.pour, i.contre, "contre" if dom else "chez", adv], 14,
-				VERT if i.lettre == "V" else (RED_INK if i.lettre == "D" else OCRE))
-		else:
-			var prochain: bool = not c.prochain.is_empty() and int(c.prochain.j) == j
-			_text(_right, "J%d  %s  %s %s%s" % [j, jour, "contre" if dom else "chez", adv, "  ·  " + AUJOURDHUI.dans(int(c.prochain.quand), t) if prochain else ""], 14,
-				INK if prochain else INK_LIGHT, prochain)
+			x.score = [i.pour, i.contre]
+			x.issue = i.lettre
+		journees.append(x)
+	_journees(_right, journees, int(c.prochain.j) if not c.prochain.is_empty() else -1, t)
 	_rubrique(_right, "Effectif")
 	var eff: Dictionary = Football.effectif(club, Football.saison)
 	var ids: Array = eff.keys()
@@ -1439,20 +1533,17 @@ func _fill_un_club_basket(club: String) -> void:
 		_ligne_grille(g, [str(i + 1), str(Basket.fiche(str(l.club)).nom), "%d-%d" % [int(l.v), int(l.d)], ("+" if diff > 0 else "") + str(diff), str(int(l.pts))], 1,
 			ACCENT if moi else (INK_LIGHT if i >= sauve else INK), moi)
 	_rubrique(_right, "Journées")
-	var jour_court: Callable = preload("res://scripts/socle/calendrier.gd").jour_court
+	var journees := []
 	for j in range(1, int(Basket.JOURNEES) + 1):
 		var m: Dictionary = AUJOURDHUI.match_basket(Basket, club, s, j)
 		if m.is_empty():
 			continue
-		var adv := str(Basket.fiche(str(m.adv)).nom)
-		var jour: String = jour_court.call(int(m.quand))
+		var x := {"j": j, "quand": int(m.quand), "dom": bool(m.dom), "adv": str(Basket.fiche(str(m.adv)).nom), "score": [], "issue": ""}
 		if not (m.score as Array).is_empty():
-			var v: bool = int(m.score[0]) > int(m.score[1])
-			_text(_right, "J%d  %s  %s %d-%d %s %s" % [j, jour, "V" if v else "D", int(m.score[0]), int(m.score[1]), "contre" if m.dom else "chez", adv], 14, VERT if v else RED_INK)
-		else:
-			var prochain: bool = not c.prochain.is_empty() and int(c.prochain.j) == j
-			_text(_right, "J%d  %s  %s %s%s" % [j, jour, "contre" if m.dom else "chez", adv, "  ·  " + AUJOURDHUI.dans(int(m.quand), t) if prochain else ""], 14,
-				INK if prochain else INK_LIGHT, prochain)
+			x.score = [int(m.score[0]), int(m.score[1])]
+			x.issue = "V" if int(m.score[0]) > int(m.score[1]) else "D"
+		journees.append(x)
+	_journees(_right, journees, int(c.prochain.j) if not c.prochain.is_empty() else -1, t)
 	_rubrique(_right, "Effectif")
 	var j0: int = mini(int(Basket.journee_jouee()) + 1, int(Basket.JOURNEES))
 	var joueurs: Array = (Basket.equipe(s, ici[0], ici[1], ici[2], j0).joueurs as Array).duplicate()

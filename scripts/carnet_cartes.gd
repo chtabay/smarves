@@ -26,14 +26,15 @@ extends Control
 
 signal ferme_zoom
 
-## Les couleurs de l'écran du carnet (scripts/carnet.gd) : le panneau sombre, le texte clair, le bleu des
-## boutons. Les cartes, elles, restent claires (VISAGE).
-const PAPER := Color(0.12, 0.14, 0.185)
-const MARGIN_RED := Color(0.38, 0.7, 1.0)
-const INK := Color(0.93, 0.95, 0.98)
-const INK_LIGHT := Color(0.71, 0.76, 0.84)
-const PENCIL := Color(0.53, 0.58, 0.66)
-const RED_INK := Color(0.98, 0.46, 0.41)
+## Les couleurs de l'écran du carnet (scripts/carnet.gd, scripts/socle/teintes.gd) : le panneau de nuit, le
+## texte clair, l'or des boutons. Les cartes, elles, restent claires (VISAGE).
+const TEINTES := preload("res://scripts/socle/teintes.gd")
+const PAPER := TEINTES.PANNEAU
+const MARGIN_RED := TEINTES.OR
+const INK := TEINTES.TEXTE
+const INK_LIGHT := TEINTES.DOUX
+const PENCIL := TEINTES.CRAYON
+const RED_INK := TEINTES.ROUGE
 const OR := Color(0.86, 0.68, 0.25)
 const ARDOISE := Color(0.36, 0.42, 0.5)
 const VISAGE := Color(0.995, 0.985, 0.955)
