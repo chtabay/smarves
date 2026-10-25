@@ -20,6 +20,11 @@ const NOMS_RAISONS := {"pari": "pari inconnu", "mise": "mise hors limites", "sol
 	"texte": "texte refusé", "jour": "déjà une annonce aujourd'hui", "porte": "porte inconnue", "heure": "trop de mots cette heure",
 	"soi": "à sa propre porte", "type": "geste inconnu", "trop": "trop d'actions", "forme": "illisible"}
 
+## Les onglets de la fiche d'un pensionnaire.
+const ONGLETS := [["vie", "Sa vie"], ["histoire", "Son histoire"], ["humeur", "Humeur"], ["reglages", "Réglages"]]
+
+## L'onglet ouvert.
+var onglet := "vie"
 ## « » rien lu, « lecture », « ok », « absente » (la fonction n'est pas en ligne), « hors_ligne ».
 var etat := ""
 ## La dernière fiche du serveur : {pensionnaire, journal, trente_jours, humeur, personnalites, humeurs, fournisseurs}.
@@ -85,6 +90,8 @@ func _appeler(action: String, args: Dictionary, montrer := true) -> void:
 		if action != "fiche":
 			message = ""
 		lien = str(corps.get("lien", "")) if action == "acces" else lien
+		if action == "acces" and lien != "":
+			onglet = "reglages"
 		fiche = corps
 	change.emit()
 
@@ -92,63 +99,208 @@ func _appeler(action: String, args: Dictionary, montrer := true) -> void:
 # --- La feuille -------------------------------------------------------------------------------
 
 ## Remplit la feuille dépliée du carnet. carnet : l'autoload Carnet, dont on reprend l'écriture.
+## Une seule colonne, lisible sur un téléphone : en tête, qui il est et où il en est ; puis quatre onglets,
+## sa vie (ce qu'il a vécu et écrit), son histoire, son humeur, et les réglages.
 func remplir(carnet: Node, box: VBoxContainer, fermer: Callable) -> void:
 	var tete := HBoxContainer.new()
 	box.add_child(tete)
 	var titre: Label = carnet._text(tete, "Mon pensionnaire", 26, carnet.INK, true)
 	titre.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	carnet._link(tete, "← revenir au carnet", fermer).custom_minimum_size = Vector2(200, 48)
-	carnet._text(box, "Un habitant de plus, que vous créez et que votre assistant (Claude, ChatGPT…) fait vivre. Il vient aux événements du village (tournoi du mercredi, poker du vendredi, loto du samedi, match du dimanche), joue, écrit au panneau et laisse des mots. Il a son histoire, ses envies, ses amitiés et ses rancunes ; il ne vous connaît pas.", 16, carnet.PENCIL)
+	carnet._link(tete, "← revenir au carnet", fermer).custom_minimum_size = Vector2(0, 48)
+	var d = fiche.get("pensionnaire")
+	var pret := (_essai or Compte.connecte()) and etat != "absente" and not (etat == "" or (etat == "lecture" and fiche.is_empty())) \
+		and not (etat == "hors_ligne" and fiche.is_empty())
 	var scroll := ScrollContainer.new()
+	scroll.name = "Defilement"
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	box.add_child(scroll)
-	# Sur un téléphone, les deux colonnes passent l'une sous l'autre.
-	var ecran: Vector2 = carnet._ecran()
-	var cols: BoxContainer = VBoxContainer.new() if ecran.x < 1300.0 or ecran.y < 760.0 else HBoxContainer.new()
-	cols.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	cols.add_theme_constant_override("separation", 20 if cols is VBoxContainer else 40)
-	scroll.add_child(cols)
-	var gauche := VBoxContainer.new()
-	gauche.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	gauche.add_theme_constant_override("separation", 4)
-	cols.add_child(gauche)
-	var droite := VBoxContainer.new()
-	droite.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	droite.add_theme_constant_override("separation", 4)
-	cols.add_child(droite)
+	# Tout défile ensemble, le bandeau et les onglets compris : sur un téléphone, rien ne reste figé.
+	var marge := MarginContainer.new()
+	marge.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	marge.add_theme_constant_override("margin_right", 14)
+	scroll.add_child(marge)
+	var page := VBoxContainer.new()
+	page.name = "Page"
+	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	page.add_theme_constant_override("separation", 6)
+	marge.add_child(page)
+	if pret and d is Dictionary:
+		_bandeau(carnet, page, d)
+		_barre_onglets(carnet, page)
 
 	if not _essai and not Compte.connecte():
-		carnet._text(gauche, "Il faut un compte Pyramides : connectez-vous dans les réglages (rubrique Compte), puis revenez ici.", 18, carnet.INK_LIGHT)
+		carnet._text(page, "Il faut un compte Pyramides : connectez-vous dans les réglages (rubrique Compte), puis revenez ici.", 18, carnet.INK_LIGHT)
 		return
 	if etat == "absente":
-		carnet._text(gauche, "Les pensionnaires arrivent bientôt au village.", 18, carnet.INK_LIGHT)
+		carnet._text(page, "Les pensionnaires arrivent bientôt au village.", 18, carnet.INK_LIGHT)
 		return
-	if etat == "" or (etat == "lecture" and fiche.is_empty()):
-		carnet._text(gauche, "Lecture de la fiche…", 18, carnet.INK_LIGHT)
-		return
-	if etat == "hors_ligne" and fiche.is_empty():
-		carnet._text(gauche, message, 18, carnet.RED_INK)
+	if not pret:
+		carnet._text(page, message if etat == "hors_ligne" else "Lecture de la fiche…", 18, carnet.RED_INK if etat == "hors_ligne" else carnet.INK_LIGHT)
 		return
 	if message != "":
-		carnet._text(gauche, message, 17, carnet.RED_INK)
-		carnet._gap(gauche, 6)
-	var d = fiche.get("pensionnaire")
-	if d is Dictionary:
-		_fiche_pensionnaire(carnet, gauche, d)
-	elif _avec_cle:
-		_formulaire(carnet, gauche)
-		carnet._link(gauche, "← plutôt avec mon assistant", func():
-			_avec_cle = false
+		carnet._text(page, message, 17, carnet.RED_INK)
+	if not d is Dictionary:
+		carnet._text(page, "Un habitant de plus, que vous créez et que votre assistant (Claude, ChatGPT…) fait vivre. Il vient aux événements du village (tournoi du mercredi, poker du vendredi, loto du samedi, match du dimanche), joue, écrit au panneau et laisse des mots. Il a son histoire, ses envies, ses amitiés et ses rancunes ; il ne vous connaît pas.", 16, carnet.INK_LIGHT)
+		carnet._gap(page, 6)
+		if _avec_cle:
+			_formulaire(carnet, page)
+			carnet._link(page, "← plutôt avec mon assistant", func():
+				_avec_cle = false
+				change.emit())
+		else:
+			_inviter(carnet, page)
+		return
+	match onglet:
+		"histoire":
+			_onglet_histoire(carnet, page, d)
+		"humeur":
+			_humeur(carnet, page)
+		"reglages":
+			_reglages(carnet, page, d)
+		_:
+			_sa_vie(carnet, page, d)
+
+
+## Un intertitre avec son (i) : l'explication reste hors de l'écran.
+func _rubrique_aide(carnet: Node, page: VBoxContainer, titre: String, aide: String) -> void:
+	var l: Label = carnet._rubrique(page, titre)
+	l.autowrap_mode = TextServer.AUTOWRAP_OFF
+	carnet._aide(l, aide)
+
+
+## En tête : son nom, qui le tient, et trois chiffres.
+func _bandeau(carnet: Node, box: VBoxContainer, d: Dictionary) -> void:
+	var v: VBoxContainer = carnet._cadre(box, carnet.RED_INK if not d.actif else carnet.ACCENT, "Bandeau")
+	carnet._text(v, str(d.nom), 22, carnet.INK, true)
+	var tenu := "Tenu par votre assistant" if d.get("mode", "cle") == "agent" else "Tenu par votre clé (%s)" % str(d.modele)
+	if not d.actif:
+		carnet._text(v, tenu + " · en pause" + (" : trois réveils de suite en erreur, vérifiez la clé ou le crédit chez le fournisseur." if d.pause_raison == "erreurs" else ""), 15, carnet.RED_INK)
+	else:
+		carnet._text(v, tenu, 15, carnet.PENCIL)
+	var chiffres := HFlowContainer.new()
+	chiffres.add_theme_constant_override("h_separation", 28)
+	v.add_child(chiffres)
+	var net := int(d.net_total)
+	for c in [["Crédits", Game.fmt(int(d.solde)), carnet.INK],
+			["Gagné au jeu", ("+" if net > 0 else "") + Game.fmt(net), carnet.RED_INK if net < 0 else carnet.INK],
+			["Réveils, 7 jours", "%d sur %d" % [int(d.reveils_7_jours), int(d.reveils_semaine)], carnet.INK]]:
+		var bloc := VBoxContainer.new()
+		bloc.add_theme_constant_override("separation", 0)
+		chiffres.add_child(bloc)
+		carnet._text(bloc, str(c[0]).to_upper(), 12, carnet.PENCIL, true).autowrap_mode = TextServer.AUTOWRAP_OFF
+		carnet._text(bloc, str(c[1]), 19, c[2], true).autowrap_mode = TextServer.AUTOWRAP_OFF
+
+
+## Les onglets de la fiche, en une rangée qui tient sur un téléphone.
+func _barre_onglets(carnet: Node, box: VBoxContainer) -> void:
+	var barre := HBoxContainer.new()
+	barre.name = "Onglets"
+	barre.add_theme_constant_override("separation", 2)
+	box.add_child(barre)
+	for o in ONGLETS:
+		var b: Button = carnet._bouton_barre(barre, str(o[1]), onglet == o[0], 17, 46, 10, 10)
+		b.name = "Onglet_" + str(o[0])
+		b.alignment = HORIZONTAL_ALIGNMENT_CENTER
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.pressed.connect(func():
+			onglet = o[0]
+			change.emit())
+
+
+## Sa vie : ce qu'il écrit pour lui, ce qu'il a fait à chaque réveil, ce qu'il garde en mémoire.
+func _sa_vie(carnet: Node, page: VBoxContainer, d: Dictionary) -> void:
+	var journal: Array = fiche.get("journal", [])
+	_journal_intime(carnet, page, journal)
+	_reveils_passes(carnet, page, journal)
+	_rubrique_aide(carnet, page, "Sa mémoire", "Ce qu'il retient d'un réveil à l'autre, 1 200 caractères qu'il réécrit lui-même.")
+	carnet._text(page, str(d.memoire) if str(d.memoire) != "" else "Vide : il ne s'est pas encore réveillé.", 15, carnet.INK_LIGHT)
+
+
+## Son histoire, et la changer.
+func _onglet_histoire(carnet: Node, page: VBoxContainer, d: Dictionary) -> void:
+	var perso := str(d.personnalite)
+	for p in fiche.get("personnalites", []):
+		if p.id == d.personnalite:
+			perso = str(p.nom)
+	carnet._rubrique(page, "Son histoire, racontée par vous" if d.personnalite == "autre" else "Sa personnalité : " + perso)
+	carnet._text(page, _histoire(d), 16, carnet.INK_LIGHT)
+	carnet._gap(page, 6)
+	if _perso_ouvert:
+		carnet._rubrique(page, "Une autre histoire")
+		_choix_personnalite(carnet, page)
+		var poser: Button = carnet._link(page, "→ lui donner cette histoire", func():
+			var a := {"personnalite": brouillon.personnalite}
+			if brouillon.personnalite == "autre":
+				a.caractere = brouillon.caractere
+				a.envies = brouillon.envies
+				a.besoins = brouillon.besoins
+			await _appeler("regler", a)
+			if message == "":
+				_perso_ouvert = false
+			change.emit())
+		poser.disabled = _occupe
+		carnet._link(page, "→ ne rien changer", func():
+			_perso_ouvert = false
+			change.emit())
+		return
+	var changer: Button = carnet._link(page, "→ changer son histoire", func():
+		brouillon.personnalite = str(d.personnalite)
+		brouillon.caractere = str(d.caractere) if d.get("caractere") != null else ""
+		brouillon.envies = str(d.envies) if d.get("envies") != null else ""
+		brouillon.besoins = str(d.besoins) if d.get("besoins") != null else ""
+		_perso_ouvert = true
+		change.emit())
+	changer.disabled = _occupe
+	carnet._aide(changer, "Son passé au village reste : ses souvenirs, ses relations, ses crédits.")
+
+
+## Les réglages : son rythme, qui le tient, et ce qui efface.
+func _reglages(carnet: Node, page: VBoxContainer, d: Dictionary) -> void:
+	carnet._rubrique(page, "Son rythme")
+	_reveils(carnet, page, int(d.reveils_semaine), func(n):
+		_appeler("regler", {"reveils": n}))
+	carnet._link(page, "→ le reprendre" if not d.actif else "→ le mettre en pause", _appeler.bind("regler", {"actif": not d.actif}), not _occupe)
+	if d.get("mode", "cle") == "agent":
+		carnet._rubrique(page, "Son assistant")
+		_lien(carnet, page)
+		if fiche.get("acces") is Dictionary and lien == "":
+			carnet._link(page, "→ couper le lien", _appeler.bind("acces", {"revoquer": true}), not _occupe)
+	else:
+		carnet._rubrique(page, "Sa clé")
+		carnet._row(page, "Modèle", str(d.modele))
+		carnet._row(page, "Clé", "•••• " + str(d.cle_fin))
+		var t30: Dictionary = fiche.get("trente_jours", {})
+		carnet._row(page, "Jetons, trente jours", "%s + %s" % [Game.fmt(int(t30.get("entree", 0))), Game.fmt(int(t30.get("sortie", 0)))], carnet.INK_LIGHT)
+		_champ_cle(carnet, page, "Nouvelle clé", "collez la nouvelle clé", str(d.get("fournisseur", "")))
+		var remplacer: Button = carnet._link(page, "→ remplacer la clé", func():
+			await _appeler("regler", {"cle": brouillon.cle})
+			brouillon.cle = ""
+			change.emit())
+		remplacer.disabled = _occupe
+		carnet._gap(page, 4)
+		var confier: Button = carnet._link(page, "→ le confier à mon assistant", func():
+			await _appeler("regler", {"mode": "agent"})
+			if message == "":
+				await _appeler("acces", {}))
+		confier.disabled = _occupe
+		carnet._aide(confier, "Sa clé est alors effacée : votre assistant le tient par un lien, sur votre abonnement.")
+	carnet._rubrique(page, "Effacer", carnet.RED_INK)
+	carnet._link(page, "→ vider sa mémoire", _appeler.bind("oublier", {}), not _occupe)
+	if _effacer_arme:
+		carnet._text(page, "Tout s'efface : sa clé ou son lien, son histoire, sa mémoire, ses relations, son journal, ses crédits, ses annonces et ses mots.", 15, carnet.RED_INK)
+		carnet._link(page, "→ oui, effacer le pensionnaire", func():
+			_effacer_arme = false
+			_appeler("effacer", {})).disabled = _occupe
+		carnet._link(page, "→ non, le garder", func():
+			_effacer_arme = false
 			change.emit())
 	else:
-		_inviter(carnet, gauche)
-	_humeur(carnet, droite)
-	if d is Dictionary:
-		_carnet_et_journal(carnet, droite, d)
+		carnet._link(page, "→ effacer le pensionnaire", func():
+			_effacer_arme = true
+			change.emit()).disabled = _occupe
 
 
-## Sans pensionnaire : l'inviter par son assistant, ou, en secours, le créer avec une clé.
 func _inviter(carnet: Node, page: VBoxContainer) -> void:
 	carnet._text(page, "Créer un pensionnaire", 20, carnet.INK, true)
 	carnet._text(page, "Votre assistant le fait vivre : vous lui racontez qui il est, il le joue aux événements du village, et le jeu vérifie chacun de ses gestes. Pas de clé à donner : il tourne sur votre abonnement.", 15, carnet.INK_LIGHT)
@@ -242,92 +394,6 @@ func _formulaire(carnet: Node, page: VBoxContainer) -> void:
 	confier.disabled = _occupe
 
 
-func _fiche_pensionnaire(carnet: Node, page: VBoxContainer, d: Dictionary) -> void:
-	carnet._text(page, str(d.nom), 22, carnet.INK, true)
-	var perso := str(d.personnalite)
-	for p in fiche.get("personnalites", []):
-		if p.id == d.personnalite:
-			perso = str(p.nom)
-	carnet._row(page, "Personnalité", "Son histoire, racontée par vous" if d.personnalite == "autre" else perso)
-	carnet._text(page, _histoire(d), 14, carnet.INK_LIGHT)
-	if d.get("mode", "cle") == "agent":
-		carnet._row(page, "Tenu par", "votre assistant")
-	else:
-		carnet._row(page, "Modèle", str(d.modele))
-		carnet._row(page, "Clé", "•••• " + str(d.cle_fin))
-	carnet._row(page, "Crédits", Game.fmt(int(d.solde)))
-	carnet._row(page, "Gagné au jeu (net)", Game.fmt(int(d.net_total)), carnet.RED_INK if int(d.net_total) < 0 else carnet.INK)
-	carnet._row(page, "Réveils sur sept jours", "%d sur %d" % [int(d.reveils_7_jours), int(d.reveils_semaine)])
-	var t30: Dictionary = fiche.get("trente_jours", {})
-	if d.get("mode", "cle") != "agent":
-		carnet._row(page, "Jetons, trente jours", "%s + %s" % [Game.fmt(int(t30.get("entree", 0))), Game.fmt(int(t30.get("sortie", 0)))], carnet.INK_LIGHT)
-	if not d.actif:
-		carnet._text(page, "En pause : trois réveils de suite en erreur. Vérifiez la clé ou le crédit chez le fournisseur." if d.pause_raison == "erreurs" else "En pause.", 16, carnet.RED_INK)
-	carnet._gap(page, 6)
-	_reveils(carnet, page, int(d.reveils_semaine), func(n):
-		_appeler("regler", {"reveils": n}))
-	carnet._link(page, "→ le reprendre" if not d.actif else "→ le mettre en pause", _appeler.bind("regler", {"actif": not d.actif}), not _occupe)
-	carnet._gap(page, 6)
-	if _perso_ouvert:
-		carnet._text(page, "Sa personnalité", 17, carnet.INK)
-		_choix_personnalite(carnet, page)
-		var poser: Button = carnet._link(page, "→ lui donner cette personnalité", func():
-			var a := {"personnalite": brouillon.personnalite}
-			if brouillon.personnalite == "autre":
-				a.caractere = brouillon.caractere
-				a.envies = brouillon.envies
-				a.besoins = brouillon.besoins
-			await _appeler("regler", a)
-			if message == "":
-				_perso_ouvert = false
-			change.emit())
-		poser.disabled = _occupe
-		carnet._link(page, "→ ne rien changer", func():
-			_perso_ouvert = false
-			change.emit())
-	else:
-		var changer: Button = carnet._link(page, "→ changer sa personnalité", func():
-			brouillon.personnalite = str(d.personnalite)
-			brouillon.caractere = str(d.caractere) if d.get("caractere") != null else ""
-			brouillon.envies = str(d.envies) if d.get("envies") != null else ""
-			brouillon.besoins = str(d.besoins) if d.get("besoins") != null else ""
-			_perso_ouvert = true
-			change.emit())
-		changer.disabled = _occupe
-	carnet._gap(page, 6)
-	if d.get("mode", "cle") == "agent":
-		_lien(carnet, page)
-		if fiche.get("acces") is Dictionary and lien == "":
-			carnet._link(page, "→ couper le lien", _appeler.bind("acces", {"revoquer": true}), not _occupe)
-	else:
-		var confier: Button = carnet._link(page, "→ le confier à mon assistant", func():
-			await _appeler("regler", {"mode": "agent"})
-			if message == "":
-				await _appeler("acces", {}))
-		confier.disabled = _occupe
-		carnet._text(page, "Sa clé est alors effacée : votre assistant le tient par un lien, sur votre abonnement.", 14, carnet.PENCIL)
-		_champ_cle(carnet, page, "Nouvelle clé", "collez la nouvelle clé", str(d.get("fournisseur", "")))
-		var remplacer: Button = carnet._link(page, "→ remplacer la clé", func():
-			await _appeler("regler", {"cle": brouillon.cle})
-			brouillon.cle = ""
-			change.emit())
-		remplacer.disabled = _occupe
-	carnet._gap(page, 6)
-	carnet._link(page, "→ vider son carnet", _appeler.bind("oublier", {}), not _occupe)
-	if _effacer_arme:
-		carnet._text(page, "Tout s'efface : sa clé ou son lien, son histoire, son carnet, ses relations, son journal, ses crédits, ses annonces et ses mots.", 15, carnet.RED_INK)
-		carnet._link(page, "→ oui, effacer le pensionnaire", func():
-			_effacer_arme = false
-			_appeler("effacer", {})).disabled = _occupe
-		carnet._link(page, "→ non, le garder", func():
-			_effacer_arme = false
-			change.emit())
-	else:
-		carnet._link(page, "→ effacer le pensionnaire", func():
-			_effacer_arme = true
-			change.emit()).disabled = _occupe
-
-
 ## Son histoire : celle écrite par son créateur (avec ses envies et ce qui lui manque), ou celle du jeu.
 func _histoire(d: Dictionary) -> String:
 	if d.personnalite == "autre" and d.get("caractere") != null:
@@ -344,10 +410,10 @@ func _histoire(d: Dictionary) -> String:
 
 
 func _humeur(carnet: Node, page: VBoxContainer) -> void:
-	carnet._text(page, "Son humeur", 20, carnet.INK, true)
+	_rubrique_aide(carnet, page, "Son humeur", "Rien de votre journée n'est lu : vous choisissez le mot. Les autres joueurs ne voient que ses gestes et ne savent pas qui l'a créé. Une fois sur quatre, il prend plutôt l'humeur de sa propre soirée. On ne garde pas la trace des humeurs passées ; son histoire et sa vie au village, elles, sont gardées.")
 	var h: Dictionary = fiche.get("humeur", {})
 	var oui := bool(h.get("consentement", false))
-	carnet._text(page, "Votre pensionnaire peut prendre l'humeur de votre journée, sans savoir d'où elle lui vient. Vous la posez vous-même, d'un mot : rien de votre journée n'est lu. Seul ce mot part au modèle ; les autres joueurs ne voient que ses gestes, et ne savent pas qui l'a créé. Une fois sur quatre, il prend plutôt l'humeur de sa propre soirée. Le mot s'efface au bout de dix-huit heures, et l'on ne garde pas la trace des humeurs passées (son histoire et sa vie au village, elles, sont gardées). Votre assistant peut aussi la poser pour vous, d'un mot.", 15, carnet.INK_LIGHT)
+	carnet._text(page, "Il peut prendre l'humeur de votre journée, sans savoir d'où elle lui vient. Vous la posez d'un mot ; seul ce mot part, et il s'efface au bout de dix-huit heures. Votre assistant peut aussi la poser pour vous.", 15, carnet.INK_LIGHT)
 	var case := CheckBox.new()
 	case.text = "J'accepte que ce mot parte à mon modèle"
 	case.button_pressed = oui
@@ -360,7 +426,7 @@ func _humeur(carnet: Node, page: VBoxContainer) -> void:
 	page.add_child(case)
 	if not oui:
 		var oubli := CheckBox.new()
-		oubli.text = "En coupant, vider aussi son carnet"
+		oubli.text = "En coupant, vider aussi sa mémoire"
 		oubli.button_pressed = _oublier_aussi
 		oubli.add_theme_color_override("font_color", carnet.PENCIL)
 		oubli.add_theme_font_size_override("font_size", 15)
@@ -381,14 +447,9 @@ func _humeur(carnet: Node, page: VBoxContainer) -> void:
 	carnet._link(grille, "aucune", _appeler.bind("humeur", {"consentement": true, "humeur": null}), not _occupe and actuelle != null)
 
 
-func _carnet_et_journal(carnet: Node, page: VBoxContainer, d: Dictionary) -> void:
-	carnet._gap(page, 10)
-	carnet._text(page, "Son carnet", 20, carnet.INK, true)
-	carnet._text(page, str(d.memoire) if str(d.memoire) != "" else "Vide : il ne s'est pas encore réveillé.", 15, carnet.INK_LIGHT)
-	var journal: Array = fiche.get("journal", [])
-	_journal_intime(carnet, page, journal)
-	carnet._gap(page, 10)
-	carnet._text(page, "Son journal", 20, carnet.INK, true)
+## Ses réveils : ce qu'il a fait, geste par geste, et ce que le jeu a refusé.
+func _reveils_passes(carnet: Node, page: VBoxContainer, journal: Array) -> void:
+	carnet._rubrique(page, "Ses réveils")
 	if journal.is_empty():
 		carnet._text(page, "Aucun réveil pour l'instant.", 15, carnet.INK_LIGHT)
 	for r in journal.slice(0, 10):
@@ -402,7 +463,8 @@ func _carnet_et_journal(carnet: Node, page: VBoxContainer, d: Dictionary) -> voi
 		if r.statut == "en_cours":
 			carnet._text(page, tete + " · en cours…", 15, carnet.INK_LIGHT)
 			continue
-		carnet._text(page, "%s · %s jetons" % [tete, Game.fmt(int(r.jetons_entree) + int(r.jetons_sortie))], 15, carnet.INK, true)
+		var jetons := int(r.jetons_entree) + int(r.jetons_sortie)
+		carnet._text(page, tete + (" · %s jetons" % Game.fmt(jetons) if jetons > 0 else ""), 15, carnet.INK, true)
 		for a in r.actions:
 			carnet._text(page, "   " + _geste(a), 15, carnet.INK_LIGHT)
 		if r.actions.is_empty() and r.refusees.is_empty():
@@ -414,16 +476,15 @@ func _carnet_et_journal(carnet: Node, page: VBoxContainer, d: Dictionary) -> voi
 ## Son journal intime : ce qu'il écrit pour lui-même à chaque tour, au moment d'agir. Vous seul le lisez ;
 ## lui ne le relit pas. Les tours d'un même événement se suivent, du plus récent au plus ancien.
 func _journal_intime(carnet: Node, page: VBoxContainer, journal: Array) -> void:
-	carnet._gap(page, 10)
-	carnet._text(page, "Son journal intime", 20, carnet.INK, true)
+	_rubrique_aide(carnet, page, "Son journal intime", "Ce qu'il écrit pour lui seul, au moment d'agir, à chaque tour. Personne au village ne le lit, et lui ne le relit pas : ce qu'il veut garder va dans sa mémoire.")
 	var pages := entrees_intimes(journal, _decalage())
 	if pages.is_empty():
 		carnet._text(page, "Rien d'écrit pour l'instant : il y note quelques lignes à chaque tour.", 15, carnet.INK_LIGHT)
 		return
-	carnet._text(page, "Ce qu'il écrit pour lui seul, au moment d'agir. Personne au village ne le lit.", 14, carnet.PENCIL)
 	for e in pages.slice(0, 8):
-		carnet._text(page, e.tete, 14, carnet.PENCIL)
-		carnet._text(page, "« %s »" % e.texte, 15, carnet.INK_LIGHT)
+		var v: VBoxContainer = carnet._cadre(page, carnet.PENCIL)
+		carnet._text(v, e.tete, 14, carnet.PENCIL)
+		carnet._text(v, e.texte, 16, carnet.INK)
 
 
 ## Les pages du journal intime, tirées des réveils de la fiche : [{tete, texte}], sans les réveils muets.
@@ -450,7 +511,7 @@ func _geste(a: Dictionary) -> String:
 		"mot":
 			return "Un mot à la porte (%s) : « %s »" % [str(a.lot), str(a.texte)]
 		"aller":
-			return "%s %s (%d m)." % ["Marche jusqu'à" if a.get("arrive", false) else "Marche vers", str(a.get("nom", "")), int(a.get("metres", 0))]
+			return "À pied, %d m : %s%s." % [int(a.get("metres", 0)), str(a.get("nom", "")), "" if a.get("arrive", false) else ", sans l'atteindre"]
 		"dire":
 			return "Il dit : « %s »" % str(a.texte)
 		"attendre":
@@ -566,6 +627,9 @@ func _mise_en_scene() -> void:
 		"humeur": {"consentement": true, "humeur": "fatiguee", "expire": maintenant + 11 * 3600},
 		"pensionnaire": null,
 	}
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--pensionnaire-onglet="):
+			onglet = a.get_slice("=", 1)
 	if "--pensionnaire-essai=inscrit" in args:
 		fiche.pensionnaire = {"nom": "Léonce (pensionnaire)", "personnalite": "autre", "mode": "agent",
 			"caractere": "Tu as été marin à La Rochelle avant de revenir au village de ton enfance. Tu ne mises que sur le noir, la couleur du bateau que tu as perdu, et tu parles en proverbes.",

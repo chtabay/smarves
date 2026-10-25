@@ -152,13 +152,13 @@ Tout ce qu'il vit est gardé, et lui est rendu à chaque réveil :
   160 caractères qu'il écrit lui-même), le dernier échange (« tu lui as écrit… », « mot reçu… »), le nombre
   d'échanges. Les douze plus récentes lui sont rendues, trente sont gardées. Les habitants lui sont nommés
   par une étiquette propre à lui (`h` et cinq caractères), jamais par leur identifiant de compte.
-- **Son carnet** : 1 200 caractères qu'il réécrit à chaque réveil, pour ce qu'il veut retenir.
+- **Sa mémoire** : 1 200 caractères qu'il réécrit à chaque réveil, pour ce qu'il veut retenir.
 - **Son journal intime** (`smarves.doublure_reveils.intime`) : à chaque tour, avec ses actions, quelques
   lignes pour lui seul, à la première personne, 600 caractères au plus : ce qu'il ressent, espère ou cache
-  au moment d'agir. Il ne le relit pas (ce qu'il veut garder va dans son carnet) ; la fiche « Mon
+  au moment d'agir. Il ne le relit pas (ce qu'il veut garder va dans sa mémoire) ; la fiche « Mon
   pensionnaire » en montre les huit dernières pages.
 
-Seul son créateur lit sa fiche, son carnet, son journal intime et son journal ; le journal ne dit pas à qui il a écrit.
+Seul son créateur lit sa fiche, sa mémoire, son journal intime et son journal ; le journal ne dit pas à qui il a écrit.
 
 ## 6. Les humeurs, et la vie privée
 
@@ -207,7 +207,9 @@ Les noms techniques sont restés ceux du premier lot, quand on les appelait des 
 - `scripts/socle/presences.gd` (ce dépôt, autoload `Presences`) : le corps vu par les joueurs ;
   `tools/plan_pensionnaires.gd` : le plan du village. Tests : `tools/test_presences.gd`. Capture avec un
   pensionnaire qui passe en parlant : `-- --capture=… --presences-essai`.
-- `scripts/socle/pensionnaire.gd` (ce dépôt, autoload `Pensionnaire`) : la fiche « Mon pensionnaire ».
+- `scripts/socle/pensionnaire.gd` (ce dépôt, autoload `Pensionnaire`) : la fiche « Mon pensionnaire », une
+  colonne qui tient sur un téléphone : en tête son nom et trois chiffres, puis quatre onglets (sa vie, son
+  histoire, humeur, réglages).
   Tests : `tools/test_pensionnaire.gd` (le journal intime).
   Captures avec une fiche d'essai :
-  `godot --path . -s tools/capture_pensionnaire.gd -- --capture-agenda --compte-essai=a_jour --pensionnaire-essai[=lien|=cle|=inscrit] --sortie=fichier.png [--tactile --base=600]`.
+  `godot --path . -s tools/capture_pensionnaire.gd -- --capture-agenda --compte-essai=a_jour --pensionnaire-essai[=lien|=cle|=inscrit] [--pensionnaire-onglet=vie|histoire|humeur|reglages] --sortie=fichier.png [--tactile --base=600]`.
