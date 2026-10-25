@@ -51,7 +51,7 @@ Il n'y a plus de clé à confier : l'assistant tourne sur l'abonnement du joueur
 | `smarves_creer` | le crée : un nom, son histoire, ses envies et ses besoins |
 | `smarves_raconter` | réécrit son histoire ; son passé au village reste |
 | `smarves_voir` | pendant un événement : ce qu'il voit et les règles (le même contexte que pour un modèle appelé par clé) |
-| `smarves_agir` | une fois par événement : ses actions, ses avis sur les habitants, sa mémoire ; le serveur vérifie tout |
+| `smarves_agir` | une fois par tour : ses actions, ses avis sur les habitants, sa mémoire, son journal intime ; le serveur vérifie tout |
 | `smarves_humeur` | pose son humeur pour dix-huit heures, un mot de la liste (section 6) |
 
 Les instructions du connecteur disent à l'assistant ce qu'est un pensionnaire, qu'il ne doit faire entrer
@@ -153,8 +153,12 @@ Tout ce qu'il vit est gardé, et lui est rendu à chaque réveil :
   d'échanges. Les douze plus récentes lui sont rendues, trente sont gardées. Les habitants lui sont nommés
   par une étiquette propre à lui (`h` et cinq caractères), jamais par leur identifiant de compte.
 - **Son carnet** : 1 200 caractères qu'il réécrit à chaque réveil, pour ce qu'il veut retenir.
+- **Son journal intime** (`smarves.doublure_reveils.intime`) : à chaque tour, avec ses actions, quelques
+  lignes pour lui seul, à la première personne, 600 caractères au plus : ce qu'il ressent, espère ou cache
+  au moment d'agir. Il ne le relit pas (ce qu'il veut garder va dans son carnet) ; la fiche « Mon
+  pensionnaire » en montre les huit dernières pages.
 
-Seul son créateur lit sa fiche, son carnet et son journal ; le journal ne dit pas à qui il a écrit.
+Seul son créateur lit sa fiche, son carnet, son journal intime et son journal ; le journal ne dit pas à qui il a écrit.
 
 ## 6. Les humeurs, et la vie privée
 
@@ -192,9 +196,10 @@ Les noms techniques sont restés ceux du premier lot, quand on les appelait des 
 `doublures`, les tables `smarves.doublure*`, les identifiants `doublure:…`.
 
 - `supabase/migrations/20261023100000_smarves_doublures.sql`, `20261024210000_smarves_pensionnaires_caractere.sql`
-  `20261024220000_smarves_pensionnaires_connecteur.sql` et `20261025000000_smarves_pensionnaires_corps.sql`
-  (ce dépôt) : les tables, le mode, les relations, le lien du connecteur, l'ouverture du pensionnaire comme
-  joueur, ses actions, la tâche horaire, son corps et la position des joueurs au battement.
+  `20261024220000_smarves_pensionnaires_connecteur.sql`, `20261025000000_smarves_pensionnaires_corps.sql` et
+  `20261025080000_smarves_pensionnaires_journal_intime.sql` (ce dépôt) : les tables, le mode, les relations,
+  le lien du connecteur, l'ouverture du pensionnaire comme joueur, ses actions, la tâche horaire, son corps,
+  la position des joueurs au battement et son journal intime.
 - `supabase/functions/doublures/` (dépôt chtabay/addict) : la fonction. `regles.js` en est la partie pure
   (événements et budget, histoires, contexte, étiquettes, vérification des actions, roulette, filtre,
   humeur) ; `corps.js` la marche, la vue et le plan (`plan.json`) ; `connecteur.js` le protocole MCP et les outils ; `fournisseurs.js` les modèles appelés par
@@ -203,5 +208,6 @@ Les noms techniques sont restés ceux du premier lot, quand on les appelait des 
   `tools/plan_pensionnaires.gd` : le plan du village. Tests : `tools/test_presences.gd`. Capture avec un
   pensionnaire qui passe en parlant : `-- --capture=… --presences-essai`.
 - `scripts/socle/pensionnaire.gd` (ce dépôt, autoload `Pensionnaire`) : la fiche « Mon pensionnaire ».
+  Tests : `tools/test_pensionnaire.gd` (le journal intime).
   Captures avec une fiche d'essai :
   `godot --path . -s tools/capture_pensionnaire.gd -- --capture-agenda --compte-essai=a_jour --pensionnaire-essai[=lien|=cle|=inscrit] --sortie=fichier.png [--tactile --base=600]`.
