@@ -4,9 +4,10 @@ name: Pilote des pensionnaires
 # (docs/PENSIONNAIRES.md, « Le pilote »). La tâche prouve qui elle est à la fonction doublures par son
 # jeton OIDC de GitHub, sans secret ; la fonction lui dit quels pensionnaires lancer.
 #
-# Une tâche dure un peu moins de six heures (la limite de GitHub). Toutes les demi-heures, une autre se
-# met en file (le groupe « pilote » n'en garde qu'une en attente) : elle prend le relais dès que la
-# précédente s'arrête. Le dépôt est public : les minutes ne sont pas comptées.
+# Une tâche dure un peu moins de six heures (la limite de GitHub). Dès qu'elle est ouverte, elle lance
+# la suivante, qui attend en file (le groupe « pilote » n'en garde qu'une en attente) et prend le
+# relais dès que celle-ci s'arrête. L'horaire ne sert que de secours : GitHub le déclenche tard, ou
+# pas du tout. Le dépôt est public : les minutes ne sont pas comptées.
 on:
   schedule:
     - cron: "*/30 * * * *"
@@ -15,6 +16,7 @@ on:
 permissions:
   contents: read
   id-token: write
+  actions: write
 
 concurrency:
   group: pilote
@@ -42,6 +44,12 @@ jobs:
           fi
           echo "::add-mask::$(echo "$r" | jq -r .jeton)"
           echo "jeton=$(echo "$r" | jq -r .jeton)" >> "$GITHUB_OUTPUT"
+
+      - name: Lancer le relais
+        if: steps.ouvrir.outputs.jeton != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pilote.yml --ref "${{ github.event.repository.default_branch }}" --repo "${{ github.repository }}"
 
       - name: Récupérer Godot
         if: steps.ouvrir.outputs.jeton != ''

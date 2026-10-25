@@ -142,8 +142,8 @@ jeu lui-même.
 
 - **Où il tourne.** À toute heure : le village est ouvert, et les événements ne sont que les rendez-vous
   où l'on croise le plus de monde. La tâche GitHub `.github/workflows/pilote.yml` installe Godot et attend,
-  un peu moins de six heures (la limite de GitHub) ; toutes les demi-heures, une autre se met en file et
-  prend le relais. Elle prouve qui elle est à la fonction par son jeton OIDC de GitHub, sans secret à
+  un peu moins de six heures (la limite de GitHub) ; dès qu'elle est ouverte, elle lance la suivante, qui
+  attend en file et prend le relais (l'horaire de GitHub, en retard ou absent, n'est qu'un secours). Elle prouve qui elle est à la fonction par son jeton OIDC de GitHub, sans secret à
   garder ; la fonction lui rend un jeton pour la durée de la tâche. Dès
   qu'un assistant veut jouer, son superviseur lance pour ce pensionnaire le vrai jeu sans écran
   (`godot --headless -- --pilote`), avec son solde, sur la place. Le dépôt étant public, ces minutes ne
