@@ -11,7 +11,8 @@ sources publiques :
   commune nouvelle est l'union des contours de ses anciennes communes.
 
 Usage : python3 tools/departement_communes.py 33 16 17 …   (sans code : la Nouvelle-Aquitaine hors Vienne ;
-                                                              « ara » : l'Auvergne-Rhône-Alpes)
+                                                              « ara » : l'Auvergne-Rhône-Alpes ;
+                                                              « occ » : l'Occitanie)
         (demande shapely : python3 -m pip install shapely)
 """
 import io
@@ -38,6 +39,8 @@ DOSSIER = os.path.join(os.path.dirname(__file__), "..", "communes")
 NOUVELLE_AQUITAINE = ["16", "17", "19", "23", "24", "33", "40", "47", "64", "79", "87"]
 # L'Auvergne-Rhône-Alpes : on y va en avion, puis de chef-lieu en chef-lieu.
 AUVERGNE_RHONE_ALPES = ["01", "03", "07", "15", "26", "38", "42", "43", "63", "69", "73", "74"]
+# L’Occitanie : les 13 départements ouvrent leurs communes aux paquets.
+OCCITANIE = ["09", "11", "12", "30", "31", "32", "34", "46", "48", "65", "66", "81", "82"]
 # Environ 10 m pour la Vienne, où l'on zoome jusqu'au bourg ; environ 50 m ailleurs, assez pour
 # reconnaître chaque commune sans alourdir le jeu.
 TOLERANCE = 0.0004
@@ -157,6 +160,8 @@ def main():
     codes = sys.argv[1:] or NOUVELLE_AQUITAINE
     if codes == ["ara"]:
         codes = AUVERGNE_RHONE_ALPES
+    elif codes == ["occ"]:
+        codes = OCCITANIE
     communes = etalab("communes.json")
     departements = etalab("departements.json")
     for code in codes:

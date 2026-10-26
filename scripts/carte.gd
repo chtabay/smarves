@@ -9,7 +9,7 @@ extends CanvasLayer
 ## de Poitiers donne leurs vols, et l'on y part en avion (voler). Dézoomer encore sur le département
 ## entier montre la France (vers_france) : les régions cernées, la Vienne en or, l'épingle sur la
 ## commune où l'on est. On y désigne une région, puis on la regarde (vers_region) pour désigner ses
-## départements ; zoomer sur un département que le jeu connaît (la Nouvelle-Aquitaine, l'Auvergne-Rhône-Alpes), ou « Voir ses
+## départements ; zoomer sur un département que le jeu connaît (la Nouvelle-Aquitaine, l'Auvergne-Rhône-Alpes et l'Occitanie), ou « Voir ses
 ## communes », y redescend (vers_departement). En haut à gauche, le fil d'Ariane (France › région ›
 ## département) dit où l'on regarde et y remonte d'un clic, et « Où aller » liste les villes ouvertes ou
 ## à installer, les plus proches d'abord ; la fiche d'une ville dit ce qu'on y trouve et le trajet.

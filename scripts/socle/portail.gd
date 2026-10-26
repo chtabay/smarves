@@ -19,7 +19,7 @@ static func adresse() -> String:
 
 
 ## Les entrées utilisables d'un catalogue lu (texte JSON) : une commune réelle d'un département que la
-## carte connaît, la Vienne ou un autre de la Nouvelle-Aquitaine ou de l'Auvergne-Rhône-Alpes (Departements), ou une
+## carte connaît, la Vienne ou un autre de la Nouvelle-Aquitaine, de l'Auvergne-Rhône-Alpes ou de l'Occitanie (Departements), ou une
 ## destination lointaine, sans code INSEE, avec son « ailleurs » et au moins sa ville), un id valide, une adresse de paquet en https (ou locale, pour les essais), une taille sous le plafond
 ## et une empreinte sha256. Le reste est ignoré sans bruit : un catalogue abîmé ne doit pas
 ## empêcher de jouer.

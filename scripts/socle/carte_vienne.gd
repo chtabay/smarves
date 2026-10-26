@@ -9,7 +9,7 @@ extends Control
 ## (France, communes/france.json) : la Vienne en or, l'épingle sur la commune où l'on est, les régions
 ## cernées d'un trait franc et nommées, quelques grandes villes pour se repérer ; dézoomer encore sur le
 ## département entier y mène (recul). La carte montre de même, commune par commune, tout département
-## dont le jeu connaît les communes (Departements : ceux de la Nouvelle-Aquitaine et de l'Auvergne-Rhône-Alpes).
+## dont le jeu connaît les communes (Departements : ceux de la Nouvelle-Aquitaine, de l'Auvergne-Rhône-Alpes et de l'Occitanie).
 
 ## Le joueur survole une commune (« » : plus aucune).
 signal survol(insee: String)

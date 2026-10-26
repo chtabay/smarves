@@ -1,0 +1,39 @@
+name: Vérifier la carte et les communes
+
+on:
+  pull_request:
+    paths:
+      - 'communes/**'
+      - 'scripts/**'
+      - 'tools/**'
+      - 'docs/COMMUNE.md'
+      - '.github/workflows/verifier-communes.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'communes/**'
+      - 'scripts/**'
+      - 'tools/**'
+      - '.github/workflows/verifier-communes.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  carte-et-kit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - name: Installer Godot 4.7.2
+        run: |
+          curl -fsSL -o godot.zip "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"
+          unzip -q godot.zip
+          mv Godot_v4.7.2-stable_linux.x86_64 godot
+          chmod +x godot
+      - name: Importer les ressources
+        run: ./godot --headless --path . --import || true
+      - name: Vérifier le kit MCP et les versions de socle
+        run: python3 tools/mcp/test_kit_communes.py
+      - name: Vérifier la carte et les trajets
+        run: ./godot --headless --path . -s tools/test_carte.gd
