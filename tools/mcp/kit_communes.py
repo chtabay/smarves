@@ -28,7 +28,7 @@ VERSION = "1.0.0"
 PROTOCOLE = "2025-06-18"
 TAILLE_MAX = 32 * 1024 * 1024  # le plafond d'un paquet sur le portail
 
-CONSIGNES = """Le kit des communes de Smarves (jeu Godot 4.7, la Vienne). Une commune est un paquet .pck
+CONSIGNES = """Le kit des communes de Smarves (jeu Godot 4.7, Nouvelle-Aquitaine, Auvergne-Rhône-Alpes et Occitanie). Une commune est un paquet .pck
 rangé sous res://communes/<id>/ : un manifeste commune.json, une scène qui expose « player » et
 « camera ». Commence par « contrat » pour les règles, « atelier » pour ce que le jeu prête (modèles,
 maisons, figurants, meubles, sons, matières : rien à embarquer), « nouvelle_commune » pour partir du
@@ -100,12 +100,12 @@ def _vienne():
 
 def _socle_du_lieu(insee):
     """Le socle qui connaît le département d'une commune : 1.18 pour la Nouvelle-Aquitaine hors Vienne,
-    1.19 pour l'Auvergne-Rhône-Alpes, rien de plus pour la Vienne."""
+    1.19 pour l'Auvergne-Rhône-Alpes, 1.25 pour l'Occitanie, rien de plus pour la Vienne."""
     dep = str(insee)[:2]
     if dep == "86":
         return ""
     region = next((d["region"] for d in json.loads(_lire("communes/france.json"))["departements"] if d["code"] == dep), "")
-    return "1.18" if region == "75" else "1.19"
+    return {"75": "1.18", "84": "1.19", "76": "1.25"}.get(region, "")
 
 
 def _version(v):
@@ -114,7 +114,7 @@ def _version(v):
 
 def _inconnu(insee):
     return ("code INSEE inconnu : « %s » n'est ni dans la Vienne ni dans un département que le jeu connaît "
-            "(Nouvelle-Aquitaine, Auvergne-Rhône-Alpes)" % insee)
+            "(Nouvelle-Aquitaine, Auvergne-Rhône-Alpes, Occitanie)" % insee)
 
 
 def _requis():

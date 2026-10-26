@@ -86,6 +86,13 @@ with tempfile.TemporaryDirectory() as d:
     m["socle_min"] = "1.12"
     t, e = outil("verifier_manifeste", texte=json.dumps(m))
     check("REFUS" in t and "socle_min" in t, "et le socle 1.12 ne lui suffit pas")
+    t, e = outil("nouvelle_commune", insee="31555", dossier=d + "/toulouse")
+    occ = json.loads((Path(d) / "toulouse/commune.json").read_text(encoding="utf-8")) if not e else {}
+    check(not e and occ.get("insee") == "31555" and occ.get("socle_min") == "1.25" and occ.get("population", 0) > 500000,
+          "Toulouse, en Occitanie, part du kit avec le socle 1.25 : %s" % t)
+    occ["socle_min"] = "1.24"
+    t, e = outil("verifier_manifeste", texte=json.dumps(occ))
+    check("REFUS" in t and "socle_min" in t, "le socle 1.24 ne suffit pas pour Toulouse")
 t, e = outil("verifier_manifeste", texte="{pas du json")
 check("REFUS" in t, "un manifeste illisible est refusé")
 
