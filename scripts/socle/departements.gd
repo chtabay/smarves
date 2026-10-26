@@ -1,8 +1,8 @@
 class_name Departements
 extends RefCounted
 ## Les communes des départements que la carte sait montrer commune par commune : la Vienne (Vienne,
-## communes/vienne.json) et les autres départements de la Nouvelle-Aquitaine et de
-## l'Auvergne-Rhône-Alpes, au même format dans
+## communes/vienne.json) et les autres départements de la Nouvelle-Aquitaine, de
+## l'Auvergne-Rhône-Alpes et de l'Occitanie, au même format dans
 ## communes/departements/<code>.json (tools/departement_communes.py). Un référentiel ne se lit que
 ## lorsqu'on en a besoin, la première fois que la carte descend dans son département. Une commune
 ## d'un de ces départements peut se greffer comme une commune de la Vienne (Commune.verifier, Portail).
