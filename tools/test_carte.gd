@@ -34,7 +34,7 @@ func _init() -> void:
 
 	# Ce test porte sur la carte pendant une partie commencée : sur un profil neuf,
 	# le choix d’avatar bloque normalement la carte jusqu’à la fin de l’accueil.
-	Game.welcomed = true
+	root.get_node("Game").set("welcomed", true)
 	change_scene_to_file("res://scenes/main.tscn")
 	await _attendre(1.0)
 	check(communes.actuelle() == "smarves", "au village, on est à Smarves")
