@@ -32,6 +32,9 @@ func _init() -> void:
 	pk.flush()
 	check(communes.charger_pack(TMP + "liguge.pck") == "liguge", "Ligugé se greffe depuis son pack %s" % str(communes.refus))
 
+	# Ce test porte sur la carte pendant une partie commencée : sur un profil neuf,
+	# le choix d’avatar bloque normalement la carte jusqu’à la fin de l’accueil.
+	Game.welcomed = true
 	change_scene_to_file("res://scenes/main.tscn")
 	await _attendre(1.0)
 	check(communes.actuelle() == "smarves", "au village, on est à Smarves")
