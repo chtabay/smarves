@@ -48,6 +48,8 @@ const IMMOBILE := 10.0
 const RETARD := 0.3
 const ECLIPSE := 60.0
 const RELIRE_MIN := 3.0
+## Une scène de commune qui se bâtit sur plusieurs images : on attend son habitant au plus tant.
+const ATTENTE_HABITANT := 120.0
 ## La portée par défaut, en unités d'une scène à l'échelle 1 (1 unité = 2,4 m dans Smarves et ses
 ## communes), soit environ 150 m ; elle suit l'échelle des figurants (le casino, à 2,6). 0 : tout le lieu.
 const PORTEE := 60.0
@@ -512,7 +514,9 @@ func _process(delta: float) -> void:
 
 ## Une scène vient d'être ouverte. Si c'est une scène de commune (Communes.actuelle) qui n'est pas
 ## entrée d'elle-même dans un lieu, le socle l'y fait entrer : son habitant est `player`, ou le premier
-## nœud du groupe « player ».
+## nœud du groupe « player ». Une scène qui se bâtit sur plusieurs images derrière l'écran de chargement
+## (Chauvigny, `chargement` de 0 à 1) ne pose son habitant qu'à la fin : on l'attend, tant qu'elle est la
+## scène en cours, jusqu'à ATTENTE_HABITANT secondes.
 func _sur_scene() -> void:
 	await get_tree().process_frame
 	var s := get_tree().current_scene
@@ -524,7 +528,17 @@ func _sur_scene() -> void:
 	var id: String = communes.actuelle()
 	if id == "" or id == communes.ORIGINE or not communes.communes.has(id):
 		return
-	entrer_commune(id, s, communes.communes[id].data)
+	var fin := Time.get_ticks_msec() + int(ATTENTE_HABITANT * 1000.0)
+	while true:
+		if not is_instance_valid(s) or get_tree().current_scene != s or s == _scene:
+			return
+		var batie: bool = not (s.get("chargement") is float) or s.chargement >= 1.0
+		var tard := Time.get_ticks_msec() > fin
+		if (batie or tard) and entrer_commune(id, s, communes.communes[id].data):
+			return
+		if tard:
+			return
+		await get_tree().process_frame
 
 
 ## Fait entrer le joueur dans le lieu d'une scène de commune, d'après le champ « presences » du
