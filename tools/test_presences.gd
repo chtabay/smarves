@@ -122,6 +122,7 @@ func _init() -> void:
 	check(P.etat == "" and P.presents.is_empty(), "quitter la scène quitte le lieu")
 
 	await communes(P)
+	await commune_par_etapes(P)
 	print("%s : %d échec(s)" % ["test_presences", fails])
 	quit(1 if fails else 0)
 
@@ -285,3 +286,35 @@ func communes(P: Node) -> void:
 		"zones": [{"id": "galerie", "aire": "Galerie"}, {"id": "hall", "aire": ["Escalier", "Mezzanine"]}]}).is_empty(), "un champ presences juste")
 	var mauvais := Commune.verifier_presences({"portee": -1, "zones": [{"id": "Galerie", "aire": ""}, {"id": "a", "aire": "A"}, {"id": "a", "aire": "B"}], "x": 1})
 	check(mauvais.size() == 5, "un champ presences faux : portée, id, aire, double, champ inconnu (%s)" % ", ".join(mauvais))
+
+
+## Une commune qui se bâtit sur plusieurs images derrière l'écran de chargement (Chauvigny) ne pose son
+## habitant qu'à la fin : le socle l'attend pour entrer dans son lieu, au lieu d'abandonner.
+func commune_par_etapes(P: Node) -> void:
+	var communes: Node = root.get_node("Communes")
+	var c := Commune.new()
+	c.id = "essai_etapes"
+	c.data = {"id": "essai_etapes"}
+	communes.communes[c.id] = c
+	var gd := GDScript.new()
+	gd.source_code = "extends Node3D\nvar commune := \"essai_etapes\"\nvar chargement := 0.0\nvar player: Node3D\n"
+	gd.reload()
+	var scene := Node3D.new()
+	scene.set_script(gd)
+	scene.name = "Etapes"
+	var avant: Node = current_scene
+	root.add_child(scene)
+	current_scene = scene
+	P._sur_scene()
+	await attendre(0.3)
+	check(P.commune != "essai_etapes", "la scène se bâtit encore : pas d'habitant, pas encore de lieu")
+	var joueur := Node3D.new()
+	scene.add_child(joueur)
+	scene.player = joueur
+	scene.chargement = 1.0
+	await attendre(0.1)
+	check(P.commune == "essai_etapes" and P.get("_scene") == scene, "son habitant posé, elle entre dans son lieu")
+	current_scene = avant
+	scene.queue_free()
+	communes.communes.erase(c.id)
+	await process_frame
