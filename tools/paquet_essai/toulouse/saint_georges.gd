@@ -32,22 +32,24 @@ const TOILES := [["8c2f39", "f1e6cc"], ["f1e6cc", "f1e6cc"], ["2e7d5b", "f1e6cc"
 const FANTOMES := [1166, 1167]
 ## Les terre-pleins de la place, relevés sur la vue aérienne annotée par Guillaume (29 octobre) : le grand
 ## massif du nord-ouest sous le gros platane, la bande courbe qui borde l'aire de jeux au nord, celui du
-## sud-ouest au débouché de la rue de la Pomme, et la longue bande courbe de l'est, de la fontaine aux kiosques.
-## Un muret bas de pierre claire, une pelouse, et les platanes dedans.
+## sud-ouest au débouché de la rue de la Pomme, la longue bande courbe de l'est, de la fontaine aux kiosques ;
+## puis les deux bacs qu'il a ajoutés (29 octobre, 21 h 23) : le L du nord, le long des façades, et le grand L
+## du sud-est, autour du restaurant. Un muret bas de pierre claire, la terre plantée juste sous son rebord, et
+## les platanes dedans.
 const TERRE_PLEINS := [
 	[Vector2(-6.9, -11.9), Vector2(-5.5, -12.4), Vector2(-4.5, -9.7), Vector2(-3.8, -7.7), Vector2(-2.9, -5.8), Vector2(-2.1, -4.0), Vector2(-3.2, -3.4), Vector2(-4.4, -3.0), Vector2(-5.5, -4.8), Vector2(-6.2, -6.5), Vector2(-7.2, -8.9), Vector2(-8.1, -11.2)],
-	[Vector2(-0.4, -14.0), Vector2(-1.2, -13.9), Vector2(0.3, -12.6), Vector2(2.6, -13.1), Vector2(4.8, -12.9), Vector2(10.6, -13.7), Vector2(11.3, -13.9), Vector2(11.6, -13.2), Vector2(11.8, -12.7), Vector2(12.1, -12.3), Vector2(11.3, -11.8), Vector2(10.2, -11.2), Vector2(9.2, -10.8), Vector2(7.9, -10.1), Vector2(6.8, -9.7), Vector2(5.0, -10.8), Vector2(2.7, -11.1), Vector2(0.9, -10.9), Vector2(-0.6, -10.1), Vector2(-1.0, -11.0), Vector2(-1.2, -11.7), Vector2(-1.7, -12.8), Vector2(-2.0, -13.4)],
+	[Vector2(-1.2, -13.9), Vector2(0.3, -12.6), Vector2(2.6, -13.1), Vector2(4.8, -12.9), Vector2(10.6, -13.7), Vector2(11.3, -13.9), Vector2(11.6, -13.2), Vector2(11.8, -12.7), Vector2(12.1, -12.3), Vector2(11.3, -11.8), Vector2(10.2, -11.2), Vector2(9.2, -10.8), Vector2(7.9, -10.1), Vector2(6.8, -9.7), Vector2(5.0, -10.8), Vector2(2.7, -11.1), Vector2(0.9, -10.9), Vector2(-0.6, -10.1), Vector2(-1.0, -11.0), Vector2(-1.2, -11.7), Vector2(-1.7, -12.8), Vector2(-2.0, -13.4)],
 	[Vector2(-3.3, -1.2), Vector2(-2.2, -1.5), Vector2(-1.1, -1.8), Vector2(0.1, 0.4), Vector2(1.3, 2.4), Vector2(2.2, 5.0), Vector2(1.5, 6.0), Vector2(0.8, 6.2), Vector2(-0.4, 6.8), Vector2(-1.2, 5.1), Vector2(-1.8, 3.4), Vector2(-2.4, 1.3)],
 	[Vector2(14.2, -7.0), Vector2(11.8, -5.9), Vector2(10.4, -5.2), Vector2(9.2, -4.4), Vector2(8.5, -2.2), Vector2(7.7, -1.1), Vector2(6.3, 0.2), Vector2(5.5, 0.9), Vector2(4.3, 1.6), Vector2(4.7, 2.5), Vector2(5.2, 3.6), Vector2(5.4, 4.4), Vector2(5.8, 5.2), Vector2(6.5, 4.8), Vector2(7.8, 4.3), Vector2(7.4, 3.3), Vector2(6.9, 2.2), Vector2(8.5, 1.3), Vector2(10.2, -0.9), Vector2(11.1, -3.2), Vector2(12.9, -4.2), Vector2(15.6, -5.3), Vector2(15.2, -6.3), Vector2(14.8, -7.4)],
+	[Vector2(-3.8, -17.0), Vector2(9.7, -17.3), Vector2(10.9, -15.3), Vector2(9.9, -14.3), Vector2(8.9, -14.7), Vector2(7.6, -15.5), Vector2(1.4, -15.6), Vector2(-2.2, -15.7), Vector2(-3.7, -16.3)],
+	[Vector2(14.0, -2.5), Vector2(16.8, -3.7), Vector2(17.3, -3.4), Vector2(19.1, 1.8), Vector2(19.4, 2.7), Vector2(19.2, 3.1), Vector2(17.4, 4.5), Vector2(8.9, 10.0), Vector2(7.2, 10.1), Vector2(6.4, 8.7), Vector2(6.9, 7.6), Vector2(14.5, 3.3), Vector2(15.2, 2.1), Vector2(14.0, -1.3)],
 ]
-## Les platanes des terre-pleins, sur la ligne médiane de chacun (la bande du nord garde ceux du plan).
-const PLATANES_DES_TERRE_PLEINS := [Vector2(-6.3, -10.6), Vector2(-5.35, -8.0), Vector2(-4.2, -5.3), Vector2(-1.4, 0.3), Vector2(0.0, 4.0), Vector2(14.3, -6.3), Vector2(11.7, -4.7), Vector2(9.3, -1.9), Vector2(6.9, 1.0), Vector2(6.3, 3.9)]
-## La hauteur de la pelouse des terre-pleins, en mètres (le muret monte à 60 cm).
-const PELOUSE := 0.12
-## Le jardin d'enfants, dans l'aire de jeux du nord-ouest de la place (9 m sur 7, portillon au sud) : son centre et
-## sa demi-emprise, en unités.
-const JARDIN := Vector2(1.0, -15.9)
-const JARDIN_DEMI := Vector2(1.95, 1.5)
+## Les platanes des terre-pleins, sur la ligne médiane de chacun.
+const PLATANES_DES_TERRE_PLEINS := [Vector2(-6.3, -10.6), Vector2(-5.35, -8.0), Vector2(-4.2, -5.3), Vector2(-1.4, 0.3), Vector2(0.0, 4.0), Vector2(14.3, -6.3), Vector2(11.7, -4.7), Vector2(9.3, -1.9), Vector2(6.9, 1.0), Vector2(6.3, 3.9),
+	Vector2(-2.6, -16.4), Vector2(1.0, -16.4), Vector2(4.6, -16.4), Vector2(7.4, -16.4), Vector2(9.9, -15.4),
+	Vector2(15.8, -1.8), Vector2(17.0, 1.6), Vector2(14.0, 4.9), Vector2(10.5, 7.3), Vector2(7.6, 8.6)]
+## La hauteur de la terre des terre-pleins, en mètres : un bac planté, juste sous le rebord du muret (60 cm).
+const PELOUSE := 0.45
 const ENSEIGNES := ["CAFÉ DES CAPITOULS", "LE PASTEL", "BAR DE LA BRIQUE", "AU CASSOULET", "LA VIOLETTE", "BAR DES ARCADES", "CHEZ PEYROLLES", "LE TOURNESOL", "LA GARONNETTE", "CAFÉ DU MIDI"]
 
 
@@ -461,7 +463,7 @@ static func _platanes(t, racine: Node3D) -> void:
 
 ## Vrai si un arbre du plan reste sur la place (Guillaume, 29 octobre) : le rang du nord, au bord de l'aire de
 ## jeux, et ceux qui longent les façades (à moins de BORD unités du bord de la place), sauf s'ils tombent dans un
-## terre-plein, sur le jardin d'enfants ou trop près d'un platane des terre-pleins.
+## terre-plein ou trop près d'un platane des terre-pleins.
 static func _garde(t, p: Vector2) -> bool:
 	if not _libre(p, 0.3):
 		return false
@@ -478,10 +480,8 @@ static func _garde(t, p: Vector2) -> bool:
 	return false
 
 
-## Vrai si le point est hors des terre-pleins et du jardin d'enfants, à `marge` unités près.
+## Vrai si le point est hors des terre-pleins, à `marge` unités près.
 static func _libre(p: Vector2, marge := 0.4) -> bool:
-	if absf(p.x - JARDIN.x) < JARDIN_DEMI.x + marge and absf(p.y - JARDIN.y) < JARDIN_DEMI.y + marge:
-		return false
 	for tp in TERRE_PLEINS:
 		if Geometry2D.is_point_in_polygon(p, Geometry2D.offset_polygon(PackedVector2Array(tp), marge)[0]):
 			return false
@@ -512,13 +512,8 @@ static func _jardin(t, racine: Node3D) -> void:
 	if poly.size() < 3:
 		return
 	if _toulousain("mobilier-toulousain@1"):
-		# Le jardin d'enfants toulousain (muret de brique, grille, portique, toboggan) dans l'aire de jeux du
-		# nord-ouest, entre les terrasses et la bande plantée, son portillon au sud.
-		var porteur := Node3D.new()
-		porteur.name = "Jardin"
-		porteur.transform = Transform3D(Basis().scaled(Vector3.ONE / UNITE), Vector3(JARDIN.x, 0.0, JARDIN.y))
-		racine.add_child(porteur)
-		_brique("mobilier-toulousain@1", "objet.gd").poser(porteur, Vector3.ZERO, "jardin_enfants", 31555)
+		# Avec les terre-pleins du relevé de Guillaume, l'aire de jeux réelle n'a plus la place du jardin
+		# d'enfants toulousain (9 m sur 7) : la place s'en passe.
 		return
 	var o = _brique("mobilier-lyonnais@1", "outils.gd").new(31555)
 	var c := Vector2.ZERO
@@ -595,6 +590,25 @@ static func _parterre(o, poly: PackedVector2Array) -> void:
 		var b := Vector3(poly[tri[k + 1]].x * UNITE, PELOUSE, poly[tri[k + 1]].y * UNITE)
 		var d := Vector3(poly[tri[k + 2]].x * UNITE, PELOUSE, poly[tri[k + 2]].y * UNITE)
 		o.tri(a, b, d, Vector3.UP, herbe.lightened(0.03 * (k % 3)))
+	# Le bac planté : des touffes basses de lauriers, de pittosporums et de fleurs, semées dans la terre à
+	# l'écart du muret.
+	var r := RandomNumberGenerator.new()
+	r.seed = int(poly[0].x * 100.0 + poly[0].y * 7.0)
+	var dedans: PackedVector2Array = Geometry2D.offset_polygon(poly, -0.35)[0]
+	var cadre := Rect2(poly[0], Vector2.ZERO)
+	for q in poly:
+		cadre = cadre.expand(q)
+	var touffes := int(cadre.get_area() * 0.6)
+	for k in touffes:
+		var q := cadre.position + Vector2(r.randf(), r.randf()) * cadre.size
+		if not Geometry2D.is_point_in_polygon(q, dedans):
+			continue
+		var rayon := r.randf_range(0.3, 0.6)
+		var vert := Color("4f7f36").lerp(Color("7aa548"), r.randf())
+		if r.randf() < 0.18:
+			vert = [Color("d9774f"), Color("e8c75a"), Color("c45a7a")][r.randi() % 3]
+			rayon *= 0.6
+		o.boule(Vector3(q.x * UNITE, PELOUSE + rayon * 0.5, q.y * UNITE), Vector3(rayon, rayon * 0.7, rayon), vert, 0.2, 1, 0.06, 0.4)
 	var pierre := Color("d9cbae")
 	var chaperon := Color("e0d6c1")
 	for k in poly.size():
@@ -824,21 +838,24 @@ static func _vie(racine: Node3D) -> void:
 			f.rotation.y = atan2(-cos(a), -sin(a))
 			groupe.add_child(f)
 			g += 1
-	# Au bord du jardin d'enfants, deux parents qui regardent les jeux.
-	for p in [Vector2(2.2, -13.8), Vector2(2.7, -13.9)]:
+	# Entre les deux bacs du nord, deux voisins qui bavardent, l'un en face de l'autre.
+	var voisins := [Vector2(2.2, -14.6), Vector2(2.8, -14.6)]
+	for k in 2:
+		var p: Vector2 = voisins[k]
+		var q: Vector2 = voisins[1 - k]
 		var f: Node3D = Atelier.figurant(g, "idle")
 		f.position = Vector3(p.x, 0.0, p.y)
-		f.rotation.y = atan2(JARDIN.x - p.x, JARDIN.y - p.y)
+		f.rotation.y = atan2(q.x - p.x, q.y - p.y)
 		groupe.add_child(f)
 		g += 1
 	# Les promeneurs : d'une rue à l'autre, entre les terre-pleins.
 	var routes := [
 		[Vector3(-12.0, 0, -2.0), Vector3(-4.0, 0, -2.1), Vector3(-1.5, 0, -2.4), Vector3(0.6, 0, -1.5), Vector3(3.2, 0, 1.5), Vector3(3.4, 0, 6.5), Vector3(5.0, 0, 12.0), Vector3(6.0, 0, 19.0)],
-		[Vector3(-8.0, 0, -17.0), Vector3(-3.2, 0, -11.5), Vector3(-1.5, 0, -9.0), Vector3(6.0, 0, -8.8), Vector3(13.0, 0, -9.5), Vector3(12.6, 0, -14.8)],
+		[Vector3(-8.0, 0, -17.0), Vector3(-3.2, 0, -11.5), Vector3(-1.5, 0, -9.0), Vector3(6.0, 0, -8.8), Vector3(13.0, 0, -9.5), Vector3(12.6, 0, -14.0)],
 		[Vector3(5.0, 0, 18.0), Vector3(3.4, 0, 6.5), Vector3(3.2, 0, 1.5), Vector3(0.6, 0, -1.5), Vector3(-2.0, 0, -6.0), Vector3(-3.2, 0, -11.5), Vector3(-7.0, 0, -16.0)],
-		[Vector3(18.0, 0, 2.0), Vector3(12.0, 0, 4.0), Vector3(3.4, 0, 6.5), Vector3(3.2, 0, 1.5), Vector3(0.6, 0, -1.5), Vector3(-1.5, 0, -2.4), Vector3(-4.0, 0, -2.1), Vector3(-14.0, 0, -2.0)],
-		[Vector3(14.0, 0, -11.5), Vector3(13.0, 0, -9.5), Vector3(6.0, 0, -8.8), Vector3(0.6, 0, -1.5), Vector3(3.2, 0, 1.5), Vector3(3.4, 0, 6.5), Vector3(12.0, 0, 8.0)],
-		[Vector3(-14.0, 0, -2.0), Vector3(-4.0, 0, -2.1), Vector3(-1.5, 0, -2.4), Vector3(0.6, 0, -1.5), Vector3(3.2, 0, 1.5), Vector3(3.4, 0, 6.5), Vector3(11.5, 0, 6.5)],
+		[Vector3(21.5, 0, 2.2), Vector3(20.0, 0, 1.0), Vector3(18.2, 0, -4.0), Vector3(15.6, 0, -4.3), Vector3(13.1, 0, -2.6), Vector3(12.3, 0, 1.0), Vector3(12.0, 0, 4.0), Vector3(3.4, 0, 6.5), Vector3(3.2, 0, 1.5), Vector3(0.6, 0, -1.5), Vector3(-1.5, 0, -2.4), Vector3(-4.0, 0, -2.1), Vector3(-14.0, 0, -2.0)],
+		[Vector3(14.0, 0, -11.5), Vector3(13.0, 0, -9.5), Vector3(6.0, 0, -8.8), Vector3(0.6, 0, -1.5), Vector3(3.2, 0, 1.5), Vector3(3.4, 0, 6.5), Vector3(9.0, 0, 5.4)],
+		[Vector3(-14.0, 0, -2.0), Vector3(-4.0, 0, -2.1), Vector3(-1.5, 0, -2.4), Vector3(0.6, 0, -1.5), Vector3(3.2, 0, 1.5), Vector3(3.4, 0, 6.5), Vector3(9.6, 0, 4.8)],
 	]
 	for k in routes.size():
 		var route: Array[Vector3] = []
