@@ -27,6 +27,22 @@ func batir(parent: Node3D) -> void:
 	var nrm := Vector2(-d.y, d.x)
 	var longueur := PLACE.ALLEE_A.distance_to(PLACE.ALLEE_B)
 	_course(n, d, nrm, longueur)
+	# Le côté ouvert de la rue des Barons, en descendant vers la place : un trottoir, sa bordure et une haie basse
+	# devant les jardins, au lieu d'un talus de pelouse (verdict n° 19).
+	var bugey: PackedScene = load(Bibliotheque.scene("vegetation-du-bugey@1", "decor"))
+	var r0 := Vector2(128.0, 299.0)
+	var r1 := Vector2(159.0, 313.0)
+	var dr := (r1 - r0).normalized()
+	var flanc := Vector2(-dr.y, dr.x)
+	for k in int(r0.distance_to(r1) / 3.0):
+		var v := r0 + dr * (1.5 + k * 3.0) + flanc * 5.2
+		var h: Node3D = bugey.instantiate()
+		h.set("plante", "haie")
+		h.set("graine", 60 + k)
+		h.set("options", {"longueur": 3.1, "hauteur": 0.9 + 0.1 * (k % 3)})
+		h.position = _p(v)
+		h.rotation.y = -atan2(dr.y, dr.x)
+		n.add_child(h)
 	# Les groupes qui causent : sur le parvis dallé, au pied des marches, près des lanternes.
 	var groupes := [
 		[PLACE.ALLEE_A + d * 6.0 - nrm * 7.0, 3],
@@ -72,13 +88,13 @@ func batir(parent: Node3D) -> void:
 func _course(n: Node3D, d: Vector2, nrm: Vector2, longueur: float) -> void:
 	var scene: PackedScene = load(Bibliotheque.scene("course-cycliste@1", "decor"))
 	var lacet := atan2(d.x, d.y)
-	# La banderole traverse la rue des Barons, d'une façade à l'autre, à l'entrée de la place : on passe dessous
-	# en arrivant (verdict n° 18).
+	# La banderole traverse la rue des Barons à son tronçon serré, d'une façade à l'autre : on passe dessous en
+	# arrivant (verdicts n° 18 et 19).
 	var banderole: Node3D = scene.instantiate()
 	banderole.set("objet", "banderole")
 	banderole.set("graine", 11)
-	banderole.set("options", {"texte": "GRAND PRIX DE LA LOUVE", "largeur": 9.0, "couleur": "d22a2a"})
-	banderole.position = _p(Vector2(150.0, 309.0))
+	banderole.set("options", {"texte": "GRAND PRIX DE LA LOUVE", "largeur": 9.5, "couleur": "d22a2a"})
+	banderole.position = _p(Vector2(133.0, 301.2))
 	banderole.rotation.y = atan2(-0.91, -0.41)
 	n.add_child(banderole)
 	for k in 3:

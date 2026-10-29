@@ -25,7 +25,9 @@ const POT := Color("c06a40", 0.9)
 const ASPHALTE := Color("8e8780", 0.95)
 const TROTTOIR := Color("c9bea8", 0.95)
 const PAVE := Color("b0a48f", 0.95)
-const BORDURE := Color("dcd6c8", 0.9)
+const BORDURE := Color("b3ab9c", 0.9)
+## Le caniveau, entre la bordure et la chaussée : une bande plus sombre de pavés.
+const CANIVEAU := Color("6f6a63", 0.95)
 
 ## Autour de la cathédrale, les maisons ont leurs lucarnes et leurs chaînes d'angle maillées.
 const PRES_DE := Vector2(200.0, 340.0)
@@ -342,6 +344,7 @@ func _rues(parent: Node3D) -> void:
 				ruban(o, pts, l + 3.2, 0.1, TROTTOIR)
 				# La bordure de granit clair qui sépare le trottoir de la chaussée.
 				ruban(o, pts, l + 0.5, 0.12, BORDURE)
+				ruban(o, pts, l + 0.3, 0.125, CANIVEAU)
 			ruban(o, pts, l, 0.13, ASPHALTE)
 	for s in b.sols:
 		var poly := PackedVector2Array()
