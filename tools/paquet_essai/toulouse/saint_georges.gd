@@ -41,15 +41,20 @@ const TERRE_PLEINS := [
 	[Vector2(-1.2, -13.9), Vector2(0.3, -12.6), Vector2(2.6, -13.1), Vector2(4.8, -12.9), Vector2(10.6, -13.7), Vector2(11.3, -13.9), Vector2(11.6, -13.2), Vector2(11.8, -12.7), Vector2(12.1, -12.3), Vector2(11.3, -11.8), Vector2(10.2, -11.2), Vector2(9.2, -10.8), Vector2(7.9, -10.1), Vector2(6.8, -9.7), Vector2(5.0, -10.8), Vector2(2.7, -11.1), Vector2(0.9, -10.9), Vector2(-0.6, -10.1), Vector2(-1.0, -11.0), Vector2(-1.2, -11.7), Vector2(-1.7, -12.8), Vector2(-2.0, -13.4)],
 	[Vector2(-3.3, -1.2), Vector2(-2.2, -1.5), Vector2(-1.1, -1.8), Vector2(0.1, 0.4), Vector2(1.3, 2.4), Vector2(2.2, 5.0), Vector2(1.5, 6.0), Vector2(0.8, 6.2), Vector2(-0.4, 6.8), Vector2(-1.2, 5.1), Vector2(-1.8, 3.4), Vector2(-2.4, 1.3)],
 	[Vector2(14.2, -7.0), Vector2(11.8, -5.9), Vector2(10.4, -5.2), Vector2(9.2, -4.4), Vector2(8.5, -2.2), Vector2(7.7, -1.1), Vector2(6.3, 0.2), Vector2(5.5, 0.9), Vector2(4.3, 1.6), Vector2(4.7, 2.5), Vector2(5.2, 3.6), Vector2(5.4, 4.4), Vector2(5.8, 5.2), Vector2(6.5, 4.8), Vector2(7.8, 4.3), Vector2(7.4, 3.3), Vector2(6.9, 2.2), Vector2(8.5, 1.3), Vector2(10.2, -0.9), Vector2(11.1, -3.2), Vector2(12.9, -4.2), Vector2(15.6, -5.3), Vector2(15.2, -6.3), Vector2(14.8, -7.4)],
-	[Vector2(-3.8, -17.0), Vector2(9.7, -17.3), Vector2(10.9, -15.3), Vector2(9.9, -14.3), Vector2(8.9, -14.7), Vector2(7.6, -15.5), Vector2(1.4, -15.6), Vector2(-2.2, -15.7), Vector2(-3.7, -16.3)],
+	[Vector2(-3.8, -17.0), Vector2(-2.0, -17.05), Vector2(-2.0, -15.7), Vector2(-2.2, -15.7), Vector2(-3.7, -16.3)],
+	[Vector2(2.8, -17.15), Vector2(9.7, -17.3), Vector2(10.9, -15.3), Vector2(9.9, -14.3), Vector2(8.9, -14.7), Vector2(7.6, -15.5), Vector2(2.8, -15.6)],
 	[Vector2(14.0, -2.5), Vector2(16.8, -3.7), Vector2(17.3, -3.4), Vector2(19.1, 1.8), Vector2(19.4, 2.7), Vector2(19.2, 3.1), Vector2(17.4, 4.5), Vector2(8.9, 10.0), Vector2(7.2, 10.1), Vector2(6.4, 8.7), Vector2(6.9, 7.6), Vector2(14.5, 3.3), Vector2(15.2, 2.1), Vector2(14.0, -1.3)],
 ]
 ## Les platanes des terre-pleins, sur la ligne médiane de chacun.
 const PLATANES_DES_TERRE_PLEINS := [Vector2(-6.3, -10.6), Vector2(-5.35, -8.0), Vector2(-4.2, -5.3), Vector2(-1.4, 0.3), Vector2(0.0, 4.0), Vector2(14.3, -6.3), Vector2(11.7, -4.7), Vector2(9.3, -1.9), Vector2(6.9, 1.0), Vector2(6.3, 3.9),
-	Vector2(-2.6, -16.4), Vector2(1.0, -16.4), Vector2(4.6, -16.4), Vector2(7.4, -16.4), Vector2(9.9, -15.4),
+	Vector2(-2.9, -16.5), Vector2(4.6, -16.4), Vector2(7.4, -16.4), Vector2(9.9, -15.4),
 	Vector2(15.8, -1.8), Vector2(17.0, 1.6), Vector2(14.0, 4.9), Vector2(10.5, 7.3), Vector2(7.6, 8.6)]
 ## La hauteur de la terre des terre-pleins, en mètres : un bac planté, juste sous le rebord du muret (60 cm).
 const PELOUSE := 0.45
+## Le jardin d'enfants, dans l'aire de jeux réelle du nord (au milieu du L du nord, que le juge veut retrouver
+## comme dans la cible) : son centre en unités, portillon au sud. Il fait 9 m sur 7.
+const JARDIN := Vector2(0.4, -15.75)
+const JARDIN_DEMI := Vector2(1.95, 1.5)
 const ENSEIGNES := ["CAFÉ DES CAPITOULS", "LE PASTEL", "BAR DE LA BRIQUE", "AU CASSOULET", "LA VIOLETTE", "BAR DES ARCADES", "CHEZ PEYROLLES", "LE TOURNESOL", "LA GARONNETTE", "CAFÉ DU MIDI"]
 
 
@@ -99,6 +104,7 @@ static func construire(t) -> void:
 	_fondre(racine, "Facades")
 	_fondre(racine, "Mobilier")
 	_fondre(racine, "Platanes")
+	_fondre(racine, "Bacs")
 
 
 # --- Les fronts -----------------------------------------------------------------------------------
@@ -480,8 +486,10 @@ static func _garde(t, p: Vector2) -> bool:
 	return false
 
 
-## Vrai si le point est hors des terre-pleins, à `marge` unités près.
+## Vrai si le point est hors des terre-pleins et du jardin d'enfants, à `marge` unités près.
 static func _libre(p: Vector2, marge := 0.4) -> bool:
+	if absf(p.x - JARDIN.x) < JARDIN_DEMI.x + marge and absf(p.y - JARDIN.y) < JARDIN_DEMI.y + marge:
+		return false
 	for tp in TERRE_PLEINS:
 		if Geometry2D.is_point_in_polygon(p, Geometry2D.offset_polygon(PackedVector2Array(tp), marge)[0]):
 			return false
@@ -512,8 +520,13 @@ static func _jardin(t, racine: Node3D) -> void:
 	if poly.size() < 3:
 		return
 	if _toulousain("mobilier-toulousain@1"):
-		# Avec les terre-pleins du relevé de Guillaume, l'aire de jeux réelle n'a plus la place du jardin
-		# d'enfants toulousain (9 m sur 7) : la place s'en passe.
+		# Le jardin d'enfants toulousain (muret de brique, grille, portique, toboggan) dans l'aire de jeux réelle,
+		# au nord, entre les deux bras du L ; son portillon vers la place, au sud.
+		var porteur := Node3D.new()
+		porteur.name = "Jardin"
+		porteur.transform = Transform3D(Basis().scaled(Vector3.ONE / UNITE), Vector3(JARDIN.x, 0.0, JARDIN.y))
+		racine.add_child(porteur)
+		_brique("mobilier-toulousain@1", "objet.gd").poser(porteur, Vector3.ZERO, "jardin_enfants", 31555)
 		return
 	var o = _brique("mobilier-lyonnais@1", "outils.gd").new(31555)
 	var c := Vector2.ZERO
@@ -573,8 +586,12 @@ static func _jardin(t, racine: Node3D) -> void:
 ## outils du mobilier lyonnais.
 static func _terre_pleins(racine: Node3D) -> void:
 	var o = _brique("mobilier-lyonnais@1", "outils.gd").new(1762)
-	for tp in TERRE_PLEINS:
-		_parterre(o, PackedVector2Array(tp))
+	var veg: Script = _brique("vegetation-lyonnaise@1", "plante.gd")
+	var plantes := Node3D.new()
+	plantes.name = "Bacs"
+	racine.add_child(plantes)
+	for k in TERRE_PLEINS.size():
+		_parterre(o, PackedVector2Array(TERRE_PLEINS[k]), veg, plantes, k)
 	var porteur := Node3D.new()
 	porteur.name = "TerrePleins"
 	porteur.scale = Vector3.ONE / UNITE
@@ -582,46 +599,61 @@ static func _terre_pleins(racine: Node3D) -> void:
 	o.construire(porteur, "TerrePleins")
 
 
-static func _parterre(o, poly: PackedVector2Array) -> void:
-	var herbe := Color("86ad52")
+## Un bac planté (verdict du juge sur la v0.4) : un massif dense d'arbustes et de fleurs qui dépassent le rebord,
+## la terre visible entre eux ; le muret de brique foraine sous une couvertine de pierre claire à arête vive.
+static func _parterre(o, poly: PackedVector2Array, veg: Script, plantes: Node3D, k: int) -> void:
+	var terre := Color("5d6b34")
 	var tri := Geometry2D.triangulate_polygon(poly)
-	for k in range(0, tri.size(), 3):
-		var a := Vector3(poly[tri[k]].x * UNITE, PELOUSE, poly[tri[k]].y * UNITE)
-		var b := Vector3(poly[tri[k + 1]].x * UNITE, PELOUSE, poly[tri[k + 1]].y * UNITE)
-		var d := Vector3(poly[tri[k + 2]].x * UNITE, PELOUSE, poly[tri[k + 2]].y * UNITE)
-		o.tri(a, b, d, Vector3.UP, herbe.lightened(0.03 * (k % 3)))
-	# Le bac planté : des touffes basses de lauriers, de pittosporums et de fleurs, semées dans la terre à
-	# l'écart du muret.
+	for i in range(0, tri.size(), 3):
+		var a := Vector3(poly[tri[i]].x * UNITE, PELOUSE, poly[tri[i]].y * UNITE)
+		var b := Vector3(poly[tri[i + 1]].x * UNITE, PELOUSE, poly[tri[i + 1]].y * UNITE)
+		var d := Vector3(poly[tri[i + 2]].x * UNITE, PELOUSE, poly[tri[i + 2]].y * UNITE)
+		o.tri(a, b, d, Vector3.UP, terre.lightened(0.04 * (i % 3)))
+	# Les arbustes, à 1,2 m les uns des autres environ, sauf au pied des platanes.
 	var r := RandomNumberGenerator.new()
-	r.seed = int(poly[0].x * 100.0 + poly[0].y * 7.0)
-	var dedans: PackedVector2Array = Geometry2D.offset_polygon(poly, -0.35)[0]
+	r.seed = 4507 + k * 31
+	var dedans: PackedVector2Array = Geometry2D.offset_polygon(poly, -0.28)[0]
 	var cadre := Rect2(poly[0], Vector2.ZERO)
 	for q in poly:
 		cadre = cadre.expand(q)
-	var touffes := int(cadre.get_area() * 0.6)
-	for k in touffes:
-		var q := cadre.position + Vector2(r.randf(), r.randf()) * cadre.size
-		if not Geometry2D.is_point_in_polygon(q, dedans):
-			continue
-		var rayon := r.randf_range(0.3, 0.6)
-		var vert := Color("4f7f36").lerp(Color("7aa548"), r.randf())
-		if r.randf() < 0.18:
-			vert = [Color("d9774f"), Color("e8c75a"), Color("c45a7a")][r.randi() % 3]
-			rayon *= 0.6
-		o.boule(Vector3(q.x * UNITE, PELOUSE + rayon * 0.5, q.y * UNITE), Vector3(rayon, rayon * 0.7, rayon), vert, 0.2, 1, 0.06, 0.4)
-	var pierre := Color("d9cbae")
-	var chaperon := Color("e0d6c1")
-	for k in poly.size():
-		var a := poly[k] * UNITE
-		var b := poly[(k + 1) % poly.size()] * UNITE
+	var pas := 0.62
+	var y := cadre.position.y + pas * 0.5
+	var rang := 0
+	while y < cadre.end.y:
+		var x := cadre.position.x + pas * (0.25 + 0.5 * (rang % 2))
+		while x < cadre.end.x:
+			var q := Vector2(x, y) + Vector2(r.randf_range(-0.15, 0.15), r.randf_range(-0.15, 0.15))
+			x += pas
+			if not Geometry2D.is_point_in_polygon(q, dedans):
+				continue
+			var pres := false
+			for t in PLATANES_DES_TERRE_PLEINS:
+				if q.distance_to(t) < 0.45:
+					pres = true
+			if pres:
+				continue
+			var n := Node3D.new()
+			n.transform = Transform3D(Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3.ONE / UNITE), Vector3(q.x, PELOUSE / UNITE, q.y))
+			plantes.add_child(n)
+			var opt := {"hauteur": r.randf_range(0.7, 1.15), "vent": 0.3}
+			if r.randf() < 0.45:
+				opt["fleurs"] = ["d9473b", "f4f0e6", "b06ad0", "d04a8a"][r.randi() % 4]
+			veg.pousser(n, Vector3.ZERO, "buisson", k * 997 + rang * 31 + int(x * 10.0), opt)
+		y += pas * 0.87
+		rang += 1
+	var brique := Color("a2624a")
+	var pierre := Color("d9cdb6")
+	for i in poly.size():
+		var a := poly[i] * UNITE
+		var b := poly[(i + 1) % poly.size()] * UNITE
 		var l := a.distance_to(b)
 		if l < 0.05:
 			continue
 		var u := (b - a) / l
 		var c := (a + b) * 0.5
 		var bas := Basis(Vector3.UP, atan2(-u.y, u.x))
-		o.boite(Transform3D(bas, Vector3(c.x, 0.27, c.y)), Vector3(l + 0.3, 0.54, 0.3), pierre, 0, true)
-		o.boite(Transform3D(bas, Vector3(c.x, 0.57, c.y)), Vector3(l + 0.34, 0.07, 0.38), chaperon)
+		o.boite(Transform3D(bas, Vector3(c.x, 0.27, c.y)), Vector3(l + 0.22, 0.54, 0.22), brique.lightened(0.04 * (i % 3) - 0.02), 0, true)
+		o.boite(Transform3D(bas, Vector3(c.x, 0.575, c.y)), Vector3(l + 0.25, 0.07, 0.25), pierre)
 
 
 # --- Le mobilier ----------------------------------------------------------------------------------
@@ -838,8 +870,8 @@ static func _vie(racine: Node3D) -> void:
 			f.rotation.y = atan2(-cos(a), -sin(a))
 			groupe.add_child(f)
 			g += 1
-	# Entre les deux bacs du nord, deux voisins qui bavardent, l'un en face de l'autre.
-	var voisins := [Vector2(2.2, -14.6), Vector2(2.8, -14.6)]
+	# Au bord du jardin d'enfants, deux parents qui bavardent en surveillant les jeux.
+	var voisins := [Vector2(3.6, -14.5), Vector2(4.2, -14.5)]
 	for k in 2:
 		var p: Vector2 = voisins[k]
 		var q: Vector2 = voisins[1 - k]

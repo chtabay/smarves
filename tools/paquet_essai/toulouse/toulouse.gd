@@ -12,13 +12,13 @@ const UNITE := 2.4
 const CRANS := [[9.0, -48.0, 34.0], [18.0, -51.0, 30.0], [32.0, -58.0, 30.0]]
 
 ## La lumière de 18 h en septembre (note : « Lumière et caméras ») : soleil d'ouest-sud-ouest, bas et doré.
-const SOLEIL := {"hauteur": 28.0, "vient_de": 250.0, "couleur": Color("ffd9a8")}
+const SOLEIL := {"hauteur": 36.0, "vient_de": 250.0, "couleur": Color("ffd9a8")}
 
 ## Les familles de la palette (note : « Palette et matières »).
 const BRIQUES := ["c8653f", "d2714a", "be5b38", "db8158", "c46a48"]
 const ENDUITS := ["ebcfc0", "f2e4cf", "e7c9b0", "efdcc4"]
 const RUE := Color("dccdab")
-const PLACE := Color("c99472")
+const PLACE := Color("d6a07a")
 const FILET := Color("efe7da")
 
 ## La place Saint-Georges, en unités : le tapis de brique d'une façade à l'autre, rue de bordure comprise
@@ -101,7 +101,7 @@ func _ciel() -> void:
 	soleil.light_energy = 1.6
 	soleil.shadow_enabled = true
 	soleil.shadow_opacity = 0.85
-	soleil.directional_shadow_max_distance = 70.0
+	soleil.directional_shadow_max_distance = 48.0
 	add_child(soleil)
 	var h := deg_to_rad(SOLEIL.hauteur)
 	var a := deg_to_rad(SOLEIL.vient_de)
