@@ -1,0 +1,17 @@
+{
+	"format": 1,
+	"id": "belley",
+	"nom": "Belley",
+	"auteur": "",
+	"version": "0.1.0",
+	"socle_min": "1.25",
+	"insee": "01034",
+	"population": 9388,
+	"description": "",
+	"scene": "res://communes/belley/commune.tscn",
+	"arrivee": {"lot": "place", "nom": "La place", "par": ["smarves"]},
+	"lieux": [{"id": "comptoir", "nom": "Le comptoir", "jeu": "à écrire", "seuil": 40000, "hote": "Le tenancier"}],
+	"banque": {"id": "caisse_belley", "nom": "La caisse de Belley", "banquier": "à écrire", "preteur": "belley", "lieu": "comptoir"},
+	"licence": "",
+	"sources": []
+}
