@@ -311,6 +311,13 @@ func _init() -> void:
 	var store_l: AABB = (cafe_l.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).get_aabb()
 	var lambrequin := cafe_l.find_children("*", "Label3D", true, false).filter(func(e): return e.text == "CAFÉ SATHONAY").size()
 	check(store_l.end.z > 2.6 and lambrequin == 2, "les stores bannes du café avancent de 2,6 m et l'enseigne est peinte sur le lambrequin (%.2f, %d)" % [store_l.end.z, lambrequin])
+	var plat: Node3D = paquet_lyon.instantiate()
+	plat.options = {"w": 10.0, "d": 11.0, "niveaux": 3}
+	toulouse.add_child(plat)
+	var raide: Node3D = paquet_lyon.instantiate()
+	raide.options = {"w": 10.0, "d": 11.0, "niveaux": 3, "pente": 30.0, "chassis": 2, "souches": "grosses"}
+	toulouse.add_child(raide)
+	check(float(raide.get_meta("hauteur")) > float(plat.get_meta("hauteur")) + 0.5, "le toit lyonnais se raidit à 30° quand on le demande (%.2f contre %.2f m au faîte)" % [float(raide.get_meta("hauteur")), float(plat.get_meta("hauteur"))])
 	var paquet_ml: PackedScene = load(Bibliotheque.scene("mobilier-lyonnais@1", "decor"))
 	var bistrot: Node3D = paquet_ml.instantiate()
 	bistrot.objet = "terrasse"
