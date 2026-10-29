@@ -270,7 +270,7 @@ func _init() -> void:
 	var toulouse := Node3D.new()
 	root.add_child(toulouse)
 	var toulousains := {"facadier-toulousain@1": ["types", "type", 13], "sols-toulousains@1": ["noms", "module", 10],
-		"mobilier-toulousain@1": ["objets", "objet", 11], "arbres-d-ombriere@1": ["noms", "arbre", 3]}
+		"mobilier-toulousain@1": ["objets", "objet", 11], "arbres-d-ombriere@1": ["noms", "arbre", 4]}
 	for ref in toulousains:
 		var sc := Bibliotheque.scene(ref, "decor")
 		check(sc != "" and ResourceLoader.exists(sc), "la bibliothèque a %s, un décor" % ref)
@@ -296,6 +296,14 @@ func _init() -> void:
 	var platane: Node3D = load(Bibliotheque.scene("arbres-d-ombriere@1", "decor")).instantiate()
 	toulouse.add_child(platane)
 	check(float(platane.get_meta("hauteur")) >= 16.0 and float(platane.get_meta("couronne")) >= 7.0, "le platane d'ombrière fait au moins 16 m et sa couronne 7 m de rayon")
+	var marronnier: Node3D = load(Bibliotheque.scene("arbres-d-ombriere@1", "decor")).instantiate()
+	marronnier.arbre = "marronnier"
+	toulouse.add_child(marronnier)
+	check(float(marronnier.get_meta("hauteur")) >= 12.0 and float(marronnier.get_meta("hauteur")) <= 18.0, "le marronnier (demandé par la carte de Lyon) fait de 12 à 18 m (%.1f)" % float(marronnier.get_meta("hauteur")))
+	var tuilee: Node3D = paquet_lyon.instantiate()
+	tuilee.options = {"tuile": "8a4a3a"}
+	toulouse.add_child(tuilee)
+	check(not tuilee.find_children("*", "MeshInstance3D", true, false).is_empty(), "le façadier lyonnais prend la teinte de tuile qu'on lui donne")
 	check(manege.is_processing() and not is_equal_approx(manege.get_child(0).rotation.y, cap), "le carrousel toulousain tourne")
 	toulouse.queue_free()
 

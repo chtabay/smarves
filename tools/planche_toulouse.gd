@@ -115,7 +115,7 @@ func _init() -> void:
 				x += 22.0
 			cam.fov = 50
 			if nom == "":
-				cam.look_at_from_position(Vector3(0, 9, 52), Vector3(0, 8.5, 0))
+				cam.look_at_from_position(Vector3(0, 9, 64), Vector3(0, 8.5, 0))
 			else:
 				cam.look_at_from_position(Vector3(10, 4, 30), Vector3(0, 9, 0))
 		"saint_georges":

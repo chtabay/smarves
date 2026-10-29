@@ -12,16 +12,21 @@ extends Node3D
 const Outils := preload("res://bibliotheque/arbres-d-ombriere/1/outils.gd")
 
 ## Les arbres : le grand platane d'ombrière des places (18 à 22 m, couronne en dôme très large), le micocoulier
-## des jardins et des cours (10 à 12 m, couronne ronde), et le jeune platane d'un mail récent (9 à 11 m).
-const ARBRES := ["platane", "micocoulier", "jeune_platane"]
+## des jardins et des cours (10 à 12 m, couronne ronde), le jeune platane d'un mail récent (9 à 11 m), et le
+## marronnier des cours et des places lyonnaises (12 à 18 m, couronne large et irrégulière, tronc sombre, feuilles
+## palmées à sept folioles).
+const ARBRES := ["platane", "micocoulier", "jeune_platane", "marronnier"]
 
 ## Les verts, du dessus au soleil au cœur à l'ombre.
 const VERTS := {
 	"platane": ["d4e862", "bcda4e", "a3cb42", "8bb93a", "76a634"],
 	"micocoulier": ["c4df5a", "aacf4a", "91bd3f", "7aa836", "669430"],
 	"jeune_platane": ["d8ea66", "c0dc52", "a7cd45", "8fbb3c", "7aa835"],
+	"marronnier": ["a6c852", "8cb246", "73993b", "5e8433", "4b6e2b"],
 }
-const ECORCE := {"platane": "c9bea0", "micocoulier": "9a978a", "jeune_platane": "c9bea0"}
+const ECORCE := {"platane": "c9bea0", "micocoulier": "9a978a", "jeune_platane": "c9bea0", "marronnier": "5a4f46"}
+## La forme des feuilles dans le shader : 0 la feuille lobée du platane, 1 la feuille palmée du marronnier.
+const FORMES := {"platane": 0, "micocoulier": 0, "jeune_platane": 0, "marronnier": 1}
 const PLAQUES := ["b5b08e", "bfb596", "a9a888", "ddd3b8", "d0c4a4"]
 
 ## L'arbre (voir ARBRES).
@@ -60,6 +65,7 @@ static func pousser(parent: Node3D, p: Vector3, nom: String, g: int, opt := {}) 
 		"platane": {"h": 20.0, "fut": 0.3, "rt": 0.032, "n": 5, "ouverture": 0.95, "R": Vector2(0.46, 0.34), "touffes": 620, "taille": 1.6},
 		"micocoulier": {"h": 11.0, "fut": 0.24, "rt": 0.03, "n": 4, "ouverture": 0.8, "R": Vector2(0.42, 0.36), "touffes": 400, "taille": 1.25},
 		"jeune_platane": {"h": 10.0, "fut": 0.32, "rt": 0.026, "n": 4, "ouverture": 0.7, "R": Vector2(0.34, 0.34), "touffes": 300, "taille": 1.2},
+		"marronnier": {"h": 15.0, "fut": 0.2, "rt": 0.036, "n": 5, "ouverture": 0.85, "R": Vector2(0.42, 0.37), "touffes": 340, "taille": 1.7},
 	}[nom]
 	var h := float(opt.get("hauteur", float(gabarit["h"]) * r.randf_range(0.9, 1.1)))
 	var vent := float(opt.get("vent", 1.0))
@@ -75,7 +81,15 @@ static func pousser(parent: Node3D, p: Vector3, nom: String, g: int, opt := {}) 
 	# le fût, son empattement, ses plaques d'écorce (le platane se marbre, le micocoulier reste lisse)
 	o.branche(p + Vector3(0, -0.3, 0), p + Vector3(0, fut, 0), rt * 1.15, rt, ec, 10)
 	o.cylindre(Transform3D(Basis(), p), rt * 1.75, rt * 1.15, 0.45, 10, ec.darkened(0.12), Outils.DUR, false)
-	if nom != "micocoulier":
+	if nom == "marronnier":
+		# l'écorce du marronnier se fend en longues lanières sombres, qui vrillent un peu
+		for i in 36:
+			var y := r.randf_range(0.2, fut)
+			var a := r.randf() * TAU
+			var b := Basis(Vector3.UP, a) * Basis(Vector3.BACK, r.randf_range(-0.12, 0.12))
+			var rr := lerpf(rt * 1.15, rt, y / fut) + 0.005
+			o.boite(Transform3D(b, p + Vector3(0, y, 0) + b * Vector3(0, 0, rr)), Vector3(rr * 0.12, r.randf_range(0.5, 1.4), 0.014), ec.darkened(0.35))
+	elif nom != "micocoulier":
 		for i in 40:
 			var y := r.randf_range(0.3, fut)
 			var a := r.randf() * TAU
@@ -121,7 +135,7 @@ static func pousser(parent: Node3D, p: Vector3, nom: String, g: int, opt := {}) 
 		if e.length() < 0.55 and e.y < 0.25 and r.randf() < 0.75:
 			continue
 		var s := taille * r.randf_range(0.7, 1.3) * (0.85 + 0.3 * e.length())
-		_touffe(o, q, s, verts, c, R, vent)
+		_touffe(o, q, s, verts, c, R, vent, FORMES[nom])
 		semees += 1
 
 	o.collisions.append([Transform3D(Basis(), p + Vector3(0, 1.5, 0)), Vector3(rt * 2.2, 3.0, rt * 2.2)])
@@ -159,24 +173,26 @@ static func _ramure(o: Outils, a: Vector3, d: Vector3, l: float, ra: float, ec: 
 		_ramure(o, b, nd, l * r.randf_range(0.55, 0.7), rb, ec, niveau + 1, bouts, c, R)
 
 
-## Une touffe : deux cartes croisées où le shader du feuillage dessine cinq à sept feuilles de platane en dentelle
-## (UV.x porte la variante de la carte), tournées vers le dehors de la couronne. Les normales penchent vers le
-## dehors du dôme, pour une ombre douce de dessin ; le dessus et le côté du soleil sont plus clairs, le dessous et
-## le cœur plus sombres.
-static func _touffe(o: Outils, q: Vector3, s: float, verts: Array, c: Vector3, R: Vector3, vent: float) -> void:
+## Une touffe : deux cartes croisées où le shader du feuillage dessine cinq à sept feuilles de platane en dentelle,
+## ou deux à trois feuilles palmées de marronnier (UV.x porte la variante de la carte, UV.y la forme dans sa partie
+## paire), tournées vers le dehors de la couronne. Les normales penchent vers le dehors du dôme, pour une ombre
+## douce de dessin ; le dessus et le côté du soleil sont plus clairs, le dessous et le cœur plus sombres.
+static func _touffe(o: Outils, q: Vector3, s: float, verts: Array, c: Vector3, R: Vector3, vent: float, forme := 0) -> void:
 	var r := o.rng
 	var l := q - c
 	var dans := Vector3(l.x / R.x, l.y / R.y, l.z / R.z)
 	var dehors := dans.normalized() if dans.length() > 0.01 else Vector3.UP
 	var soleil := Vector3(0.5, 0.75, 0.45).normalized()
 	var lumiere := clampf(dehors.dot(soleil) * 0.5 + 0.5, 0.0, 1.0) * clampf(dans.length() * 1.2, 0.4, 1.0)
-	var rang := clampi(int((1.0 - lumiere) * 4.0 + r.randf_range(-0.8, 0.8)), 0, 4)
+	# la lumière en aplats du shader fait déjà le côté du soleil : le rang de vert ne fait que nuancer
+	var rang := clampi(int((1.0 - lumiere) * 2.6 + r.randf_range(-0.6, 0.9)), 0, 4)
 	var teinte: Color = (verts[rang] as Color).lightened(r.randf_range(-0.04, 0.06))
 	teinte.a = clampf(vent * (0.5 + 0.5 * dans.length()), 0.0, 1.0)
 	var nrm := (dehors + Vector3(0, 0.5, 0) + Vector3(r.randf_range(-0.5, 0.5), 0, r.randf_range(-0.5, 0.5))).normalized()
 	var u := nrm.cross(Vector3.RIGHT if absf(nrm.x) < 0.9 else Vector3.FORWARD).normalized().rotated(nrm, r.randf() * TAU)
 	var v := nrm.cross(u)
-	var normale := (nrm * 0.35 + dehors * 0.65 + Vector3(0, 0.25, 0)).normalized()
+	# les normales suivent le dôme plus que la carte : les aplats de lumière dessinent de grandes masses
+	var normale := (nrm * 0.12 + dehors * 0.88 + Vector3(0, 0.2, 0)).normalized()
 	var st := o._s(Outils.FEUILLE)
 	var demi := s * 0.75
 	for carte in 2:
@@ -185,7 +201,8 @@ static func _touffe(o: Outils, q: Vector3, s: float, verts: Array, c: Vector3, R
 		var b := v if carte == 0 else (nrm * 0.8 + u * 0.2).normalized()
 		var k := float(r.randi() % 64)
 		var coins := [q - a * demi - b * demi, q + a * demi - b * demi, q + a * demi + b * demi, q - a * demi + b * demi]
-		var uv := [Vector2(k, 1), Vector2(k + 0.999, 1), Vector2(k + 0.999, 0), Vector2(k, 0)]
+		var f := forme * 2.0
+		var uv := [Vector2(k, f + 1), Vector2(k + 0.999, f + 1), Vector2(k + 0.999, f), Vector2(k, f)]
 		for t in [[0, 1, 2], [0, 2, 3]]:
 			for j in t:
 				st.set_color(teinte)
