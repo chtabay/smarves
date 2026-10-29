@@ -25,7 +25,7 @@ const SOLEIL := {"hauteur": 31.0, "vient_de": 258.0, "couleur": Color("#ffe1b0")
 ## La palette de la note (« Palette et matières »).
 const ENDUITS_PLACE := ["ecd59c", "f1e1b8", "eac39a", "f0d6a4", "e6c08e", "f3e6c6"]
 const ENDUITS_PENTES := ["e2cc98", "e9d6b0", "dcb78f", "e4c8a0", "d8c3a2"]
-const TUILES := ["c25a3a", "b4503a", "cc6a45", "a84a35", "bf6040", "b65e48"]
+const TUILES := ["b4604a", "a8583f", "bd6a50", "9f5440", "b86650", "ab5c47"]
 const PAVE := Color("#8e8a84")
 const DALLE := Color("#c9c1b2")
 const SABLE := Color("#e8cb9c")
@@ -167,10 +167,10 @@ func _ciel() -> void:
 	e.ambient_light_energy = 0.4
 	e.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	e.tonemap_exposure = 0.84
+	e.tonemap_exposure = 0.68
 	# la planche : des couleurs franches, la terre cuite qui chauffe, le vert cru des marronniers
 	e.adjustment_enabled = true
-	e.adjustment_saturation = 1.3
+	e.adjustment_saturation = 1.05
 	e.adjustment_contrast = 1.06
 	e.ssao_enabled = true
 	e.ssao_intensity = 1.2
@@ -457,6 +457,7 @@ func _batiments() -> void:
 	mt.name = "Toits"
 	mt.mesh = toits.commit()
 	mt.material_override = _mat(Color.WHITE, 0.8, true)
+	mt.material_override.cull_mode = BaseMaterial3D.CULL_DISABLED
 	ville.add_child(mt)
 	var corps := StaticBody3D.new()
 	corps.name = "Murs_collision"
@@ -509,7 +510,7 @@ func _reliefs(i: int, b: Dictionary, poly: PackedVector2Array) -> Array:
 		for j in nb:
 			var q := a + u * w * (j + 0.5) + n * 0.02
 			var type: String = "etroite" if w < 6.5 else ["immeuble", "classique", "traboule", "immeuble", "classique"][(i * 5 + k * 3 + j) % 5]
-			var opt := {"w": w - 0.04, "d": 3.0, "niveaux": niveaux, "tuile": TUILES[(i + j) % TUILES.size()]}
+			var opt := {"w": w - 0.04, "d": 3.0, "niveaux": niveaux, "tuile": TUILES[(i + j) % TUILES.size()], "pente": 29.0, "chassis": 1 + (i + j) % 2, "souches": "grosses"}
 			opt["enduit"] = (ENDUITS_PENTES if pentes else ENDUITS_PLACE)[(i + k + j) % 5]
 			if pentes:
 				opt["fleurs"] = false
@@ -557,6 +558,25 @@ func _enduit(c: Vector2, i: int) -> Color:
 	return col.darkened(float(i % 5) * 0.025)
 
 
+## Une boîte dans un SurfaceTool : centre c, taille t, tournée de ang autour de la verticale.
+func _boite_st(st: SurfaceTool, c: Vector3, t: Vector3, ang: float, col: Color) -> void:
+	var b := Basis(Vector3.UP, -ang)
+	var h := t * 0.5
+	for f in [[Vector3.RIGHT, Vector3.UP, Vector3.BACK], [Vector3.LEFT, Vector3.UP, Vector3.FORWARD], [Vector3.BACK, Vector3.UP, Vector3.LEFT],
+			[Vector3.FORWARD, Vector3.UP, Vector3.RIGHT], [Vector3.UP, Vector3.BACK, Vector3.RIGHT]]:
+		var n: Vector3 = f[0]
+		var a: Vector3 = f[1]
+		var r: Vector3 = f[2]
+		var o := n * h
+		var ea := a * h
+		var er := r * h
+		var coins := [o - ea - er, o - ea + er, o + ea + er, o + ea - er]
+		for idx in [0, 1, 2, 0, 2, 3]:
+			st.set_color(col if n != Vector3.UP else col.darkened(0.2))
+			st.set_normal(b * n)
+			st.add_vertex(c + b * coins[idx])
+
+
 func _toit(st: SurfaceTool, b: Dictionary, poly: PackedVector2Array, haut: float, i: int) -> void:
 	var tuile := Color(TUILES[i % TUILES.size()])
 	var rc: Array = b.rect
@@ -586,12 +606,19 @@ func _toit(st: SurfaceTool, b: Dictionary, poly: PackedVector2Array, haut: float
 				st.set_color(tuile.darkened(0.15) if absf(n.y) < 0.2 else tuile)
 				st.set_normal(n)
 				st.add_vertex(p)
+		# les grosses souches de cheminée enduites, posées sur le faîtage, et leur couronnement de pierre
+		var nc := 2 if lu > 6.0 else 1
+		for k in nc:
+			var t := (float(k) + 0.5) / nc + (float(i % 5) - 2.0) * 0.04
+			var q := E.lerp(F, t) + Vector3(v.x, 0, v.y) * (0.9 if (i + k) % 2 else -0.9)
+			_boite_st(st, q + Vector3(0, 0.6, 0), Vector3(1.3, 2.4, 0.8), rc[4], Color(ENDUITS_PLACE[(i + k) % ENDUITS_PLACE.size()]).darkened(0.08))
+			_boite_st(st, q + Vector3(0, 1.88, 0), Vector3(1.5, 0.16, 1.0), rc[4], Color("#b9ac92"))
 		return
 	var tri := Geometry2D.triangulate_polygon(poly)
 	for k in range(0, tri.size(), 3):
 		for j in [0, 2, 1]:
 			var p := poly[tri[k + j]]
-			st.set_color(tuile.darkened(0.25) if b.toit != "plat" else Color("#8a8278"))
+			st.set_color(tuile.darkened(0.06) if b.toit != "plat" else Color("#a39a8c"))
 			st.set_normal(Vector3.UP)
 			st.add_vertex(Vector3(p.x, haut + 0.15, p.y))
 
@@ -714,7 +741,7 @@ func _heros_poser(i: int, b: Dictionary) -> void:
 		var x := -lu * 0.5 + w * (k + 0.5)
 		var p := front + u * x
 		var type := "classique"
-		var opt := {"w": w - 0.05, "d": lv, "niveaux": niveaux, "tuile": TUILES[(i + k) % TUILES.size()]}
+		var opt := {"w": w - 0.05, "d": lv, "niveaux": niveaux, "tuile": TUILES[(i + k) % TUILES.size()], "pente": 29.0, "chassis": 2, "souches": "grosses"}
 		if est_mairie:
 			type = "hotel"
 			opt.merge({"enduit": "c6bca3", "persiennes": false, "fleurs": false, "niveaux": 3, "rdc": "pierre"}, true)
@@ -785,27 +812,54 @@ func _place() -> void:
 	for k in 4:
 		var a := TAU * k / 4.0 + PI * 0.25
 		_pose(VEGETATION, "plante", "massif", Vector3(BLANDAN.x + cos(a) * 3.9, y, BLANDAN.y + sin(a) * 3.9), 300 + k, {"longueur": 2.4, "fleurs": ["f4f0e6", "e0605a", "d04a8a", "f4f0e6"][k]}, -a)
-	# l'anneau de marronniers sur le pourtour du square, le sable au milieu
-	var pas := 10.5
-	var bord := 3.2
-	var points: Array[Vector2] = []
-	var nx := int(round((sq.size.x - bord * 2.0) / pas))
-	var nz := int(round((sq.size.y - bord * 2.0) / pas))
-	for i in nx + 1:
-		var x := lerpf(sq.position.x + bord, sq.end.x - bord, float(i) / nx)
-		points.append(Vector2(x, sq.position.y + bord))
-		points.append(Vector2(x, sq.end.y - bord))
-	for j in range(1, nz):
-		var z := lerpf(sq.position.y + bord, sq.end.y - bord, float(j) / nz)
-		points.append(Vector2(sq.position.x + bord, z))
-		points.append(Vector2(sq.end.x - bord, z))
-	for k in points.size():
-		var p: Vector2 = points[k]
-		# l'allée du nord reste ouverte vers l'escalier
-		if p.y < sq.position.y + 1.0 + bord and absf(p.x - BLANDAN.x) < 4.0:
+	# un bosquet de marronniers irrégulier (la planche) : des troncs semés dans tout le square, une clairière
+	# autour de Blandan et dans l'axe de l'escalier, des massifs fleuris dans les trouées
+	var genants: Array[Vector2] = []
+	for k in 6:
+		var zb := lerpf(sq.position.y + 9.0, sq.end.y - 9.0, float(k) / 5.0)
+		genants.append(Vector2(sq.position.x + 4.6, zb))
+		genants.append(Vector2(sq.end.x - 4.6, zb))
+	var graines := RandomNumberGenerator.new()
+	graines.seed = 1817
+	var troncs: Array[Vector2] = []
+	var essais := 0
+	while troncs.size() < 12 and essais < 4000:
+		essais += 1
+		var p := Vector2(graines.randf_range(sq.position.x + 2.2, sq.end.x - 2.2), graines.randf_range(sq.position.y + 2.2, sq.end.y - 2.2))
+		var e := Vector2((p.x - BLANDAN.x) / 8.0, (p.y - BLANDAN.y) / 12.0)
+		if e.length() < 1.0 or (absf(p.x - BLANDAN.x) < 4.5 and p.y < BLANDAN.y):
 			continue
-		p += Vector2(_rng.randf_range(-1.2, 1.2), _rng.randf_range(-1.2, 1.2))
-		_pose(OMBRIERE, "arbre", "marronnier", Vector3(p.x, y, p.y), 400 + k, {"hauteur": _rng.randf_range(14.0, 17.0), "vent": 0.4, "densite": 0.8})
+		var libre := true
+		for q in troncs:
+			if q.distance_to(p) < 8.5:
+				libre = false
+		for q in genants:
+			if q.distance_to(p) < 2.0:
+				libre = false
+		if libre:
+			troncs.append(p)
+	for k in troncs.size():
+		var p: Vector2 = troncs[k]
+		_pose(OMBRIERE, "arbre", "marronnier", Vector3(p.x, y, p.y), 400 + k, {"hauteur": graines.randf_range(12.0, 16.0), "vent": 0.4, "densite": graines.randf_range(0.6, 0.85)})
+	var massifs := 0
+	essais = 0
+	while massifs < 7 and essais < 2000:
+		essais += 1
+		var p := Vector2(graines.randf_range(sq.position.x + 3.0, sq.end.x - 3.0), graines.randf_range(sq.position.y + 3.0, sq.end.y - 3.0))
+		var e := Vector2((p.x - BLANDAN.x) / 7.0, (p.y - BLANDAN.y) / 9.5)
+		if e.length() < 1.0:
+			continue
+		var libre := true
+		for q in troncs:
+			if q.distance_to(p) < 3.2:
+				libre = false
+		for q in genants:
+			if q.distance_to(p) < 2.6:
+				libre = false
+		if libre:
+			massifs += 1
+			_pose(VEGETATION, "plante", "massif", Vector3(p.x, y, p.y), 700 + massifs, {"longueur": graines.randf_range(2.2, 3.6), "fleurs": ["f4f0e6", "d04a8a", "e0605a"][massifs % 3]}, graines.randf_range(0.0, PI))
+			genants.append(p)
 	# la bordure basse de fonte noire et les plates-bandes fleuries le long du pourtour
 	var noir := Color("#1f2422")
 	for cote in [[Vector2(sq.position.x, sq.position.y), Vector2(sq.end.x, sq.position.y)], [Vector2(sq.position.x, sq.end.y), Vector2(sq.end.x, sq.end.y)],
@@ -907,6 +961,21 @@ func _escalier() -> void:
 
 # --- Les pièces uniques ---------------------------------------------------------------------------
 
+var _sculptures := {}
+const Sculpture := preload("res://communes/lyon/sculptures/sculpture.gd")
+
+
+## Une sculpture modelée à part (sculptures/sculpter.py), lue une fois.
+func _sculpture(nom: String) -> ArrayMesh:
+	if not _sculptures.has(nom):
+		_sculptures[nom] = Sculpture.maillage(DOSSIER + "sculptures/%s.bin" % nom)
+	return _sculptures[nom]
+
+
+func _bronze(sombre: Color, patine: Color) -> ShaderMaterial:
+	return Sculpture.bronze(sombre, patine)
+
+
 ## Une forme simple (boîte, cylindre, sphère, capsule) sous parent, tournée par les angles a (radians) ;
 ## m ajoute le métal et le poli du bronze.
 func _forme(parent: Node3D, mesh: Mesh, p: Vector3, c: Color, a := Vector3.ZERO, metal := 0.0) -> MeshInstance3D:
@@ -986,49 +1055,11 @@ func _blandan(s: Node3D) -> void:
 		_forme(s, _blo(Vector3(0.22, 2.1, 0.22)), Vector3(c.x * 0.9, 2.01, c.z * 0.9), pierre.lightened(0.08))
 	_moulure(s, 3.06, 2.0, 2.0, pierre, 1.0)
 	_forme(s, _blo(Vector3(1.5, 0.2, 1.5)), Vector3(0, 3.46, 0), pierre.darkened(0.04))
-	var vert := Color("#4f6a58")
-	var vert_clair := Color("#6f8f74")
+	var vert := Color("#4a4a35")
+	var vert_clair := Color("#5f6b4e")
 	_forme(s, _blo(Vector3(0.9, 0.6, 0.03)), Vector3(0, 2.2, 0.965), vert, Vector3.ZERO, 0.5)
-	# le soldat (2,8 m), sur sa terrasse de bronze, face à la place
-	var f := Node3D.new()
-	f.position = Vector3(0, 3.56, 0)
-	s.add_child(f)
-	var m := 0.55
-	_forme(f, _blo(Vector3(1.1, 0.12, 0.9)), Vector3(0, 0.06, 0), vert, Vector3.ZERO, m)
-	# les jambes en léger pas, le pantalon large, les guêtres et les souliers
-	_segment(f, Vector3(-0.15, 0.2, -0.12), Vector3(-0.13, 1.05, -0.02), 0.11, vert, m)
-	_segment(f, Vector3(0.15, 0.2, 0.14), Vector3(0.12, 1.05, 0.02), 0.11, vert, m)
-	_forme(f, _blo(Vector3(0.18, 0.12, 0.34)), Vector3(-0.15, 0.18, -0.06), vert.darkened(0.2), Vector3.ZERO, m)
-	_forme(f, _blo(Vector3(0.18, 0.12, 0.34)), Vector3(0.15, 0.18, 0.22), vert.darkened(0.2), Vector3.ZERO, m)
-	# la capote croisée, ses pans évasés jusqu'aux genoux, le ceinturon et la giberne
-	_forme(f, _cyl(0.26, 0.36, 0.7), Vector3(0, 1.0, 0), vert, Vector3.ZERO, m)
-	_forme(f, _cyl(0.25, 0.26, 0.55), Vector3(0, 1.6, 0), vert_clair, Vector3.ZERO, m)
-	_forme(f, _cyl(0.27, 0.27, 0.08), Vector3(0, 1.36, 0), vert.darkened(0.25), Vector3.ZERO, m)
-	_forme(f, _blo(Vector3(0.22, 0.14, 0.08)), Vector3(0.12, 1.34, 0.26), vert.darkened(0.25), Vector3.ZERO, m)
-	_forme(f, _bou(0.3, 0.26), Vector3(0, 1.9, 0), vert_clair, Vector3.ZERO, m)
-	for cote in [-1.0, 1.0]:
-		_forme(f, _bou(0.11), Vector3(cote * 0.27, 1.9, 0), vert_clair, Vector3.ZERO, m)
-	# la tête, le col, le shako à visière et pompon
-	_forme(f, _cyl(0.08, 0.1, 0.12), Vector3(0, 2.05, 0), vert, Vector3.ZERO, m)
-	_forme(f, _bou(0.13, 0.3), Vector3(0, 2.25, 0.02), vert_clair, Vector3.ZERO, m)
-	_forme(f, _cyl(0.14, 0.12, 0.28), Vector3(0, 2.48, -0.01), vert.darkened(0.12), Vector3(-0.08, 0, 0), m)
-	_forme(f, _blo(Vector3(0.2, 0.025, 0.12)), Vector3(0, 2.35, 0.15), vert.darkened(0.25), Vector3(0.25, 0, 0), m)
-	_forme(f, _bou(0.05), Vector3(0, 2.66, 0.03), vert_clair, Vector3.ZERO, m)
-	# le bras gauche levé vers la place, la main ouverte ; le droit tient le fusil crosse à terre
-	var epaule_g := Vector3(-0.28, 1.88, 0.0)
-	var coude_g := epaule_g + Vector3(-0.12, 0.2, 0.3)
-	var main_g := coude_g + Vector3(-0.04, 0.28, 0.24)
-	_segment(f, epaule_g, coude_g, 0.085, vert_clair, m)
-	_segment(f, coude_g, main_g, 0.075, vert_clair, m)
-	_forme(f, _bou(0.065, 0.15), main_g + Vector3(0, 0.05, 0.03), vert_clair, Vector3.ZERO, m)
-	var epaule_d := Vector3(0.28, 1.88, 0.0)
-	var coude_d := epaule_d + Vector3(0.1, -0.36, 0.08)
-	var main_d := coude_d + Vector3(0.04, -0.12, 0.3)
-	_segment(f, epaule_d, coude_d, 0.085, vert_clair, m)
-	_segment(f, coude_d, main_d, 0.075, vert_clair, m)
-	_segment(f, Vector3(0.44, 0.14, 0.42), Vector3(0.42, 1.95, 0.3), 0.035, vert.darkened(0.2), m)
-	_forme(f, _blo(Vector3(0.09, 0.4, 0.14)), Vector3(0.44, 0.32, 0.42), vert.darkened(0.2), Vector3(-0.07, 0, 0), m)
-	_segment(f, Vector3(0.42, 1.95, 0.3), Vector3(0.415, 2.3, 0.28), 0.01, vert_clair.lightened(0.25), 0.7)
+	# le soldat (2,8 m), modelé à part (sculptures/sculpter.py), sur sa terrasse de bronze, face à la place
+	_forme(s, _sculpture("blandan"), Vector3(0, 3.56, 0), vert, Vector3.ZERO, 0.55).material_override = _bronze(vert, vert_clair)
 
 
 ## Une des deux fontaines aux lions (fonderie du Creusot, 1823) au pied de la montée : le lion de bronze
@@ -1036,65 +1067,49 @@ func _blandan(s: Node3D) -> void:
 ## dans une vasque à margelle de Villebois, la mousse au bas de la pierre. sens : -1 à l'ouest, 1 à l'est.
 func _fontaine_lion(f: Node3D, _sens: float) -> void:
 	var dore := PIERRE_DOREE
-	# la vasque, sa margelle arrondie, l'eau
-	_forme(f, _blo(Vector3(3.2, 0.55, 1.9)), Vector3(0, 0.27, 0.75), VILLEBOIS.darkened(0.05))
-	_forme(f, _blo(Vector3(3.4, 0.14, 2.1)), Vector3(0, 0.6, 0.75), VILLEBOIS)
-	_forme(f, _blo(Vector3(2.9, 0.06, 1.6)), Vector3(0, 0.5, 0.78), EAU.lightened(0.2))
-	_forme(f, _blo(Vector3(3.24, 0.12, 1.94)), Vector3(0, 0.06, 0.75), Color("#5d6b45"))
-	# le socle mouluré, sa table, son mascaron
-	_moulure(f, 0.0, 2.4, 1.4, dore.darkened(0.08), -1.0)
-	_forme(f, _blo(Vector3(2.2, 1.9, 1.3)), Vector3(0, 1.25, -0.55), dore)
-	_forme(f, _blo(Vector3(1.4, 1.0, 0.04)), Vector3(0, 1.3, 0.12), dore.lightened(0.06))
-	_moulure(f, 2.2, 2.3, 1.4, dore, 1.0)
-	_forme(f, _blo(Vector3(2.0, 0.12, 1.2)), Vector3(0, 2.56, -0.55), dore.darkened(0.06))
-	var bronze := Color("#5a5236")
-	var clair := Color("#7d6e45")
+	var z := -0.55
+	# le socle de pierre dorée : une plinthe, un dé un peu galbé par ses chanfreins, une corniche à trois
+	# ressauts, la tablette où se couche le lion
+	_forme(f, _blo(Vector3(2.5, 0.35, 1.5)), Vector3(0, 0.17, z), dore.darkened(0.12))
+	_forme(f, _blo(Vector3(2.3, 0.08, 1.4)), Vector3(0, 0.39, z), dore.darkened(0.05))
+	_forme(f, _blo(Vector3(2.1, 1.75, 1.2)), Vector3(0, 1.3, z), dore)
+	for c in [-1.0, 1.0]:
+		_forme(f, _blo(Vector3(0.18, 1.75, 1.22)), Vector3(c * 1.0, 1.3, z), dore.lightened(0.04))
+	for k in 3:
+		_forme(f, _blo(Vector3(2.16 + k * 0.1, 0.09, 1.26 + k * 0.1)), Vector3(0, 2.22 + k * 0.09, z), dore.darkened(0.04 * k))
+	_forme(f, _blo(Vector3(2.0, 0.12, 1.15)), Vector3(0, 2.54, z), dore.darkened(0.08))
+	# la vasque demi-ronde de Villebois au pied, sa margelle moulurée, l'eau, la mousse au ras du sol
+	var vasque := _forme(f, _cyl(1.25, 1.12, 0.55, 32), Vector3(0, 0.28, z + 0.6), VILLEBOIS.darkened(0.06))
+	vasque.scale = Vector3(1.0, 1.0, 0.75)
+	var margelle := TorusMesh.new()
+	margelle.inner_radius = 1.12
+	margelle.outer_radius = 1.38
+	margelle.rings = 32
+	margelle.ring_segments = 8
+	_forme(f, margelle, Vector3(0, 0.56, z + 0.6), VILLEBOIS).scale = Vector3(1.0, 0.9, 0.75)
+	_forme(f, _cyl(1.14, 1.14, 0.04, 32), Vector3(0, 0.5, z + 0.6), EAU.lightened(0.25)).scale = Vector3(1.0, 1.0, 0.75)
+	_forme(f, _cyl(1.3, 1.32, 0.1, 32), Vector3(0, 0.05, z + 0.6), Color("#5d6b45")).scale = Vector3(1.0, 1.0, 0.75)
+	var bronze := Color("#4d4a36")
+	var clair := Color("#66705a")
 	var sombre := bronze.darkened(0.25)
 	var m := 0.65
 	var l := Node3D.new()
-	l.position = Vector3(0, 2.62, -0.55)
+	l.position = Vector3(0, 2.6, -0.55)
 	l.scale = Vector3.ONE * 1.25
 	f.add_child(l)
-	# le lion couché, face à la place : le dos qui s'abaisse vers la croupe, les flancs, les cuisses
-	_segment(l, Vector3(0, 0.38, 0.25), Vector3(0, 0.32, -0.55), 0.3, bronze, m)
-	_forme(l, _bou(0.34, 0.5), Vector3(0, 0.3, -0.62), bronze, Vector3.ZERO, m)
-	for cote in [-1.0, 1.0]:
-		_forme(l, _bou(0.24, 0.42), Vector3(cote * 0.22, 0.24, -0.55), bronze.lightened(0.04), Vector3(0, 0, cote * 0.3), m)
-		_segment(l, Vector3(cote * 0.3, 0.1, -0.5), Vector3(cote * 0.3, 0.07, -0.05), 0.08, bronze, m)
-		# les pattes de devant allongées vers la place, les doigts posés
-		_segment(l, Vector3(cote * 0.18, 0.28, 0.32), Vector3(cote * 0.2, 0.08, 0.55), 0.1, bronze, m)
-		_segment(l, Vector3(cote * 0.2, 0.08, 0.55), Vector3(cote * 0.2, 0.07, 0.92), 0.085, bronze, m)
-		for d in 3:
-			_forme(l, _bou(0.04), Vector3(cote * 0.2 + (d - 1) * 0.05, 0.05, 0.99), clair, Vector3.ZERO, m)
-	# la queue enroulée le long du flanc, sa touffe
-	_segment(l, Vector3(0.15, 0.2, -0.85), Vector3(0.38, 0.06, -0.55), 0.04, bronze, m)
-	_segment(l, Vector3(0.38, 0.06, -0.55), Vector3(0.36, 0.05, -0.1), 0.035, bronze, m)
-	_forme(l, _bou(0.07, 0.16), Vector3(0.36, 0.06, -0.04), sombre, Vector3.ZERO, m)
-	# le poitrail, la crinière en mèches qui retombent sur les épaules, la tête levée
-	_forme(l, _bou(0.33, 0.6), Vector3(0, 0.45, 0.35), bronze, Vector3.ZERO, m)
-	_forme(l, _bou(0.4, 0.62), Vector3(0, 0.78, 0.36), sombre, Vector3(-0.35, 0, 0), m)
-	for rang in 3:
-		var nb := 9 - rang * 2
-		for k in nb:
-			var a := lerpf(-1.4, 1.4, float(k) / (nb - 1))
-			var base := Vector3(sin(a) * (0.3 - rang * 0.05), 0.95 - rang * 0.05 + cos(a) * 0.08, 0.42 - rang * 0.14)
-			_segment(l, base, base + Vector3(sin(a) * 0.12, -0.32, -0.08), 0.07 - rang * 0.008, sombre.lightened(rang * 0.05), m)
-	_forme(l, _bou(0.22, 0.4), Vector3(0, 0.82, 0.58), clair, Vector3.ZERO, m)
-	_forme(l, _blo(Vector3(0.2, 0.15, 0.2)), Vector3(0, 0.76, 0.76), clair, Vector3(0.15, 0, 0), m)
-	_forme(l, _bou(0.05), Vector3(0, 0.82, 0.86), sombre, Vector3.ZERO, m)
-	_forme(l, _blo(Vector3(0.14, 0.05, 0.1)), Vector3(0, 0.66, 0.8), Color("#1e1c14"), Vector3.ZERO, 0.2)
-	for cote in [-1.0, 1.0]:
-		_forme(l, _bou(0.06, 0.1), Vector3(cote * 0.14, 1.02, 0.52), sombre, Vector3.ZERO, m)
-		_forme(l, _bou(0.03), Vector3(cote * 0.08, 0.88, 0.76), Color("#1e1c14"), Vector3.ZERO, 0.2)
+	# le lion couché, face à la place, modelé à part (sculptures/sculpter.py)
+	_forme(l, _sculpture("lion"), Vector3.ZERO, bronze).material_override = _bronze(bronze, clair)
 	# le filet d'eau de la gueule à la vasque, en arc
 	var eau := _mat(Color("#cfe3e6"), 0.05)
 	eau.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	eau.albedo_color.a = 0.65
-	var avant := Vector3(0, 0.64, 0.86)
+	var avant := Vector3(0, 0.7, 0.9)
 	for k in range(1, 9):
 		var t := k / 8.0
-		var q := Vector3(0, 0.64 - t * t * 2.34, 0.86 + t * 0.38)
-		_segment(l, avant, q, 0.03 + t * 0.012, Color.WHITE).material_override = eau
+		var q := Vector3(0, 0.7 - t * t * 2.4, 0.9 + t * 0.34)
+		var jet := _segment(l, avant, q, 0.03 + t * 0.012, Color.WHITE)
+		jet.mesh = _cyl(0.03 + t * 0.012, 0.03 + t * 0.012, avant.distance_to(q) + 0.02, 8)
+		jet.material_override = eau
 		avant = q
 
 
