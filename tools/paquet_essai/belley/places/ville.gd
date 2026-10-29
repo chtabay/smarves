@@ -231,9 +231,8 @@ func lucarne(o: RefCounted, p: Vector3, n: Vector3, x: Vector3, col: Color, toit
 	var b := Basis(x, Vector3.UP, n)
 	var t := Transform3D(b, p)
 	o.boite(t * Transform3D(Basis(), Vector3(0, 0.75, -0.6)), Vector3(1.3, 1.5, 1.2), col, OUTILS.PEINT)
-	o.boite(t * Transform3D(Basis(), Vector3(0, 0.72, 0.01)), Vector3(0.7, 1.0, 0.04), Color(0.18, 0.21, 0.25, 0.2), OUTILS.PEINT)
-	o.boite(t * Transform3D(Basis(), Vector3(0, 0.72, 0.0)), Vector3(0.86, 1.14, 0.03), Color("efe9dc", 0.9), OUTILS.PEINT)
-	o.boite(t * Transform3D(Basis(), Vector3(0, 0.72, 0.035)), Vector3(0.05, 1.0, 0.03), Color("efe9dc", 0.9), OUTILS.PEINT)
+	# Sa fenêtre, maillée comme celles des façades (atelier/fenetres.gd), sans volets.
+	FENETRES._fenetre(o, t * Transform3D(Basis(), Vector3(0, 0.22, 0.0)), 0.7, 1.0, Color(), absi(hash(p)), false, false)
 	var g := t * Vector3(-0.8, 1.45, 0.1)
 	var d := t * Vector3(0.8, 1.45, 0.1)
 	var s := t * Vector3(0, 2.1, 0.1)

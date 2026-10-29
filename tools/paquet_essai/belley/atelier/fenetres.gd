@@ -64,7 +64,8 @@ static func facade(o: RefCounted, a: Vector3, b: Vector3, h: float, n: Vector3, 
 
 
 ## Une fenêtre dans le repère t (x le long du mur, y vers le haut, z hors du mur), son pied au milieu de l'appui.
-static func _fenetre(o: RefCounted, t: Transform3D, l: float, hf: float, volet: Color, g: int, jardiniere: bool) -> void:
+## Sans volets (volets faux) : la fenêtre d'une lucarne, étroite sous son fronton.
+static func _fenetre(o: RefCounted, t: Transform3D, l: float, hf: float, volet: Color, g: int, jardiniere: bool, volets := true) -> void:
 	var e := 0.14
 	# La vitre, au fond du tableau, et la croisée.
 	o.quad(t * Vector3(-l * 0.5, 0, 0.012), t * Vector3(l * 0.5, 0, 0.012), t * Vector3(l * 0.5, hf, 0.012), t * Vector3(-l * 0.5, hf, 0.012), t.basis.z, VERRE, OUTILS.VITRE)
@@ -79,7 +80,9 @@ static func _fenetre(o: RefCounted, t: Transform3D, l: float, hf: float, volet: 
 	o.boite(t * Transform3D(Basis(), Vector3(0, -0.05, 0.13)), Vector3(l + e * 2.0 + 0.16, 0.1, 0.26), TAILLE_SOMBRE.lightened(0.08), OUTILS.PIERRE)
 	# Les volets de bois, à barres et écharpe : ouverts contre le mur, ou fermés (un sur cinq).
 	var lv := l * 0.5
-	if g % 5 == 0:
+	if not volets:
+		pass
+	elif g % 5 == 0:
 		for s: float in [-1.0, 1.0]:
 			var xv := s * lv * 0.5
 			o.boite(t * Transform3D(Basis(), Vector3(xv, hf * 0.5, 0.05)), Vector3(lv - 0.01, hf, 0.04), volet, OUTILS.PEINT)

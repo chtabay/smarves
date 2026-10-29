@@ -24,8 +24,8 @@ const vec3 LANDE = vec3(0.50, 0.50, 0.32);
 const vec3 EAU = vec3(0.30, 0.44, 0.52);
 const vec3 CIEL_REFLET = vec3(0.50, 0.63, 0.74);
 const vec3 ROUTE = vec3(0.47, 0.46, 0.44);
-const vec3 ROCHE = vec3(0.71, 0.69, 0.63);
-const vec3 ROCHE_OMBRE = vec3(0.47, 0.46, 0.43);
+const vec3 ROCHE = vec3(0.60, 0.59, 0.55);
+const vec3 ROCHE_OMBRE = vec3(0.40, 0.40, 0.38);
 
 varying vec3 monde;
 varying vec3 normale;
@@ -80,7 +80,9 @@ vec3 roche(vec2 xz, float y, float g, float g2, float pres) {
 	float vire = smoothstep(0.85, 0.95, 0.5 + 0.5 * sin(y * 0.09 + g2 * 2.5)) * pres;
 	vec3 r = mix(ROCHE_OMBRE, ROCHE, 0.3 + 0.5 * couloir + 0.2 * strate);
 	r = mix(r, r * vec3(1.04, 0.97, 0.86), lave * 0.6);
-	return mix(r, FORET, vire * 0.55);
+	// Les buis et les pins accrochés à la barre : des touffes sombres, plus serrées en pied de paroi.
+	float touffe = smoothstep(0.55, 0.7, fbm(vec2(h * 0.06, y * 0.05) + 11.0));
+	return mix(r, FORET, max(vire * 0.55, touffe * 0.7));
 }
 
 vec3 teinte(int c, vec2 xz, float y, float g, float g2, float pres) {
@@ -154,7 +156,7 @@ void fragment() {
 			eau += e * (k % 2 == 0 ? 1.0 - t.x : t.x) * (k / 2 == 0 ? 1.0 - t.y : t.y);
 		}
 		col = mix(mix(acc[0], acc[1], t.x), mix(acc[2], acc[3], t.x), t.y);
-		float bord = fbm(xz * 0.03 + 3.0) - 0.5;
+		float bord = (fbm(xz * 0.03 + 3.0) - 0.5) + (fbm(xz * 0.11 + 9.0) - 0.5) * 0.8;
 		// Et seulement là où le maillage se redresse : la barre suit les courbes du versant, pas les cases.
 		float raide = 1.0 - smoothstep(0.72, 0.9, normale.y + bord * 0.15);
 		col = mix(col, roche(xz, monde.y, g, g2, pres), smoothstep(0.42, 0.5, rw * raide + bord * 0.3));
