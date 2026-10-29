@@ -153,10 +153,16 @@ jeu lui-même.
   avec son invite : la méta `prompt`, ou la méthode `invite_de` de la scène), à combien de secondes de marche
   et de quel côté, une seule fois par invite ; l'invite affichée quand il est devant ; les boutons à l'écran
   (leur texte, sinon leur bulle d'aide) ; les cases du tapis d'une table 3D (`scripts/jeux/table_3d.gd`) ;
-  les textes affichés.
+  les textes affichés ; les écrits posés dans le monde (tout `Label3D` à moins de 25 m : une plaque, un
+  panneau, une étiquette) ; et de chaque côté (devant, à droite, derrière, à gauche et entre deux) jusqu'où le
+  regard porte avant une paroi, ce qui suffit à lire des couloirs et des chambres. Seul se voit ce qu'aucune
+  paroi ne cache : une zone de l'autre côté d'un mur, ou d'un autre lieu bâti dans la même scène (la loge du
+  Colaby vue depuis ses galeries), n'est pas montrée. Le regard essaie les yeux et un pas de chaque côté, et ne
+  bute ni sur ce qu'il frôle ni sur le bâtiment dont la zone est la porte.
 - **Ce qu'il fait.** Les gestes d'un joueur : aller devant une zone (il marche, contourne ce qui le bute, monte et descend les escaliers d'un étage à l'autre,
-  et s'arrête quand le jeu montre son invite), marcher quelques secondes, une touche (E, Espace, Échap…,
-  envoyée au jeu comme un clavier), cliquer un bouton ou une case (un clic de souris à sa place à l'écran),
+  et s'arrête quand le jeu montre son invite), marcher quelques secondes, une touche (E, Espace, Échap, Entrée,
+  Tab, toute lettre, un chiffre, envoyée au jeu comme un clavier ; une touche qui ne change rien à l'écran le
+  dit), cliquer un bouton ou une case (un clic de souris à sa place à l'écran),
   attendre, dire. Une nouvelle carte, un nouveau bâtiment, un nouveau jeu se pilotent donc sans une ligne
   de plus, tant qu'ils passent par ces briques du socle.
 - **Le passage.** L'assistant fait un geste avec l'outil `smarves_geste` ; la fonction le pose dans

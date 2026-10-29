@@ -10,12 +10,15 @@ extends Node
 ## - les boutons à l'écran (le texte, sinon la bulle d'aide), les cases d'un tapis de table 3D
 ##   (scripts/jeux/table_3d.gd), et les textes affichés ;
 ## - les cases d'un plateau dessiné à l'écran (un échiquier) : tout contrôle qui les donne par
-##   pilote_cases() -> {nom: Rect2 dans son repère}, avec ce qu'il montre par pilote_texte() -> String.
+##   pilote_cases() -> {nom: Rect2 dans son repère}, avec ce qu'il montre par pilote_texte() -> String ;
+## - les écrits posés dans le monde (tout Label3D en vue : une plaque, un panneau, une étiquette) ;
+## - ce qui l'entoure : de chaque côté, jusqu'où l'on peut marcher avant une paroi.
+## Ne se voit que ce qu'aucun mur ne cache : une zone de l'autre côté d'une paroi n'est pas montrée.
 ##
 ## Ce qu'il fait (geste) :
 ## - aller : marcher jusqu'à être devant une zone, comme on le ferait aux flèches ;
 ## - marcher : avancer quelques secondes dans une direction ;
-## - touche : une touche du clavier (E, Espace, Échap, Entrée, Tab, M, V, 1 à 9) ;
+## - touche : une touche du clavier (E, Espace, Échap, Entrée, Tab, une lettre, un chiffre) ;
 ## - cliquer : un bouton, une case du tapis ou du plateau, par un clic de souris à sa place à l'écran ;
 ## - attendre : laisser passer quelques secondes (une bille qui roule, une donne) ;
 ## - dire : une phrase en bulle (la partie réseau la porte au village).
@@ -30,7 +33,17 @@ const TOUCHES := {
 	"E": KEY_E, "ESPACE": KEY_SPACE, "ECHAP": KEY_ESCAPE, "ÉCHAP": KEY_ESCAPE, "ENTREE": KEY_ENTER,
 	"ENTRÉE": KEY_ENTER, "TAB": KEY_TAB, "M": KEY_M, "V": KEY_V,
 	"1": KEY_1, "2": KEY_2, "3": KEY_3, "4": KEY_4, "5": KEY_5, "6": KEY_6, "7": KEY_7, "8": KEY_8, "9": KEY_9,
+	"0": KEY_0,
 }
+## Ce qui se voit : en deçà, une zone se voit même derrière un coin ; ce qui arrête le regard tout contre
+## la zone (la porte dont c'est la zone, le comptoir d'un guichet) ne la cache pas.
+const VU_PRES := 3.0
+const VU_CONTRE := 1.5
+## Les écrits posés dans le monde : jusqu'à cette distance, tant au plus.
+const ECRITS_LOIN := 25.0
+const ECRITS_MAX := 15
+## Ce qui entoure le corps : le regard porte jusque-là de chaque côté.
+const AUTOUR_LOIN := 30.0
 ## Les zones montrées : les plus proches, jusqu'à cette distance (unités de la scène).
 const ZONES_MAX := 24
 const ZONES_LOIN := 80.0
@@ -122,6 +135,11 @@ func vue() -> Dictionary:
 	var cases := _cases()
 	if not cases.is_empty():
 		v["cases"] = cases
+	if j and not j.frozen:
+		v["autour"] = _autour(j)
+		var ecrits := _ecrits(j, gens)
+		if not ecrits.is_empty():
+			v["ecrits"] = ecrits
 	var textes := _textes(v.get("devant", ""))
 	for c in _plateaux():
 		if c.has_method("pilote_texte"):
@@ -159,7 +177,7 @@ func _zones(j: CharacterBody3D) -> Array:
 	var liste := []
 	for z in _toutes_les_zones():
 		var d := _a_plat(z.global_position - j.global_position).length()
-		if d > ZONES_LOIN:
+		if d > ZONES_LOIN or not _en_vue(j, z):
 			continue
 		liste.append([d, z])
 	liste.sort_custom(func(a, b): return a[0] < b[0])
@@ -193,6 +211,138 @@ func _toutes_les_zones() -> Array:
 	for n in s.find_children("*", "Area3D", true, false):
 		if n.has_meta("interact") and (n as Area3D).is_visible_in_tree() and (n as Area3D).monitorable:
 			out.append(n)
+	return out
+
+
+## Vrai si le point se voit d'ici : un joueur tourne la tête et fait un pas de côté, et une porte dans une
+## façade se voit en enfilade ; on essaie donc les yeux et un pas de chaque côté, vers le point et quatre
+## points autour de lui, à mi-hauteur d'homme. Ce qui arrête le regard tout contre soi (le mur qu'on
+## longe) ou qui appartient à la même chose que la zone (le bâtiment dont c'est la porte) ne la cache
+## pas. Une zone de l'autre côté d'une paroi, d'un autre lieu de la scène, ne se voit d'aucun.
+func _en_vue(j: CharacterBody3D, z: Node3D) -> bool:
+	var at := z.global_position
+	if _a_plat(j.global_position - at).length() < VU_PRES:
+		return true
+	var espace := j.get_world_3d().direct_space_state
+	var yeux := _yeux(j)
+	var haut := maxf(yeux.y - j.global_position.y, 0.3)
+	var pas := haut * 1.5
+	var departs := [yeux]
+	for d in [Vector3.RIGHT, Vector3.LEFT, Vector3.FORWARD, Vector3.BACK]:
+		var p: Vector3 = yeux + d * pas
+		if espace.intersect_ray(PhysicsRayQueryParameters3D.create(yeux, p, j.collision_mask, [j.get_rid()])).is_empty():
+			departs.append(p)
+	var cibles := [at + Vector3.UP * haut * 0.5]
+	for d in [Vector3.RIGHT, Vector3.LEFT, Vector3.FORWARD, Vector3.BACK]:
+		cibles.append(at + d * pas * 0.7 + Vector3.UP * haut * 0.5)
+	var lieu := _parent_sous_scene(z)
+	# Ce qui enferme la zone elle-même (le bâtiment dont c'est la porte, d'un seul bloc) ne la cache pas.
+	var q := PhysicsPointQueryParameters3D.new()
+	q.position = cibles[0]
+	q.collision_mask = j.collision_mask
+	var dedans := {}
+	for h in espace.intersect_point(q, 8):
+		dedans[h.rid] = true
+	for de in departs:
+		for vers in cibles:
+			var dir: Vector3 = (vers - de).normalized()
+			var depuis: Vector3 = de
+			for k in 3:
+				var hit := espace.intersect_ray(PhysicsRayQueryParameters3D.create(depuis, vers, j.collision_mask, [j.get_rid()]))
+				if hit.is_empty() or (hit.position as Vector3).distance_to(vers) < VU_CONTRE * 0.5:
+					return true
+				if dedans.has(hit.rid) or (lieu != null and _parent_sous_scene(hit.collider) == lieu):
+					return true
+				# Tout contre soi (le poteau qu'on frôle, le mur qu'on longe) : le regard passe à côté.
+				if (hit.position as Vector3).distance_to(de) > j.radius * 4.0:
+					break
+				depuis = (hit.position as Vector3) + dir * j.radius
+	return false
+
+
+## L'enfant de la scène qui contient ce nœud (un bâtiment, une galerie), ou null s'il est la scène même.
+func _parent_sous_scene(n: Variant) -> Node:
+	var s := scene()
+	if not (n is Node) or s == null:
+		return null
+	var x: Node = n
+	while x != null and x.get_parent() != s:
+		x = x.get_parent()
+	return x
+
+
+func _yeux(j: CharacterBody3D) -> Vector3:
+	var c = j.get("camera")
+	if c is Camera3D and is_instance_valid(c):
+		return (c as Camera3D).global_position
+	return j.global_position + Vector3.UP * 1.6
+
+
+## De chaque côté (devant, à droite, derrière, à gauche, et entre deux), jusqu'où le regard porte à
+## hauteur d'homme avant une paroi : on y voit les couloirs et les passages, comme un joueur.
+func _autour(j: CharacterBody3D) -> Dictionary:
+	var out := {}
+	var face := _a_plat(-j.global_basis.z).normalized()
+	if face.length() < 0.5:
+		return out
+	var de := j.global_position + Vector3.UP * minf(_yeux(j).y - j.global_position.y, 1.6) * 0.75
+	var espace := j.get_world_3d().direct_space_state
+	for c in [["devant", 0.0], ["devant à droite", -45.0], ["à droite", -90.0], ["derrière à droite", -135.0],
+			["derrière", 180.0], ["derrière à gauche", 135.0], ["à gauche", 90.0], ["devant à gauche", 45.0]]:
+		var dir := face.rotated(Vector3.UP, deg_to_rad(c[1]))
+		var q := PhysicsRayQueryParameters3D.create(de, de + dir * AUTOUR_LOIN, j.collision_mask, [j.get_rid()])
+		var hit := espace.intersect_ray(q)
+		if hit.is_empty():
+			out[c[0]] = "libre sur %d m et plus" % int(AUTOUR_LOIN)
+			continue
+		var m := _a_plat(hit.position - de).length()
+		var t := "paroi à %s m" % (str(snappedf(m, 0.1)) if m < 3.0 else str(int(round(m))))
+		var quoi := _libelle_de(hit.collider)
+		out[c[0]] = t + (" (%s)" % quoi if quoi != "" else "")
+	return out
+
+
+## Ce que le jeu dit d'un obstacle (la méta « libelle » d'un corps ou de son parent), sinon rien.
+func _libelle_de(n: Variant) -> String:
+	var k := 0
+	while n is Node and k < 3:
+		if (n as Node).has_meta("libelle"):
+			return str((n as Node).get_meta("libelle"))
+		n = (n as Node).get_parent()
+		k += 1
+	return ""
+
+
+## Les écrits posés dans le monde et visibles d'ici (Label3D) : une plaque, un panneau, une étiquette ;
+## pas les noms des gens, déjà dits.
+func _ecrits(j: CharacterBody3D, gens: Array) -> Array:
+	var s := scene()
+	var out := []
+	if s == null:
+		return out
+	var noms := {}
+	for g in gens:
+		noms[str(g.nom)] = true
+	var liste := []
+	for n in s.find_children("*", "Label3D", true, false):
+		var l := n as Label3D
+		var t := l.text.strip_edges().replace("\n", " · ")
+		if t == "" or noms.has(t) or not l.is_visible_in_tree() or l.modulate.a < 0.1:
+			continue
+		var d := l.global_position.distance_to(j.global_position)
+		if d > ECRITS_LOIN or not _en_vue(j, l):
+			continue
+		liste.append([d, t, l.global_position])
+	# Du plus proche au plus loin, et de haut en bas sur un même panneau.
+	liste.sort_custom(func(a, b): return a[2].y > b[2].y if absf(a[0] - b[0]) < 1.0 else a[0] < b[0])
+	var vus := {}
+	for e in liste:
+		if vus.has(e[1]):
+			continue
+		vus[e[1]] = true
+		out.append({"texte": str(e[1]).left(TEXTE_LONG), "secondes": snappedf(e[0] / maxf(j.speed, 0.1), 1.0), "cote": _cote(j, e[2])})
+		if out.size() >= ECRITS_MAX:
+			break
 	return out
 
 
@@ -742,9 +892,14 @@ func _marcher(vers: String, secondes: float) -> Dictionary:
 
 
 func _touche(nom: String) -> Dictionary:
-	var k: int = TOUCHES.get(nom.strip_edges().to_upper(), KEY_NONE)
+	var n := nom.strip_edges().to_upper()
+	var k: int = TOUCHES.get(n, KEY_NONE)
+	# Toute lettre du clavier : celle que le jeu affiche (« P : le plan »).
+	if k == KEY_NONE and n.length() == 1 and n >= "A" and n <= "Z":
+		k = OS.find_keycode_from_string(n)
 	if k == KEY_NONE:
 		return {"ok": false, "dit": "touche inconnue : %s" % nom}
+	var avant := _empreinte()
 	for appui in [true, false]:
 		var e := InputEventKey.new()
 		e.keycode = k
@@ -753,7 +908,31 @@ func _touche(nom: String) -> Dictionary:
 		Input.parse_input_event(e)
 		await get_tree().process_frame
 	await _attendre(POSE)
+	if _empreinte() == avant:
+		return {"ok": true, "dit": "rien n'a changé à l'écran"}
 	return {"ok": true, "dit": ""}
+
+
+## Combien de contrôles s'affichent : un plan qui se déplie, un panneau dessiné, sans texte à lire.
+func _controles_visibles() -> int:
+	var n := 0
+	for r in _racines():
+		for c in r.find_children("*", "Control", true, false):
+			if (c as Control).is_visible_in_tree():
+				n += 1
+	return n
+
+
+## Ce qui se voit de l'écran, pour savoir si une touche y a changé quelque chose.
+func _empreinte() -> String:
+	var j := joueur()
+	var t := [_nom_du_lieu(scene()), _textes(""), _boutons().map(func(b): return b.texte), _controles_visibles()]
+	if j:
+		t.append([j.frozen, j.focus_target, j.global_position.snapped(Vector3.ONE * 0.2)])
+	for c in _plateaux():
+		if c.has_method("pilote_texte"):
+			t.append(str(c.pilote_texte()))
+	return var_to_str(t)
 
 
 func _cliquer(quoi: String) -> Dictionary:
