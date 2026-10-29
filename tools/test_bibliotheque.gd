@@ -299,8 +299,8 @@ func _init() -> void:
 	check(manege.is_processing() and not is_equal_approx(manege.get_child(0).rotation.y, cap), "le carrousel toulousain tourne")
 	toulouse.queue_free()
 
-	# Les fleuves (demandés par la carte de Belley) : les huit modules se bâtissent, en un seul maillage et un seul
-	# corps ; l'eau du fleuve est sous le sol des rives, et son lit sous l'eau.
+	# Les fleuves et les arbres des rives (demandés par la carte de Belley) : les huit modules et les trois arbres se
+	# bâtissent, en un seul maillage et un seul corps ; l'eau du fleuve est sous le sol des rives, et son lit sous l'eau.
 	var fleuves := Node3D.new()
 	root.add_child(fleuves)
 	var paquet_f: PackedScene = load(Bibliotheque.scene("fleuves@1", "decor"))
@@ -319,6 +319,19 @@ func _init() -> void:
 	fleuves.add_child(fleuve)
 	var lit: AABB = (fleuve.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).get_aabb()
 	check(lit.end.y < 0.0 and lit.position.y <= -3.5 and lit.position.y > -4.0 and is_equal_approx(lit.size.z, 116.0), "le fleuve coule sous le sol des rives, son lit à 3,5 m, 100 m d'eau et 8 m sur chaque berge")
+	var paquet_a: PackedScene = load(Bibliotheque.scene("arbres-des-rives@1", "decor"))
+	var rates_a := []
+	for nom in paquet_a.instantiate().call("noms"):
+		var a: Node3D = paquet_a.instantiate()
+		a.arbre = nom
+		fleuves.add_child(a)
+		var maillages := a.find_children("*", "MeshInstance3D", true, false)
+		if a.get_meta("arbre", "") != nom or maillages.size() != 1 or maillages[0].mesh.get_surface_count() > 3 or a.find_children("*", "CollisionShape3D", true, false).is_empty():
+			rates_a.append(nom)
+	var peuplier: Node3D = paquet_a.instantiate()
+	fleuves.add_child(peuplier)
+	check(rates_a.is_empty() and float(peuplier.get_meta("hauteur")) > 20.0 and float(peuplier.get_meta("couronne")) < 3.0,
+		"arbres-des-rives@1 : les trois se bâtissent, et le peuplier est une colonne de plus de 20 m %s" % str(rates_a))
 	fleuves.queue_free()
 
 	# Les intérieurs (socle 1.22) : chaque salle de jeu et chaque étude tient le contrat de son genre.

@@ -339,6 +339,20 @@
 					"socle": "1.25"
 				}
 			}
+		},
+		"arbres-des-rives": {
+			"genre": "decor",
+			"nom": "Les arbres des rives",
+			"description": "Les arbres du bord de l'eau, au feuillage en dentelle : le peuplier d'Italie (22 à 28 m, la colonne étroite des rideaux), le peuplier noir (large et irrégulier, l'arbre des îles et des lônes) et le saule blanc, argenté, penché sur l'eau, aux rameaux retombants. Demandé par la carte de Belley pour les bords du Rhône.",
+			"auteur": "Smarves · d'après une inspiration de Guillaume",
+			"licence": "celle du jeu",
+			"versions": {
+				"1": {
+					"scene": "res://bibliotheque/arbres-des-rives/1/arbre.tscn",
+					"apercu": "res://bibliotheque/arbres-des-rives/1/apercu.png",
+					"socle": "1.25"
+				}
+			}
 		}
 	}
 }
