@@ -242,6 +242,19 @@ Rien n'est refait de ce que les autres décors ont déjà : le banc, la corbeill
 
 L'ambiance, composée avec ces quatre briques : `godot --path . -s tools/planche_toulouse.gd -- --vue=saint_georges --capture=planche.png` (la place Saint-Georges : le tapis de brique en épi, l'hôtel de Lafage au fond, les cafés sous leurs parasols, l'immeuble Wilson en proue, le carrousel et le jardin d'enfants ; `--nom=bas` la montre à hauteur d'homme). Les planches des briques : `--vue=facadier|detail|un|mobilier|sols|arbres` (`--nom=` montre une seule pièce).
 
+### Les fleuves
+
+Le fleuve large et ses rives, demandés par la carte de Belley pour le Rhône (29 octobre 2026). Ils serviront aussi à la Garonne de Toulouse et à la Saône de Lyon : `terrains-du-bugey@1` n'a qu'une rivière étroite. Même facture que les autres décors.
+
+- **`fleuves@1`** (`module`, `graine`, `options`) : des modules qui se posent bout à bout le long du courant (x, 20 m par défaut). Le sol des rives est à y = 0, l'eau à −1,4 m et le fond à −3,5 m.
+  - Les modules : `fleuve` (l'eau qui file et son lit, 100 m d'eau par défaut), `berge_galets` (la grève où l'on descend, les troncs flottés), `berge_roseaux` (la roselière, les iris, les saules buissonnants), `digue` (le chemin de halage, le perré de pierre, l'escalier, les bornes), `lone` (le bras mort, l'eau qui dort, les nénuphars), `ile` (le banc de galets et ses saules), `ponton` (passerelle, platelage sur pieux, échelle, barque amarrée) et `barque` (son origine est la ligne d'eau).
+  - Une berge a la terre derrière elle et l'eau devant (+Z), sur 20 m de profondeur ; celle d'en face se pose tournée d'un demi-tour.
+  - L'eau du module `fleuve` déborde de 8 m sur chaque berge (`EAU_BERGE`). Pour 100 m d'eau, les berges se posent donc à ±52 m de l'axe.
+  - L'eau est dessinée par le shader du feuillage de la brique : elle ondule, des traînées claires filent avec le courant et le soleil y pique des reflets. Ses motifs se calculent le long de l'axe du module, si bien que deux modules se raccordent sans couture.
+  - Options : `longueur`, `largeur` (le fleuve, l'île), `eau` (`rhone` vert glacier, `garonne` brun-vert, `saone` vert-gris, ou un hexa), `barque` (faux : le ponton sans sa barque). Métadonnées : `module`, `graine`, `emprise`, `haut`.
+
+L'ambiance du Rhône large : `godot --path . -s tools/planche_fleuve.gd -- --vue=rhone --capture=planche.png`. Au premier plan, la grève de galets et le ponton ; au milieu, l'île ; en face, la digue et l'entrée d'une lône. `--nom=bas` montre la scène à hauteur d'homme sur la grève, et `--vue=modules` montre les huit modules.
+
 ## Proposer une brique
 
 Une ville qui a fait un décor réutilisable le range, dans son propre paquet, sous `res://communes/<id>/bibliotheque/<id de la brique>/` avec une fiche `brique.json` :
@@ -314,6 +327,7 @@ Chacune est utile seule, et rien ne change dans la première salle.
 | 12 | Le décor lyonnais, tiré du plan d'assets lyonnais de Guillaume : `facadier-lyonnais@1`, `mobilier-lyonnais@1`, `vegetation-lyonnaise@1`, `quais-lyonnais@1` et leurs planches (`tools/planche_lyon.gd`) | smarves | **fait** |
 | 13 | Le décor du Bugey, tiré de la planche d'assets régionaux de Guillaume : `facadier-du-bugey@1`, `mobilier-du-bugey@1`, `vegetation-du-bugey@1`, `terrains-du-bugey@1`, leurs planches et cinq ambiances (`tools/planche_bugey.gd`) | smarves | **fait** |
 | 14 | Le décor toulousain, tiré des planches de la place Saint-Georges de Guillaume : `facadier-toulousain@1`, `sols-toulousains@1`, `mobilier-toulousain@1`, `arbres-d-ombriere@1`, leurs planches et l'ambiance de la place Saint-Georges (`tools/planche_toulouse.gd`) | smarves | **fait** |
+| 15 | Les fleuves, demandés par la carte de Belley : `fleuves@1` (fleuve, berges, digue, lône, île, ponton, barque), sa planche et l'ambiance du Rhône (`tools/planche_fleuve.gd`) | smarves | **fait** |
 | 6 | Les auteurs reconstruisent leurs paquets : pour Minuit, le bol de la Fortune par ses ancres, le Dôme une salle, les matières passent à la bibliothèque, les textures et les données se compressent | paquets | Minuit : fait, sauf le Dôme (0.10.5, 23 octobre 2026) ; L'Isle-Jourdain 0.2.3 dans les seuils |
 
 Il ne reste que l'étape 6, par les auteurs. Le 23 octobre 2026, Minuit passe le stade de la Fortune par ses ancres (0.10.5, socle 1.20 : le bol pourra devenir une brique, `stade-fortune@1`, une fois qu'il ne connaîtra plus le stade) et L'Isle-Jourdain repasse sous les seuils (0.2.3, [`docs/LENTEUR.md`](LENTEUR.md)). Le format des paquets est arrêté avec l'étape 3 et le budget par lieu avec la 7 : Civaux, Minuit, L'Isle-Jourdain et Cloué sont repris une fois, avec le SDK à jour, et l'emballeur dit à chaque auteur ce que ses lieux ont à alléger.

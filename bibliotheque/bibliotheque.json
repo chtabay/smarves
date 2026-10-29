@@ -325,6 +325,20 @@
 					"socle": "1.25"
 				}
 			}
+		},
+		"fleuves": {
+			"genre": "decor",
+			"nom": "Les fleuves",
+			"description": "Le fleuve large et ses rives, module par module le long du courant : le fleuve (l'eau qui file, 100 m par défaut, couleur du Rhône, de la Garonne ou de la Saône), la berge de galets, la berge de roseaux, la digue de pierre et son escalier, la lône (le bras mort, l'eau qui dort, les nénuphars), l'île de galets, le ponton de bois et la barque. Demandé par la carte de Belley pour le Rhône ; servira à la Garonne et à la Saône.",
+			"auteur": "Smarves · d'après une inspiration de Guillaume",
+			"licence": "celle du jeu",
+			"versions": {
+				"1": {
+					"scene": "res://bibliotheque/fleuves/1/module.tscn",
+					"apercu": "res://bibliotheque/fleuves/1/apercu.png",
+					"socle": "1.25"
+				}
+			}
 		}
 	}
 }

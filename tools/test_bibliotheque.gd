@@ -299,6 +299,28 @@ func _init() -> void:
 	check(manege.is_processing() and not is_equal_approx(manege.get_child(0).rotation.y, cap), "le carrousel toulousain tourne")
 	toulouse.queue_free()
 
+	# Les fleuves (demandés par la carte de Belley) : les huit modules se bâtissent, en un seul maillage et un seul
+	# corps ; l'eau du fleuve est sous le sol des rives, et son lit sous l'eau.
+	var fleuves := Node3D.new()
+	root.add_child(fleuves)
+	var paquet_f: PackedScene = load(Bibliotheque.scene("fleuves@1", "decor"))
+	var modules_f: Array = paquet_f.instantiate().call("noms")
+	var rates_f := []
+	for nom in modules_f:
+		var d: Node3D = paquet_f.instantiate()
+		d.module = nom
+		d.graine = 3
+		fleuves.add_child(d)
+		var maillages := d.find_children("*", "MeshInstance3D", true, false)
+		if d.get_meta("module", "") != nom or maillages.size() != 1 or maillages[0].mesh.get_surface_count() > 3 or d.find_children("*", "CollisionShape3D", true, false).is_empty():
+			rates_f.append(nom)
+	check(modules_f.size() == 8 and rates_f.is_empty(), "fleuves@1 : les %d modules se bâtissent, un maillage et un corps chacun %s" % [modules_f.size(), str(rates_f)])
+	var fleuve: Node3D = paquet_f.instantiate()
+	fleuves.add_child(fleuve)
+	var lit: AABB = (fleuve.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).get_aabb()
+	check(lit.end.y < 0.0 and lit.position.y <= -3.5 and lit.position.y > -4.0 and is_equal_approx(lit.size.z, 116.0), "le fleuve coule sous le sol des rives, son lit à 3,5 m, 100 m d'eau et 8 m sur chaque berge")
+	fleuves.queue_free()
+
 	# Les intérieurs (socle 1.22) : chaque salle de jeu et chaque étude tient le contrat de son genre.
 	check("bar-des-sports@1" in Bibliotheque.references("salle_jeu") and "etude-de-notaire@1" in Bibliotheque.references("etude"),
 		"la bibliothèque a le bar des sports et l'étude de notaire")
