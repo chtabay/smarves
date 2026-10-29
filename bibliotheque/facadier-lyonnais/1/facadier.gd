@@ -49,7 +49,8 @@ const ETAGE := 3.3
 ## toile (deux hexas : le store ; deux fois le même, une toile unie), avancee (l'avancée des stores en mètres, 2 au
 ## café et 1,3 à la boutique par défaut), tuile (un hexa : la teinte des tuiles canal, le rouge orangé lyonnais sinon),
 ## pente (en degrés, 24 par défaut), chassis (0 à 3 fenêtres de toit sur le pan côté rue, 0 par défaut), souches
-## (« grosses » : des souches plus larges et plus hautes, à quatre mitrons).
+## (« grosses » : des souches plus larges et plus hautes, à quatre mitrons), store (faux : la boutique ou le café
+## sans store banne ; vrai par défaut).
 ## Rend le nœud de l'immeuble ; ses métadonnées : type, graine, w, d, hauteur (au faîte), porte (le seuil).
 static func maison(parent: Node3D, p: Vector3, type: String, graine: int, opt := {}) -> Node3D:
 	if not type in TYPES:
@@ -84,6 +85,7 @@ static func maison(parent: Node3D, p: Vector3, type: String, graine: int, opt :=
 		"bois": Color(DEVANTURES[r.randi() % DEVANTURES.size()]),
 		"avancee": float(opt.get("avancee", 0.0)),
 		"toile_choisie": opt.has("toile"),
+		"store": bool(opt.get("store", true)),
 	}
 	# le corps, enduit, le dos un peu plus sombre
 	o.boite(Transform3D(Basis(), Vector3(0, H * 0.5, -d * 0.5)), Vector3(w, H, d), [enduit.darkened(0.06), enduit.darkened(0.06), enduit, enduit, enduit, enduit.darkened(0.1)], Outils.DUR, true)
@@ -347,7 +349,7 @@ static func _devanture(o: Outils, t: Transform3D, w: float, s: Dictionary, cafe:
 	# un store banne par travée de vitrine, au-dessus de l'enseigne basse
 	var toile: Array = [Color("b8322c"), Color("b8322c")] if cafe and not s.toile_choisie else (s.toile as Array).map(func(h): return Color(str(h)))
 	var avancee := float(s.avancee) if float(s.avancee) > 0.0 else (2.0 if cafe else 1.3)
-	for i in baies:
+	for i in (baies if s.store else 0):
 		var x := -l * 0.5 + lb * (i + 0.5)
 		_store(o, tf * Transform3D(Basis(), Vector3(x, 3.0, 0.3)), lb - 0.12, avancee, toile, texte if cafe and i == baies / 2 else "", n)
 	if cafe:

@@ -35,7 +35,8 @@ const PLAQUES := ["b5b08e", "bfb596", "a9a888", "ddd3b8", "d0c4a4"]
 @export var graine := 1
 ## Les options, toutes facultatives : hauteur (en mètres), vent (0 à 1, l'amplitude du souffle), densite (0,5 à
 ## 1,5 : le nombre de touffes, 1 par défaut ; moins de touffes, plus de ciel), contre_jour (0 à 1 : la lumière qui
-## traverse les feuilles, 0,15 par défaut).
+## traverse les feuilles, 0,15 par défaut), teinte (un hexa vers lequel tirer les verts, une liste de cinq hexas qui
+## remplace la palette, ou une liste de deux ou trois hexas dont la graine choisit un : des verts mêlés).
 @export var options := {}
 
 var fait := false
@@ -70,7 +71,7 @@ static func pousser(parent: Node3D, p: Vector3, nom: String, g: int, opt := {}) 
 	}[nom]
 	var h := float(opt.get("hauteur", float(gabarit["h"]) * r.randf_range(0.9, 1.1)))
 	var vent := float(opt.get("vent", 1.0))
-	var verts: Array = VERTS[nom].map(func(x): return Color(x))
+	var verts: Array = _teinter(VERTS[nom].map(func(x): return Color(x)), opt.get("teinte", null), g)
 	var ec := Color(ECORCE[nom])
 	var fut := h * float(gabarit["fut"])
 	var rt := h * float(gabarit["rt"])
@@ -182,6 +183,22 @@ static func _ramure(o: Outils, a: Vector3, d: Vector3, l: float, ra: float, ec: 
 ## ou deux à trois feuilles palmées de marronnier (UV.x porte la variante de la carte, UV.y la forme dans sa partie
 ## paire), tournées vers le dehors de la couronne. Les normales penchent vers le dehors du dôme, pour une ombre
 ## douce de dessin ; le dessus et le côté du soleil sont plus clairs, le dessous et le cœur plus sombres.
+## La palette d'un arbre selon l'option teinte : un hexa tire les cinq verts vers sa teinte en gardant leur échelle
+## du soleil à l'ombre ; une liste de cinq hexas remplace la palette ; une autre liste (deux ou trois verts à mêler
+## dans un alignement) en tire un par la graine, si bien que des arbres de graines différentes ne sont pas du même vert.
+static func _teinter(verts: Array, teinte, g: int) -> Array:
+	if teinte == null:
+		return verts
+	if teinte is Array or teinte is PackedStringArray:
+		if teinte.size() == 5:
+			return Array(teinte).map(func(x): return Color(str(x)))
+		if teinte.is_empty():
+			return verts
+		teinte = teinte[posmod(hash(g), teinte.size())]
+	var cible := Color(str(teinte))
+	var milieu: Color = verts[2]
+	return verts.map(func(v: Color): return Color.from_hsv(cible.h, lerpf(v.s, cible.s, 0.7), clampf(v.v * cible.v / maxf(milieu.v, 0.01), 0.0, 1.0)))
+
 static func _touffe(o: Outils, q: Vector3, s: float, verts: Array, c: Vector3, R: Vector3, vent: float, forme := 0) -> void:
 	var r := o.rng
 	var l := q - c
