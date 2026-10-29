@@ -122,7 +122,7 @@ vec3 jardins(vec2 xz, float g) {
 	float y0 = rangee * 10.0;
 	float fy = q.y - y0;
 	if (fy > prof) { rangee += 0.5; fy -= prof; prof = 10.0 - prof; }
-	float long_ = mix(6.0, 16.0, h21(vec2(rangee, 8.3)));
+	float long_ = mix(6.0, 12.0, h21(vec2(rangee, 8.3)));
 	float xq = q.x + h21(vec2(rangee, 2.7)) * long_;
 	vec2 cel = vec2(floor(xq / long_), rangee);
 	vec2 f = vec2(xq - cel.x * long_, fy);
@@ -132,12 +132,12 @@ vec3 jardins(vec2 xz, float g) {
 	vec3 potager = mix(vec3(0.48, 0.41, 0.31), vec3(0.37, 0.47, 0.26), smoothstep(0.35, 0.65, fract(f.y / 1.3)));
 	vec3 gravier = vec3(0.70, 0.65, 0.55) * (0.95 + 0.08 * fbm(xz * 2.0));
 	// Le verger : des fruitiers à peu près alignés, chacun de sa taille.
-	vec2 qa = f / 4.0;
+	vec2 qa = f / 3.2;
 	vec2 ia = floor(qa);
 	vec2 ca = ia + 0.5 + (vec2(h21(ia + cel), h21(ia + cel + 7.7)) - 0.5) * 0.5;
 	float ra = mix(0.25, 0.42, h21(ia + cel + 3.3));
 	vec3 verger = mix(pelouse, vec3(0.24, 0.34, 0.17), 1.0 - smoothstep(ra - 0.06, ra, length(qa - ca)));
-	vec3 col = h < 0.5 ? pelouse : (h < 0.62 ? potager : (h < 0.7 ? gravier : verger));
+	vec3 col = h < 0.34 ? pelouse : (h < 0.56 ? potager : (h < 0.63 ? gravier : verger));
 	// Des massifs et des arbustes en fond de jardin, contre la haie.
 	float massif = smoothstep(0.6, 0.72, fbm(xz * 0.3 + 7.0)) * (1.0 - smoothstep(1.5, 3.5, f.y));
 	col = mix(col, vec3(0.24, 0.34, 0.18), massif * 0.85);
@@ -262,6 +262,9 @@ void fragment() {
 		}
 		// La barre ne couronne que le haut du versant, et la forêt la découpe en tronçons (verdict n° 9).
 		if (dsc < 900.0) rw *= barre(xz, dsc);
+		// Hors des cartes de crête (le Colombier, les lointains), la roche se fond à moitié dans la forêt : plus de
+		// taches blanches sur les crêtes lointaines (verdict n° 11).
+		else rw *= 0.55;
 		// Et seulement là où le maillage se redresse : la barre suit les courbes du versant, pas les cases.
 		float raide = 1.0 - smoothstep(0.72, 0.9, normale.y + bord * 0.15);
 		float wr = smoothstep(0.42, 0.5, rw * raide + bord * 0.3);
@@ -272,7 +275,7 @@ void fragment() {
 	float r = 1.0 - smoothstep(roche_pleine, roche_pente, normale.y + (g - 0.5) * 0.12);
 	// Sur la rive savoyarde, comme la barre relevée : en haut du versant seulement, découpée par la forêt
 	// (verdicts n° 5 et 6) ; le talus raide du bord du Rhône reste boisé. Les falaises du Bugey ne changent pas.
-	if (xz.x > 7300.0) r *= barre(xz, dsc);
+	if (xz.x > 7300.0) r = smoothstep(0.3, 0.7, r) * barre(xz, dsc);
 	col = mix(col, roche(xz, monde.y, g, g2, pres, pr), r * 0.8);
 	// Sur la rive savoyarde, le trait d'ombre sous le bord haut, et la face tournée contre le soleil plus sombre
 	// que la forêt : c'est le contraste qui fait la paroi, pas la blancheur.
@@ -286,6 +289,8 @@ void fragment() {
 		col = mix(col, OMBRE_BORD, roc * trait * 0.85);
 		float contre = 1.0 - smoothstep(-0.1, 0.35, dot(normale, normalize(vec3(-0.75, 0.47, 0.47))));
 		col = mix(col, col * 0.55, roc * contre);
+		// Une face sur deux à l'ombre, au gris de la planche (#A9A391 au rendu).
+		col = mix(col, vec3(0.53, 0.51, 0.45), roc * smoothstep(0.45, 0.55, fbm(xz * 0.01 + 51.0)) * 0.8);
 	}
 	// L'eau prend le ciel, d'autant plus qu'on la voit en rasant ; des rides plus claires la parcourent.
 	float rasant = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);

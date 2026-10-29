@@ -386,6 +386,16 @@ func _tour() -> void:
 	o.boite(Transform3D(Basis(), st), Vector3(0.8, 0.22, 0.45), C)
 	o.cylindre(Transform3D(Basis(), st + Vector3(0, 0.11, 0)), 0.28, 0.2, 1.3, 8, C)
 	o.boule(st + Vector3(0, 1.55, 0), Vector3(0.15, 0.18, 0.15), C, 0.04, OUTILS.PIERRE, 0.0)
+	# Le tympan sculpté, en relief simple dans la teinte de la pierre : la mandorle autour du Baptiste, deux
+	# anges agenouillés de part et d'autre, le linteau à rinceaux.
+	bande(fond * Transform3D(Basis(), Vector3(0, 4.85, 0.04)), ogive(1.5, 0.9, 1.2), ogive(1.25, 0.9, 1.0), 0.0, 0.08, OMBRE)
+	for cote: float in [-1.0, 1.0]:
+		var ange := fond * Vector3(cote * 1.45, 4.85, 0.12)
+		o.boite(Transform3D(Basis(Vector3.BACK, cote * 0.25), ange + Vector3(0, 0.35, 0)), Vector3(0.38, 0.7, 0.16), C)
+		o.boule(ange + Vector3(cote * -0.05, 0.85, 0), Vector3(0.12, 0.13, 0.1), C, 0.03, OUTILS.PIERRE, 0.0)
+		o.profil(Transform3D(Basis(), ange + Vector3(cote * 0.15, 0.4, -0.02)), PackedVector2Array([Vector2(0, 0), Vector2(cote * 0.5, 0.55), Vector2(0, 0.7)]), 0.0, 0.06, OMBRE)
+	for k in 7:
+		o.boule(fond * Vector3(-1.95 + k * 0.65, 4.65, 0.32), Vector3(0.14, 0.09, 0.05), OMBRE, 0.05, OUTILS.PIERRE, 0.0)
 	# Le gâble au-dessus du portail, ajouré d'une rose.
 	var gable := PackedVector2Array([Vector2(-4.2, 0), Vector2(4.2, 0), Vector2(0, 6.2)])
 	var tg := Transform3D(Basis(), Vector3(0, 9.3, zf + 1.35))
