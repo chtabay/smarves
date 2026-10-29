@@ -1,0 +1,85 @@
+{
+	"format": 1,
+	"id": "toulouse",
+	"nom": "Toulouse",
+	"auteur": "Claude",
+	"version": "0.1.0",
+	"socle_min": "1.25",
+	"insee": "31555",
+	"population": 514819,
+	"description": "Préversion : la place Saint-Georges, son tapis de brique sous les platanes, ses terrasses et l'hôtel de Lafage, dans le plan réel du centre de Toulouse. Saint-Étienne et Wilson suivront.",
+	"scene": "res://communes/toulouse/commune.tscn",
+	"arrivee": {
+		"lot": "place",
+		"nom": "La place Saint-Georges",
+		"par": [
+			"smarves"
+		]
+	},
+	"lieux": [
+		{
+			"id": "violette",
+			"nom": "Le Cercle de la Violette",
+			"jeu": "le poker",
+			"seuil": 5000,
+			"hote": "Mme Castan",
+			"accord": ""
+		}
+	],
+	"licence": "ODbL (OpenStreetMap) et Licence Ouverte 2.0 (IGN)",
+	"sources": [
+		"© les contributeurs d'OpenStreetMap (ODbL)",
+		"IGN, BD TOPO et RGE ALTI (Licence Ouverte 2.0)"
+	],
+	"banque": {
+		"id": "caisse_des_capitouls",
+		"nom": "La Caisse des Capitouls",
+		"banquier": "M. Sabatier",
+		"preteur": "toulouse",
+		"lieu": "place"
+	},
+	"structures": [
+		{
+			"type": "salle_jeu",
+			"id": "trois_platanes",
+			"nom": "Les Trois Platanes",
+			"noeud": "PorteTroisPlatanes",
+			"lot": "trois_platanes",
+			"jeux": [
+				"courses",
+				"loto",
+				"machine"
+			],
+			"tenancier": "M. Roques",
+			"graine": 31,
+			"decor": "cafe",
+			"enseigne": "Les Trois Platanes",
+			"repliques": [
+				"« Ce soir, on joue le tiercé et on regarde la finale. Les deux, si vous avez le cœur solide. »",
+				"« Ici, le platane du milieu a vu passer plus de gagnants que le champ de courses. »"
+			]
+		},
+		{
+			"type": "salle_jeu",
+			"id": "violette",
+			"nom": "Le Cercle de la Violette",
+			"noeud": "PorteViolette",
+			"lot": "violette",
+			"jeux": [
+				"poker",
+				"baccara",
+				"roulette",
+				"blackjack"
+			],
+			"tenancier": "Mme Castan",
+			"graine": 1745,
+			"decor": "salle",
+			"enseigne": "Cercle de la Violette",
+			"guichet": true,
+			"repliques": [
+				"« Au Cercle, on joue en silence et on perd avec élégance. »",
+				"« La violette, monsieur, c'est la fleur de la ville. Elle pousse mieux sur les tapis verts. »"
+			]
+		}
+	]
+}

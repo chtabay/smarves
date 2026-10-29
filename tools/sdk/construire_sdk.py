@@ -49,6 +49,8 @@ ENTREES = [
     "scripts/socle/commerce.gd", "scripts/socle/articles.gd", "scenes/commerce.tscn",
     # La charge d'agent de change d'une commune (socle 1.27) : la bourse de Mme Vasseur, au nom de son agent.
     "scripts/socle/charge.gd", "scenes/charge.tscn",
+    # La course cycliste (socle 1.28) : le programme, le direct dans la scène de la commune, et son test.
+    "scripts/socle/course_panel.gd", "scripts/socle/peloton.gd", "tools/test_cyclisme.gd",
     "scenes/stade.tscn", "communes/vienne.json", "communes/france.json",
     "tools/kit/commune.gd", "tools/kit/commune.tscn", "tools/kit/commune.json",
     "tools/test_commune.gd", "tools/parcours_commune.gd", "tools/emballer_commune.gd", "tools/test_atelier.gd", "tools/test_salle_jeu.gd",

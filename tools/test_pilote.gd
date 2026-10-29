@@ -62,6 +62,16 @@ func _init() -> void:
 	var v: Dictionary = P.vue()
 	montrer("place", v)
 	check(v.lieu == "main" and not v.zones.is_empty(), "sur la place, des zones où appuyer sur E")
+	print("choses vues sur la place : ", v.get("objets", []).map(func(o): return "%s (%s m, %s)" % [o.nom, o.metres, o.cote]))
+	check(v.has("cap") and v.has("position") and v.autour.has("nord"), "sa position, son cap, et autour de lui vers les points cardinaux")
+	var t_vue := Time.get_ticks_msec()
+	P.vue()
+	check(Time.get_ticks_msec() - t_vue < 400, "la vue se fait vite (%d ms)" % (Time.get_ticks_msec() - t_vue))
+	var depart: Vector3 = P.joueur().global_position
+	var m: Dictionary = await P.geste({"geste": "marcher", "vers": "nord", "metres": 2.0})
+	var fait: Vector3 = P.joueur().global_position - depart
+	check(fait.z < -1.0 and absf(fait.x) < 1.0, "marcher vers le nord, deux mètres : %s" % m.dit)
+	v = m.vue
 	var casino := zone(v, "casino")
 	check(casino != "", "la porte du casino est dans la vue")
 	var r: Dictionary = await P.geste({"geste": "aller", "vers": casino})

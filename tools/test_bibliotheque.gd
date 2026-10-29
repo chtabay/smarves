@@ -304,6 +304,22 @@ func _init() -> void:
 	tuilee.options = {"tuile": "8a4a3a"}
 	toulouse.add_child(tuilee)
 	check(not tuilee.find_children("*", "MeshInstance3D", true, false).is_empty(), "le façadier lyonnais prend la teinte de tuile qu'on lui donne")
+	var cafe_l: Node3D = paquet_lyon.instantiate()
+	cafe_l.type = "cafe"
+	cafe_l.options = {"avancee": 2.6, "toile": ["2f5a3a", "2f5a3a"], "enseigne": "CAFÉ SATHONAY"}
+	toulouse.add_child(cafe_l)
+	var store_l: AABB = (cafe_l.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).get_aabb()
+	var lambrequin := cafe_l.find_children("*", "Label3D", true, false).filter(func(e): return e.text == "CAFÉ SATHONAY").size()
+	check(store_l.end.z > 2.6 and lambrequin == 2, "les stores bannes du café avancent de 2,6 m et l'enseigne est peinte sur le lambrequin (%.2f, %d)" % [store_l.end.z, lambrequin])
+	var paquet_ml: PackedScene = load(Bibliotheque.scene("mobilier-lyonnais@1", "decor"))
+	var bistrot: Node3D = paquet_ml.instantiate()
+	bistrot.objet = "terrasse"
+	toulouse.add_child(bistrot)
+	var parasol: Node3D = paquet_ml.instantiate()
+	parasol.objet = "terrasse"
+	parasol.options = {"parasol": true}
+	toulouse.add_child(parasol)
+	check((bistrot.get_meta("emprise") as Vector2).y < 2.0 and (parasol.get_meta("emprise") as Vector2).y > 3.0, "la terrasse lyonnaise est bistrot sans parasol, et garde son parasol carré sur demande")
 	check(manege.is_processing() and not is_equal_approx(manege.get_child(0).rotation.y, cap), "le carrousel toulousain tourne")
 	toulouse.queue_free()
 
