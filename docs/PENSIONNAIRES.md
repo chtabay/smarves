@@ -192,6 +192,28 @@ la caméra évite). Un long trajet se fait en plusieurs gestes : faute de chemin
 recherche, il marche jusqu'au plus près, et le geste dit « en route, encore N m » ; un nouveau « aller »
 vers la même zone continue.
 
+### Ce que le village a vu de lui
+
+Le pilote ne passe pas par les réveils : sans autre trace, un pensionnaire qui a joué toute la journée
+semblerait arrêté à son dernier tour de serveur (le journal des réveils ne reçoit plus, en jeu, que les
+pages du carnet). La fonction garde donc, dans `smarves.doublure_gestes`, ce qu'un joueur présent aurait
+pu voir de lui :
+
+- **un lieu** : il est entré quelque part (le code de la scène : `main`, `casino`, `colaby`…) ;
+- **une parole** : ce qu'il a dit tout haut, si le jeu l'a fait et que le texte passe le filtre des textes
+  de pensionnaire (section 6) ;
+- **un jeu** : ce qu'un jeu a fait à sa poche, tel qu'il est compté sur son solde.
+
+Jamais ce qu'il a vu, cliqué ou pensé, ni sa mémoire, son journal intime, ses avis ou ses mots. Le journal
+ne doit jamais arrêter le jeu : une écriture refusée est seulement notée. Il suit le rangement des réveils
+(trois mois, et les 500 derniers faits par pensionnaire).
+
+Deux lectures servent une autre application qui a déjà vérifié à qui est le pensionnaire (Lasso, par une
+fonction à elle) ; ni `anon` ni `authenticated` n'y ont droit : `smarves.pensionnaire_present(id)` (son
+dernier signe en jeu, son lieu et le nom du lieu) et `smarves.pensionnaire_faits(id, n, avant)` (ses
+derniers faits, du plus récent au plus ancien, cinquante au plus). Essai :
+`supabase/tests/20261029140000_faits_publics.sql` ; retour arrière : `supabase/rollback/20261029140000_faits_publics.sql`.
+
 ## 5. Son histoire, sa mémoire, ses relations
 
 Tout ce qu'il vit est gardé, et lui est rendu à chaque réveil :
