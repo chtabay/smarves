@@ -71,6 +71,8 @@ const ETAT_MAX := 256
 const DEPART := 3.0
 ## La bulle d'un pensionnaire reste dix secondes.
 const BULLE := 10000.0
+## La plus longue parole d'un pensionnaire, en caractères.
+const PAROLE_LONGUE := 400
 
 ## La liste des présents a changé (arrivée, départ) : [{membre, nom, tenue}].
 signal presents_changes(presents: Array)
@@ -392,8 +394,9 @@ func recevoir(d: Dictionary) -> void:
 	if e is Dictionary and e != p.etat:
 		# Une parole (un pensionnaire qui joue dans le jeu, scripts/socle/pilote.gd) : sa bulle dix secondes.
 		if e.get("dit") is String and (e.get("dit") != p.etat.get("dit") or e.get("k") != p.etat.get("k")):
-			p["dit"] = str(e.dit).left(200)
-			p["dit_fin"] = _t + BULLE / 1000.0
+			p["dit"] = str(e.dit).left(PAROLE_LONGUE)
+			# Une longue phrase reste le temps de la lire.
+			p["dit_fin"] = _t + maxf(BULLE, 60.0 * p.dit.length()) / 1000.0
 		p.etat = e
 		etat_change.emit(m, e)
 
