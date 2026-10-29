@@ -360,6 +360,29 @@ func _init() -> void:
 	check(inscrit and portee.size.x > 12.0, "l'arche porte son inscription et enjambe une route de 12 m")
 	course.queue_free()
 
+	# Les voitures des années 1980 (demandées par la carte de Belley) : les six se bâtissent, en un seul maillage et
+	# un seul corps, à leur longueur ; la suiveuse porte ses vélos au-dessus du toit.
+	var garage := Node3D.new()
+	root.add_child(garage)
+	var paquet_v: PackedScene = load(Bibliotheque.scene("voitures-des-annees-80@1", "decor"))
+	var voitures_v: Array = paquet_v.instantiate().call("noms")
+	var rates_v := []
+	for nom in voitures_v:
+		var v: Node3D = paquet_v.instantiate()
+		v.voiture = nom
+		garage.add_child(v)
+		var maillages := v.find_children("*", "MeshInstance3D", true, false)
+		var l := float(v.get_meta("longueur", 0.0))
+		if v.get_meta("voiture", "") != nom or maillages.size() != 1 or maillages[0].mesh.get_surface_count() > 3 or v.find_children("*", "CollisionShape3D", true, false).is_empty() or l < 3.4 or l > 4.9:
+			rates_v.append(nom)
+	check(voitures_v.size() == 6 and rates_v.is_empty(), "voitures-des-annees-80@1 : les %d voitures se bâtissent, un maillage et un corps chacun %s" % [voitures_v.size(), str(rates_v)])
+	var suiveuse: Node3D = paquet_v.instantiate()
+	suiveuse.voiture = "suiveuse"
+	garage.add_child(suiveuse)
+	var haut_s: AABB = (suiveuse.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).get_aabb()
+	check(haut_s.end.y > 2.4, "la suiveuse porte ses vélos sur la galerie (%.2f m)" % haut_s.end.y)
+	garage.queue_free()
+
 	# Les intérieurs (socle 1.22) : chaque salle de jeu et chaque étude tient le contrat de son genre.
 	check("bar-des-sports@1" in Bibliotheque.references("salle_jeu") and "etude-de-notaire@1" in Bibliotheque.references("etude"),
 		"la bibliothèque a le bar des sports et l'étude de notaire")

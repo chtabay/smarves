@@ -367,6 +367,20 @@
 					"socle": "1.25"
 				}
 			}
+		},
+		"voitures-des-annees-80": {
+			"genre": "decor",
+			"nom": "Les voitures des années 1980",
+			"description": "Des voitures garées comme dans une rue des années 1980, sans marque : la citadine trois portes, la compacte à hayon, la berline à trois volumes, le grand break, la fourgonnette tôlée, et la suiveuse d'une course cycliste, le break et ses vélos sur la galerie. Phares carrés, pare-chocs, enjoliveurs, plaques de l'Ain. Demandé par la carte de Belley.",
+			"auteur": "Smarves · d'après une inspiration de Guillaume",
+			"licence": "celle du jeu",
+			"versions": {
+				"1": {
+					"scene": "res://bibliotheque/voitures-des-annees-80/1/voiture.tscn",
+					"apercu": "res://bibliotheque/voitures-des-annees-80/1/apercu.png",
+					"socle": "1.25"
+				}
+			}
 		}
 	}
 }
