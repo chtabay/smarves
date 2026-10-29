@@ -13,6 +13,9 @@ extends Node
 ## L'argent : la marge et le courtage partent par Game.spend (ils comptent dans le total misé) ; ce que
 ## rend une position rentre dans les crédits, mais seul le bénéfice net compte dans le total gagné au
 ## jeu, sinon un aller-retour à plat ferait monter les seuils pour un pour cent de frais.
+##
+## Une commune peut avoir sa propre charge (structure « charge », socle 1.27, scripts/socle/charge.gd) : la
+## même bourse, au nom de son agent. Le courrier et l'agenda parlent de la charge où l'on est passé en dernier.
 
 ## Une lecture est arrivée, ou un ordre a changé quelque chose.
 signal change
@@ -55,6 +58,9 @@ var _lu_a := -1000.0
 var _fond := 0.0
 var _essai := false
 var _encaissements := {}
+## La charge où l'on est passé en dernier (passer_chez) : son agent et le lieu, pour le courrier et l'agenda.
+var _agent := ""
+var _lieu := ""
 
 
 func _ready() -> void:
@@ -83,9 +89,62 @@ func _process(delta: float) -> void:
 			lire(true)
 
 
-## La charge est ouverte au joueur (son seuil, au manifeste de la commune d'origine).
+## Une charge est ouverte au joueur : celle de Mme Vasseur (son seuil, au manifeste de la commune d'origine),
+## ou celle d'une commune installée (socle 1.27).
 func ouverte() -> bool:
-	return Game.won >= seuil()
+	return Game.won >= seuil() or not charges_ouvertes().is_empty()
+
+
+## Les charges des communes installées dont le seuil est atteint (ChargeCommune.ouverte) : les entrées du registre.
+static func charges_ouvertes() -> Array:
+	var racine := (Engine.get_main_loop() as SceneTree).root
+	var registre = racine.get_node_or_null("Registre")
+	var communes = racine.get_node_or_null("Communes")
+	if registre == null or communes == null:
+		return []
+	var won := int(racine.get_node("Game").won)
+	return registre.de_type("charge", true).filter(func(e):
+		var c = communes.commune(str(e.commune))
+		for l in (c.lieux() if c != null else []):
+			if str(l.get("id", "")) == str(e.id):
+				return won >= int(l.get("seuil", 0))
+		return true)
+
+
+## L'agent d'une charge du registre, et le lieu tel qu'on le dit (« la charge de Mme Dérieux, à Belley »).
+static func agent_de(e: Dictionary) -> String:
+	return str(e.get("champs", {}).get("agent", "L'agent de change"))
+
+
+static func lieu_de(e: Dictionary) -> String:
+	return "la charge de %s, à %s" % [agent_de(e), str(e.get("commune_nom", e.get("commune", "")))]
+
+
+## On entre dans une charge : c'est d'elle que parleront le courrier et l'agenda.
+func passer_chez(agent: String, lieu: String) -> void:
+	_agent = agent
+	_lieu = lieu
+
+
+## L'agent dont on parle : celui de la dernière charge visitée, sinon Mme Vasseur si sa charge est ouverte,
+## sinon l'agent de la première charge ouverte d'une commune.
+func agent() -> String:
+	return _charge_dite()[0]
+
+
+## Le lieu de cet agent, pour l'agenda.
+func lieu() -> String:
+	return _charge_dite()[1]
+
+
+func _charge_dite() -> Array:
+	if _agent != "":
+		return [_agent, _lieu]
+	if Game.won < seuil():
+		var c := charges_ouvertes()
+		if not c.is_empty():
+			return [agent_de(c[0]), lieu_de(c[0])]
+	return ["Mme Vasseur", "la charge de Mme Vasseur, rue du Clain"]
 
 
 static func seuil() -> int:
@@ -146,7 +205,7 @@ func encaisser(p: Dictionary) -> void:
 	encaissee.emit(info)
 	var avis = get_tree().root.get_node_or_null("Avis")
 	if avis != null:
-		avis.publier({"id": "bourse/%s" % id, "genre": "bourse", "titre": phrase_encaissee(info), "lien": {"vers": "carnet", "onglet": "compte"}})
+		avis.publier({"id": "bourse/%s" % id, "genre": "bourse", "titre": phrase_encaissee(info, agent()), "lien": {"vers": "carnet", "onglet": "compte"}})
 	change.emit()
 
 
@@ -329,7 +388,7 @@ static func intitule(p: Dictionary) -> String:
 	return "%s à la %s, levier %d" % [v.nom, "hausse" if int(p.sens) > 0 else "baisse", int(p.levier)]
 
 
-static func phrase_encaissee(info: Dictionary) -> String:
+static func phrase_encaissee(info: Dictionary, qui := "Mme Vasseur") -> String:
 	var p: Dictionary = info.position
 	var rendu: int = info.rendu
 	var garantie: int = info.garantie
@@ -337,13 +396,13 @@ static func phrase_encaissee(info: Dictionary) -> String:
 	match str(p.get("issue", "")):
 		"liquidee":
 			if rendu > 0:
-				return "Mme Vasseur : %s liquidée à la clôture. Il vous en revient %s crédits sur %s." % [intitule(p), fmt.call(rendu), fmt.call(garantie)]
-			return "Mme Vasseur : %s liquidée à la clôture. Il ne reste rien des %s crédits engagés." % [intitule(p), fmt.call(garantie)]
+				return qui + " : %s liquidée à la clôture. Il vous en revient %s crédits sur %s." % [intitule(p), fmt.call(rendu), fmt.call(garantie)]
+			return qui + " : %s liquidée à la clôture. Il ne reste rien des %s crédits engagés." % [intitule(p), fmt.call(garantie)]
 		"annulee":
-			return "Mme Vasseur : ordre annulé, %s crédits vous sont rendus." % fmt.call(rendu)
+			return qui + " : ordre annulé, %s crédits vous sont rendus." % fmt.call(rendu)
 	if rendu >= garantie:
-		return "Mme Vasseur : %s soldée. %s crédits vous reviennent, dont %s de bénéfice." % [intitule(p), fmt.call(rendu), fmt.call(rendu - garantie)]
-	return "Mme Vasseur : %s soldée. %s crédits vous reviennent sur %s engagés." % [intitule(p), fmt.call(rendu), fmt.call(garantie)]
+		return qui + " : %s soldée. %s crédits vous reviennent, dont %s de bénéfice." % [intitule(p), fmt.call(rendu), fmt.call(rendu - garantie)]
+	return qui + " : %s soldée. %s crédits vous reviennent sur %s engagés." % [intitule(p), fmt.call(rendu), fmt.call(garantie)]
 
 
 # --- Le calendrier des places ----------------------------------------------------------------
@@ -429,7 +488,7 @@ func rendez_vous(de: int, a: int) -> Array:
 				continue
 			var cloture: int = s.quand + bias
 			var rv := {"id": "bourse@%s/%d" % [id, s.quand], "activite": "bourse", "annonce": false,
-				"lieu": "la charge de Mme Vasseur, rue du Clain"}
+				"lieu": lieu()}
 			if id == "cac40":
 				var debut: int = (ouvre if ouvre >= 0 else s.quand) + bias
 				rv.merge({"titre": "La séance de la Bourse de Paris", "quand": debut, "duree": cloture - debut,

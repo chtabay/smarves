@@ -50,6 +50,10 @@ Dans la rue, au seuil, la vitrine du local réservé prend son enseigne verte et
 
 ![Vasseur & Cie, rue du Clain](captures/bourse-rue.png)
 
+## Dans une autre commune
+
+Depuis le socle 1.27, une commune peut déclarer sa propre charge (structure `charge`, [`docs/COMMUNE.md`](COMMUNE.md), « La charge d'agent de change ») : la même pièce, la même cote et les mêmes positions, au nom de son agent, derrière le seuil de son lieu. Rien ne change chez Mme Vasseur : son seuil, sa rue et ses paroles restent les siens, et une position prise ailleurs se solde aussi chez elle.
+
 ## Tester
 
 - `godot --headless --path . -s tools/test_bourse.gd` : les heures des places (été, hiver), les séances, les rendez-vous de l'agenda, l'argent qui revient, les écritures, la fenêtre sur ordinateur et sur téléphone.
