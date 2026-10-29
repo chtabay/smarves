@@ -264,6 +264,133 @@ func _init() -> void:
 		"la végétation du Bugey ne redouble aucune essence des autres décors")
 	bugey.queue_free()
 
+	# Le décor toulousain (tiré des planches de la place Saint-Georges de Guillaume) : les maisons de brique, les sols,
+	# le mobilier et les arbres d'ombrière se bâtissent chacun par son nom, en un seul maillage et un seul corps ; le pavage en épi se raccorde
+	# d'un module à l'autre, et le carrousel tourne.
+	var toulouse := Node3D.new()
+	root.add_child(toulouse)
+	var toulousains := {"facadier-toulousain@1": ["types", "type", 13], "sols-toulousains@1": ["noms", "module", 10],
+		"mobilier-toulousain@1": ["objets", "objet", 11], "arbres-d-ombriere@1": ["noms", "arbre", 4]}
+	for ref in toulousains:
+		var sc := Bibliotheque.scene(ref, "decor")
+		check(sc != "" and ResourceLoader.exists(sc), "la bibliothèque a %s, un décor" % ref)
+		if sc == "":
+			continue
+		var paquet: PackedScene = load(sc)
+		var noms: Array = paquet.instantiate().call(toulousains[ref][0])
+		var rates := []
+		for nom in noms:
+			var d: Node3D = paquet.instantiate()
+			d.set(toulousains[ref][1], nom)
+			d.graine = 3
+			toulouse.add_child(d)
+			var maillages := d.find_children("*", "MeshInstance3D", true, false)
+			if d.get_meta(toulousains[ref][1], "") != nom or maillages.size() != 1 or maillages[0].mesh.get_surface_count() > 3 or d.find_children("*", "CollisionShape3D", true, false).is_empty():
+				rates.append(nom)
+		check(noms.size() == toulousains[ref][2] and rates.is_empty(), "%s : les %d se bâtissent, un maillage et un corps chacun %s" % [ref, noms.size(), str(rates)])
+	var manege: Node3D = load(Bibliotheque.scene("mobilier-toulousain@1", "decor")).instantiate()
+	manege.objet = "carrousel"
+	toulouse.add_child(manege)
+	var cap: float = manege.get_child(0).rotation.y
+	manege._process(0.5)
+	var platane: Node3D = load(Bibliotheque.scene("arbres-d-ombriere@1", "decor")).instantiate()
+	toulouse.add_child(platane)
+	check(float(platane.get_meta("hauteur")) >= 16.0 and float(platane.get_meta("couronne")) >= 7.0, "le platane d'ombrière fait au moins 16 m et sa couronne 7 m de rayon")
+	var marronnier: Node3D = load(Bibliotheque.scene("arbres-d-ombriere@1", "decor")).instantiate()
+	marronnier.arbre = "marronnier"
+	toulouse.add_child(marronnier)
+	check(float(marronnier.get_meta("hauteur")) >= 12.0 and float(marronnier.get_meta("hauteur")) <= 18.0, "le marronnier (demandé par la carte de Lyon) fait de 12 à 18 m (%.1f)" % float(marronnier.get_meta("hauteur")))
+	var tuilee: Node3D = paquet_lyon.instantiate()
+	tuilee.options = {"tuile": "8a4a3a"}
+	toulouse.add_child(tuilee)
+	check(not tuilee.find_children("*", "MeshInstance3D", true, false).is_empty(), "le façadier lyonnais prend la teinte de tuile qu'on lui donne")
+	check(manege.is_processing() and not is_equal_approx(manege.get_child(0).rotation.y, cap), "le carrousel toulousain tourne")
+	toulouse.queue_free()
+
+	# Les fleuves et les arbres des rives (demandés par la carte de Belley) : les huit modules et les trois arbres se
+	# bâtissent, en un seul maillage et un seul corps ; l'eau du fleuve est sous le sol des rives, et son lit sous l'eau.
+	var fleuves := Node3D.new()
+	root.add_child(fleuves)
+	var paquet_f: PackedScene = load(Bibliotheque.scene("fleuves@1", "decor"))
+	var modules_f: Array = paquet_f.instantiate().call("noms")
+	var rates_f := []
+	for nom in modules_f:
+		var d: Node3D = paquet_f.instantiate()
+		d.module = nom
+		d.graine = 3
+		fleuves.add_child(d)
+		var maillages := d.find_children("*", "MeshInstance3D", true, false)
+		if d.get_meta("module", "") != nom or maillages.size() != 1 or maillages[0].mesh.get_surface_count() > 3 or d.find_children("*", "CollisionShape3D", true, false).is_empty():
+			rates_f.append(nom)
+	check(modules_f.size() == 8 and rates_f.is_empty(), "fleuves@1 : les %d modules se bâtissent, un maillage et un corps chacun %s" % [modules_f.size(), str(rates_f)])
+	var fleuve: Node3D = paquet_f.instantiate()
+	fleuves.add_child(fleuve)
+	var lit: AABB = (fleuve.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).get_aabb()
+	check(lit.end.y < 0.0 and lit.position.y <= -3.5 and lit.position.y > -4.0 and is_equal_approx(lit.size.z, 116.0), "le fleuve coule sous le sol des rives, son lit à 3,5 m, 100 m d'eau et 8 m sur chaque berge")
+	var paquet_a: PackedScene = load(Bibliotheque.scene("arbres-des-rives@1", "decor"))
+	var rates_a := []
+	for nom in paquet_a.instantiate().call("noms"):
+		var a: Node3D = paquet_a.instantiate()
+		a.arbre = nom
+		fleuves.add_child(a)
+		var maillages := a.find_children("*", "MeshInstance3D", true, false)
+		if a.get_meta("arbre", "") != nom or maillages.size() != 1 or maillages[0].mesh.get_surface_count() > 3 or a.find_children("*", "CollisionShape3D", true, false).is_empty():
+			rates_a.append(nom)
+	var peuplier: Node3D = paquet_a.instantiate()
+	fleuves.add_child(peuplier)
+	check(rates_a.is_empty() and float(peuplier.get_meta("hauteur")) > 20.0 and float(peuplier.get_meta("couronne")) < 3.0,
+		"arbres-des-rives@1 : les trois se bâtissent, et le peuplier est une colonne de plus de 20 m %s" % str(rates_a))
+	fleuves.queue_free()
+
+	# Le matériel de course cycliste (demandé par la carte de Belley) : les onze objets se bâtissent, en un seul
+	# maillage et un seul corps ; l'arche porte son inscription et enjambe la largeur demandée.
+	var course := Node3D.new()
+	root.add_child(course)
+	var paquet_c: PackedScene = load(Bibliotheque.scene("course-cycliste@1", "decor"))
+	var objets_c: Array = paquet_c.instantiate().call("noms")
+	var rates_c := []
+	for nom in objets_c:
+		var c: Node3D = paquet_c.instantiate()
+		c.objet = nom
+		course.add_child(c)
+		var maillages := c.find_children("*", "MeshInstance3D", true, false)
+		if c.get_meta("objet", "") != nom or maillages.size() != 1 or maillages[0].mesh.get_surface_count() > 3 or c.find_children("*", "CollisionShape3D", true, false).is_empty():
+			rates_c.append(nom)
+	check(objets_c.size() == 11 and rates_c.is_empty(), "course-cycliste@1 : les %d objets se bâtissent, un maillage et un corps chacun %s" % [objets_c.size(), str(rates_c)])
+	var arche: Node3D = paquet_c.instantiate()
+	arche.options = {"texte": "DÉPART", "largeur": 12.0}
+	course.add_child(arche)
+	var inscrit := false
+	for l in arche.find_children("*", "Label3D", true, false):
+		if (l as Label3D).text == "DÉPART":
+			inscrit = true
+	var portee: AABB = (arche.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).get_aabb()
+	check(inscrit and portee.size.x > 12.0, "l'arche porte son inscription et enjambe une route de 12 m")
+	course.queue_free()
+
+	# Les voitures des années 1980 (demandées par la carte de Belley) : les six se bâtissent, en un seul maillage et
+	# un seul corps, à leur longueur ; la suiveuse porte ses vélos au-dessus du toit.
+	var garage := Node3D.new()
+	root.add_child(garage)
+	var paquet_v: PackedScene = load(Bibliotheque.scene("voitures-des-annees-80@1", "decor"))
+	var voitures_v: Array = paquet_v.instantiate().call("noms")
+	var rates_v := []
+	for nom in voitures_v:
+		var v: Node3D = paquet_v.instantiate()
+		v.voiture = nom
+		garage.add_child(v)
+		var maillages := v.find_children("*", "MeshInstance3D", true, false)
+		var l := float(v.get_meta("longueur", 0.0))
+		if v.get_meta("voiture", "") != nom or maillages.size() != 1 or maillages[0].mesh.get_surface_count() > 3 or v.find_children("*", "CollisionShape3D", true, false).is_empty() or l < 3.4 or l > 4.9:
+			rates_v.append(nom)
+	check(voitures_v.size() == 6 and rates_v.is_empty(), "voitures-des-annees-80@1 : les %d voitures se bâtissent, un maillage et un corps chacun %s" % [voitures_v.size(), str(rates_v)])
+	var suiveuse: Node3D = paquet_v.instantiate()
+	suiveuse.voiture = "suiveuse"
+	garage.add_child(suiveuse)
+	var haut_s: AABB = (suiveuse.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).get_aabb()
+	check(haut_s.end.y > 2.4, "la suiveuse porte ses vélos sur la galerie (%.2f m)" % haut_s.end.y)
+	garage.queue_free()
+
 	# Les intérieurs (socle 1.22) : chaque salle de jeu et chaque étude tient le contrat de son genre.
 	check("bar-des-sports@1" in Bibliotheque.references("salle_jeu") and "etude-de-notaire@1" in Bibliotheque.references("etude"),
 		"la bibliothèque a le bar des sports et l'étude de notaire")
