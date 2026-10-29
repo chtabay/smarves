@@ -421,6 +421,12 @@ func _abattage(last: Dictionary) -> void:
 		who = "Vous"
 	var verb := "remportez" if winners == [0] else ("remportent" if winners.size() > 1 else "remporte")
 	var what := str(last.get("what", "")) if last.get("what") != null else ""
+	# Les mains montrées : celle du gagnant dite en entier (« un brelan de rois »), et ses cartes quand
+	# ce n'est pas la sienne.
+	if not shown.is_empty() and not winners.is_empty() and board.size() >= 3:
+		what = nommer(evaluate(seats[winners[0]].cards + board), true)
+		if not (0 in winners):
+			what += " (%s)" % " · ".join(winners.map(func(w): return "%s %s" % [_card_text(seats[w].cards[0]), _card_text(seats[w].cards[1])]))
 	_log.text = "%s %s %s%s.%s" % [who, verb, Game.fmt(net_pot), (" avec " + what) if what != "" else "",
 		(" La maison prend %d." % int(last.rake)) if float(last.get("rake", 0)) > 0 else ""]
 	if not winners.is_empty():
@@ -641,8 +647,8 @@ func _render_bar() -> void:
 	if in_hand:
 		parts.append("Pot : %s" % Game.fmt(pot))
 		if not seats[0].get("folded", false) and seats[0].has("cards"):
-			if board.size() >= 3:
-				parts.append("votre main : %s" % CATEGORIES[evaluate(seats[0].cards + board)[0]].to_lower())
+			if ma_main_nommee() != "":
+				parts.append("votre main : %s" % ma_main_nommee())
 			parts.append("engagé : %s / %s" % [Game.fmt(player_in), Game.fmt(CAP)])
 	var humains := 0
 	for s in seats:

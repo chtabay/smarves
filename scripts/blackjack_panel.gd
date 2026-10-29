@@ -1,6 +1,12 @@
 extends PanelContainer
 ## Blackjack, règles d'Addict : sabot de 6 jeux, le croupier reste sur tout 17, blackjack payé 3 contre 2,
-## doublement sur les deux premières cartes, ni partage ni assurance.
+## doublement sur les deux premières cartes.
+## Le partage et l'assurance s'ouvrent par un seuil (SEUIL_REGLES gagnés au jeu), à toutes les tables :
+## deux cartes de même valeur se séparent en deux mains, chacune avec sa mise (jusqu'à quatre mains ; deux
+## as partagés reçoivent une carte chacun, et 21 sur une main partagée n'est pas un blackjack) ; quand le
+## croupier montre un as, on peut s'assurer pour la moitié de la mise, payée 2 contre 1 s'il a blackjack.
+## Une fois les règles ouvertes, le croupier regarde sous son as ou son dix et retourne tout de suite un
+## blackjack. Avant le seuil, la table joue exactement comme avant.
 
 signal played(bet: int, payout: int)
 signal closed
@@ -8,6 +14,16 @@ signal closed
 signal card_dealt(who: String, card: Dictionary, hidden: bool)
 signal hand_started
 signal hole_revealed(card: Dictionary)
+## Le partage : la main « from » garde sa première carte, la seconde part former la main « to » (to = from + 1).
+signal hand_split(from: int, to: int)
+## Une main doublée : sa mise grandit de « amount ».
+signal hand_doubled(hand: int, amount: int)
+## L'assurance posée, pour la moitié de la mise.
+signal insured(amount: int)
+
+## Le seuil, sur le total gagné au jeu, qui ouvre le partage et l'assurance (docs : règles du blackjack).
+const SEUIL_REGLES := 1000
+const MAINS_MAX := 4
 
 ## Les mises proposées : celles du casino par défaut, celles d'une commune par configurer_mises().
 var BETS := [5, 10, 25, 100, 500]
@@ -19,10 +35,27 @@ const RANKS := ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "V", "D", "R"
 var title := "Blackjack"
 var bet_index := 1
 var shoe: Array = []
-var player: Array = []
+## Les mains du joueur : une seule, ou jusqu'à quatre après des partages. {cards, bet, done, aces}.
+var hands: Array = []
+## La main qui se joue.
+var active := 0
+## Les cartes de la main qui se joue.
+var player: Array:
+	get:
+		return hands[active].cards if active < hands.size() else []
 var dealer: Array = []
+## Tout ce qui est misé sur les mains (doublements et partages compris), sans l'assurance.
 var bet := 0
 var in_hand := false
+## L'assurance prise sur cette donne (0 : aucune).
+var assurance := 0
+## Le croupier montre un as : on attend la réponse à l'assurance avant de jouer.
+var attente_assurance := false
+## Le partage et l'assurance, ouverts pour la donne en cours (le seuil est relu à chaque donne).
+var regles_completes := false
+var _split: Button
+var _insure: Button
+var _no_insure: Button
 var _dealer_box: HBoxContainer
 var _player_box: HBoxContainer
 var _dealer_total: Label
@@ -71,7 +104,7 @@ func _ready() -> void:
 	_info = Label.new()
 	_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_info.add_theme_font_size_override("font_size", 20)
-	_info.text = "Choisissez votre mise et distribuez."
+	_info.text = _accueil()
 	v.add_child(_info)
 
 	var controls := HBoxContainer.new()
@@ -94,6 +127,9 @@ func _ready() -> void:
 	_hit = _button(controls, "Carte", _on_hit)
 	_stand = _button(controls, "Rester", _on_stand)
 	_double = _button(controls, "Doubler", _on_double)
+	_split = _button(controls, "Partager", _on_split)
+	_insure = _button(controls, "Assurer", _on_insure)
+	_no_insure = _button(controls, "Sans assurance", _on_no_insure)
 	controls.add_child(REGLES.bouton(self, "blackjack", false))
 	_button(controls, "Quitter (Échap)", func(): closed.emit())
 	_change_bet(0)
@@ -105,7 +141,7 @@ func _build_bar() -> void:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 4)
 	add_child(v)
-	_info = BARRE.label("Choisissez votre mise et distribuez.", 18)
+	_info = BARRE.label(_accueil(), 18)
 	_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_info.add_theme_font_override("font", _symbol_font)
 	v.add_child(_info)
@@ -131,12 +167,30 @@ func _build_bar() -> void:
 	_double = BARRE.pill("Doubler  (D)")
 	_double.pressed.connect(_on_double)
 	h.add_child(_double)
+	_split = BARRE.pill("Partager  (P)")
+	_split.pressed.connect(_on_split)
+	h.add_child(_split)
+	_insure = BARRE.pill("Assurer  (A)")
+	_insure.pressed.connect(_on_insure)
+	h.add_child(_insure)
+	_no_insure = BARRE.pill("Sans assurance  (N)")
+	_no_insure.pressed.connect(_on_no_insure)
+	h.add_child(_no_insure)
 	h.add_child(REGLES.bouton(self, "blackjack"))
 	var leave := BARRE.pill("Quitter  (Échap)")
 	leave.pressed.connect(func(): closed.emit())
 	h.add_child(leave)
 	_change_bet(0)
 	_set_buttons()
+
+
+## Le partage et l'assurance sont-ils ouverts (seuil passé) ?
+static func regles_ouvertes() -> bool:
+	return Game.won >= SEUIL_REGLES
+
+
+func _accueil() -> String:
+	return "Choisissez votre mise et distribuez." + (" Ici, on partage les paires et on s'assure contre l'as." if regles_ouvertes() else "")
 
 
 func _pick_bet(i: int) -> void:
@@ -241,6 +295,15 @@ static func total(hand: Array) -> int:
 	return t
 
 
+## La valeur d'une carte au blackjack (l'as compte 11 ici), pour le partage et le regard du croupier.
+static func valeur(c: Dictionary) -> int:
+	return 11 if c.r == 0 else mini(c.r + 1, 10)
+
+
+static func _who(i: int) -> String:
+	return "player" if i == 0 else "player%d" % i
+
+
 func _start() -> void:
 	if in_hand:
 		return
@@ -248,9 +311,13 @@ func _start() -> void:
 	if not Game.spend(amount):
 		_say("Pas assez de crédits pour cette mise.")
 		return
+	regles_completes = regles_ouvertes()
 	bet = amount
 	in_hand = true
-	player = [_draw_card(), _draw_card()]
+	assurance = 0
+	active = 0
+	var p := [_draw_card(), _draw_card()]
+	hands = [{"cards": p, "bet": amount, "done": false, "aces": false}]
 	dealer = [_draw_card(), _draw_card()]
 	hand_started.emit()
 	card_dealt.emit("player", player[0], false)
@@ -258,74 +325,214 @@ func _start() -> void:
 	card_dealt.emit("player", player[1], false)
 	card_dealt.emit("dealer", dealer[1], true)
 	_render(true)
-	if total(player) == 21:
+	if regles_completes and dealer[0].r == 0:
+		attente_assurance = true
+		_say("Le croupier montre un as. Assurance ? La moitié de la mise, payée 2 contre 1 s'il a blackjack.")
+		_set_buttons()
+		return
+	_jouer()
+
+
+## La donne s'engage : le croupier regarde sous son as ou son dix (règles ouvertes), puis on joue.
+func _jouer() -> void:
+	attente_assurance = false
+	if regles_completes and valeur(dealer[0]) >= 10 and total(dealer) == 21:
+		_finish()
+	elif total(player) == 21:
 		_finish()
 	else:
-		_say("Carte ou rester ?")
+		_say(_invite())
 	_set_buttons()
 
 
-func _on_hit() -> void:
-	if not in_hand:
+## Ce qu'on peut faire, dit au joueur.
+func _invite() -> String:
+	var t := "Carte ou rester ?"
+	if peut_partager():
+		t = "Carte, rester ou partager ?"
+	if hands.size() > 1:
+		t = "Main %d : %s" % [active + 1, t.substr(0, 1).to_lower() + t.substr(1)]
+	return t
+
+
+func _on_insure() -> void:
+	if not attente_assurance:
 		return
-	player.append(_draw_card())
-	card_dealt.emit("player", player[-1], false)
+	var a := maxi(1, bet / 2)
+	if not Game.spend(a):
+		_say("Pas assez de crédits pour s'assurer.")
+		return
+	assurance = a
+	insured.emit(a)
+	_jouer()
+
+
+func _on_no_insure() -> void:
+	if attente_assurance:
+		_jouer()
+
+
+## Deux cartes de même valeur, sur une main qui n'a pas encore tiré : elles peuvent se séparer.
+func peut_partager() -> bool:
+	if not regles_completes or not in_hand or attente_assurance or hands.size() >= MAINS_MAX or active >= hands.size():
+		return false
+	var h: Dictionary = hands[active]
+	return h.cards.size() == 2 and not h.aces and valeur(h.cards[0]) == valeur(h.cards[1])
+
+
+func _on_split() -> void:
+	if not peut_partager():
+		return
+	var h: Dictionary = hands[active]
+	if not Game.spend(h.bet):
+		_say("Pas assez de crédits pour partager.")
+		return
+	var aces: bool = h.cards[0].r == 0
+	var autre := {"cards": [h.cards.pop_back()], "bet": h.bet, "done": false, "aces": aces}
+	h.aces = aces
+	hands.insert(active + 1, autre)
+	bet += h.bet
+	hand_split.emit(active, active + 1)
+	_completer()
+
+
+func _tirer(i: int) -> void:
+	hands[i].cards.append(_draw_card())
+	card_dealt.emit(_who(i), hands[i].cards[-1], false)
+
+
+## La main qui se joue n'a qu'une carte (elle vient d'un partage) : elle reçoit sa seconde. Deux as
+## partagés n'en reçoivent qu'une chacun ; 21 se joue tout seul.
+func _completer() -> void:
+	var h: Dictionary = hands[active]
+	if h.cards.size() == 1:
+		_tirer(active)
 	_render(true)
-	if total(player) > 21:
+	if h.aces or total(h.cards) == 21:
+		_main_suivante()
+	else:
+		_say(_invite())
+		_set_buttons()
+
+
+## La main qui se joue est finie : à la suivante, ou au croupier.
+func _main_suivante() -> void:
+	hands[active].done = true
+	if active + 1 < hands.size():
+		active += 1
+		_completer()
+	else:
 		_finish()
-	elif total(player) == 21:
-		_on_stand()
+
+
+func _on_hit() -> void:
+	if not in_hand or attente_assurance or hands[active].aces:
+		return
+	_tirer(active)
+	_render(true)
+	if total(player) >= 21:
+		_main_suivante()
+	elif hands.size() > 1:
+		_say(_invite())
 	_set_buttons()
 
 
 func _on_double() -> void:
-	if not in_hand or player.size() != 2:
+	if not in_hand or attente_assurance or player.size() != 2 or hands[active].aces:
 		return
-	if not Game.spend(bet):
+	var h: Dictionary = hands[active]
+	if not Game.spend(h.bet):
 		_say("Pas assez de crédits pour doubler.")
 		return
-	bet *= 2
-	player.append(_draw_card())
-	card_dealt.emit("player", player[-1], false)
+	hand_doubled.emit(active, h.bet)
+	bet += h.bet
+	h.bet *= 2
+	_tirer(active)
 	_render(true)
-	_finish()
+	_main_suivante()
 
 
 func _on_stand() -> void:
-	if in_hand:
-		_finish()
+	if in_hand and not attente_assurance:
+		_main_suivante()
+
+
+## Une main contre celle du croupier : [ce qu'elle rend, son issue] ; l'issue est « bust », « blackjack »,
+## « dealer_bj », « win », « push » ou « lose ». Une main partagée n'a jamais de blackjack.
+func _regler(h: Dictionary) -> Array:
+	var p := total(h.cards)
+	var natural: bool = p == 21 and h.cards.size() == 2 and hands.size() == 1
+	var d := total(dealer)
+	var dealer_natural := d == 21 and dealer.size() == 2
+	if p > 21:
+		return [0, "bust"]
+	if natural and not dealer_natural:
+		return [h.bet + h.bet * 3 / 2, "blackjack"]
+	if dealer_natural and not natural:
+		return [0, "dealer_bj"]
+	if d > 21 or p > d:
+		return [h.bet * 2, "win"]
+	if p == d:
+		return [h.bet, "push"]
+	return [0, "lose"]
 
 
 func _finish() -> void:
-	var p := total(player)
-	var natural := p == 21 and player.size() == 2
+	attente_assurance = false
 	hole_revealed.emit(dealer[1])
-	if p <= 21 and not natural:
+	# Le croupier tire s'il reste une main à battre : ni sautée, ni blackjack.
+	var a_battre := false
+	for h in hands:
+		var p := total(h.cards)
+		if p <= 21 and not (p == 21 and h.cards.size() == 2 and hands.size() == 1):
+			a_battre = true
+	if a_battre:
 		while total(dealer) < 17:
 			dealer.append(_draw_card())
 			card_dealt.emit("dealer", dealer[-1], false)
 	var d := total(dealer)
 	var dealer_natural := d == 21 and dealer.size() == 2
 	var payout := 0
-	if p > 21:
-		_say("Vous sautez à %d. Une prochaine main vous attend." % p)
-	elif natural and not dealer_natural:
-		payout = bet + bet * 3 / 2
-		_say("Blackjack ! Vous encaissez %s." % Game.fmt(payout))
-	elif dealer_natural and not natural:
-		_say("Blackjack du croupier.")
-	elif d > 21 or p > d:
-		payout = bet * 2
-		_say("Gagné, %d contre %d. Vous encaissez %s." % [p, d, Game.fmt(payout)])
-	elif p == d:
-		payout = bet
-		_say("Égalité à %d, la mise est rendue." % p)
+	var issues: Array = []
+	for h in hands:
+		var r := _regler(h)
+		payout += int(r[0])
+		issues.append(r[1])
+	var texte := ""
+	if hands.size() == 1:
+		var p := total(hands[0].cards)
+		texte = {
+			"bust": "Vous sautez à %d. Une prochaine main vous attend." % p,
+			"blackjack": "Blackjack ! Vous encaissez %s." % Game.fmt(payout),
+			"dealer_bj": "Blackjack du croupier.",
+			"win": "Gagné, %d contre %d. Vous encaissez %s." % [p, d, Game.fmt(payout)],
+			"push": "Égalité à %d, la mise est rendue." % p,
+			"lose": "Le croupier fait %d. Un investissement se mesure sur la durée." % d,
+		}[issues[0]]
 	else:
-		_say("Le croupier fait %d. Un investissement se mesure sur la durée." % d)
+		var parts: Array[String] = []
+		for i in hands.size():
+			var p := total(hands[i].cards)
+			parts.append("main %d : %s" % [i + 1, {"bust": "sautée à %d" % p, "dealer_bj": "perdue", "win": "gagnée à %d" % p,
+				"push": "égalité à %d" % p, "lose": "perdue à %d" % p, "blackjack": "gagnée à 21"}[issues[i]]])
+		var tete := "Le croupier saute" if d > 21 else "Le croupier fait %d" % d
+		var verdict := "Il ramasse tout."
+		if payout > bet:
+			verdict = "Vous encaissez %s." % Game.fmt(payout)
+		elif payout > 0:
+			verdict = "Vous récupérez %s." % Game.fmt(payout)
+		texte = "%s : %s. %s" % [tete, ", ".join(parts), verdict]
+	if assurance > 0:
+		if dealer_natural:
+			payout += assurance * 3
+			texte += " L'assurance paie %s." % Game.fmt(assurance * 3)
+		else:
+			texte += " L'assurance est perdue."
+	_say(texte)
 	in_hand = false
 	_render(false)
 	_set_buttons()
-	played.emit(bet, payout)
+	played.emit(bet + assurance, payout)
 
 
 func _set_buttons() -> void:
@@ -338,10 +545,22 @@ func _set_buttons() -> void:
 
 
 func _apply_buttons() -> void:
+	var jeu := in_hand and not attente_assurance
+	var as_partages: bool = jeu and active < hands.size() and hands[active].aces
 	_deal.disabled = in_hand
-	_hit.disabled = not in_hand
-	_stand.disabled = not in_hand
-	_double.disabled = not in_hand or player.size() != 2
+	_hit.disabled = not jeu or as_partages
+	_stand.disabled = not jeu
+	_double.disabled = not jeu or player.size() != 2 or as_partages
+	# Partage et assurance : visibles une fois le seuil passé, l'assurance seulement quand on la propose.
+	_split.visible = regles_completes if in_hand else regles_ouvertes()
+	_split.disabled = not peut_partager()
+	_insure.visible = attente_assurance
+	_no_insure.visible = attente_assurance
+	# La question de l'assurance prend la place des gestes de la main, le temps d'y répondre.
+	for b in [_deal, _hit, _stand, _double]:
+		b.visible = not attente_assurance
+	if attente_assurance:
+		_split.visible = false
 
 
 func _render(hide_hole: bool) -> void:
@@ -353,9 +572,23 @@ func _render(hide_hole: bool) -> void:
 		c.queue_free()
 	for i in dealer.size():
 		_dealer_box.add_child(_card_view(dealer[i], hide_hole and i == 1))
-	for c in player:
-		_player_box.add_child(_card_view(c, false))
-	_player_total.text = "Vous : %d" % total(player)
+	for i in hands.size():
+		if i > 0:
+			var sep := Control.new()
+			sep.custom_minimum_size = Vector2(26, 0)
+			_player_box.add_child(sep)
+		for c in hands[i].cards:
+			var v := _card_view(c, false)
+			if hands.size() > 1 and i != active and in_hand:
+				v.modulate = Color(1, 1, 1, 0.55)
+			_player_box.add_child(v)
+	if hands.size() > 1:
+		var totaux: Array[String] = []
+		for i in hands.size():
+			totaux.append(("▸ %d" if i == active and in_hand else "%d") % total(hands[i].cards))
+		_player_total.text = "Vos mains : %s" % "  ·  ".join(totaux)
+	else:
+		_player_total.text = "Vous : %d" % total(player)
 	_dealer_total.text = "Croupier : %s" % ("?" if hide_hole else str(total(dealer)))
 
 
@@ -385,8 +618,8 @@ func _card_view(c: Dictionary, hidden: bool) -> PanelContainer:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if visible and embedded and event is InputEventKey and event.pressed and not event.echo:
-		var b: Button = {KEY_SPACE: _deal, KEY_C: _hit, KEY_R: _stand, KEY_D: _double}.get(event.keycode)
-		if b and not b.disabled:
+		var b: Button = {KEY_SPACE: _deal, KEY_C: _hit, KEY_R: _stand, KEY_D: _double, KEY_P: _split, KEY_A: _insure, KEY_N: _no_insure}.get(event.keycode)
+		if b and b.visible and not b.disabled:
 			b.pressed.emit()
 			get_viewport().set_input_as_handled()
 			return

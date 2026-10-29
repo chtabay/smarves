@@ -970,10 +970,18 @@ func _maybe_capture() -> void:
 					pnl.spin()
 				"blackjack":
 					pnl.bet_index = 2
-					pnl._start()
-					await get_tree().create_timer(2.6).timeout
-					if pnl.in_hand:
-						pnl._on_stand()
+					# --sabot=8,8,A,6,… : les cartes de la donne, dans l'ordre (joueur, joueur, croupier, croupier, puis
+					# les tirages), pour voir l'assurance et le partage.
+					for arg in OS.get_cmdline_user_args():
+						if arg.begins_with("--sabot="):
+							var noms := ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "V", "D", "R"]
+							var rang: Array = Array(arg.trim_prefix("--sabot=").split(",")).map(func(n): return {"r": noms.find(n), "s": randi() % 4})
+							rang.reverse()
+							var reste: Array = []
+							for k in 80:
+								reste.append({"r": 1 + k % 9, "s": k % 4})
+							pnl.shoe = reste + rang
+					_jouer_blackjack(pnl)
 				"slot":
 					pnl.spin()
 				"dice":
@@ -993,6 +1001,7 @@ func _maybe_capture() -> void:
 						_rejouer_poker(pnl)
 					else:
 						pnl._new_hand()
+						_suivre_tout(pnl)
 	var elapsed := 0.0
 	for i in shots.size():
 		await get_tree().create_timer(maxf(float(shots[i]) - elapsed, 0.0)).timeout
@@ -1001,6 +1010,32 @@ func _maybe_capture() -> void:
 		var out := path if shots.size() == 1 else path.get_basename() + "-%d.png" % (i + 1)
 		get_viewport().get_texture().get_image().save_png(out)
 	get_tree().quit()
+
+## Pour les captures du blackjack : une donne, l'assurance si on la propose, le partage si on peut, puis
+## on reste sur chaque main. Sans attendre : les captures se prennent pendant la donne.
+func _jouer_blackjack(pnl: Control) -> void:
+	pnl._start()
+	await get_tree().create_timer(2.6).timeout
+	if pnl.attente_assurance:
+		pnl._on_insure()
+		await get_tree().create_timer(1.2).timeout
+	if pnl.peut_partager():
+		pnl._on_split()
+		await get_tree().create_timer(2.4).timeout
+	for k in 4:
+		if is_instance_valid(pnl) and pnl.in_hand:
+			pnl._on_stand()
+			await get_tree().create_timer(1.6).timeout
+
+
+## Pour les captures du poker : le joueur suit tout, jusqu'à l'abattage.
+func _suivre_tout(pnl: Control) -> void:
+	for k in 600:
+		await get_tree().create_timer(0.1).timeout
+		if not is_instance_valid(pnl):
+			return
+		if pnl._waiting_player:
+			pnl._on_call()
 
 # =====================================================================================
 # L'ARCHITECTURE DU CASINO
