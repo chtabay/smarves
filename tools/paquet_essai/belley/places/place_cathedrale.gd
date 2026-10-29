@@ -133,6 +133,8 @@ func _mobilier(parent: Node3D) -> void:
 	for p in poses:
 		var m: Node3D = scene.instantiate()
 		m.set("objet", p[0])
+		# En plein jour, les lanternes sont éteintes (verdict n° 18).
+		m.set("options", {"allume": false})
 		m.set("graine", g)
 		g += 1
 		var v: Vector2 = p[1]
@@ -235,6 +237,7 @@ func _parvis(parent: Node3D) -> void:
 		for objet: String in ["lampadaire", "jardiniere"]:
 			var m: Node3D = scene.instantiate()
 			m.set("objet", objet)
+			m.set("options", {"allume": false})
 			m.set("graine", 40 + k * 2 + (1 if objet == "jardiniere" else 0))
 			var w := ALLEE_A + d * (t + (0.0 if objet == "lampadaire" else 2.6)) - nrm * 4.2
 			m.position = _p(w, 0.17)

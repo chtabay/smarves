@@ -22,7 +22,8 @@ const SOLEIL := {"hauteur": 28.0, "vient_de": 238.0, "couleur": Color("fff0dc"),
 ## Les trois scènes fortes et l'arrivée : [x, z, lacet en degrés (0 : regarde le nord, 90 : l'est)].
 const REPERES := {
 	"Arrivee": [40.0, -20.0, 135.0],
-	"Vue1_Cathedrale": [165.0, 318.0, 120.0],
+	# Dans la rue des Barons, entre deux façades serrées : la place s'ouvre en avançant (verdict n° 18).
+	"Vue1_Cathedrale": [138.0, 304.0, 114.0],
 	"Vue2_Banc": [3784.0, 1578.0, 100.0],
 	"Vue3_Relais": [7150.0, 640.0, 60.0],
 }

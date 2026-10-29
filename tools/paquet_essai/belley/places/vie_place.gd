@@ -2,7 +2,8 @@ extends RefCounted
 ## La vie de la place de la Cathédrale (verdict n° 16 du juge : personne sur le parvis) : des passants du socle
 ## (Atelier.personnage, « client ») qui causent par petits groupes sur le parvis et au pied des marches, d'autres
 ## qui suivent le trottoir ; et l'annonce du Grand Prix de la Louve, la course du dimanche (course-cycliste@1) :
-## la banderole tendue au-dessus de la rue, les barrières de foule déjà rangées le long du parvis.
+## la banderole tendue au-dessus de la rue des Barons, les barrières de foule rouge et blanc déjà rangées le long
+## du parvis.
 ##   VIE.new(hauteur).batir(parent)
 
 const PLACE := preload("res://communes/belley/places/place_cathedrale.gd")
@@ -71,18 +72,20 @@ func batir(parent: Node3D) -> void:
 func _course(n: Node3D, d: Vector2, nrm: Vector2, longueur: float) -> void:
 	var scene: PackedScene = load(Bibliotheque.scene("course-cycliste@1", "decor"))
 	var lacet := atan2(d.x, d.y)
+	# La banderole traverse la rue des Barons, d'une façade à l'autre, à l'entrée de la place : on passe dessous
+	# en arrivant (verdict n° 18).
 	var banderole: Node3D = scene.instantiate()
 	banderole.set("objet", "banderole")
 	banderole.set("graine", 11)
-	banderole.set("options", {"texte": "GRAND PRIX DE LA LOUVE", "largeur": 12.0, "couleur": "d22a2a"})
-	banderole.position = _p(PLACE.ALLEE_B + d * 7.0 + nrm * 2.0)
-	banderole.rotation.y = lacet
+	banderole.set("options", {"texte": "GRAND PRIX DE LA LOUVE", "largeur": 9.0, "couleur": "d22a2a"})
+	banderole.position = _p(Vector2(150.0, 309.0))
+	banderole.rotation.y = atan2(-0.91, -0.41)
 	n.add_child(banderole)
 	for k in 3:
 		var b: Node3D = scene.instantiate()
 		b.set("objet", "barrieres")
 		b.set("graine", 20 + k)
-		b.set("options", {"largeur": 8.0})
+		b.set("options", {"largeur": 8.0, "couleur": "d22a2a", "texte": "LA LOUVE"})
 		b.position = _p(PLACE.ALLEE_A + d * (6.0 + k * (longueur - 12.0) / 2.0) - nrm * 10.6, 0.17)
 		b.rotation.y = lacet + PI * 0.5
 		n.add_child(b)

@@ -76,10 +76,11 @@ void fragment() {
 		col = mix(col, vec3(0.92, 0.9, 0.84), step(abs(c.x), lf + 0.18) * step(abs(c.y + hf + 0.06), 0.06) * (1.0 - porte));
 	}
 	// De loin, le dessin des fenêtres se fond dans une teinte moyenne, sans moirer.
-	float flou = smoothstep(0.12, 0.35, fw);
+	float flou = smoothstep(0.25, 0.7, fw);
 	if (maillee) flou = smoothstep(0.03, 0.06, fw);
 	vec3 moyenne = COLOR.rgb * 0.96;
-	if (dedans) moyenne = mix(moyenne, mix(vec3(0.2, 0.22, 0.25), v, 0.5), 0.22);
+	// De loin, les fenêtres et leurs volets restent une trame plus sombre : le mur ne devient pas une boîte nue.
+	if (dedans) moyenne = mix(moyenne, mix(vec3(0.2, 0.22, 0.25), v, 0.5), 0.6);
 	col = mix(col, moyenne, flou);
 	// Le soubassement et le bandeau d'égout.
 	col *= uv.y < 0.6 ? 0.86 : 1.0;
