@@ -19,7 +19,9 @@ float h21(vec2 p) {
 
 void fragment() {
 	vec2 uv = UV;
-	float longueur = UV2.x;
+	float longueur = abs(UV2.x);
+	// Les fenêtres maillées (atelier/fenetres.gd) : le shader ne les dessine plus que de loin, fondues.
+	bool maillee = UV2.x < 0.0;
 	float hauteur = UV2.y;
 	float graine = COLOR.a * 255.0;
 	vec3 col = COLOR.rgb;
@@ -52,7 +54,7 @@ void fragment() {
 	float volet = step(abs(c.x), lf * 2.05) * step(lf, abs(c.x)) * step(abs(c.y), hf);
 	vec3 v = VOLETS[int(mod(graine, 6.0))];
 	float ouvert = h21(vec2(i * 3.1, niv + graine)) ;
-	if (dedans) {
+	if (dedans && !maillee) {
 		col = mix(col, vec3(0.93, 0.91, 0.86), cadre * mix(0.5, 1.0, fin));
 		if (vetu > 0.5) {
 			// La vitre sombre et sa croisée, ou le volet fermé, ou la porte de chêne.
@@ -75,6 +77,7 @@ void fragment() {
 	}
 	// De loin, le dessin des fenêtres se fond dans une teinte moyenne, sans moirer.
 	float flou = smoothstep(0.12, 0.35, fw);
+	if (maillee) flou = smoothstep(0.03, 0.06, fw);
 	vec3 moyenne = COLOR.rgb * 0.96;
 	if (dedans) moyenne = mix(moyenne, mix(vec3(0.2, 0.22, 0.25), v, 0.5), 0.22);
 	col = mix(col, moyenne, flou);

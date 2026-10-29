@@ -6,6 +6,7 @@ extends RefCounted
 
 const OUTILS := preload("res://communes/belley/atelier/outils.gd")
 const ARBRES := preload("res://communes/belley/places/arbres.gd")
+const FENETRES := preload("res://communes/belley/atelier/fenetres.gd")
 const DOSSIER := "res://communes/belley/"
 const UNITE := 2.4
 
@@ -27,10 +28,15 @@ const BORDURE := Color("dcd6c8", 0.9)
 const PRES_DE := Vector2(200.0, 340.0)
 ## Les arbres à moins de cette distance de la place sont ceux de la bibliothèque, en dentelle.
 const PLACE_TILLEULS := 160.0
+## Autour de la place, les fenêtres sont maillées (atelier/fenetres.gd), et visibles jusqu'à cette portée.
+const MAILLEES := 130.0
+const PORTEE_BAIES := 260.0
 
 ## Les numéros des bâtiments (dans bourg.json) qu'une scène bâtit elle-même.
 var passer := {2219: true}
 var hauteur: Callable
+## Les fenêtres maillées du lot en cours.
+var baies: RefCounted
 var b: Dictionary
 
 
@@ -53,9 +59,15 @@ func batir(parent: Node3D) -> void:
 		lots[cle].append(i)
 	for cle in lots:
 		var o := OUTILS.new(cle.x * 31 + cle.y)
+		baies = OUTILS.new(cle.x * 37 + cle.y)
 		for i in lots[cle]:
 			maison(o, bats[i], i)
 		o.construire(parent, "Maisons_%d_%d" % [cle.x, cle.y])
+		var mb: MeshInstance3D = baies.construire(parent, "Fenetres_%d_%d" % [cle.x, cle.y])
+		if mb != null:
+			# De loin, le shader des façades reprend : les baies fondues dans le mur.
+			mb.visibility_range_end = PORTEE_BAIES
+			mb.visibility_range_end_margin = 20.0
 	_rues(parent)
 	var pts := []
 	# Autour de la place, les arbres en dentelle de la planche (arbres-d-ombriere@1) ; plus loin, les silhouettes.
@@ -96,6 +108,7 @@ func maison(o: RefCounted, m: Dictionary, graine: int) -> void:
 	var dist := Vector2(m.rect[0], m.rect[1]).distance_to(PRES_DE / UNITE) * UNITE
 	var pres := dist < 160.0
 	var pres_chaines := dist < 90.0
+	var maillee := dist < MAILLEES
 	var y0 := bas - 0.4
 	var egout := haut + h
 	var pierre: bool = m.mur == "pierre"
@@ -108,7 +121,10 @@ func maison(o: RefCounted, m: Dictionary, graine: int) -> void:
 		if e.length() < 0.2:
 			continue
 		var n := Vector3(e.y, 0, -e.x).normalized()
-		o.mur(Vector3(a.x, y0, a.y), Vector3(c.x, y0, c.y), egout - y0, n, col, rng.randi() % 256)
+		var gm := rng.randi() % 256
+		o.mur(Vector3(a.x, y0, a.y), Vector3(c.x, y0, c.y), egout - y0, n, col, gm, maillee)
+		if maillee:
+			FENETRES.facade(baies, Vector3(a.x, y0, a.y), Vector3(c.x, y0, c.y), egout - y0, n, gm + graine * 7)
 		# Près de la cathédrale, les maisons de notable : leurs chaînes d'angle en pierre claire.
 		if pres_chaines and e.length() > 4.0:
 			var d := e.normalized()

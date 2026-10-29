@@ -19,9 +19,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from couverture_reelle import RACINE, telecharger  # noqa: E402
 
 ROCHE = 10
-## Les seuils de pente (en degrés) : sous le bois, en pré ou en lande, et le rabais près d'un rocher nommé.
-SEUIL_BOIS = 42.0
-SEUIL_NU = 33.0
+## Les seuils de pente (en degrés, sur une grille de 25 m) : sous le bois, en pré ou en lande, et le rabais près
+## d'un rocher nommé. Une barre calcaire est franchement raide ; un pré pentu n'en est pas une.
+SEUIL_BOIS = 45.0
+SEUIL_NU = 44.0
 RABAIS = 7.0
 PRES_ROCHER = 350.0
 
@@ -95,7 +96,8 @@ def main():
             gx = (h(x + d, z) - h(x - d, z)) / (2 * d)
             gz = (h(x, z + d) - h(x, z - d)) / (2 * d)
             pente = math.degrees(math.atan(math.hypot(gx, gz)))
-            seuil = SEUIL_BOIS if c in (1, 2, 5) else SEUIL_NU
+            # Une grille lâche adoucit les pentes : les seuils sont ceux d'une grille de 25 m, rabattus au-delà.
+            seuil = (SEUIL_BOIS if c in (1, 2, 5) else SEUIL_NU) - (rp - 25.0) * 0.06
             if pente < seuil - RABAIS:
                 continue
             k = (int(x // PRES_ROCHER), int(z // PRES_ROCHER))

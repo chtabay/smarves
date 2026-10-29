@@ -232,7 +232,7 @@ func branche(a: Vector3, b: Vector3, ra: float, rb: float, col: Color, cotes := 
 
 ## Un pan de mur de façade, de a à b au sol (y0) sur h de haut, sa normale n : l'enduit col et la graine de la
 ## maison (0 à 255) qui règle ses fenêtres.
-func mur(a: Vector3, b: Vector3, h: float, n: Vector3, col: Color, graine: int) -> void:
+func mur(a: Vector3, b: Vector3, h: float, n: Vector3, col: Color, graine: int, maillee := false) -> void:
 	var st := _s(FACADE)
 	var l := a.distance_to(b)
 	var c := Color(col, float(graine % 256) / 255.0)
@@ -244,7 +244,8 @@ func mur(a: Vector3, b: Vector3, h: float, n: Vector3, col: Color, graine: int) 
 		st.set_color(c)
 		st.set_normal(n)
 		st.set_uv(pts[k][1])
-		st.set_uv2(Vector2(l, h))
+		# Une longueur négative dit au shader que les fenêtres sont maillées (atelier/fenetres.gd).
+		st.set_uv2(Vector2(-l if maillee else l, h))
 		st.add_vertex(pts[k][0])
 
 

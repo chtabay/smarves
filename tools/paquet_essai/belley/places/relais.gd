@@ -12,6 +12,7 @@ extends RefCounted
 
 const OUTILS := preload("res://communes/belley/atelier/outils.gd")
 const ARBRES := preload("res://communes/belley/places/arbres.gd")
+const FENETRES := preload("res://communes/belley/atelier/fenetres.gd")
 
 const ORIGINE := Vector2(7173.0, 639.2)
 ## Le lacet du repère : +Z regarde le nord-est, vers les lônes.
@@ -185,23 +186,12 @@ func _baie(at: Vector3, n: Vector3, porte: bool) -> void:
 	var b := base.basis * Basis(n.cross(Vector3.UP).normalized() * -1.0, Vector3.UP, n)
 	var w := base * Vector3(at.x, 0, at.z)
 	var t := Transform3D(b, Vector3(w.x, sol0 + at.y, w.z))
-	var l := 1.0 if not porte else 1.2
-	var hh := 1.4 if not porte else 2.3
-	o.boite(t * Transform3D(Basis(), Vector3(0, hh * 0.5, 0.02)), Vector3(l, hh, 0.06), VITRE, OUTILS.PEINT)
-	o.boite(t * Transform3D(Basis(), Vector3(0, hh * 0.5, 0.05)), Vector3(0.06, hh, 0.03), Color("efe9dc", 0.9), OUTILS.PEINT)
-	# L'encadrement de pierre claire, l'appui.
-	o.boite(t * Transform3D(Basis(), Vector3(0, hh + 0.1, 0.03)), Vector3(l + 0.4, 0.2, 0.1), ANGLE)
-	if not porte:
-		o.boite(t * Transform3D(Basis(), Vector3(0, -0.06, 0.08)), Vector3(l + 0.4, 0.12, 0.2), ANGLE)
-	for s: float in [-1.0, 1.0]:
-		o.boite(t * Transform3D(Basis(), Vector3(s * (l * 0.5 + 0.1), hh * 0.5, 0.03)), Vector3(0.2, hh + 0.2, 0.1), ANGLE)
-		# Le volet ouvert, rabattu contre le mur, ses lames.
-		o.boite(t * Transform3D(Basis(), Vector3(s * (l + 0.22), hh * 0.5, 0.06)), Vector3(l * 0.5, hh, 0.05), VOLET, OUTILS.PEINT)
-	if not porte and absi(hash(at)) % 3 == 0:
-		# Une jardinière de géraniums à la fenêtre.
-		o.boite(t * Transform3D(Basis(), Vector3(0, 0.05, 0.25)), Vector3(l, 0.2, 0.22), Color("8a5a3a", 0.9), OUTILS.PEINT)
-		for k in 4:
-			o.boule(t * Vector3((k - 1.5) * l * 0.25, 0.22, 0.27), Vector3(0.16, 0.12, 0.14), Color("d8434e") if k % 2 == 0 else Color("4f8a34"), 0.2, OUTILS.FEUILLE, 0.05, 0.3, 4, 6)
+	# Les mêmes baies que celles de la ville (atelier/fenetres.gd), au niveau des façadiers de la bibliothèque.
+	var g := absi(hash(at))
+	if porte:
+		FENETRES._porte(o, t * Transform3D(Basis(), Vector3(0, -0.55, 0)), Color("6b4a32", 0.7), g)
+	else:
+		FENETRES._fenetre(o, t, 1.0, 1.4, VOLET, g * 5 + 1, g % 3 == 0)
 
 
 func _cheminee(pied: Vector3) -> void:
