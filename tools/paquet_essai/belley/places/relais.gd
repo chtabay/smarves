@@ -19,8 +19,8 @@ const ORIGINE := Vector2(7173.0, 639.2)
 ## Le lacet du repère : +Z regarde le nord-est, vers les lônes.
 const LACET := deg_to_rad(138.1)
 
-const MOELLON := Color("c9b48e", 0.0)
-const ANGLE := Color("cdb994", 1.0)
+const MOELLON := Color("a08d6e", 0.0)
+const ANGLE := Color("ad9b7c", 1.0)
 const VOLET := Color("7e9a96", 0.6)
 const BOIS := Color("8a6440", 0.8)
 const BOIS_CLAIR := Color("b08a5a", 0.8)
@@ -113,10 +113,10 @@ func _trait(a: Vector2, b: Vector2) -> void:
 ## regarde la route (−Z du relais).
 func _maisons(parent: Node3D) -> void:
 	var corps := [
-		[-2.5, 21.0, "r0", {"w": 7.0, "d": 7.0, "mur": "moellons", "pierre": "a89070", "couverture": "tuile_vieillie", "vigne": false}],
-		[7.5, 18.0, "ferme", {"w": 13.0, "d": 9.5, "niveaux": 1, "mur": "moellons", "pierre": "b9a27a", "couverture": "tuile_vieillie", "vigne": true, "volet": "7e9a96", "volets": "bois"}],
-		[20.5, 19.2, "vigneronne", {"w": 13.0, "d": 9.0, "mur": "moellons", "pierre": "a89070", "couverture": "tuile_vieillie", "balcon": true, "vigne": false, "volet": "7e9a96"}],
-		[33.0, 12.5, "r2", {"w": 10.0, "d": 12.0, "niveaux": 2, "mur": "moellons", "pierre": "b9a27a", "couverture": "tuile_vieillie", "vigne": true, "volet": "7e9a96", "lucarnes": 1}],
+		[-2.5, 21.0, "r0", {"w": 7.0, "d": 7.0, "mur": "moellons", "appareil": "irregulier", "pierre": "a89070", "couverture": "tuile_vieillie", "vigne": false}],
+		[7.5, 18.0, "ferme", {"w": 13.0, "d": 9.5, "niveaux": 1, "mur": "moellons", "appareil": "irregulier", "pierre": "b9a27a", "couverture": "tuile_vieillie", "vigne": true, "volet": "7e9a96", "volets": "bois"}],
+		[20.5, 19.2, "vigneronne", {"w": 13.0, "d": 9.0, "mur": "moellons", "appareil": "irregulier", "pierre": "a89070", "couverture": "tuile_vieillie", "balcon": true, "vigne": false, "volet": "7e9a96"}],
+		[33.0, 12.5, "r2", {"w": 10.0, "d": 12.0, "niveaux": 2, "mur": "moellons", "appareil": "irregulier", "pierre": "b9a27a", "couverture": "tuile_vieillie", "vigne": true, "volet": "7e9a96", "lucarnes": 1}],
 	]
 	var face := base.basis * Vector3(0, 0, -1)
 	for i in corps.size():

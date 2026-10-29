@@ -8,6 +8,7 @@ const OUTILS := preload("res://communes/belley/atelier/outils.gd")
 const ARBRES := preload("res://communes/belley/places/arbres.gd")
 const FENETRES := preload("res://communes/belley/atelier/fenetres.gd")
 const FACADIER := preload("res://bibliotheque/facadier-du-bugey/1/facadier.gd")
+const PLACE_CATHEDRALE := preload("res://communes/belley/places/place_cathedrale.gd")
 const REPEINDRE := preload("res://communes/belley/atelier/repeindre.gd")
 const DOSSIER := "res://communes/belley/"
 const UNITE := 2.4
@@ -86,6 +87,8 @@ func batir(parent: Node3D) -> void:
 		var v := Vector2(float(a[0]), float(a[1])) * UNITE
 		if v.distance_to(PRES_DE) > PLACE_TILLEULS:
 			pts.append([v.x, v.y])
+			continue
+		if PLACE_CATHEDRALE.sur_le_stationnement(v):
 			continue
 		var t: Node3D = tilleul.instantiate()
 		var g := absi(hash(v)) % 1000

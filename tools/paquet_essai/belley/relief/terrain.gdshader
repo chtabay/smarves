@@ -77,7 +77,7 @@ void vertex() {
 // s'effacent avec la distance (sinon elles moirent en rayures).
 // Sur le Mont du Chat, la barre se lit d'abord par ses couloirs : des traînées verticales, grises et ocre, que
 // l'eau a lavées ; les strates n'y sont qu'un fil, et les vires portent des buis et des pins.
-vec3 roche(vec2 xz, float y, float g, float g2, float pres) {
+vec3 roche(vec2 xz, float y, float g, float g2, float pres, float pr) {
 	float h = dot(xz, vec2(0.71, 0.71));
 	float couloir = fbm(vec2(h * 0.09, y * 0.012));
 	float lave = smoothstep(0.35, 0.7, fbm(vec2(h * 0.03 + 5.0, y * 0.006)));
@@ -94,8 +94,8 @@ vec3 roche(vec2 xz, float y, float g, float g2, float pres) {
 	float vire_loin = smoothstep(0.7, 0.85, 0.5 + 0.5 * sin(y * 0.11 + banc * 4.0));
 	vec3 bandeau = mix(ROCHE_LOIN, ROCHE_LOIN * vec3(0.86, 0.85, 0.82), smoothstep(0.35, 0.65, banc));
 	bandeau = mix(bandeau, mix(bandeau, FORET * 1.3, 0.6), vire_loin * 0.5);
-	// Les couloirs gris ne se lisent que de près (moins de 800 m) ; au-delà, le bandeau crème.
-	return mix(bandeau, r, pres * pres * pres * pres);
+	// Les couloirs gris ne se lisent qu'au pied de la barre (moins de 300 m) ; au-delà, le bandeau crème.
+	return mix(bandeau, r, pr);
 }
 
 // Les cours et les jardins de la ville, et les prés pris dans le bourg : un parcellaire de jardins de 10 à
@@ -112,26 +112,28 @@ vec3 jardins(vec2 xz, float g) {
 	vec2 f = fract(q / taille) * taille;
 	float bord = min(min(f.x, taille.x - f.x), min(f.y, taille.y - f.y));
 	float h = h21(cel);
-	vec3 pelouse = mix(vec3(0.47, 0.60, 0.29), vec3(0.40, 0.53, 0.25), h21(cel + 3.1)) * (0.94 + 0.1 * fbm(xz * 0.5));
+	vec3 pelouse = mix(vec3(0.45, 0.52, 0.31), vec3(0.39, 0.47, 0.27), h21(cel + 3.1)) * (0.94 + 0.1 * fbm(xz * 0.5));
 	vec3 potager = mix(vec3(0.52, 0.42, 0.30), vec3(0.36, 0.50, 0.24), step(0.5, fract(f.y / 1.4)));
 	vec3 gravier = vec3(0.78, 0.72, 0.60) * (0.95 + 0.08 * fbm(xz * 2.0));
 	pelouse *= mix(0.85, 1.12, h21(cel + 5.3));
 	// Le verger : des ronds sombres de pommiers en quinconce sur l'herbe.
 	vec2 qf = fract(f / 3.5) - 0.5;
 	vec3 verger = mix(pelouse, vec3(0.22, 0.34, 0.15), 1.0 - smoothstep(0.22, 0.32, length(qf)));
-	vec3 col = h < 0.38 ? pelouse : (h < 0.6 ? potager : (h < 0.78 ? gravier : verger));
+	vec3 col = h < 0.3 ? pelouse : (h < 0.48 ? potager : (h < 0.6 ? gravier : verger));
 	// Un massif ou un arbuste par-ci par-là, des taches sombres dans les pelouses.
 	float massif = smoothstep(0.62, 0.72, fbm(xz * 0.35 + 7.0));
-	col = mix(col, vec3(0.24, 0.36, 0.17), massif * 0.8 * step(h, 0.38));
+	col = mix(col, vec3(0.24, 0.36, 0.17), massif * 0.8 * step(h, 0.3));
 	// La haie (ou le muret) en limite de parcelle, et son ombre portée d'un côté.
 	float haie = 1.0 - smoothstep(0.7, 1.1, bord);
 	vec3 limite = h21(cel + 9.0) < 0.7 ? vec3(0.20, 0.31, 0.15) : vec3(0.80, 0.75, 0.64);
 	col = mix(col, col * 0.62, (1.0 - smoothstep(1.1, 2.4, f.y)) * 0.8);
 	col = mix(col, limite, haie);
+	// Des teintes sourdes, comme les cœurs d'îlot de la planche, pas un damier vert vif (verdict n° 5).
+	col = mix(col, vec3(dot(col, vec3(0.33))) * vec3(1.02, 1.0, 0.92), 0.22);
 	return col * (0.95 + 0.08 * g);
 }
 
-vec3 teinte(int c, vec2 xz, float y, float g, float g2, float pres) {
+vec3 teinte(int c, vec2 xz, float y, float g, float g2, float pres, float pr) {
 	if (c == 1 || c == 2) {
 		// La canopée : des houppiers clairs sur un fond sombre.
 		float houppier = smoothstep(0.35, 0.75, fbm(xz * mix(0.22, 0.03, loin)));
@@ -154,7 +156,7 @@ vec3 teinte(int c, vec2 xz, float y, float g, float g2, float pres) {
 		return jardins(xz, g);
 	} else if (c == 10) {
 		// La roche relevée sur le relief réel (tools/roche_reelle.py).
-		return roche(xz, y, g, g2, pres);
+		return roche(xz, y, g, g2, pres, pr);
 	}
 	return mix(PRE, PRE_SEC, g2 * 0.9) * (0.92 + 0.16 * g);
 }
@@ -164,6 +166,7 @@ void fragment() {
 	float g = fbm(xz * mix(0.35, 0.02, loin));
 	float g2 = fbm(xz * mix(0.08, 0.006, loin) + 7.0);
 	float pres = 1.0 - smoothstep(600.0, 2500.0, distance(monde, CAMERA_POSITION_WORLD));
+	float pr = 1.0 - smoothstep(150.0, 450.0, distance(monde, CAMERA_POSITION_WORLD));
 	vec3 col;
 	float eau = 0.0;
 	vec2 uv = (xz - cadre.xy) / (cadre.zw - cadre.xy);
@@ -176,7 +179,7 @@ void fragment() {
 		if (ville && (c == 8 || (c == 0 && length(xz - vec2(150.0, 250.0)) < 420.0))) c = 9;
 		// Hors de la ville, les routes sont des rubans (places/routes.gd) : sous elles, l'herbe des bas-côtés.
 		if (!ville && c == 8) c = 0;
-		col = teinte(c, xz, monde.y, g, g2, pres);
+		col = teinte(c, xz, monde.y, g, g2, pres, pr);
 		eau = c == 7 ? 1.0 : 0.0;
 	} else {
 		// Le lointain : les teintes des quatre cases voisines, fondues (la carte a 37,5 m au pas).
@@ -196,7 +199,7 @@ void fragment() {
 				rw += wk;
 				c = 1;
 			}
-			acc[k] = teinte(c, xz, monde.y, g, g2, pres);
+			acc[k] = teinte(c, xz, monde.y, g, g2, pres, pr);
 			float e = c == 7 ? 1.0 : 0.0;
 			eau += e * (k % 2 == 0 ? 1.0 - t.x : t.x) * (k / 2 == 0 ? 1.0 - t.y : t.y);
 		}
@@ -210,11 +213,11 @@ void fragment() {
 		}
 		// Et seulement là où le maillage se redresse : la barre suit les courbes du versant, pas les cases.
 		float raide = 1.0 - smoothstep(0.72, 0.9, normale.y + bord * 0.15);
-		col = mix(col, roche(xz, monde.y, g, g2, pres), smoothstep(0.42, 0.5, rw * raide + bord * 0.3));
+		col = mix(col, roche(xz, monde.y, g, g2, pres, pr), smoothstep(0.42, 0.5, rw * raide + bord * 0.3));
 	}
 	// Là où le maillage lui-même se redresse (une barre plus raide que la carte), la roche affleure aussi.
 	float r = 1.0 - smoothstep(roche_pleine, roche_pente, normale.y + (g - 0.5) * 0.12);
-	col = mix(col, roche(xz, monde.y, g, g2, pres), r * 0.8);
+	col = mix(col, roche(xz, monde.y, g, g2, pres, pr), r * 0.8);
 	// L'eau prend le ciel, d'autant plus qu'on la voit en rasant ; des rides plus claires la parcourent.
 	float rasant = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);
 	float ride = smoothstep(0.62, 0.8, fbm(vec2(xz.x * 0.08, xz.y * 0.5))) * pres;
@@ -222,6 +225,8 @@ void fragment() {
 	// La perspective atmosphérique de la note : les lointains passent au bleu gris, en trois plans.
 	float k = 1.0 - exp(-distance(monde, CAMERA_POSITION_WORLD) / 9000.0);
 	col = mix(col, vec3(0.58, 0.65, 0.68), k * 0.7);
+	// Au-delà de 8 km, la brume noie encore les barres claires : plus de taches blanches sur la crête lointaine.
+	col = mix(col, vec3(0.60, 0.67, 0.71), smoothstep(7000.0, 14000.0, distance(monde, CAMERA_POSITION_WORLD)) * 0.45);
 	// Les teintes sont écrites en sRGB, comme la palette de la note ; le rendu de compatibilité ne convertit pas
 	// sa sortie (mesuré : un albédo de 0,5 ressort à 0,5), on les lui donne donc telles quelles.
 	ALBEDO = col;

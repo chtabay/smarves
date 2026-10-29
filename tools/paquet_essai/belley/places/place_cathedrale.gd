@@ -6,6 +6,7 @@ extends RefCounted
 ## (voitures-des-annees-80@1).
 
 const OUTILS := preload("res://communes/belley/atelier/outils.gd")
+const REPEINDRE := preload("res://communes/belley/atelier/repeindre.gd")
 const MODELES := ["citadine", "compacte", "berline", "compacte", "break", "citadine", "fourgonnette"]
 
 ## L'allée du parking, d'un bout à l'autre (relevée sur le plan).
@@ -13,6 +14,10 @@ const ALLEE_A := Vector2(163.6, 318.0)
 const ALLEE_B := Vector2(193.4, 334.7)
 const BLANC := Color("eeeee6", 0.9)
 const BORNE := Color("3a3d40", 0.6)
+const BORDURE := Color("bdb5a6", 0.95)
+const TROTTOIR := Color("b9ad98", 0.95)
+## Les arbres du stationnement, alignés de part et d'autre, au bout des places (planche : sept ou huit par rang).
+const ARBRES_PAR_RANG := 7
 
 var hauteur: Callable
 var o: RefCounted
@@ -35,8 +40,10 @@ func batir(parent: Node3D) -> void:
 	# Les bornes : le long du trottoir de la rue piétonne et du parvis.
 	_bornes(Vector2(157.5, 333.4), Vector2(189.0, 351.4), 2.4)
 	_bornes(Vector2(195.0, 324.0), Vector2(205.0, 330.0), 2.4)
+	_bordures()
 	o.construire(n, "Sol")
 	_mobilier(n)
+	_arbres(n)
 
 
 ## Un point du sol, relevé de dy.
@@ -70,7 +77,7 @@ func _stationnement(parent: Node3D) -> void:
 			var pied := ALLEE_A + d * t + nrm * cote * demi_allee
 			trace(pied, pied + axe * (prof / sin(deg_to_rad(60.0))), 0.12)
 			# Une voiture dans la plupart des places, comme un samedi après-midi.
-			if k > 0 and absi(hash(Vector2(t, cote))) % 10 < 8:
+			if k > 0:
 				var milieu := pied - d * pas * 0.5 + axe * prof * 0.55
 				var lacet := atan2(axe.x, axe.y) + (PI if cote < 0.0 else 0.0)
 				var noeud: Node3D = voitures.instantiate()
@@ -139,3 +146,59 @@ func _mobilier(parent: Node3D) -> void:
 		var v: Vector2 = massifs[k]
 		m.position = _p(v, 0.1)
 		parent.add_child(m)
+
+
+## Les bordures de granit et les trottoirs qui ceinturent le stationnement : le chant relevé de 0,16 m, le
+## dessus de la bordure, puis le trottoir de 2 m au-delà, où se tiennent les arbres.
+func _bordures() -> void:
+	var d := (ALLEE_B - ALLEE_A).normalized()
+	var nrm := Vector2(-d.y, d.x)
+	var longueur := ALLEE_A.distance_to(ALLEE_B)
+	var bord := 3.0 + 5.0 + 0.2
+	for cote: float in [-1.0, 1.0]:
+		var a := ALLEE_A + nrm * cote * bord - d * 0.5
+		var b := ALLEE_B + nrm * cote * bord + d * 0.5
+		var e := nrm * cote
+		var nb := int(ceil((longueur + 1.0) / 2.0))
+		for k in nb:
+			var p0 := a.lerp(b, float(k) / nb)
+			var p1 := a.lerp(b, float(k + 1) / nb)
+			var y0: float = hauteur.call(p0.x, p0.y)
+			var y1: float = hauteur.call(p1.x, p1.y)
+			o.quad(Vector3(p0.x, y0, p0.y), Vector3(p1.x, y1, p1.y), Vector3(p1.x, y1 + 0.16, p1.y), Vector3(p0.x, y0 + 0.16, p0.y), Vector3(-e.x, 0, -e.y), BORDURE, OUTILS.PEINT)
+			var q0 := p0 + e * 0.25
+			var q1 := p1 + e * 0.25
+			o.quad(Vector3(p0.x, y0 + 0.16, p0.y), Vector3(p1.x, y1 + 0.16, p1.y), Vector3(q1.x, y1 + 0.16, q1.y), Vector3(q0.x, y0 + 0.16, q0.y), Vector3.UP, BORDURE.lightened(0.05), OUTILS.PEINT)
+			var r0 := p0 + e * 2.4
+			var r1 := p1 + e * 2.4
+			var t := TROTTOIR.darkened(float(absi(hash(Vector2i(k, int(cote)))) % 6) * 0.01)
+			o.quad(Vector3(q0.x, y0 + 0.155, q0.y), Vector3(q1.x, y1 + 0.155, q1.y), Vector3(r1.x, y1 + 0.155, r1.y), Vector3(r0.x, y0 + 0.155, r0.y), Vector3.UP, t, OUTILS.PEINT)
+
+
+## Les deux rangs d'arbres du stationnement, sur les trottoirs, au bout des places (arbres-d-ombriere@1,
+## repeints du vert posé de la planche).
+func _arbres(parent: Node3D) -> void:
+	var scene: PackedScene = load(Bibliotheque.scene("arbres-d-ombriere@1", "decor"))
+	var d := (ALLEE_B - ALLEE_A).normalized()
+	var nrm := Vector2(-d.y, d.x)
+	var longueur := ALLEE_A.distance_to(ALLEE_B)
+	for cote: float in [-1.0, 1.0]:
+		for k in ARBRES_PAR_RANG:
+			var v := ALLEE_A + d * (1.5 + k * (longueur - 3.0) / (ARBRES_PAR_RANG - 1)) + nrm * cote * 9.4
+			var g := 700 + k + (10 if cote > 0.0 else 0)
+			var t: Node3D = scene.instantiate()
+			t.set("arbre", "micocoulier")
+			t.set("graine", g)
+			t.set("options", {"hauteur": 10.5 + float(k % 3) * 0.6})
+			t.position = Vector3(v.x, hauteur.call(v.x, v.y) + 0.1, v.y)
+			t.rotation.y = float(g) * 0.37
+			parent.add_child(t)
+			REPEINDRE.feuillage(t)
+
+
+## Le stationnement a ses propres arbres : la ville n'y plante pas ceux du relevé.
+static func sur_le_stationnement(v: Vector2) -> bool:
+	var d := (ALLEE_B - ALLEE_A).normalized()
+	var w := v - ALLEE_A
+	var t := w.dot(d)
+	return t > -4.0 and t < ALLEE_A.distance_to(ALLEE_B) + 4.0 and absf(w.dot(Vector2(-d.y, d.x))) < 13.0
