@@ -378,6 +378,21 @@ func _tour() -> void:
 	o.profil(tg, _contour(OUTILS.grossir(gable, 0.25), gable), 0.0, 0.12, OMBRE)
 	_oculus(tg * Transform3D(Basis(), Vector3(0, 2.3, 0.02)), 1.35, 8)
 	o.boule(tg * Vector3(0, 6.5, -0.15), Vector3(0.25, 0.35, 0.25), C, 0.15, OUTILS.PIERRE, 0.0)
+	# Les crochets le long des rampants, les trilobes aveugles de part et d'autre de la rose.
+	for cote: float in [-1.0, 1.0]:
+		for k in 6:
+			var f := (k + 1) / 7.0
+			var q := Vector2(cote * 4.2 * (1.0 - f), 6.2 * f)
+			o.boule(tg * Vector3(q.x + cote * 0.18, q.y + 0.22, 0.05), Vector3(0.16, 0.2, 0.16), C, 0.2, OUTILS.PIERRE, 0.0)
+		bande(tg * Transform3D(Basis(), Vector3(cote * 2.3, 0.35, 0.0)), ogive(1.1, 0.6, 0.7), ogive(0.8, 0.6, 0.5), 0.0, 0.1, OMBRE)
+		# Les pinacles qui encadrent le gâble, sur les contreforts du portail.
+		pinacle(Vector3(cote * 4.55, 9.3, zf + 1.1), 0.7, 6.0)
+	# La galerie aveugle sous le cordon du deuxième étage : une rangée d'arcatures.
+	for k in 9:
+		var x := (k - 4) * 1.15
+		if absf(x) < 2.0:
+			continue
+		bande(Transform3D(Basis(), Vector3(x, 11.6, zf)), ogive(1.0, 1.2, 0.6), ogive(0.72, 1.2, 0.42), 0.0, 0.14, OMBRE)
 	# Deuxième étage : deux baies jumelles de chaque côté du gâble, la galerie aveugle.
 	for s: float in [-1.0, 1.0]:
 		baie(Transform3D(Basis(), Vector3(s * 3.5, 16.0, zf - 0.3)), 1.1, 3.4, 1)
@@ -410,11 +425,15 @@ func _tour() -> void:
 	for sx: float in [-1.0, 1.0]:
 		for sz: float in [zf, zb]:
 			pinacle(Vector3(sx * (TOUR - 0.1), hb, sz - signf(sz - zm) * 0.1), 1.1, 7.0)
-	# Les petits pinacles au milieu des faces, en retrait.
+	# La couronne : de petits pinacles serrés le long de la balustrade, comme sur la planche.
 	for face in 4:
 		var b := Basis(Vector3.UP, face * PI * 0.5)
+		var demi_l := TOUR if face % 2 == 0 else prof * 0.5
 		var demi_p := prof * 0.5 if face % 2 == 0 else TOUR
-		pinacle(Vector3(0, hb, zm) + b * Vector3(0, 0, demi_p - 0.5) + Vector3(0, 2.7, 0), 0.5, 3.2)
+		var nb := 3 if face % 2 == 0 else 2
+		for k in nb:
+			var x := (k - (nb - 1) * 0.5) * demi_l * 2.0 / (nb + 0.6)
+			pinacle(Vector3(0, hb, zm) + b * Vector3(x, 0, demi_p - 0.25) + Vector3(0, 1.3, 0), 0.45, 3.4)
 	# Le toit plat de la tour, de zinc.
 	o.boite(Transform3D(Basis(), Vector3(0, hb + 0.05, zm)), Vector3(TOUR * 2.0 - 0.6, 0.1, prof - 0.6), ZINC, OUTILS.PEINT)
 

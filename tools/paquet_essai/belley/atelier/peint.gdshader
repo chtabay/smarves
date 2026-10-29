@@ -24,7 +24,7 @@ void vertex() {
 
 void fragment() {
 	float g = bruit(monde.xy * 3.0 + monde.zz * 2.0) * 0.5 + bruit(monde.xz * 1.3) * 0.5;
-	ALBEDO = pow(COLOR.rgb * (0.95 + 0.08 * g), vec3(2.2));
+	ALBEDO = COLOR.rgb * (0.95 + 0.08 * g);
 	ROUGHNESS = COLOR.a;
 	METALLIC = 0.0;
 }

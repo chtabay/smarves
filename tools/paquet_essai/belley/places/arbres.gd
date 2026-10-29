@@ -20,7 +20,7 @@ static func silhouette(graine: int, detail := true) -> ArrayMesh:
 	var vert: Color = VERTS[graine % VERTS.size()]
 	# Les charpentières, puis le houppier : beaucoup de petites touffes sur une ellipsoïde, plus claires au
 	# soleil (en haut), la masse sombre au cœur.
-	o.boule(Vector3(0, h + 2.2, 0), Vector3(2.9, 2.4, 2.9), vert.darkened(0.25), 0.1, OUTILS.FEUILLE, 0.04)
+	o.boule(Vector3(0, h + 2.2, 0), Vector3(2.9, 2.4, 2.9), vert.darkened(0.25), 0.1, OUTILS.FEUILLE, 0.04, 1.0, 5, 8)
 	var n := 16 if detail else 5
 	for k in n:
 		var a := TAU * k * 0.618 + rng.randf_range(-0.2, 0.2)
@@ -30,7 +30,7 @@ static func silhouette(graine: int, detail := true) -> ArrayMesh:
 		if k < 5:
 			o.branche(Vector3(0, h - 0.6, 0), p * Vector3(0.6, 1, 0.6) + Vector3(0, -0.4, 0), 0.13, 0.06, ECORCE)
 		var s := rng.randf_range(1.0, 1.4) if detail else rng.randf_range(1.6, 2.0)
-		o.boule(p, Vector3(s, s * 0.82, s), vert.lightened(0.1 * u + rng.randf_range(-0.04, 0.06)), 0.14, OUTILS.FEUILLE, 0.07)
+		o.boule(p, Vector3(s, s * 0.82, s), vert.lightened(0.1 * u + rng.randf_range(-0.04, 0.06)), 0.14, OUTILS.FEUILLE, 0.07, 1.0, 5 if detail else 4, 8 if detail else 6)
 	var tmp := Node3D.new()
 	var mi: MeshInstance3D = o.construire(tmp, "Arbre")
 	var m: ArrayMesh = mi.mesh

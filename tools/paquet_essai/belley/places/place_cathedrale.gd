@@ -2,10 +2,11 @@ extends RefCounted
 ## La place de la Cathédrale, telle que sur la planche et sur le plan réel (le parking OSM « Place de la
 ## Cathédrale », ses deux rangs de tilleuls) : l'allée au milieu, les places en épi de part et d'autre, peintes
 ## en blanc ; les passages piétons sur la rue Saint-Jean et devant le parvis ; les bornes qui gardent le
-## trottoir, les lanternes doubles, les jardinières fleuries au pied des marches ; les voitures garées.
+## trottoir, les lanternes doubles, les jardinières fleuries au pied des marches ; les voitures garées
+## (voitures-des-annees-80@1).
 
 const OUTILS := preload("res://communes/belley/atelier/outils.gd")
-const VOITURE := preload("res://communes/belley/places/voiture.gd")
+const MODELES := ["citadine", "compacte", "berline", "compacte", "break", "citadine", "fourgonnette"]
 
 ## L'allée du parking, d'un bout à l'autre (relevée sur le plan).
 const ALLEE_A := Vector2(163.6, 318.0)
@@ -60,6 +61,7 @@ func _stationnement(parent: Node3D) -> void:
 	# Les places en épi, à 60°, de chaque côté de l'allée.
 	var epi := d * cos(deg_to_rad(60.0)) + nrm * sin(deg_to_rad(60.0))
 	var graine := 0
+	var voitures: PackedScene = load(Bibliotheque.scene("voitures-des-annees-80@1", "decor"))
 	for cote: float in [-1.0, 1.0]:
 		var axe := epi if cote > 0.0 else d * cos(deg_to_rad(60.0)) - nrm * sin(deg_to_rad(60.0))
 		var k := 0
@@ -71,11 +73,13 @@ func _stationnement(parent: Node3D) -> void:
 			if k > 0 and absi(hash(Vector2(t, cote))) % 10 < 8:
 				var milieu := pied - d * pas * 0.5 + axe * prof * 0.55
 				var lacet := atan2(axe.x, axe.y) + (PI if cote < 0.0 else 0.0)
-				var v := VOITURE.new(graine)
+				var noeud: Node3D = voitures.instantiate()
+				noeud.set("voiture", MODELES[graine % MODELES.size()])
+				noeud.set("graine", graine)
 				graine += 1
-				var noeud: Node3D = v.batir(parent)
 				noeud.position = _p(milieu, 0.15)
 				noeud.rotation.y = lacet
+				parent.add_child(noeud)
 			t += pas
 			k += 1
 		# La ligne qui borde l'allée.

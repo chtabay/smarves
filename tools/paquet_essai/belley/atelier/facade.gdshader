@@ -81,6 +81,6 @@ void fragment() {
 	// Le soubassement et le bandeau d'égout.
 	col *= uv.y < 0.6 ? 0.86 : 1.0;
 	col = mix(col, vec3(0.93, 0.9, 0.84), step(hauteur - 0.35, uv.y));
-	ALBEDO = pow(col, vec3(2.2));
+	ALBEDO = col;
 	ROUGHNESS = 0.9;
 }

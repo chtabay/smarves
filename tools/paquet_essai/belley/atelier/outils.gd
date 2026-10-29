@@ -183,9 +183,7 @@ static func arc(c: Vector2, r: float, a0: float, a1: float, n: int) -> PackedVec
 
 ## Une boule de feuillage bosselée (ou d'autre chose : genre DUR) : rayons r selon x, y, z ; bosse en part du
 ## rayon. Les normales restent celles de la boule lisse, pour une ombre douce de dessin animé.
-func boule(centre: Vector3, r: Vector3, col: Color, bosse := 0.18, genre := FEUILLE, variation := 0.06, vent := 1.0) -> void:
-	var anneaux := 8
-	var cotes := 12
+func boule(centre: Vector3, r: Vector3, col: Color, bosse := 0.18, genre := FEUILLE, variation := 0.06, vent := 1.0, anneaux := 8, cotes := 12) -> void:
 	var pts := []
 	var dec := rng.randf() * TAU
 	for j in anneaux + 1:

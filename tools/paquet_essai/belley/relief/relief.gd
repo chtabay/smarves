@@ -3,6 +3,7 @@ extends RefCounted
 ## y = altitude − ALT0. Trois grilles, de la plus fine à la plus large, chacune lue là où elle couvre :
 ##   le bourg (bourg.json de bourg_reel.py, 2,08 m au pas, 800 m autour du centre),
 ##   le relief proche (relief.png de relief_lointain.py, 15 m, 9,6 × 5 km : la ville, le canal, Parves, le Rhône),
+##   la crête du Mont du Chat (crete.png, 25 m, de la Charvaz au col du Chat : ses barres, la Dent),
 ##   l'horizon (lointain.png, 75 m, 36 km de côté : le Colombier, le Mont du Chat, le Mont Pela).
 ## Les cartes PNG portent l'altitude sur 16 bits, l'octet haut dans le rouge, le bas dans le vert.
 
@@ -26,6 +27,7 @@ func _init() -> void:
 	_grilles.append({"x0": float(r.x0) * UNITE, "z0": float(r.z0) * UNITE, "pas": float(r.pas) * UNITE,
 		"nx": int(r.nx), "nz": int(r.nz), "h": h, "marge": 60.0})
 	_grilles.append(_carte("relief", 150.0))
+	_grilles.append(_carte("crete", 300.0))
 	_grilles.append(_carte("lointain", 0.0))
 
 
@@ -94,7 +96,7 @@ func _lire(g: Dictionary, x: float, z: float) -> float:
 	return lerpf(lerpf(a, b, fi), lerpf(c, d, fi), fj)
 
 
-## Le cadre d'une grille, en mètres : [x0, z0, x1, z1]. 0 le bourg, 1 le proche, 2 l'horizon.
+## Le cadre d'une grille, en mètres : [x0, z0, x1, z1]. 0 le bourg, 1 le proche, 2 la crête, 3 l'horizon.
 func cadre(k: int) -> Array:
 	var g: Dictionary = _grilles[k]
 	return [g.x0, g.z0, g.x0 + (g.nx - 1) * g.pas, g.z0 + (g.nz - 1) * g.pas]

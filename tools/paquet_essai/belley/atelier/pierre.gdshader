@@ -54,12 +54,12 @@ void fragment() {
 	float g = bruit(monde.xy * 9.0 + monde.zz * 7.0) * 0.6 + bruit(monde.zy * 2.3) * 0.4;
 	vec3 base = COLOR.rgb;
 	vec3 col = base * (0.95 + 0.07 * b.x) * (1.0 - grain_force + grain_force * 2.0 * g);
-	float flou = smoothstep(0.01, 0.05, max(fwidth(uv.x), fwidth(uv.y)));
+	float flou = smoothstep(0.025, 0.09, max(fwidth(uv.x), fwidth(uv.y)));
 	col = mix(col, joint_couleur * base * 1.05, b.y * 0.5 * (1.0 - flou));
 	col = mix(col, base * 0.97, flou * 0.8);
 	// Le pied des murs : plus sombre sur le premier mètre.
 	float pied = 1.0 - smoothstep(0.0, 1.2, monde.y - sol);
 	col *= 1.0 - 0.18 * pied;
-	ALBEDO = pow(col, vec3(2.2));
+	ALBEDO = col;
 	ROUGHNESS = 0.88;
 }

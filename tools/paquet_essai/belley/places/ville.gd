@@ -21,6 +21,12 @@ const POT := Color("c06a40", 0.9)
 const ASPHALTE := Color("7c7d7c", 0.95)
 const TROTTOIR := Color("c4bdae", 0.95)
 const PAVE := Color("a9a397", 0.95)
+const BORDURE := Color("dcd6c8", 0.9)
+
+## Autour de la cathédrale, les maisons ont leurs lucarnes et leurs chaînes d'angle maillées.
+const PRES_DE := Vector2(200.0, 340.0)
+## Les arbres à moins de cette distance de la place sont ceux de la bibliothèque, en dentelle.
+const PLACE_TILLEULS := 160.0
 
 ## Les numéros des bâtiments (dans bourg.json) qu'une scène bâtit elle-même.
 var passer := {2219: true}
@@ -52,8 +58,21 @@ func batir(parent: Node3D) -> void:
 		o.construire(parent, "Maisons_%d_%d" % [cle.x, cle.y])
 	_rues(parent)
 	var pts := []
+	# Autour de la place, les arbres en dentelle de la planche (arbres-d-ombriere@1) ; plus loin, les silhouettes.
+	var tilleul: PackedScene = load(Bibliotheque.scene("arbres-d-ombriere@1", "decor"))
 	for a in b.arbres:
-		pts.append([float(a[0]) * UNITE, float(a[1]) * UNITE])
+		var v := Vector2(float(a[0]), float(a[1])) * UNITE
+		if v.distance_to(PRES_DE) > PLACE_TILLEULS:
+			pts.append([v.x, v.y])
+			continue
+		var t: Node3D = tilleul.instantiate()
+		var g := absi(hash(v)) % 1000
+		t.set("arbre", "micocoulier" if g % 3 else "jeune_platane")
+		t.set("graine", g)
+		t.set("options", {"hauteur": 10.0 + float(g % 5)})
+		t.position = Vector3(v.x, hauteur.call(v.x, v.y) - 0.1, v.y)
+		t.rotation.y = float(g) * 0.37
+		parent.add_child(t)
 	ARBRES.planter(parent, pts, hauteur)
 
 
@@ -74,6 +93,9 @@ func maison(o: RefCounted, m: Dictionary, graine: int) -> void:
 		bas = minf(bas, y)
 		haut = maxf(haut, y)
 	var h: float = maxf(float(m.h) * UNITE, 2.6)
+	var dist := Vector2(m.rect[0], m.rect[1]).distance_to(PRES_DE / UNITE) * UNITE
+	var pres := dist < 160.0
+	var pres_chaines := dist < 90.0
 	var y0 := bas - 0.4
 	var egout := haut + h
 	var pierre: bool = m.mur == "pierre"
@@ -87,6 +109,20 @@ func maison(o: RefCounted, m: Dictionary, graine: int) -> void:
 			continue
 		var n := Vector3(e.y, 0, -e.x).normalized()
 		o.mur(Vector3(a.x, y0, a.y), Vector3(c.x, y0, c.y), egout - y0, n, col, rng.randi() % 256)
+		# Près de la cathédrale, les maisons de notable : leurs chaînes d'angle en pierre claire.
+		if pres_chaines and e.length() > 4.0:
+			var d := e.normalized()
+			var y := y0 + 0.4
+			var k2 := 0
+			while y < egout - 0.4:
+				var lg := 0.55 if k2 % 2 == 0 else 0.32
+				var q := a + d * lg * 0.5
+				var q2 := q + d * lg * 0.5
+				var q1 := q - d * lg * 0.5
+				var off := n * 0.03
+				o.quad(Vector3(q1.x, y, q1.y) + off, Vector3(q2.x, y, q2.y) + off, Vector3(q2.x, y + 0.38, q2.y) + off, Vector3(q1.x, y + 0.38, q1.y) + off, n, Color("eee6d4"), OUTILS.PIERRE)
+				y += 0.42
+				k2 += 1
 	# Le toit, sur le rectangle qui serre le plan.
 	var r: Array = m.rect
 	var centre := Vector2(r[0], r[1]) * UNITE
@@ -136,6 +172,16 @@ func maison(o: RefCounted, m: Dictionary, graine: int) -> void:
 	if croupe:
 		o.croupe(p3.call(D, ye), p3.call(A, ye), p3.call(F1, yf), toit, genre)
 		o.croupe(p3.call(B, ye), p3.call(Cc, ye), p3.call(F2, yf), toit, genre)
+	# Les lucarnes à fronton sur les longs pans, comme sur la planche.
+	if pres and lx > 8.0 and lz > 6.0 and montee > 2.0:
+		var nl := clampi(int((lx - 4.0) / 4.0), 1, 4)
+		for cote: float in [-1.0, 1.0]:
+			if rng.randf() < 0.3:
+				continue
+			for q in nl:
+				var x := (q - (nl - 1) * 0.5) * (lx - 4.0) / maxf(nl, 1)
+				var pied := centre + ux * x + uz * cote * (lz * 0.5 - 0.6)
+				lucarne(o, Vector3(pied.x, egout - 0.1 + 0.6 * montee / (lz * 0.5), pied.y), Vector3(uz.x, 0, uz.y) * cote, Vector3(ux.x, 0, ux.y), col, toit, genre)
 	else:
 		# Les pignons, de l'enduit de la maison, sous les rives.
 		for bout in [[A, D, F1, -1.0], [B, Cc, F2, 1.0]]:
@@ -162,6 +208,25 @@ func maison(o: RefCounted, m: Dictionary, graine: int) -> void:
 		for q in pots:
 			var px: Vector2 = pc + ux * ((q - (pots - 1) * 0.5) * 0.3)
 			o.cylindre(Transform3D(Basis(), Vector3(px.x, yc + 1.34, px.y)), 0.11, 0.09, 0.42, 6, POT, OUTILS.PEINT)
+
+
+## Une lucarne : sa façade d'enduit et sa fenêtre, son petit toit à deux pans ; pied p (sur le pan), n vers dehors.
+func lucarne(o: RefCounted, p: Vector3, n: Vector3, x: Vector3, col: Color, toit: Color, genre: int) -> void:
+	var b := Basis(x, Vector3.UP, n)
+	var t := Transform3D(b, p)
+	o.boite(t * Transform3D(Basis(), Vector3(0, 0.75, -0.6)), Vector3(1.3, 1.5, 1.2), col, OUTILS.PEINT)
+	o.boite(t * Transform3D(Basis(), Vector3(0, 0.72, 0.01)), Vector3(0.7, 1.0, 0.04), Color(0.18, 0.21, 0.25, 0.2), OUTILS.PEINT)
+	o.boite(t * Transform3D(Basis(), Vector3(0, 0.72, 0.0)), Vector3(0.86, 1.14, 0.03), Color("efe9dc", 0.9), OUTILS.PEINT)
+	o.boite(t * Transform3D(Basis(), Vector3(0, 0.72, 0.035)), Vector3(0.05, 1.0, 0.03), Color("efe9dc", 0.9), OUTILS.PEINT)
+	var g := t * Vector3(-0.8, 1.45, 0.1)
+	var d := t * Vector3(0.8, 1.45, 0.1)
+	var s := t * Vector3(0, 2.1, 0.1)
+	var g2 := t * Vector3(-0.8, 1.45, -1.3)
+	var d2 := t * Vector3(0.8, 1.45, -1.3)
+	var s2 := t * Vector3(0, 2.1, -1.3)
+	o.pan(g, g2, s2, s, toit, genre)
+	o.pan(d2, d, s, s2, toit, genre)
+	o.tri(t * Vector3(-0.65, 1.5, 0.0), t * Vector3(0.65, 1.5, 0.0), t * Vector3(0, 2.02, 0.0), n, col, OUTILS.PEINT)
 
 
 func _terrasse(o: RefCounted, poly: PackedVector2Array, y: float, col: Color) -> void:
@@ -201,6 +266,8 @@ func _rues(parent: Node3D) -> void:
 		else:
 			if k in AVEC_TROTTOIRS:
 				ruban(o, pts, l + 3.2, 0.1, TROTTOIR)
+				# La bordure de granit clair qui sépare le trottoir de la chaussée.
+				ruban(o, pts, l + 0.5, 0.12, BORDURE)
 			ruban(o, pts, l, 0.13, ASPHALTE)
 	for s in b.sols:
 		var poly := PackedVector2Array()

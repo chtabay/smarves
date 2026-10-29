@@ -11,7 +11,7 @@ void vertex() {
  VERTEX.z += sin(TIME * .63 + phase) * souffle * .6 * COLOR.a;
 }
 void fragment() {
- ALBEDO = pow(COLOR.rgb, vec3(2.2));
+ ALBEDO = COLOR.rgb;
  ROUGHNESS = .95;
  BACKLIGHT = ALBEDO * .35;
 }
