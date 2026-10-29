@@ -511,7 +511,7 @@ func _reliefs(i: int, b: Dictionary, poly: PackedVector2Array) -> Array:
 		for j in nb:
 			var q := a + u * w * (j + 0.5) + n * 0.02
 			var type: String = "etroite" if w < 6.5 else ["immeuble", "classique", "traboule", "immeuble", "classique"][(i * 5 + k * 3 + j) % 5]
-			var opt := {"w": w - 0.04, "d": 3.0, "niveaux": niveaux, "tuile": TUILES[(i + j) % TUILES.size()], "pente": 29.0, "chassis": 1 + (i + j) % 2, "souches": "grosses", "toile": TOILES[(i * 5 + k * 3 + j) % TOILES.size()]}
+			var opt := {"w": w - 0.04, "d": 3.0, "niveaux": niveaux, "tuile": TUILES[(i + j) % TUILES.size()], "pente": 29.0, "chassis": 1 + (i + j) % 2, "souches": "grosses", "toile": TOILES[(i * 5 + k * 3 + j) % TOILES.size()], "store": (i + k + j) % 2 == 0}
 			opt["enduit"] = (ENDUITS_PENTES if pentes else ENDUITS_PLACE)[(i + k + j) % 5]
 			if pentes:
 				opt["fleurs"] = false
@@ -742,7 +742,7 @@ func _heros_poser(i: int, b: Dictionary) -> void:
 		var x := -lu * 0.5 + w * (k + 0.5)
 		var p := front + u * x
 		var type := "classique"
-		var opt := {"w": w - 0.05, "d": lv, "niveaux": niveaux, "tuile": TUILES[(i + k) % TUILES.size()], "pente": 29.0, "chassis": 2, "souches": "grosses", "toile": TOILES[(i * 3 + k) % TOILES.size()]}
+		var opt := {"w": w - 0.05, "d": lv, "niveaux": niveaux, "tuile": TUILES[(i + k) % TUILES.size()], "pente": 29.0, "chassis": 2, "souches": "grosses", "toile": TOILES[(i * 3 + k) % TOILES.size()], "store": (i + k) % 2 == 0}
 		if est_mairie:
 			type = "hotel"
 			opt.merge({"enduit": "c6bca3", "persiennes": false, "fleurs": false, "niveaux": 3, "rdc": "pierre"}, true)
@@ -761,6 +761,7 @@ func _heros_poser(i: int, b: Dictionary) -> void:
 			if absf(p.x - (-14.0)) < 6.0 and p.y > -5.0 and p.y < 45.0 and k == 0:
 				type = "cafe"
 				opt["enseigne"] = "CAFÉ DU LION D'OR"
+				opt["store"] = true
 				opt["toile"] = ["b8352e", "f3ead6"]
 				opt["avancee"] = 2.4
 		var m: Node3D = load(Bibliotheque.scene(FACADIER, "decor")).instantiate()
@@ -841,7 +842,7 @@ func _place() -> void:
 			troncs.append(p)
 	for k in troncs.size():
 		var p: Vector2 = troncs[k]
-		_pose(OMBRIERE, "arbre", "marronnier", Vector3(p.x, y, p.y), 400 + k, {"hauteur": graines.randf_range(12.0, 16.0), "vent": 0.4, "densite": graines.randf_range(0.75, 0.95)})
+		_pose(OMBRIERE, "arbre", "marronnier", Vector3(p.x, y, p.y), 400 + k, {"hauteur": graines.randf_range(12.0, 16.0), "vent": 0.4, "densite": graines.randf_range(0.75, 0.95), "teinte": ["6e9440", "8ab04a", "4d6e33"]})
 	var massifs := 0
 	essais = 0
 	while massifs < 7 and essais < 2000:
