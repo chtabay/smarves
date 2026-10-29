@@ -84,6 +84,11 @@ void fragment() {
 	// Le soubassement et le bandeau d'égout.
 	col *= uv.y < 0.6 ? 0.86 : 1.0;
 	col = mix(col, vec3(0.93, 0.9, 0.84), step(hauteur - 0.35, uv.y));
+	// L'ombre de contact que peint la planche (le rendu de compatibilité n'a pas d'occlusion ambiante) : sous le
+	// débord du toit, sur 0,6 m, et au pied du mur, sur 0,4 m au-dessus du sol.
+	float sous_toit = smoothstep(hauteur - 0.95, hauteur - 0.35, uv.y) * (1.0 - step(hauteur - 0.35, uv.y));
+	float au_pied = 1.0 - smoothstep(0.4, 0.9, uv.y);
+	col *= (1.0 - 0.36 * sous_toit) * (1.0 - 0.3 * au_pied);
 	ALBEDO = col;
 	ROUGHNESS = 0.9;
 }

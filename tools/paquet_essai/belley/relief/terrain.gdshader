@@ -17,8 +17,8 @@ uniform float roche_pente = 0.6;   // sous ce cos de pente, la roche apparaît
 uniform float roche_pleine = 0.45;  // et couvre tout
 uniform float loin = 0.0;           // 1 sur les lointains : moins de grain, plus de lavis
 
-const vec3 PRE = vec3(0.56, 0.64, 0.32);
-const vec3 PRE_SEC = vec3(0.66, 0.64, 0.38);
+const vec3 PRE = vec3(0.49, 0.58, 0.29);
+const vec3 PRE_SEC = vec3(0.59, 0.58, 0.34);
 const vec3 FORET = vec3(0.20, 0.30, 0.13);
 const vec3 FORET_CLAIR = vec3(0.33, 0.44, 0.18);
 const vec3 HAIE = vec3(0.27, 0.38, 0.16);
@@ -181,6 +181,9 @@ void fragment() {
 	float rasant = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);
 	float ride = smoothstep(0.62, 0.8, fbm(vec2(xz.x * 0.08, xz.y * 0.5))) * pres;
 	col = mix(col, CIEL_REFLET, eau * clamp(0.25 + 0.6 * rasant + 0.25 * ride, 0.0, 0.85));
+	// La perspective atmosphérique de la note : les lointains passent au bleu gris, en trois plans.
+	float k = 1.0 - exp(-distance(monde, CAMERA_POSITION_WORLD) / 9000.0);
+	col = mix(col, vec3(0.58, 0.65, 0.68), k * 0.7);
 	// Les teintes sont écrites en sRGB, comme la palette de la note ; le rendu de compatibilité ne convertit pas
 	// sa sortie (mesuré : un albédo de 0,5 ressort à 0,5), on les lui donne donc telles quelles.
 	ALBEDO = col;

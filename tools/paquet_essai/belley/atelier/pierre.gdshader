@@ -59,7 +59,7 @@ void fragment() {
 	col = mix(col, base * 0.97, flou * 0.8);
 	// Le pied des murs : plus sombre sur le premier mètre.
 	float pied = 1.0 - smoothstep(0.0, 1.2, monde.y - sol);
-	col *= 1.0 - 0.18 * pied;
+	col *= 1.0 - 0.3 * pied;
 	ALBEDO = col;
 	ROUGHNESS = 0.88;
 }

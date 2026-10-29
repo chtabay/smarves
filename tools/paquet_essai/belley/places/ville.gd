@@ -7,6 +7,7 @@ extends RefCounted
 const OUTILS := preload("res://communes/belley/atelier/outils.gd")
 const ARBRES := preload("res://communes/belley/places/arbres.gd")
 const FENETRES := preload("res://communes/belley/atelier/fenetres.gd")
+const FACADIER := preload("res://bibliotheque/facadier-du-bugey/1/facadier.gd")
 const DOSSIER := "res://communes/belley/"
 const UNITE := 2.4
 
@@ -31,12 +32,17 @@ const PLACE_TILLEULS := 160.0
 ## Autour de la place, les fenêtres sont maillées (atelier/fenetres.gd), et visibles jusqu'à cette portée.
 const MAILLEES := 100.0
 const PORTEE_BAIES := 260.0
+## Sur la place même, les maisons sont celles du façadier du Bugey (facadier-du-bugey@1) : moellons, croupes,
+## lucarnes, balcons, volets de couleur, R+1 ou R+2 et un comble, comme sur la planche.
+const FACADIERS := 75.0
 
 ## Les numéros des bâtiments (dans bourg.json) qu'une scène bâtit elle-même.
 var passer := {2219: true}
 var hauteur: Callable
 ## Les fenêtres maillées du lot en cours.
 var baies: RefCounted
+## Le nœud où le façadier pose ses maisons.
+var noeud: Node3D
 var b: Dictionary
 
 
@@ -57,6 +63,9 @@ func batir(parent: Node3D) -> void:
 		if not lots.has(cle):
 			lots[cle] = []
 		lots[cle].append(i)
+	noeud = Node3D.new()
+	noeud.name = "Facadier"
+	parent.add_child(noeud)
 	for cle in lots:
 		var o := OUTILS.new(cle.x * 31 + cle.y)
 		baies = OUTILS.new(cle.x * 37 + cle.y)
@@ -106,6 +115,8 @@ func maison(o: RefCounted, m: Dictionary, graine: int) -> void:
 		haut = maxf(haut, y)
 	var h: float = maxf(float(m.h) * UNITE, 2.6)
 	var dist := Vector2(m.rect[0], m.rect[1]).distance_to(PRES_DE / UNITE) * UNITE
+	if dist < FACADIERS and float(m.rempli) >= 0.6 and _facadier(m, graine, rng):
+		return
 	var pres := dist < 160.0
 	var pres_chaines := dist < 90.0
 	var maillee := dist < MAILLEES
@@ -224,6 +235,33 @@ func maison(o: RefCounted, m: Dictionary, graine: int) -> void:
 		for q in pots:
 			var px: Vector2 = pc + ux * ((q - (pots - 1) * 0.5) * 0.3)
 			o.cylindre(Transform3D(Basis(), Vector3(px.x, yc + 1.34, px.y)), 0.11, 0.09, 0.42, 6, POT, OUTILS.PEINT)
+
+
+## La maison du façadier du Bugey sur le rectangle du plan, sa façade du côté de la rue (le champ face du bourg).
+## Rend faux si le plan ne s'y prête pas.
+func _facadier(m: Dictionary, graine: int, rng: RandomNumberGenerator) -> bool:
+	var r: Array = m.rect
+	var c := Vector2(r[0], r[1]) * UNITE
+	var lu: float = r[2] * UNITE
+	var lv: float = r[3] * UNITE
+	var ang: float = r[4]
+	if lu < 5.5 or lv < 5.0:
+		return false
+	var v := Vector2(-sin(ang), cos(ang)) * float(m.get("face", 1))
+	var u := Vector2(cos(ang), sin(ang))
+	var pied := c + v * lv * 0.5
+	var y := INF
+	for t: float in [-0.5, 0.0, 0.5]:
+		var q := pied + u * lu * t
+		y = minf(y, hauteur.call(q.x, q.y))
+	var h: float = maxf(float(m.h) * UNITE, 2.6)
+	var niveaux := clampi(int(round((h - 3.2) / 2.9)), 1, 2)
+	var type := "bourgeoise" if lu >= 10.0 else ("r2" if niveaux == 2 else "r1")
+	var couv := "ardoise" if m.toit == "ardoise" else ("tuile_vieillie" if rng.randf() < 0.65 else "tuile_rouge")
+	var opt := {"w": clampf(lu, 6.0, 14.0), "d": clampf(lv, 6.0, 12.0), "niveaux": niveaux, "couverture": couv, "fleurs": true, "mur": "moellons" if rng.randf() < 0.6 else "enduit"}
+	var n: Node3D = FACADIER.maison(noeud, Vector3(pied.x, y, pied.y), type, graine, opt)
+	n.rotation.y = atan2(v.x, v.y)
+	return true
 
 
 ## Une lucarne : sa façade d'enduit et sa fenêtre, son petit toit à deux pans ; pied p (sur le pan), n vers dehors.
