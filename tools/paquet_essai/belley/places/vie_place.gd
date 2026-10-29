@@ -7,6 +7,12 @@ extends RefCounted
 ##   VIE.new(hauteur).batir(parent)
 
 const PLACE := preload("res://communes/belley/places/place_cathedrale.gd")
+const OUTILS := preload("res://communes/belley/atelier/outils.gd")
+const BORDURE := Color("b3ab9c")
+const TROTTOIR := Color("c9bea8")
+## L'axe de la rue des Barons dans son tronçon d'arrivée, et sa demi-largeur de chaussée (bourg.json).
+const BARONS := [Vector2(117.0, 295.0), Vector2(128.0, 299.0), Vector2(159.0, 313.0), Vector2(165.0, 315.0)]
+const DEMI_CHAUSSEE := 2.5
 
 var hauteur: Callable
 
@@ -27,6 +33,7 @@ func batir(parent: Node3D) -> void:
 	var nrm := Vector2(-d.y, d.x)
 	var longueur := PLACE.ALLEE_A.distance_to(PLACE.ALLEE_B)
 	_course(n, d, nrm, longueur)
+	_trottoirs(n)
 	# Le côté ouvert de la rue des Barons, en descendant vers la place : un trottoir, sa bordure et une haie basse
 	# devant les jardins, au lieu d'un talus de pelouse (verdict n° 19).
 	var bugey: PackedScene = load(Bibliotheque.scene("vegetation-du-bugey@1", "decor"))
@@ -105,3 +112,30 @@ func _course(n: Node3D, d: Vector2, nrm: Vector2, longueur: float) -> void:
 		b.position = _p(PLACE.ALLEE_A + d * (6.0 + k * (longueur - 12.0) / 2.0) - nrm * 10.6, 0.17)
 		b.rotation.y = lacet + PI * 0.5
 		n.add_child(b)
+
+
+## Les trottoirs relevés des deux côtés de la rue des Barons, à l'arrivée sur la place (verdict n° 20) : le chant
+## de la bordure de granit, son dessus, puis 2,2 m de trottoir, recoupés tous les 2 m pour suivre la pente.
+func _trottoirs(n: Node3D) -> void:
+	var o := OUTILS.new(1035)
+	for i in BARONS.size() - 1:
+		var a: Vector2 = BARONS[i]
+		var c: Vector2 = BARONS[i + 1]
+		var dr := (c - a).normalized()
+		var nb := maxi(1, ceili(a.distance_to(c) / 2.0))
+		for cote: float in [-1.0, 1.0]:
+			var e := Vector2(-dr.y, dr.x) * cote
+			for k in nb:
+				var p0 := a.lerp(c, float(k) / nb) + e * DEMI_CHAUSSEE
+				var p1 := a.lerp(c, float(k + 1) / nb) + e * DEMI_CHAUSSEE
+				var y0: float = hauteur.call(p0.x, p0.y) + 0.13
+				var y1: float = hauteur.call(p1.x, p1.y) + 0.13
+				o.quad(Vector3(p0.x, y0, p0.y), Vector3(p1.x, y1, p1.y), Vector3(p1.x, y1 + 0.15, p1.y), Vector3(p0.x, y0 + 0.15, p0.y), Vector3(-e.x, 0, -e.y), BORDURE.darkened(0.08), OUTILS.PEINT)
+				var q0 := p0 + e * 0.25
+				var q1 := p1 + e * 0.25
+				o.quad(Vector3(p0.x, y0 + 0.15, p0.y), Vector3(p1.x, y1 + 0.15, p1.y), Vector3(q1.x, y1 + 0.15, q1.y), Vector3(q0.x, y0 + 0.15, q0.y), Vector3.UP, BORDURE, OUTILS.PEINT)
+				var r0 := p0 + e * 2.45
+				var r1 := p1 + e * 2.45
+				var t := TROTTOIR.darkened(float(absi(hash(Vector2i(k + i * 40, int(cote)))) % 5) * 0.012)
+				o.quad(Vector3(q0.x, y0 + 0.145, q0.y), Vector3(q1.x, y1 + 0.145, q1.y), Vector3(r1.x, y1 + 0.145, r1.y), Vector3(r0.x, y0 + 0.145, r0.y), Vector3.UP, t, OUTILS.PEINT)
+	o.construire(n, "TrottoirsBarons")

@@ -280,6 +280,8 @@ func _facadier(m: Dictionary, graine: int, rng: RandomNumberGenerator, leger := 
 	var type := "bourgeoise" if lu >= 10.0 else ("r2" if niveaux == 2 else "r1")
 	var couv := "ardoise" if m.toit == "ardoise" else ("tuile_vieillie" if rng.randf() < 0.65 else "tuile_rouge")
 	var opt := {"w": clampf(lu, 6.0, 14.0), "d": clampf(lv, 6.0, 12.0), "niveaux": niveaux, "couverture": couv, "fleurs": true, "mur": "moellons" if rng.randf() < 0.6 else "enduit"}
+	# Les enduits sourds de la note (sable, ocre pâle) : ceux de la brique sortent écrêtés à notre lumière.
+	opt["enduit"] = ["d2be98", "cdb894", "d8c6a2", "c9b08a"][graine % 4]
 	if leger:
 		opt.merge({"fleurs": false, "mur": "enduit", "vigne": false, "balcon": false, "auvent": false, "lanterne": false}, true)
 	var n: Node3D = FACADIER.maison(noeud, Vector3(pied.x, y, pied.y), type, graine, opt)

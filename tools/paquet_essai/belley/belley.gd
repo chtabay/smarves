@@ -67,13 +67,8 @@ func hauteur(x: float, z: float) -> float:
 
 
 func _ciel() -> void:
-	var ciel := ProceduralSkyMaterial.new()
-	ciel.sky_top_color = Color("6c9fd6")
-	ciel.sky_horizon_color = Color("d9dcd2")
-	ciel.sky_curve = 0.12
-	ciel.ground_horizon_color = Color("c9c8b8")
-	ciel.ground_bottom_color = Color("7d7c6a")
-	ciel.sun_angle_max = 20.0
+	var ciel := ShaderMaterial.new()
+	ciel.shader = load("res://communes/belley/atelier/ciel.gdshader")
 	var sky := Sky.new()
 	sky.sky_material = ciel
 	var env := Environment.new()
