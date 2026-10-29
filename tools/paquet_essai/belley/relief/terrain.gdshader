@@ -136,11 +136,12 @@ vec3 jardins(vec2 xz, float g) {
 	vec2 ia = floor(qa);
 	vec2 ca = ia + 0.5 + (vec2(h21(ia + cel), h21(ia + cel + 7.7)) - 0.5) * 0.5;
 	float ra = mix(0.25, 0.42, h21(ia + cel + 3.3));
-	vec3 verger = mix(pelouse, vec3(0.24, 0.34, 0.17), 1.0 - smoothstep(ra - 0.06, ra, length(qa - ca)));
+	// Les fruitiers sont en volume (places/jardins.gd) : au sol, seulement l'herbe plus drue du verger.
+	vec3 verger = pelouse * vec3(0.92, 0.96, 0.9);
 	vec3 col = h < 0.34 ? pelouse : (h < 0.56 ? potager : (h < 0.63 ? gravier : verger));
 	// Des massifs et des arbustes en fond de jardin, contre la haie.
 	float massif = smoothstep(0.6, 0.72, fbm(xz * 0.3 + 7.0)) * (1.0 - smoothstep(1.5, 3.5, f.y));
-	col = mix(col, vec3(0.24, 0.34, 0.18), massif * 0.85);
+	col = mix(col, col * 0.85, massif * 0.5);
 	// La limite : une haie sur certains côtés seulement, d'épaisseur variable, ou un simple changement d'herbe.
 	float e = mix(0.5, 1.2, fbm(xz * 0.3 + 11.0));
 	float bx = min(f.x, taille.x - f.x);
@@ -267,8 +268,8 @@ void fragment() {
 		// taches blanches sur les crêtes lointaines (verdict n° 11).
 		else rw *= 0.55;
 		// Et seulement là où le maillage se redresse : la barre suit les courbes du versant, pas les cases.
-		float raide = 1.0 - smoothstep(0.72, 0.9, normale.y + bord * 0.15);
-		float wr = smoothstep(0.42, 0.5, rw * raide + bord * 0.3);
+		float raide = 1.0 - smoothstep(0.78, 0.84, normale.y + bord * 0.15);
+		float wr = smoothstep(0.47, 0.5, rw * raide + bord * 0.3);
 		roc = max(roc, wr);
 		col = mix(col, roche(xz, monde.y, g, g2, pres, pr), wr);
 	}

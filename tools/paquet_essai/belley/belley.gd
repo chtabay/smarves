@@ -9,6 +9,7 @@ const CATHEDRALE := preload("res://communes/belley/places/cathedrale.gd")
 const VILLE := preload("res://communes/belley/places/ville.gd")
 const PLACE := preload("res://communes/belley/places/place_cathedrale.gd")
 const RELAIS := preload("res://communes/belley/places/relais.gd")
+const JARDINS := preload("res://communes/belley/places/jardins.gd")
 const ROUTES := preload("res://communes/belley/places/routes.gd")
 
 ## Les crans de la caméra de dessus : distance, tangage, champ, du plus près au plus loin (à taille d'homme).
@@ -39,6 +40,7 @@ func _ready() -> void:
 	_cathedrale()
 	VILLE.new(hauteur).batir(self)
 	PLACE.new(hauteur).batir(self)
+	JARDINS.new(hauteur).batir(self)
 	ROUTES.new(hauteur).batir(self)
 	RELAIS.new(hauteur).batir(self)
 	_reperes()

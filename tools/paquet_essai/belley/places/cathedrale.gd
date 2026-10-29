@@ -176,7 +176,7 @@ func pinacle(p: Vector3, s: float, h: float, col := C) -> void:
 		for q in 4:
 			var b := Basis(Vector3.UP, q * PI * 0.5 + PI * 0.25)
 			o.boite(Transform3D(b, p + Vector3(0, y, 0) + b * Vector3(0, 0, r)), Vector3(0.1, 0.16, 0.12), col)
-	o.boule(p + Vector3(0, h + 0.1, 0), Vector3(0.14, 0.16, 0.14), col, 0.1, OUTILS.PIERRE, 0.0)
+	o.profil(Transform3D(Basis(), p + Vector3(0, h - 0.05, 0)), PackedVector2Array([Vector2(-0.12, 0), Vector2(0.12, 0), Vector2(0, 0.4)]), -0.04, 0.04, col.darkened(0.06))
 
 
 ## Un contrefort à ressauts : pied en p (au nu du mur), largeur l, saillie s, hauteur h ; le glacis à chaque
@@ -357,7 +357,7 @@ func _tour() -> void:
 		var yv: float = etage[0]
 		var lx: float = etage[1]
 		var lz: float = etage[2]
-		for bande_v in [[0.0, 0.35, 0.16], [0.35, 0.8, 0.08]]:
+		for bande_v in [[0.0, 0.7, 0.2], [0.7, 1.6, 0.1]]:
 			var y1: float = yv - 0.17 - bande_v[0]
 			var y0: float = yv - 0.17 - bande_v[1]
 			var tv := C.darkened(bande_v[2])
@@ -392,7 +392,8 @@ func _tour() -> void:
 		bande(portail * Transform3D(Basis(), Vector3(0, 0, z)), ogive(l + 1.0, piedroit, (l + 1.0) * 0.55), ogive(l, piedroit, l * 0.55), 0.0, 0.45, C if k % 2 == 0 else OMBRE)
 	var fond := portail
 	var tymp := ogive(5.2, piedroit, 5.2 * 0.55)
-	o.profil(fond, tymp, 0.0, 0.04, C2)
+	# Le fond du tympan, plus sombre, 12 cm en retrait des figures : elles s'y détachent en contour net.
+	o.profil(fond, tymp, 0.0, 0.02, Color("9c9280"))
 	for s: float in [-1.0, 1.0]:
 		o.boite(fond * Transform3D(Basis(), Vector3(s * 1.2, 2.25, 0.08)), Vector3(2.2, 4.5, 0.1), Color(OUTILS.BOIS_PORTE, 0.6), OUTILS.PEINT)
 		for j in 3:
@@ -406,21 +407,21 @@ func _tour() -> void:
 	o.boule(st + Vector3(0, 1.55, 0), Vector3(0.15, 0.18, 0.15), C, 0.04, OUTILS.PIERRE, 0.0)
 	# Le tympan sculpté, en relief simple dans la teinte de la pierre : la mandorle autour du Baptiste, deux
 	# anges agenouillés de part et d'autre, le linteau à rinceaux.
-	bande(fond * Transform3D(Basis(), Vector3(0, 4.85, 0.04)), ogive(1.5, 0.9, 1.2), ogive(1.25, 0.9, 1.0), 0.0, 0.08, OMBRE)
+	bande(fond * Transform3D(Basis(), Vector3(0, 4.85, 0.02)), ogive(1.5, 0.9, 1.2), ogive(1.25, 0.9, 1.0), 0.0, 0.14, C)
 	for cote: float in [-1.0, 1.0]:
-		var ange := fond * Vector3(cote * 1.45, 4.85, 0.12)
+		var ange := fond * Vector3(cote * 1.45, 4.85, 0.14)
 		o.boite(Transform3D(Basis(Vector3.BACK, cote * 0.25), ange + Vector3(0, 0.35, 0)), Vector3(0.38, 0.7, 0.16), C)
 		o.boule(ange + Vector3(cote * -0.05, 0.85, 0), Vector3(0.12, 0.13, 0.1), C, 0.03, OUTILS.PIERRE, 0.0)
-		o.profil(Transform3D(Basis(), ange + Vector3(cote * 0.15, 0.4, -0.02)), PackedVector2Array([Vector2(0, 0), Vector2(cote * 0.5, 0.55), Vector2(0, 0.7)]), 0.0, 0.06, OMBRE)
+		o.profil(Transform3D(Basis(), ange + Vector3(cote * 0.15, 0.4, -0.06)), PackedVector2Array([Vector2(0, 0), Vector2(cote * 0.5, 0.55), Vector2(0, 0.7)]), 0.0, 0.12, C)
 	for k in 7:
-		o.boule(fond * Vector3(-1.95 + k * 0.65, 4.65, 0.32), Vector3(0.14, 0.09, 0.05), OMBRE, 0.05, OUTILS.PIERRE, 0.0)
+		o.boite(fond * Transform3D(Basis(Vector3.BACK, 0.785), Vector3(-1.95 + k * 0.65, 4.65, 0.32)), Vector3(0.16, 0.16, 0.05), C.darkened(0.06))
 	# Le gâble au-dessus du portail, ajouré d'une rose.
 	var gable := PackedVector2Array([Vector2(-4.2, 0), Vector2(4.2, 0), Vector2(0, 6.2)])
 	var tg := Transform3D(Basis(), Vector3(0, 9.3, zf + 1.35))
 	o.profil(tg, gable, -1.35, 0.0, C)
 	o.profil(tg, _contour(OUTILS.grossir(gable, 0.25), gable), 0.0, 0.12, OMBRE)
 	_oculus(tg * Transform3D(Basis(), Vector3(0, 2.3, 0.02)), 1.35, 8)
-	o.boule(tg * Vector3(0, 6.5, -0.15), Vector3(0.25, 0.35, 0.25), C, 0.15, OUTILS.PIERRE, 0.0)
+	o.profil(tg * Transform3D(Basis(), Vector3(0, 6.2, -0.15)), PackedVector2Array([Vector2(-0.22, 0), Vector2(0.22, 0), Vector2(0, 0.7)]), -0.12, 0.12, C.darkened(0.06))
 	# Les crochets le long des rampants, les trilobes aveugles de part et d'autre de la rose.
 	for cote: float in [-1.0, 1.0]:
 		for k in 6:
@@ -428,7 +429,7 @@ func _tour() -> void:
 			var q := Vector2(cote * 4.2 * (1.0 - f), 6.2 * f)
 			# Les crochets en crosse, de la teinte de la pierre : une tige qui sort du rampant et s'enroule.
 			o.boite(tg * Transform3D(Basis(Vector3.BACK, cote * 0.6), Vector3(q.x + cote * 0.1, q.y + 0.12, 0.05)), Vector3(0.07, 0.2, 0.07), OMBRE)
-			o.boule(tg * Vector3(q.x + cote * 0.16, q.y + 0.22, 0.05), Vector3(0.08, 0.07, 0.08), OMBRE, 0.1, OUTILS.PIERRE, 0.0)
+			o.boite(tg * Transform3D(Basis(Vector3.BACK, cote * 1.2), Vector3(q.x + cote * 0.16, q.y + 0.22, 0.05)), Vector3(0.14, 0.07, 0.08), C.darkened(0.06))
 		bande(tg * Transform3D(Basis(), Vector3(cote * 2.3, 0.35, 0.0)), ogive(1.1, 0.6, 0.7), ogive(0.8, 0.6, 0.5), 0.0, 0.1, OMBRE)
 		# Les pinacles qui encadrent le gâble, sur les contreforts du portail.
 		pinacle(Vector3(cote * 4.55, 9.3, zf + 1.1), 0.7, 6.0)
