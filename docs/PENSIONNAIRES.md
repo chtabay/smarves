@@ -236,6 +236,13 @@ capture d'écran : `smarves.pensionnaire_position(id)` donne sa position (x, z, 
 village) seulement quand il est dehors (`main`) ; dans une salle, rien de plus que le lieu. Essai :
 `supabase/tests/20261029230000_pensionnaire_position.sql`.
 
+Enfin, ses **dernières vues du jeu** (décision du 29/10) : l'image que le jeu du pilote produit déjà à chaque
+geste pour l'assistant, sans en fabriquer une de plus. `smarves.doublure_vues` garde la dernière de chaque
+sorte (`oeil` à pied dehors, `dessus` la caméra qui le suit, `dedans` dans un lieu), écrasée à chaque
+nouvelle image, effacée au bout de trente jours. On y voit ce qu'il voit, autres joueurs et bulles compris :
+elles ne sortent que vers son créateur, après un accord qui le dit (Lasso). Lecture :
+`smarves.pensionnaire_vues(id)`, aux mêmes conditions. Essai : `supabase/tests/20261029235000_pensionnaire_vues.sql`.
+
 ## 5. Son histoire, sa mémoire, ses relations
 
 Tout ce qu'il vit est gardé, et lui est rendu à chaque réveil :

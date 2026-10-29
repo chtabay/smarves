@@ -681,6 +681,8 @@ func geste(g: Dictionary) -> Dictionary:
 	var img := await image()
 	if img != "":
 		r["image"] = img
+		# De quelle vue il s'agit : à pied (« oeil ») ou la caméra de dessus qui le suit (« dessus »).
+		r["image_vue"] = image_vue()
 	if not entendu.is_empty():
 		r["entendu"] = entendu.duplicate()
 		entendu.clear()
@@ -702,6 +704,14 @@ func image() -> String:
 	if img.get_width() > IMAGE_LARGE:
 		img.resize(IMAGE_LARGE, int(round(IMAGE_LARGE * img.get_height() / float(img.get_width()))), Image.INTERPOLATE_BILINEAR)
 	return Marshalls.raw_to_base64(img.save_jpg_to_buffer(IMAGE_QUALITE))
+
+
+## La caméra qui a fait l'image : « dessus » quand la caméra de maquette le suit, « oeil » à pied.
+func image_vue() -> String:
+	var j := joueur()
+	if j != null and "follow_camera" in j and j.get("follow_camera") != null:
+		return "dessus"
+	return "oeil"
 
 
 func _attendre(s: float) -> void:

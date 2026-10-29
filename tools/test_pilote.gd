@@ -122,6 +122,15 @@ func _init() -> void:
 		check(r.ok and P.joueur().global_position.y > y0 + 3.0, "il monte l'escalier jusqu'à elle : %s (%.1f m -> %.1f m)" % [r.dit, y0, P.joueur().global_position.y])
 	r = await P.geste({"geste": "dire", "texte": "Bonne soirée à tous !"})
 	check(r.ok and root.get_node("Presences").etat_libre.get("dit") == "Bonne soirée à tous !", "dire : la phrase part en bulle avec sa position")
+	# L'image dit de quelle caméra elle vient : à pied, puis la caméra de dessus qui le suit.
+	var j: CharacterBody3D = P.joueur()
+	check(P.image_vue() == "oeil", "à pied : l'image est sa vue (oeil)")
+	var cam := Camera3D.new()
+	j.add_child(cam)
+	j.follow_camera = cam
+	check(P.image_vue() == "dessus", "caméra qui le suit : l'image est la vue de dessus")
+	j.follow_camera = null
+	cam.queue_free()
 	var pres: Node = root.get_node("Presences")
 	pres.presents["essai-voisin"] = {"nom": "Paulette", "tenue": "", "noeud": null, "points": [], "vu": -1000.0,
 		"a_portee": true, "part": -1.0, "etat": {}}
