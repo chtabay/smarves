@@ -102,8 +102,8 @@ vec3 roche(vec2 xz, float y, float g, float g2, float pres, float pr) {
 	vec3 bandeau = mix(ROCHE_LOIN, ROCHE_LOIN * vec3(0.86, 0.85, 0.82), smoothstep(0.35, 0.65, banc));
 	bandeau = mix(bandeau, mix(bandeau, FORET * 1.3, 0.6), vire_loin * 0.5);
 	// Les couloirs verticaux que l'eau a lavés : des traînées sombres qui font la paroi, par contraste.
-	float couloir_loin = smoothstep(0.55, 0.72, fbm(vec2(h * 0.035, y * 0.004) + 41.0));
-	bandeau = mix(bandeau, ROCHE_OMBRE * 0.85, couloir_loin * 0.6);
+	float couloir_loin = smoothstep(0.66, 0.72, fbm(vec2(h * 0.07 + fbm(vec2(h * 0.01, y * 0.02)) * 3.0, y * 0.006) + 41.0));
+	bandeau = mix(bandeau, ROCHE_OMBRE * 0.85, couloir_loin * 0.55);
 	// Les couloirs gris ne se lisent qu'au pied de la barre (moins de 300 m) ; au-delà, le bandeau crème.
 	return mix(bandeau, r, pr);
 }
@@ -112,33 +112,43 @@ vec3 roche(vec2 xz, float y, float g, float g2, float pres, float pr) {
 // 18 m, chacun pelouse, potager à planches ou cour de gravier blond, bordés de haies sombres et de murets clairs ;
 // vus d'en haut, des jardins comme sur la planche, pas des aplats de terrain vague (verdict n° 3).
 vec3 jardins(vec2 xz, float g) {
-	float a = 0.52;
-	vec2 q = mat2(vec2(cos(a), sin(a)), vec2(-sin(a), cos(a))) * xz;
-	vec2 taille = vec2(10.0, 8.0);
-	vec2 cel = floor(q / taille);
-	float dec = h21(vec2(cel.y, 2.7));
-	q.x += dec * taille.x;
-	cel = floor(q / taille);
-	vec2 f = fract(q / taille) * taille;
-	float bord = min(min(f.x, taille.x - f.x), min(f.y, taille.y - f.y));
+	// Le parcellaire n'est pas une grille : les lanières suivent la rue, chacune de sa profondeur (7 à 13 m), et
+	// se recoupent en jardins de 6 à 16 m ; un bruit tord les limites d'un bon mètre (verdict n° 10 : le damier).
+	vec2 w = vec2(fbm(xz * 0.08 + 2.0), fbm(xz * 0.08 + 19.0)) - 0.5;
+	float a = 0.52 + (fbm(xz * 0.004) - 0.5) * 0.6;
+	vec2 q = mat2(vec2(cos(a), sin(a)), vec2(-sin(a), cos(a))) * xz + w * 3.0;
+	float rangee = floor(q.y / 10.0);
+	float prof = mix(7.0, 13.0, h21(vec2(rangee, 4.1)));
+	float y0 = rangee * 10.0;
+	float fy = q.y - y0;
+	if (fy > prof) { rangee += 0.5; fy -= prof; prof = 10.0 - prof; }
+	float long_ = mix(6.0, 16.0, h21(vec2(rangee, 8.3)));
+	float xq = q.x + h21(vec2(rangee, 2.7)) * long_;
+	vec2 cel = vec2(floor(xq / long_), rangee);
+	vec2 f = vec2(xq - cel.x * long_, fy);
+	vec2 taille = vec2(long_, prof);
 	float h = h21(cel);
-	vec3 pelouse = mix(vec3(0.45, 0.52, 0.31), vec3(0.39, 0.47, 0.27), h21(cel + 3.1)) * (0.94 + 0.1 * fbm(xz * 0.5));
-	vec3 potager = mix(vec3(0.52, 0.42, 0.30), vec3(0.36, 0.50, 0.24), step(0.5, fract(f.y / 1.4)));
-	vec3 gravier = vec3(0.78, 0.72, 0.60) * (0.95 + 0.08 * fbm(xz * 2.0));
-	pelouse *= mix(0.85, 1.12, h21(cel + 5.3));
-	// Le verger : des ronds sombres de pommiers en quinconce sur l'herbe.
-	vec2 qf = fract(f / 3.5) - 0.5;
-	vec3 verger = mix(pelouse, vec3(0.22, 0.34, 0.15), 1.0 - smoothstep(0.22, 0.32, length(qf)));
-	vec3 col = h < 0.3 ? pelouse : (h < 0.48 ? potager : (h < 0.6 ? gravier : verger));
-	// Un massif ou un arbuste par-ci par-là, des taches sombres dans les pelouses.
-	float massif = smoothstep(0.62, 0.72, fbm(xz * 0.35 + 7.0));
-	col = mix(col, vec3(0.24, 0.36, 0.17), massif * 0.8 * step(h, 0.3));
-	// La haie (ou le muret) en limite de parcelle, et son ombre portée d'un côté.
-	float haie = 1.0 - smoothstep(0.7, 1.1, bord);
-	vec3 limite = h21(cel + 9.0) < 0.7 ? vec3(0.20, 0.31, 0.15) : vec3(0.66, 0.60, 0.49);
-	col = mix(col, col * 0.62, (1.0 - smoothstep(1.1, 2.4, f.y)) * 0.8);
+	vec3 pelouse = mix(vec3(0.43, 0.50, 0.31), vec3(0.39, 0.46, 0.28), h21(cel + 3.1)) * (0.93 + 0.12 * fbm(xz * 0.4));
+	vec3 potager = mix(vec3(0.48, 0.41, 0.31), vec3(0.37, 0.47, 0.26), smoothstep(0.35, 0.65, fract(f.y / 1.3)));
+	vec3 gravier = vec3(0.70, 0.65, 0.55) * (0.95 + 0.08 * fbm(xz * 2.0));
+	// Le verger : des fruitiers à peu près alignés, chacun de sa taille.
+	vec2 qa = f / 4.0;
+	vec2 ia = floor(qa);
+	vec2 ca = ia + 0.5 + (vec2(h21(ia + cel), h21(ia + cel + 7.7)) - 0.5) * 0.5;
+	float ra = mix(0.25, 0.42, h21(ia + cel + 3.3));
+	vec3 verger = mix(pelouse, vec3(0.24, 0.34, 0.17), 1.0 - smoothstep(ra - 0.06, ra, length(qa - ca)));
+	vec3 col = h < 0.5 ? pelouse : (h < 0.62 ? potager : (h < 0.7 ? gravier : verger));
+	// Des massifs et des arbustes en fond de jardin, contre la haie.
+	float massif = smoothstep(0.6, 0.72, fbm(xz * 0.3 + 7.0)) * (1.0 - smoothstep(1.5, 3.5, f.y));
+	col = mix(col, vec3(0.24, 0.34, 0.18), massif * 0.85);
+	// La limite : une haie sur certains côtés seulement, d'épaisseur variable, ou un simple changement d'herbe.
+	float e = mix(0.5, 1.2, fbm(xz * 0.3 + 11.0));
+	float bx = min(f.x, taille.x - f.x);
+	float by = min(f.y, taille.y - f.y);
+	float haie = max((1.0 - smoothstep(e, e + 0.3, bx)) * step(0.4, h21(cel + 9.0)), (1.0 - smoothstep(e, e + 0.3, by)) * step(0.3, h21(cel + 12.0)));
+	vec3 limite = h21(cel + 9.0) < 0.85 ? vec3(0.21, 0.31, 0.16) : vec3(0.62, 0.57, 0.47);
+	col = mix(col, col * 0.7, (1.0 - smoothstep(e + 0.3, e + 1.6, f.y)) * 0.7);
 	col = mix(col, limite, haie);
-	// Des teintes sourdes, comme les cœurs d'îlot de la planche, pas un damier vert vif (verdict n° 5).
 	col = mix(col, vec3(dot(col, vec3(0.33))) * vec3(1.02, 1.0, 0.92), 0.22);
 	return col * (0.95 + 0.08 * g);
 }
@@ -157,7 +167,7 @@ float sous_crete(vec2 xz) {
 float barre(vec2 xz, float d) {
 	float n = fbm(xz * 0.02 + 5.0) - 0.5;
 	float haut = smoothstep(57.0, 60.0, d + n * 6.0);
-	float pied = 1.0 - smoothstep(95.0, 125.0, d + (fbm(xz * 0.06 + 13.0) - 0.5) * 50.0);
+	float pied = 1.0 - smoothstep(72.0, 80.0, d + (fbm(xz * 0.06 + 13.0) - 0.5) * 16.0);
 	return haut * pied * smoothstep(0.36, 0.46, fbm(xz * 0.012 + 31.0));
 }
 
@@ -203,7 +213,10 @@ void fragment() {
 	if (uv.x >= 0.0 && uv.y >= 0.0 && uv.x <= 1.0 && uv.y <= 1.0) {
 		// Le proche : une classe par point, le bord des zones tremble un peu, comme une lisière.
 		vec2 j = vec2(fbm(xz * 0.05), fbm(xz * 0.05 + 17.0)) - 0.5;
-		int c = classe(xz + j * 6.0);
+		// Le relevé est à 5 m : on déplace la lecture de deux à trois cases par un bruit à deux échelles, pour que les
+		// lisières ne fassent plus de marches d'escalier sur les versants (verdict n° 10).
+		vec2 j2 = vec2(fbm(xz * 0.17 + 3.0), fbm(xz * 0.17 + 29.0)) - 0.5;
+		int c = classe(xz + j * 18.0 + j2 * 7.0);
 		// Dans la ville, les rues sont maillées (places/ville.gd) : la couverture n'y dessine que les jardins.
 		bool ville = abs(xz.x) < 790.0 && abs(xz.y) < 790.0;
 		if (ville && (c == 8 || (c == 0 && length(xz - vec2(150.0, 250.0)) < 420.0))) c = 9;
@@ -265,6 +278,10 @@ void fragment() {
 	// que la forêt : c'est le contraste qui fait la paroi, pas la blancheur.
 	if (xz.x > 7300.0) {
 		roc = max(roc, r);
+		// Les éboulis au pied de la barre : un cône de pierraille grise, moucheté, qui mord sur la forêt.
+		float pierraille = smoothstep(74.0, 80.0, dsc) * (1.0 - smoothstep(84.0, 98.0, dsc + (fbm(xz * 0.05 + 7.0) - 0.5) * 20.0));
+		pierraille *= smoothstep(0.36, 0.46, fbm(xz * 0.012 + 31.0)) * step(0.45, h21(floor(xz * 0.6)));
+		col = mix(col, mix(ROCHE, ROCHE_OMBRE, h21(floor(xz * 0.6) + 1.7)), pierraille * 0.55 * (1.0 - smoothstep(0.85, 0.95, normale.y)));
 		float trait = smoothstep(57.0, 59.0, dsc) * (1.0 - smoothstep(61.0, 65.0, dsc));
 		col = mix(col, OMBRE_BORD, roc * trait * 0.85);
 		float contre = 1.0 - smoothstep(-0.1, 0.35, dot(normale, normalize(vec3(-0.75, 0.47, 0.47))));
