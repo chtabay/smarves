@@ -17,7 +17,7 @@ const ROUTES := preload("res://communes/belley/places/routes.gd")
 const CRANS := [[5.0, -38.0, 50.0], [9.0, -48.0, 50.0], [16.0, -58.0, 50.0]]
 
 ## La lumière de la note : fin septembre vers 16 h, le soleil au sud-ouest, à 28°, crème chaud.
-const SOLEIL := {"hauteur": 28.0, "vient_de": 238.0, "couleur": Color("fff0dc"), "force": 0.85}
+const SOLEIL := {"hauteur": 28.0, "vient_de": 238.0, "couleur": Color("fff0dc"), "force": 0.45}
 
 ## Les trois scènes fortes et l'arrivée : [x, z, lacet en degrés (0 : regarde le nord, 90 : l'est)].
 const REPERES := {
@@ -75,15 +75,18 @@ func _ciel() -> void:
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.35
+	env.ambient_light_energy = 0.22
 	# Des ombres chaudes, comme sur la planche : une part de lumière ambiante crème, une part de ciel.
 	env.ambient_light_color = Color("e2dccf")
 	env.ambient_light_sky_contribution = 0.6
+	# Linéaire : en ACES (blanc 1,6), le rendu de compatibilité délave tout, mesuré (verdict n° 21). Les faces au
+	# soleil écrêtaient (#FFFFD0 sur un enduit #D2BE98) : mesuré sur une carte témoin, un
+	# soleil à 0,45 et un ambiant à 0,22 rendent l'enduit #E8CF98, sans écrêter.
 	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	# L'étalonnage des planches : plus saturé, un peu plus contrasté (mesuré : le rendu de compatibilité l'honore).
 	env.adjustment_enabled = true
 	env.adjustment_saturation = 1.15
-	env.adjustment_contrast = 1.08
+	env.adjustment_contrast = 1.12
 	# La brume de distance : les crêtes à 15 km passent au bleu gris, sans disparaître.
 	env.fog_enabled = true
 	env.fog_mode = Environment.FOG_MODE_EXPONENTIAL
