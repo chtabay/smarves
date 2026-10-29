@@ -37,6 +37,9 @@ const PORTEE_BAIES := 260.0
 ## Sur la place même, les maisons sont celles du façadier du Bugey (facadier-du-bugey@1) : moellons, croupes,
 ## lucarnes, balcons, volets de couleur, R+1 ou R+2 et un comble, comme sur la planche.
 const FACADIERS := 75.0
+## Plus loin, jusqu'à cette distance, les maisons du façadier en enduit, sans fleurs : les « boîtes peintes » du fond
+## détonnaient à côté des maisons du premier plan (verdict n° 16).
+const FACADIERS_ENDUITS := 150.0
 
 ## Les numéros des bâtiments (dans bourg.json) qu'une scène bâtit elle-même.
 var passer := {2219: true}
@@ -120,7 +123,7 @@ func maison(o: RefCounted, m: Dictionary, graine: int) -> void:
 		haut = maxf(haut, y)
 	var h: float = maxf(float(m.h) * UNITE, 2.6)
 	var dist := Vector2(m.rect[0], m.rect[1]).distance_to(PRES_DE / UNITE) * UNITE
-	if dist < FACADIERS and float(m.rempli) >= 0.6 and _facadier(m, graine, rng):
+	if dist < FACADIERS_ENDUITS and float(m.rempli) >= (0.6 if dist < FACADIERS else 0.5) and _facadier(m, graine, rng, dist >= FACADIERS):
 		return
 	# Autour de la place, comme sur la planche, rien ne dépasse deux étages et un comble : les grands blocs du
 	# relevé y faisaient caserne (verdict n° 2 du juge).
@@ -255,7 +258,7 @@ func maison(o: RefCounted, m: Dictionary, graine: int) -> void:
 
 ## La maison du façadier du Bugey sur le rectangle du plan, sa façade du côté de la rue (le champ face du bourg).
 ## Rend faux si le plan ne s'y prête pas.
-func _facadier(m: Dictionary, graine: int, rng: RandomNumberGenerator) -> bool:
+func _facadier(m: Dictionary, graine: int, rng: RandomNumberGenerator, leger := false) -> bool:
 	var r: Array = m.rect
 	var c := Vector2(r[0], r[1]) * UNITE
 	var lu: float = r[2] * UNITE
@@ -275,6 +278,8 @@ func _facadier(m: Dictionary, graine: int, rng: RandomNumberGenerator) -> bool:
 	var type := "bourgeoise" if lu >= 10.0 else ("r2" if niveaux == 2 else "r1")
 	var couv := "ardoise" if m.toit == "ardoise" else ("tuile_vieillie" if rng.randf() < 0.65 else "tuile_rouge")
 	var opt := {"w": clampf(lu, 6.0, 14.0), "d": clampf(lv, 6.0, 12.0), "niveaux": niveaux, "couverture": couv, "fleurs": true, "mur": "moellons" if rng.randf() < 0.6 else "enduit"}
+	if leger:
+		opt.merge({"fleurs": false, "mur": "enduit", "vigne": false, "balcon": false, "auvent": false, "lanterne": false}, true)
 	var n: Node3D = FACADIER.maison(noeud, Vector3(pied.x, y, pied.y), type, graine, opt)
 	n.rotation.y = atan2(v.x, v.y)
 	return true

@@ -22,6 +22,9 @@ const PAS := 3.5
 const JARDINS := [0, 2, 5, 6, 8]
 ## L'angle du parcellaire, celui du shader du sol (relief/terrain.gdshader, jardins).
 const ANGLE := 0.52
+## Le repère du joueur sur la place (belley.gd, Vue1_Cathedrale) et le rayon où les plantes sont celles de la brique.
+const REPERE := Vector2(165.0, 318.0)
+const PRES := 55.0
 
 var hauteur: Callable
 
@@ -125,25 +128,25 @@ func batir(parent: Node3D) -> void:
 		if poses[k].is_empty():
 			continue
 		var e: Array = essences[k]
-		PLANTE.pousser(tmp, Vector3.ZERO, e[0], e[1], e[2])
-		var mi: MeshInstance3D = null
-		for enfant in tmp.get_children():
-			if enfant is MeshInstance3D:
-				mi = enfant
-		var mm := MultiMesh.new()
-		mm.transform_format = MultiMesh.TRANSFORM_3D
-		mm.mesh = mi.mesh
-		mm.instance_count = poses[k].size()
-		for q in poses[k].size():
-			mm.set_instance_transform(q, poses[k][q])
-		var mmi := MultiMeshInstance3D.new()
-		mmi.name = "%s_%d" % [e[0], k]
-		mmi.multimesh = mm
-		mmi.visibility_range_end = 420.0
-		noeud.add_child(mmi)
-		for enfant in tmp.get_children():
-			tmp.remove_child(enfant)
-			enfant.free()
+		# Près du joueur (à moins de PRES du repère de la place), la plante de la bibliothèque ; plus loin, sa
+		# silhouette basse définition, cinquante fois plus légère (une plante de la brique fait 6 000 à 9 000
+		# triangles, il y en a plus de mille).
+		var proches := []
+		var loin := []
+		for t: Transform3D in poses[k]:
+			(proches if Vector2(t.origin.x, t.origin.z).distance_to(REPERE) < PRES else loin).append(t)
+		if not proches.is_empty():
+			PLANTE.pousser(tmp, Vector3.ZERO, e[0], e[1], e[2])
+			var mi: MeshInstance3D = null
+			for enfant in tmp.get_children():
+				if enfant is MeshInstance3D:
+					mi = enfant
+			_semer(noeud, "%s_%d" % [e[0], k], mi.mesh, proches, PRES + 60.0)
+			for enfant in tmp.get_children():
+				tmp.remove_child(enfant)
+				enfant.free()
+		if not loin.is_empty():
+			_semer(noeud, "%s_%d_loin" % [e[0], k], _silhouette(e), loin, 420.0)
 	tmp.free()
 
 
@@ -206,3 +209,49 @@ func _cathedrale(v: Vector2) -> bool:
 	var o: Vector2 = CATHEDRALE.ORIGINE
 	var p := Geometry2D.get_closest_point_to_segment(v, o + dehors * 14.0, o - dehors * 75.0)
 	return p.distance_to(v) < 16.0
+
+
+func _semer(noeud: Node3D, nom: String, mesh: Mesh, poses: Array, portee: float) -> void:
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = mesh
+	mm.instance_count = poses.size()
+	for q in poses.size():
+		mm.set_instance_transform(q, poses[q])
+	var mmi := MultiMeshInstance3D.new()
+	mmi.name = nom
+	mmi.multimesh = mm
+	mmi.visibility_range_end = portee
+	noeud.add_child(mmi)
+
+
+## La silhouette basse définition d'une essence : quelques boules de feuillage de ses verts, un fût.
+func _silhouette(e: Array) -> Mesh:
+	var o: RefCounted = OUTILS.new(int(e[1]) * 31)
+	var verts: Array = PLANTE.VERTS[e[0]].map(func(h): return Color(h))
+	var opt: Dictionary = e[2]
+	var tmp := Node3D.new()
+	match str(e[0]):
+		"cerisier":
+			var h := float(opt.get("hauteur", 4.5))
+			o.cylindre(Transform3D(Basis(), Vector3.ZERO), 0.14, 0.1, h * 0.4, 5, Color("6a5444"), OUTILS.PEINT, false)
+			for q in 4:
+				var a := q * TAU / 4.0 + 0.4
+				var c := Vector3(cos(a) * h * 0.16, h * (0.62 + 0.06 * (q % 2)), sin(a) * h * 0.16)
+				o.boule(c, Vector3(h * 0.24, h * 0.2, h * 0.24), verts[q % verts.size()], 0.15, OUTILS.FEUILLE, 0.05, 0.4, 3, 6)
+			o.boule(Vector3(0, h * 0.82, 0), Vector3(h * 0.22, h * 0.18, h * 0.22), verts[0], 0.15, OUTILS.FEUILLE, 0.05, 0.4, 3, 6)
+		"arbuste_fleuri":
+			var h := float(opt.get("hauteur", 1.5))
+			var fleur := Color(str(opt.get("fleurs", "f4f0e6")))
+			o.boule(Vector3(0, h * 0.5, 0), Vector3(h * 0.55, h * 0.5, h * 0.55), verts[1], 0.2, OUTILS.FEUILLE, 0.05, 0.3, 3, 6)
+			for q in 5:
+				var a := q * TAU / 5.0
+				o.boule(Vector3(cos(a) * h * 0.4, h * (0.6 + 0.08 * (q % 2)), sin(a) * h * 0.4), Vector3(0.12, 0.1, 0.12), fleur, 0.0, OUTILS.FEUILLE, 0.0, 0.3, 2, 4)
+		_:
+			var l := float(opt.get("longueur", 4.0))
+			var h := float(opt.get("hauteur", 1.1))
+			o.boule(Vector3(0, h * 0.5, 0), Vector3(l * 0.52, h * 0.5, 0.45), verts[1], 0.1, OUTILS.FEUILLE, 0.05, 0.2, 3, 8)
+	var mi: MeshInstance3D = o.construire(tmp, "silhouette")
+	var mesh := mi.mesh
+	tmp.free()
+	return mesh
