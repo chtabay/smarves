@@ -76,9 +76,8 @@ func _ciel() -> void:
 	env.ambient_light_energy = 1.15
 	env.ambient_light_sky_contribution = 0.85
 	env.tonemap_mode = Environment.TONE_MAPPER_AGX
-	env.glow_enabled = true
-	env.glow_intensity = 0.55
-	env.glow_bloom = 0.08
+	# Sans halo (Guillaume, 29 octobre : « les flash sont inutiles »).
+	env.glow_enabled = false
 	# L'étalonnage de l'image cible : plus saturé, un peu plus contrasté, chaud.
 	env.adjustment_enabled = true
 	env.adjustment_saturation = 1.18
@@ -246,6 +245,8 @@ func _ilots() -> void:
 	var faces := PackedVector3Array()
 	var composes: Dictionary = SAINT_GEORGES.batiments_composes(self)
 	for b in data.batiments:
+		if SAINT_GEORGES.FANTOMES.has(int(b.i)):
+			continue
 		var poly := _horaire(b.poly)
 		if not _dans(poly, fermeture):
 			continue
