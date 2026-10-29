@@ -5,6 +5,7 @@ extends SceneTree
 ##   --vue=arbres     les cinq espèces sur trois graines, au pied nu, en grille et en bordure
 ##   --vue=mobilier   chaque objet du mobilier, avec son nom
 ##   --vue=facadier   les six pignons sur deux graines, en rangée
+##   --vue=detail     la même rangée vue en enfilade, pour lire le relief des façades
 ##   --vue=place      une place entière : façades tout autour, arbres, fontaine, marché, terrasse
 ##   --vue=rue        la place au ras du pavé, à hauteur d'œil
 ## Sans carte graphique : xvfb-run avec --rendering-driver opengl3.
@@ -55,7 +56,7 @@ func _init() -> void:
 				_objet(p, objets[i], i + 3)
 				_etiquette(p + Vector3(0, 0.3, 1.9), objets[i], 0.0045)
 			cam.look_at_from_position(Vector3(0.5, 16, 21), Vector3(0.5, 0.4, 0.4))
-		"facadier":
+		"facadier", "detail":
 			_sol(Vector2(90, 60), Color("cdb98f"))
 			var types: Array = load(Bibliotheque.scene(FACADIER, "decor")).instantiate().types()
 			for rang in 2:
@@ -64,10 +65,14 @@ func _init() -> void:
 					var m := _maison(Vector3(x, 0, rang * -22.0), 0.0, t, rang * 10 + types.find(t) + 1, {})
 					var w: float = m.get_meta("w")
 					m.position.x += w * 0.5
-					if rang == 0:
+					if rang == 0 and vue == "facadier":
 						_etiquette(Vector3(x + w * 0.5, 0.05, 2.5), t)
 					x += w + 0.4
-			cam.look_at_from_position(Vector3(-2, 14, 46), Vector3(-2, 8, -8))
+			if vue == "facadier":
+				cam.look_at_from_position(Vector3(-2, 14, 46), Vector3(-2, 8, -8))
+			else:
+				cam.fov = 50
+				cam.look_at_from_position(Vector3(-34, 3.0, 9), Vector3(-14, 7.5, -1))
 		"place", "rue":
 			_place()
 			if vue == "place":

@@ -67,35 +67,52 @@ static func maison(parent: Node3D, p: Vector3, type: String, graine: int, opt :=
 			porte = _passage(o, w)
 		_:
 			porte = _logis(o, w, rdc == "pierre", forme, enduit)
-	# les bandeaux entre les niveaux et la corniche
-	o.boite(Transform3D(Basis(), Vector3(0, RDC, 0.08)), Vector3(w + 0.04, 0.2, 0.18), CREME)
+	# les bandeaux entre les niveaux, profilés en deux ressauts, et la corniche à modillons
+	o.boite(Transform3D(Basis(), Vector3(0, RDC, 0.14)), Vector3(w + 0.06, 0.24, 0.3), CREME)
+	o.boite(Transform3D(Basis(), Vector3(0, RDC - 0.17, 0.08)), Vector3(w + 0.02, 0.1, 0.18), CREME.darkened(0.05))
 	for i in range(1, niveaux):
-		o.boite(Transform3D(Basis(), Vector3(0, RDC + i * ETAGE, 0.06)), Vector3(w + 0.02, 0.12, 0.13), CREME)
-	o.boite(Transform3D(Basis(), Vector3(0, H - 0.14, 0.12)), Vector3(w + 0.16, 0.28, 0.26), CREME)
-	o.boite(Transform3D(Basis(), Vector3(0, H + 0.04, 0.2)), Vector3(w + 0.3, 0.12, 0.42), CREME.darkened(0.04))
-	# les chaînes d'angle, harpées
+		o.boite(Transform3D(Basis(), Vector3(0, RDC + i * ETAGE, 0.1)), Vector3(w + 0.04, 0.16, 0.22), CREME)
+		o.boite(Transform3D(Basis(), Vector3(0, RDC + i * ETAGE - 0.12, 0.05)), Vector3(w + 0.02, 0.08, 0.12), CREME.darkened(0.05))
+	o.boite(Transform3D(Basis(), Vector3(0, H - 0.5, 0.06)), Vector3(w + 0.04, 0.12, 0.14), CREME.darkened(0.05))
+	o.boite(Transform3D(Basis(), Vector3(0, H - 0.14, 0.2)), Vector3(w + 0.2, 0.28, 0.42), CREME)
+	o.boite(Transform3D(Basis(), Vector3(0, H + 0.04, 0.3)), Vector3(w + 0.36, 0.12, 0.62), CREME.darkened(0.04))
+	var modillons := int(w / 0.55)
+	for i in modillons:
+		o.boite(Transform3D(Basis(), Vector3(-w * 0.5 + (i + 0.5) * w / modillons, H - 0.38, 0.14)), Vector3(0.14, 0.2, 0.28), CREME.darkened(0.08))
+	# les chaînes d'angle, harpées et bien saillantes
 	for cote in [-1.0, 1.0]:
 		var y := 0.6 if rdc != "pierre" else RDC
 		var k := 0
-		while y < H - 0.5:
-			var large := 0.62 if k % 2 == 0 else 0.4
-			o.boite(Transform3D(Basis(), Vector3(cote * (w * 0.5 - large * 0.5 + 0.01), y + 0.21, 0.04)), Vector3(large, 0.38, 0.1), PIERRE)
+		while y < H - 0.6:
+			var large := 0.66 if k % 2 == 0 else 0.42
+			o.boite(Transform3D(Basis(), Vector3(cote * (w * 0.5 - large * 0.5 + 0.02), y + 0.21, 0.08)), Vector3(large, 0.38, 0.16), PIERRE)
 			y += 0.44
 			k += 1
-	# les étages et leurs fenêtres
+	# les étages et leurs fenêtres ; entre les travées, des pilastres plats ou des tables en léger ressaut
 	var nf := clampi(int(round((w - 1.4) / 2.0)), 2, 4)
 	var pas := (w - 1.6) / nf
 	var balcon := r.randf() < 0.55 if not opt.has("balcons") else bool(opt.balcons)
+	var ordonnance: String = ["pilastres", "tables", "nu"][r.randi() % 3] if not opt.has("ordonnance") else str(opt.ordonnance)
+	var fronton: String = ["triangle", "cintre", "corniche", ""][r.randi() % 4]
+	if ordonnance == "pilastres":
+		for i in range(1, nf):
+			var x := -w * 0.5 + 0.8 + pas * i
+			o.boite(Transform3D(Basis(), Vector3(x, RDC + (H - RDC) * 0.5, 0.05)), Vector3(0.34, H - RDC - 0.5, 0.1), enduit.lightened(0.08))
+			o.boite(Transform3D(Basis(), Vector3(x, H - 0.62, 0.08)), Vector3(0.44, 0.14, 0.16), CREME)
 	for e in niveaux:
 		var y0 := RDC + e * ETAGE + 0.75
 		var haute := 1.85 if e == 0 else (1.7 if e < niveaux - 1 else 1.5)
 		for i in nf:
 			var x := -w * 0.5 + 0.8 + pas * (i + 0.5)
-			_fenetre(o, Vector3(x, y0, 0), 0.95, haute, forme)
+			if ordonnance == "tables":
+				# une table en creux sous l'appui : un panneau cerné d'une moulure
+				o.boite(Transform3D(Basis(), Vector3(x, y0 - 0.48, 0.03)), Vector3(1.1, 0.42, 0.06), enduit.darkened(0.08))
+				_cadre(o, Transform3D(Basis(), Vector3(x, y0 - 0.69, 0)), PackedVector2Array([Vector2(0.55, 0), Vector2(0.55, 0.42), Vector2(-0.55, 0.42), Vector2(-0.55, 0)]), 0.06, 0.0, 0.08, CREME, CREME.darkened(0.08))
+			_fenetre(o, Vector3(x, y0, 0), 0.95, haute, forme, fronton if e == 0 else "")
 			if e == 0 and balcon and (nf <= 2 or i in [1, nf - 2]):
-				_balcon(o, Vector3(x, y0, 0), 1.5, fleur if avec_fleurs else Color(), r)
+				_balcon(o, Vector3(x, y0, 0.18), 1.5, fleur if avec_fleurs else Color(), r)
 			elif avec_fleurs and r.randf() < 0.4:
-				_jardiniere(o, Vector3(x, y0, 0.12), 1.0, fleur, r)
+				_jardiniere(o, Vector3(x, y0, 0.3), 1.0, fleur, r)
 	# le lierre qui monte d'un angle, la bannière à la console
 	if opt.get("lierre", r.randf() < 0.3):
 		var cote := -1.0 if r.randf() < 0.5 else 1.0
@@ -149,17 +166,68 @@ static func maison(parent: Node3D, p: Vector3, type: String, graine: int, opt :=
 
 
 ## Une fenêtre : l'encadrement blanc, le verre, la croisée, l'appui. p est le bas de la baie, au nu du mur.
-static func _fenetre(o: Outils, p: Vector3, l: float, h: float, forme: String) -> void:
+static func _fenetre(o: Outils, p: Vector3, l: float, h: float, forme: String, fronton := "") -> void:
 	var pts := _baie(l, h, forme)
 	var t := Transform3D(Basis(), p)
-	o.profil(t, Outils.grossir(pts, 0.13), 0.0, 0.07, CREME)
-	o.profil(t, pts, 0.0, 0.085, VERRE)
-	# la croisée : un meneau, une traverse aux deux tiers
-	o.boite(Transform3D(Basis(), p + Vector3(0, h * 0.5, 0.1)), Vector3(0.06, h, 0.03), CREME)
-	o.boite(Transform3D(Basis(), p + Vector3(0, h * 0.66, 0.1)), Vector3(l, 0.06, 0.03), CREME)
-	o.boite(Transform3D(Basis(), p + Vector3(0, -0.1, 0.1)), Vector3(l + 0.42, 0.1, 0.22), CREME.darkened(0.03))
+	# la baie en retrait : le verre au nu du mur, l'encadrement saillant de 0,24 m et ses tableaux dans l'ombre
+	o.profil(t, pts, -0.02, 0.02, VERRE)
+	_cadre(o, t, pts, 0.15, 0.0, 0.24, CREME, CREME.darkened(0.12))
+	# la croisée, en retrait dans la baie : un meneau, une traverse aux deux tiers
+	o.boite(Transform3D(Basis(), p + Vector3(0, h * 0.5, 0.05)), Vector3(0.07, h, 0.06), CREME)
+	o.boite(Transform3D(Basis(), p + Vector3(0, h * 0.66, 0.05)), Vector3(l, 0.07, 0.06), CREME)
+	# l'appui saillant et ses deux consoles
+	o.boite(Transform3D(Basis(), p + Vector3(0, -0.1, 0.2)), Vector3(l + 0.5, 0.12, 0.4), CREME.darkened(0.03))
+	for cote in [-1.0, 1.0]:
+		o.boite(Transform3D(Basis(), p + Vector3(cote * (l * 0.5 + 0.1), -0.28, 0.14)), Vector3(0.12, 0.24, 0.26), CREME.darkened(0.06))
 	if forme != "droite":
-		o.boite(Transform3D(Basis(), p + Vector3(0, h + 0.08, 0.1)), Vector3(0.2, 0.3, 0.08), PIERRE)
+		o.boite(Transform3D(Basis(), p + Vector3(0, h + 0.06, 0.2)), Vector3(0.24, 0.34, 0.16), PIERRE)
+	# le fronton au-dessus de la baie : triangulaire, cintré, ou une corniche droite sur deux consoles
+	var y := h + 0.22
+	match fronton:
+		"triangle":
+			o.profil(Transform3D(Basis(), p + Vector3(0, y, 0)), PackedVector2Array([Vector2(-l * 0.5 - 0.35, 0), Vector2(l * 0.5 + 0.35, 0), Vector2(0, 0.5)]), 0.0, 0.32, CREME)
+			o.boite(Transform3D(Basis(), p + Vector3(0, y - 0.04, 0.18)), Vector3(l + 0.8, 0.1, 0.36), CREME.darkened(0.04))
+		"cintre":
+			var arc := Outils.arc(Vector2(0, -0.3), l * 0.5 + 0.35, 0.42, PI - 0.42, 10)
+			arc.append(Vector2(-l * 0.5 - 0.35, 0))
+			arc.insert(0, Vector2(l * 0.5 + 0.35, 0))
+			o.profil(Transform3D(Basis(), p + Vector3(0, y, 0)), arc, 0.0, 0.32, CREME)
+			o.boite(Transform3D(Basis(), p + Vector3(0, y - 0.04, 0.18)), Vector3(l + 0.8, 0.1, 0.36), CREME.darkened(0.04))
+		"corniche":
+			o.boite(Transform3D(Basis(), p + Vector3(0, y + 0.05, 0.2)), Vector3(l + 0.7, 0.16, 0.4), CREME)
+			for cote in [-1.0, 1.0]:
+				o.boite(Transform3D(Basis(), p + Vector3(cote * (l * 0.5 + 0.2), y - 0.14, 0.15)), Vector3(0.14, 0.26, 0.28), CREME.darkened(0.06))
+
+
+## L'encadrement d'une baie (contour convexe pts) : une face de largeur e en avant, de z0 à z1, ses flancs
+## extérieurs, et les tableaux intérieurs qui descendent jusqu'au verre (col_tableau, plus sombre).
+static func _cadre(o: Outils, t: Transform3D, pts: PackedVector2Array, e: float, z0: float, z1: float, col: Color, col_tableau: Color) -> void:
+	if Geometry2D.is_polygon_clockwise(pts):
+		pts.reverse()
+	var n := pts.size()
+	var ext := PackedVector2Array()
+	for i in n:
+		var a := pts[(i - 1 + n) % n]
+		var b := pts[i]
+		var c := pts[(i + 1) % n]
+		var n1 := Vector2(b.y - a.y, a.x - b.x).normalized()
+		var n2 := Vector2(c.y - b.y, b.x - c.x).normalized()
+		var m := (n1 + n2).normalized()
+		ext.append(b + m * e / maxf(m.dot(n1), 0.35))
+	for i in n:
+		var j := (i + 1) % n
+		var a := pts[i]
+		var b := pts[j]
+		var ea := ext[i]
+		var eb := ext[j]
+		if a.distance_to(b) < 1e-4:
+			continue
+		var dehors := Vector3(b.y - a.y, a.x - b.x, 0)
+		# la face avant de l'encadrement
+		o.quad(t * Vector3(a.x, a.y, z1), t * Vector3(b.x, b.y, z1), t * Vector3(eb.x, eb.y, z1), t * Vector3(ea.x, ea.y, z1), t.basis * Vector3(0, 0, 1), col)
+		# le flanc extérieur, et le tableau tourné vers l'intérieur de la baie
+		o.quad(t * Vector3(ea.x, ea.y, z0), t * Vector3(eb.x, eb.y, z0), t * Vector3(eb.x, eb.y, z1), t * Vector3(ea.x, ea.y, z1), t.basis * dehors, col.darkened(0.04))
+		o.quad(t * Vector3(a.x, a.y, z0), t * Vector3(b.x, b.y, z0), t * Vector3(b.x, b.y, z1), t * Vector3(a.x, a.y, z1), t.basis * -dehors, col_tableau)
 
 
 ## Le contour d'une baie de largeur l et de hauteur h (au sommet), droite, cintrée ou en plein cintre.
@@ -199,6 +267,8 @@ static func _jardiniere(o: Outils, p: Vector3, l: float, fleur: Color, r: Random
 ## Un balcon de fer forgé sur sa dalle, fleuri si fleur a une couleur.
 static func _balcon(o: Outils, p: Vector3, l: float, fleur: Color, r: RandomNumberGenerator) -> void:
 	o.boite(Transform3D(Basis(), p + Vector3(0, -0.12, 0.35)), Vector3(l, 0.14, 0.7), CREME.darkened(0.04))
+	for cote in [-1.0, 1.0]:
+		o.profil(Transform3D(Basis(Vector3.UP, -PI * 0.5), p + Vector3(cote * (l * 0.5 - 0.12), -0.19, 0)), PackedVector2Array([Vector2(0, 0), Vector2(0.62, 0), Vector2(0, -0.5)]), -0.07, 0.07, CREME.darkened(0.08))
 	o.boite(Transform3D(Basis(), p + Vector3(0, 0.9, 0.68)), Vector3(l, 0.05, 0.05), FER)
 	o.boite(Transform3D(Basis(), p + Vector3(0, 0.12, 0.68)), Vector3(l, 0.04, 0.04), FER)
 	for cote in [-1.0, 1.0]:
@@ -222,6 +292,11 @@ static func _boutique(o: Outils, w: float, opt: Dictionary) -> Vector3:
 	var toile: Array = opt.get("toile", TOILES[r.randi() % TOILES.size()])
 	var l := w - 1.4
 	o.boite(Transform3D(Basis(), Vector3(0, 1.75, 0.08)), Vector3(l + 0.3, 3.1, 0.16), bois)
+	# la devanture en applique : deux pilastres, une corniche saillante au-dessus de l'enseigne
+	for cote in [-1.0, 1.0]:
+		o.boite(Transform3D(Basis(), Vector3(cote * (l * 0.5 + 0.05), 1.85, 0.2)), Vector3(0.32, 3.7, 0.24), bois.darkened(0.1))
+		o.boite(Transform3D(Basis(), Vector3(cote * (l * 0.5 + 0.05), 3.78, 0.24)), Vector3(0.42, 0.18, 0.32), bois.darkened(0.2))
+	o.boite(Transform3D(Basis(), Vector3(0, 3.82, 0.3)), Vector3(l + 0.6, 0.16, 0.44), bois.darkened(0.2))
 	var x_porte := (l * 0.5 - 0.75) * (1.0 if r.randf() < 0.5 else -1.0)
 	# la vitrine, en deux ou trois baies, et la porte vitrée
 	var baies := 2 if l < 6.0 else 3
@@ -277,27 +352,54 @@ static func _passage(o: Outils, w: float) -> Vector3:
 ## Un rez-de-chaussée d'habitation : la porte d'entrée et ses fenêtres, enduit ou en pierre à bossages.
 static func _logis(o: Outils, w: float, pierre: bool, forme: String, enduit: Color) -> Vector3:
 	var r := o.rng
-	if pierre:
-		o.boite(Transform3D(Basis(), Vector3(0, RDC * 0.5, 0.03)), Vector3(w + 0.02, RDC - 0.1, 0.06), PIERRE)
-		var y := 0.9
-		while y < RDC - 0.2:
-			o.boite(Transform3D(Basis(), Vector3(0, y, 0.065)), Vector3(w + 0.02, 0.04, 0.02), PIERRE_SOMBRE)
-			y += 0.5
 	var x_porte := (w * 0.5 - 1.4) * (1.0 if r.randf() < 0.5 else -1.0) if w > 6.0 else 0.0
-	var pts := _baie(1.25, 2.7, "plein_cintre" if forme != "droite" else "droite")
-	o.profil(Transform3D(Basis(), Vector3(x_porte, 0.15, 0.06)), Outils.grossir(pts, 0.16), 0.0, 0.08, CREME)
-	o.profil(Transform3D(Basis(), Vector3(x_porte, 0.15, 0.06)), pts, 0.0, 0.1, Color(DEVANTURES[r.randi() % DEVANTURES.size()]))
-	o.boite(Transform3D(Basis(), Vector3(x_porte, 0.07, 0.3)), Vector3(1.7, 0.14, 0.5), PIERRE_SOMBRE)
-	o.boite(Transform3D(Basis(), Vector3(x_porte + 0.4, 1.2, 0.18)), Vector3(0.06, 0.06, 0.06), Color("c9a64a"))
 	# les fenêtres de part et d'autre de la porte
-	var n := 1 if w < 7.5 else 2
-	for i in n:
+	var fenetres := []
+	for i in (1 if w < 7.5 else 2):
 		var cote := -signf(x_porte) if x_porte != 0.0 else (-1.0 if i == 0 else 1.0)
 		var x := x_porte + cote * (1.9 + i * 1.9)
-		if absf(x) > w * 0.5 - 0.9:
-			continue
-		_fenetre(o, Vector3(x, 1.2, 0.06 if pierre else 0.0), 1.0, 2.0, forme)
-	return Vector3(x_porte, 0, 0.35)
+		if absf(x) <= w * 0.5 - 0.9:
+			fenetres.append(x)
+	var z := 0.06 if pierre else 0.0
+	if pierre:
+		# des bossages : des assises de blocs en saillie, joints décalés d'une assise à l'autre, interrompus
+		# par les baies (la porte et les fenêtres, chacune avec son encadrement)
+		var baies := [[x_porte, 0.95, 3.1]]
+		for x in fenetres:
+			baies.append([x, 0.8, 3.45])
+		o.boite(Transform3D(Basis(), Vector3(0, RDC * 0.5, 0.03)), Vector3(w + 0.02, RDC - 0.1, 0.06), PIERRE_SOMBRE)
+		var y := 0.62
+		var assise := 0
+		while y < RDC - 0.3:
+			var x := -w * 0.5 + (0.0 if assise % 2 == 0 else -0.55)
+			while x < w * 0.5:
+				var x0 := maxf(x, -w * 0.5)
+				var x1 := minf(x + 1.1, w * 0.5)
+				for bb in baies:
+					if y < bb[2]:
+						if x0 < bb[0] - bb[1] and x1 > bb[0] - bb[1]:
+							x1 = bb[0] - bb[1]
+						elif x0 < bb[0] + bb[1] and x1 > bb[0] + bb[1]:
+							x0 = bb[0] + bb[1]
+						elif x0 >= bb[0] - bb[1] and x1 <= bb[0] + bb[1]:
+							x1 = x0
+				if x1 - x0 > 0.15:
+					o.boite(Transform3D(Basis(), Vector3((x0 + x1) * 0.5, y + 0.22, 0.1)), Vector3(x1 - x0 - 0.05, 0.4, 0.14), PIERRE.lightened(r.randf_range(-0.03, 0.04)))
+				x += 1.1
+			y += 0.45
+			assise += 1
+	# la porte, en retrait dans un encadrement profond, son emmarchement et sa poignée
+	var pts := _baie(1.25, 2.7, "plein_cintre" if forme != "droite" else "droite")
+	var tp := Transform3D(Basis(), Vector3(x_porte, 0.15, z))
+	o.profil(tp, pts, -0.02, 0.02, Color(DEVANTURES[r.randi() % DEVANTURES.size()]))
+	_cadre(o, tp, pts, 0.2, 0.0, 0.3, CREME, CREME.darkened(0.12))
+	o.boite(Transform3D(Basis(), Vector3(x_porte, 0.07, z + 0.35)), Vector3(1.9, 0.14, 0.6), PIERRE_SOMBRE)
+	o.boite(Transform3D(Basis(), Vector3(x_porte + 0.4, 1.25, z + 0.05)), Vector3(0.06, 0.06, 0.06), Color("c9a64a"))
+	if forme != "droite":
+		o.boite(Transform3D(Basis(), Vector3(x_porte, 2.95, z + 0.24)), Vector3(0.28, 0.4, 0.16), PIERRE)
+	for x in fenetres:
+		_fenetre(o, Vector3(x, 1.2, z), 1.0, 2.0, forme)
+	return Vector3(x_porte, 0, z + 0.65)
 
 
 ## Le pignon sur rue et le toit derrière lui ; rend la hauteur du faîte.
@@ -382,17 +484,20 @@ static func _pignon(o: Outils, type: String, w: float, d: float, H: float, toit:
 	# le pignon et son liseré de pierre crème
 	var base := Transform3D(Basis(), Vector3(0, H, 0))
 	o.profil(base, pts, -0.4, 0.12, enduit)
-	o.profil(base, Outils.grossir(pts, 0.16), -0.3, 0.06, CREME)
+	o.profil(base, Outils.grossir(pts, 0.2), -0.3, 0.3, CREME)
+	o.profil(base, Outils.grossir(pts, 0.06), 0.0, 0.34, CREME.darkened(0.04))
+	o.profil(base, Outils.grossir(pts, -0.12), 0.0, 0.36, enduit)
 	# l'oculus ou la petite baie du grenier
 	var y_oc := hg * (0.42 if type != "arrondi" else 0.45)
 	if r.randf() < 0.6 or type == "pointe":
 		var rond := Outils.arc(Vector2(0, 0), 0.5, 0.0, TAU, 16)
-		o.profil(Transform3D(Basis(), Vector3(0, H + y_oc, 0)), Outils.grossir(rond, 0.14), 0.0, 0.2, CREME)
-		o.profil(Transform3D(Basis(), Vector3(0, H + y_oc, 0)), rond, 0.0, 0.21, VERRE)
-		o.boite(Transform3D(Basis(), Vector3(0, H + y_oc, 0.23)), Vector3(1.0, 0.05, 0.02), CREME)
-		o.boite(Transform3D(Basis(), Vector3(0, H + y_oc, 0.23)), Vector3(0.05, 1.0, 0.02), CREME)
+		var oc := Transform3D(Basis(), Vector3(0, H + y_oc, 0.36))
+		o.profil(oc, rond, -0.02, 0.02, VERRE)
+		_cadre(o, oc, rond, 0.16, 0.0, 0.22, CREME, CREME.darkened(0.12))
+		o.boite(Transform3D(Basis(), Vector3(0, H + y_oc, 0.42)), Vector3(1.0, 0.06, 0.05), CREME)
+		o.boite(Transform3D(Basis(), Vector3(0, H + y_oc, 0.42)), Vector3(0.06, 1.0, 0.05), CREME)
 	else:
-		_fenetre(o, Vector3(0, H + y_oc - 0.7, 0.12), 0.8, 1.35, "plein_cintre")
+		_fenetre(o, Vector3(0, H + y_oc - 0.7, 0.36), 0.8, 1.35, "plein_cintre")
 	# les pinacles aux épaules d'un pignon à volutes ou en cloche
 	if type in ["volutes", "cloche", "gradins"]:
 		for cote in [-1.0, 1.0]:
