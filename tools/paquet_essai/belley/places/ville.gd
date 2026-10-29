@@ -121,7 +121,7 @@ func maison(o: RefCounted, m: Dictionary, graine: int) -> void:
 		return
 	# Autour de la place, comme sur la planche, rien ne dépasse deux étages et un comble : les grands blocs du
 	# relevé y faisaient caserne (verdict n° 2 du juge).
-	if dist < 160.0:
+	if dist < 320.0:
 		h = minf(h, 9.4)
 	var pres := dist < 160.0
 	var pres_chaines := dist < 90.0
@@ -182,7 +182,7 @@ func maison(o: RefCounted, m: Dictionary, graine: int) -> void:
 	var plat: bool = m.toit == "plat" or float(m.rempli) < 0.45
 	# Autour de la place, la planche n'a que des toits de tuile : les terrasses de zinc y faisaient des taches
 	# bleu pâle (verdict n° 3). On couvre le rectangle d'un toit de tuile à croupe.
-	var croupe_forcee := pres and plat
+	var croupe_forcee := dist < 320.0 and plat
 	if croupe_forcee:
 		plat = false
 		toit = TUILES[rng.randi() % TUILES.size()]

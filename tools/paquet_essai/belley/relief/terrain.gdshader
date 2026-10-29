@@ -91,10 +91,11 @@ vec3 roche(vec2 xz, float y, float g, float g2, float pres) {
 	// De loin, comme sur la planche, la barre est un bandeau crème qui suit les courbes de niveau : des bancs
 	// horizontaux clairs, séparés de vires plus sombres où s'accroche la forêt ; plus de traînées verticales.
 	float banc = fbm(vec2(h * 0.004, y * 0.07) + 21.0);
-	float vire_loin = smoothstep(0.62, 0.72, 0.5 + 0.5 * sin(y * 0.16 + banc * 3.0));
+	float vire_loin = smoothstep(0.7, 0.85, 0.5 + 0.5 * sin(y * 0.11 + banc * 4.0));
 	vec3 bandeau = mix(ROCHE_LOIN, ROCHE_LOIN * vec3(0.86, 0.85, 0.82), smoothstep(0.35, 0.65, banc));
-	bandeau = mix(bandeau, FORET * 1.2, vire_loin * 0.7);
-	return mix(bandeau, r, pres);
+	bandeau = mix(bandeau, mix(bandeau, FORET * 1.3, 0.6), vire_loin * 0.5);
+	// Les couloirs gris ne se lisent que de près (moins de 800 m) ; au-delà, le bandeau crème.
+	return mix(bandeau, r, pres * pres * pres * pres);
 }
 
 // Les cours et les jardins de la ville, et les prés pris dans le bourg : un parcellaire de jardins de 10 à
@@ -103,7 +104,7 @@ vec3 roche(vec2 xz, float y, float g, float g2, float pres) {
 vec3 jardins(vec2 xz, float g) {
 	float a = 0.52;
 	vec2 q = mat2(vec2(cos(a), sin(a)), vec2(-sin(a), cos(a))) * xz;
-	vec2 taille = vec2(14.0, 11.0);
+	vec2 taille = vec2(10.0, 8.0);
 	vec2 cel = floor(q / taille);
 	float dec = h21(vec2(cel.y, 2.7));
 	q.x += dec * taille.x;
@@ -114,14 +115,18 @@ vec3 jardins(vec2 xz, float g) {
 	vec3 pelouse = mix(vec3(0.47, 0.60, 0.29), vec3(0.40, 0.53, 0.25), h21(cel + 3.1)) * (0.94 + 0.1 * fbm(xz * 0.5));
 	vec3 potager = mix(vec3(0.52, 0.42, 0.30), vec3(0.36, 0.50, 0.24), step(0.5, fract(f.y / 1.4)));
 	vec3 gravier = vec3(0.78, 0.72, 0.60) * (0.95 + 0.08 * fbm(xz * 2.0));
-	vec3 col = h < 0.62 ? pelouse : (h < 0.82 ? potager : gravier);
+	pelouse *= mix(0.85, 1.12, h21(cel + 5.3));
+	// Le verger : des ronds sombres de pommiers en quinconce sur l'herbe.
+	vec2 qf = fract(f / 3.5) - 0.5;
+	vec3 verger = mix(pelouse, vec3(0.22, 0.34, 0.15), 1.0 - smoothstep(0.22, 0.32, length(qf)));
+	vec3 col = h < 0.38 ? pelouse : (h < 0.6 ? potager : (h < 0.78 ? gravier : verger));
 	// Un massif ou un arbuste par-ci par-là, des taches sombres dans les pelouses.
 	float massif = smoothstep(0.62, 0.72, fbm(xz * 0.35 + 7.0));
-	col = mix(col, vec3(0.24, 0.36, 0.17), massif * 0.8 * step(h, 0.62));
+	col = mix(col, vec3(0.24, 0.36, 0.17), massif * 0.8 * step(h, 0.38));
 	// La haie (ou le muret) en limite de parcelle, et son ombre portée d'un côté.
-	float haie = 1.0 - smoothstep(0.55, 0.9, bord);
+	float haie = 1.0 - smoothstep(0.7, 1.1, bord);
 	vec3 limite = h21(cel + 9.0) < 0.7 ? vec3(0.20, 0.31, 0.15) : vec3(0.80, 0.75, 0.64);
-	col = mix(col, col * 0.72, (1.0 - smoothstep(0.9, 1.8, f.y)) * 0.6);
+	col = mix(col, col * 0.62, (1.0 - smoothstep(1.1, 2.4, f.y)) * 0.8);
 	col = mix(col, limite, haie);
 	return col * (0.95 + 0.08 * g);
 }

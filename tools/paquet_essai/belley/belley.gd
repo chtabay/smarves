@@ -77,7 +77,7 @@ func _ciel() -> void:
 	env.ambient_light_energy = 0.35
 	# Des ombres chaudes, comme sur la planche : une part de lumière ambiante crème, une part de ciel.
 	env.ambient_light_color = Color("e2dccf")
-	env.ambient_light_sky_contribution = 0.85
+	env.ambient_light_sky_contribution = 0.6
 	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	# L'étalonnage des planches : plus saturé, un peu plus contrasté (mesuré : le rendu de compatibilité l'honore).
 	env.adjustment_enabled = true
