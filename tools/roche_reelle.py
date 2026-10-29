@@ -4,9 +4,10 @@
 la roche est là où le versant se redresse au-delà de ce que tiennent les bois, et là où un pré (aucune
 végétation recensée) s'accroche à une pente forte ; près d'un rocher nommé, le seuil baisse.
 
-    python3 tools/roche_reelle.py <id> --couverture=relief/couverture --relief=relief/relief
+    python3 tools/roche_reelle.py <id> --couverture=relief/couverture --relief=relief/relief [--pente=relief/pente]
 
-La carte est réécrite sur place, la roche en classe 10 ; son .json reçoit la classe et le compte.
+La carte est réécrite sur place, la roche en classe 10 ; son .json reçoit la classe et le compte. Avec --pente,
+la carte des pentes du relief est écrite aussi (un .png en gris, 3 niveaux par degré, et son .json).
 """
 import json
 import math
@@ -60,6 +61,21 @@ def main():
         c, d = alt[j + 1][i], alt[j + 1][i + 1]
         return (a * (1 - fi) + b * fi) * (1 - fj) + (c * (1 - fi) + d * fi) * fj
 
+    if "pente" in opts:
+        # La carte des pentes du relief donné, en niveaux de gris (3 niveaux par degré) : le shader y trace les
+        # barres au fil des courbes, plus finement que les cases de la couverture.
+        img = Image.new("L", (rw, rh))
+        pp = img.load()
+        for j in range(rh):
+            for i in range(rw):
+                x, z = rx0 + i * rp, rz0 + j * rp
+                gx = (h(x + rp, z) - h(x - rp, z)) / (2 * rp)
+                gz = (h(x, z + rp) - h(x, z - rp)) / (2 * rp)
+                pp[i, j] = min(255, int(round(math.degrees(math.atan(math.hypot(gx, gz))) * 3.0)))
+        img.save(os.path.join(dossier, opts["pente"] + ".png"))
+        with open(os.path.join(dossier, opts["pente"] + ".json"), "w", encoding="utf-8") as f:
+            json.dump({"cadre": [rx0, rz0, rx0 + (rw - 1) * rp, rz0 + (rh - 1) * rp], "pas": rp, "echelle": 3.0}, f)
+        print("pentes : %d × %d écrites" % (rw, rh))
     lon0, lat0 = cmeta["origine"]
     ml = 111320.0 * math.cos(math.radians(lat0))
     mt = 110574.0

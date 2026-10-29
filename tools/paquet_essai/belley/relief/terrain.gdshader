@@ -9,6 +9,10 @@ uniform sampler2D couverture : filter_nearest, repeat_disable;
 uniform vec4 cadre = vec4(-1600.0, -2600.0, 8000.0, 2400.0);
 uniform sampler2D couverture_loin : filter_nearest, repeat_disable;
 uniform vec4 cadre_loin = vec4(-18000.0, -18000.0, 18000.0, 18000.0);
+// Les pentes de la crête du Mont du Chat à 25 m (tools/roche_reelle.py --pente), 3 niveaux par degré.
+uniform sampler2D pente_crete : filter_linear, repeat_disable;
+uniform vec4 cadre_crete = vec4(8000.0, -6000.0, 13000.0, 15000.0);
+uniform float seuil_barre = 42.0;
 uniform float roche_pente = 0.6;   // sous ce cos de pente, la roche apparaît
 uniform float roche_pleine = 0.45;  // et couvre tout
 uniform float loin = 0.0;           // 1 sur les lointains : moins de grain, plus de lavis
@@ -157,6 +161,12 @@ void fragment() {
 		}
 		col = mix(mix(acc[0], acc[1], t.x), mix(acc[2], acc[3], t.x), t.y);
 		float bord = (fbm(xz * 0.03 + 3.0) - 0.5) + (fbm(xz * 0.11 + 9.0) - 0.5) * 0.8;
+		// Sur la crête, la barre suit la pente relevée à 25 m, au fil des courbes : un bandeau, pas des cases.
+		vec2 uc = (xz - cadre_crete.xy) / (cadre_crete.zw - cadre_crete.xy);
+		if (uc.x >= 0.0 && uc.y >= 0.0 && uc.x <= 1.0 && uc.y <= 1.0) {
+			float pente = texture(pente_crete, uc).r * 255.0 / 3.0;
+			rw = smoothstep(seuil_barre - 2.0, seuil_barre + 2.0, pente + bord * 8.0);
+		}
 		// Et seulement là où le maillage se redresse : la barre suit les courbes du versant, pas les cases.
 		float raide = 1.0 - smoothstep(0.72, 0.9, normale.y + bord * 0.15);
 		col = mix(col, roche(xz, monde.y, g, g2, pres), smoothstep(0.42, 0.5, rw * raide + bord * 0.3));
