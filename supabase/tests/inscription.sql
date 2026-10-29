@@ -13,7 +13,7 @@ end $$;
 create function pg_temp.inscrire(jti text, humain text, op text, ins uuid, id text default null, nom text default null)
   returns json language sql as $$
   select smarves.doublure_inscrire(jti, now() + interval '2 minutes', humain, 'Nom Pyramides', op, ins, id, nom,
-    case when op = 'creer' then 'Une histoire de village assez longue pour passer.' end, null, null, 'costume__', 7, 500)
+    case when op = 'creer' then 'Une histoire de village assez longue pour passer.' end, null, null, 'costume__', 7, 500, case when op = 'creer' then repeat('a', 64) end)
 $$;
 
 -- Un joueur qui tient déjà un pensionnaire, et ses données de jeu.
@@ -73,8 +73,9 @@ select pg_temp.inscrire('jetontrop0000' || lpad(g::text, 4, '0'), 'humainF', 'ad
 select pg_temp.attendre((pg_temp.inscrire('jetontrop00000011', 'humainF', 'adopter', gen_random_uuid())->>'raison') = 'trop', 'au plus dix jetons par heure');
 
 -- Personne d'autre que le propriétaire des fonctions ne peut les appeler.
-select pg_temp.attendre(not has_function_privilege('anon', 'smarves.doublure_inscrire(text, timestamptz, text, text, text, uuid, text, text, text, text, text, text, integer, bigint)', 'execute'), 'anon sans droit');
-select pg_temp.attendre(not has_function_privilege('authenticated', 'smarves.doublure_inscrire(text, timestamptz, text, text, text, uuid, text, text, text, text, text, text, integer, bigint)', 'execute'), 'authenticated sans droit');
+select pg_temp.attendre(not has_function_privilege('anon', 'smarves.doublure_inscrire(text, timestamptz, text, text, text, uuid, text, text, text, text, text, text, integer, bigint, text)', 'execute'), 'anon sans droit');
+select pg_temp.attendre(not has_function_privilege('authenticated', 'smarves.doublure_inscrire(text, timestamptz, text, text, text, uuid, text, text, text, text, text, text, integer, bigint, text)', 'execute'), 'authenticated sans droit');
 select pg_temp.attendre(not has_table_privilege('anon', 'smarves.inscriptions', 'select'), 'tables fermées');
 
 rollback;
+

@@ -3,7 +3,7 @@
 -- créés par l'inscription. À coller dans l'éditeur SQL, après avoir retiré la clé publique de la fonction.
 begin;
 
-drop function if exists smarves.doublure_inscrire(text, timestamptz, text, text, text, uuid, text, text, text, text, text, text, integer, bigint);
+drop function if exists smarves.doublure_inscrire(text, timestamptz, text, text, text, uuid, text, text, text, text, text, text, integer, bigint, text);
 drop function if exists smarves.inscription_debit(text, integer);
 drop table if exists smarves.inscriptions, smarves.inscription_jetons, smarves.inscription_debit;
 drop index if exists smarves.joueurs_pensionnaire_nom;
@@ -31,3 +31,4 @@ end $$;
 revoke all on function smarves.doublure_ouvrir(text, text, text, text, text, text, text, text, text, integer, bigint) from public;
 
 commit;
+

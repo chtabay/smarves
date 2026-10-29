@@ -8,7 +8,7 @@ PSQL=${PSQL:-psql}
 q() { $PSQL -q -At -v ON_ERROR_STOP=1 -c "$1"; }
 appel() { # jti humain ins id nom
   echo "select smarves.doublure_inscrire('$1', now() + interval '2 minutes', '$2', 'P', 'creer', '$3', '$4', '$5',
-    'Une histoire de village assez longue pour passer.', null, null, null, 7, 500)"
+    'Une histoire de village assez longue pour passer.', null, null, null, 7, 500, repeat('a', 64))"
 }
 nettoyer() { q "delete from smarves.joueurs where pyramide_id in ('concA','concB','doublure:concaaaaaaaa','doublure:concbbbbbbbb','doublure:conccccccccc');
   delete from smarves.inscriptions where humain in ('concA','concB'); delete from smarves.inscription_jetons where humain in ('concA','concB');" >/dev/null; }
@@ -35,12 +35,13 @@ grep -q '"resultat" : "cree"' /tmp/conc1 || echec "la première création devait
 echo "ok : même humain en parallèle, un seul pensionnaire"
 
 # Le même jeton deux fois en même temps.
-( $PSQL -q -At -c "begin; select smarves.doublure_inscrire('concjeton0000005', now() + interval '2 minutes', 'concA', 'P', 'adopter', '10000000-0000-4000-8000-000000000005', null, null, null, null, null, null, 7, 500); select pg_sleep(2); commit;" >/tmp/conc1 ) &
+( $PSQL -q -At -c "begin; select smarves.doublure_inscrire('concjeton0000005', now() + interval '2 minutes', 'concA', 'P', 'adopter', '10000000-0000-4000-8000-000000000005', null, null, null, null, null, null, 7, 500, null); select pg_sleep(2); commit;" >/tmp/conc1 ) &
 sleep 0.5
-r2=$(q "select smarves.doublure_inscrire('concjeton0000005', now() + interval '2 minutes', 'concA', 'P', 'adopter', '10000000-0000-4000-8000-000000000006', null, null, null, null, null, null, 7, 500)")
+r2=$(q "select smarves.doublure_inscrire('concjeton0000005', now() + interval '2 minutes', 'concA', 'P', 'adopter', '10000000-0000-4000-8000-000000000006', null, null, null, null, null, null, 7, 500, null)")
 wait
 grep -q '"resultat" : "adopte"' /tmp/conc1 || echec "la première adoption devait réussir"
 [[ "$r2" == *'"rejeu"'* ]] || echec "le second usage devait recevoir rejeu, reçu : $r2"
 echo "ok : même jeton en parallèle, un seul effet"
 
 nettoyer
+

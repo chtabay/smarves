@@ -89,6 +89,7 @@ create table smarves.inscriptions (
   ins uuid primary key,
   humain text not null,
   op text not null check (op in ('creer', 'adopter')),
+  dem text check (dem ~ '^[0-9a-f]{64}$'),
   doublure text not null,
   resultat text not null check (resultat in ('cree', 'adopte')),
   cree timestamptz not null default now()
@@ -113,7 +114,7 @@ revoke all on smarves.inscription_jetons, smarves.inscriptions, smarves.inscript
 -- Rend {ok, resultat ('cree', 'adopte', 'deja_fait'), id, nom} ou {ok: false, raison}.
 create or replace function smarves.doublure_inscrire(p_jti text, p_exp timestamptz, p_humain text, p_nom_pyramides text,
     p_op text, p_ins uuid, p_id text, p_nom text, p_caractere text, p_envies text, p_besoins text, p_tenue text,
-    p_reveils integer, p_pecule bigint) returns json
+    p_reveils integer, p_pecule bigint, p_dem text) returns json
   language plpgsql security definer set search_path = ''
 as $$
 declare
@@ -125,22 +126,31 @@ begin
   if p_humain is null or p_humain !~ '^[A-Za-z0-9_-]{1,64}$' then raise exception 'humain invalide'; end if;
   if p_op is null or p_op not in ('creer', 'adopter') then raise exception 'operation invalide'; end if;
   if p_ins is null or p_exp is null then raise exception 'inscription invalide'; end if;
+  if (p_op = 'creer' and (p_dem is null or p_dem !~ '^[0-9a-f]{64}$'))
+     or (p_op = 'adopter' and p_dem is not null) then raise exception 'demande invalide'; end if;
 
   -- Le jeton ne sert qu'une fois : un second usage ne fait rien et ne dit rien.
   delete from smarves.inscription_jetons where exp < now() - interval '1 day';
   insert into smarves.inscription_jetons (jti, humain, exp) values (p_jti, p_humain, p_exp) on conflict (jti) do nothing;
   if not found then return json_build_object('ok', false, 'raison', 'rejeu'); end if;
 
+  -- Une clé absente ne peut pas être verrouillée par SELECT FOR UPDATE. Ce verrou transactionnel
+  -- sérialise tous les jti du même ins, y compris avant la première ligne et jusqu'au COMMIT.
+  perform pg_advisory_xact_lock(hashtextextended('smarves:ins:' || p_ins::text, 0));
+
   -- La même inscription, reprise par un nouveau clic : le même résultat, sans nouvel effet.
   select * into i from smarves.inscriptions where ins = p_ins;
   if i.ins is not null then
-    if i.humain <> p_humain or i.op <> p_op then return json_build_object('ok', false, 'raison', 'inscription'); end if;
+    if i.humain <> p_humain or i.op <> p_op or i.dem is distinct from p_dem then
+      return json_build_object('ok', false, 'raison', 'inscription');
+    end if;
     select j.nom into n from smarves.doublures x join smarves.joueurs j on j.pyramide_id = x.id
       where x.id = i.doublure and x.humain = p_humain;
     if n is null then return json_build_object('ok', false, 'raison', 'aucun_pensionnaire'); end if;
     return json_build_object('ok', true, 'resultat', 'deja_fait', 'id', i.doublure, 'nom', n);
   end if;
 
+  perform pg_advisory_xact_lock(hashtextextended('smarves:ins-humain:' || p_humain, 0));
   if (select count(*) from smarves.inscription_jetons where humain = p_humain and vu > now() - interval '1 hour') > 10 then
     return json_build_object('ok', false, 'raison', 'trop');
   end if;
@@ -165,7 +175,7 @@ begin
   if p_tenue is not null then
     insert into smarves.doublure_corps (doublure, membre, tenue) values (p_id, smarves.membre(p_id), p_tenue);
   end if;
-  insert into smarves.inscriptions (ins, humain, op, doublure, resultat) values (p_ins, p_humain, p_op, p_id, 'cree');
+  insert into smarves.inscriptions (ins, humain, op, dem, doublure, resultat) values (p_ins, p_humain, p_op, p_dem, p_id, 'cree');
   return json_build_object('ok', true, 'resultat', 'cree', 'id', p_id, 'nom', p_nom);
 end $$;
 
@@ -185,7 +195,8 @@ end $$;
 
 revoke all on function smarves.nom_cle(text),
   smarves.doublure_ouvrir(text, text, text, text, text, text, text, text, text, integer, bigint),
-  smarves.doublure_inscrire(text, timestamptz, text, text, text, uuid, text, text, text, text, text, text, integer, bigint),
+  smarves.doublure_inscrire(text, timestamptz, text, text, text, uuid, text, text, text, text, text, text, integer, bigint, text),
   smarves.inscription_debit(text, integer) from public, anon, authenticated;
 
 commit;
+
