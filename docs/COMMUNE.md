@@ -144,7 +144,7 @@ Une **structure** est quelque chose qu'une commune possède et qui compte pour l
 
 | Champ | Obligatoire | Ce que c'est |
 |---|---|---|
-| `type` | oui | un type connu du socle : `gare`, `arret_car`, `terrain_foot`, `salle_jeu` (socle 1.1, `guichet` : 1.2), `commerce` (socle 1.4), `gymnase` (socle 1.9), `salle_duo` (socle 1.24), `charge` (socle 1.27) ; la liste est `Structures.TYPES`, `scripts/socle/structures.gd` |
+| `type` | oui | un type connu du socle : `gare`, `arret_car`, `terrain_foot`, `salle_jeu` (socle 1.1, `guichet` : 1.2), `commerce` (socle 1.4), `gymnase` (socle 1.9), `salle_duo` (socle 1.24), `charge` (socle 1.27), `course_velo` (socle 1.28) ; la liste est `Structures.TYPES`, `scripts/socle/structures.gd` |
 | `id` | oui | minuscules, chiffres et `_`, unique dans la commune ; la clé au registre est `<commune>/<id>` |
 | `nom` | oui | le nom affiché (« La gare de Ligugé ») |
 | `noeud` | non | le nom du nœud de la scène de la commune qui place la structure (un `Node3D`, cherché par son nom) ; sans lui, la structure compte pour les autres communes mais ne se voit pas chez soi |
@@ -282,6 +282,33 @@ La salle de jeu du socle s'en sert pour toutes ses tables, et le casino de Smarv
 | `enseigne` | le nom de la charge, en lettres d'or sur le guichet et en tête de la cote ; « <agent> & Cie » à défaut |
 
 Une seule charge par commune. **Le seuil** vient des `lieux`, comme pour la salle de jeu : le lieu de même `id` garde la charge fermée sous son `seuil`, et son `hote` fait signe quand elle ouvre ; sans lieu du même id, elle est ouverte d'emblée. La commune l'ouvre depuis sa scène, à la porte du nœud `noeud` : `ChargeCommune.ouvrir("<id de la commune>", "<id de la charge>")` rend `false` si elle est encore fermée (`ChargeCommune.ouverte()` et `ChargeCommune.seuil()` permettent de l'écrire sur la vitrine, passée au blanc avant). La sortie ramène devant la porte (`lot`, sinon l'`id`). Une charge ouverte suffit à ouvrir la bourse au joueur (`Bourse.ouverte()`), même si celle de Smarves ne l'est pas encore ; le courrier (« Mme Dérieux : CAC 40 à la hausse, levier 50 soldée… ») et l'agenda parlent de la dernière charge où l'on est entré (`Bourse.agent()`, `Bourse.lieu()`). La commune d'essai `tools/fixtures/salle_jeu/` a une charge, que `tools/test_salle_jeu.gd` vérifie. Capture, avec la cote d'essai : `godot --path . res://scenes/charge.tscn -- --commune=<id> --charge=<id> --bourse-essai --open=cote --capture=sortie.png`.
+
+**La course cycliste** (socle 1.28, `"socle_min": "1.28"`). Une commune peut avoir sa course (structure `course_velo`), une activité transverse sur le modèle de [`docs/ACTIVITES.md`](ACTIVITES.md) : chaque semaine au même jour et à la même heure, un peloton part sur un parcours de sa scène, la course se regarde en direct, se parie gagnant ou placé jusqu'au départ, et sa fiche reste lisible jusqu'à l'édition suivante. Tout est au socle (autoload `Cyclisme`, `scripts/socle/cyclisme.gd`) et le même chez tout le monde, sans serveur : la commune ne déclare que son parcours.
+
+```json
+{"type": "course_velo", "id": "louve", "nom": "Le Grand Prix de la Louve", "parcours": ["Arche", "GrandeRue", "Cathedrale", "Replat", "Descente"],
+ "distance": 2600, "tours": 8, "relief": "vallonne", "jour": "dimanche", "heure": 15, "coureurs": 12}
+```
+
+| Champ | Ce que c'est |
+|---|---|
+| `parcours` | obligatoire : les noms des repères de la scène (des `Node3D`, des `Marker3D`), dans l'ordre de la course, deux au moins. Le premier est la ligne de départ ; en plusieurs tours, le parcours se referme sur lui, qui devient aussi l'arrivée |
+| `distance` | obligatoire : la longueur d'un tour, en mètres (200 à 100 000). Elle fait la durée de la course (40 km/h de moyenne) ; mesurée dans la scène, 1 unité vaut 2,4 m |
+| `tours` | le nombre de tours, de 1 (par défaut) à 30 |
+| `relief` | `plat`, `vallonne` (par défaut) ou `montagne` : il dit quelle qualité compte (le sprinteur sur le plat, le grimpeur en montagne) |
+| `jour`, `heure` | le départ, chaque semaine : un jour (`lundi`… `dimanche`, `samedi` par défaut) et une heure de 6 à 22, décimale pour les demi-heures (`14.5`) ; 15 h par défaut |
+| `coureurs` | la taille du peloton, de 6 à 16 (12 par défaut) |
+
+Plusieurs courses par commune sont possibles. **Le seuil** vient des `lieux`, comme pour la salle de jeu : le lieu de même `id` garde la course hors de l'agenda et du comptoir sous son `seuil`, et son `hote` (le directeur de course) prend les paris ; la course roule quand même, on la voit passer.
+
+- **Les coureurs** sont tirés de la graine de la course et de l'année (prénom, nom, grimpeur, rouleur, sprinteur, régularité, un maillot par dossard) : le même peloton toute l'année, chez tout le monde.
+- **Le résultat** de chaque édition se rejoue d'une graine : la forme du jour de chacun, l'aléa de chaque tour, une crevaison, un abandon, et le sprint des groupes arrivés ensemble (« même temps »). `Cyclisme.resultat(course, depart)` le rend, `Cyclisme.position(course, depart, dossard, t)` dit où est un coureur à chaque seconde, `Cyclisme.en_direct(course, t)` l'état de la course (le tour, la tête, l'écart, le classement du moment).
+- **Les paris à places** : gagnant (le premier sur la ligne) ou placé (dans les trois premiers). Les chances viennent du moteur lui-même, la course rejouée trois cents fois d'une autre graine : la cote est juste, moins les 12 % de la maison. Mise libre, la mise compte dans le total misé ; le ticket se règle dix minutes après le dernier coureur, où que soit le joueur (le courrier le dit), et le gain compte dans le total gagné. Les tickets restent sur l'appareil, comme ceux du comptoir de Josiane.
+- **Le programme** (`CoursePanel`, la famille de l'ardoise) : le prochain départ et le parcours, les engagés et leurs cotes, la mise, le ticket ; pendant la course, où elle en est ; la fiche de la dernière édition (les dix premiers, les écarts, les crevaisons et les abandons) ; les tickets et le bilan. La commune l'ouvre où elle veut, par `CoursePanel.de("<commune>", "<id>")`, une fenêtre à ajouter à son interface (elle émet `closed`). **Au comptoir** : une salle de jeu de la même commune qui prend les paris (`"paris": true`, socle 1.26) propose aussi ses courses, au nom de son tenancier.
+- **Le direct** : `Peloton.poser(self, "<commune>", "<id>")`, une fois, depuis la scène de la commune (`echelle` en quatrième argument si ses figurants ne sont pas à l'échelle 1). Vingt minutes avant le départ, les coureurs s'alignent derrière la ligne sur leur vélo de course, à la couleur de leur maillot ; pendant la course, chacun roule où le résultat commun le met ; à l'arrivée, ils se rangent après la ligne dans l'ordre, puis rentrent. Un bandeau en haut de l'écran dit le tour, la tête et l'écart. Si le parcours de la scène s'écarte de plus d'un quart de la `distance` déclarée, un avertissement le dit.
+- **L'agenda** de la semaine porte le départ de chaque course ouverte.
+
+`tools/test_cyclisme.gd` vérifie le vocabulaire, le calendrier, le moteur, les cotes et la marge sur cent vingt éditions, les paris et leur règlement, l'agenda, le programme sur ordinateur et sur téléphone, et le peloton posé sur un parcours de repères ; la commune d'essai `tools/fixtures/salle_jeu/` a un critérium que son tripot prend au comptoir.
 
 Vingt-quatre articles au plus par commerce. Au catalogue de `Biens`, un article est rangé sous `<commune>/<id>` comme les adresses du notaire ; une tenue ou un véhicule coûte des charges (un peu moins d'un centième du prix par recette), un meuble rien. On paie comptant ou à crédit auprès de la banque de la commune, et l'achat suit le joueur partout : la tenue se porte, le véhicule se conduit, le meuble se pose dans le logement qu'on habite. La commune ouvre son commerce depuis sa scène par `Commerce.ouvrir("<id de la commune>", "<id du commerce>")` ; la sortie ramène devant la porte (`lot`, sinon l'`id`). La commune d'essai `tools/fixtures/salle_jeu/` a une mercerie, un garage et une brocante, que `tools/test_salle_jeu.gd` vérifie.
 

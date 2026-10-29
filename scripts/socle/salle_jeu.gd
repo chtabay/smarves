@@ -341,6 +341,21 @@ func open_paris() -> void:
 	var p: PanelContainer = PARIS.new()
 	p.teneur = _salle.host
 	p.titre = "Le carnet des paris de %s" % _salle.host
+	# Les courses cyclistes de la commune se jouent au même comptoir (socle 1.28).
+	for e in Cyclisme.courses():
+		if e.commune == commune and Cyclisme.ouverte(e):
+			p.ailleurs.append(["La course : %s" % e.nom, func(): ouvrir_course(str(e.id))])
+	_ouvrir_panneau(p)
+
+
+## Le programme d'une course cycliste de la commune, au comptoir : on y parie gagnant ou placé (socle 1.28).
+func ouvrir_course(id: String) -> void:
+	if _game != null:
+		return
+	var p := CoursePanel.de(commune, id)
+	if p == null:
+		return
+	p.teneur = _salle.host
 	_ouvrir_panneau(p)
 
 
