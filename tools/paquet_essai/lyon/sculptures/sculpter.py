@@ -73,13 +73,13 @@ def lion(p):
     y = p[..., 1]
     z = p[..., 2]
     # le corps couché, le dos qui descend vers la croupe
-    d = capsule(p, (0, 0.40, -0.72), (0, 0.46, 0.22), 0.30)
-    d = lisse(d, ellipsoide(p, (0, 0.30, -0.70), (0.34, 0.30, 0.36)), 0.08)
+    d = capsule(p, (0, 0.40, -0.52), (0, 0.46, 0.22), 0.30)
+    d = lisse(d, ellipsoide(p, (0, 0.30, -0.52), (0.34, 0.30, 0.32)), 0.08)
     cote = symetrique(lambda q: lisse(
-        ellipsoide(q, (0.21, 0.30, -0.66), (0.17, 0.28, 0.34)),
-        capsule(q, (0.30, 0.09, -0.78), (0.32, 0.075, -0.16), 0.085), 0.06))
+        ellipsoide(q, (0.21, 0.30, -0.5), (0.17, 0.28, 0.3)),
+        capsule(q, (0.30, 0.09, -0.6), (0.32, 0.075, -0.1), 0.085), 0.06))
     d = lisse(d, cote(p), 0.06)
-    pattes_arriere = symetrique(lambda q: ellipsoide(q, (0.33, 0.06, -0.09), (0.10, 0.06, 0.13)))
+    pattes_arriere = symetrique(lambda q: ellipsoide(q, (0.33, 0.06, -0.04), (0.10, 0.06, 0.13)))
     d = lisse(d, pattes_arriere(p), 0.03)
     # les pattes de devant allongées, les doigts
     devant = symetrique(lambda q: lisse(lisse(
@@ -111,9 +111,9 @@ def lion(p):
     tete = ote(symetrique(lambda q: ellipsoide(q, (0.085, 0.905, 0.82), (0.035, 0.022, 0.02)))(p), tete, 0.01)
     d = lisse(d, tete, 0.04)
     # la queue le long du flanc droit, sa touffe
-    queue = lisse(capsule(p, (0.10, 0.28, -1.00), (0.38, 0.07, -0.78), 0.04),
-                  capsule(p, (0.38, 0.07, -0.78), (0.37, 0.06, -0.22), 0.035), 0.03)
-    queue = lisse(queue, ellipsoide(p, (0.37, 0.07, -0.15), (0.06, 0.06, 0.1)), 0.03)
+    queue = lisse(capsule(p, (0.10, 0.28, -0.8), (0.38, 0.07, -0.62), 0.04),
+                  capsule(p, (0.38, 0.07, -0.62), (0.37, 0.06, -0.12), 0.035), 0.03)
+    queue = lisse(queue, ellipsoide(p, (0.37, 0.07, -0.05), (0.06, 0.06, 0.1)), 0.03)
     d = lisse(d, queue, 0.03)
     return d
 
@@ -129,8 +129,11 @@ def blandan(p):
     # le pantalon large qui tombe en plis sur la guêtre
     j = lisse(j, ellipsoide(p, (-0.125, 0.3, -0.13), (0.12, 0.13, 0.12)), 0.05)
     j = lisse(j, ellipsoide(p, (0.135, 0.3, 0.19), (0.12, 0.13, 0.12)), 0.05)
-    j = lisse(j, ellipsoide(p, (-0.13, 0.12, -0.10), (0.09, 0.06, 0.15)), 0.03)
-    j = lisse(j, ellipsoide(p, (0.14, 0.12, 0.28), (0.09, 0.06, 0.15)), 0.03)
+    # les souliers à plat sur la terrasse, les guêtres boutonnées jusqu'au mollet
+    j = lisse(j, boite(p, (-0.13, 0.13, -0.08), (0.075, 0.05, 0.15), 0.03), 0.02)
+    j = lisse(j, boite(p, (0.14, 0.13, 0.30), (0.075, 0.05, 0.15), 0.03), 0.02)
+    j = lisse(j, tronc_cone(p, 0.16, 0.42, 0.11, 0.1, -0.125, -0.15), 0.02)
+    j = lisse(j, tronc_cone(p, 0.16, 0.42, 0.11, 0.1, 0.14, 0.21), 0.02)
     d = lisse(d, j, 0.03)
     # la capote : la jupe évasée aux pans ouverts, le buste, le ceinturon, le sac
     jupe = tronc_cone(p, 0.62, 1.48, 0.34, 0.26)
@@ -208,5 +211,5 @@ def ecrire(nom, v, n, occ, idx):
 
 if __name__ == "__main__":
     pas = float(sys.argv[1]) if len(sys.argv) > 1 else 0.018
-    ecrire("lion.bin", *tailler(lion, (-0.5, -0.02, -1.15), (0.5, 1.15, 1.2), pas))
+    ecrire("lion.bin", *tailler(lion, (-0.5, -0.02, -0.95), (0.5, 1.15, 1.2), pas))
     ecrire("blandan.bin", *tailler(blandan, (-0.6, -0.02, -0.5), (0.6, 2.75, 0.75), pas * 0.8))

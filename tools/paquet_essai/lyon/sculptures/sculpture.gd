@@ -47,8 +47,9 @@ void fragment() {
 	vec3 c = mix(sombre * 0.55, sombre, creux);
 	c = mix(c, patine, smoothstep(0.2, 0.9, ciel) * creux * 0.8);
 	ALBEDO = c;
-	METALLIC = 0.25;
-	ROUGHNESS = mix(0.7, 0.4, creux);
+	// une patine mate : le bronze de plein air ne brille plus
+	METALLIC = 0.1;
+	ROUGHNESS = mix(0.9, 0.75, creux);
 }
 """
 	var m := ShaderMaterial.new()
