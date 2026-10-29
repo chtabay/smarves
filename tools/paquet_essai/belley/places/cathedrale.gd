@@ -17,7 +17,7 @@ const AXE_DEG := 30.5
 const C := Color("dbd1ba")  # un ton sous le calcaire des maisons : la grande façade au soleil ne brûle pas
 const C2 := Color("d1c6ad")      # les parements un peu plus gris des parties hautes
 const OMBRE := OUTILS.CALCAIRE_OMBRE
-const VERRE := Color(0.18, 0.21, 0.27, 0.15)
+const VERRE := Color(0.21, 0.26, 0.25, 0.15)  # le gris-vert des vitraux vus du dehors
 const ABAT := Color(0.12, 0.12, 0.13, 0.9)
 const ZINC := Color(0.42, 0.46, 0.50, 0.5)
 const TUILE := Color("b46a46", 0.0)
@@ -73,7 +73,16 @@ func baie(t: Transform3D, l: float, p: float, meneaux := 1, verre := VERRE, ebra
 	# Le mur est plein : l'encadrement avance de la profondeur de l'ébrasement, le verre se pose sur le nu du
 	# mur ; les flancs intérieurs du cadre font l'ébrasement.
 	bande(t, ogive(l + 0.44, p, (l + 0.44) * 0.8), forme, 0.0, ebrasement, OMBRE)
-	o.profil(t, forme, 0.02, 0.04, verre, OUTILS.VITRE)
+	if verre == ABAT:
+		# Le beffroi : pas de verre, mais le fond sombre de la chambre des cloches et les abat-sons, lames de bois
+		# gris inclinées vers le bas, en retrait au fond de l'ouverture.
+		o.profil(t, forme, 0.0, 0.02, Color(0.07, 0.07, 0.08, 1.0), OUTILS.PEINT)
+		var y := 0.45
+		while y < p - 0.2:
+			o.boite(t * Transform3D(Basis(Vector3.RIGHT, -0.6), Vector3(0, y, 0.16)), Vector3(l - 0.04, 0.05, 0.3), Color(0.30, 0.30, 0.29, 0.9), OUTILS.PEINT)
+			y += 0.42
+	else:
+		o.profil(t, forme, 0.02, 0.04, verre, OUTILS.VITRE)
 	o.boite(t * Transform3D(Basis(), Vector3(0, 0.08, ebrasement * 0.5 + 0.05)), Vector3(l + 0.6, 0.16, ebrasement + 0.1), OMBRE)
 	if meneaux > 1:
 		for k in range(1, meneaux):
@@ -206,7 +215,7 @@ func _nef() -> void:
 				pinacle(Vector3(cote * (BAS + 0.3), EGOUT_BAS + 0.8, zc + 2.8), 0.6, 3.6)
 			# Les fenêtres hautes de la nef, au-dessus des toits des bas-côtés.
 			var haut := Transform3D(Basis(Vector3.UP, cote * PI * 0.5), Vector3(cote * NEF, APPUI_BAS + 0.6, zc))
-			baie(haut, 1.5, 2.2, 1)
+			baie(haut, 1.5, 2.2, 2)
 	# Le vaisseau central : ses murs hauts et son grand toit.
 	_bloc(Vector3(0, EGOUT_NEF * 0.5, (z0 + z1) * 0.5 - 1.0), Vector3(NEF * 2.0, EGOUT_NEF, z0 - z1 + 2.0), C2)
 	_toit_long(-7.0, z1 - 0.5, NEF, EGOUT_NEF, FAITE_NEF)
@@ -389,7 +398,9 @@ func _tour() -> void:
 		for k in 6:
 			var f := (k + 1) / 7.0
 			var q := Vector2(cote * 4.2 * (1.0 - f), 6.2 * f)
-			o.boule(tg * Vector3(q.x + cote * 0.18, q.y + 0.22, 0.05), Vector3(0.16, 0.2, 0.16), C, 0.2, OUTILS.PIERRE, 0.0)
+			# Les crochets en crosse, de la teinte de la pierre : une tige qui sort du rampant et s'enroule.
+			o.boite(tg * Transform3D(Basis(Vector3.BACK, cote * 0.6), Vector3(q.x + cote * 0.1, q.y + 0.12, 0.05)), Vector3(0.07, 0.2, 0.07), OMBRE)
+			o.boule(tg * Vector3(q.x + cote * 0.16, q.y + 0.22, 0.05), Vector3(0.08, 0.07, 0.08), OMBRE, 0.1, OUTILS.PIERRE, 0.0)
 		bande(tg * Transform3D(Basis(), Vector3(cote * 2.3, 0.35, 0.0)), ogive(1.1, 0.6, 0.7), ogive(0.8, 0.6, 0.5), 0.0, 0.1, OMBRE)
 		# Les pinacles qui encadrent le gâble, sur les contreforts du portail.
 		pinacle(Vector3(cote * 4.55, 9.3, zf + 1.1), 0.7, 6.0)

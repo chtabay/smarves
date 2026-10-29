@@ -180,6 +180,13 @@ void fragment() {
 		// Hors de la ville, les routes sont des rubans (places/routes.gd) : sous elles, l'herbe des bas-côtés.
 		if (!ville && c == 8) c = 0;
 		col = teinte(c, xz, monde.y, g, g2, pres, pr);
+		if (c == 10 && xz.x > 7300.0) {
+			// La roche relevée de la rive savoyarde : en haut du versant, découpée par la forêt (verdict n° 6).
+			float coupe_p = fbm(xz * 0.012 + 31.0);
+			// (le y du rendu part de 250 m : la barre de la rive va de 5 à 90, on en garde le haut)
+			float m = smoothstep(40.0, 70.0, monde.y + (coupe_p - 0.5) * 30.0) * smoothstep(0.38, 0.5, coupe_p);
+			col = mix(teinte(1, xz, monde.y, g, g2, pres, pr), col, m);
+		}
 		eau = c == 7 ? 1.0 : 0.0;
 	} else {
 		// Le lointain : les teintes des quatre cases voisines, fondues (la carte a 37,5 m au pas).
@@ -222,7 +229,7 @@ void fragment() {
 	// Sur la rive savoyarde, comme la barre relevée : en haut du versant seulement, découpée par la forêt
 	// (verdicts n° 5 et 6) ; le talus raide du bord du Rhône reste boisé. Les falaises du Bugey ne changent pas.
 	float coupe = fbm(xz * 0.012 + 31.0);
-	if (xz.x > 7300.0) r *= smoothstep(680.0, 860.0, monde.y + (coupe - 0.5) * 120.0) * smoothstep(0.38, 0.5, coupe);
+	if (xz.x > 7300.0) r *= smoothstep(xz.x < 8000.0 ? 40.0 : 680.0, xz.x < 8000.0 ? 70.0 : 860.0, monde.y + (coupe - 0.5) * 30.0) * smoothstep(0.38, 0.5, coupe);
 	col = mix(col, roche(xz, monde.y, g, g2, pres, pr), r * 0.8);
 	// L'eau prend le ciel, d'autant plus qu'on la voit en rasant ; des rides plus claires la parcourent.
 	float rasant = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);

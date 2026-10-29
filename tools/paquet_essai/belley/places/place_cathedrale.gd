@@ -69,7 +69,8 @@ func _stationnement(parent: Node3D) -> void:
 	var epi := d * cos(deg_to_rad(60.0)) + nrm * sin(deg_to_rad(60.0))
 	var graine := 0
 	var voitures: PackedScene = load(Bibliotheque.scene("voitures-des-annees-80@1", "decor"))
-	for cote: float in [-1.0, 1.0]:
+	# Un seul rang de places, sous les arbres ; l'autre côté de l'allée rend au parvis (verdict n° 7).
+	for cote: float in [1.0]:
 		var axe := epi if cote > 0.0 else d * cos(deg_to_rad(60.0)) - nrm * sin(deg_to_rad(60.0))
 		var k := 0
 		var t := 2.5
