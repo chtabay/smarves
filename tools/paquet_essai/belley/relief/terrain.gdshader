@@ -109,8 +109,11 @@ vec3 teinte(int c, vec2 xz, float y, float g, float g2, float pres) {
 	} else if (c == 8) {
 		return ROUTE;
 	} else if (c == 9) {
-		// Les cours et les jardinets de la ville : gravier clair, herbe par plaques.
-		return mix(vec3(0.72, 0.69, 0.61), PRE, smoothstep(0.45, 0.7, g2)) * (0.93 + 0.12 * g);
+		// Les cours et les jardinets de la ville : surtout des pelouses et des potagers, une cour de gravier blond
+		// par endroits ; vus d'en haut, des jardins, comme sur la planche, pas un terrain vague.
+		vec3 gravier = vec3(0.78, 0.72, 0.60);
+		vec3 jardin = mix(vec3(0.50, 0.62, 0.30), vec3(0.42, 0.55, 0.26), smoothstep(0.4, 0.7, fbm(xz * 0.2 + 5.0)));
+		return mix(gravier, jardin, smoothstep(0.32, 0.42, g2)) * (0.93 + 0.12 * g);
 	} else if (c == 10) {
 		// La roche relevée sur le relief réel (tools/roche_reelle.py).
 		return roche(xz, y, g, g2, pres);
