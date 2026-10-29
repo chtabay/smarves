@@ -9,11 +9,14 @@ extends RefCounted
 const PLANTE := preload("res://bibliotheque/vegetation-du-bugey/1/plante.gd")
 const PLACE_CATHEDRALE := preload("res://communes/belley/places/place_cathedrale.gd")
 const CATHEDRALE := preload("res://communes/belley/places/cathedrale.gd")
+const OUTILS := preload("res://communes/belley/atelier/outils.gd")
 const DOSSIER := "res://communes/belley/"
+const MOELLON := Color("a89574", 0.0)
+const CHAPERON := Color("b3a688", 0.0)
 const UNITE := 2.4
 const CENTRE := Vector2(200.0, 340.0)
 const RAYON := 160.0
-const PAS := 5.5
+const PAS := 3.5
 ## Les classes du relevé où il y a des jardins : le pré, le bosquet, le verger, la lande.
 const JARDINS := [0, 2, 5, 6]
 ## L'angle du parcellaire, celui du shader du sol (relief/terrain.gdshader, jardins).
@@ -41,7 +44,7 @@ func batir(parent: Node3D) -> void:
 		["arbuste_fleuri", 5, {"hauteur": 1.5, "fleurs": "f4f0e6"}],
 		["arbuste_fleuri", 9, {"hauteur": 1.3, "fleurs": "d04a8a"}],
 		["haie", 4, {"longueur": 4.0, "hauteur": 1.2}],
-		["haie", 6, {"longueur": 3.0, "hauteur": 0.9}],
+		["haie", 6, {"longueur": 4.0, "hauteur": 1.0}],
 	]
 	var poses := []
 	for e in essences:
@@ -62,16 +65,52 @@ func batir(parent: Node3D) -> void:
 				continue
 			var tirage := g % 100
 			var k := -1
-			if tirage < 34:
+			if tirage < 30:
 				k = g % 3
 			elif tirage < 46:
 				k = 3 + g % 2
-			elif tirage < 58:
-				k = 5 + g % 2
 			if k < 0:
 				continue
 			var lacet := ANGLE + (PI * 0.5 if g % 2 == 0 else 0.0) if k >= 5 else float(g % 628) / 100.0
 			poses[k].append(Transform3D(Basis(Vector3.UP, -lacet), Vector3(v.x, hauteur.call(v.x, v.y) - 0.05, v.y)))
+	# Les limites des parcelles, continues : des haies taillées et, une fois sur trois, un muret de moellons, le
+	# long des lanières du parcellaire (le même angle que le sol) et en travers, tous les 12 m environ.
+	var murets: RefCounted = OUTILS.new(4421)
+	var ca := cos(ANGLE)
+	var sa := sin(ANGLE)
+	var qc := Vector2(ca * CENTRE.x - sa * CENTRE.y, sa * CENTRE.x + ca * CENTRE.y)
+	var monde := func(q: Vector2) -> Vector2: return Vector2(ca * q.x + sa * q.y, -sa * q.x + ca * q.y)
+	var limites := []
+	var y := floorf((qc.y - RAYON) / 10.0) * 10.0
+	while y < qc.y + RAYON:
+		var x := floorf((qc.x - RAYON) / 4.0) * 4.0
+		while x < qc.x + RAYON:
+			limites.append([monde.call(Vector2(x + 2.0, y)), ANGLE, absi(hash(Vector2i(int(x), int(y))))])
+			x += 4.0
+		var dec := float(absi(hash(int(y))) % 12)
+		var xt := floorf((qc.x - RAYON) / 12.0) * 12.0 + dec
+		while xt < qc.x + RAYON:
+			for k in 2:
+				limites.append([monde.call(Vector2(xt, y + 2.5 + k * 5.0)), ANGLE - PI * 0.5, absi(hash(Vector2i(int(xt), int(y) * 7 + k)))])
+			xt += 12.0
+		y += 10.0
+	for l in limites:
+		var v: Vector2 = l[0]
+		if v.distance_to(CENTRE) > RAYON:
+			continue
+		var px := int((v.x - float(cm.cadre[0])) / float(cm.pas))
+		var pz := int((v.y - float(cm.cadre[1])) / float(cm.pas))
+		if px < 0 or pz < 0 or px >= couv.get_width() or pz >= couv.get_height():
+			continue
+		if not int(round(couv.get_pixel(px, pz).r * 255.0)) in JARDINS or _occupe(obstacles, v) or _cathedrale(v) or PLACE_CATHEDRALE.sur_le_stationnement(v):
+			continue
+		var t := Transform3D(Basis(Vector3.UP, l[1]), Vector3(v.x, hauteur.call(v.x, v.y) - 0.05, v.y))
+		if int(l[2]) % 3 == 0:
+			murets.boite(t * Transform3D(Basis(), Vector3(0, 0.35, 0)), Vector3(4.02, 0.8, 0.4), MOELLON)
+			murets.boite(t * Transform3D(Basis(), Vector3(0, 0.79, 0)), Vector3(4.02, 0.08, 0.5), CHAPERON)
+		else:
+			poses[5 + int(l[2]) % 2].append(t)
+	murets.construire(parent, "Murets")
 	var tmp := Node3D.new()
 	var noeud := Node3D.new()
 	noeud.name = "Jardins"

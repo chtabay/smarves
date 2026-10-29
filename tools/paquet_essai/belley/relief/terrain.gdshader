@@ -277,7 +277,7 @@ void fragment() {
 	float r = 1.0 - smoothstep(roche_pleine, roche_pente, normale.y + (g - 0.5) * 0.12);
 	// Sur la rive savoyarde, comme la barre relevée : en haut du versant seulement, découpée par la forêt
 	// (verdicts n° 5 et 6) ; le talus raide du bord du Rhône reste boisé. Les falaises du Bugey ne changent pas.
-	if (xz.x > 7300.0) r = smoothstep(0.3, 0.7, r) * barre(xz, dsc);
+	if (xz.x > 7300.0) r = smoothstep(0.45, 0.55, r) * barre(xz, dsc);
 	col = mix(col, roche(xz, monde.y, g, g2, pres, pr), r * 0.8);
 	// Sur la rive savoyarde, le trait d'ombre sous le bord haut, et la face tournée contre le soleil plus sombre
 	// que la forêt : c'est le contraste qui fait la paroi, pas la blancheur.

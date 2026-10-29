@@ -76,10 +76,10 @@ func baie(t: Transform3D, l: float, p: float, meneaux := 1, verre := VERRE, ebra
 	if verre == ABAT:
 		# Le beffroi : pas de verre, mais le fond sombre de la chambre des cloches et les abat-sons, lames de bois
 		# gris inclinées vers le bas, en retrait au fond de l'ouverture.
-		o.profil(t, forme, 0.0, 0.02, Color(0.07, 0.07, 0.08, 1.0), OUTILS.PEINT)
+		o.profil(t, forme, 0.0, 0.02, Color(0.08, 0.07, 0.06, 1.0), OUTILS.PEINT)
 		var y := 0.45
 		while y < p - 0.2:
-			o.boite(t * Transform3D(Basis(Vector3.RIGHT, -0.6), Vector3(0, y, 0.16)), Vector3(l - 0.04, 0.05, 0.3), Color(0.30, 0.30, 0.29, 0.9), OUTILS.PEINT)
+			o.boite(t * Transform3D(Basis(Vector3.RIGHT, -0.6), Vector3(0, y, 0.16)), Vector3(l - 0.04, 0.05, 0.3), Color(0.33, 0.29, 0.24, 1.0), OUTILS.PEINT)
 			y += 0.42
 	else:
 		o.profil(t, forme, 0.02, 0.04, verre, OUTILS.VITRE)
@@ -412,7 +412,7 @@ func _tour() -> void:
 		var ange := fond * Vector3(cote * 1.45, 4.85, 0.14)
 		o.boite(Transform3D(Basis(Vector3.BACK, cote * 0.25), ange + Vector3(0, 0.35, 0)), Vector3(0.38, 0.7, 0.16), C)
 		o.boule(ange + Vector3(cote * -0.05, 0.85, 0), Vector3(0.12, 0.13, 0.1), C, 0.03, OUTILS.PIERRE, 0.0)
-		o.profil(Transform3D(Basis(), ange + Vector3(cote * 0.15, 0.4, -0.06)), PackedVector2Array([Vector2(0, 0), Vector2(cote * 0.5, 0.55), Vector2(0, 0.7)]), 0.0, 0.12, C)
+		o.profil(Transform3D(Basis(), ange + Vector3(cote * 0.15, 0.45, -0.06)), PackedVector2Array([Vector2(0, 0), Vector2(cote * 0.32, 0.4), Vector2(0, 0.5)]), 0.0, 0.12, C.darkened(0.12))
 	for k in 7:
 		o.boite(fond * Transform3D(Basis(Vector3.BACK, 0.785), Vector3(-1.95 + k * 0.65, 4.65, 0.32)), Vector3(0.16, 0.16, 0.05), C.darkened(0.06))
 	# Le gâble au-dessus du portail, ajouré d'une rose.
