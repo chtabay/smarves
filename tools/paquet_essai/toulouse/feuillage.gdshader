@@ -4,8 +4,8 @@ render_mode cull_disabled, diffuse_burley, specular_disabled;
 // et le même souffle, mais un vert plus clair et une lumière qui traverse davantage les feuilles, pour que la
 // voûte des platanes reste lumineuse et que son ombre sur la brique se lise comme une ombrière.
 uniform float souffle = .08;
-uniform float eclat = 1.22;
-uniform vec3 jour = vec3(.03, .045, .0);
+uniform float eclat = 1.3;
+uniform vec3 jour = vec3(.08, .07, -.02);
 void vertex() {
 	vec3 monde = (MODEL_MATRIX * vec4(VERTEX, 1.)).xyz;
 	float phase = monde.x * .31 + monde.z * .23;
