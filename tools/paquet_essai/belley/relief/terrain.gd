@@ -41,6 +41,11 @@ func construire() -> void:
 	materiau.set_shader_parameter("cadre_loin", Vector4(lointaine.cadre[0], lointaine.cadre[1], lointaine.cadre[2], lointaine.cadre[3]))
 	var pentes = JSON.parse_string(FileAccess.get_file_as_string(DOSSIER + "pente_crete.json"))
 	materiau.set_shader_parameter("pente_crete", load(DOSSIER + "pente_crete.png"))
+	for nom: String in ["proche", "loin"]:
+		var fichier := "sous_crete_relief" if nom == "proche" else "sous_crete_crete"
+		var sc = JSON.parse_string(FileAccess.get_file_as_string(DOSSIER + fichier + ".json"))
+		materiau.set_shader_parameter("sous_crete_" + nom, load(DOSSIER + fichier + ".png"))
+		materiau.set_shader_parameter("cadre_sc_" + nom, Vector4(sc.cadre[0], sc.cadre[1], sc.cadre[2], sc.cadre[3]))
 	materiau.set_shader_parameter("cadre_crete", Vector4(pentes.cadre[0], pentes.cadre[1], pentes.cadre[2], pentes.cadre[3]))
 	for a in ANNEAUX:
 		_anneau(a[0], a[1], a[2], a[3], a[4])

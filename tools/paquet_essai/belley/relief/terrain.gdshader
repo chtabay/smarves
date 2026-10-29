@@ -13,6 +13,12 @@ uniform vec4 cadre_loin = vec4(-18000.0, -18000.0, 18000.0, 18000.0);
 uniform sampler2D pente_crete : filter_linear, repeat_disable;
 uniform vec4 cadre_crete = vec4(8000.0, -6000.0, 13000.0, 15000.0);
 uniform float seuil_barre = 50.0;
+// La profondeur sous la crête (tools/sous_crete.py) : la hauteur qui sépare un point du plus haut à 300 m, un
+// mètre par niveau ; sur le proche (relief.png, 15 m) et sur la crête (crete.png, 25 m).
+uniform sampler2D sous_crete_proche : filter_linear, repeat_disable;
+uniform vec4 cadre_sc_proche = vec4(-1600.0, -2600.0, 8000.0, 2400.0);
+uniform sampler2D sous_crete_loin : filter_linear, repeat_disable;
+uniform vec4 cadre_sc_loin = vec4(8000.0, -6000.0, 13000.0, 15000.0);
 uniform float roche_pente = 0.6;   // sous ce cos de pente, la roche apparaît
 uniform float roche_pleine = 0.45;  // et couvre tout
 uniform float loin = 0.0;           // 1 sur les lointains : moins de grain, plus de lavis
@@ -31,6 +37,7 @@ const vec3 ROUTE = vec3(0.53, 0.50, 0.47);
 const vec3 ROCHE = vec3(0.60, 0.59, 0.55);
 const vec3 ROCHE_OMBRE = vec3(0.40, 0.40, 0.38);
 const vec3 ROCHE_LOIN = vec3(0.64, 0.61, 0.54);
+const vec3 OMBRE_BORD = vec3(0.43, 0.42, 0.37);  // le trait d'ombre sous le bord haut de la barre
 
 varying vec3 monde;
 varying vec3 normale;
@@ -94,6 +101,9 @@ vec3 roche(vec2 xz, float y, float g, float g2, float pres, float pr) {
 	float vire_loin = smoothstep(0.7, 0.85, 0.5 + 0.5 * sin(y * 0.11 + banc * 4.0));
 	vec3 bandeau = mix(ROCHE_LOIN, ROCHE_LOIN * vec3(0.86, 0.85, 0.82), smoothstep(0.35, 0.65, banc));
 	bandeau = mix(bandeau, mix(bandeau, FORET * 1.3, 0.6), vire_loin * 0.5);
+	// Les couloirs verticaux que l'eau a lavés : des traînées sombres qui font la paroi, par contraste.
+	float couloir_loin = smoothstep(0.55, 0.72, fbm(vec2(h * 0.035, y * 0.004) + 41.0));
+	bandeau = mix(bandeau, ROCHE_OMBRE * 0.85, couloir_loin * 0.6);
 	// Les couloirs gris ne se lisent qu'au pied de la barre (moins de 300 m) ; au-delà, le bandeau crème.
 	return mix(bandeau, r, pr);
 }
@@ -133,6 +143,24 @@ vec3 jardins(vec2 xz, float g) {
 	return col * (0.95 + 0.08 * g);
 }
 
+// La profondeur sous la crête, en mètres (999 hors des cartes).
+float sous_crete(vec2 xz) {
+	vec2 u = (xz - cadre_sc_proche.xy) / (cadre_sc_proche.zw - cadre_sc_proche.xy);
+	if (u.x >= 0.0 && u.y >= 0.0 && u.x <= 1.0 && u.y <= 1.0) return texture(sous_crete_proche, u).r * 255.0;
+	u = (xz - cadre_sc_loin.xy) / (cadre_sc_loin.zw - cadre_sc_loin.xy);
+	if (u.x >= 0.0 && u.y >= 0.0 && u.x <= 1.0 && u.y <= 1.0) return texture(sous_crete_loin, u).r * 255.0;
+	return 999.0;
+}
+
+// La barre de la rive savoyarde, collée à la crête : de 60 m sous le haut du versant (un bord net, 2 à 4 m) à
+// 120 m (un pied effiloché), découpée par la forêt (verdict n° 9).
+float barre(vec2 xz, float d) {
+	float n = fbm(xz * 0.02 + 5.0) - 0.5;
+	float haut = smoothstep(57.0, 60.0, d + n * 6.0);
+	float pied = 1.0 - smoothstep(95.0, 125.0, d + (fbm(xz * 0.06 + 13.0) - 0.5) * 50.0);
+	return haut * pied * smoothstep(0.36, 0.46, fbm(xz * 0.012 + 31.0));
+}
+
 vec3 teinte(int c, vec2 xz, float y, float g, float g2, float pres, float pr) {
 	if (c == 1 || c == 2) {
 		// La canopée : des houppiers clairs sur un fond sombre.
@@ -167,6 +195,8 @@ void fragment() {
 	float g2 = fbm(xz * mix(0.08, 0.006, loin) + 7.0);
 	float pres = 1.0 - smoothstep(600.0, 2500.0, distance(monde, CAMERA_POSITION_WORLD));
 	float pr = 1.0 - smoothstep(150.0, 450.0, distance(monde, CAMERA_POSITION_WORLD));
+	float dsc = sous_crete(xz);
+	float roc = 0.0;
 	vec3 col;
 	float eau = 0.0;
 	vec2 uv = (xz - cadre.xy) / (cadre.zw - cadre.xy);
@@ -181,10 +211,9 @@ void fragment() {
 		if (!ville && c == 8) c = 0;
 		col = teinte(c, xz, monde.y, g, g2, pres, pr);
 		if (c == 10 && xz.x > 7300.0) {
-			// La roche relevée de la rive savoyarde : en haut du versant, découpée par la forêt (verdict n° 6).
-			float coupe_p = fbm(xz * 0.012 + 31.0);
-			// (le y du rendu part de 250 m : la barre de la rive va de 5 à 90, on en garde le haut)
-			float m = smoothstep(40.0, 70.0, monde.y + (coupe_p - 0.5) * 30.0) * smoothstep(0.38, 0.5, coupe_p);
+			// La roche relevée de la rive savoyarde : collée à la crête, découpée par la forêt (verdict n° 9).
+			float m = barre(xz, dsc);
+			roc = max(roc, m);
 			col = mix(teinte(1, xz, monde.y, g, g2, pres, pr), col, m);
 		}
 		eau = c == 7 ? 1.0 : 0.0;
@@ -218,19 +247,29 @@ void fragment() {
 			float pente = texture(pente_crete, uc).r * 255.0 / 3.0;
 			rw = smoothstep(seuil_barre - 2.0, seuil_barre + 2.0, pente + bord * 8.0);
 		}
-		// La barre ne couronne que le haut du versant, et la forêt la découpe en tronçons (verdict n° 6).
-		rw *= smoothstep(680.0, 860.0, monde.y + bord * 60.0) * smoothstep(0.38, 0.5, fbm(xz * 0.012 + 31.0));
+		// La barre ne couronne que le haut du versant, et la forêt la découpe en tronçons (verdict n° 9).
+		if (dsc < 900.0) rw *= barre(xz, dsc);
 		// Et seulement là où le maillage se redresse : la barre suit les courbes du versant, pas les cases.
 		float raide = 1.0 - smoothstep(0.72, 0.9, normale.y + bord * 0.15);
-		col = mix(col, roche(xz, monde.y, g, g2, pres, pr), smoothstep(0.42, 0.5, rw * raide + bord * 0.3));
+		float wr = smoothstep(0.42, 0.5, rw * raide + bord * 0.3);
+		roc = max(roc, wr);
+		col = mix(col, roche(xz, monde.y, g, g2, pres, pr), wr);
 	}
 	// Là où le maillage lui-même se redresse (une barre plus raide que la carte), la roche affleure aussi.
 	float r = 1.0 - smoothstep(roche_pleine, roche_pente, normale.y + (g - 0.5) * 0.12);
 	// Sur la rive savoyarde, comme la barre relevée : en haut du versant seulement, découpée par la forêt
 	// (verdicts n° 5 et 6) ; le talus raide du bord du Rhône reste boisé. Les falaises du Bugey ne changent pas.
-	float coupe = fbm(xz * 0.012 + 31.0);
-	if (xz.x > 7300.0) r *= smoothstep(xz.x < 8000.0 ? 40.0 : 680.0, xz.x < 8000.0 ? 70.0 : 860.0, monde.y + (coupe - 0.5) * 30.0) * smoothstep(0.38, 0.5, coupe);
+	if (xz.x > 7300.0) r *= barre(xz, dsc);
 	col = mix(col, roche(xz, monde.y, g, g2, pres, pr), r * 0.8);
+	// Sur la rive savoyarde, le trait d'ombre sous le bord haut, et la face tournée contre le soleil plus sombre
+	// que la forêt : c'est le contraste qui fait la paroi, pas la blancheur.
+	if (xz.x > 7300.0) {
+		roc = max(roc, r);
+		float trait = smoothstep(57.0, 59.0, dsc) * (1.0 - smoothstep(61.0, 65.0, dsc));
+		col = mix(col, OMBRE_BORD, roc * trait * 0.85);
+		float contre = 1.0 - smoothstep(-0.1, 0.35, dot(normale, normalize(vec3(-0.75, 0.47, 0.47))));
+		col = mix(col, col * 0.55, roc * contre);
+	}
 	// L'eau prend le ciel, d'autant plus qu'on la voit en rasant ; des rides plus claires la parcourent.
 	float rasant = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);
 	float ride = smoothstep(0.62, 0.8, fbm(vec2(xz.x * 0.08, xz.y * 0.5))) * pres;

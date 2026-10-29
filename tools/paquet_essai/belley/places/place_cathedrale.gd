@@ -16,6 +16,8 @@ const BLANC := Color("eeeee6", 0.9)
 const BORNE := Color("3a3d40", 0.6)
 const BORDURE := Color("bdb5a6", 0.95)
 const TROTTOIR := Color("b9ad98", 0.95)
+## Les dalles du parvis : le calcaire clair en grand appareil (alpha 1 du shader de pierre).
+const DALLE := Color("b0a488", 1.0)
 ## Les arbres du stationnement, alignés de part et d'autre, au bout des places (planche : sept ou huit par rang).
 const ARBRES_PAR_RANG := 7
 
@@ -41,6 +43,7 @@ func batir(parent: Node3D) -> void:
 	_bornes(Vector2(157.5, 333.4), Vector2(189.0, 351.4), 2.4)
 	_bornes(Vector2(195.0, 324.0), Vector2(205.0, 330.0), 2.4)
 	_bordures()
+	_parvis(n)
 	o.construire(n, "Sol")
 	_mobilier(n)
 	_arbres(n)
@@ -204,3 +207,36 @@ static func sur_le_stationnement(v: Vector2) -> bool:
 	var w := v - ALLEE_A
 	var t := w.dot(d)
 	return t > -4.0 and t < ALLEE_A.distance_to(ALLEE_B) + 4.0 and absf(w.dot(Vector2(-d.y, d.x))) < 13.0
+
+
+## Le parvis dallé de l'autre côté de l'allée, au pied des marches : de grandes dalles de calcaire clair à joints
+## sombres (le grand appareil de la pierre, couché), ses bornes, ses lanternes et ses jardinières le long des
+## places.
+func _parvis(parent: Node3D) -> void:
+	var d := (ALLEE_B - ALLEE_A).normalized()
+	var nrm := Vector2(-d.y, d.x)
+	var longueur := ALLEE_A.distance_to(ALLEE_B)
+	var pas := 2.0
+	var u := -1.0
+	while u < longueur + 1.0:
+		var v := 3.0
+		while v < 10.4:
+			var a := ALLEE_A + d * u - nrm * v
+			var b := ALLEE_A + d * (u + pas) - nrm * v
+			var c := ALLEE_A + d * (u + pas) - nrm * (v + pas)
+			var e := ALLEE_A + d * u - nrm * (v + pas)
+			o.quad(_p(a, 0.17), _p(b, 0.17), _p(c, 0.17), _p(e, 0.17), Vector3.UP, DALLE, OUTILS.PIERRE)
+			v += pas
+		u += pas
+	_bornes(ALLEE_A - nrm * 3.4 + d * 1.0, ALLEE_B - nrm * 3.4 - d * 1.0, 2.6)
+	var scene: PackedScene = load(Bibliotheque.scene("mobilier-du-bugey@1", "decor"))
+	for k in 4:
+		var t := 3.0 + k * (longueur - 6.0) / 3.0
+		for objet: String in ["lampadaire", "jardiniere"]:
+			var m: Node3D = scene.instantiate()
+			m.set("objet", objet)
+			m.set("graine", 40 + k * 2 + (1 if objet == "jardiniere" else 0))
+			var w := ALLEE_A + d * (t + (0.0 if objet == "lampadaire" else 2.6)) - nrm * 4.2
+			m.position = _p(w, 0.17)
+			m.rotation.y = atan2(d.x, d.y)
+			parent.add_child(m)
