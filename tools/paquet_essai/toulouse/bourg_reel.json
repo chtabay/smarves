@@ -1,0 +1,11 @@
+{
+	"insee": "31555",
+	"centre": [1.44752, 43.60200],
+	"cadre": [-260.0, -420.0, 420.0, 330.0],
+	"remarquables": [
+		{"id": "place_saint_georges", "nom": "La place Saint-Georges", "genre": "lieu", "osm": "way/295737151"},
+		{"id": "place_saint_etienne", "nom": "La place Saint-Étienne", "genre": "lieu", "osm": "lonlat/1.44936,43.59993"},
+		{"id": "place_wilson", "nom": "La place du Président-Wilson", "genre": "lieu", "osm": "way/166133954"},
+		{"id": "cathedrale", "nom": "La cathédrale Saint-Étienne", "genre": "monument", "osm": "way/35316357"}
+	]
+}
