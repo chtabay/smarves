@@ -1,11 +1,13 @@
 shader_type spatial;
 render_mode cull_disabled, diffuse_burley, specular_disabled;
 // Le feuillage des arbres d'ombrière, en dentelle : chaque touffe est une carte où le calcul dessine cinq à sept
-// feuilles de platane à cinq lobes, nervurées, ou deux à trois feuilles palmées de marronnier ; hors des feuilles
+// feuilles de platane à cinq lobes (neuf à onze), nervurées, ou deux à trois feuilles palmées de marronnier ; hors des feuilles
 // la carte est percée, le ciel passe et l'ombre portée se tachette. UV.x porte la variante de la carte (sa partie
 // entière), UV.y la forme (sa partie paire : 0 le platane, 2 le marronnier) ; couleur par sommet (sRGB), souffle
 // du vent pondéré par l'alpha, lumière qui traverse franchement les feuilles (le vert tilleul à contre-jour).
 uniform float souffle = .06;
+// la part de lumière qui traverse les feuilles à contre-jour, réglable arbre par arbre (option contre_jour)
+instance uniform float contre_jour = .15;
 
 void vertex() {
  vec3 monde = (MODEL_MATRIX * vec4(VERTEX, 1.)).xyz;
@@ -69,14 +71,15 @@ void fragment() {
    }
   }
  } else {
- for (int i = 0; i < 7; i++) {
+ // neuf à onze feuilles plus petites par carte : de près, des feuilles de main, pas des étoiles géantes
+ for (int i = 0; i < 11; i++) {
   float g = k * 17.31 + float(i) * 3.77;
-  if (i >= 5 && hasard(g + .5) < .45) {
+  if (i >= 9 && hasard(g + .5) < .45) {
    continue;
   }
-  vec2 c = vec2(.28, .28) + vec2(hasard(g), hasard(g + 1.3)) * .44;
+  vec2 c = vec2(.2, .2) + vec2(hasard(g), hasard(g + 1.3)) * .6;
   float ang = hasard(g + 2.1) * 6.2832;
-  float taille = .16 + hasard(g + 3.7) * .08;
+  float taille = .1 + hasard(g + 3.7) * .05;
   vec2 p = l - c;
   p = mat2(vec2(cos(ang), sin(ang)), vec2(-sin(ang), cos(ang))) * p / taille;
   float r = length(p);
@@ -99,9 +102,12 @@ void fragment() {
  // le liseré sombre au bord de chaque feuille et les nervures plus claires : la dentelle se lit de près
  base *= mix(1., .8, smoothstep(-.1, 0., dedans));
  base = mix(base, base * 1.18, nervure * .5);
+ // vue d'en dessous, la voûte s'assombrit de moitié : le dessous des feuilles est dans l'ombre de la couronne
+ vec3 vers_oeil = (INV_VIEW_MATRIX * vec4(VIEW, 0.)).xyz;
+ base *= mix(1., .5, smoothstep(.05, -.45, vers_oeil.y));
  ALBEDO = base;
  ROUGHNESS = .9;
- BACKLIGHT = ALBEDO * .85;
+ BACKLIGHT = ALBEDO * contre_jour;
 }
 
 // La lumière en aplats, à la manière des arbres de Zelda : trois tons nets (l'ombre, le mi-jour, le plein

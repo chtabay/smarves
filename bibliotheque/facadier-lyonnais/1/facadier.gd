@@ -47,7 +47,9 @@ const ETAGE := 3.3
 ## « cafe », « arcades », « passage », « logis », « pierre »), persiennes (vrai, faux ou un hexa), balcons (vrai
 ## ou faux : les balcons filants), fleurs, vigne, enseigne (le texte de l'enseigne du café ou de la boutique),
 ## toile (deux hexas : le store ; deux fois le même, une toile unie), avancee (l'avancée des stores en mètres, 2 au
-## café et 1,3 à la boutique par défaut), tuile (un hexa : la teinte des tuiles canal, le rouge orangé lyonnais sinon).
+## café et 1,3 à la boutique par défaut), tuile (un hexa : la teinte des tuiles canal, le rouge orangé lyonnais sinon),
+## pente (en degrés, 24 par défaut), chassis (0 à 3 fenêtres de toit sur le pan côté rue, 0 par défaut), souches
+## (« grosses » : des souches plus larges et plus hautes, à quatre mitrons).
 ## Rend le nœud de l'immeuble ; ses métadonnées : type, graine, w, d, hauteur (au faîte), porte (le seuil).
 static func maison(parent: Node3D, p: Vector3, type: String, graine: int, opt := {}) -> Node3D:
 	if not type in TYPES:
@@ -99,17 +101,30 @@ static func maison(parent: Node3D, p: Vector3, type: String, graine: int, opt :=
 	if toit == "mansarde":
 		faite = _mansarde(o, w, d, H, r)
 	else:
-		faite = _quatre_pans(o, w, d, H, r, _tuile(opt))
-	# les souches de cheminée, massives, enduites, sur le versant arrière
+		faite = _quatre_pans(o, w, d, H, r, _tuile(opt), float(opt.get("pente", 24.0)), int(opt.get("chassis", 0)))
+	# les souches de cheminée, massives, enduites, sur le versant arrière ; les grosses souches des immeubles
+	# lyonnais montent plus haut et portent quatre mitrons de terre cuite
+	var grosses := str(opt.get("souches", "")) == "grosses"
+	var sw := 1.6 if grosses else 1.1
+	var sh := 4.0 if grosses else 3.0
+	var sd := 0.95 if grosses else 0.6
+	var nm := 4 if grosses else 3
 	var nc := 2 + (1 if w > 10.0 else 0)
 	for i in nc:
 		var x := lerpf(-w * 0.4, w * 0.4, float(i) / maxf(1, nc - 1)) + r.randf_range(-0.4, 0.4)
 		var z := -d * r.randf_range(0.45, 0.7)
 		var y := H + (faite - H) * 0.5
-		o.boite(Transform3D(Basis(), Vector3(x, y + 1.0, z)), Vector3(1.1, 3.0, 0.6), enduit.lightened(0.05))
-		o.boite(Transform3D(Basis(), Vector3(x, y + 2.55, z)), Vector3(1.25, 0.16, 0.75), PIERRE_SOMBRE)
-		for k in 3:
-			o.cylindre(Transform3D(Basis(), Vector3(x - 0.35 + k * 0.35, y + 2.63, z)), 0.09, 0.08, 0.32, 6, Color("b86a45"))
+		o.boite(Transform3D(Basis(), Vector3(x, y + sh * 0.5 - 0.5, z)), Vector3(sw, sh, sd), enduit.lightened(0.05))
+		o.boite(Transform3D(Basis(), Vector3(x, y + sh - 0.45, z)), Vector3(sw + 0.15, 0.16, sd + 0.15), PIERRE_SOMBRE)
+		if grosses:
+			o.boite(Transform3D(Basis(), Vector3(x, y + sh - 0.75, z)), Vector3(sw + 0.08, 0.1, sd + 0.08), PIERRE)
+		for k in nm:
+			var xm := x - (nm - 1) * 0.5 * (sw / nm) + k * (sw / nm)
+			if grosses:
+				o.cylindre(Transform3D(Basis(), Vector3(xm, y + sh - 0.37, z)), 0.15, 0.12, 0.5, 8, Color("b86a45"))
+				o.cylindre(Transform3D(Basis(), Vector3(xm, y + sh + 0.13, z)), 0.13, 0.14, 0.06, 8, Color("a85c3a"))
+			else:
+				o.cylindre(Transform3D(Basis(), Vector3(xm, y + sh - 0.37, z)), 0.09, 0.08, 0.32, 6, Color("b86a45"))
 	o.construire(n, "Corps")
 	n.set_meta("type", type)
 	n.set_meta("graine", graine)
@@ -478,10 +493,11 @@ static func _vigne(o: Outils, w: float, H: float, r: RandomNumberGenerator) -> v
 		o.boule(Vector3(x, haut - r.randf_range(0.0, 0.5), 0.35), Vector3(0.42, 0.3, 0.2), VERT.lightened(0.08), 0.25, Outils.FEUILLE, 0.08, 0.2)
 
 
-## Le toit lyonnais à quatre pans, en tuile canal, peu pentu, sur sa génoise ; rend le faîte.
-static func _quatre_pans(o: Outils, w: float, d: float, H: float, r: RandomNumberGenerator, tuile: Array) -> float:
+## Le toit lyonnais à quatre pans, en tuile canal, peu pentu (24° ou degres), sur sa génoise, et ses châssis de
+## toit côté rue ; rend le faîte.
+static func _quatre_pans(o: Outils, w: float, d: float, H: float, r: RandomNumberGenerator, tuile: Array, degres := 24.0, chassis := 0) -> float:
 	var e := 0.55
-	var pente := deg_to_rad(24.0)
+	var pente := deg_to_rad(clampf(degres, 15.0, 45.0))
 	var x0 := -w * 0.5 - e
 	var x1 := w * 0.5 + e
 	var z0 := e
@@ -533,6 +549,23 @@ static func _quatre_pans(o: Outils, w: float, d: float, H: float, r: RandomNumbe
 			var centre: Vector3 = bas + monte * f + nrm.normalized() * 0.03
 			var bb := Basis(dir, nrm.normalized(), dir.cross(nrm.normalized()))
 			o.boite(Transform3D(bb.orthonormalized(), centre), Vector3(lk, 0.05, 0.08), tuile[1])
+	# les châssis de toit, posés dans le pan côté rue : un cadre clair, la vitre, le rejingot qui la protège
+	if chassis > 0:
+		var avant: Array = pans[0]
+		var nf: Vector3 = (avant[1] - avant[0]).cross(avant[2] - avant[0]).normalized()
+		if nf.y < 0.0:
+			nf = -nf
+		var monte_f: Vector3 = ((avant[2] if avant.size() == 3 else (avant[2] + avant[3]) * 0.5) - (avant[0] + avant[1]) * 0.5)
+		var f := 0.38
+		var largeur := (x1 - x0) * 0.5 * (1.0 - f if avant.size() == 3 or x1 - x0 < z0 - z1 else 1.0) - 0.9
+		var bc := Basis(Vector3.RIGHT, nf, Vector3.RIGHT.cross(nf)).orthonormalized()
+		var nb := clampi(chassis, 1, 3)
+		for i in nb:
+			var x := 0.0 if nb == 1 else lerpf(-largeur, largeur, float(i) / (nb - 1)) * 0.7
+			var c := Vector3(x, y0, z0) + monte_f * f + nf * 0.05
+			o.boite(Transform3D(bc, c), Vector3(0.78, 0.07, 0.98), Color("ece4d2"))
+			o.boite(Transform3D(bc, c + nf * 0.01), Vector3(0.6, 0.07, 0.78), VERRE.darkened(0.1))
+			o.boite(Transform3D(bc, c + nf * 0.04 + bc.z * -0.5), Vector3(0.86, 0.05, 0.08), Color("8a8f94"))
 	# l'arêtier et le faîtage
 	if a.distance_to(b) > 0.01:
 		o.branche(a, b, 0.1, 0.1, tuile[1], 6)

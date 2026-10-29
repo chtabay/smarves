@@ -13,9 +13,9 @@ const Outils := preload("res://bibliotheque/mobilier-toulousain/1/outils.gd")
 
 ## Les objets : la terrasse de café (tables rondes et chaises de rotin), le parasol rond, le grand parasol carré
 ## et ses tables, le store de terrasse sur pieds, le chevalet du menu, le potelet de fonte, l'appui-vélo, le
-## lampadaire toulousain, le bac de bois fleuri, le jardin d'enfants et le carrousel.
+## lampadaire toulousain, le bac de bois fleuri, le bac végétal maçonné, le jardin d'enfants et le carrousel.
 const OBJETS := ["terrasse", "parasol", "grand_parasol", "store_terrasse", "chevalet", "potelet", "appui_velo",
-	"lampadaire", "bac_bois", "jardin_enfants", "carrousel"]
+	"lampadaire", "bac_bois", "bac_vegetal", "jardin_enfants", "carrousel"]
 
 const FONTE := Color("23272a")
 const FONTE_CLAIRE := Color("3a3f44")
@@ -41,7 +41,10 @@ const TOILES := [["f0e3c4", "f0e3c4"], ["8a2a2e", "8a2a2e"], ["f0e3c4", "8a2a2e"
 @export var graine := 1
 ## Les options, toutes facultatives : toile (deux hexas : un parasol, un store), fleurs (un hexa), allume (false :
 ## la lanterne éteinte), longueur (le bac, l'appui-vélo : en mètres), tables (la terrasse : 1 à 4), tourne (false :
-## le carrousel à l'arrêt).
+## le carrousel à l'arrêt). Le bac végétal : forme (« rectangle », « L » ou « polygone »), longueur et largeur (le
+## rectangle, le L), retour (la branche du L), points (le polygone : des Vector2 ou des paires [x, z], en mètres,
+## le contour extérieur), hauteur (le muret, 0,5 m), terre (de la terre au rebord, 0,12 m), plantation (« dense »,
+## « fleurie » ou « buis »).
 @export var options := {}
 
 var fait := false
@@ -282,6 +285,109 @@ class _Objets:
 				o.boule(q + Vector3(o.rng.randf_range(-0.16, 0.16), 0.16, o.rng.randf_range(-0.16, 0.16)), Vector3.ONE * 0.07, fleur.lightened(o.rng.randf_range(-0.1, 0.1)), 0.2, Outils.FEUILLE, 0.06, 0.3)
 		o.collisions.append([Transform3D(Basis(), p + Vector3(0, 0.36, 0)), Vector3(l, 0.72, 0.9)])
 		return Vector2(l, 0.9)
+
+	## Le contour d'un bac végétal selon ses options, centré sur l'origine : (x, z) en mètres.
+	static func _contour(opt: Dictionary) -> PackedVector2Array:
+		var forme := str(opt.get("forme", "rectangle"))
+		var l := float(opt.get("longueur", 4.0))
+		var w := float(opt.get("largeur", 1.2))
+		var pts := PackedVector2Array()
+		if forme == "polygone" and opt.get("points", []) is Array and (opt["points"] as Array).size() >= 3:
+			for q in opt["points"]:
+				pts.append(q if q is Vector2 else Vector2(float(q[0]), float(q[1])))
+		elif forme == "L":
+			var retour := float(opt.get("retour", l * 0.6))
+			pts = PackedVector2Array([Vector2(0, 0), Vector2(l, 0), Vector2(l, w), Vector2(w, w), Vector2(w, retour), Vector2(0, retour)])
+		else:
+			pts = PackedVector2Array([Vector2(0, 0), Vector2(l, 0), Vector2(l, w), Vector2(0, w)])
+		var mini := pts[0]
+		var maxi := pts[0]
+		for q in pts:
+			mini = Vector2(minf(mini.x, q.x), minf(mini.y, q.y))
+			maxi = Vector2(maxf(maxi.x, q.x), maxf(maxi.y, q.y))
+		var centre := (mini + maxi) * 0.5
+		for i in pts.size():
+			pts[i] -= centre
+		if Geometry2D.is_polygon_clockwise(pts):
+			pts.reverse()
+		return pts
+
+	static func bac_vegetal(o: Outils, p: Vector3, opt: Dictionary) -> Vector2:
+		# le muret de brique foraine et ses joints, la couvertine de pierre, la terre à quelques centimètres sous le
+		# rebord et la plantation : un massif dense, un massif fleuri, ou des buis taillés en boule
+		var pts := _contour(opt)
+		var h := float(opt.get("hauteur", 0.5))
+		var terre := float(opt.get("terre", 0.12))
+		var plantation := str(opt.get("plantation", "dense"))
+		var ep := 0.22
+		var brique := Color("c46a46")
+		var couvertine := Color("d9cdb6")
+		var mini := Vector2(INF, INF)
+		var maxi := Vector2(-INF, -INF)
+		for i in pts.size():
+			var a := pts[i]
+			var b := pts[(i + 1) % pts.size()]
+			mini = Vector2(minf(mini.x, a.x), minf(mini.y, a.y))
+			maxi = Vector2(maxf(maxi.x, a.x), maxf(maxi.y, a.y))
+			var e := b - a
+			var lg := e.length()
+			if lg < 0.05:
+				continue
+			var u := e / lg
+			# la normale vers l'intérieur (contour dans le sens direct)
+			var dedans := Vector2(-u.y, u.x)
+			var milieu := (a + b) * 0.5 + dedans * ep * 0.5
+			var bs := Basis(Vector3.UP, -atan2(u.y, u.x))
+			var c := p + Vector3(milieu.x, 0, milieu.y)
+			o.boite(Transform3D(bs, c + Vector3(0, h * 0.5 - 0.05, 0)), Vector3(lg + ep * 0.5, h + 0.1, ep), brique, Outils.DUR, true)
+			# les joints de mortier, tous les deux rangs, et quelques briques plus sombres
+			var y := 0.1
+			while y < h - 0.08:
+				o.boite(Transform3D(bs, c + Vector3(0, y, 0) - bs.z * (ep * 0.5 + 0.003) * 1.0), Vector3(lg, 0.012, 0.006), Color("e6d6bc"))
+				o.boite(Transform3D(bs, c + Vector3(0, y, 0) + bs.z * (ep * 0.5 + 0.003)), Vector3(lg, 0.012, 0.006), Color("e6d6bc"))
+				y += 0.1
+			var nb := int(lg / 0.5)
+			for k in nb:
+				var xk := -lg * 0.5 + (k + o.rng.randf()) * lg / maxf(1, nb)
+				var yk := 0.05 + o.rng.randi_range(0, int((h - 0.2) / 0.05)) * 0.05
+				o.boite(Transform3D(bs, c + bs.x * xk + Vector3(0, yk, 0) - bs.z * (ep * 0.5 + 0.004)), Vector3(0.22, 0.045, 0.006), brique.darkened(o.rng.randf_range(0.1, 0.22)))
+			o.boite(Transform3D(bs, c + Vector3(0, h + 0.03, 0)), Vector3(lg + ep * 0.5 + 0.06, 0.06, ep + 0.07), couvertine)
+		# la terre, au dedans du muret
+		var dedans_pts := pts
+		var r := Geometry2D.offset_polygon(pts, -ep + 0.01, Geometry2D.JOIN_MITER)
+		if r.size() > 0:
+			dedans_pts = r[0]
+		var sol := Basis(Vector3(1, 0, 0), Vector3(0, 0, 1), Vector3(0, -1, 0))
+		o.profil(Transform3D(sol, p), dedans_pts, -(h - terre), -(h - terre) + 0.3, TERRE)
+		# la plantation, semée dans le dedans
+		var aire := (maxi.x - mini.x) * (maxi.y - mini.y)
+		var fleur := _fleur(o, opt)
+		var n := int(aire * (2.2 if plantation == "buis" else 6.0))
+		var faits := 0
+		var essais := 0
+		var haut := h - terre
+		while faits < n and essais < n * 8:
+			essais += 1
+			var q := Vector2(o.rng.randf_range(mini.x, maxi.x), o.rng.randf_range(mini.y, maxi.y))
+			if not Geometry2D.is_point_in_polygon(q, dedans_pts):
+				continue
+			var c := p + Vector3(q.x, haut, q.y)
+			if plantation == "buis":
+				var rb := o.rng.randf_range(0.2, 0.28)
+				o.boule(c + Vector3(0, rb * 0.85, 0), Vector3(rb, rb * 0.95, rb), Color("355e2a").lightened(o.rng.randf_range(-0.04, 0.08)), 0.08, Outils.FEUILLE, 0.03, 0.15)
+			else:
+				var rv := o.rng.randf_range(0.18, 0.38)
+				o.boule(c + Vector3(0, rv * 0.6, 0), Vector3(rv, rv * o.rng.randf_range(0.7, 1.3), rv), VERT.darkened(o.rng.randf_range(0.0, 0.25)).lightened(o.rng.randf_range(0.0, 0.08)), 0.25, Outils.FEUILLE, 0.06, 0.4)
+				if plantation == "fleurie" or (plantation == "dense" and o.rng.randf() < 0.12):
+					for k in 5:
+						o.boule(c + Vector3(o.rng.randf_range(-rv, rv) * 0.7, rv * o.rng.randf_range(0.8, 1.3), o.rng.randf_range(-rv, rv) * 0.7), Vector3.ONE * 0.06, fleur.lightened(o.rng.randf_range(-0.1, 0.12)), 0.2, Outils.FEUILLE, 0.05, 0.3)
+				if plantation == "dense" and o.rng.randf() < 0.18:
+					# une graminée, plus haute, qui ondule
+					for k in 6:
+						var a := o.rng.randf() * TAU
+						o.branche(c, c + Vector3(cos(a) * 0.18, o.rng.randf_range(0.5, 0.8), sin(a) * 0.18), 0.012, 0.004, Color("8fa65a"), 3)
+			faits += 1
+		return maxi - mini
 
 	static func jardin_enfants(o: Outils, p: Vector3, _opt: Dictionary) -> Vector2:
 		var w := 9.0

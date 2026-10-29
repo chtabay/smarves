@@ -12,7 +12,8 @@ extends SceneTree
 ##   --vue=rue         la même place à hauteur d'œil
 ##   --vue=quai        le quai, la rivière et le pont, vus du parapet
 ##   --vue=terrasses   un café et deux boutiques, leurs stores bannes et les terrasses bistrot, à hauteur d'œil
-##                     (--nom=haut : de plus haut, comme sur la planche de la place Sathonay)
+##                     (--nom=haut : de plus haut, comme sur la planche de la place Sathonay ; --nom=toits : les
+##                     toits à 29°, leurs châssis et leurs grosses souches)
 ## Sans carte graphique : xvfb-run avec --rendering-driver opengl3.
 
 const FACADIER := "facadier-lyonnais@1"
@@ -52,11 +53,18 @@ func _init() -> void:
 			for e in rang:
 				var opt: Dictionary = e[1]
 				opt["w"] = 9.5
+				if nom == "toits":
+					opt["chassis"] = 1 + rang.find(e) % 3
+					opt["souches"] = "grosses"
+					opt["pente"] = 29.0
 				var m := _pose(FACADIER, "type", e[0], Vector3(x + 4.75, 0, 0), rang.find(e) + 3, opt)
 				if e[0] == "cafe":
 					_pose(MOBILIER, "objet", "terrasse", Vector3(x + 4.75, 0, 3.4), rang.find(e) + 1, {})
 				x += 9.9
-			if nom == "haut":
+			if nom == "toits":
+				cam.fov = 45
+				cam.look_at_from_position(Vector3(2, 34, 30), Vector3(2, 14, -4))
+			elif nom == "haut":
 				cam.fov = 45
 				cam.look_at_from_position(Vector3(4, 16, 26), Vector3(2, 2.5, 0))
 			else:
