@@ -317,6 +317,15 @@ func _init() -> void:
 	toulouse.add_child(bac)
 	var emprise_bac: Vector2 = bac.get_meta("emprise")
 	check(emprise_bac.x > 4.0 and emprise_bac.y > 2.9, "le bac végétal suit le polygone qu'on lui donne (%s)" % str(emprise_bac))
+	# un grand bac dense de 1 000 m² se sème selon son aire réelle, sous un plafond de touffes : il se bâtit vite
+	var grand_bac: Node3D = load(Bibliotheque.scene("mobilier-toulousain@1", "decor")).instantiate()
+	grand_bac.objet = "bac_vegetal"
+	grand_bac.options = {"forme": "polygone", "points": [[0, 0], [40, 0], [40, 25], [0, 25]], "plantation": "dense"}
+	var t_bac := Time.get_ticks_msec()
+	toulouse.add_child(grand_bac)
+	t_bac = Time.get_ticks_msec() - t_bac
+	check(grand_bac.find_children("*", "MeshInstance3D", true, false).size() == 1 and t_bac < 8000,
+		"un bac végétal dense de 1 000 m² se bâtit en %d ms (moins de 8 s)" % t_bac)
 	var marronnier: Node3D = load(Bibliotheque.scene("arbres-d-ombriere@1", "decor")).instantiate()
 	marronnier.arbre = "marronnier"
 	toulouse.add_child(marronnier)
