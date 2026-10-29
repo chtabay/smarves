@@ -6,7 +6,8 @@ extends SceneTree
 ## « stade-de-campagne@1 » reçoit le club, le match, le tableau, le président, le bureau, le panneau et la sortie ;
 ## la salle de Smarves sur « salle-de-quartier@1 », le club, le cube, le président, le bureau, les parts et le car ;
 ## les matières de « matieres-de-minuit@1 » se posent par leur nom (socle 1.17) ; le façadier « facadier-du-poitou@1 »
-## bâtit ses dix types ; chaque décor se bâtit seul (le donjon en ruine, l'église romane).
+## bâtit ses dix types ; chaque décor se bâtit seul (le donjon en ruine, l'église romane) ; les arbres, le mobilier
+## et le façadier de la place du nord se bâtissent par leur nom.
 
 var fails := 0
 
@@ -155,6 +156,41 @@ func _init() -> void:
 	check(is_equal_approx(float(m2.get_meta("w")), 9.0) and m2.get_meta("vegetal") == [] and str(m1.get_meta("traces")) + str(m1.get_meta("w")) != str(m2.get_meta("traces")) + str(m2.get_meta("w")),
 		"les options passent au façadier, et deux graines font deux maisons")
 	bancs.queue_free()
+
+	# La place du nord (tirée de l'inspiration d'ambiance de Guillaume) : les arbres, le mobilier et le façadier des
+	# Flandres se bâtissent chacun par son nom et sa graine, en un seul maillage et un seul corps.
+	var place := Node3D.new()
+	root.add_child(place)
+	var nord := {"arbres-de-place@1": ["especes", "espece", 5], "mobilier-de-place@1": ["objets", "objet", 13], "facadier-des-flandres@1": ["types", "type", 6]}
+	for ref in nord:
+		var sc := Bibliotheque.scene(ref, "decor")
+		check(sc != "" and ResourceLoader.exists(sc), "la bibliothèque a %s, un décor" % ref)
+		if sc == "":
+			continue
+		var paquet: PackedScene = load(sc)
+		var noms: Array = paquet.instantiate().call(nord[ref][0])
+		var rates := []
+		for nom in noms:
+			var d: Node3D = paquet.instantiate()
+			d.set(nord[ref][1], nom)
+			d.graine = 3
+			place.add_child(d)
+			var maillages := d.find_children("*", "MeshInstance3D", true, false)
+			if d.get_meta(nord[ref][1], "") != nom or maillages.size() != 1 or maillages[0].mesh.get_surface_count() > 3 or d.find_children("*", "CollisionShape3D", true, false).is_empty():
+				rates.append(nom)
+		check(noms.size() == nord[ref][2] and rates.is_empty(), "%s : les %d se bâtissent, un maillage et un corps chacun %s" % [ref, noms.size(), str(rates)])
+	var paquet_nord: PackedScene = load(Bibliotheque.scene("facadier-des-flandres@1", "decor"))
+	var f1: Node3D = paquet_nord.instantiate()
+	var f2: Node3D = paquet_nord.instantiate()
+	f1.type = "cloche"
+	f2.type = "cloche"
+	f2.graine = 2
+	f2.options = {"w": 8.0, "niveaux": 3, "rdc": "passage"}
+	place.add_child(f1)
+	place.add_child(f2)
+	check(is_equal_approx(float(f2.get_meta("w")), 8.0) and float(f2.get_meta("hauteur")) > 4.0 + 3 * 3.2 and float(f1.get_meta("w")) != float(f2.get_meta("w")),
+		"les options passent au façadier des Flandres, et deux graines font deux maisons")
+	place.queue_free()
 
 	# Les intérieurs (socle 1.22) : chaque salle de jeu et chaque étude tient le contrat de son genre.
 	check("bar-des-sports@1" in Bibliotheque.references("salle_jeu") and "etude-de-notaire@1" in Bibliotheque.references("etude"),
