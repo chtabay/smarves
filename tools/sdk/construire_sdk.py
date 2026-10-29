@@ -47,6 +47,8 @@ ENTREES = [
     # L'intérieur d'une maison achetée chez le notaire d'une commune (Biens.enter), à essayer dans le SDK.
     "scripts/logement.gd", "scenes/logement.tscn",
     "scripts/socle/commerce.gd", "scripts/socle/articles.gd", "scenes/commerce.tscn",
+    # La charge d'agent de change d'une commune (socle 1.27) : la bourse de Mme Vasseur, au nom de son agent.
+    "scripts/socle/charge.gd", "scenes/charge.tscn",
     "scenes/stade.tscn", "communes/vienne.json", "communes/france.json",
     "tools/kit/commune.gd", "tools/kit/commune.tscn", "tools/kit/commune.json",
     "tools/test_commune.gd", "tools/parcours_commune.gd", "tools/emballer_commune.gd", "tools/test_atelier.gd", "tools/test_salle_jeu.gd",
@@ -91,7 +93,7 @@ COUPE = {
     "scenes/moulin.tscn", "scenes/rabelais.tscn",
     "scripts/main.gd", "scripts/title.gd", "scripts/village/village.gd", "scripts/casino_interior.gd",
     "scripts/casino_exterior.gd", "scripts/outskirts.gd", "scripts/village/bois.gd",
-    "scripts/village/passelourdin.gd", "scripts/village/pepites.gd", "scripts/village/charge.gd",
+    "scripts/village/passelourdin.gd", "scripts/village/pepites.gd",
     # Le registre du notaire de Smarves se calcule sur l'agencement du village (NORTH_ROW, BOIS…), absent
     # du bouchon : il ne se compilerait pas, et toute commune qui déclare un notaire en hériterait les
     # erreurs (retour de l'auteur de Chauvigny). Le manifeste d'origine du SDK ne le nomme plus (_origine).

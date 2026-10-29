@@ -18,6 +18,9 @@ const MARGES := [100, 500, 1000, 5000, 20000]
 
 ## L'ordre en préparation : la valeur, le sens, le levier, la marge.
 var ordre := {}
+## L'agent de change et son enseigne : Mme Vasseur à Smarves, l'agent d'une commune dans sa charge (socle 1.27).
+var agent := "Mme Vasseur"
+var enseigne := "Vasseur & Cie"
 var _ligne_ordre: Label
 var _saisie: SpinBox
 var _occupe := false
@@ -63,7 +66,7 @@ func remplir(colonne: VBoxContainer) -> void:
 	ordre = {}
 	var b := bourse()
 	var etroit := _etroit()
-	colonne.add_child(_mot("V A S S E U R   &   C I E   ·   A G E N T   D E   C H A N G E", 12 if etroit else 13, DOUX))
+	colonne.add_child(_mot(" ".join(("%s · agent de change" % enseigne).to_upper().split("")), 12 if etroit else 13, DOUX))
 	colonne.add_child(_mot("La cote", 26 if etroit else 32, CRAIE, Polices.titre()))
 	if b.indices().is_empty():
 		var t := "La cote arrive par le téléscripteur…" if b.etat == "lecture" or b.etat == "" else \
@@ -136,7 +139,7 @@ func _positions(colonne: VBoxContainer) -> void:
 	var b := bourse()
 	colonne.add_child(_mot("Vos positions", 22, CRAIE, Polices.gras()))
 	if not compte_ouvert():
-		colonne.add_child(_mot("Mme Vasseur ne tient de positions qu'au nom d'un compte Pyramides : connectez-vous depuis le menu (Échap), et vos positions se liront sur tous vos appareils.", 15, OR, null, true))
+		colonne.add_child(_mot("%s ne tient de positions qu'au nom d'un compte Pyramides : connectez-vous depuis le menu (Échap), et vos positions se liront sur tous vos appareils." % agent, 15, OR, null, true))
 		return
 	var ouvertes: Array = b.ouvertes()
 	if ouvertes.is_empty():

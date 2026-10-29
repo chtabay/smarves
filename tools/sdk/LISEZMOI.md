@@ -63,6 +63,7 @@ et trois repères `Vue1_…`, `Vue2_…`, `Vue3_…`, un par scène forte.
     (`"paris": true`, socle 1.26) ;
   - `gymnase` : la salle de basket, un club sur les résultats réels de l'Euroleague et de l'EuroCup ;
   - `commerce` : une boutique de tenues, de véhicules ou de meubles ;
+  - `charge` : une charge d'agent de change, la bourse à levier de Smarves au nom de votre agent (socle 1.27) ;
   - `gare` et `arret_car`.
   Voir `docs/COMMUNE.md`, « Les structures ».
 - **La bibliothèque commune** (`bibliotheque/`, classe `Bibliotheque`) : des décors entiers prêts à

@@ -144,7 +144,7 @@ Une **structure** est quelque chose qu'une commune possède et qui compte pour l
 
 | Champ | Obligatoire | Ce que c'est |
 |---|---|---|
-| `type` | oui | un type connu du socle : `gare`, `arret_car`, `terrain_foot`, `salle_jeu` (socle 1.1, `guichet` : 1.2), `commerce` (socle 1.4), `gymnase` (socle 1.9), `salle_duo` (socle 1.24) ; la liste est `Structures.TYPES`, `scripts/socle/structures.gd` |
+| `type` | oui | un type connu du socle : `gare`, `arret_car`, `terrain_foot`, `salle_jeu` (socle 1.1, `guichet` : 1.2), `commerce` (socle 1.4), `gymnase` (socle 1.9), `salle_duo` (socle 1.24), `charge` (socle 1.27) ; la liste est `Structures.TYPES`, `scripts/socle/structures.gd` |
 | `id` | oui | minuscules, chiffres et `_`, unique dans la commune ; la clé au registre est `<commune>/<id>` |
 | `nom` | oui | le nom affiché (« La gare de Ligugé ») |
 | `noeud` | non | le nom du nœud de la scène de la commune qui place la structure (un `Node3D`, cherché par son nom) ; sans lui, la structure compte pour les autres communes mais ne se voit pas chez soi |
@@ -267,6 +267,21 @@ La salle de jeu du socle s'en sert pour toutes ses tables, et le casino de Smarv
 | `couleur` | une tenue : sa couleur, `#rrggbb` |
 | `modele` | un véhicule ou un meuble : un chemin `res://` (un modèle de l'atelier, ou de la commune) ; obligatoire pour un meuble, la Mobylette du socle pour un véhicule qui n'en donne pas |
 | `emplacement` | un meuble : où il se pose chez soi, `lit`, `sol` (par défaut), `grand`, `mur`, `petit` ou `jardin` |
+
+**La charge d'agent de change** (socle 1.27, `"socle_min": "1.27"`). Une commune peut avoir sa charge, comme Mme Vasseur rue du Clain à Smarves ([`docs/BOURSE.md`](BOURSE.md)) : c'est **la même bourse à levier**, les mêmes quatre valeurs et leurs cours relevés au serveur, les mêmes positions tenues au compte Pyramides, le même courtage et le même bilan. Une position prise chez l'une se lit, se renfloue et se solde chez l'autre. La commune ne construit rien : `scenes/charge.tscn` (`scripts/socle/charge.gd`, `ChargeCommune`) bâtit la charge de Mme Vasseur (le tableau de la cote, les trois horloges, le téléscripteur, le guichet et sa grille de laiton) et y met l'agent de la commune.
+
+```json
+{"type": "charge", "id": "derieux", "nom": "La charge de Mme Dérieux, agent de change", "noeud": "PorteDerieux", "lot": "grande_rue",
+ "agent": "Mme Dérieux", "graine": 12, "enseigne": "Dérieux & Cie", "repliques": ["« À Belley, on prend position comme on prend le frais : en costume. »"]}
+```
+
+| Champ | Ce que c'est |
+|---|---|
+| `agent` | obligatoire : l'agent de change, au guichet ; un habitant dessiné comme ceux de Smarves, tiré de `graine` (un nombre : le même visage d'une partie à l'autre) |
+| `repliques` | ce qu'il dit quand on lui parle ; des phrases du socle à défaut |
+| `enseigne` | le nom de la charge, en lettres d'or sur le guichet et en tête de la cote ; « <agent> & Cie » à défaut |
+
+Une seule charge par commune. **Le seuil** vient des `lieux`, comme pour la salle de jeu : le lieu de même `id` garde la charge fermée sous son `seuil`, et son `hote` fait signe quand elle ouvre ; sans lieu du même id, elle est ouverte d'emblée. La commune l'ouvre depuis sa scène, à la porte du nœud `noeud` : `ChargeCommune.ouvrir("<id de la commune>", "<id de la charge>")` rend `false` si elle est encore fermée (`ChargeCommune.ouverte()` et `ChargeCommune.seuil()` permettent de l'écrire sur la vitrine, passée au blanc avant). La sortie ramène devant la porte (`lot`, sinon l'`id`). Une charge ouverte suffit à ouvrir la bourse au joueur (`Bourse.ouverte()`), même si celle de Smarves ne l'est pas encore ; le courrier (« Mme Dérieux : CAC 40 à la hausse, levier 50 soldée… ») et l'agenda parlent de la dernière charge où l'on est entré (`Bourse.agent()`, `Bourse.lieu()`). La commune d'essai `tools/fixtures/salle_jeu/` a une charge, que `tools/test_salle_jeu.gd` vérifie. Capture, avec la cote d'essai : `godot --path . res://scenes/charge.tscn -- --commune=<id> --charge=<id> --bourse-essai --open=cote --capture=sortie.png`.
 
 Vingt-quatre articles au plus par commerce. Au catalogue de `Biens`, un article est rangé sous `<commune>/<id>` comme les adresses du notaire ; une tenue ou un véhicule coûte des charges (un peu moins d'un centième du prix par recette), un meuble rien. On paie comptant ou à crédit auprès de la banque de la commune, et l'achat suit le joueur partout : la tenue se porte, le véhicule se conduit, le meuble se pose dans le logement qu'on habite. La commune ouvre son commerce depuis sa scène par `Commerce.ouvrir("<id de la commune>", "<id du commerce>")` ; la sortie ramène devant la porte (`lot`, sinon l'`id`). La commune d'essai `tools/fixtures/salle_jeu/` a une mercerie, un garage et une brocante, que `tools/test_salle_jeu.gd` vérifie.
 
