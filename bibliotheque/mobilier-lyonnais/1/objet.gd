@@ -34,7 +34,7 @@ const PRIMEURS := ["e0605a", "f2a23a", "f2d14e", "8cc63f", "b06ad0", "d9473b", "
 ## La graine : la couleur d'une toile, les fleurs d'une jardinière, les primeurs de l'étal, les affiches.
 @export var graine := 1
 ## Les options, toutes facultatives : fleurs (un hexa), toile (deux hexas : les bandes d'un store ou d'un
-## parasol), allume (false : les lanternes éteintes), longueur (le banc, la jardinière, le garde-corps : en
+## parasol), parasol (la terrasse : vrai pour son parasol carré, faux par défaut), allume (false : les lanternes éteintes), longueur (le banc, la jardinière, le garde-corps : en
 ## mètres), marches (l'escalier : le nombre de marches), eau (false : la fontaine à sec).
 @export var options := {}
 
@@ -333,27 +333,103 @@ class _Objets:
 		o.collisions.append([Transform3D(Basis(), p + Vector3(0, 0.5, 0)), Vector3(l, 1.0, 1.0)])
 		return Vector2(l + 0.2, 1.4)
 
+	## Une chaise bistrot posée en c, tournée de b (l'assise regarde +Z du repère b) : pieds de bois courbé, assise
+	## ronde cannée, dossier en anneau et ses lattes de canne.
+	static func _chaise(o: Outils, c: Vector3, b: Basis, bois: Color, canne: Color) -> void:
+		var r := 0.2
+		o.cylindre(Transform3D(b, c + Vector3(0, 0.44, 0)), r, r, 0.04, 14, canne)
+		o.anneau(Transform3D(b, c + Vector3(0, 0.43, 0)), r - 0.01, r + 0.015, 0.06, 14, bois)
+		for k in 4:
+			o.anneau(Transform3D(b, c + Vector3(0, 0.481, 0)), r * (0.2 + 0.2 * k), r * (0.2 + 0.2 * k) + 0.008, 0.002, 12, canne.darkened(0.18))
+		# les pieds évasés, le cercle d'entretoise
+		for k in 4:
+			var a := TAU * (k + 0.5) / 4.0
+			var haut := c + b * Vector3(cos(a), 0, sin(a)) * (r * 0.8) + Vector3(0, 0.43, 0)
+			var bas := c + b * Vector3(cos(a), 0, sin(a)) * (r * 1.12) + Vector3(0, -0.02, 0)
+			o.branche(bas, haut, 0.016, 0.014, bois, 5)
+		o.anneau(Transform3D(b, c + Vector3(0, 0.16, 0)), r * 0.88, r * 0.95, 0.015, 12, bois)
+		# le dossier : les deux montants qui prolongent les pieds arrière, l'anneau courbe, les lattes cannées
+		var arc := []
+		for k in 9:
+			var a := lerpf(PI * 1.12, PI * 1.88, k / 8.0)
+			arc.append(Vector3(cos(a) * r * 0.95, 0, sin(a) * r * 0.95))
+		for k in 8:
+			o.branche(c + b * (arc[k] + Vector3(0, 0.86, -0.04)), c + b * (arc[k + 1] + Vector3(0, 0.86, -0.04)), 0.016, 0.016, bois, 5)
+			o.branche(c + b * (arc[k] + Vector3(0, 0.62, -0.02)), c + b * (arc[k + 1] + Vector3(0, 0.62, -0.02)), 0.012, 0.012, bois, 4)
+		for k in [0, 8]:
+			o.branche(c + b * (arc[k] + Vector3(0, 0.44, 0)), c + b * (arc[k] + Vector3(0, 0.86, -0.04)), 0.016, 0.016, bois, 5)
+		for k in range(2, 7):
+			o.branche(c + b * (arc[k] + Vector3(0, 0.63, -0.02)), c + b * (arc[k] + Vector3(0, 0.85, -0.04)), 0.01, 0.01, canne, 3)
+
+	## Une table bistrot ronde en c : le pied de fonte à trois griffes, la colonne, le plateau de marbre clair.
+	static func _table(o: Outils, c: Vector3, marbre: Color) -> void:
+		for k in 3:
+			var a := TAU * k / 3.0
+			var d := Vector3(cos(a), 0, sin(a))
+			o.branche(c + Vector3(0, 0.16, 0), c + d * 0.2 + Vector3(0, 0.05, 0), 0.025, 0.02, FONTE_SOMBRE, 5)
+			o.branche(c + d * 0.2 + Vector3(0, 0.05, 0), c + d * 0.27 + Vector3(0, 0.0, 0), 0.02, 0.022, FONTE_SOMBRE, 5)
+		o.cylindre(Transform3D(Basis(), c + Vector3(0, 0.12, 0)), 0.05, 0.035, 0.08, 8, FONTE_SOMBRE)
+		o.cylindre(Transform3D(Basis(), c + Vector3(0, 0.2, 0)), 0.028, 0.028, 0.48, 8, FONTE_SOMBRE)
+		o.cylindre(Transform3D(Basis(), c + Vector3(0, 0.66, 0)), 0.03, 0.12, 0.05, 8, FONTE_SOMBRE)
+		o.cylindre(Transform3D(Basis(), c + Vector3(0, 0.71, 0)), 0.32, 0.32, 0.03, 20, marbre)
+		o.anneau(Transform3D(Basis(), c + Vector3(0, 0.705, 0)), 0.3, 0.325, 0.02, 20, FONTE_SOMBRE.lightened(0.15))
+		# les veines grises du marbre
+		for k in 3:
+			var a := o.rng.randf() * TAU
+			var u := Vector3(cos(a), 0, sin(a))
+			o.boite(Transform3D(Basis(Vector3.UP, -a), c + Vector3(0, 0.7405, 0) + u.cross(Vector3.UP) * o.rng.randf_range(-0.15, 0.15)), Vector3(0.4, 0.001, 0.006), marbre.darkened(0.22))
+
+	## Ce qu'on a servi sur une table ronde en c : verres à pied, carafe d'eau, tasse et soucoupe, pot de beaujolais.
+	static func _service(o: Outils, c: Vector3) -> void:
+		var verre := Color("d8e6e2")
+		var dessus := c + Vector3(0, 0.74, 0)
+		for k in 2:
+			var a := o.rng.randf() * TAU
+			var q := dessus + Vector3(cos(a), 0, sin(a)) * o.rng.randf_range(0.12, 0.2)
+			o.cylindre(Transform3D(Basis(), q), 0.03, 0.03, 0.005, 8, verre)
+			o.cylindre(Transform3D(Basis(), q), 0.005, 0.005, 0.07, 4, verre)
+			o.cylindre(Transform3D(Basis(), q + Vector3(0, 0.07, 0)), 0.022, 0.035, 0.06, 8, verre)
+			if o.rng.randf() < 0.6:
+				o.cylindre(Transform3D(Basis(), q + Vector3(0, 0.072, 0)), 0.023, 0.03, 0.025, 8, Color("7a1f3a"))
+		if o.rng.randf() < 0.5:
+			# le pot lyonnais, à fond épais, de beaujolais
+			o.cylindre(Transform3D(Basis(), dessus + Vector3(-0.04, 0, 0.05)), 0.045, 0.04, 0.03, 10, verre)
+			o.cylindre(Transform3D(Basis(), dessus + Vector3(-0.04, 0.03, 0.05)), 0.04, 0.035, 0.13, 10, Color("6e1f34"))
+		else:
+			o.cylindre(Transform3D(Basis(), dessus + Vector3(-0.05, 0, 0.04)), 0.05, 0.04, 0.17, 10, Color("cfe3e6"))
+			o.cylindre(Transform3D(Basis(), dessus + Vector3(-0.05, 0.17, 0.04)), 0.02, 0.025, 0.04, 8, Color("cfe3e6"))
+		var t := dessus + Vector3(0.1, 0, -0.12)
+		o.cylindre(Transform3D(Basis(), t), 0.06, 0.065, 0.008, 12, Color("f4f1ea"))
+		o.cylindre(Transform3D(Basis(), t + Vector3(0, 0.008, 0)), 0.03, 0.035, 0.045, 10, Color("f4f1ea"))
+		o.cylindre(Transform3D(Basis(), t + Vector3(0, 0.045, 0)), 0.03, 0.03, 0.002, 10, Color("3a2416"))
+
 	static func terrasse(o: Outils, p: Vector3, opt: Dictionary) -> Vector2:
 		var toile: Array = opt.get("toile", TOILES[o.rng.randi() % TOILES.size()])
-		# deux tables carrées de bouchon, quatre chaises de rotin, un grand parasol carré et deux jardinières
+		# deux tables bistrot rondes, deux ou trois chaises cannées chacune, tournées vers la rue ou l'une vers
+		# l'autre ; ce qu'on y a servi ; les jardinières de buis taillé qui ferment la terrasse
+		var bois := Color("3b2618") if o.rng.randf() < 0.6 else Color("2a2d2a")
+		var canne := Color("cfa86a")
+		var marbre := Color("ece6da")
 		for k in 2:
-			var c := p + Vector3(-0.85 + k * 1.7, 0, 0)
-			o.cylindre(Transform3D(Basis(), c), 0.22, 0.22, 0.03, 8, FONTE_SOMBRE)
-			o.cylindre(Transform3D(Basis(), c), 0.03, 0.03, 0.72, 6, FONTE_SOMBRE)
-			o.boite(Transform3D(Basis(), c + Vector3(0, 0.735, 0)), Vector3(0.66, 0.03, 0.66), Color("f4efe2"))
-			o.boite(Transform3D(Basis(), c + Vector3(0, 0.752, 0)), Vector3(0.4, 0.005, 0.4), Color(str(toile[0])))
-			o.cylindre(Transform3D(Basis(), c + Vector3(0.1, 0.75, 0.05)), 0.035, 0.03, 0.14, 8, Color("7a1f3a"))
-			o.cylindre(Transform3D(Basis(), c + Vector3(-0.12, 0.75, -0.08)), 0.03, 0.025, 0.1, 8, Color("e8e2d0"))
-			for cote in [-1.0, 1.0]:
-				var b := Basis(Vector3.UP, 0.0 if cote > 0 else PI)
-				var s := c + b * Vector3(0, 0, 0.55)
-				o.boite(Transform3D(b, s + Vector3(0, 0.45, 0)), Vector3(0.42, 0.05, 0.4), Color("c79a5c"))
-				for dx in [-0.18, 0.18]:
-					for dz in [-0.17, 0.17]:
-						o.boite(Transform3D(b, s + b * Vector3(dx, 0.22, dz)), Vector3(0.035, 0.45, 0.035), Color("8a5f32"))
-				o.boite(Transform3D(b * Basis(Vector3.RIGHT, -0.1), s + b * Vector3(0, 0.72, 0.19)), Vector3(0.42, 0.5, 0.04), Color("c79a5c"))
-				o.boite(Transform3D(b * Basis(Vector3.RIGHT, -0.1), s + b * Vector3(0, 0.97, 0.21)), Vector3(0.44, 0.05, 0.06), Color("8a5f32"))
-		# le parasol carré à quatre pans et son lambrequin
+			var c := p + Vector3(-0.9 + k * 1.8, 0, 0)
+			_table(o, c, marbre)
+			_service(o, c)
+			var n := 2 + (1 if o.rng.randf() < 0.5 else 0)
+			for i in n:
+				var a := PI * 0.5 + TAU * i / n + o.rng.randf_range(-0.25, 0.25)
+				var d := Vector3(cos(a), 0, sin(a))
+				_chaise(o, c + d * 0.52, Basis(Vector3.UP, atan2(-d.x, -d.z)), bois, canne)
+		for cote in [-1.0, 1.0]:
+			var j := p + Vector3(cote * 2.05, 0, 0)
+			o.boite(Transform3D(Basis(), j + Vector3(0, 0.25, 0)), Vector3(0.45, 0.5, 1.6), Color("2f4a3a"))
+			o.boite(Transform3D(Basis(), j + Vector3(0, 0.51, 0)), Vector3(0.5, 0.04, 1.65), FONTE_SOMBRE)
+			for i in 3:
+				var q := j + Vector3(0, 0.78, -0.5 + i * 0.5)
+				o.boule(q, Vector3(0.26, 0.28, 0.26), VERT.darkened(0.15).lightened(o.rng.randf_range(-0.05, 0.08)), 0.1, Outils.FEUILLE, 0.04, 0.15)
+		o.collisions.append([Transform3D(Basis(), p + Vector3(0, 0.45, 0)), Vector3(4.6, 0.9, 1.6)])
+		if not bool(opt.get("parasol", false)):
+			return Vector2(4.6, 1.7)
+		# le parasol carré à quatre pans et son lambrequin, au milieu de la terrasse
 		o.cylindre(Transform3D(Basis(), p), 0.3, 0.3, 0.1, 4, FONTE_SOMBRE)
 		o.cylindre(Transform3D(Basis(), p), 0.035, 0.035, 2.5, 6, Color("efe8d8"))
 		var haut := p + Vector3(0, 2.6, 0)
@@ -365,10 +441,9 @@ class _Objets:
 			var col := Color(str(toile[i % 2]))
 			o.tri(haut, a, b, Vector3.UP, col)
 			o.tri(haut, a, b, Vector3.DOWN, col.darkened(0.25))
-			var n: Vector3 = ((a + b) * 0.5 - p).normalized()
-			o.quad(a, b, b + Vector3(0, -0.2, 0), a + Vector3(0, -0.2, 0), Vector3(n.x, 0, n.z), Color(str(toile[0])))
-		o.collisions.append([Transform3D(Basis(), p + Vector3(0, 0.45, 0)), Vector3(3.0, 0.9, 1.6)])
-		return Vector2(3.6, 3.6)
+			var nn: Vector3 = ((a + b) * 0.5 - p).normalized()
+			o.quad(a, b, b + Vector3(0, -0.2, 0), a + Vector3(0, -0.2, 0), Vector3(nn.x, 0, nn.z), Color(str(toile[0])))
+		return Vector2(4.6, 3.6)
 
 	static func corbeille(o: Outils, p: Vector3, _opt: Dictionary) -> Vector2:
 		# la corbeille de fonte verte, ajourée de barreaux, sur son pied

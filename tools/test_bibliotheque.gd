@@ -262,6 +262,21 @@ func _init() -> void:
 	var lyonnaises: Array = load(Bibliotheque.scene("vegetation-lyonnaise@1", "decor")).instantiate().call("noms")
 	check(not ("tilleul" in essences or "bouleau" in essences or "cypres" in essences or "vigne" in essences or essences.any(func(e): return e in lyonnaises)),
 		"la végétation du Bugey ne redouble aucune essence des autres décors")
+	# L'appareil « irregulier » (moellons en assises de hauteurs variées, joints sombres) est une option : la maison
+	# par défaut reste celle d'hier, à l'appareil régulier.
+	var paquet_bugey: PackedScene = load(Bibliotheque.scene("facadier-du-bugey@1", "decor"))
+	var sommets := {}
+	for appareil in ["", "regulier", "irregulier"]:
+		var maison_b: Node3D = paquet_bugey.instantiate()
+		maison_b.type = "r1"
+		maison_b.graine = 3
+		if appareil != "":
+			maison_b.options = {"appareil": appareil}
+		bugey.add_child(maison_b)
+		var mm := maison_b.find_children("*", "MeshInstance3D", true, false)
+		sommets[appareil] = mm[0].mesh.surface_get_array_len(0) if mm.size() == 1 else -1
+	check(sommets[""] > 0 and sommets[""] == sommets["regulier"] and sommets["irregulier"] > 0 and sommets["irregulier"] != sommets["regulier"],
+		"facadier-du-bugey@1 : l'appareil irrégulier se bâtit, et la maison par défaut garde l'appareil régulier %s" % str(sommets))
 	bugey.queue_free()
 
 	# Le décor toulousain (tiré des planches de la place Saint-Georges de Guillaume) : les maisons de brique, les sols,
@@ -270,7 +285,7 @@ func _init() -> void:
 	var toulouse := Node3D.new()
 	root.add_child(toulouse)
 	var toulousains := {"facadier-toulousain@1": ["types", "type", 13], "sols-toulousains@1": ["noms", "module", 10],
-		"mobilier-toulousain@1": ["objets", "objet", 11], "arbres-d-ombriere@1": ["noms", "arbre", 4]}
+		"mobilier-toulousain@1": ["objets", "objet", 12], "arbres-d-ombriere@1": ["noms", "arbre", 4]}
 	for ref in toulousains:
 		var sc := Bibliotheque.scene(ref, "decor")
 		check(sc != "" and ResourceLoader.exists(sc), "la bibliothèque a %s, un décor" % ref)
@@ -296,6 +311,12 @@ func _init() -> void:
 	var platane: Node3D = load(Bibliotheque.scene("arbres-d-ombriere@1", "decor")).instantiate()
 	toulouse.add_child(platane)
 	check(float(platane.get_meta("hauteur")) >= 16.0 and float(platane.get_meta("couronne")) >= 7.0, "le platane d'ombrière fait au moins 16 m et sa couronne 7 m de rayon")
+	var bac: Node3D = load(Bibliotheque.scene("mobilier-toulousain@1", "decor")).instantiate()
+	bac.objet = "bac_vegetal"
+	bac.options = {"forme": "polygone", "points": [[0, 0], [3.6, -0.4], [4.2, 1.6], [2.0, 2.6]], "plantation": "buis"}
+	toulouse.add_child(bac)
+	var emprise_bac: Vector2 = bac.get_meta("emprise")
+	check(emprise_bac.x > 4.0 and emprise_bac.y > 2.9, "le bac végétal suit le polygone qu'on lui donne (%s)" % str(emprise_bac))
 	var marronnier: Node3D = load(Bibliotheque.scene("arbres-d-ombriere@1", "decor")).instantiate()
 	marronnier.arbre = "marronnier"
 	toulouse.add_child(marronnier)
@@ -304,6 +325,29 @@ func _init() -> void:
 	tuilee.options = {"tuile": "8a4a3a"}
 	toulouse.add_child(tuilee)
 	check(not tuilee.find_children("*", "MeshInstance3D", true, false).is_empty(), "le façadier lyonnais prend la teinte de tuile qu'on lui donne")
+	var cafe_l: Node3D = paquet_lyon.instantiate()
+	cafe_l.type = "cafe"
+	cafe_l.options = {"avancee": 2.6, "toile": ["2f5a3a", "2f5a3a"], "enseigne": "CAFÉ SATHONAY"}
+	toulouse.add_child(cafe_l)
+	var store_l: AABB = (cafe_l.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).get_aabb()
+	var lambrequin := cafe_l.find_children("*", "Label3D", true, false).filter(func(e): return e.text == "CAFÉ SATHONAY").size()
+	check(store_l.end.z > 2.6 and lambrequin == 2, "les stores bannes du café avancent de 2,6 m et l'enseigne est peinte sur le lambrequin (%.2f, %d)" % [store_l.end.z, lambrequin])
+	var plat: Node3D = paquet_lyon.instantiate()
+	plat.options = {"w": 10.0, "d": 11.0, "niveaux": 3}
+	toulouse.add_child(plat)
+	var raide: Node3D = paquet_lyon.instantiate()
+	raide.options = {"w": 10.0, "d": 11.0, "niveaux": 3, "pente": 30.0, "chassis": 2, "souches": "grosses"}
+	toulouse.add_child(raide)
+	check(float(raide.get_meta("hauteur")) > float(plat.get_meta("hauteur")) + 0.5, "le toit lyonnais se raidit à 30° quand on le demande (%.2f contre %.2f m au faîte)" % [float(raide.get_meta("hauteur")), float(plat.get_meta("hauteur"))])
+	var paquet_ml: PackedScene = load(Bibliotheque.scene("mobilier-lyonnais@1", "decor"))
+	var bistrot: Node3D = paquet_ml.instantiate()
+	bistrot.objet = "terrasse"
+	toulouse.add_child(bistrot)
+	var parasol: Node3D = paquet_ml.instantiate()
+	parasol.objet = "terrasse"
+	parasol.options = {"parasol": true}
+	toulouse.add_child(parasol)
+	check((bistrot.get_meta("emprise") as Vector2).y < 2.0 and (parasol.get_meta("emprise") as Vector2).y > 3.0, "la terrasse lyonnaise est bistrot sans parasol, et garde son parasol carré sur demande")
 	check(manege.is_processing() and not is_equal_approx(manege.get_child(0).rotation.y, cap), "le carrousel toulousain tourne")
 	toulouse.queue_free()
 

@@ -12,13 +12,18 @@ extends Node
 ## - les cases d'un plateau dessiné à l'écran (un échiquier) : tout contrôle qui les donne par
 ##   pilote_cases() -> {nom: Rect2 dans son repère}, avec ce qu'il montre par pilote_texte() -> String ;
 ## - les écrits posés dans le monde (tout Label3D en vue : une plaque, un panneau, une étiquette) ;
-## - ce qui l'entoure : de chaque côté, jusqu'où l'on peut marcher avant une paroi.
+## - les choses qui se voient autour (une herse, une bascule, un banc) : tout nœud nommé de la scène,
+##   d'une taille d'objet, qui n'est pas une zone, avec sa distance et sa direction ;
+## - ce qui l'entoure : vers chaque point cardinal, jusqu'où l'on peut marcher avant une paroi ;
+## - où il est (sa position, en mètres vers l'est et vers le nord) et vers où il regarde. Le nord est
+##   vers les z négatifs, comme partout dans le jeu (et sur les plans dessinés, le nord en haut).
 ## - l'écran lui-même, en image, quand le jeu se dessine (la tâche le lance sous un écran virtuel).
 ## Ne se voit que ce qu'aucun mur ne cache : une zone de l'autre côté d'une paroi n'est pas montrée.
 ##
 ## Ce qu'il fait (geste) :
-## - aller : marcher jusqu'à être devant une zone, comme on le ferait aux flèches ;
-## - marcher : avancer quelques secondes dans une direction ;
+## - aller : marcher jusqu'à être devant une zone ou une chose vue, comme on le ferait aux flèches ;
+## - marcher : avancer quelques secondes, ou quelques mètres, dans une direction (un point cardinal, ou
+##   devant, à gauche…), en se dégageant d'un pilier qui accroche comme un joueur qui tâtonne ;
 ## - touche : une touche du clavier (E, Espace, Échap, Entrée, Tab, une lettre, un chiffre) ;
 ## - cliquer : un bouton, une case du tapis ou du plateau, par un clic de souris à sa place à l'écran ;
 ## - attendre : laisser passer quelques secondes (une bille qui roule, une donne) ;
@@ -48,6 +53,13 @@ const IMAGE_LARGE := 768
 const IMAGE_QUALITE := 0.7
 ## Ce qui entoure le corps : le regard porte jusque-là de chaque côté.
 const AUTOUR_LOIN := 30.0
+## Les choses qui se voient : à combien de mètres au plus, combien, et la taille d'un objet (au-delà, un
+## mur, un bâtiment, une galerie : on regarde ce qu'il contient).
+const OBJETS_LOIN := 20.0
+const OBJETS_MAX := 15
+const OBJET_LARGE := 4.5
+const OBJET_HAUT := 12.0
+const CARDINAUX := ["nord", "nord-est", "est", "sud-est", "sud", "sud-ouest", "ouest", "nord-ouest"]
 ## Les zones montrées : les plus proches, jusqu'à cette distance (unités de la scène).
 const ZONES_MAX := 24
 const ZONES_LOIN := 80.0
@@ -77,6 +89,10 @@ var paroles: Array = []
 
 ## Les repères de la dernière vue : id -> nœud (z… zone, b… bouton, c… case de tapis -> [table, clé]).
 var _reperes := {}
+## Les choses déjà vues dans ce lieu (nom -> {objet, boite, nom}) : on peut y retourner sans les voir
+## d'ici, comme un joueur qui se souvient de la bascule dans la chambre d'à côté.
+var _vus := {}
+var _vus_lieu: Node = null
 var _dits := 0
 ## Ce qu'on a entendu autour de soi depuis le dernier geste : [{nom, dit}] ; une bulle ne dure que dix
 ## secondes, et l'assistant réfléchit souvent plus longtemps entre deux gestes.
@@ -105,7 +121,7 @@ func _on_etat_change(membre: String, e: Dictionary) -> void:
 	var p: Dictionary = pr.presents.get(membre, {}) if pr else {}
 	if p.is_empty() or not p.get("a_portee", false) or not (e.get("dit") is String) or str(e.dit) == "":
 		return
-	entendu.append({"nom": str(p.get("nom", "")), "dit": str(e.dit).left(200)})
+	entendu.append({"nom": str(p.get("nom", "")), "dit": str(e.dit).left(400)})
 	if entendu.size() > ENTENDU_MAX:
 		entendu.pop_front()
 
@@ -144,7 +160,12 @@ func vue() -> Dictionary:
 	if not cases.is_empty():
 		v["cases"] = cases
 	if j and not j.frozen:
+		v["cap"] = _cardinal(-j.global_basis.z)
+		v["position"] = {"est": snappedf(j.global_position.x, 0.1), "nord": snappedf(-j.global_position.z, 0.1)}
 		v["autour"] = _autour(j)
+		var objets := _objets(j)
+		if not objets.is_empty():
+			v["objets"] = objets
 		var ecrits := _ecrits(j, gens)
 		if not ecrits.is_empty():
 			v["ecrits"] = ecrits
@@ -227,8 +248,10 @@ func _toutes_les_zones() -> Array:
 ## points autour de lui, à mi-hauteur d'homme. Ce qui arrête le regard tout contre soi (le mur qu'on
 ## longe) ou qui appartient à la même chose que la zone (le bâtiment dont c'est la porte) ne la cache
 ## pas. Une zone de l'autre côté d'une paroi, d'un autre lieu de la scène, ne se voit d'aucun.
-func _en_vue(j: CharacterBody3D, z: Node3D) -> bool:
-	var at := z.global_position
+## Une chose vue (boite) : on vise sa boîte, et ce qui l'arrête dans sa boîte, c'est elle.
+func _en_vue(j: CharacterBody3D, z: Node3D, boite := AABB()) -> bool:
+	var objet := boite.size != Vector3.ZERO
+	var at := z.global_position if not objet else Vector3(boite.get_center().x, boite.position.y, boite.get_center().z)
 	if _a_plat(j.global_position - at).length() < VU_PRES:
 		return true
 	var espace := j.get_world_3d().direct_space_state
@@ -241,9 +264,15 @@ func _en_vue(j: CharacterBody3D, z: Node3D) -> bool:
 		if espace.intersect_ray(PhysicsRayQueryParameters3D.create(yeux, p, j.collision_mask, [j.get_rid()])).is_empty():
 			departs.append(p)
 	var cibles := [at + Vector3.UP * haut * 0.5]
-	for d in [Vector3.RIGHT, Vector3.LEFT, Vector3.FORWARD, Vector3.BACK]:
+	if objet:
+		var c := boite.get_center()
+		cibles = [c]
+		for d in [Vector3.RIGHT, Vector3.LEFT, Vector3.FORWARD, Vector3.BACK]:
+			cibles.append(c + d * (boite.size * 0.4).dot(d.abs()))
+	var large := boite.grow(0.3)
+	for d in [] if objet else [Vector3.RIGHT, Vector3.LEFT, Vector3.FORWARD, Vector3.BACK]:
 		cibles.append(at + d * pas * 0.7 + Vector3.UP * haut * 0.5)
-	var lieu := _parent_sous_scene(z)
+	var lieu: Node = null if objet else _parent_sous_scene(z)
 	# Ce qui enferme la zone elle-même (le bâtiment dont c'est la porte, d'un seul bloc) ne la cache pas.
 	var q := PhysicsPointQueryParameters3D.new()
 	q.position = cibles[0]
@@ -260,6 +289,8 @@ func _en_vue(j: CharacterBody3D, z: Node3D) -> bool:
 				if hit.is_empty() or (hit.position as Vector3).distance_to(vers) < VU_CONTRE * 0.5:
 					return true
 				if dedans.has(hit.rid) or (lieu != null and _parent_sous_scene(hit.collider) == lieu):
+					return true
+				if objet and (large.has_point(hit.position) or z.is_ancestor_of(hit.collider)):
 					return true
 				# Tout contre soi (le poteau qu'on frôle, le mur qu'on longe) : le regard passe à côté.
 				if (hit.position as Vector3).distance_to(de) > j.radius * 4.0:
@@ -290,24 +321,135 @@ func _yeux(j: CharacterBody3D) -> Vector3:
 ## hauteur d'homme avant une paroi : on y voit les couloirs et les passages, comme un joueur.
 func _autour(j: CharacterBody3D) -> Dictionary:
 	var out := {}
-	var face := _a_plat(-j.global_basis.z).normalized()
-	if face.length() < 0.5:
-		return out
 	var de := j.global_position + Vector3.UP * minf(_yeux(j).y - j.global_position.y, 1.6) * 0.75
 	var espace := j.get_world_3d().direct_space_state
-	for c in [["devant", 0.0], ["devant à droite", -45.0], ["à droite", -90.0], ["derrière à droite", -135.0],
-			["derrière", 180.0], ["derrière à gauche", 135.0], ["à gauche", 90.0], ["devant à gauche", 45.0]]:
-		var dir := face.rotated(Vector3.UP, deg_to_rad(c[1]))
+	for i in CARDINAUX.size():
+		var nom: String = CARDINAUX[i]
+		var dir := _dir_cardinale(nom)
 		var q := PhysicsRayQueryParameters3D.create(de, de + dir * AUTOUR_LOIN, j.collision_mask, [j.get_rid()])
 		var hit := espace.intersect_ray(q)
 		if hit.is_empty():
-			out[c[0]] = "libre sur %d m et plus" % int(AUTOUR_LOIN)
+			out[nom] = "libre sur %d m et plus" % int(AUTOUR_LOIN)
 			continue
 		var m := _a_plat(hit.position - de).length()
 		var t := "paroi à %s m" % (str(snappedf(m, 0.1)) if m < 3.0 else str(int(round(m))))
 		var quoi := _libelle_de(hit.collider)
-		out[c[0]] = t + (" (%s)" % quoi if quoi != "" else "")
+		out[nom] = t + (" (%s)" % quoi if quoi != "" else "")
 	return out
+
+
+## Le point cardinal d'une direction (le nord vers les z négatifs, l'est vers les x positifs).
+func _cardinal(v: Vector3) -> String:
+	var a := fposmod(rad_to_deg(atan2(v.x, -v.z)), 360.0)
+	return CARDINAUX[int(round(a / 45.0)) % 8]
+
+
+func _dir_cardinale(nom: String) -> Vector3:
+	var i := CARDINAUX.find(nom)
+	return Vector3.FORWARD.rotated(Vector3.UP, -deg_to_rad(45.0 * i)) if i >= 0 else Vector3.ZERO
+
+
+## « au nord », « à l'est ».
+func _vers(nom: String) -> String:
+	return ("à l'" if nom.begins_with("e") or nom.begins_with("o") else "au ") + nom
+
+
+## Les choses qui se voient d'ici : un nœud nommé de la scène (pas « @… »), d'une taille d'objet, dont le
+## parent est plus grand (une galerie, un bâtiment) ; ni une zone, ni un écrit, ni un corps vivant. Son
+## nom est celui que lui a donné son auteur (« CleAuClou » : « cle au clou »), ou sa méta « libelle ».
+func _objets(j: CharacterBody3D) -> Array:
+	var s := scene()
+	var out := []
+	if s == null:
+		return out
+	if _vus_lieu != s:
+		_vus.clear()
+		_vus_lieu = s
+	var boites := {}
+	_boites(s, j, boites)
+	var trouves := []
+	_choisir_objets(s, boites, trouves)
+	var liste := []
+	for e in trouves:
+		var b: AABB = e[1]
+		var c := b.get_center()
+		var d := _a_plat(c - j.global_position).length()
+		if d > OBJETS_LOIN or c.y - j.global_position.y > ETAGE + 1.0 or c.y + b.size.y * 0.5 < j.global_position.y - ETAGE:
+			continue
+		liste.append([d, e[0], b])
+	liste.sort_custom(func(a, b): return a[0] < b[0])
+	for e in liste:
+		if out.size() >= OBJETS_MAX:
+			break
+		var n: Node3D = e[1]
+		var nom := _nom_d_objet(n)
+		if nom == "" or not _en_vue(j, n, e[2]):
+			continue
+		# Deux bascules : chacune son id, la plus proche d'abord (« aller bascule » va à celle-là).
+		var id := "o%d" % (out.size() + 1)
+		var b: AABB = e[2]
+		_reperes[id] = {"objet": n, "boite": b, "nom": nom}
+		_vus[nom] = _reperes[id]
+		out.append({"id": id, "nom": nom, "metres": snappedf(e[0], 0.5), "cote": _cote(j, b.get_center())})
+	return out
+
+
+## La boîte de ce que dessine chaque nœud avec ses enfants (boites[nœud], s'il dessine quelque chose).
+func _boites(n: Node, j: CharacterBody3D, boites: Dictionary) -> void:
+	if n == j or n is CanvasItem or n is Area3D or n is CharacterBody3D or n is Label3D or n is Light3D \
+			or n is Camera3D or n is GPUParticles3D or n is CPUParticles3D or (n is Node3D and not (n as Node3D).visible):
+		return
+	var boite := AABB()
+	var vide := true
+	if n is VisualInstance3D:
+		var g := n as VisualInstance3D
+		boite = g.global_transform * g.get_aabb()
+		vide = false
+	for c in n.get_children():
+		_boites(c, j, boites)
+		if boites.has(c):
+			boite = boites[c] if vide else boite.merge(boites[c])
+			vide = false
+	if not vide:
+		boites[n] = boite
+
+
+## Du haut vers le bas : le premier nœud nommé d'une taille d'objet est une chose ; on ne regarde pas
+## dans ses enfants (la herse, pas son vantail).
+func _choisir_objets(n: Node, boites: Dictionary, trouves: Array) -> void:
+	for c in n.get_children():
+		if not boites.has(c):
+			continue
+		var b: AABB = boites[c]
+		if _taille_d_objet(b) and _nom_d_objet(c) != "":
+			trouves.append([c, b])
+		elif maxf(b.size.x, b.size.z) >= 0.15:
+			_choisir_objets(c, boites, trouves)
+
+
+func _taille_d_objet(b: AABB) -> bool:
+	return maxf(b.size.x, b.size.z) <= OBJET_LARGE and b.size.y <= OBJET_HAUT and maxf(b.size.x, b.size.z) >= 0.15
+
+
+func _nom_d_objet(n: Node) -> String:
+	if n.has_meta("libelle"):
+		return str(n.get_meta("libelle"))
+	var t := str(n.name)
+	# Un nom laissé par défaut (« Skeleton3D », « MeshInstance3D2 ») ne dit rien.
+	if t.begins_with("@") or t.begins_with(n.get_class()) or t in ["Geometrie", "Geometry", "Mesh", "Modele", "Model"]:
+		return ""
+	var mots := ""
+	for i in t.length():
+		var ch := t[i]
+		if ch == "_" or ch == "-":
+			mots += " "
+		elif i > 0 and ch != ch.to_lower() and t[i - 1] == t[i - 1].to_lower() and t[i - 1] != "_":
+			mots += " " + ch.to_lower()
+		elif i > 0 and ch.is_valid_int() and not t[i - 1].is_valid_int():
+			mots += " " + ch
+		else:
+			mots += ch.to_lower()
+	return mots.strip_edges()
 
 
 ## Ce que le jeu dit d'un obstacle (la méta « libelle » d'un corps ou de son parent), sinon rien.
@@ -360,11 +502,12 @@ func _cote(j: Node3D, at: Vector3) -> String:
 		return "ici"
 	var face := _a_plat(-j.global_basis.z).normalized()
 	var a := rad_to_deg(face.signed_angle_to(to.normalized(), Vector3.UP))
+	var ou := _vers(_cardinal(to))
 	if absf(a) < 35.0:
-		return "devant"
+		return "devant, " + ou
 	if absf(a) > 145.0:
-		return "derrière"
-	return "à gauche" if a > 0.0 else "à droite"
+		return "derrière, " + ou
+	return ("à gauche, " if a > 0.0 else "à droite, ") + ou
 
 
 func _a_plat(v: Vector3) -> Vector3:
@@ -511,7 +654,7 @@ func geste(g: Dictionary) -> Dictionary:
 		"aller":
 			r = await _aller(str(g.get("vers", "")))
 		"marcher":
-			r = await _marcher(str(g.get("vers", "devant")), float(g.get("secondes", 2.0)))
+			r = await _marcher(str(g.get("vers", "devant")), float(g.get("secondes", 2.0)), float(g.get("metres", 0.0)))
 		"touche":
 			r = await _touche(str(g.get("touche", "")))
 		"cliquer":
@@ -520,7 +663,7 @@ func geste(g: Dictionary) -> Dictionary:
 			await _attendre(clampf(float(g.get("secondes", 3.0)), 0.5, ATTENTE_MAX))
 			r = {"ok": true, "dit": ""}
 		"dire":
-			var t := str(g.get("texte", "")).strip_edges().left(200)
+			var t := str(g.get("texte", "")).strip_edges().left(400)
 			if t == "":
 				r = {"ok": false, "dit": "rien à dire"}
 			else:
@@ -571,6 +714,8 @@ func _repere(quoi: String) -> Variant:
 		var n = _reperes[quoi]
 		if n is Array:
 			return n if is_instance_valid(n[0]) else null
+		if n is Dictionary:
+			return n if is_instance_valid(n.objet) else null
 		return n if is_instance_valid(n) else null
 	var cherche := quoi.to_lower().strip_edges()
 	if cherche == "":
@@ -581,6 +726,12 @@ func _repere(quoi: String) -> Variant:
 	for z in _toutes_les_zones():
 		if _invite_de(z).to_lower().contains(cherche):
 			return z
+	# Une chose vue à la dernière vue, par son nom (« herse »), sinon déjà vue dans ce lieu.
+	for liste in [_reperes, _vus]:
+		for k in liste:
+			var o = liste[k]
+			if o is Dictionary and is_instance_valid(o.objet) and str(o.nom).contains(cherche) and _vus_lieu == scene():
+				return o
 	for r in _racines():
 		for b in r.find_children("*", "BaseButton", true, false):
 			if (b as BaseButton).is_visible_in_tree() and _texte_du_bouton(b).to_lower().contains(cherche):
@@ -595,8 +746,10 @@ func _aller(vers: String) -> Dictionary:
 	if j.frozen:
 		return {"ok": false, "dit": "assis : il faut d'abord se lever (Quitter, ou Échap)"}
 	var z = _repere(vers)
+	if z is Dictionary:
+		return await _aller_a(j, z)
 	if not (z is Area3D):
-		return {"ok": false, "dit": "zone inconnue : %s" % vers}
+		return {"ok": false, "dit": "zone ou chose inconnue : %s (une zone z3, une chose o2, ou un mot de son nom)" % vers}
 	var zone: Area3D = z
 	if j.focus_target == zone:
 		return {"ok": true, "dit": "déjà devant"}
@@ -604,12 +757,12 @@ func _aller(vers: String) -> Dictionary:
 	var sc := scene()
 	var loin := zone.global_position.distance_to(j.global_position)
 	# Un chemin entre les obstacles, sur une grille où le corps tient debout, jusqu'à portée de la zone.
-	var chemin := _chemin(j, zone)
+	var chemin := _chemin(j, _centre_zone(zone))
 	# Le temps de chercher ne se compte pas dans celui de marcher.
 	t0 = Time.get_ticks_msec() / 1000.0
 	var essais := 0
 	while true:
-		var fin := await _suivre(j, zone, chemin, t0, sc)
+		var fin := await _suivre(j, zone, zone.global_position, chemin, t0, sc)
 		if fin != "":
 			_arreter(j)
 			if fin == "pas trouvé de chemin jusque-là" and _en_route(j, zone, loin) != "":
@@ -625,9 +778,38 @@ func _aller(vers: String) -> Dictionary:
 				return {"ok": false, "dit": _en_route(j, zone, loin)}
 			return {"ok": false, "dit": "pas trouvé de chemin jusque-là : quelque chose barre le passage (une porte fermée, un cordon ?)"}
 		var t1 := Time.get_ticks_msec() / 1000.0
-		chemin = _chemin(j, zone, essais)
+		chemin = _chemin(j, _centre_zone(zone), essais)
 		t0 += Time.get_ticks_msec() / 1000.0 - t1
 	return {}
+
+
+## Jusqu'à une chose vue (une herse, une bascule) : à portée de main, tourné vers elle.
+func _aller_a(j: CharacterBody3D, o: Dictionary) -> Dictionary:
+	var n: Node3D = o.objet
+	var b: AABB = o.boite
+	var but := Vector3(b.get_center().x, maxf(b.position.y, j.global_position.y - ETAGE), b.get_center().z)
+	var proche := func() -> bool:
+		return _a_plat(but - j.global_position).length() <= maxf(j.reach * 0.7, maxf(b.size.x, b.size.z) * 0.5 + j.radius * 2.0)
+	if proche.call():
+		_viser(j, b.get_center(), true)
+		return {"ok": true, "dit": "déjà tout près"}
+	var sc := scene()
+	var t0 := Time.get_ticks_msec() / 1000.0
+	for essai in 3:
+		# D'abord dessus (une bascule, une dalle : on y monte), sinon au plus près (une herse, un mur).
+		var chemin := _chemin(j, but, essai, j.radius if essai == 0 else -1.0)
+		t0 = Time.get_ticks_msec() / 1000.0
+		var fin := await _suivre(j, n, but, chemin, t0, sc)
+		_arreter(j)
+		if fin == "le lieu a changé en chemin":
+			return {"ok": true, "dit": fin}
+		if not is_instance_valid(j) or not is_instance_valid(n):
+			return {"ok": false, "dit": "elle n'est plus là"}
+		if proche.call():
+			_viser(j, b.get_center(), true)
+			var dessus := _a_plat(but - j.global_position).length() < maxf(j.radius * 2.0, 0.6)
+			return {"ok": true, "dit": ("arrivé, sur : " if dessus else "arrivé, tout près de : ") + str(o.nom)}
+	return {"ok": false, "dit": "pas trouvé de chemin jusque-là (encore %s m) : quelque chose barre le passage" % str(snappedf(_a_plat(but - j.global_position).length(), 0.5))}
 
 
 ## Un long trajet se fait en plusieurs gestes, comme un joueur qui marche longtemps : s'il a bien
@@ -643,7 +825,7 @@ func _en_route(j: CharacterBody3D, zone: Area3D, loin: float) -> String:
 
 
 ## Suit le chemin : « » au bout, sinon ce qui l'arrête (arrivé, le lieu a changé, trop long).
-func _suivre(j: CharacterBody3D, zone: Area3D, chemin: Array, t0: float, sc: Node) -> String:
+func _suivre(j: CharacterBody3D, zone: Node3D, but: Vector3, chemin: Array, t0: float, sc: Node) -> String:
 	var k := 0
 	var dernier := j.global_position
 	var depuis := Time.get_ticks_msec() / 1000.0
@@ -658,7 +840,7 @@ func _suivre(j: CharacterBody3D, zone: Area3D, chemin: Array, t0: float, sc: Nod
 			return "pas trouvé de chemin jusque-là"
 		while k < chemin.size() and _a_plat(chemin[k] - j.global_position).length() < 0.25 * maxf(j.radius / 0.3, 0.5):
 			k += 1
-		var cible: Vector3 = chemin[k] if k < chemin.size() else zone.global_position
+		var cible: Vector3 = chemin[k] if k < chemin.size() else but
 		var to := _a_plat(cible - j.global_position)
 		if k >= chemin.size() and to.length() < j.reach * 0.6:
 			_arreter(j)
@@ -669,7 +851,7 @@ func _suivre(j: CharacterBody3D, zone: Area3D, chemin: Array, t0: float, sc: Nod
 		elif maintenant - depuis > BUTE * 2.0:
 			_arreter(j)
 			return ""
-		_viser(j, zone.global_position if k >= chemin.size() - 1 else cible, _a_plat(zone.global_position - j.global_position).length() < j.reach * 1.5)
+		_viser(j, but if k >= chemin.size() - 1 else cible, _a_plat(but - j.global_position).length() < j.reach * 1.5)
 		_pousser(j, to.normalized())
 	return ""
 
@@ -698,9 +880,9 @@ func _chercher_du_regard(j: CharacterBody3D, zone: Area3D) -> bool:
 ## hauteur de son sol, cherchée d'un rayon vers le bas à une marche près de la case d'où l'on vient :
 ## ainsi le chemin monte les escaliers et passe d'un étage à l'autre, comme un joueur. Rien de propre à
 ## un lieu : seulement la physique de la scène. `ecart` élargit la recherche aux essais suivants.
-func _chemin(j: CharacterBody3D, zone: Area3D, ecart := 0) -> Array:
+## `portee` : à quelle distance du but on s'arrête (par défaut, à portée de main d'une zone).
+func _chemin(j: CharacterBody3D, but: Vector3, ecart := 0, portee := -1.0) -> Array:
 	var depart := j.global_position
-	var but := _centre_zone(zone)
 	# Une zone d'un autre étage : l'escalier peut être loin, on cherche plus large.
 	var etage := absf(but.y - depart.y) > ETAGE
 	var marge := (60.0 + 15.0 * ecart if etage else 6.0 + 4.0 * ecart)
@@ -751,7 +933,8 @@ func _chemin(j: CharacterBody3D, zone: Area3D, ecart := 0) -> Array:
 	var sz := clampi(int((depart.z - lo.y) / pas), 0, nz - 1)
 	var s := Vector3i(sx, sz, roundi(depart.y * 4.0))
 	var hauteur := {s: depart.y}
-	var portee: float = j.reach * (0.8 - 0.15 * ecart)
+	if portee < 0.0:
+		portee = j.reach * (0.8 - 0.15 * ecart)
 	var voisins := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(-1, -1)]
 	var h0 := func(x: int, z: int, y: float) -> float:
 		var c: Vector2 = centre.call(x, z)
@@ -905,23 +1088,81 @@ func _arreter(j: CharacterBody3D) -> void:
 		j.velocity.z = 0.0
 
 
-func _marcher(vers: String, secondes: float) -> Dictionary:
+## Vers un point cardinal (le plan a le nord en haut), ou devant, à gauche, à droite, derrière ; pendant
+## quelques secondes, ou jusqu'à avoir fait « metres ». Un pilier qui accroche, on s'en dégage d'un pas
+## de côté, comme un joueur qui tâtonne ; une paroi en face, on s'arrête et on le dit.
+func _marcher(vers: String, secondes: float, metres := 0.0) -> Dictionary:
 	var j := joueur()
 	if j == null or j.frozen:
 		return {"ok": false, "dit": "impossible de marcher maintenant"}
 	var face := _a_plat(-j.global_basis.z).normalized()
 	var angles := {"devant": 0.0, "gauche": 90.0, "derrière": 180.0, "derriere": 180.0, "droite": -90.0}
-	if not angles.has(vers):
-		return {"ok": false, "dit": "direction inconnue : devant, gauche, droite ou derrière"}
-	var dir := face.rotated(Vector3.UP, deg_to_rad(angles[vers]))
+	var dir := _dir_cardinale(vers)
+	if dir == Vector3.ZERO:
+		if not angles.has(vers):
+			return {"ok": false, "dit": "direction inconnue : nord, nord-est, est, sud-est, sud, sud-ouest, ouest, nord-ouest, ou devant, gauche, droite, derrière"}
+		dir = face.rotated(Vector3.UP, deg_to_rad(angles[vers]))
 	j.rotation.y = atan2(-dir.x, -dir.z)
-	var fin := Time.get_ticks_msec() / 1000.0 + clampf(secondes, 0.5, 10.0)
+	var duree := clampf(secondes, 0.5, 10.0)
+	if metres > 0.0:
+		metres = minf(metres, 30.0)
+		duree = minf(metres / maxf(j.speed, 0.1) * 2.0 + 2.0, 20.0)
+	var depart := j.global_position
+	var fin := Time.get_ticks_msec() / 1000.0 + duree
 	var sc := scene()
+	var dernier := j.global_position
+	var depuis := Time.get_ticks_msec() / 1000.0
+	var cotes := 0
+	var bloque := false
 	while Time.get_ticks_msec() / 1000.0 < fin and is_instance_valid(j) and scene() == sc:
+		if metres > 0.0 and _a_plat(j.global_position - depart).dot(dir) >= metres:
+			break
 		_pousser(j, dir)
 		await get_tree().physics_frame
+		var t := Time.get_ticks_msec() / 1000.0
+		if _a_plat(j.global_position - dernier).dot(dir) > 0.15:
+			dernier = j.global_position
+			depuis = t
+			continue
+		if t - depuis < BUTE:
+			continue
+		# Accroché : un pas de biais, d'un côté puis de l'autre, puis on reprend la direction.
+		var degage: bool = cotes < 4 and await _degager(j, dir, cotes)
+		if not degage:
+			bloque = true
+			break
+		cotes += 1
+		# Le temps de se dégager ne se compte pas dans celui de marcher.
+		fin += Time.get_ticks_msec() / 1000.0 - t
+		dernier = j.global_position
+		depuis = Time.get_ticks_msec() / 1000.0
 	_arreter(j)
-	return {"ok": true, "dit": ""}
+	if not is_instance_valid(j) or scene() != sc:
+		return {"ok": true, "dit": "le lieu a changé en chemin"}
+	var fait := _a_plat(j.global_position - depart).length()
+	var dit := "tu as fait %s m %s" % [str(snappedf(fait, 0.1)), _vers(_cardinal(dir))]
+	if metres > 0.0 and _a_plat(j.global_position - depart).dot(dir) < metres - 0.3:
+		bloque = true
+	if bloque:
+		var paroi: String = _autour(j).get(_cardinal(dir), "")
+		dit += " ; arrêté : on ne passe pas par là" + (" (%s)" % paroi if paroi != "" else "")
+	return {"ok": true, "dit": dit}
+
+
+## Un pas de biais (à 60°, de plus en plus large) pour décoller d'un pilier : vrai si l'on a bougé.
+func _degager(j: CharacterBody3D, dir: Vector3, essai: int) -> bool:
+	var avant := j.global_position
+	var signe := 1.0 if essai % 2 == 0 else -1.0
+	var biais := dir.rotated(Vector3.UP, deg_to_rad(signe * (60.0 + 30.0 * int(essai / 2))))
+	for etape in [biais, -dir * 0.6 + biais * 0.4]:
+		var t := Time.get_ticks_msec() / 1000.0 + 0.4
+		while Time.get_ticks_msec() / 1000.0 < t and is_instance_valid(j):
+			_pousser(j, (etape as Vector3).normalized())
+			await get_tree().physics_frame
+		if is_instance_valid(j) and _a_plat(j.global_position - avant).length() > 0.15:
+			j.rotation.y = atan2(-dir.x, -dir.z)
+			return true
+	return false
 
 
 func _touche(nom: String) -> Dictionary:
