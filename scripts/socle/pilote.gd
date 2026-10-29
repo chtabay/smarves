@@ -121,7 +121,7 @@ func _on_etat_change(membre: String, e: Dictionary) -> void:
 	var p: Dictionary = pr.presents.get(membre, {}) if pr else {}
 	if p.is_empty() or not p.get("a_portee", false) or not (e.get("dit") is String) or str(e.dit) == "":
 		return
-	entendu.append({"nom": str(p.get("nom", "")), "dit": str(e.dit).left(200)})
+	entendu.append({"nom": str(p.get("nom", "")), "dit": str(e.dit).left(400)})
 	if entendu.size() > ENTENDU_MAX:
 		entendu.pop_front()
 
@@ -378,7 +378,6 @@ func _objets(j: CharacterBody3D) -> Array:
 			continue
 		liste.append([d, e[0], b])
 	liste.sort_custom(func(a, b): return a[0] < b[0])
-	var noms := {}
 	for e in liste:
 		if out.size() >= OBJETS_MAX:
 			break
@@ -386,16 +385,12 @@ func _objets(j: CharacterBody3D) -> Array:
 		var nom := _nom_d_objet(n)
 		if nom == "" or not _en_vue(j, n, e[2]):
 			continue
-		if noms.has(nom):
-			noms[nom]["aussi"] = int(noms[nom].get("aussi", 0)) + 1
-			continue
+		# Deux bascules : chacune son id, la plus proche d'abord (« aller bascule » va à celle-là).
 		var id := "o%d" % (out.size() + 1)
 		var b: AABB = e[2]
 		_reperes[id] = {"objet": n, "boite": b, "nom": nom}
 		_vus[nom] = _reperes[id]
-		var o := {"id": id, "nom": nom, "metres": snappedf(e[0], 0.5), "cote": _cote(j, b.get_center())}
-		noms[nom] = o
-		out.append(o)
+		out.append({"id": id, "nom": nom, "metres": snappedf(e[0], 0.5), "cote": _cote(j, b.get_center())})
 	return out
 
 
@@ -668,7 +663,7 @@ func geste(g: Dictionary) -> Dictionary:
 			await _attendre(clampf(float(g.get("secondes", 3.0)), 0.5, ATTENTE_MAX))
 			r = {"ok": true, "dit": ""}
 		"dire":
-			var t := str(g.get("texte", "")).strip_edges().left(200)
+			var t := str(g.get("texte", "")).strip_edges().left(400)
 			if t == "":
 				r = {"ok": false, "dit": "rien à dire"}
 			else:
@@ -801,7 +796,8 @@ func _aller_a(j: CharacterBody3D, o: Dictionary) -> Dictionary:
 	var sc := scene()
 	var t0 := Time.get_ticks_msec() / 1000.0
 	for essai in 3:
-		var chemin := _chemin(j, but, essai)
+		# D'abord dessus (une bascule, une dalle : on y monte), sinon au plus près (une herse, un mur).
+		var chemin := _chemin(j, but, essai, j.radius if essai == 0 else -1.0)
 		t0 = Time.get_ticks_msec() / 1000.0
 		var fin := await _suivre(j, n, but, chemin, t0, sc)
 		_arreter(j)
@@ -811,7 +807,8 @@ func _aller_a(j: CharacterBody3D, o: Dictionary) -> Dictionary:
 			return {"ok": false, "dit": "elle n'est plus là"}
 		if proche.call():
 			_viser(j, b.get_center(), true)
-			return {"ok": true, "dit": "arrivé, tout près de : " + str(o.nom)}
+			var dessus := _a_plat(but - j.global_position).length() < maxf(j.radius * 2.0, 0.6)
+			return {"ok": true, "dit": ("arrivé, sur : " if dessus else "arrivé, tout près de : ") + str(o.nom)}
 	return {"ok": false, "dit": "pas trouvé de chemin jusque-là (encore %s m) : quelque chose barre le passage" % str(snappedf(_a_plat(but - j.global_position).length(), 0.5))}
 
 
@@ -883,7 +880,8 @@ func _chercher_du_regard(j: CharacterBody3D, zone: Area3D) -> bool:
 ## hauteur de son sol, cherchée d'un rayon vers le bas à une marche près de la case d'où l'on vient :
 ## ainsi le chemin monte les escaliers et passe d'un étage à l'autre, comme un joueur. Rien de propre à
 ## un lieu : seulement la physique de la scène. `ecart` élargit la recherche aux essais suivants.
-func _chemin(j: CharacterBody3D, but: Vector3, ecart := 0) -> Array:
+## `portee` : à quelle distance du but on s'arrête (par défaut, à portée de main d'une zone).
+func _chemin(j: CharacterBody3D, but: Vector3, ecart := 0, portee := -1.0) -> Array:
 	var depart := j.global_position
 	# Une zone d'un autre étage : l'escalier peut être loin, on cherche plus large.
 	var etage := absf(but.y - depart.y) > ETAGE
@@ -935,7 +933,8 @@ func _chemin(j: CharacterBody3D, but: Vector3, ecart := 0) -> Array:
 	var sz := clampi(int((depart.z - lo.y) / pas), 0, nz - 1)
 	var s := Vector3i(sx, sz, roundi(depart.y * 4.0))
 	var hauteur := {s: depart.y}
-	var portee: float = j.reach * (0.8 - 0.15 * ecart)
+	if portee < 0.0:
+		portee = j.reach * (0.8 - 0.15 * ecart)
 	var voisins := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1), Vector2i(1, 1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(-1, -1)]
 	var h0 := func(x: int, z: int, y: float) -> float:
 		var c: Vector2 = centre.call(x, z)

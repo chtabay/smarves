@@ -97,12 +97,16 @@ func _boucle() -> void:
 			corps["argent"] = {"cle": "p%s:%d:%d" % [pensionnaire.right(8), int(Time.get_unix_time_from_system()), _n], "montant": bouge, "gain": gain}
 		_n += 1
 		corps.merge(_ou())
+		var poche_envoyee := Game.credits
+		var gains_envoyes := Game.won
 		var v := await _appeler("pilote_vue", corps)
 		if v.has("solde"):
-			# Le solde du serveur fait foi : un mouvement refusé repart de la poche.
-			Game.credits = int(v.solde)
-			_poche = Game.credits
-			_gains = Game.won
+			# Le solde du serveur fait foi : un mouvement refusé repart de la poche. Ce que le jeu a versé
+			# pendant l'appel (une prime qui tombe à la sortie d'une épreuve) n'est pas encore au serveur :
+			# il reste dans la poche, et part avec la vue suivante.
+			_poche = int(v.solde)
+			Game.credits = _poche + Game.credits - poche_envoyee
+			_gains = gains_envoyes
 
 
 func _process(_delta: float) -> void:
