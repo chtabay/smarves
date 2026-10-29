@@ -53,7 +53,10 @@ void fragment() {
 	vec2 b = appareil(uv, COLOR.a);
 	float g = bruit(monde.xy * 9.0 + monde.zz * 7.0) * 0.6 + bruit(monde.zy * 2.3) * 0.4;
 	vec3 base = COLOR.rgb;
-	vec3 col = base * (0.95 + 0.07 * b.x) * (1.0 - grain_force + grain_force * 2.0 * g);
+	vec3 col = base * (0.94 + 0.12 * b.x) * (1.0 - grain_force + grain_force * 2.0 * g);
+	// Les coulures de pluie : des traînées verticales, un peu grises, plus marquées en haut des murs.
+	float coulure = bruit(vec2((monde.x + monde.z) * 1.7, monde.y * 0.12));
+	col *= 1.0 - 0.07 * smoothstep(0.55, 0.85, coulure) * step(n.y, 0.75);
 	float flou = smoothstep(0.025, 0.09, max(fwidth(uv.x), fwidth(uv.y)));
 	col = mix(col, joint_couleur * base * 1.05, b.y * 0.5 * (1.0 - flou));
 	col = mix(col, base * 0.97, flou * 0.8);

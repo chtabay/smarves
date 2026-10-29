@@ -27,9 +27,10 @@ const vec3 VERGER = vec3(0.44, 0.52, 0.24);
 const vec3 LANDE = vec3(0.50, 0.50, 0.32);
 const vec3 EAU = vec3(0.30, 0.44, 0.52);
 const vec3 CIEL_REFLET = vec3(0.50, 0.63, 0.74);
-const vec3 ROUTE = vec3(0.47, 0.46, 0.44);
+const vec3 ROUTE = vec3(0.53, 0.50, 0.47);
 const vec3 ROCHE = vec3(0.60, 0.59, 0.55);
 const vec3 ROCHE_OMBRE = vec3(0.40, 0.40, 0.38);
+const vec3 ROCHE_LOIN = vec3(0.84, 0.80, 0.70);
 
 varying vec3 monde;
 varying vec3 normale;
@@ -86,7 +87,43 @@ vec3 roche(vec2 xz, float y, float g, float g2, float pres) {
 	r = mix(r, r * vec3(1.04, 0.97, 0.86), lave * 0.6);
 	// Les buis et les pins accrochés à la barre : des touffes sombres, plus serrées en pied de paroi.
 	float touffe = smoothstep(0.55, 0.7, fbm(vec2(h * 0.06, y * 0.05) + 11.0));
-	return mix(r, FORET, max(vire * 0.55, touffe * 0.7));
+	r = mix(r, FORET, max(vire * 0.55, touffe * 0.7));
+	// De loin, comme sur la planche, la barre est un bandeau crème qui suit les courbes de niveau : des bancs
+	// horizontaux clairs, séparés de vires plus sombres où s'accroche la forêt ; plus de traînées verticales.
+	float banc = fbm(vec2(h * 0.004, y * 0.07) + 21.0);
+	float vire_loin = smoothstep(0.62, 0.72, 0.5 + 0.5 * sin(y * 0.16 + banc * 3.0));
+	vec3 bandeau = mix(ROCHE_LOIN, ROCHE_LOIN * vec3(0.86, 0.85, 0.82), smoothstep(0.35, 0.65, banc));
+	bandeau = mix(bandeau, FORET * 1.2, vire_loin * 0.7);
+	return mix(bandeau, r, pres);
+}
+
+// Les cours et les jardins de la ville, et les prés pris dans le bourg : un parcellaire de jardins de 10 à
+// 18 m, chacun pelouse, potager à planches ou cour de gravier blond, bordés de haies sombres et de murets clairs ;
+// vus d'en haut, des jardins comme sur la planche, pas des aplats de terrain vague (verdict n° 3).
+vec3 jardins(vec2 xz, float g) {
+	float a = 0.52;
+	vec2 q = mat2(vec2(cos(a), sin(a)), vec2(-sin(a), cos(a))) * xz;
+	vec2 taille = vec2(14.0, 11.0);
+	vec2 cel = floor(q / taille);
+	float dec = h21(vec2(cel.y, 2.7));
+	q.x += dec * taille.x;
+	cel = floor(q / taille);
+	vec2 f = fract(q / taille) * taille;
+	float bord = min(min(f.x, taille.x - f.x), min(f.y, taille.y - f.y));
+	float h = h21(cel);
+	vec3 pelouse = mix(vec3(0.47, 0.60, 0.29), vec3(0.40, 0.53, 0.25), h21(cel + 3.1)) * (0.94 + 0.1 * fbm(xz * 0.5));
+	vec3 potager = mix(vec3(0.52, 0.42, 0.30), vec3(0.36, 0.50, 0.24), step(0.5, fract(f.y / 1.4)));
+	vec3 gravier = vec3(0.78, 0.72, 0.60) * (0.95 + 0.08 * fbm(xz * 2.0));
+	vec3 col = h < 0.62 ? pelouse : (h < 0.82 ? potager : gravier);
+	// Un massif ou un arbuste par-ci par-là, des taches sombres dans les pelouses.
+	float massif = smoothstep(0.62, 0.72, fbm(xz * 0.35 + 7.0));
+	col = mix(col, vec3(0.24, 0.36, 0.17), massif * 0.8 * step(h, 0.62));
+	// La haie (ou le muret) en limite de parcelle, et son ombre portée d'un côté.
+	float haie = 1.0 - smoothstep(0.55, 0.9, bord);
+	vec3 limite = h21(cel + 9.0) < 0.7 ? vec3(0.20, 0.31, 0.15) : vec3(0.80, 0.75, 0.64);
+	col = mix(col, col * 0.72, (1.0 - smoothstep(0.9, 1.8, f.y)) * 0.6);
+	col = mix(col, limite, haie);
+	return col * (0.95 + 0.08 * g);
 }
 
 vec3 teinte(int c, vec2 xz, float y, float g, float g2, float pres) {
@@ -108,12 +145,8 @@ vec3 teinte(int c, vec2 xz, float y, float g, float g2, float pres) {
 		return EAU;
 	} else if (c == 8) {
 		return ROUTE;
-	} else if (c == 9) {
-		// Les cours et les jardinets de la ville : surtout des pelouses et des potagers, une cour de gravier blond
-		// par endroits ; vus d'en haut, des jardins, comme sur la planche, pas un terrain vague.
-		vec3 gravier = vec3(0.78, 0.72, 0.60);
-		vec3 jardin = mix(vec3(0.50, 0.62, 0.30), vec3(0.42, 0.55, 0.26), smoothstep(0.4, 0.7, fbm(xz * 0.2 + 5.0)));
-		return mix(gravier, jardin, smoothstep(0.32, 0.42, g2)) * (0.93 + 0.12 * g);
+	} else if (c == 9 || (c == 0 && length(xz) < 650.0)) {
+		return jardins(xz, g);
 	} else if (c == 10) {
 		// La roche relevée sur le relief réel (tools/roche_reelle.py).
 		return roche(xz, y, g, g2, pres);

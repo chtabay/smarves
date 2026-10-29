@@ -21,9 +21,9 @@ const ZINC := Color("8a9298", 0.4)
 const BRIQUE := Color("b5603e", 0.9)
 const POT := Color("c06a40", 0.9)
 
-const ASPHALTE := Color("7c7d7c", 0.95)
-const TROTTOIR := Color("c4bdae", 0.95)
-const PAVE := Color("a9a397", 0.95)
+const ASPHALTE := Color("8e8780", 0.95)
+const TROTTOIR := Color("c9bea8", 0.95)
+const PAVE := Color("b0a48f", 0.95)
 const BORDURE := Color("dcd6c8", 0.9)
 
 ## Autour de la cathédrale, les maisons ont leurs lucarnes et leurs chaînes d'angle maillées.
@@ -180,10 +180,17 @@ func maison(o: RefCounted, m: Dictionary, graine: int) -> void:
 		toit = ZINC
 		genre = OUTILS.PEINT
 	var plat: bool = m.toit == "plat" or float(m.rempli) < 0.45
+	# Autour de la place, la planche n'a que des toits de tuile : les terrasses de zinc y faisaient des taches
+	# bleu pâle (verdict n° 3). On couvre le rectangle d'un toit de tuile à croupe.
+	var croupe_forcee := pres and plat
+	if croupe_forcee:
+		plat = false
+		toit = TUILES[rng.randi() % TUILES.size()]
+		genre = OUTILS.TUILE
 	var debord := 0.45
 	var dx := lx * 0.5 + debord
 	var dz := lz * 0.5 + debord
-	var montee := clampf(float(m.pente), 0.45, 1.0) * lz * 0.5
+	var montee := clampf(0.8 if croupe_forcee or m.get("pente") == null else float(m.pente), 0.45, 1.0) * lz * 0.5
 	if plat:
 		_terrasse(o, poly, egout, toit if genre == OUTILS.PEINT else ZINC)
 		return
@@ -195,7 +202,7 @@ func maison(o: RefCounted, m: Dictionary, graine: int) -> void:
 	var D := centre - ux * dx + uz * dz
 	var ye := egout - debord * montee / (lz * 0.5)
 	var yf := egout + montee
-	var croupe: bool = int(m.pans) == 4
+	var croupe: bool = int(m.pans) == 4 or croupe_forcee
 	var retrait := (dz if croupe else 0.0)
 	retrait = minf(retrait, dx * 0.9)
 	var F1 := centre - ux * (dx - retrait)

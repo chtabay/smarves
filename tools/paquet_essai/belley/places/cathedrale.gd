@@ -14,8 +14,8 @@ const OUTILS := preload("res://communes/belley/atelier/outils.gd")
 const ORIGINE := Vector2(200.74, 340.64)
 const AXE_DEG := 30.5
 
-const C := OUTILS.CALCAIRE
-const C2 := Color("ddd2ba")      # les parements un peu plus gris des parties hautes
+const C := Color("dbd1ba")  # un ton sous le calcaire des maisons : la grande façade au soleil ne brûle pas
+const C2 := Color("d1c6ad")      # les parements un peu plus gris des parties hautes
 const OMBRE := OUTILS.CALCAIRE_OMBRE
 const VERRE := Color(0.18, 0.21, 0.27, 0.15)
 const ABAT := Color(0.12, 0.12, 0.13, 0.9)
@@ -68,7 +68,7 @@ func _bloc(centre: Vector3, taille: Vector3, col, genre := OUTILS.PIERRE, collis
 
 ## Une baie en arc brisé sur un mur : t a son origine au milieu de l'appui, x le long du mur, y en haut, z hors
 ## du mur. l la largeur, p le piédroit, meneaux le nombre de lancettes.
-func baie(t: Transform3D, l: float, p: float, meneaux := 1, verre := VERRE, ebrasement := 0.35) -> void:
+func baie(t: Transform3D, l: float, p: float, meneaux := 1, verre := VERRE, ebrasement := 0.45) -> void:
 	var forme := ogive(l, p, l * 0.8)
 	# Le mur est plein : l'encadrement avance de la profondeur de l'ébrasement, le verre se pose sur le nu du
 	# mur ; les flancs intérieurs du cadre font l'ébrasement.
@@ -317,10 +317,12 @@ func _facade() -> void:
 		o.profil(Transform3D(Basis(), Vector3(xm, EGOUT_BAS, 0)), r, -0.8, 0.0, C)
 		baie(Transform3D(Basis(), Vector3(xm, 2.8, 0.0)), 2.2, 5.0, 2)
 		# Le contrefort d'angle, et son pinacle.
-		var pied := Vector3(cote * (BAS + 0.3), 0, 0.3)
-		o.boite(Transform3D(Basis(), pied + Vector3(0, 7.0, 0)), Vector3(1.8, 14.0, 1.8), C)
-		o.boite(Transform3D(Basis(), pied + Vector3(0, 2.0, 0)), Vector3(2.2, 4.0, 2.2), C)
-		pinacle(pied + Vector3(0, 14.0, 0), 1.3, 7.0)
+		# Deux contreforts d'équerre à trois ressauts, l'un sur la façade, l'autre sur le flanc : l'angle se
+		# lit en gradins jusqu'au pinacle.
+		contrefort(Vector3(cote * (BAS - 0.7), 0, 0), Vector3(0, 0, 1), 1.5, 1.9, 14.0, 3)
+		contrefort(Vector3(cote * BAS, 0, -1.0), Vector3(cote, 0, 0), 1.5, 1.9, 12.0, 3)
+		o.boite(Transform3D(Basis(), Vector3(cote * (BAS - 0.7), 0.6, 1.1)), Vector3(2.0, 1.2, 2.4), OMBRE)
+		pinacle(Vector3(cote * (BAS - 0.7), 14.0, 0.45), 1.3, 7.0)
 
 
 ## La tour-porche : de 11 m de large, elle avance de 1,5 m sur la façade et monte à 38 m, ses pinacles à 45 m.
@@ -343,9 +345,13 @@ func _tour() -> void:
 	# Les contreforts d'angle de la tour, à ressauts jusqu'au beffroi.
 	for sx: float in [-1.0, 1.0]:
 		for sz: float in [zf, zb]:
-			var p := Vector3(sx * TOUR, 0, sz)
-			o.boite(Transform3D(Basis(), p + Vector3(0, 12.5, 0)), Vector3(1.6, 25.0, 1.6), C)
-			o.boite(Transform3D(Basis(), p + Vector3(0, 31.0, 0)), Vector3(1.2, 12.0, 1.2), C2)
+			var sens := signf(sz - zm)
+			# Deux contreforts d'équerre par angle, à trois ressauts jusqu'au beffroi, puis un dernier
+			# contrefort plus mince qui file jusqu'à la balustrade.
+			contrefort(Vector3(sx * (TOUR - 0.8), 0, sz), Vector3(0, 0, sens), 1.5, 1.4, 25.0, 3)
+			contrefort(Vector3(sx * TOUR, 0, sz - sens * 0.8), Vector3(sx, 0, 0), 1.5, 1.4, 25.0, 3)
+			contrefort(Vector3(sx * (TOUR - 0.8), 25.0, sz), Vector3(0, 0, sens), 1.1, 0.6, 12.4, 2, C2)
+			contrefort(Vector3(sx * TOUR, 25.0, sz - sens * 0.8), Vector3(sx, 0, 0), 1.1, 0.6, 12.4, 2, C2)
 		# Les grands pinacles qui encadrent le gâble du portail.
 		pinacle(Vector3(sx * TOUR, 25.0, zf), 1.2, 6.5)
 	# Le portail : l'arc brisé profond, ses voussures, les vantaux de chêne, le tympan et sa statue.
