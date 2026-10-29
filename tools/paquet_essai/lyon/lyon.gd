@@ -55,6 +55,7 @@ var camera: Camera3D
 var ville: Node3D
 
 var data: Dictionary
+var _cafe_pose := false
 var _h := PackedFloat32Array()
 var _nx := 0
 var _nz := 0
@@ -168,7 +169,8 @@ func _ciel() -> void:
 	e.ambient_light_energy = 0.55
 	e.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	e.tonemap_exposure = 0.68
+	e.tonemap_exposure = 0.75
+	e.tonemap_white = 1.6
 	# la planche : des couleurs franches, la terre cuite qui chauffe, le vert cru des marronniers
 	e.adjustment_enabled = true
 	e.adjustment_saturation = 1.05
@@ -649,7 +651,7 @@ void fragment() {
 		float nuance = floor(hash(vec2(rang, floor(s))) * 6.0) / 5.0;
 		c *= (0.78 + 0.22 * onde) * (0.72 + 0.28 * recouvrement) * (0.9 + 0.2 * nuance);
 	}
-	ALBEDO = pow(c, vec3(2.2));
+	ALBEDO = pow(c, vec3(2.2)) * 1.4;
 	ROUGHNESS = 0.85;
 }
 """
@@ -792,7 +794,8 @@ func _heros_poser(i: int, b: Dictionary) -> void:
 				opt["niveaux"] = clampi(niveaux + 1, 4, 6)
 			else:
 				opt["enduit"] = ENDUITS_PLACE[(i + k) % ENDUITS_PLACE.size()]
-			if absf(p.x - (-14.0)) < 6.0 and p.y > -5.0 and p.y < 45.0 and k == 0:
+			if absf(p.x - (-14.0)) < 6.0 and p.y > -5.0 and p.y < 45.0 and k == 0 and not _cafe_pose:
+				_cafe_pose = true
 				type = "cafe"
 				opt["enseigne"] = "CAFÉ DU LION D'OR"
 				opt["store"] = true
@@ -876,7 +879,7 @@ func _place() -> void:
 			troncs.append(p)
 	for k in troncs.size():
 		var p: Vector2 = troncs[k]
-		var arbre := _pose(OMBRIERE, "arbre", "marronnier", Vector3(p.x, y, p.y), 400 + k, {"hauteur": graines.randf_range(12.0, 16.0), "vent": 0.4, "densite": graines.randf_range(0.75, 0.95), "contre_jour": 0.4, "teinte": ["6e9440", "7a9c40", "5f7f3e"]})
+		var arbre := _pose(OMBRIERE, "arbre", "marronnier", Vector3(p.x, y, p.y), 400 + k, {"hauteur": graines.randf_range(12.0, 16.0), "vent": 0.4, "densite": graines.randf_range(0.75, 0.95), "contre_jour": 0.6, "teinte": ["6e9440", "7a9c40", "5f7f3e"]})
 		# des couronnes resserrées d'un cinquième, que le sable et leur ombre séparent comme sur la planche
 		arbre.scale = Vector3(0.8, 1.0, 0.8)
 	var massifs := 0
