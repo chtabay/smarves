@@ -110,7 +110,7 @@ On a monté l'escalier dans le passage de l'ombre à la lumière. On se retourne
 
 **Le soleil** : venant de l'ouest-sud-ouest (azimut 258°), 31° au-dessus de l'horizon, couleur `#FFE1B0`, ombres portées nettes ; exposition un peu basse et saturation relevée (×1,3) pour tenir les couleurs franches de la planche. **Rugosité** : pierre 0,85, enduit 0,9, tuile 0,8, bois 0,65, fonte peinte 0,45, bronze 0,35, eau 0,1.
 
-**Caméras de contrôle** : à hauteur d'yeux (1,65 m, champ de 65°) aux trois repères ; la vue d'ensemble de la planche (depuis le sud, en hauteur, champ serré) ; vue de suivi au cran du jeu (`orbit_camera.gd`). Fourvière peut sortir du cadre dans la rue étroite et reparaître sur la place et au belvédère.
+**Caméras de contrôle** : à hauteur d'yeux (1,65 m, champ de 65°) aux trois repères ; la vue d'ensemble de la planche, figée comme Vue1 sur le verdict 7 : `--libre=-4,29,27,-25,-48,40` (depuis le sud-ouest, en diagonale vers le nord-est, tangage −48°, champ de 40°) ; vue de suivi au cran du jeu (`orbit_camera.gd`). Fourvière peut sortir du cadre dans la rue étroite et reparaître sur la place et au belvédère.
 
 ## L'équipe et l'ordre de travail
 
