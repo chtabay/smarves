@@ -112,6 +112,8 @@ Les paris ne se prennent pas sur le lieu mais **au comptoir du café** (Josiane)
 
 **Ce qui existe.** L'autoload `Paris` et `FootParis`, pensés pour le football (`cle(dom, ext)`, issues 1 N 2).
 
+La course cycliste (socle 1.28, autoload `Cyclisme`, docs/COMMUNE.md « La course cycliste ») a ses propres paris, gagnant ou placé, sur la même règle (cotes fixes, 12 % de marge, mise libre) : ils se prennent sur son programme (`CoursePanel`), que les comptoirs de paris de la commune ouvrent aussi. `Paris` reste celui du football.
+
 **Ce que l'activité fournit.** Ses issues et leurs probabilités pour un rendez-vous : `issues(rdv) -> [{cle, libelle, probabilite}]` (un vainqueur parmi huit, un score de mène, une place). La généralisation de `Paris` (ticket = activité + rendez-vous + issues) se fait au moment où la deuxième activité arrive, pas avant.
 
 ### Brique 5. Les parts, les obligations et les dividendes

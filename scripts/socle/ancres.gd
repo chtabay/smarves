@@ -57,6 +57,7 @@ const SALLE_JEU := {
 	"Table1": {"requis": true, "role": "la place de la première table (Table2, Table3… pour les suivantes, jusqu'à Table9)"},
 	"Guichet": {"requis": false, "role": "où se tient le banquier de la commune, si la salle a un guichet, tourné vers son +Z"},
 	"Enseigne": {"requis": false, "role": "le socle y écrit l'enseigne de la salle, lisible depuis son +Z"},
+	"Paris": {"requis": false, "role": "socle 1.26 : où le socle pose le carnet des paris sur le comptoir, si la salle les prend (« paris ») ; sans elle, on parie auprès du tenancier"},
 }
 
 ## L'étude du notaire (socle 1.22) : ce que le socle branche sur un décor d'étude (champ « modele » du

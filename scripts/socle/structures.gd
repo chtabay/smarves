@@ -55,10 +55,12 @@ const TYPES := {
 	# nomme son tenancier et ses jeux, le socle pose les tables et fait tourner les jeux de Smarves.
 	# « modele » (socle 1.22) : le décor de la salle, une brique de la bibliothèque (« bar-des-sports@1 ») ou une
 	# scène de la commune, branché par ses ancres (Ancres.SALLE_JEU) à la place de la pièce du socle.
+	# « paris » (socle 1.26) : le tenancier prend aussi les paris du championnat de la Vienne (autoload Paris), au
+	# même comptoir que Josiane au café de Smarves.
 	"salle_jeu": {
 		"nom": "la salle de jeu",
 		"champs": {"jeux": TYPE_ARRAY, "tenancier": TYPE_STRING, "graine": TYPE_FLOAT, "decor": TYPE_STRING,
-			"repliques": TYPE_ARRAY, "enseigne": TYPE_STRING, "guichet": TYPE_BOOL, "modele": TYPE_STRING},
+			"repliques": TYPE_ARRAY, "enseigne": TYPE_STRING, "guichet": TYPE_BOOL, "modele": TYPE_STRING, "paris": TYPE_BOOL},
 		"requis": ["jeux"],
 		"unique": false,
 		"relie": "rien : c'est un lieu de la commune, le lieu du manifeste de même id lui donne son seuil",
@@ -72,6 +74,26 @@ const TYPES := {
 		"requis": ["genre", "articles"],
 		"unique": false,
 		"relie": "rien : ses articles entrent au catalogue de Biens sous « <commune>/<id> »",
+	},
+	# Socle 1.27. Une charge d'agent de change tenue par le socle (scripts/socle/charge.gd) : la commune nomme son agent,
+	# ses paroles et son enseigne ; c'est la bourse de Mme Vasseur (autoload Bourse), mêmes cours, mêmes positions.
+	"charge": {
+		"nom": "la charge d'agent de change",
+		"champs": {"agent": TYPE_STRING, "graine": TYPE_FLOAT, "repliques": TYPE_ARRAY, "enseigne": TYPE_STRING},
+		"requis": ["agent"],
+		"unique": true,
+		"relie": "la bourse à levier : les mêmes cours, tenus au serveur, et les positions du compte, d'une charge à l'autre",
+	},
+	# Socle 1.28. Une course cycliste (autoload Cyclisme, docs/COMMUNE.md, « La course cycliste ») : le parcours (les
+	# repères de la scène, dans l'ordre), sa longueur en mètres, les tours, le relief, le jour et l'heure du départ, le
+	# nombre de coureurs. Le socle tire le peloton, rejoue chaque édition d'une graine et prend les paris à places.
+	"course_velo": {
+		"nom": "la course cycliste",
+		"champs": {"parcours": TYPE_ARRAY, "distance": TYPE_FLOAT, "tours": TYPE_FLOAT, "relief": TYPE_STRING, "jour": TYPE_STRING,
+			"heure": TYPE_FLOAT, "coureurs": TYPE_FLOAT},
+		"requis": ["parcours", "distance"],
+		"unique": false,
+		"relie": "rien : chaque course a son peloton et ses éditions, au même calendrier chez tout le monde (Cyclisme)",
 	},
 	# Socle 1.24. Une salle où l'on joue à deux (scripts/socle/salle_duo.gd) : la commune nomme ses variantes ;
 	# l'appariement, les tarifs, la prime et la plaque sont tenus par le serveur, qui connaît la salle par son id.
@@ -179,14 +201,36 @@ static func verifier(liste: Variant) -> PackedStringArray:
 						erreurs.append("structure %s : jeu inconnu « %s »" % [id, str(j)])
 			if s.has("decor") and typeof(s.decor) == TYPE_STRING and not s.decor in DECORS:
 				erreurs.append("structure %s : décor inconnu « %s »" % [id, s.decor])
+		if t == "course_velo":
+			erreurs.append_array(_verifier_course(id, s))
 		if t == "salle_duo":
 			if typeof(s.get("variantes")) == TYPE_ARRAY and s.variantes.any(func(v): return typeof(v) != TYPE_STRING or RegEx.create_from_string("^[a-z0-9_]{1,24}$").search(v) == null):
 				erreurs.append("structure %s : chaque variante est un id de 1 à 24 caractères (a-z, 0-9, « _ »)" % id)
-		if t in ["salle_jeu", "commerce"] and typeof(s.get("repliques")) == TYPE_ARRAY and s.repliques.any(func(r): return typeof(r) != TYPE_STRING):
+		if t in ["salle_jeu", "commerce", "charge"] and typeof(s.get("repliques")) == TYPE_ARRAY and s.repliques.any(func(r): return typeof(r) != TYPE_STRING):
 			erreurs.append("structure %s : « repliques » est une liste de phrases" % id)
 		if t == "commerce":
 			erreurs.append_array(load("res://scripts/socle/articles.gd").verifier(s, articles))
 	return erreurs
+
+
+## Les fautes d'une course cycliste : un parcours de deux repères au moins, et des champs dans leurs bornes.
+static func _verifier_course(id: String, s: Dictionary) -> PackedStringArray:
+	var cy: GDScript = load("res://scripts/socle/cyclisme.gd")
+	var e := PackedStringArray()
+	if typeof(s.get("parcours")) == TYPE_ARRAY and (s.parcours.size() < 2 or s.parcours.any(func(n): return typeof(n) != TYPE_STRING or str(n) == "")):
+		e.append("structure %s : « parcours » nomme deux repères de la scène au moins, dans l'ordre" % id)
+	var bornes := {"distance": cy.DISTANCE, "tours": cy.TOURS, "heure": cy.HEURES, "coureurs": cy.COUREURS}
+	for k in bornes:
+		if typeof(s.get(k)) == TYPE_FLOAT and (float(s[k]) < float(bornes[k][0]) or float(s[k]) > float(bornes[k][1])):
+			e.append("structure %s : « %s » va de %s à %s" % [id, k, str(bornes[k][0]), str(bornes[k][1])])
+	for k in ["tours", "coureurs"]:
+		if typeof(s.get(k)) == TYPE_FLOAT and float(s[k]) != floorf(float(s[k])):
+			e.append("structure %s : « %s » est un nombre entier" % [id, k])
+	if typeof(s.get("relief")) == TYPE_STRING and not s.relief in cy.RELIEFS:
+		e.append("structure %s : relief inconnu « %s » (plat, vallonne, montagne)" % [id, s.relief])
+	if typeof(s.get("jour")) == TYPE_STRING and not s.jour in cy.JOURS:
+		e.append("structure %s : jour inconnu « %s » (lundi… dimanche)" % [id, s.jour])
+	return e
 
 
 ## Les structures valides d'une liste, une par une : celles d'une entrée de catalogue, où une faute

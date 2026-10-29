@@ -46,7 +46,7 @@ const ETAGE := 3.3
 ## profondeur), niveaux, enduit (un nom d'ENDUITS ou un hexa), toit (« tuile », « mansarde »), rdc (« boutique »,
 ## « cafe », « arcades », « passage », « logis », « pierre »), persiennes (vrai, faux ou un hexa), balcons (vrai
 ## ou faux : les balcons filants), fleurs, vigne, enseigne (le texte de l'enseigne du café ou de la boutique),
-## toile (deux hexas : le store).
+## toile (deux hexas : le store), tuile (un hexa : la teinte des tuiles canal, le rouge orangé lyonnais sinon).
 ## Rend le nœud de l'immeuble ; ses métadonnées : type, graine, w, d, hauteur (au faîte), porte (le seuil).
 static func maison(parent: Node3D, p: Vector3, type: String, graine: int, opt := {}) -> Node3D:
 	if not type in TYPES:
@@ -96,7 +96,7 @@ static func maison(parent: Node3D, p: Vector3, type: String, graine: int, opt :=
 	if toit == "mansarde":
 		faite = _mansarde(o, w, d, H, r)
 	else:
-		faite = _quatre_pans(o, w, d, H, r)
+		faite = _quatre_pans(o, w, d, H, r, _tuile(opt))
 	# les souches de cheminée, massives, enduites, sur le versant arrière
 	var nc := 2 + (1 if w > 10.0 else 0)
 	for i in nc:
@@ -115,6 +115,14 @@ static func maison(parent: Node3D, p: Vector3, type: String, graine: int, opt :=
 	n.set_meta("hauteur", faite)
 	n.set_meta("porte", porte)
 	return n
+
+
+## Les deux teintes des tuiles : le pan et les rangs, l'option tuile (un hexa) ou le rouge orangé lyonnais.
+static func _tuile(opt: Dictionary) -> Array:
+	if opt.has("tuile"):
+		var t := Color(str(opt["tuile"]))
+		return [t, t.darkened(0.15)]
+	return TOITS.tuile.map(func(h): return Color(h))
 
 
 static func _persiennes(opt: Dictionary, r: RandomNumberGenerator) -> Color:
@@ -397,8 +405,7 @@ static func _vigne(o: Outils, w: float, H: float, r: RandomNumberGenerator) -> v
 
 
 ## Le toit lyonnais à quatre pans, en tuile canal, peu pentu, sur sa génoise ; rend le faîte.
-static func _quatre_pans(o: Outils, w: float, d: float, H: float, r: RandomNumberGenerator) -> float:
-	var tuile: Array = TOITS.tuile.map(func(h): return Color(h))
+static func _quatre_pans(o: Outils, w: float, d: float, H: float, r: RandomNumberGenerator, tuile: Array) -> float:
 	var e := 0.55
 	var pente := deg_to_rad(24.0)
 	var x0 := -w * 0.5 - e
@@ -509,7 +516,7 @@ static func _chapelle(o: Outils, n: Node3D, graine: int, opt: Dictionary) -> Nod
 	var w := float(opt.get("w", 9.0))
 	var d := float(opt.get("d", 16.0))
 	var H := 8.0
-	var tuile: Array = TOITS.tuile.map(func(h): return Color(h))
+	var tuile := _tuile(opt)
 	o.boite(Transform3D(Basis(), Vector3(0, H * 0.5, -d * 0.5)), Vector3(w, H, d), [pierre.darkened(0.06), pierre.darkened(0.06), pierre, pierre, pierre, pierre.darkened(0.1)], Outils.DUR, true)
 	o.boite(Transform3D(Basis(), Vector3(0, -0.15, -d * 0.5)), Vector3(w, 0.32, d), PIERRE_SOMBRE)
 	# le pignon de façade et le toit à deux pans

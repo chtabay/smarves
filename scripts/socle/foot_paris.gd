@@ -7,11 +7,18 @@ extends FootTableau
 ## la marge gagne à la longue, les chiffres le disent, personne ne fait la leçon.
 ##
 ## Elle emprunte au tableau du dimanche son ardoise et ses petites pièces ; s'ouvre et se ferme comme
-## lui (signal closed, Échap).
+## lui (signal closed, Échap). Une salle de jeu de commune qui prend les paris (socle 1.26, champ « paris »)
+## l'ouvre au nom de son tenancier (teneur, titre) : les cotes, les tickets et le bilan sont les mêmes.
 
 ## Ce qui est coché : "dom|ext" -> issue.
 var choix := {}
 var mise := 20
+## Qui tient le carnet, et le titre de la fenêtre : Josiane au café de Smarves, le tenancier ailleurs.
+var teneur := "Josiane"
+var titre := "Le carnet du PMU de Josiane"
+## D'autres paris au même comptoir (socle 1.28 : les courses cyclistes de la commune) : [libellé, Callable],
+## un bouton chacun en bas de la fenêtre, qui la referme et ouvre l'autre.
+var ailleurs: Array = []
 var _ligne_etat: Label
 var _journee := {}
 
@@ -31,11 +38,11 @@ func remplir(colonne: VBoxContainer) -> void:
 	var p := paris()
 	division = division_suivie()
 	colonne.add_child(_mot("L E   C O M P T O I R   D E S   P A R I S", 13, DOUX))
-	colonne.add_child(_mot("Le carnet du PMU de Josiane", 26 if _etroit() else 32, CRAIE, Polices.titre(), _etroit()))
+	colonne.add_child(_mot(titre, 26 if _etroit() else 32, CRAIE, Polices.titre(), _etroit()))
 	var prochain: Array = f.prochain_coup_envoi(f.maintenant())
 	_journee = {}
 	if prochain[0] != f.saison or f.niveaux.is_empty():
-		colonne.add_child(_mot("La saison qui vient n'est pas encore tirée : Josiane range le carnet.", 16, DOUX, null, true))
+		colonne.add_child(_mot("La saison qui vient n'est pas encore tirée : %s range le carnet." % teneur, 16, DOUX, null, true))
 	else:
 		_journee = {"s": f.saison, "j": prochain[1], "n": division[0], "g": division[1], "quand": prochain[2]}
 		colonne.add_child(_mot("Journée %d, %s à %d h  ·  %s" % [_journee.j, date(_journee.quand), f.HEURE_COUP_ENVOI, f.nom_division(division[0], division[1])], 17, CRAIE, null, true))
@@ -49,6 +56,11 @@ func remplir(colonne: VBoxContainer) -> void:
 	colonne.add_child(_filet())
 	_tickets(colonne)
 	var bas := _pied(colonne)
+	for a in ailleurs:
+		var aller: Callable = a[1]
+		bas.add_child(_bouton(str(a[0]), func():
+			closed.emit()
+			aller.call_deferred()))
 	if not _journee.is_empty():
 		var b := _bouton("Jouer le ticket", func(): jouer())
 		b.name = "Jouer"
@@ -172,11 +184,11 @@ func jouer() -> bool:
 		choix = {}
 		remplir(_colonne)
 		if _ligne_etat != null:
-			_ligne_etat.text = "Josiane déchire le ticket : « Rendez-vous dimanche à 17 h. »"
+			_ligne_etat.text = "%s déchire le ticket : « Rendez-vous dimanche à 17 h. »" % teneur
 		return true
 	if _ligne_etat != null:
 		_ligne_etat.text = {"vide": "Cochez au moins un match.", "credits": "Il vous manque des crédits pour cette mise.",
-			"joue": "Trop tard : le coup d'envoi est donné, les paris attendent la journée suivante.", "mise": "Une mise, c'est au moins un crédit."}.get(str(r.raison), "Josiane fait non de la tête.")
+			"joue": "Trop tard : le coup d'envoi est donné, les paris attendent la journée suivante.", "mise": "Une mise, c'est au moins un crédit."}.get(str(r.raison), "%s fait non de la tête." % teneur)
 	return false
 
 
@@ -200,6 +212,6 @@ func _tickets(colonne: VBoxContainer) -> void:
 			OR if t.etat == "gagne" else (CRAIE if t.etat == "ouvert" else DOUX), null, true))
 	var b: Dictionary = p.bilan()
 	if b.tickets == 0:
-		colonne.add_child(_mot("Pas encore de ticket. Josiane : « Le premier, c'est pour voir. »", 14, DOUX, null, true))
+		colonne.add_child(_mot("Pas encore de ticket. %s : « Le premier, c'est pour voir. »" % teneur, 14, DOUX, null, true))
 	else:
-		colonne.add_child(_mot("Depuis le début : %d ticket%s, %s misés, %s repris. Les chiffres le disent, Josiane ne dit rien." % [b.tickets, "s" if b.tickets > 1 else "", Game.fmt(int(b.mise)), Game.fmt(int(b.gagne))], 14, DOUX, null, true))
+		colonne.add_child(_mot("Depuis le début : %d ticket%s, %s misés, %s repris. Les chiffres le disent, %s ne dit rien." % [b.tickets, "s" if b.tickets > 1 else "", Game.fmt(int(b.mise)), Game.fmt(int(b.gagne)), teneur], 14, DOUX, null, true))

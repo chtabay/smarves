@@ -128,6 +128,8 @@ func _init() -> void:
 	await _sorties()
 	await _tarifs()
 	await _sur_decors(game)
+	await _paris()
+	await _charge(game)
 	_fin()
 
 
@@ -167,6 +169,105 @@ func _etude(game: Node) -> void:
 			await process_frame
 		check(current_scene != null and current_scene.scene_file_path == "res://communes/essai_salle/commune.tscn" and game.return_point == "place", "la porte de l'étude ramène dans la commune")
 	biens.sell("essai_salle/buffet")
+
+
+## Les paris du championnat dans une salle de commune (socle 1.26, champ « paris ») : le carnet sur le zinc de la
+## salle du socle, le tenancier qui parie lui-même sur un décor sans ancre « Paris », le comptoir à son nom.
+func _paris() -> void:
+	var structures: GDScript = load("res://scripts/socle/structures.gd")
+	check(structures.verifier([{"type": "salle_jeu", "id": "bar", "nom": "Le bar", "jeux": ["courses"], "paris": true}]).is_empty(), "une salle de jeu prend les paris")
+	check(not structures.verifier([{"type": "salle_jeu", "id": "bar", "nom": "Le bar", "jeux": ["courses"], "paris": "oui"}]).is_empty(), "  « paris » est vrai ou faux")
+	var paris: Node = root.get_node("Paris")
+	paris.dossier = ""
+	var registre: Node = root.get_node("Registre")
+	var tripot: Dictionary = registre.structure("essai_salle/tripot")
+	var champs_avant: Dictionary = tripot.champs.duplicate(true)
+	tripot.champs.paris = true
+	for modele in ["", "bar-des-sports@1"]:
+		if modele != "":
+			tripot.champs.modele = modele
+			tripot.champs.jeux = ["poker", "machine"]
+		check(load("res://scripts/socle/salle_jeu.gd").ouvrir("essai_salle", "tripot"), "le tripot qui prend les paris s'ouvre%s" % (" sur le bar des sports" if modele else ""))
+		await process_frame
+		await process_frame
+		var s: Node = current_scene
+		var zones := s.find_children("*", "Area3D", true, false).filter(func(a): return a.get_meta("interact", "") == "paris")
+		check(zones.size() == 1, "  une seule place où parier")
+		if modele == "":
+			check(s.get_node_or_null("CarnetParis") != null and zones.size() == 1 and zones[0].get_parent().name == "CarnetParis", "  le carnet des paris est posé sur le zinc")
+			check(s.find_children("*", "Area3D", true, false).any(func(a): return a.get_meta("interact", "") == "keeper"), "  et l'on parle encore à la tenancière")
+		else:
+			check(zones.size() == 1 and zones[0].get_parent() == s._keeper, "  sans ancre « Paris », on parie auprès de la tenancière")
+		if zones.size() == 1:
+			s._on_interact(zones[0])
+			await process_frame
+			var p: Node = s._game
+			check(p != null and p.get_script().resource_path == "res://scripts/socle/foot_paris.gd" and p.teneur == "Mme Rivière" and p.titre == "Le carnet des paris de Mme Rivière", "  E ouvre le comptoir des paris au nom de la tenancière")
+			if p and modele == "":
+				# La course cycliste de la commune se joue au même comptoir (socle 1.28).
+				check(p.ailleurs.size() == 1 and str(p.ailleurs[0][0]) == "La course : Le critérium de la gare", "  le comptoir prend aussi les paris sur la course de la commune")
+				var aller: Callable = p.ailleurs[0][1]
+				p.closed.emit()
+				await process_frame
+				aller.call()
+				await process_frame
+				var c: Node = s._game
+				check(c != null and c.get_script().resource_path == "res://scripts/socle/course_panel.gd" and c.teneur == "Mme Rivière"
+					and c.find_children("Choix_*", "Button", true, false).size() == 24, "  et ouvre le programme de la course, au nom de la tenancière")
+				if c:
+					c.closed.emit()
+					await process_frame
+			elif p:
+				p.closed.emit()
+				await process_frame
+		s._sortir()
+		await process_frame
+		await process_frame
+		while root.get_node("Chargement").actif():
+			await process_frame
+	tripot.champs = champs_avant
+
+
+## La charge d'agent de change d'une commune (socle 1.27, structure « charge ») : la bourse de Mme Vasseur au nom
+## de l'agent de la commune, derrière le seuil du lieu de même id ; le courrier et l'agenda parlent d'elle.
+func _charge(game: Node) -> void:
+	var structures: GDScript = load("res://scripts/socle/structures.gd")
+	var charge: GDScript = load("res://scripts/socle/charge.gd")
+	var bourse: Node = root.get_node("Bourse")
+	check(structures.verifier([{"type": "charge", "id": "c", "nom": "C", "agent": "Mme X"}]).is_empty(), "une commune déclare sa charge d'agent de change")
+	check(not structures.verifier([{"type": "charge", "id": "c", "nom": "C"}]).is_empty(), "  une charge sans agent est refusée")
+	check(not structures.verifier([{"type": "charge", "id": "c", "nom": "C", "agent": "X"}, {"type": "charge", "id": "d", "nom": "D", "agent": "Y"}]).is_empty(), "  une seule charge par commune")
+	game.won = 0
+	check(not charge.ouverte("essai_salle", "change") and not charge.ouvrir("essai_salle", "change"), "la charge est fermée sous son seuil (%d)" % charge.seuil("essai_salle", "change"))
+	check(bourse.charges_ouvertes().is_empty(), "  et la bourse ne la compte pas")
+	game.won = 20000
+	check(charge.ouverte("essai_salle", "change"), "la charge ouvre à 20 000 gagnés")
+	check(bourse.charges_ouvertes().size() == 1 and bourse.ouverte(), "  la bourse est ouverte par elle")
+	check(charge.ouvrir("essai_salle", "change"), "la charge s'ouvre")
+	await process_frame
+	await process_frame
+	var s: Node = current_scene
+	check(s != null and s.get("commune") == "essai_salle" and s.hote == "Mme Dumoulin" and s.enseigne == "Dumoulin & Fils", "on est chez Mme Dumoulin, sous son enseigne")
+	check(bourse.agent() == "Mme Dumoulin" and bourse.lieu() == "la charge de Mme Dumoulin, à La commune d'essai des salles", "le courrier et l'agenda parlent de sa charge : %s" % bourse.lieu())
+	check(bourse.phrase_encaissee({"position": {"indice": "cac40", "sens": 1, "levier": 10, "issue": "annulee"}, "rendu": 505, "garantie": 500}, bourse.agent()).begins_with("Mme Dumoulin : ordre annulé"), "  et ses avis sont signés d'elle")
+	if s != null:
+		var zones := s.find_children("*", "Area3D", true, false).map(func(a): return str(a.get_meta("interact", "")))
+		check("keeper" in zones and "cote" in zones and "exit" in zones, "le guichet, le tableau de la cote et la porte sont là")
+		s.open_vitrine()
+		await process_frame
+		var p: Node = s._panel
+		check(p != null and p.agent == "Mme Dumoulin" and p.enseigne == "Dumoulin & Fils", "la cote s'ouvre au nom de l'agent")
+		if p:
+			p.closed.emit()
+			await process_frame
+		s._sortir()
+		await process_frame
+		await process_frame
+		while root.get_node("Chargement").actif():
+			await process_frame
+		check(current_scene != null and current_scene.scene_file_path == "res://communes/essai_salle/commune.tscn" and game.return_point == "place", "la porte de la charge ramène dans la commune")
+	bourse._agent = ""
+	game.won = 0
 
 
 ## La salle de jeu et l'étude sur un décor de la bibliothèque (socle 1.22, champ « modele ») : le socle n'y bâtit

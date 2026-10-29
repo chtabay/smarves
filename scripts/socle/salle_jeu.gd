@@ -9,6 +9,8 @@ extends "res://scripts/village/salle.gd"
 ## au nom de la banque du manifeste (scripts/loan_panel.gd, de_commune).
 ## Avec « modele » (socle 1.22), la salle se pose sur un décor de la bibliothèque ou de la commune, branché par
 ## ses ancres (Ancres.SALLE_JEU) : le socle n'y bâtit plus sa pièce.
+## Avec « paris » (socle 1.26), le tenancier prend aussi les paris du championnat de la Vienne, comme Josiane au
+## café de Smarves : le même comptoir (FootParis), les mêmes cotes, les mêmes tickets (autoload Paris).
 ## Capture : godot --path . res://scenes/salle_jeu.tscn -- --commune=<id> --salle=<id> --capture=sortie.png
 
 ## Les jeux du socle, par nom de manifeste : le panneau, ce que dit l'invite, l'enseigne de la table.
@@ -142,6 +144,8 @@ func _ready() -> void:
 	add_child(player)
 	player.interact.connect(_on_interact)
 	Sfx.set_ambience("casino")
+	if champs.get("paris", false):
+		_annoncer_paris.call_deferred()
 	_capture_commune()
 
 
@@ -157,6 +161,9 @@ func _batir(jeux: Array, tenancier: String, champs: Dictionary, decor: String) -
 		_:
 			_room(_checker(Color(0.86, 0.82, 0.74), Color(0.3, 0.2, 0.14)), _wallpaper(Color(0.62, 0.48, 0.32), Color(0.68, 0.54, 0.36)), Color(0.9, 0.84, 0.7), Color(0.3, 0.17, 0.1))
 	_comptoir(tenancier, int(champs.get("graine", 0)))
+	if champs.get("paris", false):
+		# Sur le zinc, à droite du tenancier.
+		_carnet_paris(Transform3D(Basis(), Vector3(0.9, 1.1, -D / 2.0 + 1.82)))
 	_tables(jeux)
 	if champs.get("guichet", false):
 		_guichet()
@@ -289,8 +296,15 @@ func _brancher_decor(m: Node3D, jeux: Array, tenancier: String, champs: Dictiona
 	c.idle_anim = "bar"
 	c.scale = Vector3.ONE * PEOPLE_SCALE
 	_keeper.add_child(c)
-	# Le comptoir est entre le tenancier et le visiteur : la zone le déborde de son côté.
-	_interactive(_keeper, "keeper", "E : parler à %s" % tenancier, Vector3(2.2, 2.2, 1.6), Vector3(0, 1.1, 2.2))
+	# Le comptoir est entre le tenancier et le visiteur : la zone le déborde de son côté. Une salle qui prend les
+	# paris sur un décor sans ancre « Paris » : c'est au tenancier lui-même qu'on parie.
+	var carnet := Ancres.trouver(m, "Paris")
+	if champs.get("paris", false) and carnet == null:
+		_interactive(_keeper, "paris", "E : parier avec %s" % tenancier, Vector3(2.2, 2.2, 1.6), Vector3(0, 1.1, 2.2))
+	else:
+		_interactive(_keeper, "keeper", "E : parler à %s" % tenancier, Vector3(2.2, 2.2, 1.6), Vector3(0, 1.1, 2.2))
+	if champs.get("paris", false) and carnet != null:
+		_carnet_paris(_repere(carnet))
 	if champs.get("guichet", false):
 		var g := Ancres.trouver(m, "Guichet")
 		if g:
@@ -301,6 +315,59 @@ func _brancher_decor(m: Node3D, jeux: Array, tenancier: String, champs: Dictiona
 	if e:
 		_ecrire(e, str(champs.get("enseigne", _salle.name)))
 	_interactive(_pied(Ancres.trouver(m, "Sortie")), "exit", _salle.sortie, Vector3(2.4, 2.6, 1.6), Vector3(0, 1.2, 0))
+
+
+## Le carnet des paris posé sur le comptoir, dans le repère « t » (sur le zinc, lisible depuis son +Z) : E ouvre
+## le comptoir des paris au nom du tenancier (socle 1.26).
+func _carnet_paris(t: Transform3D) -> void:
+	_carnet_pmu = Node3D.new()
+	_carnet_pmu.name = "CarnetParis"
+	_carnet_pmu.transform = t
+	add_child(_carnet_pmu)
+	_box(Vector3(0.36, 0.025, 0.26), Vector3.ZERO, _std(Color(0.16, 0.42, 0.2), 0.7), false, _carnet_pmu)
+	_box(Vector3(0.3, 0.012, 0.2), Vector3(0, 0.018, 0), _std(Color(0.95, 0.93, 0.85), 0.9), false, _carnet_pmu)
+	_cyl(0.008, 0.16, Vector3(0.12, 0.03, 0.02), _std(Color(0.12, 0.12, 0.3), 0.3), _carnet_pmu).rotation_degrees = Vector3(90, 0, 25)
+	var l := _label3d("PARIS", Vector3.ZERO, 18, Color(0.95, 0.95, 0.9))
+	l.reparent(_carnet_pmu, false)
+	l.rotation_degrees.x = -90.0
+	l.position = Vector3(0, 0.03, -0.05)
+	_interactive(_carnet_pmu, "paris", "E : parier au comptoir", Vector3(1.0, 1.2, 1.2), Vector3(0, -0.3, 0.5))
+
+
+## Le comptoir des paris, au nom du tenancier de la salle.
+func open_paris() -> void:
+	if _game != null:
+		return
+	var p: PanelContainer = PARIS.new()
+	p.teneur = _salle.host
+	p.titre = "Le carnet des paris de %s" % _salle.host
+	# Les courses cyclistes de la commune se jouent au même comptoir (socle 1.28).
+	for e in Cyclisme.courses():
+		if e.commune == commune and Cyclisme.ouverte(e):
+			p.ailleurs.append(["La course : %s" % e.nom, func(): ouvrir_course(str(e.id))])
+	_ouvrir_panneau(p)
+
+
+## Le programme d'une course cycliste de la commune, au comptoir : on y parie gagnant ou placé (socle 1.28).
+func ouvrir_course(id: String) -> void:
+	if _game != null:
+		return
+	var p := CoursePanel.de(commune, id)
+	if p == null:
+		return
+	p.teneur = _salle.host
+	_ouvrir_panneau(p)
+
+
+## Les tickets réglés depuis la dernière visite (le règlement tombe à l'heure, où que soit le joueur) : en entrant,
+## le tenancier en dit un mot, comme Josiane au café.
+func _annoncer_paris() -> void:
+	Paris.regler()
+	for t in Paris.non_vus():
+		if t.etat == "gagne":
+			_note("%s : « Votre ticket de la journée %d est bon : %s crédits. »" % [_salle.host, int(t.j), Game.fmt(int(t.gain))])
+		else:
+			_note("%s : « La journée %d, c'est pour la maison. Un autre ? »" % [_salle.host, int(t.j)])
 
 
 ## Le repère d'une ancre dans celui de la salle, sans échelle.
@@ -454,6 +521,8 @@ func _capture_commune() -> void:
 		await get_tree().create_timer(1.0).timeout
 		if jeu == "guichet":
 			_ouvrir_panneau(load("res://scripts/loan_panel.gd").de_commune(commune))
+		elif jeu == "paris":
+			open_paris()
 		else:
 			_jeu_ouvert = jeu
 			open_game()

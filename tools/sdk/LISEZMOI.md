@@ -59,9 +59,13 @@ et trois repères `Vue1_…`, `Vue2_…`, `Vue3_…`, un par scène forte.
 - **Les structures** du manifeste, dont le jeu fournit la scène et le comportement :
   - `terrain_foot` : le stade, un club dans le championnat de la Vienne ;
   - `salle_jeu` : une salle avec son tenancier et ses tables (machine, loto, blackjack, roulette,
-    craps, baccara, poker, dés, roue, courses) ;
+    craps, baccara, poker, dés, roue, courses), et s'il le veut le comptoir des paris du championnat
+    (`"paris": true`, socle 1.26) ;
   - `gymnase` : la salle de basket, un club sur les résultats réels de l'Euroleague et de l'EuroCup ;
   - `commerce` : une boutique de tenues, de véhicules ou de meubles ;
+  - `charge` : une charge d'agent de change, la bourse à levier de Smarves au nom de votre agent (socle 1.27) ;
+  - `course_velo` : une course cycliste sur un parcours de votre scène, son peloton, son direct et ses paris
+    gagnant ou placé (socle 1.28) ;
   - `gare` et `arret_car`.
   Voir `docs/COMMUNE.md`, « Les structures ».
 - **La bibliothèque commune** (`bibliotheque/`, classe `Bibliotheque`) : des décors entiers prêts à
