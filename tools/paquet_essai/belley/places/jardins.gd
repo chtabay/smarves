@@ -43,8 +43,8 @@ func batir(parent: Node3D) -> void:
 		["cerisier", 12, {"hauteur": 3.6, "saison": "fruits"}],
 		["arbuste_fleuri", 5, {"hauteur": 1.5, "fleurs": "f4f0e6"}],
 		["arbuste_fleuri", 9, {"hauteur": 1.3, "fleurs": "d04a8a"}],
-		["haie", 4, {"longueur": 4.0, "hauteur": 1.2}],
-		["haie", 6, {"longueur": 4.0, "hauteur": 1.0}],
+		["haie", 4, {"longueur": 4.0, "hauteur": 1.3}],
+		["haie", 6, {"longueur": 4.0, "hauteur": 0.85}],
 	]
 	var poses := []
 	for e in essences:
@@ -87,12 +87,11 @@ func batir(parent: Node3D) -> void:
 		while x < qc.x + RAYON:
 			limites.append([monde.call(Vector2(x + 2.0, y)), ANGLE, absi(hash(Vector2i(int(x), int(y))))])
 			x += 4.0
-		var dec := float(absi(hash(int(y))) % 12)
-		var xt := floorf((qc.x - RAYON) / 12.0) * 12.0 + dec
+		var xt := floorf((qc.x - RAYON) / 12.0) * 12.0 + float(absi(hash(int(y))) % 12)
 		while xt < qc.x + RAYON:
 			for k in 2:
 				limites.append([monde.call(Vector2(xt, y + 2.5 + k * 5.0)), ANGLE - PI * 0.5, absi(hash(Vector2i(int(xt), int(y) * 7 + k)))])
-			xt += 12.0
+			xt += 12.0 + float(absi(hash(Vector2i(int(xt), int(y)))) % 9)
 		y += 10.0
 	for l in limites:
 		var v: Vector2 = l[0]
@@ -105,11 +104,16 @@ func batir(parent: Node3D) -> void:
 		if not int(round(couv.get_pixel(px, pz).r * 255.0)) in JARDINS or _occupe(obstacles, v) or _cathedrale(v) or PLACE_CATHEDRALE.sur_le_stationnement(v):
 			continue
 		var t := Transform3D(Basis(Vector3.UP, l[1]), Vector3(v.x, hauteur.call(v.x, v.y) - 0.05, v.y))
+		# Un tiers de haies, un tiers de murets, un tiers sans rien : la limite a ses trous.
+		if int(l[2]) % 3 == 2:
+			continue
 		if int(l[2]) % 3 == 0:
 			murets.boite(t * Transform3D(Basis(), Vector3(0, 0.35, 0)), Vector3(4.02, 0.8, 0.4), MOELLON)
 			murets.boite(t * Transform3D(Basis(), Vector3(0, 0.79, 0)), Vector3(4.02, 0.08, 0.5), CHAPERON)
 		else:
-			poses[5 + int(l[2]) % 2].append(t)
+			# Des haies de hauteurs et d'épaisseurs variables.
+			var e := 0.8 + float(int(l[2]) % 7) * 0.08
+			poses[5 + int(l[2]) % 2].append(t * Transform3D(Basis.from_scale(Vector3(1.0, 0.7 + float(int(l[2]) % 5) * 0.15, e)), Vector3.ZERO))
 	murets.construire(parent, "Murets")
 	var tmp := Node3D.new()
 	var noeud := Node3D.new()

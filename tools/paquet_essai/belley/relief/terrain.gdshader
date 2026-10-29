@@ -169,7 +169,7 @@ float barre(vec2 xz, float d) {
 	float n = fbm(xz * 0.02 + 5.0) - 0.5;
 	float haut = smoothstep(57.0, 60.0, d + n * 6.0);
 	float pied = 1.0 - smoothstep(76.0, 79.0, d + (fbm(xz * 0.06 + 13.0) - 0.5) * 16.0);
-	return haut * pied * smoothstep(0.36, 0.46, fbm(xz * 0.012 + 31.0));
+	return haut * pied * smoothstep(0.405, 0.415, fbm(xz * 0.012 + 31.0) + (fbm(xz * 0.08 + 3.0) - 0.5) * 0.03);
 }
 
 vec3 teinte(int c, vec2 xz, float y, float g, float g2, float pres, float pr) {
@@ -285,7 +285,7 @@ void fragment() {
 		roc = max(roc, r);
 		// Les éboulis au pied de la barre : un cône de pierraille grise, moucheté, qui mord sur la forêt.
 		float pierraille = smoothstep(74.0, 80.0, dsc) * (1.0 - smoothstep(84.0, 98.0, dsc + (fbm(xz * 0.05 + 7.0) - 0.5) * 20.0));
-		pierraille *= smoothstep(0.36, 0.46, fbm(xz * 0.012 + 31.0)) * step(0.45, h21(floor(xz * 0.6)));
+		pierraille *= smoothstep(0.405, 0.415, fbm(xz * 0.012 + 31.0) + (fbm(xz * 0.08 + 3.0) - 0.5) * 0.03) * step(0.45, h21(floor(xz * 0.6)));
 		col = mix(col, mix(ROCHE, ROCHE_OMBRE, h21(floor(xz * 0.6) + 1.7)), pierraille * 0.55 * (1.0 - smoothstep(0.85, 0.95, normale.y)));
 		float trait = smoothstep(57.0, 59.0, dsc) * (1.0 - smoothstep(61.0, 65.0, dsc));
 		col = mix(col, OMBRE_BORD, roc * trait * 0.85);
