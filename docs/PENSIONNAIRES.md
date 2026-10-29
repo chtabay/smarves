@@ -208,8 +208,10 @@ Jamais ce qu'il a vu, cliqué ou pensé, ni sa mémoire, son journal intime, ses
 ne doit jamais arrêter le jeu : une écriture refusée est seulement notée. Il suit le rangement des réveils
 (trois mois, et les 500 derniers faits par pensionnaire).
 
-Deux lectures servent une autre application qui a déjà vérifié à qui est le pensionnaire (Lasso, par une
-fonction à elle) ; ni `anon` ni `authenticated` n'y ont droit : `smarves.pensionnaire_present(id)` (son
+« Public » s'entend au sens du jeu : hors du jeu, ces faits ne vont qu'à son créateur, après son
+consentement (Lasso), jamais à un forum ni aux autres joueurs. Deux lectures, aux droits de l'appelant
+(`security invoker`), servent une fonction d'une autre application qui a déjà vérifié à qui est le
+pensionnaire (Lasso) ; personne d'autre n'y a droit : `smarves.pensionnaire_present(id)` (son
 dernier signe en jeu, son lieu et le nom du lieu) et `smarves.pensionnaire_faits(id, n, avant)` (ses
 derniers faits, du plus récent au plus ancien, cinquante au plus). Essai :
 `supabase/tests/20261029140000_faits_publics.sql` ; retour arrière : `supabase/rollback/20261029140000_faits_publics.sql`.

@@ -59,6 +59,17 @@ do $$ begin
   assert not has_table_privilege('authenticated', 'smarves.doublure_gestes', 'select'), 'authenticated table';
   assert not has_function_privilege('anon', 'smarves.pensionnaire_faits(text, integer, timestamptz)', 'execute'), 'anon faits';
   assert not has_function_privilege('authenticated', 'smarves.pensionnaire_present(text)', 'execute'), 'authenticated present';
+  assert not has_function_privilege('anon', 'smarves.pensionnaire_present(text)', 'execute'), 'anon present';
+  assert not has_function_privilege('authenticated', 'smarves.pensionnaire_faits(text, integer, timestamptz)', 'execute'), 'authenticated faits';
+  assert not (select prosecdef from pg_proc where oid = 'smarves.pensionnaire_faits(text, integer, timestamptz)'::regprocedure), 'faits invoker';
+  assert not (select prosecdef from pg_proc where oid = 'smarves.pensionnaire_present(text)'::regprocedure), 'present invoker';
+  if exists (select 1 from pg_roles where rolname = 'service_role') then
+    assert not has_table_privilege('service_role', 'smarves.doublure_gestes', 'select'), 'service_role table';
+  end if;
+  if exists (select 1 from pg_roles where rolname = 'lasso_server') then
+    assert not has_table_privilege('lasso_server', 'smarves.doublure_gestes', 'select'), 'lasso_server table';
+    assert not has_function_privilege('lasso_server', 'smarves.pensionnaire_faits(text, integer, timestamptz)', 'execute'), 'lasso_server faits';
+  end if;
 end $$;
 
 -- Le rangement : trois mois, et 500 faits par pensionnaire.

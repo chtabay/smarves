@@ -16,10 +16,27 @@
 --    - smarves.pensionnaire_present(id) : son dernier signe de vie en jeu et son lieu ;
 --    - smarves.pensionnaire_faits(id, n, avant) : ses n derniers faits publics, du plus récent au plus ancien.
 --
+-- Ces faits ne sont publics qu'au sens du jeu (un joueur présent pouvait les voir) : hors du jeu, ils ne
+-- sortent que vers le créateur du pensionnaire, après son consentement (Lasso, migration 005), jamais
+-- vers un forum ni vers d'autres joueurs.
+--
 -- Rangement : le journal des gestes suit celui des réveils (trois mois), et ne garde que les 500 derniers
 -- faits de chaque pensionnaire.
+--
+-- Une seule transaction : les fonctions naissent avec EXECUTE pour PUBLIC, retiré avant que quiconque ne
+-- les voie. S'arrête sans rien changer si une table du même nom existe déjà.
 
-create table if not exists smarves.doublure_gestes (
+begin;
+
+do $garde$
+begin
+  if to_regclass('smarves.doublure_gestes') is not null then
+    raise exception 'smarves.doublure_gestes existe déjà : migration abandonnée sans aucun changement';
+  end if;
+end
+$garde$;
+
+create table smarves.doublure_gestes (
   id bigint generated always as identity primary key,
   doublure text not null references smarves.doublures (id) on delete cascade,
   quand timestamptz not null default now(),
@@ -31,7 +48,7 @@ create table if not exists smarves.doublure_gestes (
       or (genre = 'dire' and texte is not null and montant is null)
       or (genre = 'jeu' and montant is not null and texte is null))
 );
-create index if not exists doublure_gestes_quand on smarves.doublure_gestes (doublure, quand desc, id desc);
+create index doublure_gestes_quand on smarves.doublure_gestes (doublure, quand desc, id desc);
 alter table smarves.doublure_gestes enable row level security;
 revoke all on smarves.doublure_gestes from public, anon, authenticated;
 
@@ -62,10 +79,14 @@ as $$
   end
 $$;
 
+-- Les deux lectures s'exécutent avec les droits de l'appelant (SECURITY INVOKER) : seule une fonction
+-- déjà propriétaire du schéma (lasso.smarves_vie, SECURITY DEFINER, à postgres) peut lire la table ; un
+-- EXECUTE donné par erreur n'ouvrirait rien de plus.
+
 -- Son dernier signe en jeu (le pilote) et son lieu : une ligne, vide s'il n'a jamais joué par le pilote.
 create or replace function smarves.pensionnaire_present(p_id text)
   returns table (vivant timestamptz, lieu text, lieu_nom text)
-  language sql stable security definer set search_path = ''
+  language sql stable security invoker set search_path = ''
 as $$
   select p.vivant,
          case when p.lieu ~ '^[a-z0-9_]{1,40}$' then p.lieu end,
@@ -74,10 +95,11 @@ as $$
    where p.doublure = p_id and p.vivant is not null
 $$;
 
--- Ses derniers faits publics (au plus 50), avant un instant donné si l'on veut la page d'après.
+-- Ses derniers faits publics (au plus 50), avant un instant donné si l'on veut la page d'après (deux faits
+-- de la même microseconde peuvent alors tomber entre deux pages : Lasso ne lit que la première).
 create or replace function smarves.pensionnaire_faits(p_id text, p_n integer default 20, p_avant timestamptz default null)
   returns table (id bigint, quand timestamptz, genre text, lieu text, lieu_nom text, texte text, montant bigint)
-  language sql stable security definer set search_path = ''
+  language sql stable security invoker set search_path = ''
 as $$
   select g.id, g.quand, g.genre, g.lieu, smarves.lieu_nom(g.lieu), g.texte, g.montant
     from smarves.doublure_gestes g
@@ -104,3 +126,5 @@ as $$
    where g.id = v.id;
 $$;
 revoke all on function smarves.doublures_ranger() from public;
+
+commit;
