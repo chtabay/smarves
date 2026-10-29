@@ -84,11 +84,6 @@ func _ready() -> void:
 	ville.name = "Ville"
 	ville.scale = Vector3.ONE / U
 	add_child(ville)
-	# parti pris de la planche : le premier plan au sud du square est abaissé à quatre niveaux, pour que la vue
-	# d'ensemble passe par-dessus ses toits jusqu'au sable et aux bancs
-	for bt in data.batiments:
-		if Rect2(-22.0, 46.0, 66.0, 34.0).has_point(Vector2(bt.rect[0], bt.rect[1]) * U):
-			bt.h = minf(bt.h, 17.5 / U)
 	_niveler()
 	_ciel()
 	_terrain()
@@ -170,7 +165,7 @@ func _ciel() -> void:
 	e.sky.sky_material = ciel
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	e.ambient_light_color = Color("#c8bda6")
-	e.ambient_light_energy = 0.47
+	e.ambient_light_energy = 0.55
 	e.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	e.tonemap_exposure = 0.68
@@ -179,7 +174,7 @@ func _ciel() -> void:
 	e.adjustment_saturation = 1.05
 	e.adjustment_contrast = 1.06
 	e.ssao_enabled = true
-	e.ssao_intensity = 1.2
+	e.ssao_intensity = 0.6
 	e.glow_enabled = true
 	e.glow_intensity = 0.5
 	e.glow_hdr_threshold = 1.2
@@ -198,7 +193,7 @@ func _ciel() -> void:
 	soleil.light_color = SOLEIL.couleur
 	soleil.light_energy = 1.25
 	soleil.shadow_enabled = true
-	soleil.shadow_opacity = 0.85
+	soleil.shadow_opacity = 0.78
 	soleil.directional_shadow_max_distance = 220.0
 	soleil.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 
@@ -462,8 +457,7 @@ func _batiments() -> void:
 	var mt := MeshInstance3D.new()
 	mt.name = "Toits"
 	mt.mesh = toits.commit()
-	mt.material_override = _mat(Color.WHITE, 0.8, true)
-	mt.material_override.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mt.material_override = _materiau_toits()
 	ville.add_child(mt)
 	var corps := StaticBody3D.new()
 	corps.name = "Murs_collision"
@@ -627,6 +621,41 @@ func _toit(st: SurfaceTool, b: Dictionary, poly: PackedVector2Array, haut: float
 			st.set_color(tuile.darkened(0.06) if b.toit != "plat" else Color("#a39a8c"))
 			st.set_normal(Vector3.UP)
 			st.add_vertex(Vector3(p.x, haut + 0.15, p.y))
+
+
+## Le shader des toits de la ville : la tuile canal du façadier, en rangs parallèles à l'égout, avec ses ondes
+## et six nuances d'une tuile à l'autre. Les teintes des sommets sont en sRGB.
+func _materiau_toits() -> ShaderMaterial:
+	var sh := Shader.new()
+	sh.code = """
+shader_type spatial;
+render_mode cull_disabled, diffuse_burley;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+varying vec3 lp;
+varying vec3 ln;
+void vertex() {
+	lp = VERTEX;
+	ln = NORMAL;
+}
+void fragment() {
+	vec3 c = COLOR.rgb;
+	if (abs(ln.y) > 0.2 && abs(ln.y) < 0.97) {
+		vec2 h = normalize(ln.xz);
+		float s = dot(lp.xz, vec2(-h.y, h.x)) / 0.24;
+		float r = lp.y / 0.2;
+		float rang = floor(r);
+		float onde = 0.5 + 0.5 * cos(6.2832 * s);
+		float recouvrement = smoothstep(0.0, 0.35, fract(r));
+		float nuance = floor(hash(vec2(rang, floor(s))) * 6.0) / 5.0;
+		c *= (0.78 + 0.22 * onde) * (0.72 + 0.28 * recouvrement) * (0.9 + 0.2 * nuance);
+	}
+	ALBEDO = pow(c, vec3(2.2));
+	ROUGHNESS = 0.85;
+}
+"""
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	return m
 
 
 ## Le shader de la ville : les fenêtres hautes des immeubles lyonnais, les persiennes, le bandeau du
@@ -838,7 +867,7 @@ func _place() -> void:
 			continue
 		var libre := true
 		for q in troncs:
-			if q.distance_to(p) < 6.8:
+			if q.distance_to(p) < 8.0:
 				libre = false
 		for q in genants:
 			if q.distance_to(p) < 2.0:
@@ -847,7 +876,9 @@ func _place() -> void:
 			troncs.append(p)
 	for k in troncs.size():
 		var p: Vector2 = troncs[k]
-		_pose(OMBRIERE, "arbre", "marronnier", Vector3(p.x, y, p.y), 400 + k, {"hauteur": graines.randf_range(12.0, 16.0), "vent": 0.4, "densite": graines.randf_range(0.75, 0.95), "teinte": ["6e9440", "8ab04a", "4d6e33"]})
+		var arbre := _pose(OMBRIERE, "arbre", "marronnier", Vector3(p.x, y, p.y), 400 + k, {"hauteur": graines.randf_range(12.0, 16.0), "vent": 0.4, "densite": graines.randf_range(0.75, 0.95), "contre_jour": 0.4, "teinte": ["6e9440", "7a9c40", "5f7f3e"]})
+		# des couronnes resserrées d'un cinquième, que le sable et leur ombre séparent comme sur la planche
+		arbre.scale = Vector3(0.8, 1.0, 0.8)
 	var massifs := 0
 	essais = 0
 	while massifs < 7 and essais < 2000:
@@ -1073,9 +1104,10 @@ func _blandan(s: Node3D) -> void:
 ## couché sur son socle mouluré de pierre dorée, tourné vers l'axe de l'escalier, la gueule qui crache
 ## dans une vasque à margelle de Villebois, la mousse au bas de la pierre. sens : -1 à l'ouest, 1 à l'est.
 func _fontaine_lion(f: Node3D, _sens: float) -> void:
-	var dore := PIERRE_DOREE
+	# la pierre grise et froide de la fontaine, comme sur la planche, et non la pierre dorée des murs
+	var dore := Color("#aaa69a")
 	var z := -0.55
-	# le socle de pierre dorée, bas et mouluré : une plinthe, un dé à tables saillantes et chanfreins, une
+	# le socle de pierre grise, bas et mouluré : une plinthe, un dé à tables saillantes et chanfreins, une
 	# corniche à trois ressauts, la tablette où se couche le lion ; un tablier demi-rond avance dans la vasque
 	_forme(f, _blo(Vector3(2.1, 0.3, 1.4)), Vector3(0, 0.15, z), dore.darkened(0.12))
 	_forme(f, _blo(Vector3(1.95, 0.08, 1.3)), Vector3(0, 0.34, z), dore.darkened(0.05))
@@ -1098,6 +1130,14 @@ func _fontaine_lion(f: Node3D, _sens: float) -> void:
 	margelle.ring_segments = 8
 	_forme(f, margelle, Vector3(0, 0.72, z + 0.7), VILLEBOIS).scale = Vector3(1.0, 0.9, 0.75)
 	_forme(f, _cyl(1.47, 1.47, 0.04, 40), Vector3(0, 0.64, z + 0.7), EAU.lightened(0.25)).scale = Vector3(1.0, 1.0, 0.75)
+	# le tore du pied et le listel sous la margelle : la vasque se lit moulurée, pas tournée d'un bloc
+	for anneau in [[1.38, 1.68, 0.1, 0.92], [1.42, 1.62, 0.5, 0.6]]:
+		var tore := TorusMesh.new()
+		tore.inner_radius = anneau[0]
+		tore.outer_radius = anneau[1]
+		tore.rings = 32
+		tore.ring_segments = 8
+		_forme(f, tore, Vector3(0, anneau[2], z + 0.7), VILLEBOIS.darkened(0.1)).scale = Vector3(1.0, anneau[3], 0.75)
 	_forme(f, _cyl(1.62, 1.66, 0.1, 40), Vector3(0, 0.05, z + 0.7), Color("#5d6b45")).scale = Vector3(1.0, 1.0, 0.75)
 	var bronze := Color("#4d4a36")
 	var clair := Color("#66705a")
