@@ -64,17 +64,20 @@ void fragment() {
 	col = base * mix(0.82, 1.12, h) * mix(vec3(1.0), vec3(1.05, 0.95, 0.9), hash(cellule + 3.7));
 	if (epi > 0.5) {
 		// Les pavés d'argile : une nuance douce d'un pavé à l'autre, et le chiné de la terre cuite dans chacun.
-		vec3 t = mix(vec3(1.0), mix(vec3(1.06, 0.99, 0.92), vec3(0.95, 0.92, 0.94), hash(cellule + 9.1)), 0.5);
-		float chine = bruit(p * 22.0) * 0.6 + bruit(p * 6.0 + 17.0) * 0.4;
-		col = base * mix(0.92, 1.05, h) * t * mix(0.94, 1.05, chine);
+		// ±3 % par pavé, et des taches de 2 à 4 m à ±6 % (verdict du juge sur la v0.4) : pas plus de variation.
+		vec3 t = mix(vec3(1.0), mix(vec3(1.03, 0.995, 0.96), vec3(0.97, 0.96, 0.97), hash(cellule + 9.1)), 0.5);
+		float chine = bruit(p * 0.35) * 0.7 + bruit(p * 0.9 + 17.0) * 0.3;
+		col = base * mix(0.97, 1.03, h) * t * mix(0.94, 1.06, chine);
 	}
 	if (filet > 0.5) {
 		col = base * mix(0.95, 1.03, h);
 	}
 	float j = smoothstep(0.0, 0.07, joint);
 	if (epi > 0.5) {
-		j = smoothstep(0.0, 0.035, joint);
-		col = mix(base * 0.84 + vec3(0.03), col, j);
+		// Le joint d'un centimètre, un peu plus sombre, et le léger biseau du bord de chaque pavé.
+		col *= mix(0.93, 1.0, smoothstep(0.0, 0.12, joint));
+		j = smoothstep(0.0, 0.02, joint);
+		col = mix(base * 0.8, col, j);
 	} else {
 		col = mix(base * 0.62 + vec3(0.06), col, j);
 	}
