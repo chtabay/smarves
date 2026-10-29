@@ -208,6 +208,27 @@ Quatre décors tirés du plan d'assets lyonnais de Guillaume (29 octobre 2026 : 
 
 Les planches et la place lyonnaise : `godot --path . -s tools/planche_lyon.gd -- --vue=facadier|detail|mobilier|vegetation|quais|place|rue|quai --capture=planche.png` (`--nom=fontaine` avec `mobilier`, `vegetation` ou `quais` montre une seule pièce de près ; `place` bâtit la place avec la fontaine, les terrasses du café, le quai, la rivière, le pont et la colline à sa chapelle ; `rue` et `quai` la montrent à hauteur d'œil).
 
+### Le décor du Bugey
+
+Quatre décors tirés de la planche d'assets régionaux du Bugey de Guillaume (29 octobre 2026 : une place de village sous les falaises calcaires, la fontaine à la statue, le marché, les maisons de pierre à moellons, les vignes en terrasses). Même facture que les décors lyonnais : chaque dossier porte sa copie d'`outils.gd` et des deux shaders, trois surfaces au plus et un seul corps par objet, pied à l'origine sur y = 0, variantes dites par `types()`, `objets()` ou `noms()`.
+
+Les essences ne se redoublent pas d'un décor à l'autre : le Bugey n'apporte que ses espèces propres (chêne, charme, cerisier, cèdre, vigne en rang) et prend le tilleul et le bouleau à `arbres-de-place@1`, le cyprès et la vigne grimpante à `vegetation-lyonnaise@1`. Un tilleul a ainsi la même silhouette sur toutes les places du jeu, et une retouche d'essence se fait à un seul endroit ; le test de la bibliothèque y veille.
+
+- **`facadier-du-bugey@1`** (`type`, `graine`, `options`) : `r2` (deux étages), `r1`, `r0` (maison basse), `bourgeoise` (croupes, chaînes d'angle, lucarnes), `ferme` (grange à porte charretière et fenil), `vigneronne` (escalier extérieur sur la cave, balcon de bois), `tour` (toit en pavillon), `village` (rez-de-chaussée à arc surbaissé), `porche` (le passage voûté et ses bannières), `redents` (pignon à gradins) et `chapelle` (clocher-tour à flèche d'ardoise ou clocher-mur). Moellons calcaires en rangs irréguliers, encadrements de pierre de taille, volets de bois ou persiennes, jardinières, vigne. Options : `w`, `d`, `niveaux`, `rdc` (`logis`, `boutique`, `bourgeoise`, `grange`, `cave`, `porche`), `toit`, `couverture` (`tuile_rouge`, `tuile_vieillie`, `lauze`, `mecanique`, `ardoise`), `mur` (`moellons`, `enduit`), `pierre`, `enduit`, `volets`, `balcon`, `auvent`, `lucarnes`, `fleurs`, `vigne`, `enseigne`, `toile`, `lanterne`, `clocher` (`tour`, `mur`). Métadonnées : `type`, `graine`, `w`, `d`, `hauteur`, `porte`.
+- **`mobilier-du-bugey@1`** (`objet`, `graine`, `options`) : `fontaine_statue` (bassin rond fleuri, statue de bronze au livre), `fontaine`, `bachal` (l'auge de pierre), `etal` (primeurs, fromages, fleurs ou vin), `charrette`, `tonneaux`, `caisses`, `banc`, `banc_fer`, `panneau` (d'affichage), `puits`, `jardiniere`, `enseigne`, `lampadaire` (deux lanternes), `tonnelle`, `muret` et `table` (de terrasse). Options : `marchandise`, `toile`, `fleurs`, `eau`, `allume`, `longueur`. Métadonnées : `objet`, `graine`, `emprise`.
+- **`vegetation-du-bugey@1`** (`plante`, `graine`, `options`) : `chene`, `charme`, `cerisier` (`saison` : `fleurs` ou `fruits`), `cedre` (plateaux étagés), `haie`, `arbuste_fleuri`, `vigne_rang` (cep palissé) et `fleurs` (pots et lavande). Options : `hauteur`, `saison`, `fleurs`, `raisin`, `longueur`, `vent`. Métadonnées : `plante`, `graine`, `hauteur`.
+- **`terrains-du-bugey@1`** (`module`, `graine`, `options`) : des modules sur une trame de 8 m, centrés sur l'origine : `prairie`, `ble`, `mais`, `vigne_coteau` (trois terrasses tenues par des murs de pierre sèche), `chemin` (de terre), `route_murets`, `mur_pierre_seche`, `talus`, `riviere` (le lit creusé, l'eau claire, les galets et les roseaux) et `falaise` (piliers calcaires en bancs, 30 m sur 22 par défaut). Options : `largeur`, `hauteur`, `fleurs`. Métadonnées : `module`, `graine`, `emprise`.
+
+Les ambiances, composées avec ces quatre briques et les essences reprises : `godot --path . -s tools/planche_bugey.gd -- --vue=<ambiance> --capture=planche.png`.
+
+- `place` : la place du village sous les falaises, la fontaine à la statue, le porche à bannières, le marché, la terrasse du café, la chapelle derrière les toits.
+- `rue` : la grand-rue à hauteur d'œil, les boutiques et leurs enseignes, les lampadaires, la chapelle au bout.
+- `hameau` : le hameau vigneron, la ferme et sa grange, la maison à escalier, le puits, le chemin, les vignes en terrasses.
+- `riviere` : le bord de rivière, les maisons de l'autre rive, la tour, la route à murets sur la rive proche.
+- `campagne` : les champs de blé et de maïs au pied des falaises, les haies, les murs de pierre sèche, la chapelle sur sa butte.
+
+Les planches des briques : `--vue=facadier|detail|mobilier|vegetation|terrains` (`--nom=` montre une seule pièce de près).
+
 ## Proposer une brique
 
 Une ville qui a fait un décor réutilisable le range, dans son propre paquet, sous `res://communes/<id>/bibliotheque/<id de la brique>/` avec une fiche `brique.json` :
@@ -278,6 +299,7 @@ Chacune est utile seule, et rien ne change dans la première salle.
 | 10 | Les intérieurs : genres `salle_jeu` et `etude`, leurs contrats d'ancres, `modele` de la salle de jeu et du notaire ; `bar-des-sports@1` et `etude-de-notaire@1`, venus de Cloué 1.6.2 (socle 1.22) | smarves, portail | **fait** |
 | 11 | La place du nord, tirée de l'inspiration d'ambiance de Guillaume : `arbres-de-place@1`, `mobilier-de-place@1`, `facadier-des-flandres@1` et leurs planches (`tools/planche_place.gd`) | smarves | **fait** |
 | 12 | Le décor lyonnais, tiré du plan d'assets lyonnais de Guillaume : `facadier-lyonnais@1`, `mobilier-lyonnais@1`, `vegetation-lyonnaise@1`, `quais-lyonnais@1` et leurs planches (`tools/planche_lyon.gd`) | smarves | **fait** |
+| 13 | Le décor du Bugey, tiré de la planche d'assets régionaux de Guillaume : `facadier-du-bugey@1`, `mobilier-du-bugey@1`, `vegetation-du-bugey@1`, `terrains-du-bugey@1`, leurs planches et cinq ambiances (`tools/planche_bugey.gd`) | smarves | **fait** |
 | 6 | Les auteurs reconstruisent leurs paquets : pour Minuit, le bol de la Fortune par ses ancres, le Dôme une salle, les matières passent à la bibliothèque, les textures et les données se compressent | paquets | Minuit : fait, sauf le Dôme (0.10.5, 23 octobre 2026) ; L'Isle-Jourdain 0.2.3 dans les seuils |
 
 Il ne reste que l'étape 6, par les auteurs. Le 23 octobre 2026, Minuit passe le stade de la Fortune par ses ancres (0.10.5, socle 1.20 : le bol pourra devenir une brique, `stade-fortune@1`, une fois qu'il ne connaîtra plus le stade) et L'Isle-Jourdain repasse sous les seuils (0.2.3, [`docs/LENTEUR.md`](LENTEUR.md)). Le format des paquets est arrêté avec l'étape 3 et le budget par lieu avec la 7 : Civaux, Minuit, L'Isle-Jourdain et Cloué sont repris une fois, avec le SDK à jour, et l'emballeur dit à chaque auteur ce que ses lieux ont à alléger.
