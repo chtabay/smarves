@@ -16,6 +16,7 @@ const FACADIER := "facadier-lyonnais@1"
 const MOBILIER := "mobilier-lyonnais@1"
 const VEGETATION := "vegetation-lyonnaise@1"
 const QUAIS := "quais-lyonnais@1"
+const OMBRIERE := "arbres-d-ombriere@1"
 const CRANS := [[9.0, -48.0, 34.0], [18.0, -51.0, 30.0], [40.0, -58.0, 30.0], [90.0, -62.0, 30.0]]
 
 ## La fin d'après-midi de septembre de la planche de Guillaume : un soleil doré venu de l'ouest, encore haut.
@@ -24,10 +25,10 @@ const SOLEIL := {"hauteur": 31.0, "vient_de": 258.0, "couleur": Color("#ffe1b0")
 ## La palette de la note (« Palette et matières »).
 const ENDUITS_PLACE := ["ecd59c", "f1e1b8", "eac39a", "f0d6a4", "e6c08e", "f3e6c6"]
 const ENDUITS_PENTES := ["e2cc98", "e9d6b0", "dcb78f", "e4c8a0", "d8c3a2"]
-const TUILES := ["c4502c", "b0452a", "c85a33", "a9432a"]
+const TUILES := ["c25a3a", "b4503a", "cc6a45", "a84a35", "bf6040", "b65e48"]
 const PAVE := Color("#8e8a84")
 const DALLE := Color("#c9c1b2")
-const SABLE := Color("#dcbc8c")
+const SABLE := Color("#e8cb9c")
 const VILLEBOIS := Color("#c7c3b6")
 const PIERRE_DOREE := Color("#c9a66b")
 const BRONZE := Color("#3c3a2e")
@@ -41,6 +42,9 @@ const LIONS := [Vector2(3.6, -15.2), Vector2(17.4, -15.2)]
 const PLACE := Rect2(-14.0, -14.0, 47.0, 66.0)
 ## Le square planté, au milieu de la place, entre ses deux rues pavées.
 const SQUARE := Rect2(-2.5, -6.0, 25.5, 51.0)
+## Là où le joueur passe (le quai et la rue de la Martinière, la place, la rue Louis-Vitet, la montée) :
+## chaque façade tournée vers une rue y est un immeuble du façadier, en relief, jamais un mur peint.
+const RELIEF := [Rect2(-180.0, 92.0, 260.0, 45.0), Rect2(-62.0, -100.0, 145.0, 200.0)]
 ## Fourvière, ramenée de 975 m à 730 m dans son vrai relèvement (sud-ouest), et la tour métallique.
 const FOURVIERE := Vector3(-560.0, 0.0, 470.0)
 const TOUR := Vector3(-545.0, 0.0, 330.0)
@@ -59,6 +63,7 @@ var _pas := 1.0
 var _niveau_place := 12.4
 var _heros := {}
 var _segments: Array = []
+var _cases_rues := {}
 var _rng := RandomNumberGenerator.new()
 
 
@@ -159,7 +164,7 @@ func _ciel() -> void:
 	e.sky.sky_material = ciel
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	e.ambient_light_color = Color("#c8bda6")
-	e.ambient_light_energy = 0.5
+	e.ambient_light_energy = 0.4
 	e.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	e.tonemap_exposure = 0.84
@@ -187,6 +192,7 @@ func _ciel() -> void:
 	soleil.light_color = SOLEIL.couleur
 	soleil.light_energy = 1.25
 	soleil.shadow_enabled = true
+	soleil.shadow_opacity = 0.85
 	soleil.directional_shadow_max_distance = 220.0
 	soleil.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 
@@ -243,7 +249,8 @@ func _terrain() -> void:
 	mi.material_override = _materiau_paves()
 	ville.add_child(mi)
 	# le square de sable stabilisé et sa bordure de pierre, les trottoirs dallés au pied des façades
-	_boite(ville, Vector3(SQUARE.size.x, 0.1, SQUARE.size.y), Vector3(SQUARE.get_center().x, _niveau_place + 0.05, SQUARE.get_center().y), SABLE).material_override.roughness = 1.0
+	var sable := _boite(ville, Vector3(SQUARE.size.x, 0.1, SQUARE.size.y), Vector3(SQUARE.get_center().x, _niveau_place + 0.05, SQUARE.get_center().y), SABLE)
+	sable.material_override = _materiau_sable()
 	_boite(ville, Vector3(SQUARE.size.x + 0.5, 0.16, SQUARE.size.y + 0.5), Vector3(SQUARE.get_center().x, _niveau_place + 0.0, SQUARE.get_center().y), VILLEBOIS)
 	for x in [PLACE.position.x + 1.4, PLACE.end.x - 1.4]:
 		_boite(ville, Vector3(2.8, 0.14, PLACE.size.y), Vector3(x, _niveau_place + 0.05, PLACE.get_center().y), DALLE)
@@ -280,6 +287,40 @@ func _eau() -> void:
 
 ## Les rues en rubans posés sur le relief : la chaussée d'enrobé, les rues piétonnes et les montées pavées.
 ## Les pavés lyonnais en rangs, joints sombres, sur les chaussées et la place ; le reste reste lisse.
+## Le sable stabilisé du square : des nappes plus claires et plus foncées de 2 à 4 m, un grain de gravillons,
+## l'usure plus claire au milieu des allées.
+func _materiau_sable() -> ShaderMaterial:
+	var sh := Shader.new()
+	sh.code = """
+shader_type spatial;
+render_mode diffuse_burley;
+uniform vec3 teinte : source_color;
+varying vec3 monde;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float bruit(vec2 p) {
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
+}
+void vertex() { monde = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
+void fragment() {
+	vec2 p = monde.xz;
+	float nappe = bruit(p * 0.35) * 0.6 + bruit(p * 0.9) * 0.4;
+	float grain = hash(floor(p * 18.0));
+	vec3 c = teinte * (0.93 + 0.12 * nappe);
+	c = mix(c, c * 0.82, step(0.93, grain));
+	c = mix(c, c * 1.08, step(grain, 0.05));
+	ALBEDO = c;
+	ROUGHNESS = 1.0;
+}
+"""
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	m.set_shader_parameter("teinte", SABLE)
+	return m
+
+
 func _materiau_paves() -> ShaderMaterial:
 	var sh := Shader.new()
 	sh.code = """
@@ -374,6 +415,13 @@ func _batiments() -> void:
 			poly.append(Vector2(q[0], q[1]) * U)
 		var sol: float = b.sol * U - 0.5
 		var h: float = b.h * U + 0.5
+		var en_relief := _reliefs(i, b, poly)
+		if not en_relief.is_empty():
+			# le volume s'arrête à la corniche des façades posées devant lui, et son toit les coiffe
+			var haut := 0.0
+			for f in en_relief:
+				haut = maxf(haut, f)
+			h = haut - sol
 		var c := _enduit(Vector2(b.rect[0], b.rect[1]) * U, i)
 		var baie := 3.1 + float((i * 37) % 7) * 0.1
 		for k in poly.size():
@@ -387,6 +435,10 @@ func _batiments() -> void:
 			# un mur mitoyen ne se voit pas : on ne le dessine pas (il scintillerait contre celui du voisin)
 			if _dans_un_autre((a + bb) * 0.5 + Vector2(n.x, n.z) * 0.6, i):
 				continue
+			if _relief_pose.has(Vector2i(i, k)):
+				# derrière les façades en relief, le mur recule : il ne se voit qu'au-dessus d'une corniche plus basse
+				for j in 4:
+					v[j] -= n * 0.25
 			for idx in [0, 2, 1, 0, 3, 2]:
 				murs.set_color(c)
 				murs.set_normal(n)
@@ -419,6 +471,58 @@ func _batiments() -> void:
 
 var _emprises: Array = []
 var _grille := {}
+var _relief_pose := {}
+
+
+## Les façades en relief d'un bâtiment ordinaire : sur chaque mur tourné vers une rue ou la place, dans
+## les zones où passe le joueur, des immeubles du façadier de 5 à 11 m, au pied du mur, peu profonds (le
+## volume du bâtiment fait le reste). Rend la hauteur de corniche de chacun, au-dessus du niveau 0.
+func _reliefs(i: int, b: Dictionary, poly: PackedVector2Array) -> Array:
+	var c := Vector2(b.rect[0], b.rect[1]) * U
+	var dedans := false
+	for z in RELIEF:
+		if z.has_point(c):
+			dedans = true
+	if not dedans or b.h * U < 5.0:
+		return []
+	var niveaux := clampi(int(round((b.h * U - 4.2) / 3.3)), 1, 6)
+	var pentes := c.y < -45.0 or c.x > 90.0
+	if pentes:
+		niveaux = clampi(niveaux + 1, 3, 6)
+	var corniches := []
+	for k in poly.size():
+		var a := poly[k]
+		var bb := poly[(k + 1) % poly.size()]
+		var long := a.distance_to(bb)
+		if long < 4.8:
+			continue
+		var u := (bb - a) / long
+		var n := Vector2(u.y, -u.x)
+		var milieu := (a + bb) * 0.5
+		if Geometry2D.is_point_in_polygon(milieu + n * 0.4, poly):
+			n = -n
+		if _dans_un_autre(milieu + n * 0.6, i) or _ouverture(milieu + n * 3.0) > 6.0:
+			continue
+		_relief_pose[Vector2i(i, k)] = true
+		var nb := maxi(1, int(round(long / 9.5)))
+		var w := long / nb
+		for j in nb:
+			var q := a + u * w * (j + 0.5) + n * 0.02
+			var type: String = "etroite" if w < 6.5 else ["immeuble", "classique", "traboule", "immeuble", "classique"][(i * 5 + k * 3 + j) % 5]
+			var opt := {"w": w - 0.04, "d": 3.0, "niveaux": niveaux, "tuile": TUILES[(i + j) % TUILES.size()]}
+			opt["enduit"] = (ENDUITS_PENTES if pentes else ENDUITS_PLACE)[(i + k + j) % 5]
+			if pentes:
+				opt["fleurs"] = false
+			var m: Node3D = load(Bibliotheque.scene(FACADIER, "decor")).instantiate()
+			m.type = type
+			m.graine = i * 31 + k * 7 + j
+			m.options = opt
+			var y := hauteur(q.x, q.y) - 0.05
+			m.position = Vector3(q.x, y, q.y)
+			m.rotation.y = atan2(n.x, n.y)
+			ville.add_child(m)
+			corniches.append(y + 4.2 + float(opt.niveaux) * 3.3)
+	return corniches
 
 
 func _grille_emprises() -> void:
@@ -533,6 +637,8 @@ void fragment() {
 	col = mix(col, vec3(0.95, 0.92, 0.84), cadre);
 	col = mix(col, verre, fen);
 	col = mix(col, mix(vec3(0.78, 0.12, 0.14), vec3(0.24, 0.42, 0.18), step(0.23, fy)), fleurs);
+	// l'ombre de contact que le rendu n'a pas : sous l'égout et au pied du mur
+	col *= 1.0 - 0.35 * smoothstep(h - 0.6, h, y) - 0.3 * (1.0 - smoothstep(0.0, 0.4, y));
 	ALBEDO = col;
 	ROUGHNESS = mix(0.92, 0.25, fen);
 }
@@ -548,11 +654,25 @@ func _ouverture(p: Vector2) -> float:
 	if PLACE.has_point(p):
 		return 0.0
 	if _segments.is_empty():
+		# les tronçons de rue, rangés par cases de 20 m pour ne chercher que près du point
 		for r in data.routes:
 			for k in r.p.size() - 1:
-				_segments.append([Vector2(r.p[k][0], r.p[k][1]) * U, Vector2(r.p[k + 1][0], r.p[k + 1][1]) * U])
+				var sa := Vector2(r.p[k][0], r.p[k][1]) * U
+				var sb := Vector2(r.p[k + 1][0], r.p[k + 1][1]) * U
+				_segments.append([sa, sb])
+				var bo := Rect2(sa, Vector2.ZERO).expand(sb).grow(12.0)
+				for gx in range(floori(bo.position.x / 20.0), floori(bo.end.x / 20.0) + 1):
+					for gz in range(floori(bo.position.y / 20.0), floori(bo.end.y / 20.0) + 1):
+						var cle := Vector2i(gx, gz)
+						if not _cases_rues.has(cle):
+							_cases_rues[cle] = []
+						_cases_rues[cle].append(_segments.size() - 1)
 	var best := 1e9
-	for sg in _segments:
+	var proches: Array = _cases_rues.get(Vector2i(floori(p.x / 20.0), floori(p.y / 20.0)), [])
+	if proches.is_empty():
+		return 12.0
+	for j in proches:
+		var sg: Array = _segments[j]
 		var q := Geometry2D.get_closest_point_to_segment(p, sg[0], sg[1])
 		best = minf(best, q.distance_to(p))
 	return best
@@ -594,7 +714,7 @@ func _heros_poser(i: int, b: Dictionary) -> void:
 		var x := -lu * 0.5 + w * (k + 0.5)
 		var p := front + u * x
 		var type := "classique"
-		var opt := {"w": w - 0.05, "d": lv, "niveaux": niveaux}
+		var opt := {"w": w - 0.05, "d": lv, "niveaux": niveaux, "tuile": TUILES[(i + k) % TUILES.size()]}
 		if est_mairie:
 			type = "hotel"
 			opt.merge({"enduit": "c6bca3", "persiennes": false, "fleurs": false, "niveaux": 3, "rdc": "pierre"}, true)
@@ -614,6 +734,7 @@ func _heros_poser(i: int, b: Dictionary) -> void:
 				type = "cafe"
 				opt["enseigne"] = "CAFÉ DU LION D'OR"
 				opt["toile"] = ["b8352e", "f3ead6"]
+				opt["avancee"] = 2.4
 		var m: Node3D = load(Bibliotheque.scene(FACADIER, "decor")).instantiate()
 		m.type = type
 		m.graine = i * 17 + k
@@ -659,23 +780,7 @@ func _place() -> void:
 	s.name = "Remarquable_blandan"
 	s.position = Vector3(BLANDAN.x, y, BLANDAN.y)
 	ville.add_child(s)
-	_boite(s, Vector3(6.4, 0.18, 6.4), Vector3(0, 0.09, 0), VILLEBOIS)
-	_boite(s, Vector3(4.6, 0.3, 4.6), Vector3(0, 0.33, 0), VILLEBOIS.darkened(0.05))
-	_boite(s, Vector3(3.2, 0.35, 3.2), Vector3(0, 0.65, 0), VILLEBOIS)
-	_boite(s, Vector3(1.7, 2.3, 1.7), Vector3(0, 1.95, 0), VILLEBOIS.lightened(0.05))
-	_boite(s, Vector3(2.1, 0.3, 2.1), Vector3(0, 3.25, 0), VILLEBOIS.darkened(0.08))
-	var statue := Color("#4e6656")
-	_boite(s, Vector3(0.62, 1.25, 0.42), Vector3(0, 4.05, 0), statue)
-	_boite(s, Vector3(0.8, 1.05, 0.5), Vector3(0, 5.2, 0), statue)
-	_boite(s, Vector3(0.2, 1.0, 0.2), Vector3(0.5, 6.0, -0.1), statue, 0.5)
-	var tete := MeshInstance3D.new()
-	var sp := SphereMesh.new()
-	sp.radius = 0.22
-	sp.height = 0.46
-	tete.mesh = sp
-	tete.material_override = _mat(statue, 0.4)
-	tete.position = Vector3(0, 5.95, 0)
-	s.add_child(tete)
+	_blandan(s)
 	# les quatre massifs fleuris au pied du socle, chacun dans sa grille basse
 	for k in 4:
 		var a := TAU * k / 4.0 + PI * 0.25
@@ -700,7 +805,7 @@ func _place() -> void:
 		if p.y < sq.position.y + 1.0 + bord and absf(p.x - BLANDAN.x) < 4.0:
 			continue
 		p += Vector2(_rng.randf_range(-1.2, 1.2), _rng.randf_range(-1.2, 1.2))
-		_pose(VEGETATION, "plante", "platane", Vector3(p.x, y, p.y), 400 + k, {"hauteur": _rng.randf_range(14.0, 17.0), "vent": true})
+		_pose(OMBRIERE, "arbre", "marronnier", Vector3(p.x, y, p.y), 400 + k, {"hauteur": _rng.randf_range(14.0, 17.0), "vent": 0.4, "densite": 0.8})
 	# la bordure basse de fonte noire et les plates-bandes fleuries le long du pourtour
 	var noir := Color("#1f2422")
 	for cote in [[Vector2(sq.position.x, sq.position.y), Vector2(sq.end.x, sq.position.y)], [Vector2(sq.position.x, sq.end.y), Vector2(sq.end.x, sq.end.y)],
@@ -735,13 +840,15 @@ func _place() -> void:
 	_pose(MOBILIER, "objet", "corbeille", Vector3(sq.position.x + 4.0, y, sq.end.y - 2.0), 90)
 	_pose(MOBILIER, "objet", "corbeille", Vector3(sq.end.x - 4.0, y, sq.end.y - 2.0), 91)
 	# les terrasses des cafés : à l'ouest sous les stores rouge et vert, à l'est sous un store rayé
-	for k in 5:
-		_pose(MOBILIER, "objet", "terrasse", Vector3(-11.5, y, -2.0 + k * 3.8), 60 + k, {"toile": ["b8352e", "f3ead6"] if k < 3 else ["2f5a3a", "f3ead6"]})
+	# les tables bistrot sous les stores, la longueur le long des façades, tournées vers le square
+	for k in 4:
+		_pose(MOBILIER, "objet", "terrasse", Vector3(-11.3, y, -1.0 + k * 5.0), 60 + k, {}, PI * 0.5)
 	for k in 2:
-		_pose(MOBILIER, "objet", "terrasse", Vector3(31.0, y, 22.0 + k * 3.8), 70 + k, {"toile": ["c8372e", "f2c94c"]})
-	for z in [-10.0, 6.0, 30.0]:
+		_pose(MOBILIER, "objet", "terrasse", Vector3(30.8, y, 22.0 + k * 5.0), 70 + k, {}, -PI * 0.5)
+	for z in [-10.0, 21.0, 32.0]:
 		_pose(MOBILIER, "objet", "jardiniere", Vector3(-12.8, y, z), 100 + int(z), {"fleurs": "e0605a"})
-		_pose(MOBILIER, "objet", "jardiniere", Vector3(32.4, y, z + 4.0), 120 + int(z), {"fleurs": "d04a8a"})
+	for z in [-6.0, 10.0, 34.0]:
+		_pose(MOBILIER, "objet", "jardiniere", Vector3(32.4, y, z), 120 + int(z), {"fleurs": "d04a8a"})
 
 
 ## La montée de l'Amphithéâtre : la volée centrale entre les deux lions, le palier, puis les deux volées
@@ -762,9 +869,21 @@ func _escalier() -> void:
 		var yy := lerpf(y0, y1, float(k + 1) / marches)
 		_boite(e, Vector3(9.0, yy - y0 + 0.2, (z0 - z1) / marches + 0.02), Vector3(10.5, (yy + y0) * 0.5 - 0.1, z - (z0 - z1) / marches * 0.5), pierre.darkened(0.04 * (k % 2)))
 	# les murs d'échiffre, la balustrade du palier
+	# les murs d'échiffre suivent la pente par ressauts, sous leur chaperon de Villebois et leurs dés
 	for cote in [-1.0, 1.0]:
 		var x: float = 10.5 + cote * 5.0
-		_boite(e, Vector3(1.0, (y1 - y0) + 1.2, z0 - z1), Vector3(x, (y0 + y1) * 0.5 + 0.4, (z0 + z1) * 0.5), PIERRE_DOREE)
+		var pas := 4
+		for k in range(0, marches, pas):
+			var za := lerpf(z0, z1, float(k) / marches)
+			var zb := lerpf(z0, z1, float(mini(k + pas, marches)) / marches)
+			var ya := lerpf(y0, y1, float(mini(k + pas, marches)) / marches)
+			var haut := ya - y0 + 1.0
+			_boite(e, Vector3(0.9, haut, za - zb + 0.02), Vector3(x, y0 + haut * 0.5, (za + zb) * 0.5), PIERRE_DOREE.darkened(0.03 * (k / pas % 2)))
+			_boite(e, Vector3(1.1, 0.14, za - zb + 0.06), Vector3(x, y0 + haut + 0.07, (za + zb) * 0.5), VILLEBOIS)
+		for z in [z0, z1]:
+			var yy := y0 if z == z0 else y1
+			_boite(e, Vector3(1.2, 1.5, 1.2), Vector3(x, yy + 0.55 if z == z1 else y0 + 0.75, z - 0.6 if z == z0 else z + 0.6), PIERRE_DOREE)
+			_boite(e, Vector3(1.4, 0.18, 1.4), Vector3(x, (yy + 1.4) if z == z1 else y0 + 1.59, z - 0.6 if z == z0 else z + 0.6), VILLEBOIS)
 	_boite(e, Vector3(16.0, y1 - y0 + 0.2, 6.0), Vector3(10.5, (y0 + y1) * 0.5 - 0.1, z1 - 3.0), pierre)
 	_pose(MOBILIER, "objet", "garde_corps", Vector3(10.5, y1, z1 - 0.2), 7, {"longueur": 7.0})
 	# les deux fontaines aux lions de bronze, au pied de l'escalier
@@ -774,19 +893,7 @@ func _escalier() -> void:
 		f.name = "Lion%d" % (k + 1)
 		f.position = Vector3(p.x, y0, p.y)
 		ville.add_child(f)
-		_boite(f, Vector3(3.2, 0.7, 2.0), Vector3(0, 0.35, 0.6), PIERRE_DOREE.darkened(0.1))
-		_boite(f, Vector3(3.0, 0.15, 1.8), Vector3(0, 0.62, 0.6), EAU.lightened(0.15))
-		_boite(f, Vector3(2.2, 2.0, 1.2), Vector3(0, 1.4, -0.6), PIERRE_DOREE)
-		_boite(f, Vector3(1.8, 0.55, 0.8), Vector3(0, 2.65, -0.6), BRONZE)
-		var tete := MeshInstance3D.new()
-		var sp := SphereMesh.new()
-		sp.radius = 0.38
-		sp.height = 0.76
-		tete.mesh = sp
-		tete.material_override = _mat(BRONZE, 0.35)
-		tete.material_override.metallic = 0.6
-		tete.position = Vector3(0.75 if k == 0 else -0.75, 3.05, -0.35)
-		f.add_child(tete)
+		_fontaine_lion(f, -1.0 if k == 0 else 1.0)
 	# le jardin en haut : les deux volées latérales et le belvédère
 	for x in [3.4, 16.4]:
 		var ya := hauteur(x, -50.0)
@@ -796,6 +903,199 @@ func _escalier() -> void:
 			var z := lerpf(-50.0, -80.0, float(k) / n)
 			var yy := lerpf(ya, yb, float(k + 1) / n)
 			_boite(e, Vector3(3.0, 0.4, 1.02), Vector3(x, yy - 0.2, z - 0.5), pierre)
+
+
+# --- Les pièces uniques ---------------------------------------------------------------------------
+
+## Une forme simple (boîte, cylindre, sphère, capsule) sous parent, tournée par les angles a (radians) ;
+## m ajoute le métal et le poli du bronze.
+func _forme(parent: Node3D, mesh: Mesh, p: Vector3, c: Color, a := Vector3.ZERO, metal := 0.0) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	var m := _mat(c, 0.38 if metal > 0.0 else 0.88)
+	m.metallic = metal
+	mi.material_override = m
+	mi.position = p
+	mi.rotation = a
+	parent.add_child(mi)
+	return mi
+
+
+## Un membre : une capsule de rayon r tendue de a à b.
+func _segment(parent: Node3D, a: Vector3, b: Vector3, r: float, c: Color, metal := 0.0) -> MeshInstance3D:
+	var d := b - a
+	var mi := _forme(parent, _cap(r, d.length() + r * 2.0), (a + b) * 0.5, c, Vector3.ZERO, metal)
+	var y := d.normalized()
+	var x := y.cross(Vector3.FORWARD if absf(y.z) < 0.9 else Vector3.RIGHT).normalized()
+	mi.basis = Basis(x, y, x.cross(y))
+	return mi
+
+
+func _cyl(r0: float, r1: float, h: float, cotes := 16) -> CylinderMesh:
+	var m := CylinderMesh.new()
+	m.top_radius = r0
+	m.bottom_radius = r1
+	m.height = h
+	m.radial_segments = cotes
+	m.rings = 1
+	return m
+
+
+func _bou(r: float, h := -1.0) -> SphereMesh:
+	var m := SphereMesh.new()
+	m.radius = r
+	m.height = r * 2.0 if h < 0.0 else h
+	m.radial_segments = 16
+	m.rings = 8
+	return m
+
+
+func _cap(r: float, h: float) -> CapsuleMesh:
+	var m := CapsuleMesh.new()
+	m.radius = r
+	m.height = h
+	m.radial_segments = 12
+	m.rings = 4
+	return m
+
+
+func _blo(t: Vector3) -> BoxMesh:
+	var m := BoxMesh.new()
+	m.size = t
+	return m
+
+
+## Une moulure : une pile de boîtes de plus en plus larges (une corniche) ou de plus en plus étroites (une base).
+func _moulure(parent: Node3D, y: float, l: float, p: float, c: Color, sens := 1.0) -> void:
+	for k in 3:
+		var e := 0.08 * (k if sens > 0.0 else 2 - k)
+		_forme(parent, _blo(Vector3(l + e * 2.0, 0.1, p + e * 2.0)), Vector3(0, y + k * 0.1 + 0.05, 0), c.darkened(0.03 * k))
+
+
+## Le sergent Blandan de Lamotte, bronze vert sur son haut socle de pierre de Villebois, face au sud (la
+## planche) : le soldat debout, le shako, la capote, le fusil à la main droite, le bras gauche tendu.
+func _blandan(s: Node3D) -> void:
+	var pierre := VILLEBOIS
+	# trois degrés, le dé, la corniche, la plaque de bronze
+	_forme(s, _blo(Vector3(6.4, 0.18, 6.4)), Vector3(0, 0.09, 0), pierre.darkened(0.06))
+	_forme(s, _blo(Vector3(5.2, 0.22, 5.2)), Vector3(0, 0.29, 0), pierre.darkened(0.03))
+	_forme(s, _blo(Vector3(4.0, 0.26, 4.0)), Vector3(0, 0.53, 0), pierre)
+	_moulure(s, 0.66, 2.3, 2.3, pierre, -1.0)
+	_forme(s, _blo(Vector3(1.9, 2.1, 1.9)), Vector3(0, 2.01, 0), pierre.lightened(0.05))
+	for c in [Vector3(1, 0, 1), Vector3(-1, 0, 1), Vector3(1, 0, -1), Vector3(-1, 0, -1)]:
+		_forme(s, _blo(Vector3(0.22, 2.1, 0.22)), Vector3(c.x * 0.9, 2.01, c.z * 0.9), pierre.lightened(0.08))
+	_moulure(s, 3.06, 2.0, 2.0, pierre, 1.0)
+	_forme(s, _blo(Vector3(1.5, 0.2, 1.5)), Vector3(0, 3.46, 0), pierre.darkened(0.04))
+	var vert := Color("#4f6a58")
+	var vert_clair := Color("#6f8f74")
+	_forme(s, _blo(Vector3(0.9, 0.6, 0.03)), Vector3(0, 2.2, 0.965), vert, Vector3.ZERO, 0.5)
+	# le soldat (2,8 m), sur sa terrasse de bronze, face à la place
+	var f := Node3D.new()
+	f.position = Vector3(0, 3.56, 0)
+	s.add_child(f)
+	var m := 0.55
+	_forme(f, _blo(Vector3(1.1, 0.12, 0.9)), Vector3(0, 0.06, 0), vert, Vector3.ZERO, m)
+	# les jambes en léger pas, le pantalon large, les guêtres et les souliers
+	_segment(f, Vector3(-0.15, 0.2, -0.12), Vector3(-0.13, 1.05, -0.02), 0.11, vert, m)
+	_segment(f, Vector3(0.15, 0.2, 0.14), Vector3(0.12, 1.05, 0.02), 0.11, vert, m)
+	_forme(f, _blo(Vector3(0.18, 0.12, 0.34)), Vector3(-0.15, 0.18, -0.06), vert.darkened(0.2), Vector3.ZERO, m)
+	_forme(f, _blo(Vector3(0.18, 0.12, 0.34)), Vector3(0.15, 0.18, 0.22), vert.darkened(0.2), Vector3.ZERO, m)
+	# la capote croisée, ses pans évasés jusqu'aux genoux, le ceinturon et la giberne
+	_forme(f, _cyl(0.26, 0.36, 0.7), Vector3(0, 1.0, 0), vert, Vector3.ZERO, m)
+	_forme(f, _cyl(0.25, 0.26, 0.55), Vector3(0, 1.6, 0), vert_clair, Vector3.ZERO, m)
+	_forme(f, _cyl(0.27, 0.27, 0.08), Vector3(0, 1.36, 0), vert.darkened(0.25), Vector3.ZERO, m)
+	_forme(f, _blo(Vector3(0.22, 0.14, 0.08)), Vector3(0.12, 1.34, 0.26), vert.darkened(0.25), Vector3.ZERO, m)
+	_forme(f, _bou(0.3, 0.26), Vector3(0, 1.9, 0), vert_clair, Vector3.ZERO, m)
+	for cote in [-1.0, 1.0]:
+		_forme(f, _bou(0.11), Vector3(cote * 0.27, 1.9, 0), vert_clair, Vector3.ZERO, m)
+	# la tête, le col, le shako à visière et pompon
+	_forme(f, _cyl(0.08, 0.1, 0.12), Vector3(0, 2.05, 0), vert, Vector3.ZERO, m)
+	_forme(f, _bou(0.13, 0.3), Vector3(0, 2.25, 0.02), vert_clair, Vector3.ZERO, m)
+	_forme(f, _cyl(0.14, 0.12, 0.28), Vector3(0, 2.48, -0.01), vert.darkened(0.12), Vector3(-0.08, 0, 0), m)
+	_forme(f, _blo(Vector3(0.2, 0.025, 0.12)), Vector3(0, 2.35, 0.15), vert.darkened(0.25), Vector3(0.25, 0, 0), m)
+	_forme(f, _bou(0.05), Vector3(0, 2.66, 0.03), vert_clair, Vector3.ZERO, m)
+	# le bras gauche levé vers la place, la main ouverte ; le droit tient le fusil crosse à terre
+	var epaule_g := Vector3(-0.28, 1.88, 0.0)
+	var coude_g := epaule_g + Vector3(-0.12, 0.2, 0.3)
+	var main_g := coude_g + Vector3(-0.04, 0.28, 0.24)
+	_segment(f, epaule_g, coude_g, 0.085, vert_clair, m)
+	_segment(f, coude_g, main_g, 0.075, vert_clair, m)
+	_forme(f, _bou(0.065, 0.15), main_g + Vector3(0, 0.05, 0.03), vert_clair, Vector3.ZERO, m)
+	var epaule_d := Vector3(0.28, 1.88, 0.0)
+	var coude_d := epaule_d + Vector3(0.1, -0.36, 0.08)
+	var main_d := coude_d + Vector3(0.04, -0.12, 0.3)
+	_segment(f, epaule_d, coude_d, 0.085, vert_clair, m)
+	_segment(f, coude_d, main_d, 0.075, vert_clair, m)
+	_segment(f, Vector3(0.44, 0.14, 0.42), Vector3(0.42, 1.95, 0.3), 0.035, vert.darkened(0.2), m)
+	_forme(f, _blo(Vector3(0.09, 0.4, 0.14)), Vector3(0.44, 0.32, 0.42), vert.darkened(0.2), Vector3(-0.07, 0, 0), m)
+	_segment(f, Vector3(0.42, 1.95, 0.3), Vector3(0.415, 2.3, 0.28), 0.01, vert_clair.lightened(0.25), 0.7)
+
+
+## Une des deux fontaines aux lions (fonderie du Creusot, 1823) au pied de la montée : le lion de bronze
+## couché sur son socle mouluré de pierre dorée, tourné vers l'axe de l'escalier, la gueule qui crache
+## dans une vasque à margelle de Villebois, la mousse au bas de la pierre. sens : -1 à l'ouest, 1 à l'est.
+func _fontaine_lion(f: Node3D, _sens: float) -> void:
+	var dore := PIERRE_DOREE
+	# la vasque, sa margelle arrondie, l'eau
+	_forme(f, _blo(Vector3(3.2, 0.55, 1.9)), Vector3(0, 0.27, 0.75), VILLEBOIS.darkened(0.05))
+	_forme(f, _blo(Vector3(3.4, 0.14, 2.1)), Vector3(0, 0.6, 0.75), VILLEBOIS)
+	_forme(f, _blo(Vector3(2.9, 0.06, 1.6)), Vector3(0, 0.5, 0.78), EAU.lightened(0.2))
+	_forme(f, _blo(Vector3(3.24, 0.12, 1.94)), Vector3(0, 0.06, 0.75), Color("#5d6b45"))
+	# le socle mouluré, sa table, son mascaron
+	_moulure(f, 0.0, 2.4, 1.4, dore.darkened(0.08), -1.0)
+	_forme(f, _blo(Vector3(2.2, 1.9, 1.3)), Vector3(0, 1.25, -0.55), dore)
+	_forme(f, _blo(Vector3(1.4, 1.0, 0.04)), Vector3(0, 1.3, 0.12), dore.lightened(0.06))
+	_moulure(f, 2.2, 2.3, 1.4, dore, 1.0)
+	_forme(f, _blo(Vector3(2.0, 0.12, 1.2)), Vector3(0, 2.56, -0.55), dore.darkened(0.06))
+	var bronze := Color("#5a5236")
+	var clair := Color("#7d6e45")
+	var sombre := bronze.darkened(0.25)
+	var m := 0.65
+	var l := Node3D.new()
+	l.position = Vector3(0, 2.62, -0.55)
+	l.scale = Vector3.ONE * 1.25
+	f.add_child(l)
+	# le lion couché, face à la place : le dos qui s'abaisse vers la croupe, les flancs, les cuisses
+	_segment(l, Vector3(0, 0.38, 0.25), Vector3(0, 0.32, -0.55), 0.3, bronze, m)
+	_forme(l, _bou(0.34, 0.5), Vector3(0, 0.3, -0.62), bronze, Vector3.ZERO, m)
+	for cote in [-1.0, 1.0]:
+		_forme(l, _bou(0.24, 0.42), Vector3(cote * 0.22, 0.24, -0.55), bronze.lightened(0.04), Vector3(0, 0, cote * 0.3), m)
+		_segment(l, Vector3(cote * 0.3, 0.1, -0.5), Vector3(cote * 0.3, 0.07, -0.05), 0.08, bronze, m)
+		# les pattes de devant allongées vers la place, les doigts posés
+		_segment(l, Vector3(cote * 0.18, 0.28, 0.32), Vector3(cote * 0.2, 0.08, 0.55), 0.1, bronze, m)
+		_segment(l, Vector3(cote * 0.2, 0.08, 0.55), Vector3(cote * 0.2, 0.07, 0.92), 0.085, bronze, m)
+		for d in 3:
+			_forme(l, _bou(0.04), Vector3(cote * 0.2 + (d - 1) * 0.05, 0.05, 0.99), clair, Vector3.ZERO, m)
+	# la queue enroulée le long du flanc, sa touffe
+	_segment(l, Vector3(0.15, 0.2, -0.85), Vector3(0.38, 0.06, -0.55), 0.04, bronze, m)
+	_segment(l, Vector3(0.38, 0.06, -0.55), Vector3(0.36, 0.05, -0.1), 0.035, bronze, m)
+	_forme(l, _bou(0.07, 0.16), Vector3(0.36, 0.06, -0.04), sombre, Vector3.ZERO, m)
+	# le poitrail, la crinière en mèches qui retombent sur les épaules, la tête levée
+	_forme(l, _bou(0.33, 0.6), Vector3(0, 0.45, 0.35), bronze, Vector3.ZERO, m)
+	_forme(l, _bou(0.4, 0.62), Vector3(0, 0.78, 0.36), sombre, Vector3(-0.35, 0, 0), m)
+	for rang in 3:
+		var nb := 9 - rang * 2
+		for k in nb:
+			var a := lerpf(-1.4, 1.4, float(k) / (nb - 1))
+			var base := Vector3(sin(a) * (0.3 - rang * 0.05), 0.95 - rang * 0.05 + cos(a) * 0.08, 0.42 - rang * 0.14)
+			_segment(l, base, base + Vector3(sin(a) * 0.12, -0.32, -0.08), 0.07 - rang * 0.008, sombre.lightened(rang * 0.05), m)
+	_forme(l, _bou(0.22, 0.4), Vector3(0, 0.82, 0.58), clair, Vector3.ZERO, m)
+	_forme(l, _blo(Vector3(0.2, 0.15, 0.2)), Vector3(0, 0.76, 0.76), clair, Vector3(0.15, 0, 0), m)
+	_forme(l, _bou(0.05), Vector3(0, 0.82, 0.86), sombre, Vector3.ZERO, m)
+	_forme(l, _blo(Vector3(0.14, 0.05, 0.1)), Vector3(0, 0.66, 0.8), Color("#1e1c14"), Vector3.ZERO, 0.2)
+	for cote in [-1.0, 1.0]:
+		_forme(l, _bou(0.06, 0.1), Vector3(cote * 0.14, 1.02, 0.52), sombre, Vector3.ZERO, m)
+		_forme(l, _bou(0.03), Vector3(cote * 0.08, 0.88, 0.76), Color("#1e1c14"), Vector3.ZERO, 0.2)
+	# le filet d'eau de la gueule à la vasque, en arc
+	var eau := _mat(Color("#cfe3e6"), 0.05)
+	eau.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	eau.albedo_color.a = 0.65
+	var avant := Vector3(0, 0.64, 0.86)
+	for k in range(1, 9):
+		var t := k / 8.0
+		var q := Vector3(0, 0.64 - t * t * 2.34, 0.86 + t * 0.38)
+		_segment(l, avant, q, 0.03 + t * 0.012, Color.WHITE).material_override = eau
+		avant = q
 
 
 func _boite(parent: Node3D, taille: Vector3, p: Vector3, c: Color, inclinaison := 0.0) -> MeshInstance3D:
@@ -824,13 +1124,13 @@ func _arbres() -> void:
 		k += 1
 		if PLACE.has_point(p):
 			continue
-		var sur_la_place := false
-		var plante := "platane"
-		var haut := _rng.randf_range(11.0, 13.5) if sur_la_place else _rng.randf_range(9.0, 12.0)
+		# les platanes des rues et des quais, les micocouliers des cours et du jardin des pentes
+		var arbre := "jeune_platane"
+		var haut := _rng.randf_range(9.0, 12.0)
 		if p.y < -60.0 and k % 3 == 0:
-			plante = "alignement"
-			haut = _rng.randf_range(8.0, 11.0)
-		_pose(VEGETATION, "plante", plante, _sur(p.x, p.y), 500 + k, {"hauteur": haut, "pied": "grille" if sur_la_place else ""})
+			arbre = "micocoulier"
+			haut = _rng.randf_range(9.0, 11.0)
+		_pose(OMBRIERE, "arbre", arbre, _sur(p.x, p.y), 500 + k, {"hauteur": haut, "vent": 0.3})
 
 
 # --- Le lointain ----------------------------------------------------------------------------------
