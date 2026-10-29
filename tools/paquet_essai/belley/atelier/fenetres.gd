@@ -69,15 +69,15 @@ static func _fenetre(o: RefCounted, t: Transform3D, l: float, hf: float, volet: 
 	var e := 0.14
 	# La vitre, au fond du tableau, et la croisée.
 	o.quad(t * Vector3(-l * 0.5, 0, 0.012), t * Vector3(l * 0.5, 0, 0.012), t * Vector3(l * 0.5, hf, 0.012), t * Vector3(-l * 0.5, hf, 0.012), t.basis.z, VERRE, OUTILS.VITRE)
-	o.boite(t * Transform3D(Basis(), Vector3(0, hf * 0.5, 0.04)), Vector3(0.06, hf, 0.04), BLANC, OUTILS.PEINT)
-	o.boite(t * Transform3D(Basis(), Vector3(0, hf * 0.62, 0.04)), Vector3(l, 0.05, 0.04), BLANC, OUTILS.PEINT)
+	o.saillie(t * Transform3D(Basis(), Vector3(0, hf * 0.5, 0.04)), Vector3(0.06, hf, 0.04), BLANC, OUTILS.PEINT)
+	o.saillie(t * Transform3D(Basis(), Vector3(0, hf * 0.62, 0.04)), Vector3(l, 0.05, 0.04), BLANC, OUTILS.PEINT)
 	for s: float in [-1.0, 1.0]:
-		o.boite(t * Transform3D(Basis(), Vector3(s * (l * 0.5 - 0.03), hf * 0.5, 0.035)), Vector3(0.06, hf, 0.05), BLANC, OUTILS.PEINT)
+		o.saillie(t * Transform3D(Basis(), Vector3(s * (l * 0.5 - 0.03), hf * 0.5, 0.035)), Vector3(0.06, hf, 0.05), BLANC, OUTILS.PEINT)
 	# L'encadrement de pierre de taille, qui fait saillie : la vitre paraît au fond de son tableau.
 	for s: float in [-1.0, 1.0]:
-		o.boite(t * Transform3D(Basis(), Vector3(s * (l * 0.5 + e * 0.5), hf * 0.5, 0.06)), Vector3(e, hf + 0.02, 0.12), TAILLE, OUTILS.PIERRE)
-	o.boite(t * Transform3D(Basis(), Vector3(0, hf + 0.13, 0.07)), Vector3(l + e * 2.0 + 0.1, 0.26, 0.14), TAILLE, OUTILS.PIERRE)
-	o.boite(t * Transform3D(Basis(), Vector3(0, -0.05, 0.13)), Vector3(l + e * 2.0 + 0.16, 0.1, 0.26), TAILLE_SOMBRE.lightened(0.08), OUTILS.PIERRE)
+		o.saillie(t * Transform3D(Basis(), Vector3(s * (l * 0.5 + e * 0.5), hf * 0.5, 0.06)), Vector3(e, hf + 0.02, 0.12), TAILLE, OUTILS.PIERRE)
+	o.saillie(t * Transform3D(Basis(), Vector3(0, hf + 0.13, 0.07)), Vector3(l + e * 2.0 + 0.1, 0.26, 0.14), TAILLE, OUTILS.PIERRE)
+	o.saillie(t * Transform3D(Basis(), Vector3(0, -0.05, 0.13)), Vector3(l + e * 2.0 + 0.16, 0.1, 0.26), TAILLE_SOMBRE.lightened(0.08), OUTILS.PIERRE)
 	# Les volets de bois, à barres et écharpe : ouverts contre le mur, ou fermés (un sur cinq).
 	var lv := l * 0.5
 	if not volets:
@@ -85,25 +85,24 @@ static func _fenetre(o: RefCounted, t: Transform3D, l: float, hf: float, volet: 
 	elif g % 5 == 0:
 		for s: float in [-1.0, 1.0]:
 			var xv := s * lv * 0.5
-			o.boite(t * Transform3D(Basis(), Vector3(xv, hf * 0.5, 0.05)), Vector3(lv - 0.01, hf, 0.04), volet, OUTILS.PEINT)
+			o.saillie(t * Transform3D(Basis(), Vector3(xv, hf * 0.5, 0.05)), Vector3(lv - 0.01, hf, 0.04), volet, OUTILS.PEINT)
 			for yb in [hf * 0.2, hf * 0.8]:
-				o.boite(t * Transform3D(Basis(), Vector3(xv, yb, 0.08)), Vector3(lv - 0.06, 0.08, 0.025), volet.darkened(0.12), OUTILS.PEINT)
+				o.plat(t, Vector3(xv, yb, 0.072), lv - 0.06, 0.08, volet.darkened(0.12))
 	else:
 		for s: float in [-1.0, 1.0]:
 			var xv := s * (l * 0.5 + e + 0.02 + lv * 0.5)
-			o.boite(t * Transform3D(Basis(), Vector3(xv, hf * 0.5, 0.03)), Vector3(lv, hf, 0.04), volet, OUTILS.PEINT)
+			o.saillie(t * Transform3D(Basis(), Vector3(xv, hf * 0.5, 0.03)), Vector3(lv, hf, 0.04), volet, OUTILS.PEINT)
 			for yb in [hf * 0.2, hf * 0.8]:
-				o.boite(t * Transform3D(Basis(), Vector3(xv, yb, 0.06)), Vector3(lv - 0.05, 0.08, 0.025), volet.darkened(0.12), OUTILS.PEINT)
+				o.plat(t, Vector3(xv, yb, 0.052), lv - 0.05, 0.08, volet.darkened(0.12))
 			var diag := Vector2(lv - 0.08, hf * 0.6)
-			o.boite(t * Transform3D(Basis(Vector3.BACK, atan2(diag.y, diag.x) * s), Vector3(xv, hf * 0.5, 0.06)), Vector3(diag.length(), 0.07, 0.025), volet.darkened(0.12), OUTILS.PEINT)
-			o.boite(t * Transform3D(Basis(), Vector3(s * (l * 0.5 + e + 0.06), hf * 0.15, 0.05)), Vector3(0.07, 0.04, 0.06), FER, OUTILS.PEINT)
+			o.plat(t * Transform3D(Basis(Vector3.BACK, atan2(diag.y, diag.x) * s), Vector3(xv, hf * 0.5, 0.052)), Vector3.ZERO, diag.length(), 0.07, volet.darkened(0.12))
 	if jardiniere:
-		o.boite(t * Transform3D(Basis(), Vector3(0, 0.08, 0.36)), Vector3(l * 0.85, 0.2, 0.22), TERRE_CUITE, OUTILS.PEINT)
+		o.saillie(t * Transform3D(Basis(), Vector3(0, 0.08, 0.36)), Vector3(l * 0.85, 0.2, 0.22), TERRE_CUITE, OUTILS.PEINT)
 		var fleur: Color = FLEURS[g % FLEURS.size()]
-		for k in 3:
-			var q := Vector3(-l * 0.28 + k * l * 0.28, 0.24, 0.37)
-			o.boule(t * q, Vector3(0.2, 0.13, 0.14), FEUILLES, 0.25, OUTILS.FEUILLE, 0.06, 0.2, 4, 6)
-			o.boule(t * (q + Vector3(0, 0.08, 0.05)), Vector3(0.13, 0.08, 0.1), fleur, 0.3, OUTILS.FEUILLE, 0.08, 0.2, 4, 6)
+		for k in 2:
+			var q := Vector3(-l * 0.2 + k * l * 0.4, 0.24, 0.37)
+			o.boule(t * q, Vector3(0.3, 0.13, 0.14), FEUILLES, 0.25, OUTILS.FEUILLE, 0.06, 0.2, 3, 5)
+			o.boule(t * (q + Vector3(0, 0.08, 0.05)), Vector3(0.2, 0.08, 0.1), fleur, 0.3, OUTILS.FEUILLE, 0.08, 0.2, 3, 5)
 
 
 ## Une porte de chêne à panneaux, son encadrement et son linteau de pierre, sa marche.
@@ -111,15 +110,15 @@ static func _porte(o: RefCounted, t: Transform3D, bois: Color, g: int) -> void:
 	var l := 1.1
 	var hp := 2.3
 	var y0 := 0.55
-	o.boite(t * Transform3D(Basis(), Vector3(0, y0 + hp * 0.5, 0.02)), Vector3(l, hp, 0.04), bois, OUTILS.PEINT)
+	o.saillie(t * Transform3D(Basis(), Vector3(0, y0 + hp * 0.5, 0.02)), Vector3(l, hp, 0.04), bois, OUTILS.PEINT)
 	for k in 2:
 		for s: float in [-1.0, 1.0]:
-			o.boite(t * Transform3D(Basis(), Vector3(s * l * 0.22, y0 + 0.35 + k * 1.0 + 0.4, 0.045)), Vector3(l * 0.32, 0.8, 0.02), bois.lightened(0.08), OUTILS.PEINT)
-	o.boite(t * Transform3D(Basis(), Vector3(l * 0.36, y0 + 1.1, 0.07)), Vector3(0.05, 0.05, 0.05), Color("c9b26a", 0.3), OUTILS.PEINT)
+			o.saillie(t * Transform3D(Basis(), Vector3(s * l * 0.22, y0 + 0.35 + k * 1.0 + 0.4, 0.045)), Vector3(l * 0.32, 0.8, 0.02), bois.lightened(0.08), OUTILS.PEINT)
+	o.saillie(t * Transform3D(Basis(), Vector3(l * 0.36, y0 + 1.1, 0.07)), Vector3(0.05, 0.05, 0.05), Color("c9b26a", 0.3), OUTILS.PEINT)
 	for s: float in [-1.0, 1.0]:
-		o.boite(t * Transform3D(Basis(), Vector3(s * (l * 0.5 + 0.09), y0 + hp * 0.5, 0.07)), Vector3(0.18, hp, 0.14), TAILLE, OUTILS.PIERRE)
-	o.boite(t * Transform3D(Basis(), Vector3(0, y0 + hp + 0.15, 0.08)), Vector3(l + 0.56, 0.3, 0.16), TAILLE, OUTILS.PIERRE)
+		o.saillie(t * Transform3D(Basis(), Vector3(s * (l * 0.5 + 0.09), y0 + hp * 0.5, 0.07)), Vector3(0.18, hp, 0.14), TAILLE, OUTILS.PIERRE)
+	o.saillie(t * Transform3D(Basis(), Vector3(0, y0 + hp + 0.15, 0.08)), Vector3(l + 0.56, 0.3, 0.16), TAILLE, OUTILS.PIERRE)
 	if g % 3 == 0:
 		# Une imposte vitrée au-dessus, sous le linteau.
-		o.boite(t * Transform3D(Basis(), Vector3(0, y0 + hp - 0.25, 0.05)), Vector3(l - 0.14, 0.34, 0.02), VERRE, OUTILS.VITRE)
-	o.boite(t * Transform3D(Basis(), Vector3(0, y0 - 0.08, 0.25)), Vector3(l + 0.5, 0.16, 0.5), TAILLE_SOMBRE, OUTILS.PIERRE)
+		o.saillie(t * Transform3D(Basis(), Vector3(0, y0 + hp - 0.25, 0.05)), Vector3(l - 0.14, 0.34, 0.02), VERRE, OUTILS.VITRE)
+	o.saillie(t * Transform3D(Basis(), Vector3(0, y0 - 0.08, 0.25)), Vector3(l + 0.5, 0.16, 0.5), TAILLE_SOMBRE, OUTILS.PIERRE)

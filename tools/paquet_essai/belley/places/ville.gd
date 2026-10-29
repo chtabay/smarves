@@ -29,7 +29,7 @@ const PRES_DE := Vector2(200.0, 340.0)
 ## Les arbres à moins de cette distance de la place sont ceux de la bibliothèque, en dentelle.
 const PLACE_TILLEULS := 160.0
 ## Autour de la place, les fenêtres sont maillées (atelier/fenetres.gd), et visibles jusqu'à cette portée.
-const MAILLEES := 130.0
+const MAILLEES := 100.0
 const PORTEE_BAIES := 260.0
 
 ## Les numéros des bâtiments (dans bourg.json) qu'une scène bâtit elle-même.

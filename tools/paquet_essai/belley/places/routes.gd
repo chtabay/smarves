@@ -36,8 +36,11 @@ func batir(parent: Node3D) -> void:
 		var p: Array = r.p
 		for i in range(0, p.size(), 2):
 			pts.append(Vector2(p[i], p[i + 1]))
-		# Le marquage dès 4,5 m de chaussée : la route du pont de Lucey a le sien sur la planche.
-		_route(_echantillonner(pts), float(r.l), int(r.g), 1 if int(r.g) == 0 and float(r.l) >= 4.5 else int(r.m), k)
+		# Le marquage dès 4 m de chaussée, et l'accotement revêtu d'un mètre : la route du pont de Lucey, sur la
+		# planche, a son axe en tirets et ses rives.
+		var g := int(r.g)
+		var l := float(r.l)
+		_route(_echantillonner(pts), l + (1.0 if g == 0 else 0.0), g, 1 if g == 0 and l >= 4.0 else int(r.m), k)
 		k += 1
 	for cle in lots:
 		var mi: MeshInstance3D = lots[cle].construire(n, "Route")

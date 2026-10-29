@@ -306,11 +306,11 @@ func _vegetation(parent: Node3D) -> void:
 	# Le bocage autour : des bouquets de peupliers noirs, de chênes et de charmes, semés hors de la propriété.
 	var semis := 0
 	var essais := 0
-	while semis < 46 and essais < 400:
+	while semis < 90 and essais < 1500:
 		essais += 1
 		var h := absi(hash(Vector2i(essais, 77)))
-		var x := -70.0 + float(h % 1900) / 10.0
-		var z := -40.0 + float((h / 1900) % 1500) / 10.0
+		var x := -80.0 + float(h % 2300) / 10.0
+		var z := -45.0 + float((h / 2300) % 1700) / 10.0
 		# Ni sur la propriété, ni sur la route, ni dans l'axe de la vue de la planche.
 		if x > -14.0 and x < 74.0 and z > -10.0 and z < 50.0:
 			continue
@@ -331,11 +331,22 @@ func _vegetation(parent: Node3D) -> void:
 	var cypres := [Vector2(-3, 4), Vector2(-3, 12), Vector2(22, 1.8), Vector2(34, 1.8), Vector2(40, 9), Vector2(66, 14), Vector2(62, 46), Vector2(50, 47)]
 	for c in cypres:
 		var pc := p(c.x, c.y, -0.1)
-		var hh := 6.5 + absi(hash(c)) % 3
+		var hh := 8.5 + absi(hash(c)) % 3
 		v.branche(pc, pc + Vector3(0, 1.0, 0), 0.12, 0.1, Color("5a4632", 0.9))
 		for k in 5:
 			var f := k / 5.0
-			v.boule(pc + Vector3(0, 1.2 + f * hh * 0.8, 0), Vector3(0.9 - f * 0.55, hh * 0.18, 0.9 - f * 0.55), Color("3f6a2c"), 0.18, OUTILS.FEUILLE, 0.05, 0.6, 5, 8)
+			v.boule(pc + Vector3(0, 1.0 + f * hh * 0.82, 0), Vector3(1.05 - f * 0.7, hh * 0.2, 1.05 - f * 0.7), Color("3f6e2e").lightened(f * 0.12), 0.22, OUTILS.FEUILLE, 0.06, 0.6, 5, 8)
+	# L'îlot planté qui sépare les places de la cour, les pots de fleurs devant la terrasse, les arbustes fleuris
+	# contre la façade, la haie le long du pré (vegetation-du-bugey@1), comme sur la planche.
+	_poser(parent, bugey, "plante", "haie", 301, {"longueur": 9.0}, Vector2(23.0, 6.5), 0.0)
+	_poser(parent, bugey, "plante", "arbuste_fleuri", 302, {"fleurs": "e37fa0"}, Vector2(18.0, 6.5), 0.0)
+	_poser(parent, bugey, "plante", "arbuste_fleuri", 303, {"fleurs": "f4f0e6"}, Vector2(28.5, 6.5), 0.0)
+	for k in 7:
+		_poser(parent, bugey, "plante", "fleurs", 310 + k, {}, Vector2(4.5 + k * 3.1, 16.8), 0.0)
+	for k in 5:
+		_poser(parent, bugey, "plante", "arbuste_fleuri", 320 + k, {"fleurs": ["e37fa0", "d04a8a", "f4f0e6"][k % 3]}, Vector2(3.0 + k * 5.6, 17.6), 0.0)
+	_poser(parent, bugey, "plante", "haie", 330, {"longueur": 20.0}, Vector2(57.0, 11.0), 0.0)
+	_poser(parent, bugey, "plante", "haie", 331, {"longueur": 26.0}, Vector2(69.0, 31.0), PI * 0.5)
 	# Les haies fleuries au pied des murs (lauriers, rosiers).
 	for k in 9:
 		var x := -1.0 + k * 5.0
@@ -362,11 +373,12 @@ func _voitures(parent: Node3D) -> void:
 
 
 ## Une brique de la bibliothèque posée au sol du repère local.
-func _poser(parent: Node3D, scene: PackedScene, champ: String, nom: String, graine: int, options: Dictionary, v: Vector2) -> void:
+func _poser(parent: Node3D, scene: PackedScene, champ: String, nom: String, graine: int, options: Dictionary, v: Vector2, lacet := -1.0) -> void:
 	var m: Node3D = scene.instantiate()
 	m.set(champ, nom)
 	m.set("graine", graine)
 	m.set("options", options)
 	m.position = p(v.x, v.y, -0.05)
-	m.rotation.y = float(graine % 628) / 100.0
+	# Un lacet donné est dans le repère du relais ; sinon l'arbre tourne au hasard.
+	m.rotation.y = float(graine % 628) / 100.0 if lacet < 0.0 else LACET + lacet
 	parent.add_child(m)

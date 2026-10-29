@@ -103,6 +103,26 @@ func boite(t: Transform3D, s: Vector3, col, genre := PIERRE, collision := false)
 		collisions.append([t, s])
 
 
+## Une boîte plaquée contre un mur : la boîte sans sa face arrière (−Z de t), que personne ne voit.
+func saillie(t: Transform3D, s: Vector3, col, genre := PIERRE) -> void:
+	var h := s * 0.5
+	var faces := [
+		[Vector3(1, 0, 0), [Vector3(h.x, -h.y, -h.z), Vector3(h.x, h.y, -h.z), Vector3(h.x, h.y, h.z), Vector3(h.x, -h.y, h.z)]],
+		[Vector3(-1, 0, 0), [Vector3(-h.x, -h.y, -h.z), Vector3(-h.x, h.y, -h.z), Vector3(-h.x, h.y, h.z), Vector3(-h.x, -h.y, h.z)]],
+		[Vector3(0, 1, 0), [Vector3(-h.x, h.y, -h.z), Vector3(h.x, h.y, -h.z), Vector3(h.x, h.y, h.z), Vector3(-h.x, h.y, h.z)]],
+		[Vector3(0, -1, 0), [Vector3(-h.x, -h.y, -h.z), Vector3(h.x, -h.y, -h.z), Vector3(h.x, -h.y, h.z), Vector3(-h.x, -h.y, h.z)]],
+		[Vector3(0, 0, 1), [Vector3(-h.x, -h.y, h.z), Vector3(h.x, -h.y, h.z), Vector3(h.x, h.y, h.z), Vector3(-h.x, h.y, h.z)]],
+	]
+	for f in faces:
+		var p: Array = f[1]
+		quad(t * p[0], t * p[1], t * p[2], t * p[3], t.basis * f[0], col, genre)
+
+
+## Une planche peinte à plat sur une face (une barre de volet, une écharpe) : un seul quad, à z devant t.
+func plat(t: Transform3D, centre: Vector3, l: float, h: float, col: Color, genre := PEINT) -> void:
+	quad(t * (centre + Vector3(-l * 0.5, -h * 0.5, 0)), t * (centre + Vector3(l * 0.5, -h * 0.5, 0)), t * (centre + Vector3(l * 0.5, h * 0.5, 0)), t * (centre + Vector3(-l * 0.5, h * 0.5, 0)), t.basis.z, col, genre)
+
+
 ## Une boîte posée : son pied au point p, tournée de lacet (radians) autour de y.
 func pave(p: Vector3, s: Vector3, col, lacet := 0.0, collision := false, genre := PIERRE) -> void:
 	boite(Transform3D(Basis(Vector3.UP, lacet), p + Vector3(0, s.y * 0.5, 0)), s, col, genre, collision)
