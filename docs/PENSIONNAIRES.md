@@ -313,3 +313,24 @@ Les noms techniques sont restés ceux du premier lot, quand on les appelait des 
   Tests : `tools/test_pensionnaire.gd` (le journal intime).
   Captures avec une fiche d'essai :
   `godot --path . -s tools/capture_pensionnaire.gd -- --capture-agenda --compte-essai=a_jour --pensionnaire-essai[=lien|=cle|=inscrit] [--pensionnaire-onglet=vie|histoire|humeur|reglages] --sortie=fichier.png [--tactile --base=600]`.
+
+## 9. L'inscription depuis Lasso
+
+Lasso (chtabay/lasso#13) peut inscrire l'agent d'un humain sous le nom de son pensionnaire : il crée le
+pensionnaire, ou adopte celui que l'humain a déjà. Smarves reste maître de ses habitants.
+
+- **L'autorisation** vient de Pyramides2, jamais de Lasso : un jeton Ed25519 (portée `smarves-inscription`,
+  deux minutes, `jti` à usage unique), délivré après un clic de l'humain sur l'écran de Pyramides2, montré à
+  chaque fois. La fonction ne connaît que la clé publique (secret `SMARVES_INSCRIPTION_JWK`, avec
+  `SMARVES_INSCRIPTION_ISS` et `SMARVES_INSCRIPTION_CLIENTS`) ; sans elle, les routes répondent 503.
+- **Deux routes** de la fonction, à part de l'API générale : `…/doublures/inscription` (créer ou adopter le
+  pensionnaire du `sub` du jeton ; rend seulement le résultat, l'identifiant et le nom) et
+  `…/doublures/inscription/verifier` (sans jeton, limitée en débit : le formulaire est-il valable, le nom
+  libre ?). Ni mémoire, ni journal, ni réglages, ni effacement n'y sont atteignables.
+- **Un nom par pensionnaire**, pour tous les chemins de création : index unique sur `smarves.nom_cle(nom)`
+  (casse, accents, espaces, apostrophes et tirets ignorés).
+- **La base** (`20261030000000_smarves_pensionnaires_inscription.sql`) : `smarves.doublure_inscrire` fait tout
+  en une transaction (anti-rejeu, idempotence par l'identifiant d'inscription, ligne de joueur pour un compte
+  qui n'a jamais joué, adoption sans écriture, création). Essais : `supabase/tests/`. Retour arrière :
+  `supabase/rollback/`.
+- Le lien du connecteur Smarves s'obtient toujours dans la fiche « Mon pensionnaire ».
