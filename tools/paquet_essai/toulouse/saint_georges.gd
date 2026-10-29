@@ -17,6 +17,10 @@ const LAFAGE_NORD := Vector2(13.12, -16.15)
 const CAFE := Vector2(-4.5, -4.0)
 ## Le Cercle de la Violette, la salle de jeu à seuil, dans l'hôtel à porche voisin de Lafage, au nord-est.
 const CERCLE := Vector2(10.5, -19.0)
+## Les rangs de platanes le long des façades : à moins de 4 unités (9,6 m) du bord de la place.
+const BORD := 4.0
+## Le centre du square Jean-Calas (le parterre et le jardin d'enfants).
+const SQUARE := Vector2(12.9, -5.6)
 ## Les portes des deux salles de jeu de la place : l'id de la structure, son nœud, ce que dit la porte.
 const PORTES := {
 	"trois_platanes": ["PorteTroisPlatanes", "Les Trois Platanes : le café de courses"],
@@ -32,12 +36,9 @@ static func _brique(ref: String, fichier: String) -> Script:
 	return load(Bibliotheque.scene(ref, "decor").get_base_dir() + "/" + fichier)
 
 
-## Jusqu'où, autour de la place, les fronts sont composés (en unités : 7 × 2,4 ≈ 17 m, le débouché des rues) ;
-## au-delà, les îlots en volumes suffisent.
-const ABORDS := 7.0
-## Les arbres des rues et des cours, jusqu'à cette distance du centre de la place (55 unités, 130 m), en multimaillages
-## que le socle change en imposteurs au-delà de 120 m ; plus loin, les toits les cachent.
-const LOIN := 55.0
+## Jusqu'où, autour de la place, les fronts sont composés : tout le périmètre de la carte (12,5 unités, 30 m) ;
+## au-delà, les îlots en volumes ferment les rues.
+const ABORDS := 12.5
 
 
 ## Les bâtiments dont la place compose les fronts : ceux qui ont un mur sur la rue aux abords de la place.
@@ -362,26 +363,42 @@ static func _platanes(t, racine: Node3D) -> void:
 	racine.add_child(groupe)
 	var place := Geometry2D.offset_polygon(PackedVector2Array(t.PLACE_SAINT_GEORGES), 2.0)[0]
 	var loin := []
+	var ombriere: Script = _brique("arbres-d-ombriere@1", "arbre.gd") if _toulousain("arbres-d-ombriere@1") else null
+	var sol: Script = _brique("sols-toulousains@1", "module.gd") if _toulousain("sols-toulousains@1") else null
 	var clair := ShaderMaterial.new()
 	clair.shader = load(t.DOSSIER + "feuillage.gdshader")
 	for k in t.data.arbres.size():
 		var a: Array = t.data.arbres[k]
 		var p := Vector2(a[0], a[1])
-		if Geometry2D.is_point_in_polygon(p, place):
+		if Geometry2D.is_point_in_polygon(p, place) and not _au_bord(t, p):
+			# Le centre ouvert de l'image cible : un grand tapis de pavés au soleil, sans arbre.
+			continue
+		if Geometry2D.is_point_in_polygon(p, place) and ombriere != null:
+			# Le platane d'ombrière toulousain, son pied dans une fosse à grille posée sur le tapis de brique.
+			var porteur := Node3D.new()
+			porteur.transform = Transform3D(Basis(Vector3.UP, k * 1.7).scaled(Vector3.ONE / UNITE), Vector3(p.x, 0.015, p.y))
+			groupe.add_child(porteur)
+			ombriere.pousser(porteur, Vector3.ZERO, "platane", k, {"hauteur": 17.0 + (k % 4) * 0.7})
+			if sol != null:
+				sol.poser(porteur, Vector3.ZERO, "fosse_arbre", k, {"largeur": 2.4})
+		elif Geometry2D.is_point_in_polygon(p, place):
 			var porteur := Node3D.new()
 			# L'ombrière : la couronne élargie d'un quart, au-dessus des terrasses, et un feuillage plus clair.
 			porteur.transform = Transform3D(Basis(Vector3.UP, k * 1.7).scaled(Vector3(1.25, 1.0, 1.25) / UNITE), Vector3(p.x, 0.0, p.y))
 			groupe.add_child(porteur)
 			veg.pousser(porteur, Vector3.ZERO, "platane", k, {"hauteur": 19.0 + (k % 4) * 0.9, "pied": "grille"})
 			_eclaircir(porteur, clair)
-		elif t.batiment_en(p).is_empty() and p.distance_to(t.CENTRE_DETAIL) < LOIN:
+		elif t.batiment_en(p).is_empty() and Geometry2D.is_point_in_polygon(p, t.perimetre):
 			loin.append(p)
-	# Les arbres hors de la place : trois platanes modèles, en multimaillages par cases de 30 m, que le socle
-	# remplace au loin par leurs images (Lointain.imposteurs).
+	# Les arbres du périmètre hors de la place : trois jeunes platanes modèles, en multimaillages par cases de
+	# 30 m, que le socle remplace au loin par leurs images (Lointain.imposteurs).
 	var modeles := []
 	for m in 3:
 		var n := Node3D.new()
-		veg.pousser(n, Vector3.ZERO, "platane", 900 + m, {"hauteur": 13.0 + m * 2.0})
+		if ombriere != null:
+			ombriere.pousser(n, Vector3.ZERO, "jeune_platane", 900 + m, {"densite": 0.8})
+		else:
+			veg.pousser(n, Vector3.ZERO, "platane", 900 + m, {"hauteur": 13.0 + m * 2.0})
 		modeles.append(n)
 	var cases := {}
 	for k in loin.size():
@@ -406,6 +423,17 @@ static func _platanes(t, racine: Node3D) -> void:
 			racine.add_child(mmi)
 	for n in modeles:
 		n.free()
+
+
+## Vrai si un arbre de la place reste dans la disposition de l'image cible (Guillaume, 29 octobre) : en rang le
+## long des façades (à moins de BORD unités du bord de la place) ou autour du parterre du square Jean-Calas.
+static func _au_bord(t, p: Vector2) -> bool:
+	var poly := PackedVector2Array(t.PLACE_SAINT_GEORGES)
+	for k in poly.size():
+		var q := Geometry2D.get_closest_point_to_segment(p, poly[k], poly[(k + 1) % poly.size()])
+		if q.distance_to(p) < BORD:
+			return true
+	return p.distance_to(SQUARE) < 6.5
 
 
 ## Remplace le feuillage de la brique par le feuillage clair de la place (même couleur par sommet, même vent).
@@ -617,6 +645,7 @@ static func _mobilier(t, racine: Node3D) -> void:
 static func _mobilier_toulousain(t, racine: Node3D) -> void:
 	var tou: Script = _brique("mobilier-toulousain@1", "objet.gd")
 	var lyo: Script = _brique("mobilier-lyonnais@1", "objet.gd")
+	var bug: Script = _brique("vegetation-du-bugey@1", "plante.gd") if _toulousain("vegetation-du-bugey@1") else null
 	var groupe := Node3D.new()
 	groupe.name = "Mobilier"
 	groupe.scale = Vector3.ONE / UNITE
@@ -627,6 +656,10 @@ static func _mobilier_toulousain(t, racine: Node3D) -> void:
 		groupe.add_child(n)
 		if nom in ["banc", "corbeille", "etal"]:
 			lyo.poser(n, Vector3.ZERO, nom, graine, opt)
+		elif nom == "fleurs" and bug != null:
+			bug.pousser(n, Vector3.ZERO, nom, graine, opt)
+		elif nom == "fleurs":
+			tou.poser(n, Vector3.ZERO, "bac_bois", graine, {"longueur": 0.9})
 		else:
 			tou.poser(n, Vector3.ZERO, nom, graine, opt)
 	var creme := ["f0e3c4", "f0e3c4"]
@@ -686,15 +719,33 @@ static func _mobilier_toulousain(t, racine: Node3D) -> void:
 			j += 1
 			s += pas
 		s -= l
-	# Les potelets de fonte le long de la rue qui borde la place à l'ouest, un appui-vélo à l'angle.
-	var w0 := Vector2(-6.6, -15.0)
-	var w1 := Vector2(3.6, 15.8)
-	for k in 22:
-		var p := w0.lerp(w1, float(k) / 21.0)
-		if absf(p.y) < 2.2:
-			continue
-		poser.call("potelet", p + Vector2(1.0, 0.0), 0.0, k)
+	# Les bornes de fonte tout le long du filet blanc, une tous les 2,2 m, sauf devant Lafage et là où le
+	# trottoir manque ; un pot de fleurs toutes les cinq bornes (image cible de Guillaume).
+	var lafage := PackedVector2Array([LAFAGE_SUD, LAFAGE_NORD])
+	var b_idx := 0
+	var bord: PackedVector2Array = Geometry2D.offset_polygon(PackedVector2Array(t.PLACE_SAINT_GEORGES), 0.45)[0]
+	for k in bord.size():
+		var a := bord[k]
+		var b := bord[(k + 1) % bord.size()]
+		var l := a.distance_to(b)
+		var u := (b - a) / l
+		var n := int(l / 0.92)
+		for i in n:
+			var q := a + u * (i + 0.5) * l / n
+			if Geometry2D.get_closest_point_to_segment(q, lafage[0], lafage[1]).distance_to(q) < 2.6:
+				continue
+			if not t.batiment_en(q).is_empty() or not t.batiment_en(q + Vector2(u.y, -u.x) * 0.8).is_empty():
+				continue
+			if b_idx % 5 == 2:
+				poser.call("fleurs", q, 0.0, b_idx)
+			else:
+				poser.call("potelet", q, 0.0, b_idx)
+			b_idx += 1
 	poser.call("appui_velo", Vector2(-5.2, -11.6), PI * 0.5 - 0.3, 1, {"longueur": 4.0})
+	# Des pots de fleurs aux deux bouts de chaque terrasse et au pied des lanternes, des massifs fleuris le long du
+	# muret du parterre.
+	for p in [Vector2(-1.2, -16.6), Vector2(12.6, -16.6), Vector2(-3.6, -9.0), Vector2(-1.0, -1.4), Vector2(15.4, -14.6), Vector2(18.8, -0.6), Vector2(-0.4, -12.2), Vector2(10.4, -12.0)]:
+		poser.call("fleurs", p, 0.0, int(p.x * 7.0 + p.y))
 	# Les bancs autour du jardin, tournés vers les jeux, les bacs de bois fleuris, les corbeilles.
 	poser.call("banc", Vector2(6.8, -7.0), PI * 0.5, 1)
 	poser.call("banc", Vector2(7.0, -2.6), PI * 0.5, 2)

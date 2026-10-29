@@ -18,7 +18,8 @@ const SOLEIL := {"hauteur": 28.0, "vient_de": 250.0, "couleur": Color("ffd9a8")}
 const BRIQUES := ["c8653f", "d2714a", "be5b38", "db8158", "c46a48"]
 const ENDUITS := ["ebcfc0", "f2e4cf", "e7c9b0", "efdcc4"]
 const RUE := Color("dccdab")
-const PLACE := Color("e8a07a")
+const PLACE := Color("c99472")
+const FILET := Color("efe7da")
 
 ## La place Saint-Georges, en unités : le tapis de brique d'une façade à l'autre, rue de bordure comprise
 ## (d'après le plan réel ; parti pris de la note : la place se lit en un seul tapis).
@@ -26,6 +27,10 @@ const PLACE_SAINT_GEORGES := [Vector2(-9.5, -18.0), Vector2(13.0, -18.5), Vector
 ## Là où les fronts de rue sont composés (au plus près de la place) ; ailleurs, les volumes seuls.
 const CENTRE_DETAIL := Vector2(6.0, 0.0)
 const RAYON_DETAIL := 34.0
+## Le périmètre de la carte (demande de Guillaume, 29 octobre) : la place et 30 m autour (12,5 unités) ; les îlots
+## qui ferment les rues vont jusqu'à 25 unités (60 m), en volumes simples, et une brume dorée efface le reste.
+const PERIMETRE := 12.5
+const FERMETURE := 25.0
 
 var player: CharacterBody3D
 var camera: Camera3D
@@ -33,12 +38,16 @@ var camera: Camera3D
 var chargement := 0.0
 
 var data: Dictionary
+var perimetre: PackedVector2Array
+var fermeture: PackedVector2Array
 var _grille := {}
 var _mats := {}
 
 
 func _ready() -> void:
 	data = Atelier.donnees(DOSSIER + "bourg.json")
+	perimetre = Geometry2D.offset_polygon(PackedVector2Array(PLACE_SAINT_GEORGES), PERIMETRE)[0]
+	fermeture = Geometry2D.offset_polygon(PackedVector2Array(PLACE_SAINT_GEORGES), FERMETURE)[0]
 	_ciel()
 	_sol()
 	_indexer()
@@ -68,7 +77,21 @@ func _ciel() -> void:
 	env.ambient_light_sky_contribution = 0.85
 	env.tonemap_mode = Environment.TONE_MAPPER_AGX
 	env.glow_enabled = true
-	env.glow_intensity = 0.4
+	env.glow_intensity = 0.55
+	env.glow_bloom = 0.08
+	# L'étalonnage de l'image cible : plus saturé, un peu plus contrasté, chaud.
+	env.adjustment_enabled = true
+	env.adjustment_saturation = 1.18
+	env.adjustment_contrast = 1.06
+	env.adjustment_brightness = 1.03
+	# La brume dorée des lointains : au-delà des îlots qui ferment les rues, la ville se fond dans l'air du soir.
+	env.fog_enabled = true
+	env.fog_mode = Environment.FOG_MODE_DEPTH
+	env.fog_light_color = Color("e9d7b0")
+	env.fog_depth_begin = 22.0
+	env.fog_depth_end = 70.0
+	env.fog_depth_curve = 1.6
+	env.fog_sky_affect = 0.0
 	var we := WorldEnvironment.new()
 	we.name = "Environnement"
 	we.environment = env
@@ -76,10 +99,10 @@ func _ciel() -> void:
 	var soleil := DirectionalLight3D.new()
 	soleil.name = "Soleil"
 	soleil.light_color = SOLEIL.couleur
-	soleil.light_energy = 1.45
+	soleil.light_energy = 1.6
 	soleil.shadow_enabled = true
 	soleil.shadow_opacity = 0.85
-	soleil.directional_shadow_max_distance = 120.0
+	soleil.directional_shadow_max_distance = 70.0
 	add_child(soleil)
 	var h := deg_to_rad(SOLEIL.hauteur)
 	var a := deg_to_rad(SOLEIL.vient_de)
@@ -96,10 +119,14 @@ func materiau_sol() -> ShaderMaterial:
 	return _mats.sol
 
 
-## Le sol de tout le cadre en pavés de pierre claire, la place Saint-Georges en brique posée en épi par-dessus,
+## Le sol du périmètre en pavés de pierre claire, la place Saint-Georges en brique posée en épi par-dessus,
 ## et un seul plan de collision à y = 0.
 func _sol() -> void:
-	var c: Array = data.cadre
+	var r := Rect2(fermeture[0], Vector2.ZERO)
+	for q in fermeture:
+		r = r.expand(q)
+	r = r.grow(6.0)
+	var c: Array = [r.position.x, r.position.y, r.end.x, r.end.y]
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	st.set_normal(Vector3.UP)
@@ -114,6 +141,11 @@ func _sol() -> void:
 	st.set_color(Color(PLACE, 1.0))
 	for k in Geometry2D.triangulate_polygon(poly):
 		st.add_vertex(Vector3(poly[k].x, 0.012, poly[k].y))
+	# Le filet de pierre blanche, 30 cm, tout autour de la place.
+	st.set_color(Color(FILET, 0.5))
+	var dehors: PackedVector2Array = Geometry2D.offset_polygon(poly, 0.125)[0]
+	for k in Geometry2D.triangulate_polygon(dehors):
+		st.add_vertex(Vector3(dehors[k].x, 0.008, dehors[k].y))
 	var mi := MeshInstance3D.new()
 	mi.name = "Sol"
 	mi.mesh = st.commit()
@@ -131,6 +163,14 @@ func _sol() -> void:
 
 
 # --- Les îlots ------------------------------------------------------------------------------------
+
+## Vrai si un sommet du polygone est dans la zone.
+func _dans(poly: PackedVector2Array, zone: PackedVector2Array) -> bool:
+	for q in poly:
+		if Geometry2D.is_point_in_polygon(q, zone):
+			return true
+	return false
+
 
 ## Les bâtiments rangés par cases de 10 unités, pour savoir vite si un point est dans un bâtiment.
 func _indexer() -> void:
@@ -207,6 +247,8 @@ func _ilots() -> void:
 	var composes: Dictionary = SAINT_GEORGES.batiments_composes(self)
 	for b in data.batiments:
 		var poly := _horaire(b.poly)
+		if not _dans(poly, fermeture):
+			continue
 		var h: float = maxf(float(b.h), 1.2)
 		for k in poly.size():
 			var a := poly[k]
