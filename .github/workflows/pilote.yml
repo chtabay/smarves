@@ -1,6 +1,6 @@
 name: Pilote des pensionnaires
 
-# À toute heure, le vrai jeu sans écran pour chaque pensionnaire dont l'assistant veut jouer
+# À toute heure, le vrai jeu, sous un écran virtuel, pour chaque pensionnaire dont l'assistant veut jouer
 # (docs/PENSIONNAIRES.md, « Le pilote »). La tâche prouve qui elle est à la fonction doublures par son
 # jeton OIDC de GitHub, sans secret ; la fonction lui dit quels pensionnaires lancer.
 #
@@ -59,6 +59,14 @@ jobs:
           unzip -q godot.zip
           mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot
 
+      # Le jeu se dessine sous un écran virtuel, en rendu logiciel : l'assistant reçoit une image de
+      # l'écran avec chaque vue (un plan dessiné, des chiffres gravés ne se disent pas en mots).
+      - name: Écran virtuel
+        if: steps.ouvrir.outputs.jeton != ''
+        run: |
+          command -v xvfb-run > /dev/null && [ -e /usr/lib/x86_64-linux-gnu/dri/swrast_dri.so ] || {
+            sudo apt-get update -q && sudo apt-get install -y -q xvfb libgl1-mesa-dri; }
+
       - name: Importer les ressources
         if: steps.ouvrir.outputs.jeton != ''
         run: ./godot --headless --path . --import || true
@@ -83,7 +91,8 @@ jobs:
               echo "Lancer le jeu de $n"
               # Chaque pensionnaire a son propre dossier de partie (user://).
               XDG_DATA_HOME="$RUNNER_TEMP/partie-$n" SMARVES_PENSIONNAIRE="$p" \
-                ./godot --headless --path . -- --pilote > "journaux/$n.log" 2>&1 &
+                xvfb-run -a -s "-screen 0 1280x720x24" ./godot --rendering-driver opengl3 --audio-driver Dummy \
+                --resolution 1024x576 --path . -- --pilote > "journaux/$n.log" 2>&1 &
               pid[$p]=$!
             done
             [ -z "$r" ] || [ "$r" = "{}" ] && sleep 5
