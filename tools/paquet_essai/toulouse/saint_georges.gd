@@ -236,13 +236,13 @@ static func _fronts_toulousains(t, racine: Node3D) -> void:
 					# fenêtres nues, comme les immeubles enduits de la place.
 					opt["persiennes"] = PERSIENNES[r.randi() % PERSIENNES.size()] if r.randf() < 0.85 else false
 				else:
-					# Dans les rues, au second plan : des façades plus sobres (ni fleurs, ni balconnets, ni vigne, des
-					# persiennes une fois sur trois), pour tenir le budget du lieu.
+					# Dans le débouché des rues : des façades un peu plus sobres que sur la place, mais habitées (des
+					# persiennes sept fois sur dix, des balconnets une fois sur deux, des fleurs, un peu de vigne).
 					opt["rdc"] = "logis" if r.randf() < 0.6 else "commerce"
-					opt["vigne"] = false
-					opt["fleurs"] = false
-					opt["balconnets"] = false
-					opt["persiennes"] = PERSIENNES[r.randi() % PERSIENNES.size()] if r.randf() < 0.33 else false
+					opt["vigne"] = r.randf() < 0.1
+					opt["fleurs"] = r.randf() < 0.45
+					opt["balconnets"] = r.randf() < 0.5
+					opt["persiennes"] = PERSIENNES[r.randi() % PERSIENNES.size()] if r.randf() < 0.7 else false
 				if not cafe_pose and murs_cafe == [i, m] and k == morceaux / 2:
 					opt["rdc"] = "cafe"
 					opt["enseigne"] = "LES TROIS PLATANES"
@@ -362,14 +362,18 @@ static func _platanes(t, racine: Node3D) -> void:
 	racine.add_child(groupe)
 	var place := Geometry2D.offset_polygon(PackedVector2Array(t.PLACE_SAINT_GEORGES), 2.0)[0]
 	var loin := []
+	var clair := ShaderMaterial.new()
+	clair.shader = load(t.DOSSIER + "feuillage.gdshader")
 	for k in t.data.arbres.size():
 		var a: Array = t.data.arbres[k]
 		var p := Vector2(a[0], a[1])
 		if Geometry2D.is_point_in_polygon(p, place):
 			var porteur := Node3D.new()
-			porteur.transform = Transform3D(Basis(Vector3.UP, k * 1.7).scaled(Vector3.ONE / UNITE), Vector3(p.x, 0.0, p.y))
+			# L'ombrière : la couronne élargie d'un quart, au-dessus des terrasses, et un feuillage plus clair.
+			porteur.transform = Transform3D(Basis(Vector3.UP, k * 1.7).scaled(Vector3(1.25, 1.0, 1.25) / UNITE), Vector3(p.x, 0.0, p.y))
 			groupe.add_child(porteur)
 			veg.pousser(porteur, Vector3.ZERO, "platane", k, {"hauteur": 19.0 + (k % 4) * 0.9, "pied": "grille"})
+			_eclaircir(porteur, clair)
 		elif t.batiment_en(p).is_empty() and p.distance_to(t.CENTRE_DETAIL) < LOIN:
 			loin.append(p)
 	# Les arbres hors de la place : trois platanes modèles, en multimaillages par cases de 30 m, que le socle
@@ -404,6 +408,16 @@ static func _platanes(t, racine: Node3D) -> void:
 		n.free()
 
 
+## Remplace le feuillage de la brique par le feuillage clair de la place (même couleur par sommet, même vent).
+static func _eclaircir(n: Node, clair: ShaderMaterial) -> void:
+	for mi in n.find_children("*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		for s in m.mesh.get_surface_count():
+			var mat := m.get_active_material(s) as ShaderMaterial
+			if mat != null and mat.shader != null and mat.shader.resource_path.ends_with("feuillage.gdshader"):
+				m.set_surface_override_material(s, clair)
+
+
 # --- Le jardin d'enfants --------------------------------------------------------------------------
 
 ## Le square Jean-Calas, au nord-est de la place : un muret de pierre à grille de fonte, un sol de sable, un
@@ -423,6 +437,7 @@ static func _jardin(t, racine: Node3D) -> void:
 		for q in poly:
 			centre += q
 		centre /= poly.size()
+		_parterre(racine, Geometry2D.offset_polygon(poly, 0.4)[0], centre)
 		var porteur := Node3D.new()
 		porteur.name = "Jardin"
 		porteur.transform = Transform3D(Basis(Vector3.UP, -PI * 0.5).scaled(Vector3.ONE / UNITE), Vector3(centre.x, 0.0, centre.y))
@@ -480,6 +495,47 @@ static func _jardin(t, racine: Node3D) -> void:
 	porteur.scale = Vector3.ONE / UNITE
 	racine.add_child(porteur)
 	o.construire(porteur, "SquareJeanCalas")
+
+
+## Le parterre du centre de la place (photos de Guillaume, 29 octobre) : une pelouse cernée d'un muret bas de
+## pierre claire, 60 cm à chaperon, ouvert à l'ouest face à la place et au sud vers la rue ; le jardin d'enfants
+## au milieu. Une disposition propre à la place, faite comme le sol, avec les outils du mobilier lyonnais.
+static func _parterre(racine: Node3D, poly: PackedVector2Array, centre: Vector2) -> void:
+	var o = _brique("mobilier-lyonnais@1", "outils.gd").new(1762)
+	var herbe := Color("86ad52")
+	var tri := Geometry2D.triangulate_polygon(poly)
+	for k in range(0, tri.size(), 3):
+		var a := Vector3(poly[tri[k]].x * UNITE, 0.12, poly[tri[k]].y * UNITE)
+		var b := Vector3(poly[tri[k + 1]].x * UNITE, 0.12, poly[tri[k + 1]].y * UNITE)
+		var d := Vector3(poly[tri[k + 2]].x * UNITE, 0.12, poly[tri[k + 2]].y * UNITE)
+		o.tri(a, b, d, Vector3.UP, herbe.lightened(0.03 * (k % 3)))
+	var pierre := Color("d9cbae")
+	var chaperon := Color("e0d6c1")
+	for k in poly.size():
+		var a := poly[k] * UNITE
+		var b := poly[(k + 1) % poly.size()] * UNITE
+		var l := a.distance_to(b)
+		if l < 0.2:
+			continue
+		var u := (b - a) / l
+		var dir := ((a + b) * 0.5 / UNITE - centre).normalized()
+		# Les passages : 2,4 m au milieu des côtés ouest et sud, assez longs pour en avoir.
+		var morceaux := [[0.0, l]]
+		if l > 4.0 and (dir.x < -0.6 or dir.y > 0.75):
+			morceaux = [[0.0, l * 0.5 - 1.2], [l * 0.5 + 1.2, l]]
+		for m in morceaux:
+			var lm: float = m[1] - m[0]
+			if lm < 0.2:
+				continue
+			var c: Vector2 = a + u * (m[0] + lm * 0.5)
+			var bas := Basis(Vector3.UP, atan2(-u.y, u.x))
+			o.boite(Transform3D(bas, Vector3(c.x, 0.27, c.y)), Vector3(lm + 0.3, 0.54, 0.3), pierre, 0, true)
+			o.boite(Transform3D(bas, Vector3(c.x, 0.57, c.y)), Vector3(lm + 0.34, 0.07, 0.38), chaperon)
+	var porteur := Node3D.new()
+	porteur.name = "Parterre"
+	porteur.scale = Vector3.ONE / UNITE
+	racine.add_child(porteur)
+	o.construire(porteur, "Parterre")
 
 
 # --- Le mobilier ----------------------------------------------------------------------------------
@@ -598,12 +654,17 @@ static func _mobilier_toulousain(t, racine: Node3D) -> void:
 	poser.call("chevalet", Vector2(-0.6, -8.8), 1.2, g)
 	g += 1
 	# Sous les arcades de Lafage, côté place : les tables du restaurant de l'hôtel, deux parasols crème.
-	for z in [-11.0, -8.2, -5.4, -2.6]:
-		poser.call("terrasse", Vector2(15.2 + (z + 11.0) * 0.12, z), -PI * 0.5 + 0.4, g, {"tables": 3})
+	# La façade de Lafage file du nord au sud ; les tables à 2,4 m devant elle, entre les arcades et le parterre.
+	var le_long := func(z: float, recul: float) -> Vector2:
+		var f := (z - LAFAGE_NORD.y) / (LAFAGE_SUD.y - LAFAGE_NORD.y)
+		return Vector2(lerpf(LAFAGE_NORD.x, LAFAGE_SUD.x, f) - recul, z)
+	var lacet := atan2(LAFAGE_SUD.x - LAFAGE_NORD.x, LAFAGE_SUD.y - LAFAGE_NORD.y) + PI * 0.5
+	for z in [-13.0, -10.2, -7.4, -4.6, -1.8]:
+		poser.call("terrasse", le_long.call(z, 1.0), lacet, g, {"tables": 3})
 		g += 1
-	poser.call("parasol", Vector2(13.4, -9.6), 0.0, g, {"toile": creme})
-	poser.call("parasol", Vector2(14.1, -4.0), 0.0, g + 1, {"toile": creme})
-	poser.call("chevalet", Vector2(14.6, -0.4), -1.2, g + 2)
+	poser.call("parasol", le_long.call(-11.6, 1.1), 0.0, g, {"toile": creme})
+	poser.call("parasol", le_long.call(-3.2, 1.1), 0.0, g + 1, {"toile": creme})
+	poser.call("chevalet", le_long.call(0.2, 1.2), lacet, g + 2)
 	# Les deux étals au sud-est, sous leur store vert et blanc.
 	poser.call("etal", Vector2(13.4, 6.6), deg_to_rad(-120.0), 3, {"toile": ["2e7d5b", "f1e6cc"]})
 	poser.call("etal", Vector2(11.6, 8.0), deg_to_rad(-120.0), 5, {"toile": ["2e7d5b", "f1e6cc"]})

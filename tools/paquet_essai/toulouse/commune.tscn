@@ -15,4 +15,4 @@ transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, -8, 0.05, -0.6)
 transform = Transform3D(0.707, 0, 0.707, 0, 1, 0, 0.707, 0, -0.707, 3, 0.05, 6)
 
 [node name="Vue3_ArcadesDeLafage" type="Marker3D" parent="."]
-transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 11.6, 0.05, -7)
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 12.5, 0.05, -11)
