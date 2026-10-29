@@ -39,7 +39,7 @@ Sources : OpenStreetMap et BD TOPO de l'IGN tirés par `tools/bourg_reel.py bell
 
 **La colline au banc** : **Au Replat, sur la Montagne de Parves** (572 m, 45,7461 N, 5,7326 E). Depuis là, la vue réelle s'ouvre : le Rhône en contrebas, la Dent du Chat en face à 11,8 km, le Colombier au nord, 76 points de rochers visibles contre 14 depuis la ville. C'est là que les falaises se voient vraiment.
 
-**Le Rhône** coule à l'est de la Montagne de Parves (vers 5,78 E), du nord au sud, puis tourne vers l'ouest au sud de Belley (45,71 N) : la ville est dans le coude du fleuve.
+**Le Rhône** coule à l'est de la Montagne de Parves (vers 5,78 E), du nord au sud, puis tourne vers l'ouest au sud de Belley (45,71 N) : la ville est dans le coude du fleuve. Entre la ville et la colline passe le **canal de dérivation du Rhône**, large et rectiligne, à un kilomètre à l'est du centre : l'ordre réel est donc la ville, le canal, la colline de Parves, le Rhône, puis la crête du Chat.
 
 **L'auberge** : l'Auberge de la Paillère réelle (Lavours, RD 992) a un grand bar à l'entrée, une salle de plus de 200 couverts, une salle côté parc, un kiosque côté cour, une terrasse ombragée, un parc, une piscine, un terrain de boules, une aire de jeux et des pontons sur le Rhône. **C'est une entreprise réelle** : on ne la nomme pas et on n'en reprend ni l'enseigne ni le logo (CONCEPTION.md, « Représenter le réel »). Le jeu y place un équivalent inventé, **le Relais des Lônes**, qui garde le programme (bar d'entrée, terrasse, kiosque de bois, aire de jeux, pontons) et ne lui prête rien de négatif.
 
@@ -119,7 +119,7 @@ La descente finit entre deux murets ; la route s'arrête devant une cour de grav
 Le parcours de la course **est** la continuité : on le fait à pied, à vélo ou en voiture, et il relie les trois scènes.
 
 - **Place de la Victoire → Grande Rue → place de la Cathédrale** : le départ et l'arrivée sous l'arche, l'arrêt de car, le sports bar ; puis la rue resserrée, les porches qui révèlent des cours du XVᵉ, la Louve passante, l'étude du notaire dans une cour, la charge de l'agent de change à l'étage. Une respiration : la place s'ouvre après la rue.
-- **La cathédrale → la colline** : on descend vers l'Ousson par les rues de faubourg (maisons basses, jardins, remises), on passe le canal, puis les vignes du Bugey en coteau, une cave et ses caisses vides, deux lacets dans le bois. La vue arrive par fragments entre les arbres avant de s'ouvrir au banc.
+- **La cathédrale → la colline** : on descend vers l'Ousson par les rues de faubourg (maisons basses, jardins, remises), on franchit le canal du Rhône sur son pont, puis les vignes du Bugey en coteau, une cave et ses caisses vides, deux lacets dans le bois. La vue arrive par fragments entre les arbres avant de s'ouvrir au banc.
 - **La colline → le Relais** : la descente vers le Rhône, les prés, les peupliers, une ferme et sa grange, et la route qui finit à l'auberge.
 - **Le retour** montre autre chose : depuis le Rhône, la colline de dos et la flèche qui dépasse ; au retour en ville, l'arrière du sports bar et le bar de poivrots le long du Furans, qu'on n'avait pas vus à l'aller.
 
@@ -170,7 +170,7 @@ La situation : **la veille de la course**. Des agents posent les barrières (on 
 
 Un seul fil de construction, item par item, comme Guillaume le demande ; chaque item finit par des captures prises à hauteur de joueur, montrées à Guillaume avant le suivant.
 
-1. **Cette note**, puis une **planche d'intention** : le plan recomposé (ville, colline, Rhône) sur le relief réel, le panorama du banc calculé, et un montage des briques existantes. Validation de Guillaume.
+1. **Cette note** (validée par Guillaume le 29 octobre 2026), puis une **planche d'intention** (`/mnt/project-files/cartes/bugey/planche-intention-belley.png`) : le plan recomposé (ville, colline, Rhône) sur le relief réel, le panorama du banc calculé, et un montage des briques existantes. Validation de Guillaume.
 2. **Le relief et le parcours** : la cuvette, la colline, la rive, les lointains, la route de la course de bout en bout, éprouvée à pied et à vélo avec `parcours_commune.gd`.
 3. **Scène 1** : la place de la Cathédrale et la Grande Rue (cathédrale, palais, façades, Louve), puis le sports bar et le notaire branchés.
 4. **Scène 2** : la colline et le banc, avec les lointains vérifiés contre le panorama calculé.
