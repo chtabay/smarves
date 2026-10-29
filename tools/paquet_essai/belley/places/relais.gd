@@ -13,6 +13,7 @@ extends RefCounted
 const OUTILS := preload("res://communes/belley/atelier/outils.gd")
 const ARBRES := preload("res://communes/belley/places/arbres.gd")
 const FACADIER := preload("res://bibliotheque/facadier-du-bugey/1/facadier.gd")
+const REPEINDRE := preload("res://communes/belley/atelier/repeindre.gd")
 
 const ORIGINE := Vector2(7173.0, 639.2)
 ## Le lacet du repère : +Z regarde le nord-est, vers les lônes.
@@ -23,7 +24,7 @@ const ANGLE := Color("e6d9bc", 1.0)
 const VOLET := Color("7e9a96", 0.6)
 const BOIS := Color("8a6440", 0.8)
 const BOIS_CLAIR := Color("b08a5a", 0.8)
-const GRAVIER := Color("bba585", 0.95)
+const GRAVIER := Color("cdb89a", 0.95)
 const PELOUSE := Color("8fb34c", 0.95)
 const ARDOISE_HALLE := Color("5d6066", 0.0)
 const VITRE := Color(0.18, 0.21, 0.25, 0.2)
@@ -91,7 +92,8 @@ func _draper(r: Rect2, col: Color) -> void:
 		while z < r.end.y - 0.01:
 			# Une dalle de 2 m n'a pas tout à fait le ton de sa voisine : le gravier a des places plus usées.
 			var k := float(absi(hash(Vector2i(int(x), int(z)))) % 100) / 100.0
-			var c := col.darkened(k * 0.07) if k < 0.5 else col.lightened((k - 0.5) * 0.08)
+			var k2 := float(absi(hash(Vector2i(int(x / 6.0), int(z / 6.0)) * 3)) % 100) / 100.0
+			var c := col.darkened(k * 0.08 + k2 * 0.06) if k < 0.5 else col.lightened((k - 0.5) * 0.06).darkened(k2 * 0.06)
 			o.quad(p(x, z, 0.1), p(x + pas, z, 0.1), p(x + pas, z + pas, 0.1), p(x, z + pas, 0.1), Vector3.UP, c, OUTILS.PEINT)
 			z += pas
 		x += pas
@@ -111,10 +113,10 @@ func _trait(a: Vector2, b: Vector2) -> void:
 ## regarde la route (−Z du relais).
 func _maisons(parent: Node3D) -> void:
 	var corps := [
-		[-2.5, 21.0, "r0", {"w": 7.0, "d": 7.0, "mur": "moellons", "couverture": "tuile_vieillie", "vigne": false}],
-		[7.5, 18.0, "ferme", {"w": 13.0, "d": 9.5, "niveaux": 1, "mur": "moellons", "pierre": "doree", "couverture": "tuile_vieillie", "vigne": true, "volet": "7e9a96", "volets": "bois"}],
-		[20.5, 19.2, "vigneronne", {"w": 13.0, "d": 9.0, "mur": "moellons", "pierre": "blonde", "couverture": "tuile_vieillie", "balcon": true, "vigne": false, "volet": "7e9a96"}],
-		[33.0, 12.5, "r2", {"w": 10.0, "d": 12.0, "niveaux": 2, "mur": "moellons", "pierre": "calcaire", "couverture": "tuile_vieillie", "vigne": true, "volet": "7e9a96", "lucarnes": 1}],
+		[-2.5, 21.0, "r0", {"w": 7.0, "d": 7.0, "mur": "moellons", "pierre": "a89070", "couverture": "tuile_vieillie", "vigne": false}],
+		[7.5, 18.0, "ferme", {"w": 13.0, "d": 9.5, "niveaux": 1, "mur": "moellons", "pierre": "b9a27a", "couverture": "tuile_vieillie", "vigne": true, "volet": "7e9a96", "volets": "bois"}],
+		[20.5, 19.2, "vigneronne", {"w": 13.0, "d": 9.0, "mur": "moellons", "pierre": "a89070", "couverture": "tuile_vieillie", "balcon": true, "vigne": false, "volet": "7e9a96"}],
+		[33.0, 12.5, "r2", {"w": 10.0, "d": 12.0, "niveaux": 2, "mur": "moellons", "pierre": "b9a27a", "couverture": "tuile_vieillie", "vigne": true, "volet": "7e9a96", "lucarnes": 1}],
 	]
 	var face := base.basis * Vector3(0, 0, -1)
 	for i in corps.size():
@@ -126,15 +128,15 @@ func _maisons(parent: Node3D) -> void:
 
 
 func _terrasse(parent: Node3D) -> void:
-	var y := 2.6
-	for k in 6:
-		var x := 6.0 + k * 3.2
-		o.boite(Transform3D(base.basis, q(x, y * 0.5, 14.5)), Vector3(0.14, y, 0.14), BOIS)
-		o.boite(Transform3D(base.basis, q(x, y, 16.2)), Vector3(0.12, 0.12, 3.6), BOIS)
-	o.boite(Transform3D(base.basis, q(14.0, y + 0.06, 14.5)), Vector3(16.4, 0.12, 0.14), BOIS)
-	for k in 14:
-		var x := 6.0 + k * 1.2
-		o.boule(q(x, y + 0.25, 15.0 + (k % 3) * 1.1), Vector3(0.9, 0.35, 0.8), Color("6f9e36"), 0.25, OUTILS.FEUILLE, 0.08, 0.6, 4, 7)
+	# La treille devant la façade : les tonnelles de vigne du mobilier du Bugey, bout à bout.
+	var bugey_mob: PackedScene = load(Bibliotheque.scene("mobilier-du-bugey@1", "decor"))
+	for k in 5:
+		var t: Node3D = bugey_mob.instantiate()
+		t.set("objet", "tonnelle")
+		t.set("graine", 60 + k)
+		t.position = p(7.5 + k * 3.4, 15.6, 0.05)
+		t.rotation.y = LACET
+		parent.add_child(t)
 	var scene: PackedScene = load(Bibliotheque.scene("mobilier-de-place@1", "decor"))
 	var tables := [Vector2(7, 12.5), Vector2(11.5, 13), Vector2(16, 12.5), Vector2(20.5, 13), Vector2(39.5, 15), Vector2(43.5, 18.5),
 		Vector2(39.5, 22), Vector2(43.5, 25.5), Vector2(40, 28.5)]
@@ -224,7 +226,7 @@ func _clotures() -> void:
 func _vegetation(parent: Node3D) -> void:
 	var rives: PackedScene = load(Bibliotheque.scene("arbres-des-rives@1", "decor"))
 	var bugey: PackedScene = load(Bibliotheque.scene("vegetation-du-bugey@1", "decor"))
-	_poser(parent, bugey, "plante", "chene", 207, {"hauteur": 15.0}, Vector2(41.5, 20.5))
+	_poser(parent, load(Bibliotheque.scene("arbres-d-ombriere@1", "decor")), "arbre", "platane", 207, {"hauteur": 18.0}, Vector2(41.5, 20.5))
 	# Le rideau de peupliers d'Italie entre le pré et les lônes.
 	for k in 11:
 		_poser(parent, rives, "arbre", "peuplier", 30 + k, {"hauteur": 22.0 + (k % 3) * 2.5}, Vector2(-8.0 + k * 7.5, 54.0 + (k % 2) * 1.5))
@@ -260,7 +262,7 @@ func _vegetation(parent: Node3D) -> void:
 		v.branche(pc, pc + Vector3(0, 1.0, 0), 0.12, 0.1, Color("5a4632", 0.9))
 		for k in 5:
 			var f := k / 5.0
-			v.boule(pc + Vector3(0, 1.0 + f * hh * 0.82, 0), Vector3(1.05 - f * 0.7, hh * 0.2, 1.05 - f * 0.7), Color("3f6e2e").lightened(f * 0.12), 0.22, OUTILS.FEUILLE, 0.06, 0.6, 5, 8)
+			v.boule(pc + Vector3(0, 1.0 + f * hh * 0.82, 0), Vector3(1.05 - f * 0.7, hh * 0.2, 1.05 - f * 0.7), Color("2f5a2a").lightened(f * 0.08), 0.12, OUTILS.FEUILLE, 0.03, 0.6, 5, 8)
 	# L'îlot planté qui sépare les places de la cour, les pots de fleurs devant la terrasse, les arbustes fleuris
 	# contre la façade, la haie le long du pré (vegetation-du-bugey@1), comme sur la planche.
 	_poser(parent, bugey, "plante", "haie", 301, {"longueur": 9.0}, Vector2(23.0, 6.5), 0.0)
@@ -307,3 +309,4 @@ func _poser(parent: Node3D, scene: PackedScene, champ: String, nom: String, grai
 	# Un lacet donné est dans le repère du relais ; sinon l'arbre tourne au hasard.
 	m.rotation.y = float(graine % 628) / 100.0 if lacet < 0.0 else LACET + lacet
 	parent.add_child(m)
+	REPEINDRE.feuillage(m)

@@ -8,6 +8,7 @@ const OUTILS := preload("res://communes/belley/atelier/outils.gd")
 const ARBRES := preload("res://communes/belley/places/arbres.gd")
 const FENETRES := preload("res://communes/belley/atelier/fenetres.gd")
 const FACADIER := preload("res://bibliotheque/facadier-du-bugey/1/facadier.gd")
+const REPEINDRE := preload("res://communes/belley/atelier/repeindre.gd")
 const DOSSIER := "res://communes/belley/"
 const UNITE := 2.4
 
@@ -94,6 +95,7 @@ func batir(parent: Node3D) -> void:
 		t.position = Vector3(v.x, hauteur.call(v.x, v.y) - 0.1, v.y)
 		t.rotation.y = float(g) * 0.37
 		parent.add_child(t)
+		REPEINDRE.feuillage(t)
 	ARBRES.planter(parent, pts, hauteur)
 
 
@@ -117,6 +119,10 @@ func maison(o: RefCounted, m: Dictionary, graine: int) -> void:
 	var dist := Vector2(m.rect[0], m.rect[1]).distance_to(PRES_DE / UNITE) * UNITE
 	if dist < FACADIERS and float(m.rempli) >= 0.6 and _facadier(m, graine, rng):
 		return
+	# Autour de la place, comme sur la planche, rien ne dépasse deux étages et un comble : les grands blocs du
+	# relevé y faisaient caserne (verdict n° 2 du juge).
+	if dist < 160.0:
+		h = minf(h, 9.4)
 	var pres := dist < 160.0
 	var pres_chaines := dist < 90.0
 	var maillee := dist < MAILLEES

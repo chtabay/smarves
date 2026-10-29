@@ -15,7 +15,7 @@ const ROUTES := preload("res://communes/belley/places/routes.gd")
 const CRANS := [[5.0, -38.0, 50.0], [9.0, -48.0, 50.0], [16.0, -58.0, 50.0]]
 
 ## La lumière de la note : fin septembre vers 16 h, le soleil au sud-ouest, à 28°, crème chaud.
-const SOLEIL := {"hauteur": 28.0, "vient_de": 238.0, "couleur": Color("fff0dc"), "force": 0.95}
+const SOLEIL := {"hauteur": 28.0, "vient_de": 238.0, "couleur": Color("fff0dc"), "force": 0.85}
 
 ## Les trois scènes fortes et l'arrivée : [x, z, lacet en degrés (0 : regarde le nord, 90 : l'est)].
 const REPERES := {
