@@ -269,6 +269,48 @@
 					"socle": "1.25"
 				}
 			}
+		},
+		"facadier-toulousain": {
+			"genre": "decor",
+			"nom": "Le façadier toulousain",
+			"description": "Une maison ou un immeuble du centre de Toulouse composé par type et graine : l'atelier, la maison étroite, la façade moyenne, l'immeuble, l'immeuble d'angle, l'immeuble à arcades, le café, le commerce, le restaurant, l'hôtel particulier enduit, l'hôtel à avant-corps et fronton à oculus (l'hôtel de Lafage), l'immeuble XIXe à angle courbe et mansarde (place Wilson) et la maison à pans de bois. Brique foraine rose mêlée de briques sombres, pierre presque blanche, arcs de brique, génoise à trois rangs et tuile canal, persiennes claires, balconnets de fonte. Tiré des planches de la place Saint-Georges de Guillaume.",
+			"auteur": "Smarves · d'après une inspiration de Guillaume",
+			"licence": "celle du jeu",
+			"versions": {
+				"1": {
+					"scene": "res://bibliotheque/facadier-toulousain/1/maison.tscn",
+					"apercu": "res://bibliotheque/facadier-toulousain/1/apercu.png",
+					"socle": "1.25"
+				}
+			}
+		},
+		"sols-toulousains": {
+			"genre": "decor",
+			"nom": "Les sols toulousains",
+			"description": "Dix modules de sol sur une trame de 4 m : brique en épi ou en rangs, dalles de pierre claire, galets de Garonne, bordure et caniveau, fosse d'arbre à grille de fonte, rond-point de huit mètres, emmarchement, muret et muret à grille.",
+			"auteur": "Smarves · d'après une inspiration de Guillaume",
+			"licence": "celle du jeu",
+			"versions": {
+				"1": {
+					"scene": "res://bibliotheque/sols-toulousains/1/module.tscn",
+					"apercu": "res://bibliotheque/sols-toulousains/1/apercu.png",
+					"socle": "1.25"
+				}
+			}
+		},
+		"mobilier-toulousain": {
+			"genre": "decor",
+			"nom": "Le mobilier toulousain",
+			"description": "Onze objets de place toulousaine : terrasse de café aux tables rondes et chaises en rotin, parasols crème et bordeaux, store vert et blanc, chevalet, potelet et appui-vélo en fonte, lampadaire, bac en bois, jardin d'enfants et carrousel qui tourne.",
+			"auteur": "Smarves · d'après une inspiration de Guillaume",
+			"licence": "celle du jeu",
+			"versions": {
+				"1": {
+					"scene": "res://bibliotheque/mobilier-toulousain/1/objet.tscn",
+					"apercu": "res://bibliotheque/mobilier-toulousain/1/apercu.png",
+					"socle": "1.25"
+				}
+			}
 		}
 	}
 }

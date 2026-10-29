@@ -264,6 +264,38 @@ func _init() -> void:
 		"la végétation du Bugey ne redouble aucune essence des autres décors")
 	bugey.queue_free()
 
+	# Le décor toulousain (tiré des planches de la place Saint-Georges de Guillaume) : les maisons de brique, les sols et
+	# le mobilier se bâtissent chacun par son nom, en un seul maillage et un seul corps ; le pavage en épi se raccorde
+	# d'un module à l'autre, et le carrousel tourne.
+	var toulouse := Node3D.new()
+	root.add_child(toulouse)
+	var toulousains := {"facadier-toulousain@1": ["types", "type", 13], "sols-toulousains@1": ["noms", "module", 10],
+		"mobilier-toulousain@1": ["objets", "objet", 11]}
+	for ref in toulousains:
+		var sc := Bibliotheque.scene(ref, "decor")
+		check(sc != "" and ResourceLoader.exists(sc), "la bibliothèque a %s, un décor" % ref)
+		if sc == "":
+			continue
+		var paquet: PackedScene = load(sc)
+		var noms: Array = paquet.instantiate().call(toulousains[ref][0])
+		var rates := []
+		for nom in noms:
+			var d: Node3D = paquet.instantiate()
+			d.set(toulousains[ref][1], nom)
+			d.graine = 3
+			toulouse.add_child(d)
+			var maillages := d.find_children("*", "MeshInstance3D", true, false)
+			if d.get_meta(toulousains[ref][1], "") != nom or maillages.size() != 1 or maillages[0].mesh.get_surface_count() > 3 or d.find_children("*", "CollisionShape3D", true, false).is_empty():
+				rates.append(nom)
+		check(noms.size() == toulousains[ref][2] and rates.is_empty(), "%s : les %d se bâtissent, un maillage et un corps chacun %s" % [ref, noms.size(), str(rates)])
+	var manege: Node3D = load(Bibliotheque.scene("mobilier-toulousain@1", "decor")).instantiate()
+	manege.objet = "carrousel"
+	toulouse.add_child(manege)
+	var cap: float = manege.get_child(0).rotation.y
+	manege._process(0.5)
+	check(manege.is_processing() and not is_equal_approx(manege.get_child(0).rotation.y, cap), "le carrousel toulousain tourne")
+	toulouse.queue_free()
+
 	# Les intérieurs (socle 1.22) : chaque salle de jeu et chaque étude tient le contrat de son genre.
 	check("bar-des-sports@1" in Bibliotheque.references("salle_jeu") and "etude-de-notaire@1" in Bibliotheque.references("etude"),
 		"la bibliothèque a le bar des sports et l'étude de notaire")
