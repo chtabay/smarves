@@ -13,6 +13,7 @@ extends Node
 ##   pilote_cases() -> {nom: Rect2 dans son repère}, avec ce qu'il montre par pilote_texte() -> String ;
 ## - les écrits posés dans le monde (tout Label3D en vue : une plaque, un panneau, une étiquette) ;
 ## - ce qui l'entoure : de chaque côté, jusqu'où l'on peut marcher avant une paroi.
+## - l'écran lui-même, en image, quand le jeu se dessine (la tâche le lance sous un écran virtuel).
 ## Ne se voit que ce qu'aucun mur ne cache : une zone de l'autre côté d'une paroi n'est pas montrée.
 ##
 ## Ce qu'il fait (geste) :
@@ -42,6 +43,9 @@ const VU_CONTRE := 1.5
 ## Les écrits posés dans le monde : jusqu'à cette distance, tant au plus.
 const ECRITS_LOIN := 25.0
 const ECRITS_MAX := 15
+## L'image de l'écran jointe à chaque vue : sa largeur (pixels) et sa qualité JPEG.
+const IMAGE_LARGE := 768
+const IMAGE_QUALITE := 0.7
 ## Ce qui entoure le corps : le regard porte jusque-là de chaque côté.
 const AUTOUR_LOIN := 30.0
 ## Les zones montrées : les plus proches, jusqu'à cette distance (unités de la scène).
@@ -491,6 +495,10 @@ func _opacite(c: CanvasItem) -> float:
 
 ## Fait un geste et rend {ok, dit}, puis la vue qui suit (vue). Les repères sont ceux de la dernière vue.
 func geste(g: Dictionary) -> Dictionary:
+	# Personne ne regarde l'écran entre deux gestes : il ne se dessine que pour l'image (le rendu
+	# logiciel d'une image coûte plus que tout le reste du jeu, et la marche en prendrait du retard).
+	if DisplayServer.get_name() != "headless":
+		RenderingServer.render_loop_enabled = false
 	var quoi := str(g.get("geste", ""))
 	var r := {}
 	match quoi:
@@ -522,10 +530,31 @@ func geste(g: Dictionary) -> Dictionary:
 		_:
 			r = {"ok": false, "dit": "geste inconnu"}
 	r["vue"] = vue()
+	# Ce qu'il a sous les yeux, en image, quand le jeu se dessine (un plan, des chiffres gravés).
+	var img := await image()
+	if img != "":
+		r["image"] = img
 	if not entendu.is_empty():
 		r["entendu"] = entendu.duplicate()
 		entendu.clear()
 	return r
+
+
+## L'écran en JPEG (base64), large de IMAGE_LARGE pixels ; « » sans rendu (--headless, les essais).
+func image() -> String:
+	if DisplayServer.get_name() == "headless":
+		return ""
+	RenderingServer.render_loop_enabled = true
+	# Deux images : la première rattrape ce qui a bougé depuis la dernière.
+	for i in 2:
+		await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	RenderingServer.render_loop_enabled = false
+	if img == null or img.is_empty():
+		return ""
+	if img.get_width() > IMAGE_LARGE:
+		img.resize(IMAGE_LARGE, int(round(IMAGE_LARGE * img.get_height() / float(img.get_width()))), Image.INTERPOLATE_BILINEAR)
+	return Marshalls.raw_to_base64(img.save_jpg_to_buffer(IMAGE_QUALITE))
 
 
 func _attendre(s: float) -> void:

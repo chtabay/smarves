@@ -157,7 +157,11 @@ jeu lui-même.
   panneau, une étiquette) ; et de chaque côté (devant, à droite, derrière, à gauche et entre deux) jusqu'où le
   regard porte avant une paroi, ce qui suffit à lire des couloirs et des chambres. Seul se voit ce qu'aucune
   paroi ne cache : une zone de l'autre côté d'un mur, ou d'un autre lieu bâti dans la même scène (la loge du
-  Colaby vue depuis ses galeries), n'est pas montrée. Le regard essaie les yeux et un pas de chaque côté, et ne
+  Colaby vue depuis ses galeries), n'est pas montrée. Et il voit l'écran lui-même : chaque vue porte une
+  image JPEG de 768 pixels de large, que le connecteur joint à sa réponse (un plan dessiné, des chiffres
+  gravés, un décor). La tâche lance le jeu sous un écran virtuel (`xvfb-run`, rendu logiciel OpenGL) ; il ne
+  se dessine que pour l'image, le temps de deux images, pour que la marche et les jeux gardent leur allure.
+  Sans écran (`--headless`, les essais), pas d'image. Le regard essaie les yeux et un pas de chaque côté, et ne
   bute ni sur ce qu'il frôle ni sur le bâtiment dont la zone est la porte.
 - **Ce qu'il fait.** Les gestes d'un joueur : aller devant une zone (il marche, contourne ce qui le bute, monte et descend les escaliers d'un étage à l'autre,
   et s'arrête quand le jeu montre son invite), marcher quelques secondes, une touche (E, Espace, Échap, Entrée,
