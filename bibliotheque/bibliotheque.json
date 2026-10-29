@@ -353,6 +353,20 @@
 					"socle": "1.25"
 				}
 			}
+		},
+		"course-cycliste": {
+			"genre": "decor",
+			"nom": "Le matériel de course cycliste",
+			"description": "L'arrivée d'une étape, dans l'esprit des années 1980 : l'arche gonflable, la flamme rouge du dernier kilomètre, la banderole, les fanions, la ligne peinte et son damier, les barrières de foule aux bâches des partenaires, le podium et ses bouquets, l'estrade du speaker et ses haut-parleurs, le vélo de course, le râtelier de vélos et le panneau des kilomètres. Demandé par la carte de Belley.",
+			"auteur": "Smarves · d'après une inspiration de Guillaume",
+			"licence": "celle du jeu",
+			"versions": {
+				"1": {
+					"scene": "res://bibliotheque/course-cycliste/1/objet.tscn",
+					"apercu": "res://bibliotheque/course-cycliste/1/apercu.png",
+					"socle": "1.25"
+				}
+			}
 		}
 	}
 }

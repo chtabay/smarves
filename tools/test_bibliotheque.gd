@@ -334,6 +334,32 @@ func _init() -> void:
 		"arbres-des-rives@1 : les trois se bâtissent, et le peuplier est une colonne de plus de 20 m %s" % str(rates_a))
 	fleuves.queue_free()
 
+	# Le matériel de course cycliste (demandé par la carte de Belley) : les onze objets se bâtissent, en un seul
+	# maillage et un seul corps ; l'arche porte son inscription et enjambe la largeur demandée.
+	var course := Node3D.new()
+	root.add_child(course)
+	var paquet_c: PackedScene = load(Bibliotheque.scene("course-cycliste@1", "decor"))
+	var objets_c: Array = paquet_c.instantiate().call("noms")
+	var rates_c := []
+	for nom in objets_c:
+		var c: Node3D = paquet_c.instantiate()
+		c.objet = nom
+		course.add_child(c)
+		var maillages := c.find_children("*", "MeshInstance3D", true, false)
+		if c.get_meta("objet", "") != nom or maillages.size() != 1 or maillages[0].mesh.get_surface_count() > 3 or c.find_children("*", "CollisionShape3D", true, false).is_empty():
+			rates_c.append(nom)
+	check(objets_c.size() == 11 and rates_c.is_empty(), "course-cycliste@1 : les %d objets se bâtissent, un maillage et un corps chacun %s" % [objets_c.size(), str(rates_c)])
+	var arche: Node3D = paquet_c.instantiate()
+	arche.options = {"texte": "DÉPART", "largeur": 12.0}
+	course.add_child(arche)
+	var inscrit := false
+	for l in arche.find_children("*", "Label3D", true, false):
+		if (l as Label3D).text == "DÉPART":
+			inscrit = true
+	var portee: AABB = (arche.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).get_aabb()
+	check(inscrit and portee.size.x > 12.0, "l'arche porte son inscription et enjambe une route de 12 m")
+	course.queue_free()
+
 	# Les intérieurs (socle 1.22) : chaque salle de jeu et chaque étude tient le contrat de son genre.
 	check("bar-des-sports@1" in Bibliotheque.references("salle_jeu") and "etude-de-notaire@1" in Bibliotheque.references("etude"),
 		"la bibliothèque a le bar des sports et l'étude de notaire")

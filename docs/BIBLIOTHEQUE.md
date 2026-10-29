@@ -266,6 +266,17 @@ L'ambiance du Rhône large : `godot --path . -s tools/planche_fleuve.gd -- --vue
 
 `--nom=bas` montre la scène à hauteur d'homme sur la grève ; `--vue=modules` montre les huit modules et `--vue=arbres` les trois arbres.
 
+### Le matériel de course cycliste
+
+L'arrivée d'une étape, demandée par la carte de Belley (29 octobre 2026), dans l'esprit des années 1980. Même facture que les autres décors ; les inscriptions sont des `Label3D` lisibles des deux côtés.
+
+- **`course-cycliste@1`** (`objet`, `graine`, `options`) : la route file le long de z (le sens de la course, vers +Z) ; une arche, une banderole, une ligne la traversent le long de x. Le pied est à y = 0.
+  - Les objets : `arche` (l'arche gonflable et ses lests), `flamme_rouge` (le dernier kilomètre), `banderole` (tendue entre deux mâts haubanés), `fanions`, `ligne` (la ligne peinte, son damier et l'inscription au sol, lisible pour les coureurs), `barrieres` (les barrières de foule, aux bâches des partenaires), `podium` (les trois marches, le fond et les bouquets), `estrade` (la table du speaker, sa sono et ses haut-parleurs sur mât), `velo` (le vélo de course), `ratelier` (le râtelier et ses vélos) et `panneau_km`.
+  - Options : `texte` (ARRIVÉE, DÉPART, 5 KM…), `couleur` (un hexa : l'arche, la banderole, le vélo), `largeur` (la largeur de la route, 10 m par défaut ; les barrières : leur longueur), `velos` (le râtelier : 1 à 5). Métadonnées : `objet`, `graine`, `emprise`.
+  - La voiture suiveuse viendra avec les voitures des années 1980.
+
+L'arrivée d'étape dans une rue du Bugey : `godot --path . -s tools/planche_course.gd -- --vue=arrivee --capture=planche.png` ; `--nom=bas` la montre à hauteur de coureur, `--vue=materiel` montre les onze objets.
+
 ## Proposer une brique
 
 Une ville qui a fait un décor réutilisable le range, dans son propre paquet, sous `res://communes/<id>/bibliotheque/<id de la brique>/` avec une fiche `brique.json` :
@@ -339,6 +350,7 @@ Chacune est utile seule, et rien ne change dans la première salle.
 | 13 | Le décor du Bugey, tiré de la planche d'assets régionaux de Guillaume : `facadier-du-bugey@1`, `mobilier-du-bugey@1`, `vegetation-du-bugey@1`, `terrains-du-bugey@1`, leurs planches et cinq ambiances (`tools/planche_bugey.gd`) | smarves | **fait** |
 | 14 | Le décor toulousain, tiré des planches de la place Saint-Georges de Guillaume : `facadier-toulousain@1`, `sols-toulousains@1`, `mobilier-toulousain@1`, `arbres-d-ombriere@1`, leurs planches et l'ambiance de la place Saint-Georges (`tools/planche_toulouse.gd`) | smarves | **fait** |
 | 15 | Les fleuves, demandés par la carte de Belley : `fleuves@1` (fleuve, berges, digue, lône, île, ponton, barque), `arbres-des-rives@1` (peupliers, saule), leur planche et l'ambiance du Rhône (`tools/planche_fleuve.gd`) | smarves | **fait** |
+| 16 | Le matériel de course cycliste, demandé par la carte de Belley : `course-cycliste@1` (arche, flamme rouge, banderole, fanions, ligne, barrières, podium, estrade, vélo, râtelier, panneau des kilomètres) et sa planche d'arrivée d'étape (`tools/planche_course.gd`) | smarves | **fait** |
 | 6 | Les auteurs reconstruisent leurs paquets : pour Minuit, le bol de la Fortune par ses ancres, le Dôme une salle, les matières passent à la bibliothèque, les textures et les données se compressent | paquets | Minuit : fait, sauf le Dôme (0.10.5, 23 octobre 2026) ; L'Isle-Jourdain 0.2.3 dans les seuils |
 
 Il ne reste que l'étape 6, par les auteurs. Le 23 octobre 2026, Minuit passe le stade de la Fortune par ses ancres (0.10.5, socle 1.20 : le bol pourra devenir une brique, `stade-fortune@1`, une fois qu'il ne connaîtra plus le stade) et L'Isle-Jourdain repasse sous les seuils (0.2.3, [`docs/LENTEUR.md`](LENTEUR.md)). Le format des paquets est arrêté avec l'étape 3 et le budget par lieu avec la 7 : Civaux, Minuit, L'Isle-Jourdain et Cloué sont repris une fois, avec le SDK à jour, et l'emballeur dit à chaque auteur ce que ses lieux ont à alléger.
