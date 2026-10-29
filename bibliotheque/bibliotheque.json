@@ -115,6 +115,48 @@
 					"socle": "1.22"
 				}
 			}
+		},
+		"arbres-de-place": {
+			"genre": "decor",
+			"nom": "Les arbres de la place",
+			"description": "Les arbres d'une place du nord, en touffes vert tendre : le tilleul rond, le bouleau blanc à taches noires, le marronnier large, la boule taillée sur sa tige et l'if en cône, chacun par graine, au pied nu, en grille de fonte ou dans une bordure fleurie. Tirés de l'inspiration d'ambiance de Guillaume.",
+			"auteur": "Smarves · d'après une inspiration de Guillaume",
+			"licence": "celle du jeu",
+			"versions": {
+				"1": {
+					"scene": "res://bibliotheque/arbres-de-place/1/arbre.tscn",
+					"apercu": "res://bibliotheque/arbres-de-place/1/apercu.png",
+					"socle": "1.25"
+				}
+			}
+		},
+		"mobilier-de-place": {
+			"genre": "decor",
+			"nom": "Le mobilier de la place",
+			"description": "Le mobilier et les plantes d'une place du nord : la fontaine à la statue encapuchonnée, le banc de bois et de fonte, le lampadaire à deux lanternes, l'étal du marché, la charrette du marchand, les tonneaux et les caisses, la table de café et ses chaises, la jardinière fleurie, le pot taillé, le massif de rosiers, la corbeille et le poteau indicateur. Tirés de l'inspiration d'ambiance de Guillaume.",
+			"auteur": "Smarves · d'après une inspiration de Guillaume",
+			"licence": "celle du jeu",
+			"versions": {
+				"1": {
+					"scene": "res://bibliotheque/mobilier-de-place/1/objet.tscn",
+					"apercu": "res://bibliotheque/mobilier-de-place/1/apercu.png",
+					"socle": "1.25"
+				}
+			}
+		},
+		"facadier-des-flandres": {
+			"genre": "decor",
+			"nom": "Le façadier des Flandres",
+			"description": "Une maison de ville du nord composée par type et graine : six pignons (à volutes, à gradins, en cloche, à pointe, arrondi, mansardé), des enduits pastel chaînés de pierre, les fenêtres blanches cintrées, l'oculus, les balcons fleuris, la boutique à store rayé ou le passage voûté, la tuile orange ou l'ardoise et les cheminées. Tiré de l'inspiration d'ambiance de Guillaume.",
+			"auteur": "Smarves · d'après une inspiration de Guillaume",
+			"licence": "celle du jeu",
+			"versions": {
+				"1": {
+					"scene": "res://bibliotheque/facadier-des-flandres/1/maison.tscn",
+					"apercu": "res://bibliotheque/facadier-des-flandres/1/apercu.png",
+					"socle": "1.25"
+				}
+			}
 		}
 	}
 }
