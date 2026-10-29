@@ -10,7 +10,7 @@ extends RefCounted
 const SKEL := "Skeleton3D:"
 
 ## Poses de fond (en boucle).
-const BASE := ["idle", "attentive", "stand_table", "behind_back", "bar", "sing", "walk", "run", "sit", "sit_table", "piano"]
+const BASE := ["idle", "attentive", "stand_table", "behind_back", "bar", "sing", "walk", "run", "sit", "sit_table", "piano", "velo"]
 ## Gestes du haut du corps (une fois).
 const GESTURES := ["talk", "wave", "cheer", "sulk", "shrug", "clap", "bet", "deal", "spin", "rake", "pay", "nod", "bow",
 	"scratch", "look_watch", "drink", "point", "facepalm"]
@@ -286,6 +286,24 @@ static func _specs() -> Dictionary:
 		"forearm_r": [[0.0, V(-44, 0, 8)], [0.25, V(-40, 0, 8)], [0.5, V(-46, 0, 8)], [0.75, V(-40, 0, 8)], [1.0, V(-44, 0, 8)]],
 		"hand": [[0.0, V(20)], [0.125, V(30)], [0.25, V(20)], [0.375, V(30)], [0.5, V(20)], [0.625, V(28)], [0.75, V(20)], [0.875, V(30)], [1.0, V(20)]],
 	}), "pos": {"root": [[0.0, V(0)]]}}
+
+	# En selle sur un vélo de course (Peloton) : penché sur le guidon, les mains en bas, la tête relevée vers la
+	# route, et les jambes qui tournent les pédales, un tour en 0,66 s (90 tours par minute).
+	s.velo = {"len": 0.66, "rot": {
+		"hips": [[0.0, V(0)]],
+		"spine": [[0.0, V(72, 0, 1.5)], [0.33, V(72, 0, -1.5)], [0.66, V(72, 0, 1.5)]],
+		"chest": [[0.0, V(14)]],
+		"head": [[0.0, V(-70)]],
+		"arm": [[0.0, V(-104, 0, -1)]],
+		"forearm": [[0.0, V(-12, 0, -6)]],
+		"hand": [[0.0, V(10)]],
+		"thigh_l": [[0.0, V(-70)], [0.165, V(-55)], [0.33, V(-25)], [0.495, V(-45)], [0.66, V(-70)]],
+		"thigh_r": [[0.0, V(-25)], [0.165, V(-45)], [0.33, V(-70)], [0.495, V(-55)], [0.66, V(-25)]],
+		"shin_l": [[0.0, V(100)], [0.165, V(55)], [0.33, V(35)], [0.495, V(85)], [0.66, V(100)]],
+		"shin_r": [[0.0, V(35)], [0.165, V(85)], [0.33, V(100)], [0.495, V(55)], [0.66, V(35)]],
+		"foot": [[0.0, V(5)]],
+		"tail": [[0.0, V(35)]],
+	}, "pos": {"root": [[0.0, V(0)]]}}
 
 	# --- Gestes du haut du corps.
 	s.talk = {"len": 2.4, "rot": {
