@@ -84,6 +84,11 @@ func _ready() -> void:
 	ville.name = "Ville"
 	ville.scale = Vector3.ONE / U
 	add_child(ville)
+	# parti pris de la planche : le premier plan au sud du square est abaissé à quatre niveaux, pour que la vue
+	# d'ensemble passe par-dessus ses toits jusqu'au sable et aux bancs
+	for bt in data.batiments:
+		if Rect2(-22.0, 46.0, 66.0, 34.0).has_point(Vector2(bt.rect[0], bt.rect[1]) * U):
+			bt.h = minf(bt.h, 17.5 / U)
 	_niveler()
 	_ciel()
 	_terrain()
