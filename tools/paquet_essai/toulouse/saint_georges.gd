@@ -606,8 +606,8 @@ static func _terre_pleins(racine: Node3D) -> void:
 			porteur.transform = Transform3D(Basis().scaled(Vector3.ONE / UNITE), Vector3(centre.x, 0.0, centre.y))
 			groupe.add_child(porteur)
 			tou.poser(porteur, Vector3.ZERO, "bac_vegetal", 4507 + k * 31, {"forme": "polygone", "points": points,
-				"hauteur": 0.6, "terre": 0.6 - PELOUSE, "plantation": "buis", "fleurs": fleurs[k % fleurs.size()]})
-		# Le bac de la bibliothèque est planté de buis (sa plantation dense est encore trop lente à bâtir) ; les
+				"hauteur": 0.6, "terre": 0.6 - PELOUSE, "plantation": "dense", "fleurs": fleurs[k % fleurs.size()]})
+		# Le bac de la bibliothèque est planté en massif dense (plantation dense, semée selon son aire réelle) ; les
 		# taches de fleurs par espèce s'y ajoutent, plus espacées.
 		var veg_buis: Script = _brique("vegetation-lyonnaise@1", "plante.gd")
 		for k in TERRE_PLEINS.size():
