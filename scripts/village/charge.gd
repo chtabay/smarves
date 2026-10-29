@@ -6,6 +6,8 @@ extends "res://scripts/shop_interior.gd"
 ## ou l'on lit la cote, et la fenêtre de la bourse s'ouvre (scripts/socle/bourse_panel.gd).
 ## Capture : godot --path . res://scenes/bourse.tscn -- --capture=sortie.png --bourse-essai [--at=x,z,lacet,tangage]
 ## [--open=cote] [--ordre=cac40]
+## Une commune déclare sa propre charge (structure « charge », socle 1.27) : scripts/socle/charge.gd hérite de
+## celle-ci et change l'agent, ses paroles, l'enseigne, son visage et la porte du retour.
 
 const COTE := preload("res://scripts/socle/bourse_panel.gd")
 const HOTE := "Mme Vasseur"
@@ -25,6 +27,11 @@ const KX := -3.0
 const BY := 3.05
 const HORLOGES := [["PARIS", "cac40"], ["NEW YORK", "sp500"], ["TOKYO", "nikkei"]]
 
+## L'agent, le nom du lieu, ses paroles et l'enseigne de la cote : ceux de Mme Vasseur, sauf dans une commune.
+var hote := HOTE
+var nom := NOM
+var paroles: Array = PAROLES
+var enseigne := "Vasseur & Cie"
 var _lignes := {}
 var _heures: Array = []
 var _ruban: Label3D
@@ -64,7 +71,7 @@ func _build_keeper() -> void:
 	_keeper.position = Vector3(KX, ESTRADE, -D / 2.0 + 1.3)
 	add_child(_keeper)
 	var c := CRITTER.new()
-	c.look = Cast.NAMED.vasseur.duplicate(true)
+	_visage(c)
 	c.idle_anim = "attentive"
 	c.scale = Vector3.ONE * PEOPLE_SCALE
 	_keeper.add_child(c)
@@ -89,7 +96,12 @@ func _build_keeper() -> void:
 	_cyl(0.02, 0.3, Vector3(KX + 0.9, 1.25, z), laiton)
 	_box(Vector3(0.42, 0.09, 0.16), Vector3(KX + 0.9, 1.42, z + 0.03), shade)
 	_lamp(Vector3(KX + 0.9, 1.3, z + 0.1), Color(1.0, 0.85, 0.6), 1.0, 3.0)
-	_interactive(_keeper, "keeper", "E : parler à Mme Vasseur", Vector3(1.4, 2.2, 2.6), Vector3(0, 1.1, 1.3))
+	_interactive(_keeper, "keeper", "E : parler à %s" % hote, Vector3(1.4, 2.2, 2.6), Vector3(0, 1.1, 1.3))
+
+
+## Le visage de l'agent : celui de Mme Vasseur, dessiné pour elle (scripts/cast.gd).
+func _visage(c: Node3D) -> void:
+	c.look = Cast.NAMED.vasseur.duplicate(true)
 
 
 ## Le tableau de cotation, les horloges, le téléscripteur, les fauteuils des clients.
@@ -206,11 +218,11 @@ func _process(delta: float) -> void:
 
 
 func _place_name() -> String:
-	return NOM
+	return nom
 
 
 func say(text: String) -> void:
-	_speech.text = "%s : %s" % [HOTE, text]
+	_speech.text = "%s : %s" % [hote, text]
 	_speech.modulate.a = 1.0
 	if _speech_tween:
 		_speech_tween.kill()
@@ -222,12 +234,9 @@ func say(text: String) -> void:
 func _on_interact(target: Node) -> void:
 	match str(target.get_meta("interact", "")):
 		"exit":
-			# On ressort devant l'ancien local « Prochainement » (Village.lots).
-			Game.return_point = "lot_reserve"
-			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-			Chargement.changer("res://scenes/main.tscn")
+			_sortir()
 		"keeper":
-			say(PAROLES.pick_random())
+			say(paroles.pick_random())
 			var keeper := _keeper.get_child(0)
 			if keeper.has_method("gesture"):
 				keeper.gesture("talk")
@@ -237,6 +246,13 @@ func _on_interact(target: Node) -> void:
 			open_vitrine()
 		"telescripteur":
 			say(_depeche())
+
+
+## On ressort devant l'ancien local « Prochainement » (Village.lots).
+func _sortir() -> void:
+	Game.return_point = "lot_reserve"
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	Chargement.changer("res://scenes/main.tscn")
 
 
 ## Ce que dit le ruban : la valeur qui a le plus bougé à la dernière séance.
@@ -268,6 +284,8 @@ func open_vitrine() -> void:
 	if _panel != null:
 		return
 	var p: PanelContainer = COTE.new()
+	p.agent = hote
+	p.enseigne = enseigne
 	p.spoke.connect(say)
 	p.closed.connect(func():
 		p.queue_free()
@@ -307,7 +325,7 @@ func _maybe_capture() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	if open:
 		await get_tree().create_timer(1.0).timeout
-		say(PAROLES[0])
+		say(paroles[0])
 		open_vitrine()
 		if ordre != "":
 			_panel.ouvrir_ordre(ordre)

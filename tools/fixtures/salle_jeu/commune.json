@@ -9,7 +9,8 @@
 	"scene": "res://communes/essai_salle/commune.tscn",
 	"arrivee": {"lot": "place", "par": ["smarves"]},
 	"lieux": [
-		{"id": "cercle", "nom": "Le cercle", "jeu": "le baccara", "seuil": 40000, "hote": "Le président du cercle"}
+		{"id": "cercle", "nom": "Le cercle", "jeu": "le baccara", "seuil": 40000, "hote": "Le président du cercle"},
+		{"id": "change", "nom": "La charge Dumoulin", "jeu": "la bourse", "seuil": 20000, "hote": "Mme Dumoulin"}
 	],
 	"structures": [
 		{"type": "salle_jeu", "id": "tripot", "nom": "Le tripot de la gare", "noeud": "PorteTripot", "lot": "place",
@@ -17,6 +18,9 @@
 		 "tenancier": "Mme Rivière", "graine": 17, "decor": "cafe", "enseigne": "Au Tripot", "guichet": true,
 		 "repliques": ["« Ici on mise petit, mais on mise souvent. »"]},
 		{"type": "salle_jeu", "id": "cercle", "nom": "Le cercle", "jeux": ["baccara"], "decor": "salle"},
+		{"type": "charge", "id": "change", "nom": "La charge de Mme Dumoulin, agent de change", "lot": "place",
+		 "agent": "Mme Dumoulin", "graine": 41, "enseigne": "Dumoulin & Fils",
+		 "repliques": ["« La gare a ses horaires, la Bourse aussi. »"]},
 		{"type": "commerce", "id": "mercerie", "nom": "La mercerie de la gare", "lot": "place", "genre": "tenue",
 		 "tenancier": "Mme Aubin", "graine": 23, "enseigne": "Mercerie Aubin",
 		 "repliques": ["« Un voyageur bien mis trouve toujours une place assise. »"],

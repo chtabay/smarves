@@ -55,10 +55,12 @@ const TYPES := {
 	# nomme son tenancier et ses jeux, le socle pose les tables et fait tourner les jeux de Smarves.
 	# « modele » (socle 1.22) : le décor de la salle, une brique de la bibliothèque (« bar-des-sports@1 ») ou une
 	# scène de la commune, branché par ses ancres (Ancres.SALLE_JEU) à la place de la pièce du socle.
+	# « paris » (socle 1.26) : le tenancier prend aussi les paris du championnat de la Vienne (autoload Paris), au
+	# même comptoir que Josiane au café de Smarves.
 	"salle_jeu": {
 		"nom": "la salle de jeu",
 		"champs": {"jeux": TYPE_ARRAY, "tenancier": TYPE_STRING, "graine": TYPE_FLOAT, "decor": TYPE_STRING,
-			"repliques": TYPE_ARRAY, "enseigne": TYPE_STRING, "guichet": TYPE_BOOL, "modele": TYPE_STRING},
+			"repliques": TYPE_ARRAY, "enseigne": TYPE_STRING, "guichet": TYPE_BOOL, "modele": TYPE_STRING, "paris": TYPE_BOOL},
 		"requis": ["jeux"],
 		"unique": false,
 		"relie": "rien : c'est un lieu de la commune, le lieu du manifeste de même id lui donne son seuil",
@@ -72,6 +74,15 @@ const TYPES := {
 		"requis": ["genre", "articles"],
 		"unique": false,
 		"relie": "rien : ses articles entrent au catalogue de Biens sous « <commune>/<id> »",
+	},
+	# Socle 1.27. Une charge d'agent de change tenue par le socle (scripts/socle/charge.gd) : la commune nomme son agent,
+	# ses paroles et son enseigne ; c'est la bourse de Mme Vasseur (autoload Bourse), mêmes cours, mêmes positions.
+	"charge": {
+		"nom": "la charge d'agent de change",
+		"champs": {"agent": TYPE_STRING, "graine": TYPE_FLOAT, "repliques": TYPE_ARRAY, "enseigne": TYPE_STRING},
+		"requis": ["agent"],
+		"unique": true,
+		"relie": "la bourse à levier : les mêmes cours, tenus au serveur, et les positions du compte, d'une charge à l'autre",
 	},
 	# Socle 1.24. Une salle où l'on joue à deux (scripts/socle/salle_duo.gd) : la commune nomme ses variantes ;
 	# l'appariement, les tarifs, la prime et la plaque sont tenus par le serveur, qui connaît la salle par son id.
@@ -182,7 +193,7 @@ static func verifier(liste: Variant) -> PackedStringArray:
 		if t == "salle_duo":
 			if typeof(s.get("variantes")) == TYPE_ARRAY and s.variantes.any(func(v): return typeof(v) != TYPE_STRING or RegEx.create_from_string("^[a-z0-9_]{1,24}$").search(v) == null):
 				erreurs.append("structure %s : chaque variante est un id de 1 à 24 caractères (a-z, 0-9, « _ »)" % id)
-		if t in ["salle_jeu", "commerce"] and typeof(s.get("repliques")) == TYPE_ARRAY and s.repliques.any(func(r): return typeof(r) != TYPE_STRING):
+		if t in ["salle_jeu", "commerce", "charge"] and typeof(s.get("repliques")) == TYPE_ARRAY and s.repliques.any(func(r): return typeof(r) != TYPE_STRING):
 			erreurs.append("structure %s : « repliques » est une liste de phrases" % id)
 		if t == "commerce":
 			erreurs.append_array(load("res://scripts/socle/articles.gd").verifier(s, articles))

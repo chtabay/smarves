@@ -1,0 +1,27 @@
+name: Inscription PostgreSQL
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  inscription:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - run: npm install --no-save --package-lock=false --ignore-scripts pg@8.23.1
+      - run: node supabase/tests/inscription-pg.mjs
+        env:
+          SMARVES_TEST_PG_ADMIN_URL: postgres://postgres@127.0.0.1:5432/postgres
