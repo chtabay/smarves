@@ -103,6 +103,7 @@ La salle de jeu :
 | `Table1`, `Table2`… `Table9` | la première | une table du casino par jeu de la structure, dans l'ordre : l'ancre au sol, au centre de la table, son +Z vers la place du joueur. Un jeu sans ancre n'est pas posé. |
 | `Guichet` | non | le banquier de la commune, si la salle a un `guichet` |
 | `Enseigne` | non | l'enseigne de la salle (`enseigne`, sinon son nom) |
+| `Paris` | non | socle 1.26 : le carnet des paris, posé sur le comptoir (l'ancre à la hauteur du zinc, lisible depuis son +Z), si la salle prend les `paris`. Sans elle, on parie auprès du tenancier lui-même. |
 
 L'étude :
 

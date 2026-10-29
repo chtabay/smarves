@@ -55,10 +55,12 @@ const TYPES := {
 	# nomme son tenancier et ses jeux, le socle pose les tables et fait tourner les jeux de Smarves.
 	# « modele » (socle 1.22) : le décor de la salle, une brique de la bibliothèque (« bar-des-sports@1 ») ou une
 	# scène de la commune, branché par ses ancres (Ancres.SALLE_JEU) à la place de la pièce du socle.
+	# « paris » (socle 1.26) : le tenancier prend aussi les paris du championnat de la Vienne (autoload Paris), au
+	# même comptoir que Josiane au café de Smarves.
 	"salle_jeu": {
 		"nom": "la salle de jeu",
 		"champs": {"jeux": TYPE_ARRAY, "tenancier": TYPE_STRING, "graine": TYPE_FLOAT, "decor": TYPE_STRING,
-			"repliques": TYPE_ARRAY, "enseigne": TYPE_STRING, "guichet": TYPE_BOOL, "modele": TYPE_STRING},
+			"repliques": TYPE_ARRAY, "enseigne": TYPE_STRING, "guichet": TYPE_BOOL, "modele": TYPE_STRING, "paris": TYPE_BOOL},
 		"requis": ["jeux"],
 		"unique": false,
 		"relie": "rien : c'est un lieu de la commune, le lieu du manifeste de même id lui donne son seuil",
