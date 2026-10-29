@@ -356,12 +356,12 @@ func _tour() -> void:
 		pinacle(Vector3(sx * TOUR, 25.0, zf), 1.2, 6.5)
 	# Le portail : l'arc brisé profond, ses voussures, les vantaux de chêne, le tympan et sa statue.
 	var portail := Transform3D(Basis(), Vector3(0, 0, zf))
-	var vous := 3
+	var vous := 5
 	var piedroit := 5.0
 	for k in vous:
 		# De la voussure la plus large, en avant, à la plus étroite, contre la tour.
-		var l := 5.2 + 0.9 * (vous - 1 - k)
-		var z := 0.45 * (vous - 1 - k)
+		var l := 5.2 + 0.6 * (vous - 1 - k)
+		var z := 0.32 * (vous - 1 - k)
 		bande(portail * Transform3D(Basis(), Vector3(0, 0, z)), ogive(l + 1.0, piedroit, (l + 1.0) * 0.55), ogive(l, piedroit, l * 0.55), 0.0, 0.45, C if k % 2 == 0 else OMBRE)
 	var fond := portail
 	var tymp := ogive(5.2, piedroit, 5.2 * 0.55)
@@ -402,6 +402,20 @@ func _tour() -> void:
 	# Deuxième étage : deux baies jumelles de chaque côté du gâble, la galerie aveugle.
 	for s: float in [-1.0, 1.0]:
 		baie(Transform3D(Basis(), Vector3(s * 3.5, 16.0, zf - 0.3)), 1.1, 3.4, 1)
+		# Au-dessus du gâble, deux hautes lancettes jumelles sous un arc commun : le deuxième registre de la
+		# planche, qui tient le milieu de la tour.
+		baie(Transform3D(Basis(), Vector3(s * 0.85, 16.6, zf - 0.3)), 1.15, 5.2, 1)
+	bande(Transform3D(Basis(), Vector3(0, 16.6, zf - 0.3)), ogive(4.6, 5.3, 4.6 * 0.75), ogive(3.9, 5.3, 3.9 * 0.75), 0.0, 0.32, OMBRE)
+	# La frise d'arcatures aveugles sous le cordon du beffroi, sur les quatre faces.
+	for face in 4:
+		var bf := Basis(Vector3.UP, face * PI * 0.5)
+		var demi_f := (TOUR - 0.3) if face % 2 == 0 else (prof - 0.6) * 0.5
+		var cf := Vector3(0, 23.4, zm) + bf * Vector3(0, 0, (prof - 0.6) * 0.5 if face % 2 == 0 else TOUR - 0.3)
+		var nf := int(demi_f * 2.0 / 0.9)
+		for k in nf:
+			var x := -demi_f + 0.45 + k * (demi_f * 2.0 - 0.9) / maxf(nf - 1, 1)
+			bande(Transform3D(bf, cf + bf * Vector3(x, 0, 0)), ogive(0.8, 0.7, 0.5), ogive(0.56, 0.7, 0.34), 0.0, 0.12, OMBRE)
+	for s: float in [-1.0, 1.0]:
 		for k in 2:
 			baie(Transform3D(Basis(Vector3.UP, s * PI * 0.5), Vector3(s * (TOUR - 0.3), 16.0, zm + (k - 0.5) * 3.6)), 1.1, 3.4, 1)
 	# Le beffroi : trois hautes baies à abat-son sur chaque face.

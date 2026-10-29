@@ -175,21 +175,22 @@ func _bordures() -> void:
 			o.quad(Vector3(q0.x, y0 + 0.155, q0.y), Vector3(q1.x, y1 + 0.155, q1.y), Vector3(r1.x, y1 + 0.155, r1.y), Vector3(r0.x, y0 + 0.155, r0.y), Vector3.UP, t, OUTILS.PEINT)
 
 
-## Les deux rangs d'arbres du stationnement, sur les trottoirs, au bout des places (arbres-d-ombriere@1,
+## Le rang d'arbres du stationnement, sur le trottoir côté place, au bout des places (arbres-d-ombriere@1,
 ## repeints du vert posé de la planche).
 func _arbres(parent: Node3D) -> void:
 	var scene: PackedScene = load(Bibliotheque.scene("arbres-d-ombriere@1", "decor"))
 	var d := (ALLEE_B - ALLEE_A).normalized()
 	var nrm := Vector2(-d.y, d.x)
 	var longueur := ALLEE_A.distance_to(ALLEE_B)
-	for cote: float in [-1.0, 1.0]:
+	# Un seul rang, côté place : deux rangs serrés faisaient une chenille (verdict n° 6).
+	for cote: float in [1.0]:
 		for k in ARBRES_PAR_RANG:
 			var v := ALLEE_A + d * (1.5 + k * (longueur - 3.0) / (ARBRES_PAR_RANG - 1)) + nrm * cote * 9.4
 			var g := 700 + k + (10 if cote > 0.0 else 0)
 			var t: Node3D = scene.instantiate()
 			t.set("arbre", "micocoulier")
 			t.set("graine", g)
-			t.set("options", {"hauteur": 10.5 + float(k % 3) * 0.6})
+			t.set("options", {"hauteur": 8.0 + float(k % 3) * 0.5})
 			t.position = Vector3(v.x, hauteur.call(v.x, v.y) + 0.1, v.y)
 			t.rotation.y = float(g) * 0.37
 			parent.add_child(t)

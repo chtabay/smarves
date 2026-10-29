@@ -12,7 +12,7 @@ uniform vec4 cadre_loin = vec4(-18000.0, -18000.0, 18000.0, 18000.0);
 // Les pentes de la crête du Mont du Chat à 25 m (tools/roche_reelle.py --pente), 3 niveaux par degré.
 uniform sampler2D pente_crete : filter_linear, repeat_disable;
 uniform vec4 cadre_crete = vec4(8000.0, -6000.0, 13000.0, 15000.0);
-uniform float seuil_barre = 42.0;
+uniform float seuil_barre = 50.0;
 uniform float roche_pente = 0.6;   // sous ce cos de pente, la roche apparaît
 uniform float roche_pleine = 0.45;  // et couvre tout
 uniform float loin = 0.0;           // 1 sur les lointains : moins de grain, plus de lavis
@@ -30,7 +30,7 @@ const vec3 CIEL_REFLET = vec3(0.50, 0.63, 0.74);
 const vec3 ROUTE = vec3(0.53, 0.50, 0.47);
 const vec3 ROCHE = vec3(0.60, 0.59, 0.55);
 const vec3 ROCHE_OMBRE = vec3(0.40, 0.40, 0.38);
-const vec3 ROCHE_LOIN = vec3(0.84, 0.80, 0.70);
+const vec3 ROCHE_LOIN = vec3(0.64, 0.61, 0.54);
 
 varying vec3 monde;
 varying vec3 normale;
@@ -125,7 +125,7 @@ vec3 jardins(vec2 xz, float g) {
 	col = mix(col, vec3(0.24, 0.36, 0.17), massif * 0.8 * step(h, 0.3));
 	// La haie (ou le muret) en limite de parcelle, et son ombre portée d'un côté.
 	float haie = 1.0 - smoothstep(0.7, 1.1, bord);
-	vec3 limite = h21(cel + 9.0) < 0.7 ? vec3(0.20, 0.31, 0.15) : vec3(0.80, 0.75, 0.64);
+	vec3 limite = h21(cel + 9.0) < 0.7 ? vec3(0.20, 0.31, 0.15) : vec3(0.66, 0.60, 0.49);
 	col = mix(col, col * 0.62, (1.0 - smoothstep(1.1, 2.4, f.y)) * 0.8);
 	col = mix(col, limite, haie);
 	// Des teintes sourdes, comme les cœurs d'îlot de la planche, pas un damier vert vif (verdict n° 5).
@@ -211,12 +211,18 @@ void fragment() {
 			float pente = texture(pente_crete, uc).r * 255.0 / 3.0;
 			rw = smoothstep(seuil_barre - 2.0, seuil_barre + 2.0, pente + bord * 8.0);
 		}
+		// La barre ne couronne que le haut du versant, et la forêt la découpe en tronçons (verdict n° 6).
+		rw *= smoothstep(680.0, 860.0, monde.y + bord * 60.0) * smoothstep(0.38, 0.5, fbm(xz * 0.012 + 31.0));
 		// Et seulement là où le maillage se redresse : la barre suit les courbes du versant, pas les cases.
 		float raide = 1.0 - smoothstep(0.72, 0.9, normale.y + bord * 0.15);
 		col = mix(col, roche(xz, monde.y, g, g2, pres, pr), smoothstep(0.42, 0.5, rw * raide + bord * 0.3));
 	}
 	// Là où le maillage lui-même se redresse (une barre plus raide que la carte), la roche affleure aussi.
 	float r = 1.0 - smoothstep(roche_pleine, roche_pente, normale.y + (g - 0.5) * 0.12);
+	// Sur la rive savoyarde, comme la barre relevée : en haut du versant seulement, découpée par la forêt
+	// (verdicts n° 5 et 6) ; le talus raide du bord du Rhône reste boisé. Les falaises du Bugey ne changent pas.
+	float coupe = fbm(xz * 0.012 + 31.0);
+	if (xz.x > 7300.0) r *= smoothstep(680.0, 860.0, monde.y + (coupe - 0.5) * 120.0) * smoothstep(0.38, 0.5, coupe);
 	col = mix(col, roche(xz, monde.y, g, g2, pres, pr), r * 0.8);
 	// L'eau prend le ciel, d'autant plus qu'on la voit en rasant ; des rides plus claires la parcourent.
 	float rasant = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);
