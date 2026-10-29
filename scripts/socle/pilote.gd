@@ -91,6 +91,10 @@ func _ready() -> void:
 		pr.etat_change.connect(_on_etat_change)
 	if "--pilote" in OS.get_cmdline_user_args():
 		actif = true
+		# Dès le lancement : une image en rendu logiciel dure si longtemps que le catalogue du portail
+		# (Communes) attendait plus que son délai, et les villes publiées ne s'installaient pas.
+		if DisplayServer.get_name() != "headless":
+			RenderingServer.render_loop_enabled = false
 		var reseau: Node = load("res://scripts/socle/pilote_reseau.gd").new()
 		reseau.name = "Reseau"
 		add_child(reseau)

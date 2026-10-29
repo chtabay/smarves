@@ -67,17 +67,25 @@ def lire_json(chemin):
 
 
 def commune_vienne(insee):
+    """La commune `insee` : dans communes/vienne.json, sinon dans le fichier de son département
+    (communes/departements/<dép>.json, qui porte le nom du département dans son champ « nom »)."""
     for c in lire_json(os.path.join(RACINE, "communes", "vienne.json"))["communes"]:
         if c["insee"] == insee:
-            return c
+            return dict(c, departement="Vienne")
+    chemin = os.path.join(RACINE, "communes", "departements", "%s.json" % insee[:2])
+    if os.path.exists(chemin):
+        dep = lire_json(chemin)
+        for c in dep["communes"]:
+            if c["insee"] == insee:
+                return dict(c, departement=dep["nom"])
     return None
 
 
-def centre_du_bourg(nom, insee, cache):
+def centre_du_bourg(nom, insee, cache, departement="Vienne"):
     """Le centre du bourg : le lieu « ville » ou « village » d'OpenStreetMap qui porte le nom de la
     commune (le clocher, d'ordinaire), par Nominatim ; à défaut, le centre de la commune dans
-    communes/vienne.json, qui tombe souvent en pleine campagne."""
-    q = urllib.parse.urlencode({"q": "%s, Vienne, France" % nom, "format": "json", "limit": 5,
+    communes/vienne.json (ou celui de son département), qui tombe souvent en pleine campagne."""
+    q = urllib.parse.urlencode({"q": "%s, %s, France" % (nom, departement), "format": "json", "limit": 5,
                                 "featuretype": "settlement"})
     try:
         for r in json.loads(telecharger("https://nominatim.openstreetmap.org/search?" + q, cache, "centre_%s.json" % insee)):
@@ -112,7 +120,7 @@ def reglages(ident, args):
     insee = opts.get("insee") or cfg.get("insee") or (lire_json(manifeste).get("insee") if os.path.exists(manifeste) else None)
     c = commune_vienne(str(insee)) if insee else None
     if c is None:
-        raise SystemExit("code INSEE inconnu dans la Vienne : %s (--insee=86xxx)" % insee)
+        raise SystemExit("code INSEE inconnu : %s (ni dans communes/vienne.json, ni dans communes/departements/)" % insee)
     cache = opts.get("cache") or os.path.join(RACINE, "build", "bourg_reel", ident)
     os.makedirs(cache, exist_ok=True)
     if "centre" in opts:
@@ -120,7 +128,7 @@ def reglages(ident, args):
     elif "centre" in cfg:
         centre = tuple(cfg["centre"])
     else:
-        centre = centre_du_bourg(c["nom"], c["insee"], cache)
+        centre = centre_du_bourg(c["nom"], c["insee"], cache, c["departement"])
     if "cadre" in opts:
         cadre = tuple(float(x) for x in opts["cadre"].split(","))
     elif "cadre" in cfg and "rayon" not in opts:
