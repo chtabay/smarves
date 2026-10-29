@@ -19,8 +19,6 @@ const CAFE := Vector2(-4.5, -4.0)
 const CERCLE := Vector2(10.5, -19.0)
 ## Les rangs de platanes le long des façades : à moins de 4 unités (9,6 m) du bord de la place.
 const BORD := 4.0
-## Le centre du square Jean-Calas (le parterre et le jardin d'enfants).
-const SQUARE := Vector2(12.9, -5.6)
 ## Les portes des deux salles de jeu de la place : l'id de la structure, son nœud, ce que dit la porte.
 const PORTES := {
 	"trois_platanes": ["PorteTroisPlatanes", "Les Trois Platanes : le café de courses"],
@@ -29,6 +27,34 @@ const PORTES := {
 const PERSIENNES := ["9daa92", "e7ddc4", "8c9daa", "b9b2a0"]
 const TOILES := [["8c2f39", "f1e6cc"], ["f1e6cc", "f1e6cc"], ["2e7d5b", "f1e6cc"], ["8c2f39", "8c2f39"]]
 ## Les enseignes des cafés et des restaurants de la place : des maisons inventées (aucune enseigne réelle).
+## Les deux petits kiosques du plan au nord-ouest de la place (bâtiments 1166 et 1167) : ils tombent dans la rue
+## et n'existent plus (Guillaume, 29 octobre : « le bar du Tournesol est à supprimer »). Ni façade ni volume.
+const FANTOMES := [1166, 1167]
+## Les terre-pleins de la place, relevés sur la vue aérienne annotée par Guillaume (29 octobre) : le grand
+## massif du nord-ouest sous le gros platane, la bande courbe qui borde l'aire de jeux au nord, celui du
+## sud-ouest au débouché de la rue de la Pomme, la longue bande courbe de l'est, de la fontaine aux kiosques ;
+## puis les deux bacs qu'il a ajoutés (29 octobre, 21 h 23) : le L du nord, le long des façades, et le grand L
+## du sud-est, autour du restaurant. Un muret bas de pierre claire, la terre plantée juste sous son rebord, et
+## les platanes dedans.
+const TERRE_PLEINS := [
+	[Vector2(-6.9, -11.9), Vector2(-5.5, -12.4), Vector2(-4.5, -9.7), Vector2(-3.8, -7.7), Vector2(-2.9, -5.8), Vector2(-2.1, -4.0), Vector2(-3.2, -3.4), Vector2(-4.4, -3.0), Vector2(-5.5, -4.8), Vector2(-6.2, -6.5), Vector2(-7.2, -8.9), Vector2(-8.1, -11.2)],
+	[Vector2(-1.2, -13.9), Vector2(0.3, -12.6), Vector2(2.6, -13.1), Vector2(4.8, -12.9), Vector2(10.6, -13.7), Vector2(11.3, -13.9), Vector2(11.6, -13.2), Vector2(11.8, -12.7), Vector2(12.1, -12.3), Vector2(11.3, -11.8), Vector2(10.2, -11.2), Vector2(9.2, -10.8), Vector2(7.9, -10.1), Vector2(6.8, -9.7), Vector2(5.0, -10.8), Vector2(2.7, -11.1), Vector2(0.9, -10.9), Vector2(-0.6, -10.1), Vector2(-1.0, -11.0), Vector2(-1.2, -11.7), Vector2(-1.7, -12.8), Vector2(-2.0, -13.4)],
+	[Vector2(-3.3, -1.2), Vector2(-2.2, -1.5), Vector2(-1.1, -1.8), Vector2(0.1, 0.4), Vector2(1.3, 2.4), Vector2(2.2, 5.0), Vector2(1.5, 6.0), Vector2(0.8, 6.2), Vector2(-0.4, 6.8), Vector2(-1.2, 5.1), Vector2(-1.8, 3.4), Vector2(-2.4, 1.3)],
+	[Vector2(14.2, -7.0), Vector2(11.8, -5.9), Vector2(10.4, -5.2), Vector2(9.2, -4.4), Vector2(8.5, -2.2), Vector2(7.7, -1.1), Vector2(6.3, 0.2), Vector2(5.5, 0.9), Vector2(4.3, 1.6), Vector2(4.7, 2.5), Vector2(5.2, 3.6), Vector2(5.4, 4.4), Vector2(5.8, 5.2), Vector2(6.5, 4.8), Vector2(7.8, 4.3), Vector2(7.4, 3.3), Vector2(6.9, 2.2), Vector2(8.5, 1.3), Vector2(10.2, -0.9), Vector2(11.1, -3.2), Vector2(12.9, -4.2), Vector2(15.6, -5.3), Vector2(15.2, -6.3), Vector2(14.8, -7.4)],
+	[Vector2(-3.8, -17.0), Vector2(-2.0, -17.05), Vector2(-2.0, -15.7), Vector2(-2.2, -15.7), Vector2(-3.7, -16.3)],
+	[Vector2(2.8, -17.15), Vector2(9.7, -17.3), Vector2(10.9, -15.3), Vector2(9.9, -14.3), Vector2(8.9, -14.7), Vector2(7.6, -15.5), Vector2(2.8, -15.6)],
+	[Vector2(14.0, -2.5), Vector2(16.8, -3.7), Vector2(17.3, -3.4), Vector2(19.1, 1.8), Vector2(19.4, 2.7), Vector2(19.2, 3.1), Vector2(17.4, 4.5), Vector2(8.9, 10.0), Vector2(7.2, 10.1), Vector2(6.4, 8.7), Vector2(6.9, 7.6), Vector2(14.5, 3.3), Vector2(15.2, 2.1), Vector2(14.0, -1.3)],
+]
+## Les platanes des terre-pleins, sur la ligne médiane de chacun.
+const PLATANES_DES_TERRE_PLEINS := [Vector2(-6.3, -10.6), Vector2(-5.35, -8.0), Vector2(-4.2, -5.3), Vector2(-1.4, 0.3), Vector2(0.0, 4.0), Vector2(14.3, -6.3), Vector2(11.7, -4.7), Vector2(9.3, -1.9), Vector2(6.9, 1.0), Vector2(6.3, 3.9),
+	Vector2(-2.9, -16.5), Vector2(4.6, -16.4), Vector2(7.4, -16.4), Vector2(9.9, -15.4),
+	Vector2(15.8, -1.8), Vector2(17.0, 1.6), Vector2(14.0, 4.9), Vector2(10.5, 7.3), Vector2(7.6, 8.6)]
+## La hauteur de la terre des terre-pleins, en mètres : un bac planté, juste sous le rebord du muret (60 cm).
+const PELOUSE := 0.45
+## Le jardin d'enfants, dans l'aire de jeux réelle du nord (au milieu du L du nord, que le juge veut retrouver
+## comme dans la cible) : son centre en unités, portillon au sud. Il fait 9 m sur 7.
+const JARDIN := Vector2(0.4, -15.75)
+const JARDIN_DEMI := Vector2(1.95, 1.5)
 const ENSEIGNES := ["CAFÉ DES CAPITOULS", "LE PASTEL", "BAR DE LA BRIQUE", "AU CASSOULET", "LA VIOLETTE", "BAR DES ARCADES", "CHEZ PEYROLLES", "LE TOURNESOL", "LA GARONNETTE", "CAFÉ DU MIDI"]
 
 
@@ -47,6 +73,8 @@ static func batiments_composes(t) -> Dictionary:
 	var r := {}
 	var abords: PackedVector2Array = Geometry2D.offset_polygon(PackedVector2Array(t.PLACE_SAINT_GEORGES), ABORDS)[0]
 	for b in t.data.batiments:
+		if FANTOMES.has(int(b.i)):
+			continue
 		var poly: PackedVector2Array = t._horaire(b.poly)
 		var murs := []
 		for k in poly.size():
@@ -68,6 +96,7 @@ static func construire(t) -> void:
 	racine.name = "SaintGeorges"
 	t.add_child(racine)
 	_fronts(t, racine)
+	_terre_pleins(racine)
 	_platanes(t, racine)
 	_jardin(t, racine)
 	_mobilier(t, racine)
@@ -75,6 +104,7 @@ static func construire(t) -> void:
 	_fondre(racine, "Facades")
 	_fondre(racine, "Mobilier")
 	_fondre(racine, "Platanes")
+	_fondre(racine, "Bacs")
 
 
 # --- Les fronts -----------------------------------------------------------------------------------
@@ -370,8 +400,9 @@ static func _platanes(t, racine: Node3D) -> void:
 	for k in t.data.arbres.size():
 		var a: Array = t.data.arbres[k]
 		var p := Vector2(a[0], a[1])
-		if Geometry2D.is_point_in_polygon(p, place) and not _au_bord(t, p):
-			# Le centre ouvert de l'image cible : un grand tapis de pavés au soleil, sans arbre.
+		if Geometry2D.is_point_in_polygon(p, place) and not _garde(t, p):
+			# Le centre ouvert de l'image cible : un grand tapis de pavés au soleil, sans arbre ; les platanes de
+			# la place sont dans les terre-pleins.
 			continue
 		if Geometry2D.is_point_in_polygon(p, place) and ombriere != null:
 			# Le platane d'ombrière toulousain, son pied dans une fosse à grille posée sur le tapis de brique.
@@ -390,6 +421,17 @@ static func _platanes(t, racine: Node3D) -> void:
 			_eclaircir(porteur, clair)
 		elif t.batiment_en(p).is_empty() and Geometry2D.is_point_in_polygon(p, t.perimetre):
 			loin.append(p)
+	# Les platanes des terre-pleins, le pied dans la pelouse.
+	for k in PLATANES_DES_TERRE_PLEINS.size():
+		var p: Vector2 = PLATANES_DES_TERRE_PLEINS[k]
+		var porteur := Node3D.new()
+		porteur.transform = Transform3D(Basis(Vector3.UP, k * 2.3).scaled(Vector3.ONE / UNITE), Vector3(p.x, PELOUSE / UNITE, p.y))
+		groupe.add_child(porteur)
+		if ombriere != null:
+			ombriere.pousser(porteur, Vector3.ZERO, "platane", 700 + k, {"hauteur": 17.5 + (k % 3) * 0.8})
+		else:
+			veg.pousser(porteur, Vector3.ZERO, "platane", 700 + k, {"hauteur": 19.0 + (k % 3) * 0.9})
+			_eclaircir(porteur, clair)
 	# Les arbres du périmètre hors de la place : trois jeunes platanes modèles, en multimaillages par cases de
 	# 30 m, que le socle remplace au loin par leurs images (Lointain.imposteurs).
 	var modeles := []
@@ -425,15 +467,33 @@ static func _platanes(t, racine: Node3D) -> void:
 		n.free()
 
 
-## Vrai si un arbre de la place reste dans la disposition de l'image cible (Guillaume, 29 octobre) : en rang le
-## long des façades (à moins de BORD unités du bord de la place) ou autour du parterre du square Jean-Calas.
-static func _au_bord(t, p: Vector2) -> bool:
+## Vrai si un arbre du plan reste sur la place (Guillaume, 29 octobre) : le rang du nord, au bord de l'aire de
+## jeux, et ceux qui longent les façades (à moins de BORD unités du bord de la place), sauf s'ils tombent dans un
+## terre-plein ou trop près d'un platane des terre-pleins.
+static func _garde(t, p: Vector2) -> bool:
+	if not _libre(p, 0.3):
+		return false
+	for q in PLATANES_DES_TERRE_PLEINS:
+		if p.distance_to(q) < 3.5:
+			return false
+	if p.y < -12.5:
+		return true
 	var poly := PackedVector2Array(t.PLACE_SAINT_GEORGES)
 	for k in poly.size():
 		var q := Geometry2D.get_closest_point_to_segment(p, poly[k], poly[(k + 1) % poly.size()])
 		if q.distance_to(p) < BORD:
 			return true
-	return p.distance_to(SQUARE) < 6.5
+	return false
+
+
+## Vrai si le point est hors des terre-pleins et du jardin d'enfants, à `marge` unités près.
+static func _libre(p: Vector2, marge := 0.4) -> bool:
+	if absf(p.x - JARDIN.x) < JARDIN_DEMI.x + marge and absf(p.y - JARDIN.y) < JARDIN_DEMI.y + marge:
+		return false
+	for tp in TERRE_PLEINS:
+		if Geometry2D.is_point_in_polygon(p, Geometry2D.offset_polygon(PackedVector2Array(tp), marge)[0]):
+			return false
+	return true
 
 
 ## Remplace le feuillage de la brique par le feuillage clair de la place (même couleur par sommet, même vent).
@@ -448,7 +508,8 @@ static func _eclaircir(n: Node, clair: ShaderMaterial) -> void:
 
 # --- Le jardin d'enfants --------------------------------------------------------------------------
 
-## Le square Jean-Calas, au nord-est de la place : un muret de pierre à grille de fonte, un sol de sable, un
+## Le jardin d'enfants (au mobilier toulousain, dans l'aire de jeux du nord-ouest ; sinon, au lyonnais, sur le
+## square Jean-Calas du plan, au nord-est) : un muret de pierre à grille de fonte, un sol de sable, un
 ## portique et un toboggan, deux bancs tournés vers les jeux.
 static func _jardin(t, racine: Node3D) -> void:
 	var poly := PackedVector2Array()
@@ -459,16 +520,11 @@ static func _jardin(t, racine: Node3D) -> void:
 	if poly.size() < 3:
 		return
 	if _toulousain("mobilier-toulousain@1"):
-		# Le jardin d'enfants toulousain (muret de brique, grille, portique, toboggan), son portillon vers la
-		# place, à l'ouest.
-		var centre := Vector2.ZERO
-		for q in poly:
-			centre += q
-		centre /= poly.size()
-		_parterre(racine, Geometry2D.offset_polygon(poly, 0.4)[0], centre)
+		# Le jardin d'enfants toulousain (muret de brique, grille, portique, toboggan) dans l'aire de jeux réelle,
+		# au nord, entre les deux bras du L ; son portillon vers la place, au sud.
 		var porteur := Node3D.new()
 		porteur.name = "Jardin"
-		porteur.transform = Transform3D(Basis(Vector3.UP, -PI * 0.5).scaled(Vector3.ONE / UNITE), Vector3(centre.x, 0.0, centre.y))
+		porteur.transform = Transform3D(Basis().scaled(Vector3.ONE / UNITE), Vector3(JARDIN.x, 0.0, JARDIN.y))
 		racine.add_child(porteur)
 		_brique("mobilier-toulousain@1", "objet.gd").poser(porteur, Vector3.ZERO, "jardin_enfants", 31555)
 		return
@@ -525,45 +581,79 @@ static func _jardin(t, racine: Node3D) -> void:
 	o.construire(porteur, "SquareJeanCalas")
 
 
-## Le parterre du centre de la place (photos de Guillaume, 29 octobre) : une pelouse cernée d'un muret bas de
-## pierre claire, 60 cm à chaperon, ouvert à l'ouest face à la place et au sud vers la rue ; le jardin d'enfants
-## au milieu. Une disposition propre à la place, faite comme le sol, avec les outils du mobilier lyonnais.
-static func _parterre(racine: Node3D, poly: PackedVector2Array, centre: Vector2) -> void:
+## Les terre-pleins de la place (photos et vue aérienne de Guillaume, 29 octobre) : une pelouse cernée d'un
+## muret bas de pierre claire, 60 cm à chaperon. Une disposition propre à la place, faite comme le sol, avec les
+## outils du mobilier lyonnais.
+static func _terre_pleins(racine: Node3D) -> void:
 	var o = _brique("mobilier-lyonnais@1", "outils.gd").new(1762)
-	var herbe := Color("86ad52")
-	var tri := Geometry2D.triangulate_polygon(poly)
-	for k in range(0, tri.size(), 3):
-		var a := Vector3(poly[tri[k]].x * UNITE, 0.12, poly[tri[k]].y * UNITE)
-		var b := Vector3(poly[tri[k + 1]].x * UNITE, 0.12, poly[tri[k + 1]].y * UNITE)
-		var d := Vector3(poly[tri[k + 2]].x * UNITE, 0.12, poly[tri[k + 2]].y * UNITE)
-		o.tri(a, b, d, Vector3.UP, herbe.lightened(0.03 * (k % 3)))
-	var pierre := Color("d9cbae")
-	var chaperon := Color("e0d6c1")
-	for k in poly.size():
-		var a := poly[k] * UNITE
-		var b := poly[(k + 1) % poly.size()] * UNITE
-		var l := a.distance_to(b)
-		if l < 0.2:
-			continue
-		var u := (b - a) / l
-		var dir := ((a + b) * 0.5 / UNITE - centre).normalized()
-		# Les passages : 2,4 m au milieu des côtés ouest et sud, assez longs pour en avoir.
-		var morceaux := [[0.0, l]]
-		if l > 4.0 and (dir.x < -0.6 or dir.y > 0.75):
-			morceaux = [[0.0, l * 0.5 - 1.2], [l * 0.5 + 1.2, l]]
-		for m in morceaux:
-			var lm: float = m[1] - m[0]
-			if lm < 0.2:
-				continue
-			var c: Vector2 = a + u * (m[0] + lm * 0.5)
-			var bas := Basis(Vector3.UP, atan2(-u.y, u.x))
-			o.boite(Transform3D(bas, Vector3(c.x, 0.27, c.y)), Vector3(lm + 0.3, 0.54, 0.3), pierre, 0, true)
-			o.boite(Transform3D(bas, Vector3(c.x, 0.57, c.y)), Vector3(lm + 0.34, 0.07, 0.38), chaperon)
+	var veg: Script = _brique("vegetation-lyonnaise@1", "plante.gd")
+	var plantes := Node3D.new()
+	plantes.name = "Bacs"
+	racine.add_child(plantes)
+	for k in TERRE_PLEINS.size():
+		_parterre(o, PackedVector2Array(TERRE_PLEINS[k]), veg, plantes, k)
 	var porteur := Node3D.new()
-	porteur.name = "Parterre"
+	porteur.name = "TerrePleins"
 	porteur.scale = Vector3.ONE / UNITE
 	racine.add_child(porteur)
-	o.construire(porteur, "Parterre")
+	o.construire(porteur, "TerrePleins")
+
+
+## Un bac planté (verdict du juge sur la v0.4) : un massif dense d'arbustes et de fleurs qui dépassent le rebord,
+## la terre visible entre eux ; le muret de brique foraine sous une couvertine de pierre claire à arête vive.
+static func _parterre(o, poly: PackedVector2Array, veg: Script, plantes: Node3D, k: int) -> void:
+	var terre := Color("5d6b34")
+	var tri := Geometry2D.triangulate_polygon(poly)
+	for i in range(0, tri.size(), 3):
+		var a := Vector3(poly[tri[i]].x * UNITE, PELOUSE, poly[tri[i]].y * UNITE)
+		var b := Vector3(poly[tri[i + 1]].x * UNITE, PELOUSE, poly[tri[i + 1]].y * UNITE)
+		var d := Vector3(poly[tri[i + 2]].x * UNITE, PELOUSE, poly[tri[i + 2]].y * UNITE)
+		o.tri(a, b, d, Vector3.UP, terre.lightened(0.04 * (i % 3)))
+	# Les arbustes, à 1,2 m les uns des autres environ, sauf au pied des platanes.
+	var r := RandomNumberGenerator.new()
+	r.seed = 4507 + k * 31
+	var dedans: PackedVector2Array = Geometry2D.offset_polygon(poly, -0.28)[0]
+	var cadre := Rect2(poly[0], Vector2.ZERO)
+	for q in poly:
+		cadre = cadre.expand(q)
+	var pas := 0.62
+	var y := cadre.position.y + pas * 0.5
+	var rang := 0
+	while y < cadre.end.y:
+		var x := cadre.position.x + pas * (0.25 + 0.5 * (rang % 2))
+		while x < cadre.end.x:
+			var q := Vector2(x, y) + Vector2(r.randf_range(-0.15, 0.15), r.randf_range(-0.15, 0.15))
+			x += pas
+			if not Geometry2D.is_point_in_polygon(q, dedans):
+				continue
+			var pres := false
+			for t in PLATANES_DES_TERRE_PLEINS:
+				if q.distance_to(t) < 0.45:
+					pres = true
+			if pres:
+				continue
+			var n := Node3D.new()
+			n.transform = Transform3D(Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3.ONE / UNITE), Vector3(q.x, PELOUSE / UNITE, q.y))
+			plantes.add_child(n)
+			var opt := {"hauteur": r.randf_range(0.7, 1.15), "vent": 0.3}
+			if r.randf() < 0.45:
+				opt["fleurs"] = ["d9473b", "f4f0e6", "b06ad0", "d04a8a"][r.randi() % 4]
+			veg.pousser(n, Vector3.ZERO, "buisson", k * 997 + rang * 31 + int(x * 10.0), opt)
+		y += pas * 0.87
+		rang += 1
+	var brique := Color("a2624a")
+	var pierre := Color("d9cdb6")
+	for i in poly.size():
+		var a := poly[i] * UNITE
+		var b := poly[(i + 1) % poly.size()] * UNITE
+		var l := a.distance_to(b)
+		if l < 0.05:
+			continue
+		var u := (b - a) / l
+		var c := (a + b) * 0.5
+		var bas := Basis(Vector3.UP, atan2(-u.y, u.x))
+		o.boite(Transform3D(bas, Vector3(c.x, 0.27, c.y)), Vector3(l + 0.22, 0.54, 0.22), brique.lightened(0.04 * (i % 3) - 0.02), 0, true)
+		o.boite(Transform3D(bas, Vector3(c.x, 0.575, c.y)), Vector3(l + 0.25, 0.07, 0.25), pierre)
 
 
 # --- Le mobilier ----------------------------------------------------------------------------------
@@ -580,6 +670,8 @@ static func _mobilier(t, racine: Node3D) -> void:
 	groupe.scale = Vector3.ONE / UNITE
 	racine.add_child(groupe)
 	var poser := func(nom: String, p: Vector2, lacet: float, graine: int, opt := {}) -> void:
+		if not _libre(p):
+			return
 		var n := Node3D.new()
 		n.transform = Transform3D(Basis(Vector3.UP, lacet), Vector3(p.x, 0.0, p.y) * UNITE)
 		groupe.add_child(n)
@@ -651,6 +743,8 @@ static func _mobilier_toulousain(t, racine: Node3D) -> void:
 	groupe.scale = Vector3.ONE / UNITE
 	racine.add_child(groupe)
 	var poser := func(nom: String, p: Vector2, lacet: float, graine: int, opt := {}) -> void:
+		if not _libre(p):
+			return
 		var n := Node3D.new()
 		n.transform = Transform3D(Basis(Vector3.UP, lacet), Vector3(p.x, 0.0, p.y) * UNITE)
 		groupe.add_child(n)
@@ -701,7 +795,8 @@ static func _mobilier_toulousain(t, racine: Node3D) -> void:
 	# Les deux étals au sud-est, sous leur store vert et blanc.
 	poser.call("etal", Vector2(13.4, 6.6), deg_to_rad(-120.0), 3, {"toile": ["2e7d5b", "f1e6cc"]})
 	poser.call("etal", Vector2(11.6, 8.0), deg_to_rad(-120.0), 5, {"toile": ["2e7d5b", "f1e6cc"]})
-	# Les lanternes à six pans, au bord du tapis de brique, déjà allumées : le soir tombe.
+	# Les lanternes à six pans, au bord du tapis de brique, éteintes : il fait encore grand jour (Guillaume,
+	# 29 octobre : pas d'éclats).
 	var poly := PackedVector2Array(t.PLACE_SAINT_GEORGES)
 	var tour := 0.0
 	for k in poly.size():
@@ -715,7 +810,7 @@ static func _mobilier_toulousain(t, racine: Node3D) -> void:
 		var l := a.distance_to(b)
 		var u := (b - a) / l
 		while s < l:
-			poser.call("lampadaire", a + u * s + Vector2(u.y, -u.x) * -1.2, 0.0, j)
+			poser.call("lampadaire", a + u * s + Vector2(u.y, -u.x) * -1.2, 0.0, j, {"allume": false})
 			j += 1
 			s += pas
 		s -= l
@@ -746,7 +841,7 @@ static func _mobilier_toulousain(t, racine: Node3D) -> void:
 	# muret du parterre.
 	for p in [Vector2(-1.2, -16.6), Vector2(12.6, -16.6), Vector2(-3.6, -9.0), Vector2(-1.0, -1.4), Vector2(15.4, -14.6), Vector2(18.8, -0.6), Vector2(-0.4, -12.2), Vector2(10.4, -12.0)]:
 		poser.call("fleurs", p, 0.0, int(p.x * 7.0 + p.y))
-	# Les bancs autour du jardin, tournés vers les jeux, les bacs de bois fleuris, les corbeilles.
+	# Les bancs au bord des terre-pleins, les bacs de bois fleuris, les corbeilles.
 	poser.call("banc", Vector2(6.8, -7.0), PI * 0.5, 1)
 	poser.call("banc", Vector2(7.0, -2.6), PI * 0.5, 2)
 	poser.call("banc", Vector2(13.0, 0.6), PI, 3)
@@ -767,7 +862,7 @@ static func _vie(racine: Node3D) -> void:
 	racine.add_child(groupe)
 	var g := 31555
 	# Devant le café de courses : trois groupes qui parlent du match, tournés les uns vers les autres.
-	for centre in [Vector2(-1.6, -9.6), Vector2(1.2, -2.2), Vector2(-3.4, -1.6)]:
+	for centre in [Vector2(-1.6, -9.6), Vector2(1.2, -2.2), Vector2(1.8, -4.8)]:
 		for k in 3:
 			var a: float = TAU * k / 3.0 + centre.x
 			var f: Node3D = Atelier.figurant(g, "idle")
@@ -775,21 +870,24 @@ static func _vie(racine: Node3D) -> void:
 			f.rotation.y = atan2(-cos(a), -sin(a))
 			groupe.add_child(f)
 			g += 1
-	# Au bord du jardin d'enfants, deux parents qui regardent les jeux.
-	for p in [Vector2(8.2, -9.6), Vector2(8.8, -9.9)]:
+	# Au bord du jardin d'enfants, deux parents qui bavardent en surveillant les jeux.
+	var voisins := [Vector2(3.6, -14.5), Vector2(4.2, -14.5)]
+	for k in 2:
+		var p: Vector2 = voisins[k]
+		var q: Vector2 = voisins[1 - k]
 		var f: Node3D = Atelier.figurant(g, "idle")
 		f.position = Vector3(p.x, 0.0, p.y)
-		f.rotation.y = PI * 0.75
+		f.rotation.y = atan2(q.x - p.x, q.y - p.y)
 		groupe.add_child(f)
 		g += 1
-	# Les promeneurs : d'une rue à l'autre, en traversant sous les platanes.
+	# Les promeneurs : d'une rue à l'autre, entre les terre-pleins.
 	var routes := [
-		[Vector3(-12.0, 0, -0.8), Vector3(-4.0, 0, -0.5), Vector3(6.0, 0, 3.0), Vector3(10.0, 0, 10.0), Vector3(6.0, 0, 19.0)],
-		[Vector3(-8.0, 0, -17.0), Vector3(-5.0, 0, -9.0), Vector3(2.0, 0, -12.0), Vector3(12.0, 0, -16.0)],
-		[Vector3(5.0, 0, 18.0), Vector3(4.0, 0, 8.0), Vector3(-2.0, 0, -6.0), Vector3(-7.0, 0, -16.0)],
-		[Vector3(18.0, 0, 2.0), Vector3(12.0, 0, 4.0), Vector3(2.0, 0, 2.0), Vector3(-6.0, 0, -0.6), Vector3(-14.0, 0, -1.0)],
-		[Vector3(14.0, 0, -12.0), Vector3(4.0, 0, -11.0), Vector3(-1.0, 0, -4.0), Vector3(1.0, 0, 6.0), Vector3(12.0, 0, 8.0)],
-		[Vector3(-14.0, 0, -1.2), Vector3(-2.0, 0, 0.0), Vector3(11.5, 0, 6.0)],
+		[Vector3(-12.0, 0, -2.0), Vector3(-4.0, 0, -2.1), Vector3(-1.5, 0, -2.4), Vector3(0.6, 0, -1.5), Vector3(3.2, 0, 1.5), Vector3(3.4, 0, 6.5), Vector3(5.0, 0, 12.0), Vector3(6.0, 0, 19.0)],
+		[Vector3(-8.0, 0, -17.0), Vector3(-3.2, 0, -11.5), Vector3(-1.5, 0, -9.0), Vector3(6.0, 0, -8.8), Vector3(13.0, 0, -9.5), Vector3(12.6, 0, -14.0)],
+		[Vector3(5.0, 0, 18.0), Vector3(3.4, 0, 6.5), Vector3(3.2, 0, 1.5), Vector3(0.6, 0, -1.5), Vector3(-2.0, 0, -6.0), Vector3(-3.2, 0, -11.5), Vector3(-7.0, 0, -16.0)],
+		[Vector3(21.5, 0, 2.2), Vector3(20.0, 0, 1.0), Vector3(18.2, 0, -4.0), Vector3(15.6, 0, -4.3), Vector3(13.1, 0, -2.6), Vector3(12.3, 0, 1.0), Vector3(12.0, 0, 4.0), Vector3(3.4, 0, 6.5), Vector3(3.2, 0, 1.5), Vector3(0.6, 0, -1.5), Vector3(-1.5, 0, -2.4), Vector3(-4.0, 0, -2.1), Vector3(-14.0, 0, -2.0)],
+		[Vector3(14.0, 0, -11.5), Vector3(13.0, 0, -9.5), Vector3(6.0, 0, -8.8), Vector3(0.6, 0, -1.5), Vector3(3.2, 0, 1.5), Vector3(3.4, 0, 6.5), Vector3(9.0, 0, 5.4)],
+		[Vector3(-14.0, 0, -2.0), Vector3(-4.0, 0, -2.1), Vector3(-1.5, 0, -2.4), Vector3(0.6, 0, -1.5), Vector3(3.2, 0, 1.5), Vector3(3.4, 0, 6.5), Vector3(9.6, 0, 4.8)],
 	]
 	for k in routes.size():
 		var route: Array[Vector3] = []

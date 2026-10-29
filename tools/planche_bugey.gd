@@ -5,6 +5,7 @@ extends SceneTree
 ##   --nom=fontaine    avec mobilier, vegetation ou terrains : une seule pièce, de près
 ##   --vue=facadier    les onze bâtisses, en rangée
 ##   --vue=detail      la même rangée vue en enfilade, pour lire le relief des façades
+##   --vue=appareil    la même maison en moellons réguliers et irréguliers (--nom=pres : le mur irrégulier de près)
 ##   --vue=mobilier    chaque objet du mobilier, avec son nom
 ##   --vue=vegetation  chaque plante, avec son nom
 ##   --vue=terrains    les champs, les chemins, les murets, le talus et la rivière
@@ -49,6 +50,17 @@ func _init() -> void:
 	cam.far = 1500
 	monde.add_child(cam)
 	match vue:
+		"appareil":
+			_sol(Vector2(80, 60), Color("b8a27a"))
+			_pose(FACADIER, "type", "r1", Vector3(-5.5, 0, 0), 4, {"w": 10.0, "mur": "moellons", "appareil": "regulier"})
+			_pose(FACADIER, "type", "r1", Vector3(5.5, 0, 0), 4, {"w": 10.0, "mur": "moellons", "appareil": "irregulier"})
+			_etiquette(Vector3(-5.5, 0.05, 3.0), "regulier")
+			_etiquette(Vector3(5.5, 0.05, 3.0), "irregulier")
+			cam.fov = 50
+			if nom == "pres":
+				cam.look_at_from_position(Vector3(6.5, 2.2, 5.5), Vector3(5.0, 2.4, 0))
+			else:
+				cam.look_at_from_position(Vector3(0, 5, 21), Vector3(0, 3.5, 0))
 		"facadier", "detail":
 			_sol(Vector2(160, 70), Color("b8a27a"))
 			var types: Array = load(Bibliotheque.scene(FACADIER, "decor")).instantiate().types()

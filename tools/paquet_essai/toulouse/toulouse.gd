@@ -12,13 +12,13 @@ const UNITE := 2.4
 const CRANS := [[9.0, -48.0, 34.0], [18.0, -51.0, 30.0], [32.0, -58.0, 30.0]]
 
 ## La lumière de 18 h en septembre (note : « Lumière et caméras ») : soleil d'ouest-sud-ouest, bas et doré.
-const SOLEIL := {"hauteur": 28.0, "vient_de": 250.0, "couleur": Color("ffd9a8")}
+const SOLEIL := {"hauteur": 36.0, "vient_de": 250.0, "couleur": Color("ffd9a8")}
 
 ## Les familles de la palette (note : « Palette et matières »).
 const BRIQUES := ["c8653f", "d2714a", "be5b38", "db8158", "c46a48"]
 const ENDUITS := ["ebcfc0", "f2e4cf", "e7c9b0", "efdcc4"]
 const RUE := Color("dccdab")
-const PLACE := Color("c99472")
+const PLACE := Color("d6a07a")
 const FILET := Color("efe7da")
 
 ## La place Saint-Georges, en unités : le tapis de brique d'une façade à l'autre, rue de bordure comprise
@@ -76,9 +76,8 @@ func _ciel() -> void:
 	env.ambient_light_energy = 1.15
 	env.ambient_light_sky_contribution = 0.85
 	env.tonemap_mode = Environment.TONE_MAPPER_AGX
-	env.glow_enabled = true
-	env.glow_intensity = 0.55
-	env.glow_bloom = 0.08
+	# Sans halo (Guillaume, 29 octobre : « les flash sont inutiles »).
+	env.glow_enabled = false
 	# L'étalonnage de l'image cible : plus saturé, un peu plus contrasté, chaud.
 	env.adjustment_enabled = true
 	env.adjustment_saturation = 1.18
@@ -102,7 +101,7 @@ func _ciel() -> void:
 	soleil.light_energy = 1.6
 	soleil.shadow_enabled = true
 	soleil.shadow_opacity = 0.85
-	soleil.directional_shadow_max_distance = 70.0
+	soleil.directional_shadow_max_distance = 48.0
 	add_child(soleil)
 	var h := deg_to_rad(SOLEIL.hauteur)
 	var a := deg_to_rad(SOLEIL.vient_de)
@@ -246,6 +245,8 @@ func _ilots() -> void:
 	var faces := PackedVector3Array()
 	var composes: Dictionary = SAINT_GEORGES.batiments_composes(self)
 	for b in data.batiments:
+		if SAINT_GEORGES.FANTOMES.has(int(b.i)):
+			continue
 		var poly := _horaire(b.poly)
 		if not _dans(poly, fermeture):
 			continue
