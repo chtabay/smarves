@@ -35,6 +35,17 @@ var _tag_layer: CanvasLayer
 var _shown_hand := {}
 var _shown := false
 var _tapis: MeshInstance3D
+## Ce qui est posé sur le tapis : ses cartes à soi, celles du tableau. Le rappel de la barre les suit.
+var _pose_main := 0
+var _pose_tableau := 0
+## Penché sur la table (touche V) : on y reste jusqu'à ce qu'on se rassoie.
+var vue_haute := false
+## La vue penchée vient de l'abattage (pas de la touche V) : la donne suivante rassoit.
+var _vue_apres_abattage := false
+## Le regard penché : le tableau au milieu, les mains montrées autour, de près.
+const VUE_HAUTE_DE := Vector3(0.0, 2.2, 0.85)
+const VUE_HAUTE_SUR := Vector3(0.0, 0.0, -0.2)
+const VUE_HAUTE_FOV := 62.0
 
 
 func _ready() -> void:
@@ -214,6 +225,10 @@ func _deal_card(c: Dictionary, dest: Vector3, yaw: float, face_up: bool, tilt :=
 
 func _deal_hands() -> void:
 	_clear_all()
+	if vue_haute and _vue_apres_abattage:
+		vue_haute = false
+		_revenir(0.6)
+	_vue_apres_abattage = false
 	for k in 2:
 		for n in 6:
 			var i: int = (panel.dealer + 1 + n) % 6
@@ -222,7 +237,9 @@ func _deal_hands() -> void:
 				var yaw := deg_to_rad(60.0 * i) + randf_range(-0.05, 0.05)
 				var card := _deal_card(c, _hole_spot(i, k), yaw, i == 0, 0.0, BOARD_SCALE if i == 0 else 1.35)
 				card.set_meta("c", c)
-				_hole[i] = _hole.get(i, []) + [card])
+				_hole[i] = _hole.get(i, []) + [card]
+				if i == 0:
+					get_tree().create_timer(0.32).timeout.connect(_posee.bind(true)))
 	# Les deux cartes du joueur arrivent : il les soulève du coin pour les regarder.
 	schedule(0.5, func():
 		for card: Node3D in _hole.get(0, []):
@@ -233,14 +250,49 @@ func _deal_hands() -> void:
 
 
 func _deal_board(cards: Array) -> void:
-	schedule(0.3, func(): shot(look(Vector3(0.0, 1.3, 1.05), Vector3(0.0, felt_y, -0.1)), 0.6, 54.0))
+	if not vue_haute:
+		schedule(0.3, func(): shot(look(Vector3(0.0, 1.3, 1.05), Vector3(0.0, felt_y, -0.1)), 0.6, 54.0))
 	for c in cards:
 		var k := _board.size()
 		_board.append(null)
 		schedule(0.34, func():
 			var card := _deal_card(c, Vector3(BOARD_X + k * BOARD_STEP, felt_y + 0.001, 0.0), 0.0, true)
-			_board[k] = card)
-	schedule(0.9, func(): shot(seat, 0.7, seat_fov))
+			_board[k] = card
+			get_tree().create_timer(0.32).timeout.connect(_posee.bind(false)))
+	schedule(0.9, func(): _revenir(0.7))
+
+
+## Une carte vient de se poser : la sienne (main) ou une du tableau. La barre basse la montre à son tour.
+func _posee(main: bool) -> void:
+	if main:
+		_pose_main += 1
+	else:
+		_pose_tableau += 1
+	if is_instance_valid(panel):
+		panel._render()
+
+
+## Ce qui est posé sur le tapis, pour le rappel de la barre : {main, tableau}.
+func cartes_posees() -> Dictionary:
+	return {"main": _pose_main, "tableau": _pose_tableau}
+
+
+func _vue_haute() -> Transform3D:
+	return look(VUE_HAUTE_DE, VUE_HAUTE_SUR + Vector3(0, felt_y, 0))
+
+
+## Revenir au regard choisi : la place, ou penché sur la table.
+func _revenir(dur := 0.7) -> void:
+	if vue_haute:
+		shot(_vue_haute(), dur, VUE_HAUTE_FOV)
+	else:
+		shot(seat, dur, seat_fov)
+
+
+## Touche V : se pencher sur la table pour lire le tableau et les mains montrées, ou se rasseoir.
+func basculer_vue() -> void:
+	vue_haute = not vue_haute
+	_revenir(0.5)
 
 
 ## Les mains encore en jeu se retournent.
@@ -251,7 +303,7 @@ func _reveal() -> void:
 	for i in _hole:
 		if i == 0 or panel.seats[i].folded:
 			continue
-		_shown_hand[i] = POKER.CATEGORIES[POKER.evaluate(panel.seats[i].cards + panel.board)[0]].to_lower()
+		_shown_hand[i] = POKER.nommer(POKER.evaluate(panel.seats[i].cards + panel.board))
 		# Au poker à plusieurs, les cartes des autres ont été servies de dos sans leur valeur (le serveur
 		# ne la donne qu'à l'abattage) : elles prennent ici leur vraie figure avant de se retourner.
 		var cards: Array = panel.seats[i].cards
@@ -300,6 +352,8 @@ func _clear_all() -> void:
 	_board.clear()
 	_shown = false
 	_shown_hand.clear()
+	_pose_main = 0
+	_pose_tableau = 0
 
 
 # --- Les plaques ---------------------------------------------------------------------------
@@ -402,7 +456,7 @@ func _on_showdown(winners: Array, show_all: bool, amount: int) -> void:
 	_shown = true
 	if show_all:
 		schedule(0.5, _reveal)
-		schedule(0.6, func(): shot(look(Vector3(0.0, 2.2, 1.45), Vector3(0.0, felt_y, -0.15)), 0.7, 66.0))
+		schedule(0.6, func(): shot(_vue_haute(), 0.7, VUE_HAUTE_FOV))
 	schedule(1.3, func():
 		if not is_instance_valid(panel):
 			return
@@ -412,7 +466,7 @@ func _on_showdown(winners: Array, show_all: bool, amount: int) -> void:
 		var cat := ""
 		if show_all:
 			var e: Array = POKER.evaluate(panel.seats[winners[0]].cards + panel.board)
-			cat = "  ·  " + POKER.CATEGORIES[e[0]].to_lower()
+			cat = "  ·  " + POKER.nommer(e)
 		KIT.popup(self, Vector3(0.0, felt_y + 0.1, 0.3), "%s%s" % [" et ".join(names), cat], 52, Color(1.0, 0.9, 0.66), 2.0))
 	schedule(0.8, func():
 		# Le pot part vers le ou les gagnants.
@@ -435,7 +489,11 @@ func _on_showdown(winners: Array, show_all: bool, amount: int) -> void:
 			KIT.popup(self, dest + Vector3(0, 0.15, 0.05), "+ %s" % Game.fmt(gain), 110)
 		else:
 			Sfx.play("chips", -4.0))
-	schedule(1.2, func(): shot(seat, 0.8, seat_fov))
+	# Les mains montrées restent sous les yeux, de haut, jusqu'à la donne suivante (ou V pour se rasseoir).
+	if show_all and not vue_haute:
+		vue_haute = true
+		_vue_apres_abattage = true
+	schedule(1.2, func(): _revenir(0.8))
 
 
 func attach(p: Control) -> void:

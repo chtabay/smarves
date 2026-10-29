@@ -13,11 +13,13 @@ var shoe_at := Vector3(0.82, 0.0, ZC + 0.2)
 var _cards: Array[Node3D] = []
 var _counts := {}
 var _hole: Node3D
-var _bet_stack: Node3D
-var _double_stack: Node3D
 var _labels := {}
-var _bet := 0
-var _hand := {"player": [], "dealer": []}
+var _hand := {"dealer": []}
+## Les mains du joueur, une ou plusieurs après un partage : {cartes, noeuds, label, piles}. Les piles sont
+## la mise de la main, et son doublement.
+var _mains: Array = []
+## L'assurance posée sur la ligne, ou null.
+var _pile_assurance: Node3D
 var _hole_hidden := false
 var _plaque: Label3D
 
@@ -168,11 +170,32 @@ static func _arc_text(c: Control, o: Vector2, radius: float, text: String, size:
 
 # --- Les gestes ---------------------------------------------------------------------------
 
+## Le centre d'une main du joueur : une seule devant son cercle ; après un partage, côte à côte.
+func _x_main(h: int) -> float:
+	var n := maxi(_mains.size(), 1)
+	return -0.05 + (h - (n - 1) / 2.0) * 0.3
+
+
 func _spot(who: String, k: int) -> Vector3:
 	if who == "dealer":
 		return Vector3(-0.1 + k * 0.1, felt_y, ZC + 0.3)
 	# Les cartes du joueur se chevauchent en escalier, devant son cercle.
-	return Vector3(-0.05 + k * 0.034, felt_y + k * 0.0012, ZC + 0.84 - k * 0.022)
+	return Vector3(_x_main(_main_de(who)) + k * 0.034, felt_y + k * 0.0012, ZC + 0.84 - k * 0.022)
+
+
+## « player » est la première main, « player1 » la deuxième, et ainsi de suite.
+static func _main_de(who: String) -> int:
+	return 0 if who == "player" else int(who.trim_prefix("player"))
+
+
+func _main(h: int) -> Dictionary:
+	while _mains.size() <= h:
+		_mains.append({"cartes": [], "noeuds": [], "label": null, "piles": []})
+	return _mains[h]
+
+
+func _pile_at(h: int, k: int) -> Vector3:
+	return Vector3(_x_main(h) + 0.05 + k * 0.06, felt_y + 0.0005, ZC + R * 0.78 + k * 0.02)
 
 
 func _clear() -> void:
@@ -181,12 +204,16 @@ func _clear() -> void:
 		t.tween_property(c, "position", Vector3(-0.82, felt_y + 0.06, ZC + 0.18), 0.4).set_trans(Tween.TRANS_CUBIC)
 		t.tween_callback(c.queue_free)
 	_cards.clear()
-	_counts = {"player": 0, "dealer": 0}
-	_hand = {"player": [], "dealer": []}
+	_counts = {"dealer": 0}
+	_hand = {"dealer": []}
 	_hole = null
 	for k in _labels:
 		_labels[k].queue_free()
 	_labels.clear()
+	for m in _mains:
+		if m.label:
+			m.label.queue_free()
+	_mains.clear()
 
 
 func deal(who: String, c: Dictionary, hidden: bool) -> void:
@@ -194,8 +221,12 @@ func deal(who: String, c: Dictionary, hidden: bool) -> void:
 
 
 func _deal_now(who: String, c: Dictionary, hidden: bool) -> void:
-	var k: int = _counts.get(who, 0)
-	_counts[who] = k + 1
+	var k: int
+	if who == "dealer":
+		k = _counts.get("dealer", 0)
+		_counts["dealer"] = k + 1
+	else:
+		k = _main(_main_de(who)).noeuds.size()
 	var card := KIT.card(int(c.r), int(c.s))
 	add_child(card)
 	_cards.append(card)
@@ -212,8 +243,12 @@ func _deal_now(who: String, c: Dictionary, hidden: bool) -> void:
 	if hidden:
 		_hole = card
 		_hole_hidden = true
+	elif who == "dealer":
+		_hand["dealer"].append(c)
 	else:
-		_hand[who].append(c)
+		var m := _main(_main_de(who))
+		m.cartes.append(c)
+		m.noeuds.append(card)
 	tw.chain().tween_callback(func(): _show_total(who))
 
 
@@ -233,59 +268,121 @@ func reveal(c: Dictionary) -> void:
 		Sfx.play("card", -2.0, 0.9))
 
 
+## Le partage : la seconde carte de la main « from » glisse à droite et forme la main « to », avec sa mise ;
+## toutes les mains se rangent côte à côte.
+func split(from: int, to: int, amount: int) -> void:
+	schedule(0.5, func():
+		var m := _main(from)
+		if m.noeuds.is_empty():
+			return
+		var nouvelle := {"cartes": [m.cartes.pop_back()], "noeuds": [m.noeuds.pop_back()], "label": null, "piles": []}
+		_mains.insert(to, nouvelle)
+		Sfx.play("card", -4.0, 1.05)
+		_pile(to, amount)
+		_ranger())
+
+
+## Toutes les mains du joueur reprennent leur place (après un partage) : cartes, totaux, mises.
+func _ranger() -> void:
+	for h in _mains.size():
+		var m: Dictionary = _mains[h]
+		for k in m.noeuds.size():
+			var n: Node3D = m.noeuds[k]
+			n.create_tween().tween_property(n, "position", _spot(_who(h), k), 0.3).set_trans(Tween.TRANS_CUBIC)
+		for k in m.piles.size():
+			var pile: Node3D = m.piles[k]
+			if is_instance_valid(pile):
+				pile.create_tween().tween_property(pile, "position", _pile_at(h, k), 0.3).set_trans(Tween.TRANS_CUBIC)
+		if m.label:
+			m.label.queue_free()
+			m.label = null
+		_show_total(_who(h))
+
+
+static func _who(h: int) -> String:
+	return "player" if h == 0 else "player%d" % h
+
+
 func _show_total(who: String) -> void:
-	var t := BJ.total(_hand[who])
-	if _hand[who].is_empty():
+	var cartes: Array = _hand["dealer"] if who == "dealer" else _main(_main_de(who)).cartes
+	if cartes.is_empty():
 		return
+	var t := BJ.total(cartes)
 	var text := str(t)
 	if who == "dealer" and _hole_hidden:
 		text = str(t) + " + ?"
-	if not _labels.has(who):
-		var l := Label3D.new()
-		l.font = KIT.serif()
-		l.font_size = 64
-		l.pixel_size = 0.0007
-		l.outline_size = 12
-		l.outline_modulate = Color(0.05, 0.02, 0.02, 0.9)
-		l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		l.no_depth_test = true
-		add_child(l)
-		_labels[who] = l
-	var lab: Label3D = _labels[who]
+	var lab: Label3D = _labels.get("dealer") if who == "dealer" else _main(_main_de(who)).label
+	if lab == null:
+		lab = Label3D.new()
+		lab.font = KIT.serif()
+		lab.font_size = 64
+		lab.pixel_size = 0.0007
+		lab.outline_size = 12
+		lab.outline_modulate = Color(0.05, 0.02, 0.02, 0.9)
+		lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		lab.no_depth_test = true
+		add_child(lab)
+		if who == "dealer":
+			_labels["dealer"] = lab
+		else:
+			_main(_main_de(who)).label = lab
 	lab.text = text
 	lab.modulate = Color(1.0, 0.45, 0.4) if t > 21 else (Color(1.0, 0.86, 0.45) if t == 21 else Color(0.97, 0.94, 0.86))
-	var n: int = _counts[who]
+	var n: int = _counts.get("dealer", 0) if who == "dealer" else cartes.size()
 	lab.position = _spot(who, n - 1) + Vector3(0.11, 0.03, 0.0)
 
 
+## Une pile de plaques pour la main h : sa mise, puis son doublement à côté.
+func _pile(h: int, amount: int) -> void:
+	var m := _main(h)
+	var k: int = m.piles.size()
+	var s := KIT.chip_stack(amount, [500, 100, 25, 10, 5, 1])
+	var at := _pile_at(h, k)
+	s.position = at + Vector3(0, 0.04, 0)
+	add_child(s)
+	m.piles.append(s)
+	create_tween().tween_property(s, "position:y", at.y, 0.18).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
+	Sfx.play("chips", -6.0)
+
+
 func _place_bet(amount: int) -> void:
-	if _bet_stack:
-		_bet_stack.queue_free()
-	_bet_stack = KIT.chip_stack(amount, [500, 100, 25, 10, 5, 1])
-	_bet_stack.position = Vector3(0, felt_y + 0.04, ZC + R * 0.78)
-	add_child(_bet_stack)
-	create_tween().tween_property(_bet_stack, "position:y", felt_y + 0.0005, 0.18).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
-	Sfx.play("chips", -6.0)
+	_pile(0, amount)
 
 
-func _double(amount: int) -> void:
-	_double_stack = KIT.chip_stack(amount, [500, 100, 25, 10, 5, 1])
-	_double_stack.position = Vector3(0.06, felt_y + 0.04, ZC + R * 0.78 + 0.02)
-	add_child(_double_stack)
-	create_tween().tween_property(_double_stack, "position:y", felt_y + 0.0005, 0.18).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
-	Sfx.play("chips", -6.0)
+## L'assurance : une pile sur la ligne, entre le croupier et la mise.
+func _assurer(amount: int) -> void:
+	schedule(0.3, func():
+		_pile_assurance = KIT.chip_stack(amount, [500, 100, 25, 10, 5, 1])
+		var at := Vector3(0.0, felt_y + 0.0005, ZC + 0.62)
+		_pile_assurance.position = at + Vector3(0, 0.04, 0)
+		add_child(_pile_assurance)
+		create_tween().tween_property(_pile_assurance, "position:y", at.y, 0.18).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
+		Sfx.play("chips", -6.0))
 
 
 func result(bet: int, payout: int) -> void:
 	schedule(1.6, func():
 		var stacks: Array[Node3D] = []
-		for s in [_bet_stack, _double_stack]:
-			if s != null:
-				stacks.append(s)
-		_bet_stack = null
-		_double_stack = null
+		for m in _mains:
+			for s in m.piles:
+				if s != null and is_instance_valid(s):
+					stacks.append(s)
+			m.piles = []
 		var tray := Vector3(0, felt_y + 0.04, ZC + 0.07)
 		var mine := Vector3(0.0, felt_y, ZC + R + 0.1)
+		# L'assurance : payée si le croupier a blackjack, ramassée sinon.
+		if _pile_assurance and is_instance_valid(_pile_assurance):
+			var a := _pile_assurance
+			_pile_assurance = null
+			var dealer_bj: bool = _hand["dealer"].size() == 2 and BJ.total(_hand["dealer"]) == 21
+			var ta := a.create_tween()
+			if dealer_bj:
+				ta.tween_interval(1.1)
+				ta.tween_property(a, "position", mine, 0.45).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+			else:
+				ta.tween_property(a, "position", tray, 0.55).set_trans(Tween.TRANS_CUBIC)
+				ta.parallel().tween_property(a, "scale", Vector3.ONE * 0.4, 0.55)
+			ta.tween_callback(a.queue_free)
 		if payout > bet:
 			var paid := KIT.chip_stack(payout - bet, [500, 100, 25, 10, 5, 1])
 			paid.position = tray
@@ -297,7 +394,7 @@ func result(bet: int, payout: int) -> void:
 			t.tween_property(paid, "position", mine, 0.45).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
 			t.tween_callback(paid.queue_free)
 			Sfx.play("chips_win", -2.0)
-			var natural: bool = _hand["player"].size() == 2 and BJ.total(_hand["player"]) == 21
+			var natural: bool = _mains.size() == 1 and _mains[0].cartes.size() == 2 and BJ.total(_mains[0].cartes) == 21
 			KIT.burst(self, d + Vector3(0, 0.03, 0), 160 if natural else 80, 0.5, natural)
 			KIT.flash(self, d + Vector3(0, 0.4, 0), 5.0 if natural else 3.0)
 			KIT.popup(self, d + Vector3(0, 0.16, 0), ("BLACKJACK !  + %s" if natural else "+ %s") % Game.fmt(payout - bet), 96)
@@ -323,14 +420,12 @@ func attach(p: Control) -> void:
 	p.table3d = self
 	p.hand_started.connect(func():
 		var amount: int = p.bet
-		_bet = amount
 		schedule(0.5, func():
 			_clear()
 			_place_bet(amount)))
-	p.card_dealt.connect(func(who: String, c: Dictionary, hidden: bool):
-		if who == "player" and p.bet > _bet:
-			_double(p.bet - _bet)
-			_bet = p.bet
-		deal(who, c, hidden))
+	p.card_dealt.connect(deal)
+	p.hand_doubled.connect(func(h: int, amount: int): schedule(0.2, func(): _pile(h, amount)))
+	p.hand_split.connect(func(from: int, to: int): split(from, to, int(p.hands[to].bet)))
+	p.insured.connect(_assurer)
 	p.hole_revealed.connect(reveal)
 	p.played.connect(result)

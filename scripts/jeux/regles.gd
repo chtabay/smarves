@@ -64,12 +64,14 @@ static func texte(jeu: String, p: Object = null) -> String:
 				["Les rouleaux", "Le 7 est le plus rare sur chaque rouleau, le pique le plus courant."],
 			])
 		"blackjack":
+			var seuil: int = load("res://scripts/blackjack_panel.gd").get_script_constant_map().SEUIL_REGLES
 			return _bloc([
 				["Le but", "S'approcher de 21 sans le dépasser et battre la main du croupier. Les figures valent 10, l'as vaut 1 ou 11."],
 				["Déroulement", "Choisissez la mise (touches 1 à 5), puis distribuez (Espace). Vous recevez deux cartes, le croupier une visible et une cachée. Tirez une carte (C), restez (R), ou doublez (D) sur vos deux premières cartes : la mise double et vous recevez une seule carte de plus."],
 				[[["Blackjack (as et 10 ou figure d'entrée)", "3 contre 2"], ["Main gagnante", "1 contre 1"],
 					["Égalité", "mise rendue"], ["Plus de 21", "perdu"]]],
-				["La table", "Sabot de 6 jeux. Le croupier tire jusqu'à 16 et reste sur tout 17. Ni partage ni assurance."],
+				["La table", "Sabot de 6 jeux. Le croupier tire jusqu'à 16 et reste sur tout 17."],
+				["Partage et assurance", "Ils s'ouvrent à toutes les tables quand vous avez gagné %s crédits au jeu%s. Deux cartes de même valeur se séparent en deux mains (P), chacune avec une mise égale à la première, jusqu'à quatre mains ; on peut doubler après un partage. Deux as partagés reçoivent une seule carte chacun, et 21 sur une main partagée paie 1 contre 1, pas 3 contre 2. Quand le croupier montre un as, l'assurance (A) coûte la moitié de la mise et paie 2 contre 1 s'il a blackjack. Le croupier regarde alors sous son as ou son dix et retourne tout de suite un blackjack." % [Game.fmt(seuil), " : c'est fait" if Game.won >= seuil else ""]],
 			])
 		"roulette":
 			return _bloc([

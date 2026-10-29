@@ -58,6 +58,9 @@ var _info: Label
 ## Le rappel des cartes, en petit sous le récit, à côté du pot : sa main et le tableau.
 var _rappel: HBoxContainer
 var _rappel_cle := ""
+## La dernière donne finie, pour le rappel qui reste après elle : les gagnants, et si les mains ont été
+## montrées. Vide tant qu'aucune donne n'est finie.
+var dernier_abattage := {}
 
 
 func _ready() -> void:
@@ -65,6 +68,7 @@ func _ready() -> void:
 	seats.append({"name": "Vous", "ai": false})
 	for r in regulars:
 		seats.append({"name": r[0], "ai": true, "tight": r[1], "aggr": r[2], "stack": 5000})
+	showdown.connect(_noter_abattage)
 	if embedded:
 		_build_bar()
 	else:
@@ -195,6 +199,11 @@ func _build_bar() -> void:
 		_buttons[k[0]].pressed.connect(k[2])
 		h.add_child(_buttons[k[0]])
 	h.add_child(BARRE.separator())
+	# Se pencher sur la table : le tableau et les mains montrées, de près.
+	_buttons["vue"] = BARRE.pill("Vue  (V)")
+	_buttons["vue"].focus_mode = Control.FOCUS_NONE
+	_buttons["vue"].pressed.connect(_basculer_vue)
+	h.add_child(_buttons["vue"])
 	h.add_child(REGLES.bouton(self, "poker"))
 	var leave := BARRE.pill("Quitter  (Échap)")
 	leave.pressed.connect(_leave)
@@ -295,6 +304,62 @@ static func compare(a: Array, b: Array) -> int:
 		if a[i] != b[i]:
 			return 1 if a[i] > b[i] else -1
 	return 0
+
+
+## Les noms des valeurs, au singulier et au pluriel, pour dire une main en entier.
+const NOMS := ["deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf", "dix", "valet", "dame", "roi", "as"]
+const NOMS_PL := ["deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf", "dix", "valets", "dames", "rois", "as"]
+
+
+static func _de(r: int) -> String:
+	return "d'as" if r == 12 else "de " + NOMS_PL[r]
+
+
+static func _au(r: int) -> String:
+	return {12: "à l'as", 10: "à la dame"}.get(r, "au " + NOMS[r])
+
+
+## Une main évaluée, dite en entier : « paire de rois », « deux paires, valets et neuf », « full aux dames
+## par les huit ». Avec l'article (« une paire de rois ») pour finir une phrase : « … remporte 300 avec ».
+static func nommer(e: Array, article := false) -> String:
+	if e.is_empty():
+		return ""
+	var r: int = e[1] if e.size() > 1 else 0
+	var nom: String = [
+		"hauteur " + NOMS[r],
+		"paire " + _de(r),
+		"deux paires, %s et %s" % [NOMS_PL[r], NOMS_PL[e[2]] if e.size() > 2 else ""],
+		"brelan " + _de(r),
+		"quinte " + _au(r),
+		"couleur " + _au(r),
+		"full aux %s par les %s" % [NOMS_PL[r], NOMS_PL[e[2]] if e.size() > 2 else ""],
+		"carré " + _de(r),
+		"quinte flush royale" if r == 12 else "quinte flush " + _au(r),
+	][e[0]]
+	if not article or e[0] in [0, 2]:
+		return nom
+	return ("une " if e[0] in [1, 4, 5, 8] else "un ") + nom
+
+
+## Les cinq cartes qui font la meilleure main parmi cinq à sept : celles que le rappel fait briller.
+static func meilleures_cinq(cards: Array) -> Array:
+	if cards.size() <= 5:
+		return cards.duplicate()
+	var best: Array = []
+	var best_e: Array = []
+	var n := cards.size()
+	for m in 1 << n:
+		var cinq: Array = []
+		for k in n:
+			if m & (1 << k):
+				cinq.append(cards[k])
+		if cinq.size() != 5:
+			continue
+		var e := evaluate(cinq)
+		if best_e.is_empty() or compare(e, best_e) > 0:
+			best_e = e
+			best = cinq
+	return best
 
 
 ## Force estimée d'une main par tirages au hasard contre les adversaires encore en jeu.
@@ -517,7 +582,10 @@ func _showdown() -> void:
 			seats[w].stack += share
 		else:
 			payout += share
-	var how := "" if best.is_empty() else " avec %s" % CATEGORIES[best[0]].to_lower()
+	var how := "" if best.is_empty() else " avec %s" % nommer(best, true)
+	# Les mains montrées : celles des gagnants, dites en clair, pour savoir ce qui a battu la sienne.
+	if active.size() > 1 and not (0 in winners):
+		how += " (%s)" % " · ".join(winners.map(func(w): return "%s %s" % [_card_text(seats[w].cards[0]), _card_text(seats[w].cards[1])]))
 	var verb := "remportent" if winners.size() > 1 else ("remportez" if winners == [0] else "remporte")
 	var who := " et ".join(names)
 	_log.text = "%s %s %s%s.%s" % [who.substr(0, 1).to_upper() + who.substr(1), verb, Game.fmt(net_pot), how,
@@ -619,59 +687,144 @@ func mes_cartes() -> Array:
 	return seats[0].cards
 
 
+## Ce que la table 3D a déjà posé : le rappel ne montre pas une carte avant qu'elle soit sur le tapis.
+## Sans table (le panneau au milieu de l'écran), tout ce qui est donné.
+func _posees() -> Dictionary:
+	if table3d and is_instance_valid(table3d) and table3d.has_method("cartes_posees"):
+		return table3d.cartes_posees()
+	return {"main": 2, "tableau": 5}
+
+
+## Sa main telle qu'on la voit sur la table.
+func main_visible() -> Array:
+	return mes_cartes().slice(0, int(_posees().main))
+
+
+## Le tableau tel qu'on le voit sur la table.
+func tableau_visible() -> Array:
+	return board.slice(0, int(_posees().tableau))
+
+
+## Ce que sa main vaut avec le tableau posé (« paire de rois »), ou rien avant le flop.
+func ma_main_nommee() -> String:
+	var main := main_visible()
+	var tableau := tableau_visible()
+	if main.size() < 2 or tableau.size() < 3:
+		return ""
+	return nommer(evaluate(main + tableau))
+
+
+func _noter_abattage(winners: Array, show_all: bool, _amount: int) -> void:
+	dernier_abattage = {"winners": winners.duplicate(), "show": show_all}
+	if embedded:
+		_render_rappel()
+
+
+static func _cle_carte(c: Dictionary) -> String:
+	return "%d-%d" % [int(c.r), int(c.s)]
+
+
 ## Le rappel : « Main » et ses deux cartes, « Table » et les cinq places du tableau (vides tant qu'elles
-## ne sont pas retournées). Rebâti seulement quand les cartes changent.
+## ne sont pas posées sur le tapis). Les cartes qui font la main brillent, les autres s'effacent un peu.
+## La donne finie, il reste : la main du gagnant, la sienne, et le tableau. Rebâti seulement quand les
+## cartes changent.
 func _render_rappel() -> void:
 	if _rappel == null:
 		return
-	var main := mes_cartes()
-	var cle := "%s|%s|%s" % [in_hand, main, board]
+	var main := main_visible()
+	var tableau := tableau_visible()
+	var fin := not in_hand and not dernier_abattage.is_empty()
+	var cle := "%s|%s|%s|%s|%s" % [in_hand, main, tableau, fin, dernier_abattage if fin else {}]
+	if fin:
+		cle += "|%s|%s" % [board, seats.map(func(x): return [x.get("cards", []), x.get("folded", false)])]
 	if cle == _rappel_cle:
 		return
 	_rappel_cle = cle
 	for c in _rappel.get_children():
 		c.queue_free()
-	_rappel.visible = not main.is_empty() or not board.is_empty()
+	if fin:
+		_rappel_abattage()
+		return
+	_rappel.visible = not main.is_empty() or not tableau.is_empty()
 	if not _rappel.visible:
 		return
+	var brille := {}
+	if main.size() == 2 and tableau.size() >= 3:
+		for c in meilleures_cinq(main + tableau):
+			brille[_cle_carte(c)] = true
 	if not main.is_empty():
-		_rappel.add_child(BARRE.label("Main ", 20, BARRE.MUTED))
-		for c in main:
-			_rappel.add_child(_mini_carte(c))
+		_rappel_main("Main", main, brille)
+	_rappel_main("Table", tableau, brille, 5)
+
+
+## Une main du rappel : son nom, puis ses cartes (et des places vides jusqu'à « places »).
+func _rappel_main(nom: String, cards: Array, brille: Dictionary, places := 0) -> void:
+	if _rappel.get_child_count() > 0:
 		var ecart := Control.new()
-		ecart.custom_minimum_size = Vector2(22, 0)
+		ecart.custom_minimum_size = Vector2(18, 0)
 		_rappel.add_child(ecart)
-	_rappel.add_child(BARRE.label("Table ", 20, BARRE.MUTED))
-	for i in 5:
-		_rappel.add_child(_mini_carte(board[i] if i < board.size() else {}))
+	_rappel.add_child(BARRE.label(nom + " ", 20, BARRE.MUTED))
+	for i in maxi(places, cards.size()):
+		var c: Dictionary = cards[i] if i < cards.size() else {}
+		_rappel.add_child(_mini_carte(c, 1 if c.is_empty() or brille.is_empty() else (2 if brille.has(_cle_carte(c)) else 0)))
+
+
+## Après la donne : la main du gagnant (ou des gagnants), la sienne si elle est allée jusqu'au bout, et
+## le tableau, les cinq cartes gagnantes en lumière. Sans abattage (tout le monde s'est couché), le
+## tableau seul.
+func _rappel_abattage() -> void:
+	var winners: Array = dernier_abattage.get("winners", [])
+	var montre: bool = dernier_abattage.get("show", false)
+	_rappel.visible = montre or not board.is_empty()
+	if not _rappel.visible:
+		return
+	var brille := {}
+	if montre and not winners.is_empty() and board.size() >= 3:
+		for c in meilleures_cinq(seats[winners[0]].get("cards", []) + board):
+			brille[_cle_carte(c)] = true
+	if montre:
+		for w in winners.slice(0, 2):
+			var nom: String = "Vous" if w == 0 else str(seats[w].name)
+			_rappel_main(nom.substr(0, 1).to_upper() + nom.substr(1), seats[w].get("cards", []), brille)
+		if not (0 in winners) and not seats[0].get("folded", false) and seats[0].has("cards") and seats[0].cards.size() == 2:
+			_rappel_main("Vous", seats[0].cards, brille)
+	_rappel_main("Table", board, brille, 5)
 
 
 ## Une petite carte : fond ivoire, la valeur et l'enseigne à la couleur de l'enseigne ; vide, un simple
-## cadre doré.
-func _mini_carte(c: Dictionary) -> PanelContainer:
+## cadre doré. « eclat » : 0 effacée (hors de la main), 1 ordinaire, 2 dans la main (cadre d'or).
+func _mini_carte(c: Dictionary, eclat := 1) -> PanelContainer:
 	var p := PanelContainer.new()
 	var sb := StyleBoxFlat.new()
 	sb.set_corner_radius_all(5)
-	sb.set_border_width_all(1)
+	sb.set_border_width_all(2 if eclat == 2 else 1)
 	sb.content_margin_left = 5
 	sb.content_margin_right = 5
 	sb.anti_aliasing = true
 	var l := Label.new()
-	l.custom_minimum_size = Vector2(32, 26)
+	l.custom_minimum_size = Vector2(38, 30)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	l.add_theme_font_size_override("font_size", 20)
+	l.add_theme_font_size_override("font_size", 23)
 	if c.is_empty():
 		sb.bg_color = Color(0, 0, 0, 0)
 		sb.border_color = Color(BARRE.GOLD, 0.3)
 	else:
 		sb.bg_color = Color(0.97, 0.95, 0.9)
-		sb.border_color = Color(BARRE.GOLD, 0.7)
+		sb.border_color = Color(BARRE.GOLD, 1.0) if eclat == 2 else Color(BARRE.GOLD, 0.6)
 		l.text = _card_text(c)
 		l.add_theme_color_override("font_color", COULEURS_ENSEIGNES[int(c.s)])
+		if eclat == 0:
+			p.modulate = Color(1, 1, 1, 0.5)
 	p.add_theme_stylebox_override("panel", sb)
 	p.add_child(l)
 	return p
+
+
+## Se pencher sur la table, ou se rasseoir.
+func _basculer_vue() -> void:
+	if table3d and is_instance_valid(table3d) and table3d.has_method("basculer_vue"):
+		table3d.basculer_vue()
 
 
 func _render_bar() -> void:
@@ -679,8 +832,8 @@ func _render_bar() -> void:
 	var to_call: int = maxi(0, current_bet - seats[0].get("bet", 0))
 	var parts: Array[String] = ["Pot : %s" % Game.fmt(pot)]
 	if in_hand and not seats[0].get("folded", false):
-		if board.size() >= 3:
-			parts.append("votre main : %s" % CATEGORIES[evaluate(seats[0].cards + board)[0]].to_lower())
+		if ma_main_nommee() != "":
+			parts.append("votre main : %s" % ma_main_nommee())
 		parts.append("engagé : %s / %s" % [Game.fmt(player_in), Game.fmt(CAP)])
 	_info.text = "   ·   ".join(parts)
 	_raise_label.text = "Relance à %s" % Game.fmt(_raise_to)
@@ -701,4 +854,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif embedded and event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_SPACE and not in_hand:
 		_new_hand()
+		get_viewport().set_input_as_handled()
+	elif embedded and event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_V:
+		_basculer_vue()
 		get_viewport().set_input_as_handled()
