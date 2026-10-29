@@ -12,20 +12,18 @@ extends RefCounted
 
 const OUTILS := preload("res://communes/belley/atelier/outils.gd")
 const ARBRES := preload("res://communes/belley/places/arbres.gd")
-const FENETRES := preload("res://communes/belley/atelier/fenetres.gd")
+const FACADIER := preload("res://bibliotheque/facadier-du-bugey/1/facadier.gd")
 
 const ORIGINE := Vector2(7173.0, 639.2)
 ## Le lacet du repère : +Z regarde le nord-est, vers les lônes.
 const LACET := deg_to_rad(138.1)
 
 const MOELLON := Color("d9ccb2", 0.0)
-const MOELLON_2 := Color("cdbd9e", 0.0)
 const ANGLE := Color("e6d9bc", 1.0)
-const TUILE := Color("c8743f", 1.0)
 const VOLET := Color("7e9a96", 0.6)
 const BOIS := Color("8a6440", 0.8)
 const BOIS_CLAIR := Color("b08a5a", 0.8)
-const GRAVIER := Color("cdb89a", 0.95)
+const GRAVIER := Color("bba585", 0.95)
 const PELOUSE := Color("8fb34c", 0.95)
 const ARDOISE_HALLE := Color("5d6066", 0.0)
 const VITRE := Color(0.18, 0.21, 0.25, 0.2)
@@ -61,9 +59,7 @@ func batir(parent: Node3D) -> Node3D:
 	n.name = "RelaisDesLones"
 	parent.add_child(n)
 	_cour()
-	_corps(Vector2(2.0, 18.0), Vector2(28.0, 27.0), 6.4, 0)
-	_corps(Vector2(28.0, 12.0), Vector2(38.0, 30.0), 6.0, 1)
-	_corps(Vector2(-6.0, 20.0), Vector2(2.0, 27.0), 3.6, 2)
+	_maisons(n)
 	_terrasse(n)
 	_halle()
 	_clotures()
@@ -109,97 +105,26 @@ func _trait(a: Vector2, b: Vector2) -> void:
 
 ## Un corps de bâtiment, de a à b (coins opposés au sol, dans le repère), de h à l'égout, sous un toit à deux
 ## pans d'axe x et ses croupes de rive ; ses fenêtres à volets, ses portes, ses cheminées.
-func _corps(a: Vector2, b: Vector2, h: float, rang: int) -> void:
-	var c: Color = MOELLON if rang != 1 else MOELLON_2
-	var x0 := a.x
-	var x1 := b.x
-	var z0 := a.y
-	var z1 := b.y
-	var long_x := (x1 - x0) >= (z1 - z0)
-	var coins := [q(x0, -1.5, z0), q(x1, -1.5, z0), q(x1, -1.5, z1), q(x0, -1.5, z1)]
-	var sols := [Vector3(0, 0, -1), Vector3(1, 0, 0), Vector3(0, 0, 1), Vector3(-1, 0, 0)]
-	for k in 4:
-		var u: Vector3 = coins[k]
-		var v: Vector3 = coins[(k + 1) % 4]
-		var nn: Vector3 = base.basis * sols[k]
-		o.quad(u, v, v + Vector3(0, h + 1.5, 0), u + Vector3(0, h + 1.5, 0), nn, c)
-		# Les chaînes d'angle, en pierre de taille claire.
-		var y := 0.0
-		var i := 0
-		while y < h - 0.3:
-			var lg := 0.5 if i % 2 == 0 else 0.3
-			var d := (v - u).normalized()
-			var off := nn * 0.04
-			o.quad(u + Vector3(0, 1.5 + y, 0) + off, u + d * lg + Vector3(0, 1.5 + y, 0) + off, u + d * lg + Vector3(0, 1.5 + y + 0.32, 0) + off, u + Vector3(0, 1.5 + y + 0.32, 0) + off, nn, ANGLE)
-			y += 0.36
-			i += 1
-	# Les baies : sur les longs pans, deux niveaux (un seul pour l'appentis).
-	var niveaux := 1 if h < 4.0 else 2
-	for face in [0, 2]:
-		var zf := z0 if face == 0 else z1
-		var sens := -1.0 if face == 0 else 1.0
-		var l := x1 - x0
-		var nb := int(l / 3.4)
-		for k in nb:
-			var x := x0 + (k + 0.5) * l / nb
-			for niv in niveaux:
-				var porte := niv == 0 and (k % 3 == 1)
-				_baie(Vector3(x, 0.0 if porte else 1.0 + niv * 2.9, zf), Vector3(0, 0, sens), porte)
-	if not long_x:
-		for face in [1, 3]:
-			var xf := x1 if face == 1 else x0
-			var sens := 1.0 if face == 1 else -1.0
-			var l := z1 - z0
-			var nb := int(l / 3.6)
-			for k in nb:
-				var z := z0 + (k + 0.5) * l / nb
-				for niv in niveaux:
-					_baie(Vector3(xf, 1.0 + niv * 2.9, z), Vector3(sens, 0, 0), false)
-	# Le toit : deux pans le long du plus grand côté, une croupe courte à chaque bout.
-	var d := 0.5
-	var montee := minf(x1 - x0, z1 - z0) * 0.5 * 0.55
-	var ye := h - 0.2
-	var yf := h + montee
-	if long_x:
-		var zm := (z0 + z1) * 0.5
-		var r := (z1 - z0) * 0.35
-		o.pan(q(x0 - d, ye, z0 - d), q(x1 + d, ye, z0 - d), q(x1 - r, yf, zm), q(x0 + r, yf, zm), TUILE)
-		o.pan(q(x1 + d, ye, z1 + d), q(x0 - d, ye, z1 + d), q(x0 + r, yf, zm), q(x1 - r, yf, zm), TUILE)
-		o.croupe(q(x0 - d, ye, z1 + d), q(x0 - d, ye, z0 - d), q(x0 + r, yf, zm), TUILE)
-		o.croupe(q(x1 + d, ye, z0 - d), q(x1 + d, ye, z1 + d), q(x1 - r, yf, zm), TUILE)
-		_cheminee(q(x0 + (x1 - x0) * 0.28, yf - 0.3, zm))
-		if x1 - x0 > 16.0:
-			_cheminee(q(x0 + (x1 - x0) * 0.72, yf - 0.3, zm))
-	else:
-		var xm := (x0 + x1) * 0.5
-		var r := (x1 - x0) * 0.35
-		o.pan(q(x1 + d, ye, z0 - d), q(x1 + d, ye, z1 + d), q(xm, yf, z1 - r), q(xm, yf, z0 + r), TUILE)
-		o.pan(q(x0 - d, ye, z1 + d), q(x0 - d, ye, z0 - d), q(xm, yf, z0 + r), q(xm, yf, z1 - r), TUILE)
-		o.croupe(q(x0 - d, ye, z0 - d), q(x1 + d, ye, z0 - d), q(xm, yf, z0 + r), TUILE)
-		o.croupe(q(x1 + d, ye, z1 + d), q(x0 - d, ye, z1 + d), q(xm, yf, z1 - r), TUILE)
-		_cheminee(q(xm, yf - 0.3, (z0 + z1) * 0.5))
-	o.quad(q(x0 - d, ye - 0.06, z0 - d), q(x1 + d, ye - 0.06, z0 - d), q(x1 + d, ye - 0.06, z1 + d), q(x0 - d, ye - 0.06, z1 + d), Vector3.DOWN, Color(0.36, 0.3, 0.24, 0.9), OUTILS.PEINT)
+## L'auberge, par le façadier du Bugey (facadier-du-bugey@1), comme la planche : plusieurs corps de moellons
+## décalés en plan et au faîtage, une ferme, un logis à balcon de bois, un pavillon plus haut, une remise ; la
+## vigne sur un tiers des façades. Chaque corps : [x du milieu, z de la façade, type, options] ; la façade
+## regarde la route (−Z du relais).
+func _maisons(parent: Node3D) -> void:
+	var corps := [
+		[-2.5, 21.0, "r0", {"w": 7.0, "d": 7.0, "mur": "moellons", "couverture": "tuile_vieillie", "vigne": false}],
+		[7.5, 18.0, "ferme", {"w": 13.0, "d": 9.5, "niveaux": 1, "mur": "moellons", "pierre": "doree", "couverture": "tuile_vieillie", "vigne": true, "volet": "7e9a96", "volets": "bois"}],
+		[20.5, 19.2, "vigneronne", {"w": 13.0, "d": 9.0, "mur": "moellons", "pierre": "blonde", "couverture": "tuile_vieillie", "balcon": true, "vigne": false, "volet": "7e9a96"}],
+		[33.0, 12.5, "r2", {"w": 10.0, "d": 12.0, "niveaux": 2, "mur": "moellons", "pierre": "calcaire", "couverture": "tuile_vieillie", "vigne": true, "volet": "7e9a96", "lucarnes": 1}],
+	]
+	var face := base.basis * Vector3(0, 0, -1)
+	for i in corps.size():
+		var c: Array = corps[i]
+		var p0 := base * Vector3(c[0], 0, c[1])
+		var y: float = hauteur.call(p0.x, p0.z)
+		var m: Node3D = FACADIER.maison(parent, Vector3(p0.x, y, p0.z), c[2], 71 + i * 7, c[3])
+		m.rotation.y = atan2(face.x, face.z)
 
 
-## Une fenêtre à volets ouverts (ou une porte vitrée) sur un mur du repère : pied à `at` (local), n vers dehors.
-func _baie(at: Vector3, n: Vector3, porte: bool) -> void:
-	var b := base.basis * Basis(n.cross(Vector3.UP).normalized() * -1.0, Vector3.UP, n)
-	var w := base * Vector3(at.x, 0, at.z)
-	var t := Transform3D(b, Vector3(w.x, sol0 + at.y, w.z))
-	# Les mêmes baies que celles de la ville (atelier/fenetres.gd), au niveau des façadiers de la bibliothèque.
-	var g := absi(hash(at))
-	if porte:
-		FENETRES._porte(o, t * Transform3D(Basis(), Vector3(0, -0.55, 0)), Color("6b4a32", 0.7), g)
-	else:
-		FENETRES._fenetre(o, t, 1.0, 1.4, VOLET, g * 5 + 1, g % 3 == 0)
-
-
-func _cheminee(pied: Vector3) -> void:
-	o.boite(Transform3D(base.basis, pied + Vector3(0, 1.0, 0)), Vector3(0.9, 2.2, 0.6), MOELLON)
-	o.boite(Transform3D(base.basis, pied + Vector3(0, 2.15, 0)), Vector3(1.05, 0.12, 0.75), ANGLE)
-
-
-## La terrasse : le treillage à vigne devant la façade, les tables sous les parasols (bibliothèque).
 func _terrasse(parent: Node3D) -> void:
 	var y := 2.6
 	for k in 6:
