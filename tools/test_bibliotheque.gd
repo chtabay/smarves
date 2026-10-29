@@ -262,6 +262,21 @@ func _init() -> void:
 	var lyonnaises: Array = load(Bibliotheque.scene("vegetation-lyonnaise@1", "decor")).instantiate().call("noms")
 	check(not ("tilleul" in essences or "bouleau" in essences or "cypres" in essences or "vigne" in essences or essences.any(func(e): return e in lyonnaises)),
 		"la végétation du Bugey ne redouble aucune essence des autres décors")
+	# L'appareil « irregulier » (moellons en assises de hauteurs variées, joints sombres) est une option : la maison
+	# par défaut reste celle d'hier, à l'appareil régulier.
+	var paquet_bugey: PackedScene = load(Bibliotheque.scene("facadier-du-bugey@1", "decor"))
+	var sommets := {}
+	for appareil in ["", "regulier", "irregulier"]:
+		var maison_b: Node3D = paquet_bugey.instantiate()
+		maison_b.type = "r1"
+		maison_b.graine = 3
+		if appareil != "":
+			maison_b.options = {"appareil": appareil}
+		bugey.add_child(maison_b)
+		var mm := maison_b.find_children("*", "MeshInstance3D", true, false)
+		sommets[appareil] = mm[0].mesh.surface_get_array_len(0) if mm.size() == 1 else -1
+	check(sommets[""] > 0 and sommets[""] == sommets["regulier"] and sommets["irregulier"] > 0 and sommets["irregulier"] != sommets["regulier"],
+		"facadier-du-bugey@1 : l'appareil irrégulier se bâtit, et la maison par défaut garde l'appareil régulier %s" % str(sommets))
 	bugey.queue_free()
 
 	# Le décor toulousain (tiré des planches de la place Saint-Georges de Guillaume) : les maisons de brique, les sols,

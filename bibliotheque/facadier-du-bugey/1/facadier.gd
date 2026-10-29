@@ -55,7 +55,8 @@ const ETAGE := 2.9
 ## « pignon »), rdc (« logis », « boutique », « bourgeoise », « grange », « cave », « porche », « tour »), volets
 ## (« bois », « persiennes », « metal » ou « aucun »), volet (un hexa), balcon, auvent, lanterne, vigne, fleurs
 ## (vrai ou faux), lucarnes (un nombre), enseigne (le texte de la boutique), toile (deux hexas : le store),
-## clocher (la chapelle : « tour » ou « mur »).
+## clocher (la chapelle : « tour » ou « mur »), appareil (« regulier » par défaut, ou « irregulier » : les moellons
+## de calcaire du Bugey en assises inégales, larges joints sombres et pierres ocre, grises et rouille).
 ## Rend le nœud de la maison ; ses métadonnées : type, graine, w, d, hauteur (au faîte), porte (le seuil).
 static func maison(parent: Node3D, p: Vector3, type: String, graine: int, opt := {}) -> Node3D:
 	if not type in TYPES:
@@ -90,6 +91,7 @@ static func maison(parent: Node3D, p: Vector3, type: String, graine: int, opt :=
 	var types_volets := ["bois", "bois", "bois", "persiennes", "metal"]
 	var s := {
 		"mur": mur,
+		"appareil": str(opt.get("appareil", "regulier")),
 		"pierre": pierre,
 		"fond": fond,
 		"volets": str(opt.get("volets", types_volets[r.randi() % types_volets.size()])),
@@ -774,6 +776,9 @@ static func _mur(o: Outils, t: Transform3D, w: float, y0: float, y1: float, hp: 
 			var cx := r.randf_range(-w * 0.4, w * 0.4)
 			var cy := r.randf_range(y0 + 0.3, y1 - 0.5)
 			plaques.append(Rect2(cx - r.randf_range(0.5, 0.9), cy - r.randf_range(0.3, 0.6), r.randf_range(1.0, 1.8), r.randf_range(0.6, 1.1)))
+	if str(s.get("appareil", "regulier")) == "irregulier":
+		_mur_irregulier(o, t, w, y0, y1, hp, trous, s, plaques, bornes)
+		return
 	var y := y0 + 0.03
 	var haut := y1 + hp
 	while y < haut - 0.15:
@@ -814,6 +819,103 @@ static func _mur(o: Outils, t: Transform3D, w: float, y0: float, y1: float, hp: 
 				var relief := r.randf_range(0.03, 0.06)
 				o.boite(t * Transform3D(Basis(), Vector3(x + l * 0.5, y + hh * 0.5, relief * 0.5)), Vector3(l - 0.05, hh - 0.05, relief), c)
 			x += l
+		y += h
+
+
+## L'appareil irrégulier des murs de calcaire du Bugey : des assises de 15 à 45 cm, une pierre sur cinq prise sur
+## deux assises, des moellons de 25 cm à 1,1 m aux coins abattus, des joints de 8 cm d'un mortier plus sombre, et
+## des pierres qui varient de ±15 %, quelques-unes ocre, grises ou rouille.
+static func _mur_irregulier(o: Outils, t: Transform3D, w: float, y0: float, y1: float, hp: float, trous: Array, s: Dictionary, plaques: Array, bornes: Callable) -> void:
+	var r := o.rng
+	var base: Color = s.pierre
+	var enduit: bool = s.mur == "enduit"
+	var mortier: Color = base.darkened(0.32).lerp(Color("7d7466"), 0.35)
+	var joint := 0.08
+	var y := y0 + 0.02
+	var haut := y1 + hp
+	# les pierres de l'assise précédente qui montent dans celle-ci : (x de début, x de fin)
+	var hautes := []
+	while y < haut - 0.12:
+		var h := r.randf_range(0.15, 0.45)
+		var lim := w * 0.5 - 0.02
+		if hp > 0.0 and y + h > y1:
+			lim = w * 0.5 * (1.0 - (y + h - y1) / hp) - 0.05
+		if lim < 0.15:
+			break
+		var x := -lim
+		var xmax := lim
+		if bornes.is_valid():
+			var bb: Vector2 = bornes.call(y, y + h)
+			x = bb.x
+			xmax = bb.y
+		var suivantes := []
+		while x < xmax - 0.1:
+			var saute := false
+			for hv in hautes:
+				var v: Vector2 = hv
+				if x >= v.x - 0.01 and x < v.y:
+					x = v.y
+					saute = true
+					break
+			if saute:
+				continue
+			var l := minf(r.randf_range(0.25, 1.1), xmax - x)
+			for hv in hautes:
+				var v: Vector2 = hv
+				if v.x > x and v.x < x + l:
+					l = v.x - x
+			var double := r.randf() < 0.2 and y + h * 2.0 < haut - 0.2
+			var hh := h * (2.0 if double else 1.0)
+			# une baie sur le chemin : la pierre s'arrête à son bord, ou l'assise reprend après elle
+			var bute := false
+			for tr in trous:
+				var rt: Rect2 = tr
+				if rt.intersects(Rect2(x, y, l, hh)):
+					if double and not rt.intersects(Rect2(x, y, l, h)):
+						double = false
+						hh = h
+					elif rt.position.x > x + 0.16:
+						l = rt.position.x - x
+					else:
+						x = maxf(x + 0.05, rt.end.x)
+						bute = true
+						break
+			if bute:
+				continue
+			var rc := Rect2(x, y, l, hh)
+			var libre := l > 0.16
+			if libre:
+				for tr in trous:
+					if (tr as Rect2).intersects(rc):
+						libre = false
+						break
+			if libre and enduit:
+				libre = false
+				for pl in plaques:
+					if (pl as Rect2).encloses(rc):
+						libre = true
+			if libre:
+				var c := base.lightened(r.randf_range(-0.15, 0.15))
+				var tir := r.randf()
+				if tir < 0.12:
+					c = c.lerp(Color("c9a06a"), 0.5)
+				elif tir < 0.22:
+					c = c.lerp(Color("9c9890"), 0.5)
+				elif tir < 0.28:
+					c = c.lerp(Color("a8643c"), 0.45)
+				# le lit de mortier de la pierre, puis la pierre aux coins abattus, en relief
+				o.boite(t * Transform3D(Basis(), Vector3(x + l * 0.5, y + hh * 0.5, 0.008)), Vector3(l, hh, 0.016), mortier)
+				var lx := (l - joint) * 0.5
+				var ly := (hh - joint) * 0.5
+				var ab := minf(0.06, minf(lx, ly) * 0.4) * r.randf_range(0.5, 1.0)
+				var pts := PackedVector2Array([Vector2(-lx + ab, -ly), Vector2(lx - ab, -ly), Vector2(lx, -ly + ab), Vector2(lx, ly - ab),
+					Vector2(lx - ab, ly), Vector2(-lx + ab, ly), Vector2(-lx, ly - ab), Vector2(-lx, -ly + ab)])
+				var relief := r.randf_range(0.04, 0.08)
+				o.profil(t * Transform3D(Basis(), Vector3(x + l * 0.5, y + hh * 0.5, 0.0)), pts, 0.0, relief, [c, c.darkened(0.12)])
+				if double:
+					suivantes.append(Vector2(x, x + l))
+			x += l
+		hautes = suivantes
 		y += h
 
 
@@ -1126,7 +1228,7 @@ static func _chapelle(o: Outils, n: Node3D, graine: int, opt: Dictionary) -> Nod
 	var H := 5.6
 	var pente := deg_to_rad(42.0)
 	var couv_nom := str(opt.get("couverture", "tuile_vieillie"))
-	var s := {"mur": "moellons", "pierre": pierre, "fond": pierre.darkened(0.16).lerp(Color("b8ab94"), 0.25), "volets": "aucun",
+	var s := {"mur": "moellons", "appareil": str(opt.get("appareil", "regulier")), "pierre": pierre, "fond": pierre.darkened(0.16).lerp(Color("b8ab94"), 0.25), "volets": "aucun",
 		"volet": Color.WHITE, "bois": Color("5a3a28"), "fleurs": true, "fleur": Color(FLEURS[0]), "couv": (COUVERTURES[couv_nom] as Array).map(func(h): return Color(str(h))),
 		"couv_nom": couv_nom, "trous": [], "saute": []}
 	var fond: Color = s.fond
