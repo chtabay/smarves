@@ -154,8 +154,11 @@ jeu lui-même.
   et de quel côté, une seule fois par invite ; l'invite affichée quand il est devant ; les boutons à l'écran
   (leur texte, sinon leur bulle d'aide) ; les cases du tapis d'une table 3D (`scripts/jeux/table_3d.gd`) ;
   les textes affichés ; les écrits posés dans le monde (tout `Label3D` à moins de 25 m : une plaque, un
-  panneau, une étiquette) ; et de chaque côté (devant, à droite, derrière, à gauche et entre deux) jusqu'où le
-  regard porte avant une paroi, ce qui suffit à lire des couloirs et des chambres. Seul se voit ce qu'aucune
+  panneau, une étiquette) ; les choses qui se voient à moins de 20 m (le premier nœud nommé de la scène
+  d'une taille d'objet, 4,5 m au plus : une herse, une bascule, un banc ; son nom est celui de son auteur,
+  « CleAuClou » devient « cle au clou », ou sa méta `libelle`) ; sa position (en mètres vers l'est et vers le
+  nord, le nord vers les z négatifs comme sur les plans) et vers où il regarde ; et vers chaque point
+  cardinal jusqu'où le regard porte avant une paroi, ce qui suffit à lire des couloirs et des chambres. Seul se voit ce qu'aucune
   paroi ne cache : une zone de l'autre côté d'un mur, ou d'un autre lieu bâti dans la même scène (la loge du
   Colaby vue depuis ses galeries), n'est pas montrée. Et il voit l'écran lui-même : chaque vue porte une
   image JPEG de 768 pixels de large, que le connecteur joint à sa réponse (un plan dessiné, des chiffres
@@ -164,7 +167,9 @@ jeu lui-même.
   Sans écran (`--headless`, les essais), pas d'image. Le regard essaie les yeux et un pas de chaque côté, et ne
   bute ni sur ce qu'il frôle ni sur le bâtiment dont la zone est la porte.
 - **Ce qu'il fait.** Les gestes d'un joueur : aller devant une zone (il marche, contourne ce qui le bute, monte et descend les escaliers d'un étage à l'autre,
-  et s'arrête quand le jeu montre son invite), marcher quelques secondes, une touche (E, Espace, Échap, Entrée,
+  et s'arrête quand le jeu montre son invite), aller jusqu'à une chose vue (déjà vue dans ce lieu suffit),
+  marcher vers un point cardinal ou devant, à gauche… quelques secondes ou quelques mètres (un pilier qui
+  accroche, il s'en dégage d'un pas de biais ; une paroi en face, il s'arrête et le dit), une touche (E, Espace, Échap, Entrée,
   Tab, toute lettre, un chiffre, envoyée au jeu comme un clavier ; une touche qui ne change rien à l'écran le
   dit), cliquer un bouton ou une case (un clic de souris à sa place à l'écran),
   attendre, dire. Une nouvelle carte, un nouveau bâtiment, un nouveau jeu se pilotent donc sans une ligne
