@@ -177,11 +177,12 @@ static func _calculer(mesh: ArrayMesh, surfaces: Array, instances: Array) -> voi
 
 
 static func _poser(mesh: ArrayMesh, surfaces: Array, instances: Array) -> void:
+	if not _taches.has(mesh):
+		return
 	en_cours -= 1
 	_en_cours.erase(mesh)
-	if _taches.has(mesh):
-		WorkerThreadPool.wait_for_task_completion(_taches[mesh])
-		_taches.erase(mesh)
+	WorkerThreadPool.wait_for_task_completion(_taches[mesh])
+	_taches.erase(mesh)
 	var nouveau := ArrayMesh.new()
 	for sf in surfaces:
 		nouveau.add_surface_from_arrays(sf.prim, sf.arrays, [], sf.lods)
@@ -191,6 +192,18 @@ static func _poser(mesh: ArrayMesh, surfaces: Array, instances: Array) -> void:
 		var mi = w.get_ref()
 		if mi != null and is_instance_valid(mi) and mi.mesh == mesh:
 			mi.mesh = nouveau
+
+
+## Le jeu qui se ferme (Chargement, en quittant l'arbre) attend les calculs lancés et oublie ceux en file :
+## Godot ne s'arrête pas si une tâche du WorkerThreadPool est encore en file ou en cours quand il quitte,
+## le fil principal attend des fils de travail endormis (Lyon : 16 maillages en calcul, fenêtre figée).
+static func finir() -> void:
+	_file.clear()
+	for mesh in _taches:
+		WorkerThreadPool.wait_for_task_completion(_taches[mesh])
+	_taches.clear()
+	_en_cours.clear()
+	en_cours = 0
 
 
 ## Vrai tant que des niveaux restent à lire ou à calculer, ou des imposteurs à photographier (tests,
