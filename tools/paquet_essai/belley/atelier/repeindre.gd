@@ -8,6 +8,9 @@ static var _pose: ShaderMaterial
 
 
 static func feuillage(arbre: Node3D) -> void:
+	# Les platanes de la bibliothèque ont leurs verts posés depuis la #299 : on ne repeint plus que les autres.
+	if str(arbre.get("arbre")) in ["platane", "jeune_platane"]:
+		return
 	if _pose == null:
 		_pose = ShaderMaterial.new()
 		_pose.shader = load("res://communes/belley/atelier/feuillage_ombriere.gdshader")

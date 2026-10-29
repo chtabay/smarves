@@ -167,7 +167,7 @@ float sous_crete(vec2 xz) {
 float barre(vec2 xz, float d) {
 	float n = fbm(xz * 0.02 + 5.0) - 0.5;
 	float haut = smoothstep(57.0, 60.0, d + n * 6.0);
-	float pied = 1.0 - smoothstep(72.0, 80.0, d + (fbm(xz * 0.06 + 13.0) - 0.5) * 16.0);
+	float pied = 1.0 - smoothstep(76.0, 79.0, d + (fbm(xz * 0.06 + 13.0) - 0.5) * 16.0);
 	return haut * pied * smoothstep(0.36, 0.46, fbm(xz * 0.012 + 31.0));
 }
 
@@ -219,7 +219,8 @@ void fragment() {
 		int c = classe(xz + j * 18.0 + j2 * 7.0);
 		// Dans la ville, les rues sont maillées (places/ville.gd) : la couverture n'y dessine que les jardins.
 		bool ville = abs(xz.x) < 790.0 && abs(xz.y) < 790.0;
-		if (ville && (c == 8 || (c == 0 && length(xz - vec2(150.0, 250.0)) < 420.0))) c = 9;
+		// Les prés, les bosquets, les vergers et les landes pris dans le bourg sont des jardins, pas un parc (verdict n° 11).
+		if (ville && (c == 8 || ((c == 0 || c == 2 || c == 5 || c == 6) && length(xz - vec2(150.0, 250.0)) < 420.0))) c = 9;
 		// Hors de la ville, les routes sont des rubans (places/routes.gd) : sous elles, l'herbe des bas-côtés.
 		if (!ville && c == 8) c = 0;
 		col = teinte(c, xz, monde.y, g, g2, pres, pr);
@@ -290,7 +291,7 @@ void fragment() {
 		float contre = 1.0 - smoothstep(-0.1, 0.35, dot(normale, normalize(vec3(-0.75, 0.47, 0.47))));
 		col = mix(col, col * 0.55, roc * contre);
 		// Une face sur deux à l'ombre, au gris de la planche (#A9A391 au rendu).
-		col = mix(col, vec3(0.53, 0.51, 0.45), roc * smoothstep(0.45, 0.55, fbm(xz * 0.01 + 51.0)) * 0.8);
+		col = mix(col, vec3(0.40, 0.39, 0.35), roc * smoothstep(0.42, 0.5, fbm(xz * 0.01 + 51.0)));
 	}
 	// L'eau prend le ciel, d'autant plus qu'on la voit en rasant ; des rides plus claires la parcourent.
 	float rasant = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);
@@ -300,7 +301,7 @@ void fragment() {
 	float k = 1.0 - exp(-distance(monde, CAMERA_POSITION_WORLD) / 9000.0);
 	col = mix(col, vec3(0.58, 0.65, 0.68), k * 0.7);
 	// Au-delà de 8 km, la brume noie encore les barres claires : plus de taches blanches sur la crête lointaine.
-	col = mix(col, vec3(0.60, 0.67, 0.71), smoothstep(7000.0, 14000.0, distance(monde, CAMERA_POSITION_WORLD)) * 0.45);
+	col = mix(col, vec3(0.60, 0.67, 0.71), smoothstep(7000.0, 14000.0, distance(monde, CAMERA_POSITION_WORLD)) * (0.45 + 0.25 * roc));
 	// Les teintes sont écrites en sRGB, comme la palette de la note ; le rendu de compatibilité ne convertit pas
 	// sa sortie (mesuré : un albédo de 0,5 ressort à 0,5), on les lui donne donc telles quelles.
 	ALBEDO = col;

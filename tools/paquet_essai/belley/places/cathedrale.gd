@@ -351,6 +351,24 @@ func _tour() -> void:
 	_bloc(Vector3(0, 31.0, zm), Vector3(TOUR * 2.0 - 1.0, 12.0, prof - 1.0), C2)
 	for y: float in [14.0, 25.0, 37.0]:
 		o.boite(Transform3D(Basis(), Vector3(0, y, zm)), Vector3(TOUR * 2.0 + 0.3, 0.35, prof + 0.3), OMBRE)
+	# Le voile sous les larmiers : la pierre grisée par l'eau qui goutte des cordons, en deux bandes dégradées sous
+	# chacun, sur les quatre faces de l'étage qu'il couronne.
+	for etage in [[14.0, TOUR, prof * 0.5], [25.0, TOUR - 0.3, (prof - 0.6) * 0.5], [37.0, TOUR - 0.5, (prof - 1.0) * 0.5]]:
+		var yv: float = etage[0]
+		var lx: float = etage[1]
+		var lz: float = etage[2]
+		for bande_v in [[0.0, 0.35, 0.16], [0.35, 0.8, 0.08]]:
+			var y1: float = yv - 0.17 - bande_v[0]
+			var y0: float = yv - 0.17 - bande_v[1]
+			var tv := C.darkened(bande_v[2])
+			for face in 4:
+				var bf := Basis(Vector3.UP, face * PI * 0.5)
+				var demi := lx if face % 2 == 0 else lz
+				var off := (lz if face % 2 == 0 else lx) + 0.015
+				var c0 := Vector3(0, 0, zm)
+				var a := c0 + bf * Vector3(-demi, y0, off)
+				var b := c0 + bf * Vector3(demi, y0, off)
+				o.quad(a, b, b + Vector3(0, y1 - y0, 0), a + Vector3(0, y1 - y0, 0), bf * Vector3(0, 0, 1), tv, OUTILS.PIERRE)
 	# Les contreforts d'angle de la tour, à ressauts jusqu'au beffroi.
 	for sx: float in [-1.0, 1.0]:
 		for sz: float in [zf, zb]:
@@ -427,6 +445,13 @@ func _tour() -> void:
 		# planche, qui tient le milieu de la tour.
 		baie(Transform3D(Basis(), Vector3(s * 0.85, 16.6, zf - 0.3)), 1.15, 5.2, 1)
 	bande(Transform3D(Basis(), Vector3(0, 16.6, zf - 0.3)), ogive(4.6, 5.3, 4.6 * 0.75), ogive(3.9, 5.3, 3.9 * 0.75), 0.0, 0.32, OMBRE)
+	# Deux niches à statue sur le fût, de part et d'autre des lancettes jumelles.
+	for s: float in [-1.0, 1.0]:
+		var tn := Transform3D(Basis(), Vector3(s * 3.5, 20.8, zf - 0.3))
+		bande(tn, ogive(1.0, 1.7, 0.8), ogive(0.7, 1.7, 0.56), 0.0, 0.3, OMBRE)
+		o.profil(tn, ogive(0.7, 1.7, 0.56), 0.0, 0.02, C2.darkened(0.25))
+		o.cylindre(Transform3D(Basis(), tn * Vector3(0, 0.1, 0.12)), 0.17, 0.12, 1.3, 8, C)
+		o.boule(tn * Vector3(0, 1.55, 0.12), Vector3(0.11, 0.13, 0.11), C, 0.03, OUTILS.PIERRE, 0.0)
 	# La frise d'arcatures aveugles sous le cordon du beffroi, sur les quatre faces.
 	for face in 4:
 		var bf := Basis(Vector3.UP, face * PI * 0.5)
