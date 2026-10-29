@@ -341,6 +341,28 @@ func _init() -> void:
 	var store_l: AABB = (cafe_l.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).get_aabb()
 	var lambrequin := cafe_l.find_children("*", "Label3D", true, false).filter(func(e): return e.text == "CAFÉ SATHONAY").size()
 	check(store_l.end.z > 2.6 and lambrequin == 2, "les stores bannes du café avancent de 2,6 m et l'enseigne est peinte sur le lambrequin (%.2f, %d)" % [store_l.end.z, lambrequin])
+	var sans_store: Node3D = paquet_lyon.instantiate()
+	sans_store.type = "cafe"
+	sans_store.options = {"avancee": 2.6, "store": false}
+	toulouse.add_child(sans_store)
+	var nu: AABB = (sans_store.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).get_aabb()
+	check(nu.end.z < 2.0, "le façadier lyonnais laisse la devanture sans store banne quand on le demande (%.2f)" % nu.end.z)
+	# l'option teinte des arbres d'ombrière : un hexa tire la palette, une liste de verts se mêle selon la graine
+	var verts_de := func(t: Node3D) -> Color:
+		var cols: PackedColorArray = (t.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).mesh.surface_get_arrays(1)[Mesh.ARRAY_COLOR]
+		var somme := Color(0, 0, 0, 0)
+		for c in cols:
+			somme += c
+		return somme / maxf(1, cols.size())
+	var teintes := []
+	for t in [null, "8ab04a", ["6e9440", "8ab04a", "4d6e33"]]:
+		var mt: Node3D = load(Bibliotheque.scene("arbres-d-ombriere@1", "decor")).instantiate()
+		mt.arbre = "marronnier"
+		if t != null:
+			mt.options = {"teinte": t}
+		toulouse.add_child(mt)
+		teintes.append(verts_de.call(mt))
+	check(not teintes[0].is_equal_approx(teintes[1]) and not teintes[0].is_equal_approx(teintes[2]), "l'arbre d'ombrière prend la teinte qu'on lui donne")
 	var plat: Node3D = paquet_lyon.instantiate()
 	plat.options = {"w": 10.0, "d": 11.0, "niveaux": 3}
 	toulouse.add_child(plat)
