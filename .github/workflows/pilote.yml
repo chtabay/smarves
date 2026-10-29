@@ -71,13 +71,23 @@ jobs:
         if: steps.ouvrir.outputs.jeton != ''
         run: ./godot --headless --path . --import || true
 
+      # Les parties (user://) passent d'une tâche à la suivante : les villes installées, la sauvegarde
+      # et le carnet restent, comme sur l'ordinateur d'un joueur qui relance le jeu.
+      - name: Reprendre les parties
+        if: steps.ouvrir.outputs.jeton != ''
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/parties
+          key: parties-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: parties-
+
       - name: Tenir les pensionnaires jusqu'à la fin du jeton
         if: steps.ouvrir.outputs.jeton != ''
         env:
           SMARVES_PILOTE_JETON: ${{ steps.ouvrir.outputs.jeton }}
         run: |
           declare -A pid
-          mkdir -p journaux
+          mkdir -p journaux "$RUNNER_TEMP/parties"
           while true; do
             r=$(curl -sS --max-time 40 -X POST "$SMARVES_PILOTE_URL" -H "authorization: Bearer $SMARVES_PILOTE_JETON" \
               -H 'content-type: application/json' -d '{"action":"pilote_demandes"}' || echo '{}')
@@ -90,7 +100,7 @@ jobs:
               n=$(echo -n "$p" | sha1sum | cut -c1-8)
               echo "Lancer le jeu de $n"
               # Chaque pensionnaire a son propre dossier de partie (user://).
-              XDG_DATA_HOME="$RUNNER_TEMP/partie-$n" SMARVES_PENSIONNAIRE="$p" \
+              XDG_DATA_HOME="$RUNNER_TEMP/parties/partie-$n" SMARVES_PENSIONNAIRE="$p" \
                 xvfb-run -a -s "-screen 0 1280x720x24" ./godot --rendering-driver opengl3 --audio-driver Dummy \
                 --resolution 1024x576 --path . -- --pilote > "journaux/$n.log" 2>&1 &
               pid[$p]=$!
@@ -99,6 +109,13 @@ jobs:
           done
           for p in "${!pid[@]}"; do kill "${pid[$p]}" 2>/dev/null || true; done
           sleep 2
+
+      - name: Garder les parties
+        if: always() && steps.ouvrir.outputs.jeton != ''
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/parties
+          key: parties-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Journaux des jeux
         if: always() && steps.ouvrir.outputs.jeton != ''
