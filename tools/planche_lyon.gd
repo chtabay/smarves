@@ -57,11 +57,20 @@ func _init() -> void:
 					opt["chassis"] = 1 + rang.find(e) % 3
 					opt["souches"] = "grosses"
 					opt["pente"] = 29.0
+				if nom == "sathonay" and rang.find(e) % 2 == 0 and e[0] != "cafe":
+					# une boutique sur deux sans store banne (verdict de Sathonay)
+					opt["store"] = false
 				var m := _pose(FACADIER, "type", e[0], Vector3(x + 4.75, 0, 0), rang.find(e) + 3, opt)
 				if e[0] == "cafe":
 					_pose(MOBILIER, "objet", "terrasse", Vector3(x + 4.75, 0, 3.4), rang.find(e) + 1, {})
 				x += 9.9
-			if nom == "toits":
+			if nom == "sathonay":
+				# les marronniers du mail, de trois verts mêlés tirés par la graine
+				for i in 5:
+					_pose("arbres-d-ombriere@1", "arbre", "marronnier", Vector3(-18 + i * 9.0, 0, 12), i + 1, {"teinte": ["6e9440", "8ab04a", "4d6e33"]})
+				cam.fov = 50
+				cam.look_at_from_position(Vector3(2, 9, 34), Vector3(2, 6, 0))
+			elif nom == "toits":
 				cam.fov = 45
 				cam.look_at_from_position(Vector3(2, 34, 30), Vector3(2, 14, -4))
 			elif nom == "haut":
