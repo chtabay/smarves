@@ -235,24 +235,37 @@ func _former(depart: int) -> void:
 		c.queue_free()
 	_coureurs = {}
 	_depart = depart
-	var biens: GDScript = load("res://scripts/biens.gd")
 	for r in _cyclisme().engages(course, depart):
-		var c := Node3D.new()
+		var c := coureur(str(r.maillot), Hasard.graine("%s/%s/%s" % [commune, course_id, r.nom]))
 		c.name = "Coureur%d" % int(r.num)
 		c.scale = Vector3.ONE * echelle
-		var velo: Node3D = biens._deux_roues("velo_course")
-		velo.scale = Vector3.ONE * 1.9
-		c.add_child(velo)
-		var homme: Node3D = CRITTER.new()
-		homme.randomize_look(Hasard.graine("%s/%s/%s" % [commune, course_id, r.nom]))
-		homme.look = homme.look.duplicate(true)
-		homme.look["top"] = "gilet"
-		homme.look["top_color"] = str(r.maillot)
-		homme.look["top2"] = str(r.maillot)
-		homme.look["sleeves"] = "courtes"
-		homme.pose = 2
-		homme.position = Vector3(0, SELLE * 1.9 - 0.09 * 0.55, 0.02)
-		c.add_child(homme)
 		c.visible = false
 		add_child(c)
 		_coureurs[int(r.num)] = c
+
+
+## Un coureur sur son vélo de course, à l'échelle 1, qui regarde +Z : penché sur le guidon, il pédale.
+static func coureur(maillot: String, graine: int) -> Node3D:
+	var c := Node3D.new()
+	var velo: Node3D = load("res://scripts/biens.gd")._deux_roues("velo_course")
+	velo.scale = Vector3.ONE * 1.9
+	c.add_child(velo)
+	var homme: Node3D = CRITTER.new()
+	homme.look = tenue(maillot, graine)
+	homme.sit_anim = "velo"
+	homme.pose = 2
+	# Les hanches sur la selle, en arrière du pédalier, comme le joueur en selle (scripts/village/conduite.gd).
+	homme.position = Vector3(0, SELLE * 1.9 - 0.09 * 0.55, -0.1)
+	c.add_child(homme)
+	return c
+
+
+## La tenue d'un coureur : un jeune homme du village, maillot à la couleur de son dossard, cuissard noir et
+## casquette de coton blanche.
+static func tenue(maillot: String, graine: int) -> Dictionary:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = graine
+	var l: Dictionary = Cast._face(rng, false, false)
+	l.merge({"build": {"belly": 0.86, "width": 0.94, "leg": 1.06}, "top": "pull", "top_color": maillot, "sleeves": "courtes",
+		"legs": "short", "legs_color": "#16151b", "shoes": "#16151b", "hat": "casquette", "hat_color": "#f4f1ea"}, true)
+	return l
