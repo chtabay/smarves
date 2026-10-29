@@ -115,6 +115,9 @@ func _mobilier(parent: Node3D) -> void:
 		["jardiniere", Vector2(192.0, 345.5), -2.1], ["jardiniere", Vector2(200.5, 329.5), -2.1],
 		["jardiniere", Vector2(180.0, 345.0), -2.1], ["jardiniere", Vector2(196.5, 349.0), -2.1],
 	]
+	# Le long du trottoir de la rue piétonne, entre les bornes, une jardinière tous les 6 m, comme sur la planche.
+	for k in 6:
+		poses.append(["jardiniere", Vector2(157.5, 333.4).lerp(Vector2(189.0, 351.4), (k + 0.5) / 6.0) + Vector2(0.5, -0.9), -2.1])
 	var g := 0
 	for p in poses:
 		var m: Node3D = scene.instantiate()
@@ -124,4 +127,15 @@ func _mobilier(parent: Node3D) -> void:
 		var v: Vector2 = p[1]
 		m.position = _p(v, 0.12)
 		m.rotation.y = p[2]
+		parent.add_child(m)
+	# Les massifs fleuris aux pieds des marches du parvis et aux angles de la place (vegetation-du-bugey@1).
+	var bugey: PackedScene = load(Bibliotheque.scene("vegetation-du-bugey@1", "decor"))
+	var massifs := [Vector2(186.0, 343.0), Vector2(194.5, 337.5), Vector2(203.0, 333.0), Vector2(161.0, 322.0), Vector2(170.0, 340.0)]
+	for k in massifs.size():
+		var m: Node3D = bugey.instantiate()
+		m.set("plante", "arbuste_fleuri")
+		m.set("graine", 500 + k)
+		m.set("options", {"fleurs": ["d04a8a", "e0605a", "f4f0e6", "f2c14e", "b06ad0"][k]})
+		var v: Vector2 = massifs[k]
+		m.position = _p(v, 0.1)
 		parent.add_child(m)
