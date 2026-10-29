@@ -213,6 +213,62 @@
 					"socle": "1.25"
 				}
 			}
+		},
+		"facadier-du-bugey": {
+			"genre": "decor",
+			"nom": "Le façadier du Bugey",
+			"description": "Les maisons de village du Bugey, en moellons calcaires : les modules de rangée R+2, R+1 et R+0, la maison bourgeoise, la ferme bugiste et sa grange, la maison vigneronne à escalier extérieur, la tour, la maison de village, le porche aux bannières, la maison à pignon à redents et la chapelle ; tuile plate, lauze ou ardoise, volets de bois, balcons, auvents, lucarnes, vigne et fleurs tirés par la graine.",
+			"auteur": "Smarves · d'après une inspiration de Guillaume",
+			"licence": "celle du jeu",
+			"versions": {
+				"1": {
+					"scene": "res://bibliotheque/facadier-du-bugey/1/maison.tscn",
+					"apercu": "res://bibliotheque/facadier-du-bugey/1/apercu.png",
+					"socle": "1.25"
+				}
+			}
+		},
+		"mobilier-du-bugey": {
+			"genre": "decor",
+			"nom": "Le mobilier du Bugey",
+			"description": "Le mobilier d'une place de village du Bugey : la fontaine ronde fleurie à la statue de bronze, la fontaine à vasque, le bachal, l'étal de marché (primeurs, fromages, fleurs ou vin), la charrette, les tonneaux, les caisses, deux bancs, le panneau d'affichage, le puits, la jardinière de moellons, l'enseigne forgée, le lampadaire à deux lanternes, la tonnelle de vigne, le muret et la table de terrasse.",
+			"auteur": "Smarves · d'après une inspiration de Guillaume",
+			"licence": "celle du jeu",
+			"versions": {
+				"1": {
+					"scene": "res://bibliotheque/mobilier-du-bugey/1/objet.tscn",
+					"apercu": "res://bibliotheque/mobilier-du-bugey/1/apercu.png",
+					"socle": "1.25"
+				}
+			}
+		},
+		"vegetation-du-bugey": {
+			"genre": "decor",
+			"nom": "La végétation du Bugey",
+			"description": "Les essences du Bugey qui manquaient à la bibliothèque, sans doubler les autres : le chêne, le charme, le cerisier en fleurs ou en fruits, le cèdre, la haie basse taillée, l'arbuste fleuri, le rang de vigne palissé et les fleurs de village en pots. Le tilleul et le bouleau viennent des arbres de place, le cyprès et la vigne grimpante de la végétation lyonnaise.",
+			"auteur": "Smarves · d'après une inspiration de Guillaume",
+			"licence": "celle du jeu",
+			"versions": {
+				"1": {
+					"scene": "res://bibliotheque/vegetation-du-bugey/1/plante.tscn",
+					"apercu": "res://bibliotheque/vegetation-du-bugey/1/apercu.png",
+					"socle": "1.25"
+				}
+			}
+		},
+		"terrains-du-bugey": {
+			"genre": "decor",
+			"nom": "Les terrains du Bugey",
+			"description": "Les modules de campagne du Bugey, sur une trame de 8 m : la prairie fleurie, le champ de blé, le champ de maïs, la vigne en coteau sur ses terrasses de pierre sèche, le chemin de terre, la route bordée de murets, le mur de pierre sèche, le talus rocheux calcaire, la rivière et ses roseaux, et la falaise calcaire qui ferme l'horizon.",
+			"auteur": "Smarves · d'après une inspiration de Guillaume",
+			"licence": "celle du jeu",
+			"versions": {
+				"1": {
+					"scene": "res://bibliotheque/terrains-du-bugey/1/module.tscn",
+					"apercu": "res://bibliotheque/terrains-du-bugey/1/apercu.png",
+					"socle": "1.25"
+				}
+			}
 		}
 	}
 }

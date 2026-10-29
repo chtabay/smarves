@@ -7,7 +7,8 @@ extends SceneTree
 ## la salle de Smarves sur « salle-de-quartier@1 », le club, le cube, le président, le bureau, les parts et le car ;
 ## les matières de « matieres-de-minuit@1 » se posent par leur nom (socle 1.17) ; le façadier « facadier-du-poitou@1 »
 ## bâtit ses dix types ; chaque décor se bâtit seul (le donjon en ruine, l'église romane) ; les arbres, le mobilier
-## et le façadier de la place du nord se bâtissent par leur nom, comme les quatre briques du décor lyonnais.
+## et le façadier de la place du nord se bâtissent par leur nom, comme les quatre briques du décor lyonnais
+## et celles du décor du Bugey.
 
 var fails := 0
 
@@ -232,6 +233,36 @@ func _init() -> void:
 	lyon.add_child(quai)
 	check(is_equal_approx(float(quai.get_meta("haut")), 3.0), "l'escalier haut des quais lyonnais mène à 3 m")
 	lyon.queue_free()
+
+	# Le décor du Bugey (tiré de la planche d'assets régionaux de Guillaume) : les maisons de pierre, le mobilier, la
+	# végétation et les terrains se bâtissent chacun par son nom, en un seul maillage et un seul corps ; aucune essence
+	# n'y redouble celles des autres décors (le tilleul, le bouleau, le cyprès et la vigne se prennent chez eux).
+	var bugey := Node3D.new()
+	root.add_child(bugey)
+	var bugistes := {"facadier-du-bugey@1": ["types", "type", 11], "mobilier-du-bugey@1": ["objets", "objet", 17],
+		"vegetation-du-bugey@1": ["noms", "plante", 8], "terrains-du-bugey@1": ["noms", "module", 10]}
+	for ref in bugistes:
+		var sc := Bibliotheque.scene(ref, "decor")
+		check(sc != "" and ResourceLoader.exists(sc), "la bibliothèque a %s, un décor" % ref)
+		if sc == "":
+			continue
+		var paquet: PackedScene = load(sc)
+		var noms: Array = paquet.instantiate().call(bugistes[ref][0])
+		var rates := []
+		for nom in noms:
+			var d: Node3D = paquet.instantiate()
+			d.set(bugistes[ref][1], nom)
+			d.graine = 3
+			bugey.add_child(d)
+			var maillages := d.find_children("*", "MeshInstance3D", true, false)
+			if d.get_meta(bugistes[ref][1], "") != nom or maillages.size() != 1 or maillages[0].mesh.get_surface_count() > 3 or d.find_children("*", "CollisionShape3D", true, false).is_empty():
+				rates.append(nom)
+		check(noms.size() == bugistes[ref][2] and rates.is_empty(), "%s : les %d se bâtissent, un maillage et un corps chacun %s" % [ref, noms.size(), str(rates)])
+	var essences: Array = load(Bibliotheque.scene("vegetation-du-bugey@1", "decor")).instantiate().call("noms")
+	var lyonnaises: Array = load(Bibliotheque.scene("vegetation-lyonnaise@1", "decor")).instantiate().call("noms")
+	check(not ("tilleul" in essences or "bouleau" in essences or "cypres" in essences or "vigne" in essences or essences.any(func(e): return e in lyonnaises)),
+		"la végétation du Bugey ne redouble aucune essence des autres décors")
+	bugey.queue_free()
 
 	# Les intérieurs (socle 1.22) : chaque salle de jeu et chaque étude tient le contrat de son genre.
 	check("bar-des-sports@1" in Bibliotheque.references("salle_jeu") and "etude-de-notaire@1" in Bibliotheque.references("etude"),
