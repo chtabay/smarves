@@ -16,6 +16,9 @@ var mise := 20
 ## Qui tient le carnet, et le titre de la fenêtre : Josiane au café de Smarves, le tenancier ailleurs.
 var teneur := "Josiane"
 var titre := "Le carnet du PMU de Josiane"
+## D'autres paris au même comptoir (socle 1.28 : les courses cyclistes de la commune) : [libellé, Callable],
+## un bouton chacun en bas de la fenêtre, qui la referme et ouvre l'autre.
+var ailleurs: Array = []
 var _ligne_etat: Label
 var _journee := {}
 
@@ -53,6 +56,11 @@ func remplir(colonne: VBoxContainer) -> void:
 	colonne.add_child(_filet())
 	_tickets(colonne)
 	var bas := _pied(colonne)
+	for a in ailleurs:
+		var aller: Callable = a[1]
+		bas.add_child(_bouton(str(a[0]), func():
+			closed.emit()
+			aller.call_deferred()))
 	if not _journee.is_empty():
 		var b := _bouton("Jouer le ticket", func(): jouer())
 		b.name = "Jouer"

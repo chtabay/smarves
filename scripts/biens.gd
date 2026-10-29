@@ -647,6 +647,21 @@ const DEUX_ROUES := {
 		["boite", Vector3(0.24, 0.14, 0.2), Vector3(0, 0.6, 0.5), 0.0, "osier"],
 		["boite", Vector3(0.14, 0.03, 0.03), Vector3(0, 0.25, -0.02), 0.0, "chrome"],
 	]],
+	# Le vélo de course des coureurs (Peloton, socle 1.28) : cadre fin, guidon bas, sans panier ; il ne se vend pas.
+	"velo_course": [0.24, Color(0.12, 0.12, 0.14), [
+		["tore", Vector2(0.22, 0.25), Vector3(0, 0.25, 0.44), 0.0, "noir"],
+		["tore", Vector2(0.22, 0.25), Vector3(0, 0.25, -0.44), 0.0, "noir"],
+		["boite", Vector3(0.03, 0.03, 0.52), Vector3(0, 0.62, 0.08), -4.0, "couleur"],
+		["boite", Vector3(0.03, 0.03, 0.56), Vector3(0, 0.42, 0.14), 38.0, "couleur"],
+		["boite", Vector3(0.03, 0.44, 0.03), Vector3(0, 0.45, -0.16), -15.0, "couleur"],
+		["boite", Vector3(0.025, 0.025, 0.44), Vector3(0, 0.26, -0.22), 0.0, "couleur"],
+		["boite", Vector3(0.025, 0.42, 0.025), Vector3(0, 0.46, 0.39), -15.0, "chrome"],
+		["boite", Vector3(0.3, 0.025, 0.025), Vector3(0, 0.62, 0.42), 0.0, "chrome"],
+		["boite", Vector3(0.025, 0.025, 0.1), Vector3(0.14, 0.58, 0.46), 30.0, "chrome"],
+		["boite", Vector3(0.025, 0.025, 0.1), Vector3(-0.14, 0.58, 0.46), 30.0, "chrome"],
+		["boite", Vector3(0.08, 0.04, 0.2), Vector3(0, 0.7, -0.21), 0.0, "noir"],
+		["boite", Vector3(0.14, 0.03, 0.03), Vector3(0, 0.25, -0.02), 0.0, "chrome"],
+	]],
 	# La Terrot 500 : grand réservoir rouge, moteur noir, échappement chromé.
 	"moto": [0.28, Color(0.62, 0.08, 0.08), [
 		["tore", Vector2(0.18, 0.28), Vector3(0, 0.28, 0.48), 0.0, "noir"],

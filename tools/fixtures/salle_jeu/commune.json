@@ -18,6 +18,8 @@
 		 "tenancier": "Mme Rivière", "graine": 17, "decor": "cafe", "enseigne": "Au Tripot", "guichet": true,
 		 "repliques": ["« Ici on mise petit, mais on mise souvent. »"]},
 		{"type": "salle_jeu", "id": "cercle", "nom": "Le cercle", "jeux": ["baccara"], "decor": "salle"},
+		{"type": "course_velo", "id": "criterium", "nom": "Le critérium de la gare", "parcours": ["Depart", "Pont", "Gare"],
+		 "distance": 1800, "tours": 5, "relief": "plat", "jour": "dimanche", "heure": 11},
 		{"type": "charge", "id": "change", "nom": "La charge de Mme Dumoulin, agent de change", "lot": "place",
 		 "agent": "Mme Dumoulin", "graine": 41, "enseigne": "Dumoulin & Fils",
 		 "repliques": ["« La gare a ses horaires, la Bourse aussi. »"]},

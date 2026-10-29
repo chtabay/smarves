@@ -203,7 +203,21 @@ func _paris() -> void:
 			await process_frame
 			var p: Node = s._game
 			check(p != null and p.get_script().resource_path == "res://scripts/socle/foot_paris.gd" and p.teneur == "Mme Rivière" and p.titre == "Le carnet des paris de Mme Rivière", "  E ouvre le comptoir des paris au nom de la tenancière")
-			if p:
+			if p and modele == "":
+				# La course cycliste de la commune se joue au même comptoir (socle 1.28).
+				check(p.ailleurs.size() == 1 and str(p.ailleurs[0][0]) == "La course : Le critérium de la gare", "  le comptoir prend aussi les paris sur la course de la commune")
+				var aller: Callable = p.ailleurs[0][1]
+				p.closed.emit()
+				await process_frame
+				aller.call()
+				await process_frame
+				var c: Node = s._game
+				check(c != null and c.get_script().resource_path == "res://scripts/socle/course_panel.gd" and c.teneur == "Mme Rivière"
+					and c.find_children("Choix_*", "Button", true, false).size() == 24, "  et ouvre le programme de la course, au nom de la tenancière")
+				if c:
+					c.closed.emit()
+					await process_frame
+			elif p:
 				p.closed.emit()
 				await process_frame
 		s._sortir()
