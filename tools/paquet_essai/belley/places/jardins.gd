@@ -17,8 +17,9 @@ const UNITE := 2.4
 const CENTRE := Vector2(200.0, 340.0)
 const RAYON := 160.0
 const PAS := 3.5
-## Les classes du relevé où il y a des jardins : le pré, le bosquet, le verger, la lande.
-const JARDINS := [0, 2, 5, 6]
+## Les classes du relevé où il y a des jardins : le pré, le bosquet, le verger, la lande, et les abords des rues
+## du relevé (la chaussée elle-même est exclue par bourg.json).
+const JARDINS := [0, 2, 5, 6, 8]
 ## L'angle du parcellaire, celui du shader du sol (relief/terrain.gdshader, jardins).
 const ANGLE := 0.52
 
@@ -85,12 +86,13 @@ func batir(parent: Node3D) -> void:
 	while y < qc.y + RAYON:
 		var x := floorf((qc.x - RAYON) / 4.0) * 4.0
 		while x < qc.x + RAYON:
-			limites.append([monde.call(Vector2(x + 2.0, y)), ANGLE, absi(hash(Vector2i(int(x), int(y))))])
+			# Le type de limite tient sur 16 m : des tronçons continus, pas des bouts de haie isolés.
+			limites.append([monde.call(Vector2(x + 2.0, y)), ANGLE, absi(hash(Vector2i(int(floor(x / 16.0)), int(y))))])
 			x += 4.0
 		var xt := floorf((qc.x - RAYON) / 12.0) * 12.0 + float(absi(hash(int(y))) % 12)
 		while xt < qc.x + RAYON:
 			for k in 2:
-				limites.append([monde.call(Vector2(xt, y + 2.5 + k * 5.0)), ANGLE - PI * 0.5, absi(hash(Vector2i(int(xt), int(y) * 7 + k)))])
+				limites.append([monde.call(Vector2(xt, y + 2.5 + k * 5.0)), ANGLE - PI * 0.5, absi(hash(Vector2i(int(xt), int(y) * 7)))])
 			xt += 12.0 + float(absi(hash(Vector2i(int(xt), int(y)))) % 9)
 		y += 10.0
 	for l in limites:

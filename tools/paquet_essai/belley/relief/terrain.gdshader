@@ -147,9 +147,9 @@ vec3 jardins(vec2 xz, float g) {
 	float bx = min(f.x, taille.x - f.x);
 	float by = min(f.y, taille.y - f.y);
 	float haie = max((1.0 - smoothstep(e, e + 0.3, bx)) * step(0.4, h21(cel + 9.0)), (1.0 - smoothstep(e, e + 0.3, by)) * step(0.3, h21(cel + 12.0)));
-	vec3 limite = h21(cel + 9.0) < 0.85 ? vec3(0.21, 0.31, 0.16) : vec3(0.62, 0.57, 0.47);
 	col = mix(col, col * 0.7, (1.0 - smoothstep(e + 0.3, e + 1.6, f.y)) * 0.7);
-	col = mix(col, limite, haie);
+	// Les limites sont en volume (places/jardins.gd) : au sol, seulement un liseré d'herbe plus sombre.
+	col = mix(col, col * 0.85, haie * 0.5);
 	col = mix(col, vec3(dot(col, vec3(0.33))) * vec3(1.02, 1.0, 0.92), 0.22);
 	return col * (0.95 + 0.08 * g);
 }
