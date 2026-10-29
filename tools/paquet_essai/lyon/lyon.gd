@@ -25,7 +25,7 @@ const SOLEIL := {"hauteur": 31.0, "vient_de": 258.0, "couleur": Color("#ffe1b0")
 ## La palette de la note (« Palette et matières »).
 const ENDUITS_PLACE := ["ecd59c", "f1e1b8", "eac39a", "f0d6a4", "e6c08e", "f3e6c6"]
 const ENDUITS_PENTES := ["e2cc98", "e9d6b0", "dcb78f", "e4c8a0", "d8c3a2"]
-const TUILES := ["b4604a", "a8583f", "bd6a50", "9f5440", "b86650", "ab5c47"]
+const TUILES := ["8f4a38", "86422f", "965040", "7e3f30", "92503f", "8a4836"]
 const PAVE := Color("#8e8a84")
 const DALLE := Color("#c9c1b2")
 const SABLE := Color("#e8cb9c")
@@ -164,7 +164,7 @@ func _ciel() -> void:
 	e.sky.sky_material = ciel
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	e.ambient_light_color = Color("#c8bda6")
-	e.ambient_light_energy = 0.4
+	e.ambient_light_energy = 0.47
 	e.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	e.tonemap_exposure = 0.68
@@ -823,15 +823,15 @@ func _place() -> void:
 	graines.seed = 1817
 	var troncs: Array[Vector2] = []
 	var essais := 0
-	while troncs.size() < 12 and essais < 4000:
+	while troncs.size() < 17 and essais < 6000:
 		essais += 1
 		var p := Vector2(graines.randf_range(sq.position.x + 2.2, sq.end.x - 2.2), graines.randf_range(sq.position.y + 2.2, sq.end.y - 2.2))
-		var e := Vector2((p.x - BLANDAN.x) / 8.0, (p.y - BLANDAN.y) / 12.0)
-		if e.length() < 1.0 or (absf(p.x - BLANDAN.x) < 4.5 and p.y < BLANDAN.y):
+		# seul un cercle de 7 m reste ouvert autour de Blandan, et l'allée vers l'escalier
+		if p.distance_to(BLANDAN) < 7.0 or (absf(p.x - BLANDAN.x) < 2.5 and p.y < BLANDAN.y):
 			continue
 		var libre := true
 		for q in troncs:
-			if q.distance_to(p) < 8.5:
+			if q.distance_to(p) < 6.8:
 				libre = false
 		for q in genants:
 			if q.distance_to(p) < 2.0:
@@ -840,7 +840,7 @@ func _place() -> void:
 			troncs.append(p)
 	for k in troncs.size():
 		var p: Vector2 = troncs[k]
-		_pose(OMBRIERE, "arbre", "marronnier", Vector3(p.x, y, p.y), 400 + k, {"hauteur": graines.randf_range(12.0, 16.0), "vent": 0.4, "densite": graines.randf_range(0.6, 0.85)})
+		_pose(OMBRIERE, "arbre", "marronnier", Vector3(p.x, y, p.y), 400 + k, {"hauteur": graines.randf_range(12.0, 16.0), "vent": 0.4, "densite": graines.randf_range(0.75, 0.95)})
 	var massifs := 0
 	essais = 0
 	while massifs < 7 and essais < 2000:
@@ -1068,33 +1068,36 @@ func _blandan(s: Node3D) -> void:
 func _fontaine_lion(f: Node3D, _sens: float) -> void:
 	var dore := PIERRE_DOREE
 	var z := -0.55
-	# le socle de pierre dorée : une plinthe, un dé un peu galbé par ses chanfreins, une corniche à trois
-	# ressauts, la tablette où se couche le lion
-	_forme(f, _blo(Vector3(2.5, 0.35, 1.5)), Vector3(0, 0.17, z), dore.darkened(0.12))
-	_forme(f, _blo(Vector3(2.3, 0.08, 1.4)), Vector3(0, 0.39, z), dore.darkened(0.05))
-	_forme(f, _blo(Vector3(2.1, 1.75, 1.2)), Vector3(0, 1.3, z), dore)
+	# le socle de pierre dorée, bas et mouluré : une plinthe, un dé à tables saillantes et chanfreins, une
+	# corniche à trois ressauts, la tablette où se couche le lion ; un tablier demi-rond avance dans la vasque
+	_forme(f, _blo(Vector3(2.1, 0.3, 1.4)), Vector3(0, 0.15, z), dore.darkened(0.12))
+	_forme(f, _blo(Vector3(1.95, 0.08, 1.3)), Vector3(0, 0.34, z), dore.darkened(0.05))
+	_forme(f, _blo(Vector3(1.8, 1.0, 1.15)), Vector3(0, 0.88, z), dore)
 	for c in [-1.0, 1.0]:
-		_forme(f, _blo(Vector3(0.18, 1.75, 1.22)), Vector3(c * 1.0, 1.3, z), dore.lightened(0.04))
+		_forme(f, _blo(Vector3(0.16, 1.0, 1.17)), Vector3(c * 0.86, 0.88, z), dore.lightened(0.05))
+	_forme(f, _blo(Vector3(1.1, 0.6, 0.05)), Vector3(0, 0.9, z + 0.58), dore.lightened(0.08))
+	var tablier := _forme(f, _cyl(0.55, 0.62, 0.62, 24), Vector3(0, 0.66, z + 0.55), dore.darkened(0.03))
+	tablier.scale = Vector3(1.0, 1.0, 0.55)
 	for k in 3:
-		_forme(f, _blo(Vector3(2.16 + k * 0.1, 0.09, 1.26 + k * 0.1)), Vector3(0, 2.22 + k * 0.09, z), dore.darkened(0.04 * k))
-	_forme(f, _blo(Vector3(2.0, 0.12, 1.15)), Vector3(0, 2.54, z), dore.darkened(0.08))
+		_forme(f, _blo(Vector3(1.86 + k * 0.1, 0.09, 1.21 + k * 0.1)), Vector3(0, 1.42 + k * 0.09, z), dore.darkened(0.04 * k))
+	_forme(f, _blo(Vector3(1.7, 0.1, 1.1)), Vector3(0, 1.72, z), dore.darkened(0.08))
 	# la vasque demi-ronde de Villebois au pied, sa margelle moulurée, l'eau, la mousse au ras du sol
-	var vasque := _forme(f, _cyl(1.25, 1.12, 0.55, 32), Vector3(0, 0.28, z + 0.6), VILLEBOIS.darkened(0.06))
+	var vasque := _forme(f, _cyl(1.6, 1.4, 0.7, 40), Vector3(0, 0.35, z + 0.7), VILLEBOIS.darkened(0.06))
 	vasque.scale = Vector3(1.0, 1.0, 0.75)
 	var margelle := TorusMesh.new()
-	margelle.inner_radius = 1.12
-	margelle.outer_radius = 1.38
+	margelle.inner_radius = 1.45
+	margelle.outer_radius = 1.75
 	margelle.rings = 32
 	margelle.ring_segments = 8
-	_forme(f, margelle, Vector3(0, 0.56, z + 0.6), VILLEBOIS).scale = Vector3(1.0, 0.9, 0.75)
-	_forme(f, _cyl(1.14, 1.14, 0.04, 32), Vector3(0, 0.5, z + 0.6), EAU.lightened(0.25)).scale = Vector3(1.0, 1.0, 0.75)
-	_forme(f, _cyl(1.3, 1.32, 0.1, 32), Vector3(0, 0.05, z + 0.6), Color("#5d6b45")).scale = Vector3(1.0, 1.0, 0.75)
+	_forme(f, margelle, Vector3(0, 0.72, z + 0.7), VILLEBOIS).scale = Vector3(1.0, 0.9, 0.75)
+	_forme(f, _cyl(1.47, 1.47, 0.04, 40), Vector3(0, 0.64, z + 0.7), EAU.lightened(0.25)).scale = Vector3(1.0, 1.0, 0.75)
+	_forme(f, _cyl(1.62, 1.66, 0.1, 40), Vector3(0, 0.05, z + 0.7), Color("#5d6b45")).scale = Vector3(1.0, 1.0, 0.75)
 	var bronze := Color("#4d4a36")
 	var clair := Color("#66705a")
 	var sombre := bronze.darkened(0.25)
 	var m := 0.65
 	var l := Node3D.new()
-	l.position = Vector3(0, 2.6, -0.55)
+	l.position = Vector3(0, 1.77, -0.6)
 	l.scale = Vector3.ONE * 1.25
 	f.add_child(l)
 	# le lion couché, face à la place, modelé à part (sculptures/sculpter.py)
@@ -1104,9 +1107,9 @@ func _fontaine_lion(f: Node3D, _sens: float) -> void:
 	eau.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	eau.albedo_color.a = 0.65
 	var avant := Vector3(0, 0.7, 0.9)
-	for k in range(1, 9):
-		var t := k / 8.0
-		var q := Vector3(0, 0.7 - t * t * 2.4, 0.9 + t * 0.34)
+	for k in range(1, 11):
+		var t := k / 10.0
+		var q := Vector3(0, 0.7 + t * 0.12 - t * t * 1.71, 0.9 + t * 0.42)
 		var jet := _segment(l, avant, q, 0.03 + t * 0.012, Color.WHITE)
 		jet.mesh = _cyl(0.03 + t * 0.012, 0.03 + t * 0.012, avant.distance_to(q) + 0.02, 8)
 		jet.material_override = eau

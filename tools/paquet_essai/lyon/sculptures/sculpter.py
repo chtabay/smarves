@@ -100,15 +100,15 @@ def lion(p):
     ang = np.arctan2(x, y - 0.8)
     criniere += 0.025 * np.sin(ang * 11.0) * np.clip((0.75 - (z - 0.1)) * 2.0, 0.0, 1.0)
     d = lisse(d, criniere, 0.07)
-    tete = ellipsoide(p, (0, 0.86, 0.66), (0.17, 0.18, 0.19))
-    tete = lisse(tete, ellipsoide(p, (0, 0.77, 0.84), (0.115, 0.10, 0.14)), 0.05)
-    tete = lisse(tete, ellipsoide(p, (0, 0.83, 0.96), (0.05, 0.035, 0.04)), 0.02)
-    tete = lisse(tete, capsule(p, (-0.085, 0.95, 0.79), (0.085, 0.95, 0.79), 0.035), 0.03)
-    tete = lisse(tete, symetrique(lambda q: ellipsoide(q, (0.07, 0.75, 0.91), (0.06, 0.05, 0.05)))(p), 0.02)
+    tete = ellipsoide(p, (0, 0.86, 0.68), (0.2, 0.2, 0.17))
+    tete = lisse(tete, ellipsoide(p, (0, 0.77, 0.8), (0.15, 0.11, 0.1)), 0.06)
+    tete = lisse(tete, ellipsoide(p, (0, 0.84, 0.87), (0.075, 0.04, 0.035)), 0.025)
+    tete = lisse(tete, capsule(p, (-0.1, 0.96, 0.78), (0.1, 0.96, 0.78), 0.04), 0.03)
+    tete = lisse(tete, symetrique(lambda q: ellipsoide(q, (0.075, 0.75, 0.85), (0.075, 0.06, 0.05)))(p), 0.025)
     tete = lisse(tete, symetrique(lambda q: ellipsoide(q, (0.14, 1.01, 0.6), (0.05, 0.05, 0.03)))(p), 0.02)
     # la gueule entrouverte d'où l'eau sort, les orbites
-    tete = ote(ellipsoide(p, (0, 0.71, 0.94), (0.065, 0.025, 0.06)), tete, 0.015)
-    tete = ote(symetrique(lambda q: ellipsoide(q, (0.07, 0.895, 0.83), (0.03, 0.02, 0.02)))(p), tete, 0.01)
+    tete = ote(ellipsoide(p, (0, 0.7, 0.88), (0.08, 0.025, 0.06)), tete, 0.015)
+    tete = ote(symetrique(lambda q: ellipsoide(q, (0.085, 0.905, 0.82), (0.035, 0.022, 0.02)))(p), tete, 0.01)
     d = lisse(d, tete, 0.04)
     # la queue le long du flanc droit, sa touffe
     queue = lisse(capsule(p, (0.10, 0.28, -1.00), (0.38, 0.07, -0.78), 0.04),
@@ -124,8 +124,11 @@ def blandan(p):
     # la terrasse de bronze
     d = boite(p, (0, 0.04, 0), (0.55, 0.04, 0.45), 0.02)
     # les jambes en marche, les souliers
-    j = lisse(capsule(p, (-0.13, 0.12, -0.16), (-0.11, 0.95, -0.01), 0.095),
-              capsule(p, (0.14, 0.12, 0.22), (0.11, 0.95, 0.02), 0.095), 0.04)
+    j = lisse(capsule(p, (-0.13, 0.14, -0.16), (-0.11, 0.95, -0.01), 0.1),
+              capsule(p, (0.14, 0.14, 0.22), (0.11, 0.95, 0.02), 0.1), 0.04)
+    # le pantalon large qui tombe en plis sur la guêtre
+    j = lisse(j, ellipsoide(p, (-0.125, 0.3, -0.13), (0.12, 0.13, 0.12)), 0.05)
+    j = lisse(j, ellipsoide(p, (0.135, 0.3, 0.19), (0.12, 0.13, 0.12)), 0.05)
     j = lisse(j, ellipsoide(p, (-0.13, 0.12, -0.10), (0.09, 0.06, 0.15)), 0.03)
     j = lisse(j, ellipsoide(p, (0.14, 0.12, 0.28), (0.09, 0.06, 0.15)), 0.03)
     d = lisse(d, j, 0.03)
@@ -134,15 +137,24 @@ def blandan(p):
     jupe = ote(boite(p, (0, 0.8, 0.38), (0.05, 0.22, 0.12)), jupe, 0.03)
     jupe = ote(boite(p, (0, 0.55, 0), (0.5, 0.06, 0.5)), jupe, 0.04)
     d = lisse(d, jupe, 0.05)
-    d = lisse(d, ellipsoide(p, (0, 1.76, 0.0), (0.27, 0.36, 0.19)), 0.08)
+    d = lisse(d, ellipsoide(p, (0, 1.76, 0.0), (0.28, 0.37, 0.21)), 0.08)
+    # les revers croisés de la capote, la double rangée de boutons
+    d = lisse(d, boite(p, (-0.05, 1.72, 0.19), (0.13, 0.26, 0.03), 0.02), 0.04)
+    for by in (1.55, 1.68, 1.81):
+        for bx in (-0.1, 0.06):
+            d = lisse(d, ellipsoide(p, (bx, by, 0.22), (0.018, 0.018, 0.012)), 0.005)
+    d = lisse(d, symetrique(lambda q: ellipsoide(q, (0.27, 2.02, 0.0), (0.12, 0.035, 0.1)))(p), 0.02)
     d = lisse(d, tronc_cone(p, 1.43, 1.50, 0.285, 0.285), 0.01)
     d = lisse(d, boite(p, (0, 1.78, -0.24), (0.2, 0.2, 0.08), 0.04), 0.04)
     d = lisse(d, symetrique(lambda q: ellipsoide(q, (0.24, 1.98, 0.0), (0.11, 0.09, 0.11)))(p), 0.05)
     # les bras qui tiennent le fusil en travers, baïonnette au canon
-    bras = lisse(capsule(p, (0.26, 1.98, 0.0), (0.31, 1.66, 0.17), 0.075),
-                 capsule(p, (0.31, 1.66, 0.17), (0.08, 1.56, 0.33), 0.065), 0.03)
-    bras = lisse(bras, capsule(p, (-0.26, 1.98, 0.0), (-0.31, 1.80, 0.20), 0.075), 0.03)
-    bras = lisse(bras, capsule(p, (-0.31, 1.80, 0.20), (-0.12, 1.95, 0.40), 0.065), 0.03)
+    bras = lisse(capsule(p, (0.26, 1.98, 0.0), (0.31, 1.66, 0.17), 0.09),
+                 capsule(p, (0.31, 1.66, 0.17), (0.08, 1.56, 0.33), 0.075), 0.04)
+    bras = lisse(bras, capsule(p, (-0.26, 1.98, 0.0), (-0.31, 1.80, 0.20), 0.09), 0.04)
+    bras = lisse(bras, capsule(p, (-0.31, 1.80, 0.20), (-0.12, 1.95, 0.40), 0.075), 0.04)
+    # les parements des manches, plus larges au poignet
+    bras = lisse(bras, ellipsoide(p, (0.13, 1.58, 0.3), (0.09, 0.09, 0.08)), 0.03)
+    bras = lisse(bras, ellipsoide(p, (-0.17, 1.91, 0.36), (0.09, 0.09, 0.08)), 0.03)
     bras = lisse(bras, ellipsoide(p, (0.06, 1.56, 0.35), (0.06, 0.06, 0.07)), 0.02)
     bras = lisse(bras, ellipsoide(p, (-0.11, 1.97, 0.42), (0.06, 0.06, 0.07)), 0.02)
     d = lisse(d, bras, 0.04)
