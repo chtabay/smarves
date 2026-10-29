@@ -231,6 +231,11 @@ dernier signe en jeu, son lieu et le nom du lieu) et `smarves.pensionnaire_faits
 derniers faits, du plus récent au plus ancien, cinquante au plus). Essai :
 `supabase/tests/20261029140000_faits_publics.sql` ; retour arrière : `supabase/rollback/20261029140000_faits_publics.sql`.
 
+Une troisième lecture, aux mêmes conditions, sert à redessiner la scène vue de dessus plutôt qu'à montrer une
+capture d'écran : `smarves.pensionnaire_position(id)` donne sa position (x, z, au demi-pas du plan du
+village) seulement quand il est dehors (`main`) ; dans une salle, rien de plus que le lieu. Essai :
+`supabase/tests/20261029230000_pensionnaire_position.sql`.
+
 ## 5. Son histoire, sa mémoire, ses relations
 
 Tout ce qu'il vit est gardé, et lui est rendu à chaque réveil :
