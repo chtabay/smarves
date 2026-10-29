@@ -46,7 +46,8 @@ const ETAGE := 3.3
 ## profondeur), niveaux, enduit (un nom d'ENDUITS ou un hexa), toit (« tuile », « mansarde »), rdc (« boutique »,
 ## « cafe », « arcades », « passage », « logis », « pierre »), persiennes (vrai, faux ou un hexa), balcons (vrai
 ## ou faux : les balcons filants), fleurs, vigne, enseigne (le texte de l'enseigne du café ou de la boutique),
-## toile (deux hexas : le store), tuile (un hexa : la teinte des tuiles canal, le rouge orangé lyonnais sinon).
+## toile (deux hexas : le store ; deux fois le même, une toile unie), avancee (l'avancée des stores en mètres, 2 au
+## café et 1,3 à la boutique par défaut), tuile (un hexa : la teinte des tuiles canal, le rouge orangé lyonnais sinon).
 ## Rend le nœud de l'immeuble ; ses métadonnées : type, graine, w, d, hauteur (au faîte), porte (le seuil).
 static func maison(parent: Node3D, p: Vector3, type: String, graine: int, opt := {}) -> Node3D:
 	if not type in TYPES:
@@ -79,6 +80,8 @@ static func maison(parent: Node3D, p: Vector3, type: String, graine: int, opt :=
 		"toile": opt.get("toile", TOILES[r.randi() % TOILES.size()]),
 		"enseigne": str(opt.get("enseigne", "")),
 		"bois": Color(DEVANTURES[r.randi() % DEVANTURES.size()]),
+		"avancee": float(opt.get("avancee", 0.0)),
+		"toile_choisie": opt.has("toile"),
 	}
 	# le corps, enduit, le dos un peu plus sombre
 	o.boite(Transform3D(Basis(), Vector3(0, H * 0.5, -d * 0.5)), Vector3(w, H, d), [enduit.darkened(0.06), enduit.darkened(0.06), enduit, enduit, enduit, enduit.darkened(0.1)], Outils.DUR, true)
@@ -326,18 +329,12 @@ static func _devanture(o: Outils, t: Transform3D, w: float, s: Dictionary, cafe:
 		lab.outline_size = 0
 		lab.transform = t * Transform3D(Basis(), Vector3(0, 3.42, 0.3))
 		n.add_child(lab)
-	# le store à bandes en avancée, son lambrequin festonné
-	var toile: Array = [Color("b8322c"), Color("b8322c")] if cafe else (s.toile as Array).map(func(h): return Color(str(h)))
-	var bandes := int(l / 0.5)
-	var lt := l / bandes
-	var avance := 2.0 if cafe else 1.3
-	for i in bandes:
-		var c: Color = toile[i % 2]
-		var x := -l * 0.5 + (i + 0.5) * lt
-		var pente := 0.36
-		o.boite(tf * Transform3D(Basis(Vector3.RIGHT, pente), Vector3(x, 3.05 - sin(pente) * avance * 0.5, 0.3 + cos(pente) * avance * 0.5)), Vector3(lt, 0.04, avance), c)
-		o.profil(tf * Transform3D(Basis(), Vector3(x, 3.05 - sin(pente) * avance, 0.3 + cos(pente) * avance)), Outils.arc(Vector2(0, 0), lt * 0.5, PI, TAU, 6), -0.01, 0.01, c)
-		o.boite(tf * Transform3D(Basis(), Vector3(x, 3.05 - sin(pente) * avance - 0.05, 0.3 + cos(pente) * avance)), Vector3(lt, 0.12, 0.02), c)
+	# un store banne par travée de vitrine, au-dessus de l'enseigne basse
+	var toile: Array = [Color("b8322c"), Color("b8322c")] if cafe and not s.toile_choisie else (s.toile as Array).map(func(h): return Color(str(h)))
+	var avancee := float(s.avancee) if float(s.avancee) > 0.0 else (2.0 if cafe else 1.3)
+	for i in baies:
+		var x := -l * 0.5 + lb * (i + 0.5)
+		_store(o, tf * Transform3D(Basis(), Vector3(x, 3.0, 0.3)), lb - 0.12, avancee, toile, texte if cafe and i == baies / 2 else "", n)
 	if cafe:
 		# les plantes en bac de part et d'autre de la porte
 		for cote in [-1.0, 1.0]:
@@ -345,6 +342,83 @@ static func _devanture(o: Outils, t: Transform3D, w: float, s: Dictionary, cafe:
 			o.boite(tf * Transform3D(Basis(), q + Vector3(0, 0.3, 0)), Vector3(0.5, 0.6, 0.5), Color("8a5a3a"))
 			o.boule(tf * (q + Vector3(0, 0.95, 0)), Vector3(0.36, 0.45, 0.36), VERT, 0.15, Outils.FEUILLE, 0.06, 0.3)
 	return Vector3(x_porte, 0, 0.6)
+
+
+## Un store banne dans le repère t (son coffre à l'origine, contre le mur, z vers la rue), large de l, avancé de
+## av : la toile tendue qui fléchit un peu entre le coffre et la barre de charge, ses rayures qui suivent la courbe,
+## le dessous plus sombre, les joues triangulaires, les bras articulés de fer noir, le lambrequin festonné qui pend
+## librement et, sur celui du café, l'enseigne peinte.
+static func _store(o: Outils, t: Transform3D, l: float, av: float, toile: Array, texte: String, n: Node3D) -> void:
+	var raye: bool = (toile[0] as Color) != (toile[1] as Color)
+	var chute := av * 0.42
+	var pas := 10
+	var courbe := PackedVector2Array()
+	for k in pas + 1:
+		var u := float(k) / pas
+		courbe.append(Vector2(u * av, -u * chute - sin(PI * u) * 0.05 * av))
+	var bandes := maxi(2, int(round(l / 0.3)))
+	var lbd := l / bandes
+	for i in bandes:
+		var c: Color = toile[i % 2] if raye else (toile[0] as Color).lightened(0.04 * float(i % 2))
+		var x0 := -l * 0.5 + i * lbd
+		for k in pas:
+			var a := courbe[k]
+			var b := courbe[k + 1]
+			var p0 := t * Vector3(x0, a.y, a.x)
+			var p1 := t * Vector3(x0 + lbd, a.y, a.x)
+			var p2 := t * Vector3(x0 + lbd, b.y, b.x)
+			var p3 := t * Vector3(x0, b.y, b.x)
+			var e := b - a
+			var nrm := t.basis * Vector3(0, e.x, -e.y).normalized()
+			o.quad(p0, p1, p2, p3, nrm, c)
+			o.quad(p0 + nrm * -0.012, p1 + nrm * -0.012, p2 + nrm * -0.012, p3 + nrm * -0.012, -nrm, c.darkened(0.38))
+	var bout := courbe[pas]
+	# les joues : le triangle de toile sous la courbe, de chaque côté
+	var joue := PackedVector2Array(courbe)
+	joue.append(Vector2(0.0, bout.y))
+	var cote := Basis(Vector3(0, 0, 1), Vector3(0, 1, 0), Vector3(-1, 0, 0))
+	for sx in [-1.0, 1.0]:
+		o.profil(t * Transform3D(cote, Vector3(sx * l * 0.5, 0, 0)), joue, -0.006, 0.006, [toile[0], (toile[0] as Color).darkened(0.2)])
+	# le coffre, la barre de charge
+	o.boite(t * Transform3D(Basis(), Vector3(0, 0.06, 0.02)), Vector3(l + 0.08, 0.2, 0.2), (toile[0] as Color).darkened(0.45))
+	o.boite(t * Transform3D(Basis(), Vector3(0, bout.y - 0.02, bout.x)), Vector3(l + 0.04, 0.07, 0.07), FER)
+	# les bras articulés, repliés en V sous la toile : de la console du mur au coude, du coude à la barre
+	for sx in [-1.0, 1.0]:
+		var x: float = sx * (l * 0.5 - 0.18)
+		var pied := t * Vector3(x, -0.42, 0.04)
+		var barre := t * Vector3(x, bout.y - 0.03, bout.x)
+		var coude := t * Vector3(x - sx * 0.25, lerpf(-0.42, bout.y, 0.5) - 0.12, bout.x * 0.48)
+		o.boite(t * Transform3D(Basis(), Vector3(x, -0.42, 0.03)), Vector3(0.1, 0.16, 0.06), FER)
+		o.branche(pied, coude, 0.022, 0.02, FER, 5)
+		o.branche(coude, barre, 0.02, 0.018, FER, 5)
+		o.boule(coude, Vector3.ONE * 0.035, FER, 0.0, Outils.DUR, 0.0)
+	# le lambrequin festonné, qui pend de la barre ; un lisere clair au-dessus des festons
+	var haut := 0.2
+	var feston := 0.26
+	var nf := maxi(2, int(round(l / feston)))
+	var lf := l / nf
+	var lam := PackedVector2Array([Vector2(l * 0.5, 0.0), Vector2(-l * 0.5, 0.0)])
+	for j in nf:
+		var cx := -l * 0.5 + lf * (j + 0.5)
+		lam.append_array(Outils.arc(Vector2(cx, -haut), lf * 0.5, PI, TAU, 6))
+	var tl := t * Transform3D(Basis(), Vector3(0, bout.y - 0.05, bout.x + 0.045))
+	o.profil(tl, lam, -0.008, 0.008, [toile[0], (toile[0] as Color).darkened(0.25)])
+	var lisere := Color("f2ead6") if (toile[0] as Color).get_luminance() < 0.6 else (toile[0] as Color).darkened(0.45)
+	o.boite(tl * Transform3D(Basis(), Vector3(0, -haut + 0.025, 0.012)), Vector3(l, 0.025, 0.006), lisere)
+	if raye:
+		for j in nf:
+			if j % 2 == 1:
+				var cx := -l * 0.5 + lf * (j + 0.5)
+				o.profil(tl * Transform3D(Basis(), Vector3(0, 0, 0.011)), Outils.arc(Vector2(cx, -haut), lf * 0.5, PI, TAU, 6), -0.002, 0.002, toile[1])
+	if texte != "":
+		var lab := Label3D.new()
+		lab.text = texte
+		lab.font_size = 72
+		lab.pixel_size = minf(0.0042, (l - 0.3) / (maxf(texte.length(), 1.0) * 72.0 * 0.6))
+		lab.modulate = lisere
+		lab.outline_size = 0
+		lab.transform = tl * Transform3D(Basis(), Vector3(0, -haut * 0.42, 0.014))
+		n.add_child(lab)
 
 
 ## Un rez-de-chaussée d'habitation : la porte d'entrée à imposte, ses fenêtres grillagées ; en pierre, des
