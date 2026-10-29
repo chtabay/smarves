@@ -1,21 +1,23 @@
 extends SceneTree
-## Les planches des briques du décor toulousain (facadier-toulousain@1, mobilier-toulousain@1, sols-toulousains@1),
-## sous le soleil d'été des planches de la place Saint-Georges, et l'ambiance qu'on compose avec elles :
+## Les planches des briques du décor toulousain (facadier-toulousain@1, mobilier-toulousain@1, sols-toulousains@1,
+## arbres-d-ombriere@1), sous le soleil d'été des planches de la place Saint-Georges, et l'ambiance qu'on compose
+## avec elles :
 ## godot --path . -s tools/planche_toulouse.gd -- --vue=facadier --capture=planche.png
 ##   --vue=facadier    les treize bâtisses, en rangée
 ##   --vue=detail      la même rangée vue en enfilade, pour lire le relief des façades
 ##   --vue=un          une seule bâtisse, de trois quarts (--nom=lafage)
 ##   --vue=mobilier    les onze objets du mobilier (--nom=carrousel : un seul, de près)
 ##   --vue=sols        les dix modules de sol (--nom=fosse_arbre : un seul, de près)
-##   --vue=saint_georges  la place Saint-Georges composée avec les trois briques et les platanes lyonnais
+##   --vue=arbres      les arbres d'ombrière sur le pavé, au soleil (--nom=platane : un seul, de près)
+##   --vue=saint_georges  la place Saint-Georges composée avec les quatre briques
 ##                     (--nom=bas : à hauteur d'homme, depuis une terrasse)
 ## Sans carte graphique : xvfb-run avec --rendering-driver opengl3.
 
 const FACADIER := "facadier-toulousain@1"
-const LYON := "vegetation-lyonnaise@1"
 const ARBRES := "arbres-de-place@1"
 const MOBILIER := "mobilier-toulousain@1"
 const SOLS := "sols-toulousains@1"
+const OMBRE := "arbres-d-ombriere@1"
 
 var monde: Node3D
 
@@ -99,6 +101,23 @@ func _init() -> void:
 				var span := droite - gauche
 				var centre := Vector3((gauche + droite) * 0.5, 0.5, pas * 0.4)
 				cam.look_at_from_position(centre + Vector3(0, span * 0.36, span * 0.56), centre)
+		"arbres":
+			_sol(Vector2(300, 300), Color("c9b28c"))
+			for i in 17:
+				for j in 5:
+					_pose(SOLS, "module", "brique_epi", Vector3(-32 + i * 4, 0, -8 + j * 4), i * 5 + j + 1, {})
+			var noms: Array = [nom] if nom != "" else load(Bibliotheque.scene(OMBRE, "decor")).instantiate().noms()
+			var x := -float(noms.size() - 1) * 11.0
+			for a in noms:
+				_pose(OMBRE, "arbre", a, Vector3(x, 0, 0), 3, {})
+				if nom == "":
+					_etiquette(Vector3(x, 0.3, 9.0), a, 0.008)
+				x += 22.0
+			cam.fov = 50
+			if nom == "":
+				cam.look_at_from_position(Vector3(0, 9, 52), Vector3(0, 8.5, 0))
+			else:
+				cam.look_at_from_position(Vector3(10, 4, 30), Vector3(0, 9, 0))
 		"saint_georges":
 			_saint_georges()
 			if nom == "bas":
@@ -226,7 +245,7 @@ func _saint_georges() -> void:
 	_sol(Vector2(400, 400), Color("5a585a"), Vector3(0, 0, -40))
 	var arbres := []
 	for x in [-20.0, 20.0]:
-		for z in [-16.0, -8.0, 0.0, 8.0]:
+		for z in [-16.0, -4.0, 8.0]:
 			arbres.append(Vector2(x, z))
 	for i in 15:
 		for j in 11:
@@ -259,7 +278,7 @@ func _saint_georges() -> void:
 	var k := 0
 	for a in arbres:
 		var v: Vector2 = a
-		_pose(LYON, "plante", "platane", Vector3(v.x, 0, v.y), 20 + k, {})
+		_pose(OMBRE, "arbre", "platane", Vector3(v.x, 0, v.y), 20 + k, {"hauteur": 16.0})
 		k += 1
 	# les terrasses du fond, sous les parasols
 	for t in [[-22.0, ["f0e3c4", "f0e3c4"]], [-15.0, ["8a2a2e", "8a2a2e"]], [17.0, ["f0e3c4", "f0e3c4"]], [24.0, ["8a2a2e", "8a2a2e"]]]:

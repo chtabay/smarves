@@ -311,6 +311,20 @@
 					"socle": "1.25"
 				}
 			}
+		},
+		"arbres-d-ombriere": {
+			"genre": "decor",
+			"nom": "Les arbres d'ombrière",
+			"description": "Les grands arbres des places du Midi : le platane d'ombrière (18 à 22 m, fût clair marbré, couronne en dôme très large), le micocoulier des jardins et le jeune platane d'un mail. Une charpente de branches qu'on voit, des centaines de petites touffes vert-jaune espacées où le ciel passe, une ombre tachetée sur le pavé. Tiré des images des places Saint-Georges et Saint-Étienne de Guillaume.",
+			"auteur": "Smarves · d'après une inspiration de Guillaume",
+			"licence": "celle du jeu",
+			"versions": {
+				"1": {
+					"scene": "res://bibliotheque/arbres-d-ombriere/1/arbre.tscn",
+					"apercu": "res://bibliotheque/arbres-d-ombriere/1/apercu.png",
+					"socle": "1.25"
+				}
+			}
 		}
 	}
 }
