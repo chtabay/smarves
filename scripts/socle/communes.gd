@@ -189,7 +189,7 @@ func lire_catalogue(adresse := Portail.adresse()) -> void:
 	var http := HTTPRequest.new()
 	# Dans un navigateur, la réponse arrive déjà décompressée : Godot ne doit pas la décompresser encore.
 	http.accept_gzip = not OS.has_feature("web")
-	http.timeout = 0.0 if OS.has_feature("web") else 10.0
+	http.timeout = 0.0 if OS.has_feature("web") else 30.0
 	# La bienvenue, le carnet et la carte mettent le jeu en pause : la requête doit avancer quand même.
 	http.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(http)
