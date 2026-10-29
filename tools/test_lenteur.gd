@@ -241,6 +241,19 @@ func _init() -> void:
 	var lods: Array = RenderingServer.mesh_get_surface(gros.mesh.get_rid(), 0).get("lods", []) if gros.mesh is ArrayMesh else []
 	_verifier(gros.mesh != am and not Lointain.en_travail() and lods.size() >= 2 and Budget._triangles(gros.mesh, {}) == tri_gros, "un gros maillage reçoit ses niveaux de détail (%d) et garde ses triangles de près" % lods.size())
 	_verifier(Lointain.niveaux(lieu) == 0, "un maillage à niveaux n'est pas repris")
+	# Le jeu qui se ferme en plein calcul (Lyon, place Sathonay) : finir() attend la tâche et oublie la file,
+	# la pose différée ne fait plus rien ; sans cela, Godot ne s'arrêtait plus.
+	var en_plein_calcul := MeshInstance3D.new()
+	var am2 := ArrayMesh.new()
+	am2.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, sphere.get_mesh_arrays())
+	en_plein_calcul.mesh = am2
+	lieu.add_child(en_plein_calcul)
+	_verifier(Lointain.niveaux(lieu) == 1 and Lointain.en_travail(), "un nouveau gros maillage part en calcul")
+	Lointain.finir()
+	await process_frame
+	await process_frame
+	_verifier(not Lointain.en_travail() and Lointain.en_cours == 0 and Lointain._taches.is_empty() and en_plein_calcul.mesh == am2, "le jeu qui se ferme attend le calcul en cours, puis rien n'est posé")
+	en_plein_calcul.free()
 	# Un quartier lointain : trente maisons de deux matières fondues en un maillage à deux surfaces, montré
 	# au-delà de 80 m du quartier quand les maisons ne le sont plus ; la maison d'une branche « sans_lointain »
 	# reste à part.
