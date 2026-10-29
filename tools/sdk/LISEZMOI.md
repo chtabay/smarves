@@ -59,7 +59,8 @@ et trois repères `Vue1_…`, `Vue2_…`, `Vue3_…`, un par scène forte.
 - **Les structures** du manifeste, dont le jeu fournit la scène et le comportement :
   - `terrain_foot` : le stade, un club dans le championnat de la Vienne ;
   - `salle_jeu` : une salle avec son tenancier et ses tables (machine, loto, blackjack, roulette,
-    craps, baccara, poker, dés, roue, courses) ;
+    craps, baccara, poker, dés, roue, courses), et s'il le veut le comptoir des paris du championnat
+    (`"paris": true`, socle 1.26) ;
   - `gymnase` : la salle de basket, un club sur les résultats réels de l'Euroleague et de l'EuroCup ;
   - `commerce` : une boutique de tenues, de véhicules ou de meubles ;
   - `gare` et `arret_car`.
