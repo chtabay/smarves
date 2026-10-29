@@ -19,9 +19,9 @@ const ARBRES := ["platane", "micocoulier", "jeune_platane", "marronnier"]
 
 ## Les verts, du dessus au soleil au cœur à l'ombre.
 const VERTS := {
-	"platane": ["d4e862", "bcda4e", "a3cb42", "8bb93a", "76a634"],
+	"platane": ["6f9c36", "5e8a2e", "4d7426", "3e5e22", "2f4a1e"],
 	"micocoulier": ["c4df5a", "aacf4a", "91bd3f", "7aa836", "669430"],
-	"jeune_platane": ["d8ea66", "c0dc52", "a7cd45", "8fbb3c", "7aa835"],
+	"jeune_platane": ["78a43a", "659132", "547c2a", "446624", "34511f"],
 	"marronnier": ["a6c852", "8cb246", "73993b", "5e8433", "4b6e2b"],
 }
 const ECORCE := {"platane": "c9bea0", "micocoulier": "9a978a", "jeune_platane": "c9bea0", "marronnier": "5a4f46"}
@@ -34,7 +34,8 @@ const PLAQUES := ["b5b08e", "bfb596", "a9a888", "ddd3b8", "d0c4a4"]
 ## La graine : deux arbres de même nom et de graines différentes ne se ressemblent pas.
 @export var graine := 1
 ## Les options, toutes facultatives : hauteur (en mètres), vent (0 à 1, l'amplitude du souffle), densite (0,5 à
-## 1,5 : le nombre de touffes, 1 par défaut ; moins de touffes, plus de ciel).
+## 1,5 : le nombre de touffes, 1 par défaut ; moins de touffes, plus de ciel), contre_jour (0 à 1 : la lumière qui
+## traverse les feuilles, 0,15 par défaut).
 @export var options := {}
 
 var fait := false
@@ -135,11 +136,15 @@ static func pousser(parent: Node3D, p: Vector3, nom: String, g: int, opt := {}) 
 		if e.length() < 0.55 and e.y < 0.25 and r.randf() < 0.75:
 			continue
 		var s := taille * r.randf_range(0.7, 1.3) * (0.85 + 0.3 * e.length())
+		# sous la couronne, près du joueur, des cartes plus petites d'un tiers et plus
+		if e.y < 0.0:
+			s *= lerpf(1.0, 0.62, clampf(-e.y * 2.0, 0.0, 1.0))
 		_touffe(o, q, s, verts, c, R, vent, FORMES[nom])
 		semees += 1
 
 	o.collisions.append([Transform3D(Basis(), p + Vector3(0, 1.5, 0)), Vector3(rt * 2.2, 3.0, rt * 2.2)])
-	o.construire(parent, nom.capitalize())
+	var mi := o.construire(parent, nom.capitalize())
+	mi.set_instance_shader_parameter("contre_jour", float(opt.get("contre_jour", 0.15)))
 	return {"arbre": nom, "graine": g, "hauteur": c.y - p.y + R.y, "couronne": R.x}
 
 
