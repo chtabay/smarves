@@ -157,6 +157,62 @@
 					"socle": "1.25"
 				}
 			}
+		},
+		"facadier-lyonnais": {
+			"genre": "decor",
+			"nom": "Le façadier lyonnais",
+			"description": "Un immeuble de la Presqu'île ou du Vieux-Lyon composé par type et graine : la maison de deux étages, l'immeuble classique, la maison basse à arcades, l'immeuble de quatre étages, la maison étroite, l'immeuble bourgeois à mansarde d'ardoise, la façade à traboule, le café lyonnais, l'hôtel particulier, l'immeuble d'angle et la chapelle. Enduits ocre, rose ou pierre dorée, persiennes, garde-corps de fonte, balcons filants, génoise et tuile canal. Tiré du plan d'assets lyonnais de Guillaume.",
+			"auteur": "Smarves · d'après une inspiration de Guillaume",
+			"licence": "celle du jeu",
+			"versions": {
+				"1": {
+					"scene": "res://bibliotheque/facadier-lyonnais/1/maison.tscn",
+					"apercu": "res://bibliotheque/facadier-lyonnais/1/apercu.png",
+					"socle": "1.25"
+				}
+			}
+		},
+		"mobilier-lyonnais": {
+			"genre": "decor",
+			"nom": "Le mobilier lyonnais",
+			"description": "Le mobilier des places et des quais de Lyon, un objet par nom : la fontaine monumentale au lion couché, le banc de fonte verte et le banc de pierre, le réverbère à lanterne et le candélabre à trois feux, la borne, la jardinière de pierre dorée et la vasque de fonte, l'étal du marché, la terrasse de bouchon, la corbeille, l'escalier des pentes, le garde-corps de quai, le kiosque et la colonne d'affiches. Tiré du plan d'assets lyonnais de Guillaume.",
+			"auteur": "Smarves · d'après une inspiration de Guillaume",
+			"licence": "celle du jeu",
+			"versions": {
+				"1": {
+					"scene": "res://bibliotheque/mobilier-lyonnais/1/objet.tscn",
+					"apercu": "res://bibliotheque/mobilier-lyonnais/1/apercu.png",
+					"socle": "1.25"
+				}
+			}
+		},
+		"vegetation-lyonnaise": {
+			"genre": "decor",
+			"nom": "La végétation lyonnaise",
+			"description": "Les arbres et les plantes des places et des quais de Lyon : le grand platane à l'écorce tachée, l'arbre d'alignement taillé, l'oranger dans sa caisse de Versailles, le cyprès, le bac fleuri, la vigne grimpante sur son treillage, le massif bordé de buis et le buisson. Tiré du plan d'assets lyonnais de Guillaume.",
+			"auteur": "Smarves · d'après une inspiration de Guillaume",
+			"licence": "celle du jeu",
+			"versions": {
+				"1": {
+					"scene": "res://bibliotheque/vegetation-lyonnaise/1/plante.tscn",
+					"apercu": "res://bibliotheque/vegetation-lyonnaise/1/apercu.png",
+					"socle": "1.25"
+				}
+			}
+		},
+		"quais-lyonnais": {
+			"genre": "decor",
+			"nom": "Les quais lyonnais",
+			"description": "Les sols et les modules de quai de Lyon, sur une trame de 4 m : les pavés en rangs et en éventail, la dalle de quai, la bordure de trottoir et son caniveau, l'escalier bas et l'escalier haut, l'arche en plein cintre, l'arche dans son mur de soutènement, le passage voûté et son escalier, le parapet et le mur de quai qui tombe dans la rivière, le pont de pierre à trois arches. Tiré du plan d'assets lyonnais de Guillaume.",
+			"auteur": "Smarves · d'après une inspiration de Guillaume",
+			"licence": "celle du jeu",
+			"versions": {
+				"1": {
+					"scene": "res://bibliotheque/quais-lyonnais/1/module.tscn",
+					"apercu": "res://bibliotheque/quais-lyonnais/1/apercu.png",
+					"socle": "1.25"
+				}
+			}
 		}
 	}
 }

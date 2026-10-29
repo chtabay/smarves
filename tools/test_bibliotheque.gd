@@ -7,7 +7,7 @@ extends SceneTree
 ## la salle de Smarves sur « salle-de-quartier@1 », le club, le cube, le président, le bureau, les parts et le car ;
 ## les matières de « matieres-de-minuit@1 » se posent par leur nom (socle 1.17) ; le façadier « facadier-du-poitou@1 »
 ## bâtit ses dix types ; chaque décor se bâtit seul (le donjon en ruine, l'église romane) ; les arbres, le mobilier
-## et le façadier de la place du nord se bâtissent par leur nom.
+## et le façadier de la place du nord se bâtissent par leur nom, comme les quatre briques du décor lyonnais.
 
 var fails := 0
 
@@ -191,6 +191,47 @@ func _init() -> void:
 	check(is_equal_approx(float(f2.get_meta("w")), 8.0) and float(f2.get_meta("hauteur")) > 4.0 + 3 * 3.2 and float(f1.get_meta("w")) != float(f2.get_meta("w")),
 		"les options passent au façadier des Flandres, et deux graines font deux maisons")
 	place.queue_free()
+
+	# Le décor lyonnais (tiré du plan d'assets lyonnais de Guillaume) : le façadier, le mobilier, la végétation et les
+	# quais se bâtissent chacun par son nom et sa graine, en un seul maillage et un seul corps.
+	var lyon := Node3D.new()
+	root.add_child(lyon)
+	var lyonnais := {"facadier-lyonnais@1": ["types", "type", 11], "mobilier-lyonnais@1": ["objets", "objet", 15],
+		"vegetation-lyonnaise@1": ["noms", "plante", 8], "quais-lyonnais@1": ["noms", "module", 12]}
+	for ref in lyonnais:
+		var sc := Bibliotheque.scene(ref, "decor")
+		check(sc != "" and ResourceLoader.exists(sc), "la bibliothèque a %s, un décor" % ref)
+		if sc == "":
+			continue
+		var paquet: PackedScene = load(sc)
+		var noms: Array = paquet.instantiate().call(lyonnais[ref][0])
+		var rates := []
+		for nom in noms:
+			var d: Node3D = paquet.instantiate()
+			d.set(lyonnais[ref][1], nom)
+			d.graine = 3
+			lyon.add_child(d)
+			var maillages := d.find_children("*", "MeshInstance3D", true, false)
+			if d.get_meta(lyonnais[ref][1], "") != nom or maillages.size() != 1 or maillages[0].mesh.get_surface_count() > 3 or d.find_children("*", "CollisionShape3D", true, false).is_empty():
+				rates.append(nom)
+		check(noms.size() == lyonnais[ref][2] and rates.is_empty(), "%s : les %d se bâtissent, un maillage et un corps chacun %s" % [ref, noms.size(), str(rates)])
+	var paquet_lyon: PackedScene = load(Bibliotheque.scene("facadier-lyonnais@1", "decor"))
+	var l1: Node3D = paquet_lyon.instantiate()
+	var l2: Node3D = paquet_lyon.instantiate()
+	l1.type = "cafe"
+	l2.type = "cafe"
+	l2.graine = 2
+	l2.options = {"w": 10.5, "niveaux": 3, "enseigne": "CAFÉ DU GONE"}
+	lyon.add_child(l1)
+	lyon.add_child(l2)
+	var enseignes := l2.find_children("*", "Label3D", true, false).map(func(e): return e.text)
+	check(is_equal_approx(float(l2.get_meta("w")), 10.5) and float(l2.get_meta("hauteur")) > 4.2 + 3 * 3.3 and "CAFÉ DU GONE" in enseignes and float(l1.get_meta("w")) != float(l2.get_meta("w")),
+		"les options passent au façadier lyonnais (largeur, étages, enseigne du café), et deux graines font deux immeubles")
+	var quai: Node3D = load(Bibliotheque.scene("quais-lyonnais@1", "decor")).instantiate()
+	quai.module = "escalier_haut"
+	lyon.add_child(quai)
+	check(is_equal_approx(float(quai.get_meta("haut")), 3.0), "l'escalier haut des quais lyonnais mène à 3 m")
+	lyon.queue_free()
 
 	# Les intérieurs (socle 1.22) : chaque salle de jeu et chaque étude tient le contrat de son genre.
 	check("bar-des-sports@1" in Bibliotheque.references("salle_jeu") and "etude-de-notaire@1" in Bibliotheque.references("etude"),
