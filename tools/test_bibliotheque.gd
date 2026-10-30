@@ -328,6 +328,15 @@ func _init() -> void:
 		toulouse.add_child(tt)
 		sommets_terrasse[nb] = (tt.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).mesh.surface_get_array_len(0)
 	check(sommets_terrasse[5] > sommets_terrasse[0] * 1.5, "la terrasse toulousaine assoit des clients quand on lui en demande (%s)" % str(sommets_terrasse))
+	var sommets_store := {}
+	for nb in [0, 4]:
+		var st_t: Node3D = load(Bibliotheque.scene("mobilier-toulousain@1", "decor")).instantiate()
+		st_t.objet = "store_terrasse"
+		st_t.graine = 4
+		st_t.options = {"clients": nb}
+		toulouse.add_child(st_t)
+		sommets_store[nb] = (st_t.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).mesh.surface_get_array_len(0)
+	check(sommets_store[4] > sommets_store[0] * 1.5, "le store de terrasse assoit aussi des clients (option clients, %s)" % str(sommets_store))
 	# le verdict v0.12 : le banc assoit des gens (option assis), le lampadaire prend deux branches (option branches),
 	# la borne de pierre existe, et le feuillage garde un plancher d'ombre (option jour, 1 par défaut)
 	var sommets_v12 := {}
