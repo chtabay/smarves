@@ -279,6 +279,18 @@ func _init() -> void:
 				if absf(c.r - 0.663) < 0.02 and absf(c.g - 0.635) < 0.02 and absf(c.b - 0.580) < 0.02:
 					grise_sans += 1
 	check(grise > 500 and grise_sans == 0 and float(l5.get_meta("hauteur")) < float(l6.get_meta("hauteur")), "l'option renaissance du façadier lyonnais bâtit une façade du Vieux-Lyon en pierre grise, sous un toit plus bas (%d sommets gris, %d sans l'option)" % [grise, grise_sans])
+	# le niveau de détail (option lod, demandée par le chef de chantier de Lyon pour ses quartiers) : un corps
+	# Lointain qui prend le relais à la distance donnée ; sans l'option, rien (Guillaume n'en veut pas dans les
+	# cartes existantes)
+	var l7: Node3D = paquet_lyon.instantiate()
+	l7.type = "immeuble"
+	l7.graine = 3
+	l7.options = {"lod": 40.0}
+	lyon.add_child(l7)
+	var corps7: MeshInstance3D = l7.find_child("Corps", true, false)
+	var loin7: MeshInstance3D = l7.find_child("Lointain", true, false)
+	var loin6: Node = l6.find_child("Lointain", true, false)
+	check(loin6 == null and corps7 != null and loin7 != null and is_equal_approx(corps7.visibility_range_end, 40.0) and is_equal_approx(loin7.visibility_range_begin, 40.0) and loin7.mesh.surface_get_array_len(0) < 2000, "l'option lod du façadier lyonnais ajoute un corps Lointain qui prend le relais à 40 m (%d sommets), rien sans elle" % (loin7.mesh.surface_get_array_len(0) if loin7 else -1))
 	var quai: Node3D = load(Bibliotheque.scene("quais-lyonnais@1", "decor")).instantiate()
 	quai.module = "escalier_haut"
 	lyon.add_child(quai)

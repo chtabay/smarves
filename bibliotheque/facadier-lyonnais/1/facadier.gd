@@ -62,7 +62,7 @@ const ETAGE := 3.3
 ## la façade Renaissance du Vieux-Lyon, pour Saint-Paul et Saint-Jean : enduit ocre rouge ou rose tiré par la graine
 ## (ou enduit), encadrements de pierre grise, croisées à meneaux dont certaines sous une accolade, cordons à chaque
 ## étage et sous les appuis, chaînes d'angle harpées, porte en arc surbaissé ; ni persiennes ni balcons ; toit bas
-## (pente 20 sauf pente) ; faux par défaut), lod (en mètres, 40 par défaut, 0 pour s'en passer : au-delà, le corps
+## (pente 20 sauf pente) ; faux par défaut), lod (en mètres, 0 par défaut soit aucun niveau de détail, 40 dans les quartiers de Lyon : au-delà, le corps
 ## détaillé s'efface au profit d'un corps lointain de quelques centaines de sommets, l'enduit, le toit et ses
 ## souches, les fenêtres et les devantures peintes à plat ; demandé par le chef de chantier de Lyon pour tenir le
 ## budget d'un quartier).
@@ -154,8 +154,9 @@ static func maison(parent: Node3D, p: Vector3, type: String, graine: int, opt :=
 			else:
 				o.cylindre(Transform3D(Basis(), Vector3(xm, y + sh - 0.37, z)), 0.09, 0.08, 0.32, 6, Color("b86a45"))
 	var mi := o.construire(n, "Corps")
-	# le niveau de détail : au-delà de lod, le corps lointain remplace le corps détaillé (chef de chantier de Lyon)
-	var lod := maxf(float(opt.get("lod", 40.0)), 0.0)
+	# le niveau de détail, sur demande (0 par défaut : Guillaume ne veut pas de niveaux de détail dans les cartes
+	# existantes) : au-delà de lod, le corps lointain remplace le corps détaillé (chef de chantier de Lyon)
+	var lod := maxf(float(opt.get("lod", 0.0)), 0.0)
 	if lod > 0.0:
 		mi.visibility_range_end = lod
 		mi.visibility_range_end_margin = 4.0

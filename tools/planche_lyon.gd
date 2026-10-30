@@ -122,7 +122,7 @@ func _init() -> void:
 		"lointain":
 			# le niveau de détail : le même îlot que la vue toits, deux massifs et deux buissons, vus de la rue à 55 m
 			# (--nom=lod=x : la distance de bascule passée à tout le monde ; 0 = jamais, pour l'avant ; 1 = le corps
-			# lointain vu de près, pour le vérifier ; 40 par défaut)
+			# lointain vu de près, pour le vérifier ; 40 par défaut sur la planche, 0 dans la brique)
 			_sol(Vector2(160, 160), Color("b8a27a"))
 			var lod := 40.0
 			if nom.begins_with("lod="):

@@ -40,7 +40,7 @@ const PIERRE_SOMBRE := Color("cdbb92")
 ## vent (0 à 1, l'amplitude du souffle), fruits (false : l'oranger sans ses oranges) ; l'herbe : largeur, points (le
 ## contour de la nappe en mètres, à la place de longueur × largeur), densite (un multiplicateur des touffes, 1 par
 ## défaut), plafond (2 500 touffes au plus par défaut : au-delà elles grossissent au lieu de se multiplier) ; lod
-## (en mètres, 40 par défaut, 0 pour s'en passer : au-delà, le massif et le buisson s'effacent au profit d'un corps
+## (en mètres, 0 par défaut soit aucun niveau de détail, 40 dans les quartiers de Lyon : au-delà, le massif et le buisson s'effacent au profit d'un corps
 ## lointain de quelques centaines de sommets, des boules grossières sans feuilles, les fleurs en pastilles ;
 ## demandé par le chef de chantier de Lyon pour tenir le budget d'un quartier).
 @export var options := {}
@@ -71,8 +71,8 @@ static func pousser(parent: Node3D, p: Vector3, nom: String, g: int, opt := {}) 
 	var mesures: Vector2 = Callable(_Plantes, nom).call(o, p, verts, opt)
 	_pied(o, p, str(opt.get("pied", "")), opt)
 	var mi := o.construire(parent, nom.capitalize())
-	# le niveau de détail du massif et du buisson : au-delà de lod, un corps lointain de boules grossières
-	var lod := maxf(float(opt.get("lod", 40.0)), 0.0)
+	# le niveau de détail du massif et du buisson, sur demande (0 par défaut) : au-delà de lod, un corps lointain de boules grossières
+	var lod := maxf(float(opt.get("lod", 0.0)), 0.0)
 	if lod > 0.0 and nom in ["massif", "buisson"]:
 		mi.visibility_range_end = lod
 		mi.visibility_range_end_margin = 4.0
