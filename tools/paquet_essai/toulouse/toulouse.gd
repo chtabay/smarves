@@ -403,6 +403,13 @@ func _joueur() -> void:
 	camera.use_notches(CRANS, 0)
 
 
+## La caméra de dessus suit l'habitant (Guillaume, 30 octobre : en marchant vers le haut de l'écran, il en
+## sortait, la vue restait fixe). En vue à pied (Vue, Tab), l'habitant n'a plus de caméra à suivre.
+func _process(_delta: float) -> void:
+	if player != null and player.follow_camera == camera:
+		camera.set("_target_goal", player.global_position + Vector3(0, 0.3, 0))
+
+
 ## Les portes de la place : les salles de jeu du manifeste, ouvertes par le socle (fermées, la porte dit le seuil).
 func _interagir(cible: Node) -> void:
 	var id := str(cible.get_meta("interact", ""))
