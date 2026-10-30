@@ -140,7 +140,7 @@ func _garer(at: Vector3, lacet: float) -> void:
 	mob.global_rotation = Vector3(0, lacet, 0)
 
 
-## Assis sur la selle, reculé sur la selle (critter.gd baisse les hanches de « _seat » en s'asseyant).
+## Assis sur la selle, le bassin au-dessus de la partie brune (critter.gd baisse les hanches de « _seat » en s'asseyant).
 func _poser_habitant() -> void:
 	if not monte or player.avatar == null:
 		return
