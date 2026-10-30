@@ -436,6 +436,11 @@ const SURFACES_MAX := 64
 ## au-dessus de ce nombre de sommets, il devient sa boîte.
 const LEGER_MIN := 1.0
 const LEGER_SOMMETS := 2_000
+## Au-delà de cette taille, en mètres, un maillage lourd n'est pas mis en boîte (ce n'est pas un objet, c'est
+## un pan de quartier fondu) : il reste tel quel.
+const LEGER_BOITE_MAX := 60.0
+## La teinte des boîtes dont la matière ne se lit pas (un shader) : un enduit moyen.
+const ENDUIT_BOITE := Color("#d2c2a0")
 
 
 ## Donne au quartier (un nœud et tout ce qu'il porte) sa version lointaine : un nœud « <nom>_loin », enfant
@@ -451,9 +456,22 @@ static func quartier(q: Node3D, des := QUARTIER_DES, leger := false) -> int:
 	var pris: Array[MeshInstance3D] = []
 	var repere := q.global_transform.affine_inverse()
 	for mi: MeshInstance3D in q.find_children("*", "MeshInstance3D", true, false):
-		if not _fondable(mi, q):
+		if not _fondable(mi, q, leger):
 			continue
 		var t := repere * mi.global_transform
+		if leger and mi.visibility_range_begin > 0.0:
+			# Le niveau de détail lointain d'une brique (option « lod » du façadier) : c'est lui qu'on garde, tel quel.
+			for s in mi.mesh.get_surface_count():
+				var mat_l: Material = mi.material_override
+				if mat_l == null:
+					mat_l = mi.get_surface_override_material(s)
+				if mat_l == null:
+					mat_l = mi.mesh.surface_get_material(s)
+				if not par_matiere.has(mat_l):
+					par_matiere[mat_l] = []
+				par_matiere[mat_l].append([mi.mesh, s, t])
+			pris.append(mi)
+			continue
 		if leger:
 			# La version légère d'un quartier de ville (socle 1.29) : ce qui fait moins de LEGER_MIN m ne se
 			# voit pas d'un autre quartier et disparaît ; un maillage lourd (une façade ouvragée, un massif de
@@ -461,10 +479,12 @@ static func quartier(q: Node3D, des := QUARTIER_DES, leger := false) -> int:
 			var boite_mi := mi.mesh.get_aabb()
 			if boite_mi.get_longest_axis_size() * t.basis.get_scale().x < LEGER_MIN:
 				continue
-			if _sommets(mi.mesh) > LEGER_SOMMETS:
+			if _sommets(mi.mesh) > LEGER_SOMMETS and boite_mi.get_longest_axis_size() * t.basis.get_scale().x <= LEGER_BOITE_MAX:
+				# Dans une matière simple et éclairée : la matière d'une façade ouvragée (un shader qui peint ses
+				# fenêtres d'après ses coordonnées) ferait de la boîte un pan uni, blafard (Sathonay, étape 40).
 				var box := BoxMesh.new()
 				box.size = boite_mi.size
-				var mat := _matiere_principale(mi)
+				var mat := _matiere_boite(_matiere_principale(mi))
 				if not par_matiere.has(mat):
 					par_matiere[mat] = []
 				par_matiere[mat].append([box, 0, t * Transform3D(Basis(), boite_mi.get_center())])
@@ -532,6 +552,27 @@ static func _sommets(m: Mesh) -> int:
 	return n
 
 
+## La matière d'une boîte : celle du maillage si elle est simple (BaseMaterial3D, éclairée), sinon un enduit
+## moyen qui prend la lumière. Les boîtes d'une même teinte partagent leur matière.
+static var _boites := {}
+static func _matiere_boite(mat: Material) -> Material:
+	if mat is BaseMaterial3D:
+		return mat
+	var c := ENDUIT_BOITE
+	if mat is ShaderMaterial:
+		for nom in ["teinte", "couleur", "albedo", "enduit"]:
+			var v = (mat as ShaderMaterial).get_shader_parameter(nom)
+			if v is Color:
+				c = v
+				break
+	if not _boites.has(c):
+		var m := StandardMaterial3D.new()
+		m.albedo_color = c
+		m.roughness = 0.9
+		_boites[c] = m
+	return _boites[c]
+
+
 ## La matière de la plus grande surface d'un maillage (celle qui a le plus de sommets), résolue comme le moteur :
 ## la surcharge du nœud, puis celle de la surface, puis la matière du maillage.
 static func _matiere_principale(mi: MeshInstance3D) -> Material:
@@ -549,12 +590,19 @@ static func _matiere_principale(mi: MeshInstance3D) -> Material:
 	return mat if mat != null else m.surface_get_material(meilleur)
 
 
-static func _fondable(mi: MeshInstance3D, q: Node) -> bool:
+## En version légère, un maillage qui a déjà sa distance est pris s'il est le niveau lointain (il commence au
+## loin) et laissé s'il est le niveau de près (il finit à une distance) : la brique a fait le travail.
+static func _fondable(mi: MeshInstance3D, q: Node, leger := false) -> bool:
 	if mi.mesh == null or mi.mesh.get_surface_count() == 0 or not mi.is_visible_in_tree():
 		return false
 	if mi.skeleton != NodePath(""):
 		return false
-	if mi.visibility_range_end > 0.0 or mi.visibility_range_begin > 0.0 or mi.visibility_parent != NodePath("") or mi.has_meta("lointain_quartier"):
+	if mi.has_meta("lointain_quartier"):
+		return false
+	if leger:
+		if (mi.visibility_range_end > 0.0 and mi.visibility_range_begin <= 0.0) or (mi.visibility_parent != NodePath("") and mi.visibility_range_begin <= 0.0):
+			return false
+	elif mi.visibility_range_end > 0.0 or mi.visibility_range_begin > 0.0 or mi.visibility_parent != NodePath(""):
 		return false
 	var n: Node = mi
 	while n != null and n != q:
