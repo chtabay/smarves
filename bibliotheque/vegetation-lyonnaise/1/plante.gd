@@ -123,13 +123,21 @@ class _Plantes:
 		o.boule(c, r * 0.92, col.darkened(0.05), 0.18, Outils.FEUILLE, 0.05, vent)
 		_feuilles(o, c, r, col, int(clampf(r.x * r.y * 400.0, 14.0, 90.0)))
 
+	## Des fleurs posées sur une masse de feuilles : des boules sur le dessus de l'ellipsoïde (centre c, rayons r),
+	## un peu au-dessus des cartes pour qu'elles restent visibles (le verdict n° 29 de Sathonay : Blandan avait perdu
+	## ses fleurs, enterrées sous les feuilles fines).
+	static func _fleurs(o: Outils, c: Vector3, r: Vector3, fleur: Color, n: int, taille: float, vent: float) -> void:
+		for i in n:
+			var a := o.rng.randf() * TAU
+			var y := o.rng.randf_range(0.15, 0.9)
+			var s := sqrt(1.0 - y * y)
+			var d := Vector3(cos(a) * s, y, sin(a) * s)
+			var q := c + Vector3(d.x * r.x, d.y * r.y, d.z * r.z) + Vector3(d.x / r.x, d.y / r.y, d.z / r.z).normalized() * taille * 0.6
+			o.boule(q, Vector3.ONE * taille, fleur.lightened(o.rng.randf_range(-0.08, 0.1)), 0.2, Outils.FEUILLE, 0.05, vent)
+
 	static func _touffe(o: Outils, c: Vector3, r: float, vert: Color, fleur: Color, n_fleurs := 6) -> void:
 		_masse(o, c, Vector3(r, r * 0.75, r), vert, 0.3)
-		for i in n_fleurs:
-			var a := o.rng.randf() * TAU
-			var y := o.rng.randf_range(0.1, 0.7)
-			var d := Vector3(cos(a) * sqrt(1.0 - y * y), y, sin(a) * sqrt(1.0 - y * y))
-			o.boule(c + Vector3(d.x * r, d.y * r * 0.75, d.z * r) * 0.92, Vector3.ONE * r * 0.22, fleur.lightened(o.rng.randf_range(-0.08, 0.1)), 0.2, Outils.FEUILLE, 0.05, 0.3)
+		_fleurs(o, c, Vector3(r, r * 0.75, r), fleur, n_fleurs, r * 0.22, 0.3)
 
 	## Une couronne de touffes sur l'ellipsoïde de centre c et de rayons R, le dessus plus clair.
 	static func _couronne(o: Outils, c: Vector3, R: Vector3, verts: Array, n: int, vent: float, taille := Vector2(0.36, 0.52)) -> void:
@@ -341,16 +349,19 @@ class _Plantes:
 		var h := float(opt.get("hauteur", 1.2 * r.randf_range(0.85, 1.15)))
 		# trois à cinq boules mêlées, posées de travers, quelques fleurs blanches
 		var n := 3 + r.randi() % 3
+		var masses: Array = []
 		for i in n:
 			var a := TAU * i / n + r.randf()
 			var d := r.randf_range(0.2, 0.55) * h
 			var s := h * r.randf_range(0.45, 0.6)
-			_masse(o, p + Vector3(cos(a) * d, s * 0.8, sin(a) * d), Vector3(s, s * 0.85, s), verts[r.randi() % 4], vent * 0.4)
-		if r.randf() < 0.6:
+			masses.append([p + Vector3(cos(a) * d, s * 0.8, sin(a) * d), Vector3(s, s * 0.85, s)])
+			_masse(o, masses[i][0], masses[i][1], verts[r.randi() % 4], vent * 0.4)
+		# les fleurs, sur le dessus des masses : toujours quand on les demande (fleurs), six fois sur dix sinon
+		if opt.has("fleurs") or r.randf() < 0.6:
 			var fleur := Color(str(opt.get("fleurs", ["f4f0e6", "f2c14e", "d04a8a"][r.randi() % 3])))
-			for i in 9:
-				var a := r.randf() * TAU
-				o.boule(p + Vector3(cos(a) * h * 0.45, r.randf_range(0.35, 0.85) * h, sin(a) * h * 0.45), Vector3.ONE * 0.07, fleur, 0.2, Outils.FEUILLE, 0.05, vent * 0.4)
+			for i in int(9 + h * 5):
+				var m: Array = masses[r.randi() % n]
+				_fleurs(o, m[0], m[1], fleur, 1, 0.07, vent * 0.4)
 		o.collisions.append([Transform3D(Basis(), p + Vector3(0, h * 0.5, 0)), Vector3(h * 1.4, h, h * 1.4)])
 		return Vector2(h, h * 0.9)
 

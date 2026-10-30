@@ -276,6 +276,26 @@ func _init() -> void:
 	lyon.add_child(buisson_fin)
 	var mi_bf: MeshInstance3D = buisson_fin.find_children("*", "MeshInstance3D", true, false)[0]
 	check(mi_bf.mesh.surface_get_array_len(0) > 3 * 14 * 6, "le buisson lyonnais est couvert de feuilles fines, pas de facettes (%d sommets)" % mi_bf.mesh.surface_get_array_len(0))
+	# le verdict n° 29 de Sathonay : les fleurs demandées (fleurs) sont là, posées au-dessus des feuilles fines
+	var buisson_fleuri: Node3D = load(Bibliotheque.scene("vegetation-lyonnaise@1", "decor")).instantiate()
+	buisson_fleuri.plante = "buisson"
+	buisson_fleuri.graine = 3
+	buisson_fleuri.options = {"hauteur": 1.2, "fleurs": "e0605a"}
+	lyon.add_child(buisson_fleuri)
+	var mi_bfl: MeshInstance3D = buisson_fleuri.find_children("*", "MeshInstance3D", true, false)[0]
+	var n_fleurs := 0
+	var dessus := 0
+	for si in mi_bfl.mesh.get_surface_count():
+		var arr := mi_bfl.mesh.surface_get_arrays(si)
+		var cols: PackedColorArray = arr[Mesh.ARRAY_COLOR]
+		var pos: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+		for vi in cols.size():
+			var c: Color = cols[vi]
+			if absf(c.r - 0.878) < 0.12 and absf(c.g - 0.376) < 0.12 and absf(c.b - 0.353) < 0.12:
+				n_fleurs += 1
+				if pos[vi].y > 0.5:
+					dessus += 1
+	check(n_fleurs > 100 and dessus > n_fleurs / 2, "le buisson lyonnais fleurit quand on le lui demande, sur le dessus de ses masses (%d sommets de fleurs, %d en haut)" % [n_fleurs, dessus])
 	var lyonnaises: Array = load(Bibliotheque.scene("vegetation-lyonnaise@1", "decor")).instantiate().call("noms")
 	check(not ("tilleul" in essences or "bouleau" in essences or "cypres" in essences or "vigne" in essences or essences.any(func(e): return e in lyonnaises)),
 		"la végétation du Bugey ne redouble aucune essence des autres décors")
