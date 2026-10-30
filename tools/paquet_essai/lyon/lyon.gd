@@ -52,7 +52,7 @@ const PLACE := Rect2(-14.0, -14.0, 47.0, 66.0)
 const SQUARE := Rect2(-2.5, -6.0, 25.5, 51.0)
 ## Là où le joueur passe (le quai et la rue de la Martinière, la place, la rue Louis-Vitet, la montée) :
 ## chaque façade tournée vers une rue y est un immeuble du façadier, en relief, jamais un mur peint.
-const RELIEF := [Rect2(-180.0, 92.0, 260.0, 45.0), Rect2(-62.0, -100.0, 145.0, 200.0)]
+const RELIEF := [Rect2(-180.0, 92.0, 260.0, 45.0), Rect2(-62.0, -100.0, 145.0, 200.0), Rect2(-280.0, 137.0, 230.0, 35.0)]
 ## Fourvière, ramenée de 975 m à 730 m dans son vrai relèvement (sud-ouest), et la tour métallique.
 const FOURVIERE := Vector3(-560.0, 0.0, 470.0)
 const TOUR := Vector3(-545.0, 0.0, 330.0)
@@ -395,6 +395,10 @@ const RIVE_SUD := [Vector2(-432, 188), Vector2(-351, 188), Vector2(-314, 186), V
 const PASSERELLE := [Vector2(-166.0, 163.0), Vector2(-202.0, 226.5)]
 ## Le point de vue du quai, à trois mètres du parapet : la passerelle de trois quarts, la Saône et Fourvière.
 const QUAI_VUE := Vector2(-138.0, 177.0)
+## Le regard de la Vue1a : tourné de 15° vers le quai pour le prendre en enfilade, et l'œil reculé d'un pas
+## (1,5 m), pour que le parapet passe sous le quart bas du cadre.
+const VUE1A_REGARD := Vector2(-0.989, 0.146)
+const VUE1A_OEIL := Vector2(-136.5, 175.3)
 
 func _quais() -> void:
 	var niveau := _niveau_eau
@@ -459,8 +463,11 @@ func _quais() -> void:
 			var t := Vector2(n.y, -n.x)
 			var y0: float = (y + (modules[m - 1][4] if m > 0 else y)) * 0.5
 			var y1: float = (y + (modules[m + 1][4] if m < modules.size() - 1 else y)) * 0.5
-			var coins := [[c - t * w * 0.5 - n * 0.5, y0], [c + t * w * 0.5 - n * 0.5, y1], [c + t * w * 0.5 - n * 6.5, y1], [c - t * w * 0.5 - n * 6.5, y0]]
-			for idx in [0, 1, 2, 0, 2, 3]:
+			# un peu plus long que le module : aux coudes de la rive, les modules voisins tournent et laissaient un coin vide
+			var demi := w * 0.5 + 0.9
+			var coins := [[c - t * demi - n * 0.5, y0], [c + t * demi - n * 0.5, y1], [c + t * demi - n * 6.5, y1], [c - t * demi - n * 6.5, y0]]
+			# dans ce sens-là, la face regarde le ciel : à l'envers, le moteur ne dessinait que des morceaux du dallage
+			for idx in [0, 2, 1, 0, 3, 2]:
 				trottoir.set_normal(Vector3.UP)
 				trottoir.add_vertex(Vector3(coins[idx][0].x, coins[idx][1] + 0.03, coins[idx][0].y))
 			for paire in [[2, 3], [0, 1]]:
@@ -713,6 +720,7 @@ func _materiau_dalles_quai() -> ShaderMaterial:
 	var sh := Shader.new()
 	sh.code = """
 shader_type spatial;
+render_mode cull_disabled;
 varying vec3 monde;
 void vertex() { monde = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -730,6 +738,15 @@ void fragment() {
 	_dalles_quai = ShaderMaterial.new()
 	_dalles_quai.shader = sh
 	return _dalles_quai
+
+
+## Vrai si p est à moins de d mètres de la ligne d'une des deux rives.
+func _pres_rive(p: Vector2, d: float) -> bool:
+	for rive in [RIVE_NORD, RIVE_SUD]:
+		for i in rive.size() - 1:
+			if Geometry2D.get_closest_point_to_segment(p, rive[i], rive[i + 1]).distance_to(p) < d:
+				return true
+	return false
 
 
 func _rues() -> void:
@@ -753,6 +770,10 @@ func _rues() -> void:
 			var a: Vector2 = pts[i]
 			var b: Vector2 = pts[i + 1]
 			if PLACE.has_point(a) and PLACE.has_point(b):
+				continue
+			# le trottoir du quai a son dallage : les chemins du relevé qui le longent ou y aboutissent s'y posaient
+			# par-dessus, en dalles de pavés surélevées
+			if st == pietons and (_pres_rive(a, 8.0) or _pres_rive(b, 8.0) or _pres_rive((a + b) * 0.5, 8.0)):
 				continue
 			var n := (b - a).orthogonal().normalized() * l
 			var pa := [a - n, a + n, b + n, b - n]
@@ -992,8 +1013,10 @@ func _halle(b: Dictionary) -> void:
 	m.position = Vector3(c.x, sol, c.y)
 	m.rotation.y = -a
 	ville.add_child(m)
-	var pierre := Color("#d8bf8c")
-	var claire := Color("#e6d2a6")
+	# la pierre grise de la vraie halle, la brique rouge des tympans
+	var pierre := Color("#c8bc9e")
+	var claire := Color("#d9cfb4")
+	var brique := Color("#a5553a")
 	var vitre := Color("#3c4a4c")
 	var fer := Color("#3f4b46")
 	var app := _materiau_appareil(pierre)
@@ -1019,6 +1042,20 @@ func _halle(b: Dictionary) -> void:
 	_boite(m, Vector3(L - 3.6, 0.2, P * 0.42), Vector3(0, 11.5, 0), Color("#7d8288"))
 	# les arcades sur les quatre côtés : pilastres, baies vitrées en plein cintre, clés et impostes
 	var travee := 4.2
+	var cote_rue := -1.0 if cos(-a) < 0.0 else 1.0
+	# les arcades ouvertes sur les étals : les trois de la façade sur rue les plus proches du trottoir de la Vue1b
+	var ouvertes := {}
+	var nb_rue := maxi(1, int(L / travee))
+	var rangs := []
+	for k in nb_rue:
+		var x := -L * 0.5 + (k + 0.5) * L / nb_rue
+		var local := Vector3(x if cote_rue > 0.0 else -x, 0, cote_rue * P * 0.5)
+		var monde: Vector3 = m.transform * local
+		rangs.append([Vector2(monde.x, monde.z).distance_to(Vector2(-76.0, 118.6)), k])
+	rangs.sort_custom(func(u, w): return u[0] < w[0])
+	for j in 3:
+		ouvertes[rangs[j][1]] = true
+	var ceramiques := [Color("#3f6f8f"), Color("#d8b25a"), Color("#4f7f5a"), Color("#e8e0cc")]
 	for cote in [[L, P, 0.0], [L, P, PI], [P, L, PI * 0.5], [P, L, -PI * 0.5]]:
 		var longueur: float = cote[0]
 		var profond: float = cote[1]
@@ -1032,28 +1069,56 @@ func _halle(b: Dictionary) -> void:
 			var x := -longueur * 0.5 + k * pas
 			_boite(f, Vector3(0.75, 6.6, 0.3), Vector3(x, 3.3, z + 0.12), claire)
 			_boite(f, Vector3(0.95, 0.35, 0.4), Vector3(x, 6.6, z + 0.15), claire.darkened(0.04))
+		var sur_rue: bool = longueur == L and ((cote[2] == 0.0 and cote_rue > 0.0) or (cote[2] == PI and cote_rue < 0.0))
+		# la frise de céramique sous la corniche, en carreaux de couleur alternés
+		var nc := int(longueur / 0.6)
+		for j in nc:
+			_boite(f, Vector3(0.5, 0.32, 0.06), Vector3(-longueur * 0.5 + (j + 0.5) * longueur / nc, 6.82, z + 0.04), ceramiques[j % 4])
 		for k in nb:
 			var x := -longueur * 0.5 + (k + 0.5) * pas
 			var r := (pas - 0.75) * 0.5 - 0.25
 			var base := 4.4
-			# la baie : le rectangle vitré et son arc, les petits bois
-			_boite(f, Vector3(r * 2.0, base - 0.6, 0.12), Vector3(x, 0.6 + (base - 0.6) * 0.5, z + 0.02), vitre)
-			for j in 9:
-				var t := PI * j / 8.0
-				var q := Vector2(cos(t), sin(t)) * r * 0.5
-				_boite(f, Vector3(r * 0.36, maxf(0.2, sin(t) * r), 0.12), Vector3(x + cos(t) * r * 0.82, base + sin(t) * r * 0.5, z + 0.02), vitre)
+			var ouverte: bool = sur_rue and ouvertes.has(k)
+			# le tympan de brique entre les arcs de pierre, jusqu'à la frise ; au-dessus de l'arc seulement quand
+			# l'arcade est ouverte, l'ombre de la halle remplit l'arc
+			var pied := base + r + 0.1 if ouverte else base
+			_boite(f, Vector3(pas - 0.75, 6.6 - pied + 0.1, 0.05), Vector3(x, pied + (6.6 - pied) * 0.5, z + 0.0), brique)
+			if ouverte:
+				# l'arcade ouverte : le fond d'ombre de la halle, et l'étal devant, ses cagettes et sa toile
+				_boite(f, Vector3(r * 2.0, base, 0.1), Vector3(x, base * 0.5, z + 0.03), Color("#2b2620"))
+				for j in 9:
+					var t := PI * j / 8.0
+					_boite(f, Vector3(r * 0.36, maxf(0.2, sin(t) * r), 0.1), Vector3(x + cos(t) * r * 0.82, base + sin(t) * r * 0.5, z + 0.03), Color("#2b2620"))
+				_boite(f, Vector3(r * 2.0 + 0.2, 0.08, 1.0), Vector3(x, 0.92, z + 0.75), Color("#8a6a45"))
+				for e in [-1.0, 1.0]:
+					_boite(f, Vector3(0.08, 0.9, 0.9), Vector3(x + e * r, 0.45, z + 0.75), Color("#6e5236"))
+				var fruits := [Color("#e07a2e"), Color("#c8102e"), Color("#7aa63a"), Color("#e8c547"), Color("#8e3a6e")]
+				for j in 4:
+					var cx := x - r + 0.45 + j * (r * 2.0 - 0.9) / 3.0
+					_boite(f, Vector3(0.55, 0.2, 0.42), Vector3(cx, 1.06, z + 0.75), Color("#b8915e"))
+					_boite(f, Vector3(0.48, 0.12, 0.36), Vector3(cx, 1.2, z + 0.75), fruits[(k + j) % fruits.size()])
+				var toile := _boite(f, Vector3(r * 2.0 + 0.3, 0.05, 1.3), Vector3(x, 2.55, z + 0.75), Color("#e8e0cc"), 0.0)
+				toile.rotation.x = -0.3
+				for j in 4:
+					var bande := _boite(f, Vector3((r * 2.0 + 0.3) / 8.0, 0.055, 1.31), Vector3(x - r - 0.15 + (j * 2 + 0.5) * (r * 2.0 + 0.3) / 8.0, 2.55, z + 0.75), Color("#2f6b4a"))
+					bande.rotation.x = -0.3
+			else:
+				# la baie : le rectangle vitré et son arc, les petits bois
+				_boite(f, Vector3(r * 2.0, base - 0.6, 0.12), Vector3(x, 0.6 + (base - 0.6) * 0.5, z + 0.02), vitre)
+				for j in 9:
+					var t := PI * j / 8.0
+					_boite(f, Vector3(r * 0.36, maxf(0.2, sin(t) * r), 0.12), Vector3(x + cos(t) * r * 0.82, base + sin(t) * r * 0.5, z + 0.02), vitre)
+				_boite(f, Vector3(0.05, base - 0.6, 0.16), Vector3(x, 0.6 + (base - 0.6) * 0.5, z + 0.06), fer)
+				_boite(f, Vector3(r * 2.0, 0.05, 0.16), Vector3(x, 2.6, z + 0.06), fer)
 			for j in 11:
 				var t := PI * j / 10.0
 				var vs := _boite(f, Vector3(0.42, 0.24, 0.32), Vector3(x + cos(t) * (r + 0.12), base + sin(t) * (r + 0.12), z + 0.1), claire)
 				vs.rotation.z = t - PI * 0.5
 			_boite(f, Vector3(0.36, 0.5, 0.36), Vector3(x, base + r + 0.2, z + 0.16), claire.lightened(0.05))
-			_boite(f, Vector3(0.05, base - 0.6, 0.16), Vector3(x, 0.6 + (base - 0.6) * 0.5, z + 0.06), fer)
-			_boite(f, Vector3(r * 2.0, 0.05, 0.16), Vector3(x, 2.6, z + 0.06), fer)
 			# les petites baies carrées de l'attique, une par travée, sauf sous l'inscription
 			if absf(x) > 8.5 or longueur < 20.0:
 				_boite(f, Vector3(1.1, 0.8, 0.1), Vector3(x, 8.4, z - 0.15), vitre)
 	# l'inscription sur la rue, en lettres dorées sur la frise
-	var cote_rue := -1.0 if cos(-a) < 0.0 else 1.0
 	var cartouche := _boite(m, Vector3(15.0, 1.0, 0.1), Vector3(0, 8.4, cote_rue * (P * 0.5 - 0.15)), Color("#4a5249"))
 	cartouche.material_override = _mat(Color("#4a5249"), 0.6)
 	_boite(m, Vector3(15.4, 0.08, 0.14), Vector3(0, 8.92, cote_rue * (P * 0.5 - 0.15)), Color("#c9a24a"))
@@ -2295,6 +2360,28 @@ func _quai_habite() -> void:
 			f.rotation.y = atan2(mod[1].x, mod[1].y)
 			groupe.add_child(f)
 			g += 1
+	# dans le champ de la Vue1a : un banc à dix mètres, deux accoudés juste après, un troisième à vingt mètres
+	var module_pres := func(q: Vector2) -> Array:
+		var meilleur: Array = _quai_modules[0]
+		for mod in _quai_modules:
+			if (mod[0] as Vector2).distance_to(q) < (meilleur[0] as Vector2).distance_to(q):
+				meilleur = mod
+		return meilleur
+	var depart: Array = module_pres.call(VUE1A_OEIL)
+	var tq := Vector2(depart[1].y, -depart[1].x)
+	if tq.dot(VUE1A_REGARD) < 0.0:
+		tq = -tq
+	var mb: Array = module_pres.call(depart[0] + tq * 10.0)
+	var pb: Vector2 = mb[0] - mb[1] * 1.7
+	_pose(MOBILIER, "objet", "banc", Vector3(pb.x, mb[2], pb.y), 1290, {}, atan2(mb[1].x, mb[1].y))
+	for ecart in [12.5, 13.3, 21.0]:
+		var ma: Array = module_pres.call(depart[0] + tq * ecart)
+		var qa: Vector2 = ma[0] - ma[1] * 0.85
+		var f: Node3D = Atelier.figurant(g, "idle")
+		f.position = Vector3(qa.x, ma[2], qa.y) / U
+		f.rotation.y = atan2(ma[1].x, ma[1].y)
+		groupe.add_child(f)
+		g += 1
 	# les voitures de la rue du quai, garées contre la bordure côté platanes, quand une vraie chaussée y passe
 	var n := 0
 	var m := 1
@@ -2608,8 +2695,9 @@ func _colline(x: float, z: float) -> float:
 func _reperes() -> void:
 	var reperes := {
 		"Arrivee": [Vector2(-157.0, 143.0), Vector2(-148.0, 40.0)],
-		# sur le quai Saint-Vincent, à huit mètres du parapet : la passerelle de trois quarts, la Saône et Fourvière en face
-		"Vue1a_Passerelle": [QUAI_VUE, Vector2(-300.0, 247.0)],
+		# sur le quai Saint-Vincent, un pas en arrière du parapet : le trottoir du quai en enfilade, ses bancs et ses
+		# accoudés sur la gauche, la passerelle de trois quarts, la Saône et Fourvière en face
+		"Vue1a_Passerelle": [VUE1A_OEIL, VUE1A_OEIL + VUE1A_REGARD * 160.0],
 		# sur le trottoir sud, la halle de trois quarts de l'autre côté de la rue
 		"Vue1b_Martiniere": [Vector2(-76.0, 118.6), Vector2(-36.0, 101.0)],
 		"Vue1c_Rambaud": [Vector2(-30.0, 114.0), Vector2(68.0, 118.0)],
