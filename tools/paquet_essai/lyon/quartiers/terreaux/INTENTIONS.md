@@ -61,7 +61,7 @@ Rien pour le moment, comme à Sathonay : pas d'intérieur, ni table, ni jeu, ni 
 
 ### 1 La rue Terme et l'ouverture
 
-**Lieu** : le bas de la rue Terme, à l'angle nord-ouest de la place. Repère `Vue1_Terme`, en (148, 180), tourné vers l'est.
+**Lieu** : le bas de la rue Terme, à l'angle nord-ouest de la place. Repère `Vue1_Terme`, en (196, 178), tourné vers l'est.
 
 On descend la rue Terme dans l'ombre, entre des façades hautes et pâles, le beffroi de l'Hôtel de Ville en haut à droite au-dessus des toits. Au dernier tiers, la rue s'élargit en un vestibule ; on sort, et la place est là, en enfilade : à gauche le front nord rasé de soleil avec ses stores, au premier plan les chevaux de Bartholdi dans leur eau, au fond l'Hôtel de Ville doré.
 
@@ -69,7 +69,7 @@ On descend la rue Terme dans l'ombre, entre des façades hautes et pâles, le be
 
 ### 2 La grande salle
 
-**Lieu** : l'angle sud-ouest de la place, devant le palais Saint-Pierre. Repère `Vue2_Salle`, en (214, 212), tourné vers l'est-nord-est (l'Hôtel de Ville et la fontaine dans le même regard).
+**Lieu** : l'angle sud-ouest de la place, devant le palais Saint-Pierre. Repère `Vue2a_Salle`, en (221, 213), tourné vers l'est-nord-est (l'Hôtel de Ville et la fontaine dans le même regard).
 
 La salle entière : la grille de jets où courent deux enfants, la ligne des quatorze piliers-fontaines au pied du palais, les terrasses pleines du front nord sous leurs stores, la fontaine à gauche, et l'Hôtel de Ville au fond, en plein soleil, le mariage sur son perron.
 
@@ -77,7 +77,7 @@ La salle entière : la grille de jets où courent deux enfants, la ligne des qua
 
 ### 3 Le cloître Saint-Pierre
 
-**Lieu** : le jardin du cloître, au cœur du palais, par le porche de la place. Repère `Vue3_Cloitre`, en (258, 282), tourné vers le nord-est.
+**Lieu** : le jardin du cloître, au cœur du palais, par le porche de la place. Repère `Vue3_Cloitre`, au sud-ouest du jardin, tourné vers le nord-est ; deux coudes y mènent, `Vue2b_Porche` devant le porche et `Vue2c_Galerie` dans la galerie nord.
 
 Un porche sombre, puis le silence : un carré de jardin entre quatre galeries d'arcades, des allées de sable, un bassin rond, des statues sous les arbres. Au-dessus du toit du palais, le dôme du beffroi doré : la place qu'on vient de quitter est là, invisible.
 
@@ -114,11 +114,11 @@ Les familles de VILLE.md, section 2 ; ce qui est propre au quartier :
 
 La lumière est celle de la commune, sans réglage propre : soleil de 258°, 31° de haut, `#FFE1B0`, saturation ×1,3 (VILLE.md). Les fourchettes du juge valent : médiane 75 à 150, noirs 20 à 60, hautes lumières 160 à 240, saturation 75 à 180 ; ciel de 15 à 22 % sur la place, 3 à 10 % dans la rue Terme.
 
-**Caméras de contrôle** (repère de la ville, en mètres, y au sol + 1,65) : les trois repères `Vue1_Terme`, `Vue2_Salle`, `Vue3_Cloitre` ; la vue d'ensemble depuis le sud-ouest, en hauteur, au-dessus du palais : `--libre=180,70,330,-45,-30,50` ; la vue du sas depuis le haut de la rue Terme vers le sud (`--libre=133,y+1.65,118,…`) et, à l'inverse, vers Sathonay.
+**Caméras de contrôle** (repère de la ville, en mètres, y au sol + 1,65) : les repères `Vue1_Terme`, `Vue2a_Salle`, `Vue3_Cloitre` (et les coudes `Vue2b_Porche`, `Vue2c_Galerie`) ; la vue d'ensemble depuis le sud-ouest, au-dessus du palais : `--libre=75,29,137,-40,-28,55` (en unités de la scène, 2,4 m) ; la vue du sas depuis le haut de la rue Terme vers le sud : `--libre=57.9,6,52,180,-2,70`.
 
 ## Ce que livre la maquette
 
-`terreaux.gd` (`static func batir(racine)`) pose sous `racine` : la place et son sol, l'Hôtel de Ville, le palais Saint-Pierre et son cloître, la fontaine, les volumes du quartier tirés de `bourg.json` (les façades de la bibliothèque sur la place et dans la rue Terme), le repère `Arrivee_Terreaux` (rue Président-Édouard-Herriot, l'arrêt du taxi), `Sas_Sathonay` en haut de la rue Terme, et les trois repères de vue.
+`terreaux.gd` (`static func batir(racine)`) pose sous `racine` : la place et son sol, l'Hôtel de Ville, le palais Saint-Pierre et son cloître, la fontaine, les volumes du quartier tirés de `bourg.json` (les façades de la bibliothèque sur la place et dans la rue Terme), le repère `Arrivee_Terreaux` (rue Président-Édouard-Herriot, l'arrêt du taxi), `Sas_sathonay` (un repère et sa méta `rayon`, 6 m) en (133, 118), en haut de la rue Terme, et les trois repères de vue.
 
 ## L'inventaire (bibliothécaire)
 
@@ -145,6 +145,6 @@ Pas d'intérieur, pas de jeu, pas de revenu ni de pari. L'Opéra et la place Lou
 Le fil du quartier est le game designer et met les casquettes l'une après l'autre ; le juge est le fil « Juger les cartes face aux planches cibles » ; le chef de chantier intègre.
 
 1. Relevé, inventaire, cette note (fait).
-2. **Maquette traversable** : volumes, sols, monuments en masses, repères et sas ; essai seul sous la commune sur la branche, captures aux trois repères et vue d'ensemble.
+2. **Maquette traversable** (faite le 30 octobre, planche `planches/planche-maquette-1.jpg`) : volumes, sols, monuments en masses, repères et sas ; essai seul sous la commune sur la branche, captures aux trois repères et vue d'ensemble.
 3. Les trois scènes, une à la fois : composition, puis équipements ; le juge à la fin de chacune.
 4. Vagues (matières, vie) puis couture avec Sathonay, avec le chef de chantier.
