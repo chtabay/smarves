@@ -15,7 +15,7 @@ const Outils := preload("res://bibliotheque/mobilier-toulousain/1/outils.gd")
 ## et ses tables, le store de terrasse sur pieds, le chevalet du menu, le potelet de fonte, l'appui-vélo, le
 ## lampadaire toulousain, le bac de bois fleuri, le bac végétal maçonné, le jardin d'enfants et le carrousel.
 const OBJETS := ["terrasse", "parasol", "grand_parasol", "store_terrasse", "chevalet", "potelet", "appui_velo",
-	"lampadaire", "bac_bois", "bac_vegetal", "jardin_enfants", "carrousel"]
+	"lampadaire", "bac_bois", "bac_vegetal", "jardin_enfants", "carrousel", "borne", "banc"]
 
 const FONTE := Color("23272a")
 const FONTE_CLAIRE := Color("3a3f44")
@@ -89,7 +89,9 @@ static func poser(parent: Node3D, p: Vector3, nom: String, g: int, opt := {}) ->
 		nom = "terrasse"
 	var o := Outils.new(g * 104729 + OBJETS.find(nom) * 37)
 	var emprise: Vector2 = Callable(_Objets, nom).call(o, p, opt)
-	o.construire(parent, nom.capitalize())
+	var mi := o.construire(parent, nom.capitalize())
+	# le jour du ciel dans le feuillage (option jour) : le plancher d'ombre des massifs, que l'ombre portée n'éteint pas
+	mi.set_instance_shader_parameter("jour", clampf(float(opt.get("jour", 1.0)), 0.0, 3.0))
 	return {"objet": nom, "graine": g, "emprise": emprise}
 
 
@@ -157,14 +159,15 @@ class _Objets:
 	## Un client assis sur la chaise en q, tournée de a (il fait face à la table, vers −z local) : jambes pliées,
 	## buste, tête et cheveux, et une pose de café (la tasse à la main, les avant-bras sur la table, ou le dos
 	## au dossier, les mains sur les genoux).
-	static func _client(o: Outils, q: Vector3, a: float) -> void:
+	## Sur un banc (banc = true), pas de table : les mains sur les genoux, ou un bras le long du dossier.
+	static func _client(o: Outils, q: Vector3, a: float, banc := false) -> void:
 		var b := Basis(Vector3.UP, a)
 		var r := o.rng
 		var peau := Color(PEAUX[r.randi() % PEAUX.size()])
 		var haut := Color(HAUTS[r.randi() % HAUTS.size()])
 		var bas := Color(BAS[r.randi() % BAS.size()])
 		var cheveux := Color(CHEVEUX[r.randi() % CHEVEUX.size()])
-		var pose := r.randi() % 3
+		var pose := (2 + r.randi() % 2) if banc else r.randi() % 3
 		var hanche := q + b * Vector3(0, 0.47, 0.02)
 		# les cuisses vers l'avant, les mollets vers le sol, les chaussures
 		for cote in [-1.0, 1.0]:
@@ -204,6 +207,14 @@ class _Objets:
 					# les avant-bras posés sur la table
 					coude = buste + bb * Vector3(cote * 0.22, -0.06, -0.2)
 					main = buste + bb * Vector3(cote * 0.1, -0.02, -0.5)
+				3:
+					# le bras droit le long du dossier, la main gauche sur le genou
+					if cote > 0:
+						coude = buste + bb * Vector3(0.42, 0.16, 0.06)
+						main = buste + bb * Vector3(0.62, 0.2, 0.12)
+					else:
+						coude = buste + bb * Vector3(-0.23, -0.1, -0.08)
+						main = buste + bb * Vector3(-0.13, -0.28, -0.32)
 				_:
 					# les mains sur les genoux
 					coude = buste + bb * Vector3(cote * 0.23, -0.1, -0.08)
@@ -357,26 +368,87 @@ class _Objets:
 		o.collisions.append([Transform3D(Basis(), p + Vector3(0, 0.42, 0)), Vector3(l, 0.85, 0.12)])
 		return Vector2(l, 0.7)
 
-	static func lampadaire(o: Outils, p: Vector3, opt: Dictionary) -> Vector2:
-		# le lampadaire toulousain : socle mouluré, fût de fonte noire à bagues, crosse courte, lanterne à six pans
-		var t := Transform3D(Basis(), p)
-		o.cylindre(t.translated(Vector3(0, -0.05, 0)), 0.26, 0.22, 0.4, 8, FONTE)
-		o.cylindre(t.translated(Vector3(0, 0.35, 0)), 0.18, 0.12, 0.3, 8, FONTE)
-		o.cylindre(t.translated(Vector3(0, 0.65, 0)), 0.08, 0.06, 2.7, 8, FONTE)
-		for y in [0.7, 1.6, 3.2]:
-			o.cylindre(t.translated(Vector3(0, y, 0)), 0.1, 0.1, 0.06, 8, FONTE_CLAIRE)
-		o.boite(Transform3D(Basis(), p + Vector3(0, 3.0, 0)), Vector3(0.6, 0.04, 0.04), FONTE)
-		var c := p + Vector3(0, 3.38, 0)
+	## La lanterne à six pans du lampadaire, posée en c (le dessous du culot), allumée ou non.
+	static func _lanterne(o: Outils, c: Vector3, allume: bool) -> void:
 		o.cylindre(Transform3D(Basis(), c), 0.12, 0.2, 0.08, 6, FONTE)
-		var allume: bool = opt.get("allume", true)
 		o.cylindre(Transform3D(Basis(), c + Vector3(0, 0.08, 0)), 0.17, 0.22, 0.5, 6, Color("fff1c2") if allume else Color("cfd8dc"), Outils.LUEUR if allume else Outils.DUR)
 		for i in 6:
 			var a := TAU * i / 6.0
 			o.branche(c + Vector3(cos(a) * 0.17, 0.08, sin(a) * 0.17), c + Vector3(cos(a) * 0.22, 0.58, sin(a) * 0.22), 0.012, 0.012, FONTE, 4)
 		o.cylindre(Transform3D(Basis(), c + Vector3(0, 0.58, 0)), 0.3, 0.06, 0.24, 6, FONTE)
 		o.boule(c + Vector3(0, 0.86, 0), Vector3.ONE * 0.05, FONTE, 0.0, Outils.DUR, 0.0)
+
+	static func lampadaire(o: Outils, p: Vector3, opt: Dictionary) -> Vector2:
+		# le lampadaire toulousain : socle mouluré, fût de fonte noire à bagues, crosse courte, lanterne à six pans ;
+		# à deux branches (option branches : 2), deux crosses symétriques en volute portent deux lanternes, et le fût
+		# finit en pomme de pin (la cible de Saint-Georges, verdict v0.12)
+		var t := Transform3D(Basis(), p)
+		var branches := clampi(int(opt.get("branches", 1)), 1, 2)
+		var allume: bool = opt.get("allume", true)
+		o.cylindre(t.translated(Vector3(0, -0.05, 0)), 0.26, 0.22, 0.4, 8, FONTE)
+		o.cylindre(t.translated(Vector3(0, 0.35, 0)), 0.18, 0.12, 0.3, 8, FONTE)
+		o.cylindre(t.translated(Vector3(0, 0.65, 0)), 0.08, 0.06, 2.7, 8, FONTE)
+		for y in [0.7, 1.6, 3.2]:
+			o.cylindre(t.translated(Vector3(0, y, 0)), 0.1, 0.1, 0.06, 8, FONTE_CLAIRE)
+		if branches == 1:
+			o.boite(Transform3D(Basis(), p + Vector3(0, 3.0, 0)), Vector3(0.6, 0.04, 0.04), FONTE)
+			_lanterne(o, p + Vector3(0, 3.38, 0), allume)
+		else:
+			# les deux crosses : un quart de cercle qui part du fût vers le haut et l'extérieur, une volute au départ
+			for cote in [-1.0, 1.0]:
+				var prev := p + Vector3(0, 2.95, 0)
+				for k in range(1, 7):
+					var ang := PI * 0.5 * k / 6.0
+					var q := p + Vector3(cote * sin(ang) * 0.62, 2.95 + (1.0 - cos(ang)) * 0.45, 0)
+					o.branche(prev, q, 0.03, 0.025, FONTE, 6)
+					prev = q
+				o.boule(p + Vector3(cote * 0.14, 2.86, 0), Vector3.ONE * 0.045, FONTE, 0.0, Outils.DUR, 0.0)
+				_lanterne(o, p + Vector3(cote * 0.62, 3.4, 0), allume)
+			# la pomme de pin au sommet du fût
+			o.cylindre(t.translated(Vector3(0, 3.35, 0)), 0.09, 0.05, 0.12, 8, FONTE)
+			o.boule(p + Vector3(0, 3.58, 0), Vector3(0.07, 0.13, 0.07), FONTE, 0.0, Outils.DUR, 0.0)
 		o.collisions.append([Transform3D(Basis(), p + Vector3(0, 1.8, 0)), Vector3(0.45, 3.6, 0.45)])
-		return Vector2(0.6, 0.6)
+		return Vector2(0.6 if branches == 1 else 1.7, 0.6)
+
+	static func borne(o: Outils, p: Vector3, _opt: Dictionary) -> Vector2:
+		# la borne chasse-roue toulousaine : une pierre claire d'une soixantaine de centimètres, embase un peu
+		# plus large, fût légèrement conique, tête arrondie (la cible de Saint-Georges, verdict v0.12)
+		var pierre := Color("d9d2c2").lightened(o.rng.randf_range(-0.05, 0.04))
+		var t := Transform3D(Basis(Vector3.UP, o.rng.randf() * TAU), p)
+		o.cylindre(t.translated(Vector3(0, -0.03, 0)), 0.18, 0.17, 0.1, 12, pierre.darkened(0.08))
+		o.cylindre(t.translated(Vector3(0, 0.07, 0)), 0.16, 0.14, 0.4, 12, pierre)
+		o.boule(p + Vector3(0, 0.5, 0), Vector3(0.14, 0.13, 0.14), pierre, 0.0, Outils.DUR, 0.0)
+		o.collisions.append([Transform3D(Basis(), p + Vector3(0, 0.3, 0)), Vector3(0.34, 0.62, 0.34)])
+		return Vector2(0.36, 0.36)
+
+	static func banc(o: Outils, p: Vector3, opt: Dictionary) -> Vector2:
+		# le banc toulousain : deux pieds de fonte, l'assise et le dossier en lattes de bois ; il fait face à −z.
+		# L'option assis (0 à 3) y assoit des gens, comme les clients de la terrasse (verdict v0.12).
+		var l := float(opt.get("longueur", 1.8))
+		var assis := clampi(int(opt.get("assis", 0)), 0, 3)
+		for cote in [-1.0, 1.0]:
+			var x: float = cote * (l * 0.5 - 0.12)
+			# le pied : une base, un montant sous l'assise, le montant du dossier incliné, l'accoudoir en volute
+			o.boite(Transform3D(Basis(), p + Vector3(x, 0.03, 0.02)), Vector3(0.06, 0.06, 0.5), FONTE)
+			o.boite(Transform3D(Basis(), p + Vector3(x, 0.24, 0.02)), Vector3(0.05, 0.4, 0.07), FONTE)
+			o.boite(Transform3D(Basis(), p + Vector3(x, 0.42, 0.0)), Vector3(0.05, 0.04, 0.5), FONTE)
+			o.branche(p + Vector3(x, 0.4, 0.2), p + Vector3(x, 0.92, 0.3), 0.025, 0.02, FONTE, 6)
+			o.branche(p + Vector3(x, 0.42, -0.22), p + Vector3(x, 0.66, -0.18), 0.02, 0.018, FONTE, 6)
+			o.branche(p + Vector3(x, 0.66, -0.18), p + Vector3(x, 0.68, 0.22), 0.02, 0.02, FONTE, 6)
+			o.boule(p + Vector3(x, 0.66, -0.18), Vector3.ONE * 0.035, FONTE, 0.0, Outils.DUR, 0.0)
+		for k in 3:
+			o.boite(Transform3D(Basis(), p + Vector3(0, 0.45, -0.16 + k * 0.16)), Vector3(l, 0.035, 0.12), BOIS)
+		for k in 2:
+			var z := 0.24 + k * 0.05
+			o.boite(Transform3D(Basis(Vector3.RIGHT, -0.18), p + Vector3(0, 0.6 + k * 0.17, z)), Vector3(l, 0.12, 0.03), BOIS)
+		# les gens assis, répartis sur le banc, légèrement tournés l'un vers l'autre
+		var places := [0.0] if assis == 1 else ([-0.3, 0.3] if assis == 2 else [-0.34, 0.0, 0.34])
+		for i in assis:
+			var x: float = places[i] * l
+			var a := o.rng.randf_range(-0.2, 0.2)
+			_client(o, p + Vector3(x, 0.0, 0.0), a, true)
+		o.collisions.append([Transform3D(Basis(), p + Vector3(0, 0.45, 0.02)), Vector3(l, 0.95, 0.6)])
+		return Vector2(l, 0.6)
 
 	static func bac_bois(o: Outils, p: Vector3, opt: Dictionary) -> Vector2:
 		var l := float(opt.get("longueur", 0.9))

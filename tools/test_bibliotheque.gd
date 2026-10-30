@@ -285,7 +285,7 @@ func _init() -> void:
 	var toulouse := Node3D.new()
 	root.add_child(toulouse)
 	var toulousains := {"facadier-toulousain@1": ["types", "type", 13], "sols-toulousains@1": ["noms", "module", 10],
-		"mobilier-toulousain@1": ["objets", "objet", 12], "arbres-d-ombriere@1": ["noms", "arbre", 4]}
+		"mobilier-toulousain@1": ["objets", "objet", 14], "arbres-d-ombriere@1": ["noms", "arbre", 4]}
 	for ref in toulousains:
 		var sc := Bibliotheque.scene(ref, "decor")
 		check(sc != "" and ResourceLoader.exists(sc), "la bibliothèque a %s, un décor" % ref)
@@ -328,6 +328,29 @@ func _init() -> void:
 		toulouse.add_child(tt)
 		sommets_terrasse[nb] = (tt.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).mesh.surface_get_array_len(0)
 	check(sommets_terrasse[5] > sommets_terrasse[0] * 1.5, "la terrasse toulousaine assoit des clients quand on lui en demande (%s)" % str(sommets_terrasse))
+	# le verdict v0.12 : le banc assoit des gens (option assis), le lampadaire prend deux branches (option branches),
+	# la borne de pierre existe, et le feuillage garde un plancher d'ombre (option jour, 1 par défaut)
+	var sommets_v12 := {}
+	for cas in [["banc", {"assis": 0}], ["banc", {"assis": 3}], ["lampadaire", {}], ["lampadaire", {"branches": 2}], ["borne", {}], ["bac_vegetal", {"jour": 0.4}]]:
+		var ob: Node3D = load(Bibliotheque.scene("mobilier-toulousain@1", "decor")).instantiate()
+		ob.objet = cas[0]
+		ob.graine = 7
+		ob.options = cas[1]
+		toulouse.add_child(ob)
+		var mi_ob: MeshInstance3D = ob.find_children("*", "MeshInstance3D", true, false)[0]
+		sommets_v12[str(cas)] = [mi_ob.mesh.surface_get_array_len(0), ob.get_meta("emprise"), float(mi_ob.get_instance_shader_parameter("jour"))]
+	var v12_banc0: Array = sommets_v12[str(["banc", {"assis": 0}])]
+	var v12_banc3: Array = sommets_v12[str(["banc", {"assis": 3}])]
+	var v12_lamp1: Array = sommets_v12[str(["lampadaire", {}])]
+	var v12_lamp2: Array = sommets_v12[str(["lampadaire", {"branches": 2}])]
+	var v12_borne: Array = sommets_v12[str(["borne", {}])]
+	var v12_bac: Array = sommets_v12[str(["bac_vegetal", {"jour": 0.4}])]
+	check(v12_banc3[0] > v12_banc0[0] * 1.5 and v12_banc0[1].x > 1.7, "le banc toulousain assoit des gens quand on lui en demande (%d → %d sommets)" % [v12_banc0[0], v12_banc3[0]])
+	check(v12_lamp2[0] > v12_lamp1[0] * 1.4 and v12_lamp2[1].x > 1.5 and v12_lamp1[1].x < 1.0, "le lampadaire toulousain prend deux branches et deux lanternes (option branches)")
+	check(v12_borne[1].x < 0.5 and v12_borne[0] > 20, "la borne chasse-roue de pierre se bâtit (emprise %s)" % str(v12_borne[1]))
+	var code_mob: String = (load("res://bibliotheque/mobilier-toulousain/1/feuillage.gdshader") as Shader).code
+	check(is_equal_approx(v12_bac[2], 0.4) and is_equal_approx(v12_banc0[2], 1.0) and "EMISSION" in code_mob and "instance uniform float jour" in code_mob,
+		"le feuillage du mobilier toulousain garde un plancher d'ombre (option jour, 1 par défaut)")
 	var manege: Node3D = load(Bibliotheque.scene("mobilier-toulousain@1", "decor")).instantiate()
 	manege.objet = "carrousel"
 	toulouse.add_child(manege)
