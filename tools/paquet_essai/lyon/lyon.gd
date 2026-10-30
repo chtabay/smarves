@@ -2342,6 +2342,10 @@ func _parcours() -> void:
 			if t.dot(pt[1]) < 0.0:
 				t = -t
 			q = Geometry2D.get_closest_point_to_segment(pt[0], sa, sb) + t.orthogonal() * -(float(_chaussees[proche][2]) - 1.05)
+		# pas de voiture dans les pieds d'un point de vue : elle mangerait la moitié du cadre
+		for oeil in [Vector2(-76.0, 118.6), Vector2(-30.0, 114.0), Vector2(68.0, 116.0), Vector2(34.0, 57.0)]:
+			if q.distance_to(oeil) < 7.0:
+				garable = false
 		if garable and alea.randf() < 0.7:
 			var vo: Node3D = load(Bibliotheque.scene("voitures-des-annees-80@1", "decor")).instantiate()
 			vo.voiture = ["citadine", "compacte", "berline", "break", "citadine", "fourgonnette"][alea.randi() % 6]
