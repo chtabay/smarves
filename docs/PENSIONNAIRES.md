@@ -13,6 +13,13 @@ quoi faire : il a une histoire, des envies et des manques, et c'est ce qui le gu
 
 Cette fiche dit les choix du deuxième lot et ce qui viendra ensuite.
 
+> **Depuis la migration `20261031000000_smarves_pensionnaires_par_lasso.sql` : un pensionnaire ne se crée
+> que depuis Lasso** (section 9), pour un agent Lasso déjà inscrit. Le jeu, le connecteur (`smarves_creer`
+> retiré) et l'action `inscrire` (410) ne créent plus rien ; l'adoption n'existe plus. L'assistant se
+> connecte sur la page **Mon assistant** (`web/assistant/`, servie avec la version web), plus dans le jeu.
+> Les passages ci-dessous qui disent le contraire décrivent l'état antérieur. Le moteur appelé par clé reste
+> en place pour un pensionnaire déjà en mode `cle`, sans création possible.
+
 ## 1. Le principe
 
 - **Une entité à part.** Le créateur lui donne un nom et une histoire : une origine, ce qu'il veut, ce qui
@@ -327,21 +334,28 @@ Les noms techniques sont restés ceux du premier lot, quand on les appelait des 
 
 ## 9. L'inscription depuis Lasso
 
-Lasso (chtabay/lasso#13) peut inscrire l'agent d'un humain sous le nom de son pensionnaire : il crée le
-pensionnaire, ou adopte celui que l'humain a déjà. Smarves reste maître de ses habitants.
+Un pensionnaire naît **seulement** d'une demande Lasso (chtabay/lasso, `docs/17-smarves-par-lasso.md`), pour
+un agent Lasso déjà inscrit. Il n'y a ni création dans le jeu, ni création par clé, ni adoption. Smarves reste
+maître de ses habitants.
 
 - **L'autorisation** vient de Pyramides2, jamais de Lasso : un jeton Ed25519 (portée `smarves-inscription`,
-  deux minutes, `jti` à usage unique), délivré après un clic de l'humain sur l'écran de Pyramides2, montré à
-  chaque fois. La fonction ne connaît que la clé publique (secret `SMARVES_INSCRIPTION_JWK`, avec
-  `SMARVES_INSCRIPTION_ISS` et `SMARVES_INSCRIPTION_CLIENTS`) ; sans elle, les routes répondent 503.
-- **Deux routes** de la fonction, à part de l'API générale : `…/doublures/inscription` (créer ou adopter le
-  pensionnaire du `sub` du jeton ; rend seulement le résultat, l'identifiant et le nom) et
-  `…/doublures/inscription/verifier` (sans jeton, limitée en débit : le formulaire est-il valable, le nom
-  libre ?). Ni mémoire, ni journal, ni réglages, ni effacement n'y sont atteignables.
-- **Un nom par pensionnaire**, pour tous les chemins de création : index unique sur `smarves.nom_cle(nom)`
-  (casse, accents, espaces, apostrophes et tirets ignorés).
-- **La base** (`20261030000000_smarves_pensionnaires_inscription.sql`) : `smarves.doublure_inscrire` fait tout
-  en une transaction (anti-rejeu, idempotence par l'identifiant d'inscription, ligne de joueur pour un compte
-  qui n'a jamais joué, adoption sans écriture, création). Essais : `supabase/tests/`. Retour arrière :
-  `supabase/rollback/`.
-- Le lien du connecteur Smarves s'obtient toujours dans la fiche « Mon pensionnaire ».
+  deux minutes, `jti` à usage unique, opération `creer` seulement), délivré après un clic de l'humain sur
+  l'écran de Pyramides2. Il porte `agt`, l'empreinte de l'agent Lasso (`sha256('lasso-agent:' + id)`). La
+  fonction ne connaît que la clé publique (`SMARVES_INSCRIPTION_JWK`, `SMARVES_INSCRIPTION_ISS`,
+  `SMARVES_INSCRIPTION_CLIENTS`) ; sans elle, les routes répondent 503.
+- **Deux routes** : `…/doublures/inscription` (créer le pensionnaire du `sub` du jeton ; rend le résultat,
+  l'identifiant et le nom) et `…/doublures/inscription/verifier` (sans jeton, limitée en débit).
+- **La base** : `smarves.doublure_inscrire` (16 arguments, avec `p_agent`) fait tout en une transaction
+  (anti-rejeu d'abord, verrou par demande, idempotence qui compare aussi l'agent, inscriptions closes refusées)
+  et écrit `agent` dans `smarves.inscriptions`. Un déclencheur différé (`doublure_par_lasso`) refuse au COMMIT
+  tout pensionnaire sans inscription `creer / cree` portant un agent, quel que soit le chemin.
+- **Lasso** termine le rattachement en lisant `smarves.inscriptions` pour **sa** demande, son humain et son
+  agent, et reprend seul après une coupure entre la création Smarves et la réponse.
+- **Mon assistant** (`web/assistant/index.html`) : connexion Pyramides2 (portée `smarves`), puis `fiche`,
+  `acces` (bouton explicite ; jamais au rechargement) et `deconnecter`. Le lien MCP ne quitte pas Smarves.
+- **Prêt à jouer** (`doublure_acces.outil_ok`) : posé seulement après un appel authentifié réussi à un outil
+  qui touche le pensionnaire ; un nouveau lien le remet à zéro.
+- **Déconnecter mon assistant de Smarves** (`smarves.doublure_deconnecter`) : retire le lien, arrête la session
+  de jeu et le corps sur la place ; le pensionnaire et l'agent Lasso restent.
+- **Nettoyage des pilotes** (Billy Bob, Frick Francis, Essai) : `supabase/nettoyage/20261031_pensionnaires_pilotes.sql`,
+  identifiants fermés, à n'exécuter qu'après accord explicite. Essais : `supabase/tests/inscription-pg.mjs`.
