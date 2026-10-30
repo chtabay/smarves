@@ -55,6 +55,19 @@ func _ready() -> void:
 	RELAIS.new(hauteur).batir(self)
 	var rb: Array = REPERES["Vue2_Banc"]
 	BANC.new(hauteur).batir(self, rb[0], rb[1], rb[2])
+	# Le relais et le banc, à 7 et 4 km de la ville, ne se dessinent que de près : vus d'ailleurs, ils ne sont
+	# que quelques pixels, et comptaient en entier au budget du lieu (3 M de triangles pour 600 000).
+	_portee($RelaisDesLones, 1600.0)
+	_portee($BancAuReplat, 1200.0)
+	var t0 := Time.get_ticks_msec()
+	# Le sol aussi : ses carreaux ont une jupe (relief/terrain.gd), qui cache les fentes entre deux niveaux.
+	for c in get_children():
+		_niveaux_de_detail(c)
+	print("niveaux de détail en ", Time.get_ticks_msec() - t0, " ms")
+	# Les maisons du façadier au-delà du premier rang de la place passent plus tôt à leurs niveaux allégés.
+	for m: MeshInstance3D in $Facadier.find_children("*", "MeshInstance3D", true, false):
+		if Vector2(m.global_position.x, m.global_position.z).distance_to(VILLE.PRES_DE) > VILLE.FACADIERS_DETAILLES:
+			m.lod_bias = 0.35
 	_reperes()
 	_joueur()
 
@@ -68,6 +81,30 @@ func _cathedrale() -> void:
 		var p: Vector2 = CATHEDRALE.ORIGINE + Vector2(-sin(a), cos(a)) * d.x
 		y = maxf(y, hauteur(p.x, p.y))
 	c.batir(self, y + 0.9)
+
+
+## Les maillages de Belley et des briques n'ont pas de niveaux de détail (une maison du façadier pèse jusqu'à
+## 50 000 triangles) : on les leur calcule (ImporterMesh.generate_lods), pour que le lointain se dessine allégé.
+func _niveaux_de_detail(n: Node) -> void:
+	var faits := {}
+	for mi: MeshInstance3D in n.find_children("*", "MeshInstance3D", true, false):
+		var m := mi.mesh as ArrayMesh
+		if m == null:
+			continue
+		if not faits.has(m):
+			var im := ImporterMesh.new()
+			for s in m.get_surface_count():
+				im.add_surface(m.surface_get_primitive_type(s), m.surface_get_arrays(s), [], {}, m.surface_get_material(s), m.surface_get_name(s))
+			im.generate_lods(25.0, 60.0, [])
+			faits[m] = im.get_mesh()
+		mi.mesh = faits[m]
+
+
+func _portee(n: Node, fin: float) -> void:
+	for g: GeometryInstance3D in n.find_children("*", "GeometryInstance3D", true, false):
+		if g.visibility_range_end <= 0.0 or g.visibility_range_end > fin:
+			g.visibility_range_end = fin
+			g.visibility_range_end_margin = 100.0
 
 
 func hauteur(x: float, z: float) -> float:
