@@ -253,6 +253,31 @@ func _init() -> void:
 		for si in mi.mesh.get_surface_count():
 			sommets_l4 += mi.mesh.surface_get_array_len(si)
 	check(sommets_l3 > sommets_l4 + 40 and sombres >= 12, "l'option grain du façadier lyonnais pose des plaques et des rangs sombres sur les pans de tuile (%d sommets de plus, %d sommets de rangs sombres), rien sans elle" % [sommets_l3 - sommets_l4, sombres])
+	# la façade Renaissance du Vieux-Lyon (option renaissance, demandée pour Saint-Paul) : pierre grise des
+	# encadrements, meneaux et accolades ; rien ne change sans l'option
+	var l5: Node3D = paquet_lyon.instantiate()
+	l5.type = "classique"
+	l5.graine = 6
+	l5.options = {"w": 10.0, "renaissance": true}
+	var l6: Node3D = paquet_lyon.instantiate()
+	l6.type = "classique"
+	l6.graine = 6
+	l6.options = {"w": 10.0}
+	lyon.add_child(l5)
+	lyon.add_child(l6)
+	var grise := 0
+	var grise_sans := 0
+	for mi in l5.find_children("*", "MeshInstance3D", true, false):
+		for si in mi.mesh.get_surface_count():
+			for c in mi.mesh.surface_get_arrays(si)[Mesh.ARRAY_COLOR]:
+				if absf(c.r - 0.663) < 0.02 and absf(c.g - 0.635) < 0.02 and absf(c.b - 0.580) < 0.02:
+					grise += 1
+	for mi in l6.find_children("*", "MeshInstance3D", true, false):
+		for si in mi.mesh.get_surface_count():
+			for c in mi.mesh.surface_get_arrays(si)[Mesh.ARRAY_COLOR]:
+				if absf(c.r - 0.663) < 0.02 and absf(c.g - 0.635) < 0.02 and absf(c.b - 0.580) < 0.02:
+					grise_sans += 1
+	check(grise > 500 and grise_sans == 0 and float(l5.get_meta("hauteur")) < float(l6.get_meta("hauteur")), "l'option renaissance du façadier lyonnais bâtit une façade du Vieux-Lyon en pierre grise, sous un toit plus bas (%d sommets gris, %d sans l'option)" % [grise, grise_sans])
 	var quai: Node3D = load(Bibliotheque.scene("quais-lyonnais@1", "decor")).instantiate()
 	quai.module = "escalier_haut"
 	lyon.add_child(quai)
