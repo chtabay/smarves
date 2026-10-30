@@ -380,12 +380,14 @@ static func _portes(t, portes: Dictionary) -> void:
 			_panonceau(repere)
 
 
-## Le panonceau du notaire, à droite de la porte : l'ovale noir bordé d'or, « NOTAIRE », lisible de la place
-## (juge, v0.30 : sans lui on ne sait pas que c'est un notaire).
+## Le panonceau du notaire, à droite de la porte : l'ovale noir bordé d'or, « NOTAIRE » sur ses deux faces,
+## en potence au-dessus du trottoir pour se lire en longeant la façade (juge, v0.30 : sans lui on ne sait pas
+## que c'est un notaire).
 static func _panonceau(repere: Node3D) -> void:
 	var u := 1.0 / UNITE
 	var p := Node3D.new()
-	p.position = Vector3(1.0, 1.75 * u, -0.3)
+	p.position = Vector3(0.78, 2.55 * u, -0.08)
+	p.rotation.y = PI * 0.5
 	repere.add_child(p)
 	var or_ := StandardMaterial3D.new()
 	or_.albedo_color = Color("c9a45c")
@@ -393,27 +395,36 @@ static func _panonceau(repere: Node3D) -> void:
 	or_.roughness = 0.35
 	var noir := StandardMaterial3D.new()
 	noir.albedo_color = Color("141414")
+	# la potence : une barre de fer du mur au panonceau
+	var barre := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(0.7, 0.03, 0.03) * u
+	bm.material = noir
+	barre.mesh = bm
+	barre.position = Vector3(-0.05 * u, 0.33 * u, 0.0)
+	p.add_child(barre)
 	for k in 2:
 		var mi := MeshInstance3D.new()
 		var c := CylinderMesh.new()
-		c.top_radius = (0.27 if k == 0 else 0.24) * u
+		c.top_radius = (0.3 if k == 0 else 0.26) * u
 		c.bottom_radius = c.top_radius
-		c.height = 0.03 * u
+		c.height = (0.03 if k == 0 else 0.05) * u
 		c.material = or_ if k == 0 else noir
 		mi.mesh = c
 		mi.rotation.x = PI * 0.5
-		mi.scale = Vector3(1.0, 1.0, 0.72)
-		mi.position.z = k * 0.012 * u
+		mi.scale = Vector3(1.25, 1.0, 1.0)
 		p.add_child(mi)
-	var l := Label3D.new()
-	l.text = "NOTAIRE"
-	l.font = Polices.texte()
-	l.font_size = 48
-	l.pixel_size = 0.0018
-	l.modulate = Color("e3c172")
-	l.outline_size = 0
-	l.position.z = 0.04 * u
-	p.add_child(l)
+	for face in 2:
+		var l := Label3D.new()
+		l.text = "NOTAIRE"
+		l.font = Polices.texte()
+		l.font_size = 40
+		l.pixel_size = 0.0014
+		l.modulate = Color("e3c172")
+		l.outline_size = 0
+		l.rotation.y = PI * face
+		l.position.z = (0.03 if face == 0 else -0.03) * u
+		p.add_child(l)
 
 
 ## Vrai si la brique est dans la bibliothèque de ce socle (les briques toulousaines, tant qu'elles n'y sont pas,
