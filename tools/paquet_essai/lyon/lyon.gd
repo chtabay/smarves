@@ -1914,6 +1914,15 @@ func _escalier() -> void:
 			var z := lerpf(-50.0, -80.0, float(k) / n)
 			var yy := lerpf(ya, yb, float(k + 1) / n)
 			_boite(e, Vector3(3.0, 0.4, 1.02), Vector3(x, yy - 0.2, z - 0.5), pierre)
+		# la main courante de fer noir de chaque côté de la volée, sur ses potelets
+		for bord in [-1.4, 1.4]:
+			var ha := Vector3(x + bord, ya + 0.95, -50.0)
+			var hb := Vector3(x + bord, yb + 0.95, -80.0)
+			_segment(e, ha, hb, 0.03, Color("#23262a"), 0.5)
+			for j in 11:
+				var pz := lerpf(-50.0, -80.0, j / 10.0)
+				var py := lerpf(ya, yb, j / 10.0)
+				_segment(e, Vector3(x + bord, py, pz), Vector3(x + bord, py + 0.95, pz), 0.022, Color("#23262a"), 0.5)
 	# entre les deux volées, le jardin en terrasses de la montée : une allée de sable au milieu, de part et
 	# d'autre des planches de gazon tenues par une bordure de Villebois, des massifs fleuris au pied de chacune
 	var sable := _materiau_sable()
@@ -1931,9 +1940,10 @@ func _escalier() -> void:
 			_boite(e, Vector3(3.0, h_mur + 0.02, 0.4), Vector3(10.0, bas + h_mur * 0.5, za - 0.2), VILLEBOIS)
 		for cote in [-1.0, 1.0]:
 			var xg: float = 10.0 + cote * 3.2
-			var mur := _boite(e, Vector3(3.4, h_mur + 0.45, 0.45), Vector3(xg, bas + (h_mur + 0.45) * 0.5, za - 0.22), PIERRE_DOREE)
+			var mur := _boite(e, Vector3(3.4, h_mur + 0.45, 0.24), Vector3(xg, bas + (h_mur + 0.45) * 0.5, za - 0.12), PIERRE_DOREE)
 			mur.material_override = _materiau_appareil(PIERRE_DOREE.darkened(0.03 * (k % 2)))
-			_boite(e, Vector3(3.5, 0.08, 0.55), Vector3(xg, bas + h_mur + 0.49, za - 0.22), VILLEBOIS)
+			# le chaperon étroit, de la pierre dorée du muret
+			_boite(e, Vector3(3.44, 0.07, 0.28), Vector3(xg, bas + h_mur + 0.485, za - 0.12), Color("#d4b781"))
 			_boite(e, Vector3(3.4, 0.6, 3.02), Vector3(xg, yy - 0.12, zc), Color("#5f7f35"))
 			_boite(e, Vector3(0.22, 0.75, 3.02), Vector3(10.0 + cote * 1.6, yy - 0.08, zc), VILLEBOIS)
 			if k % 2 == 1:
