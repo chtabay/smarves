@@ -91,8 +91,8 @@ func _ciel() -> void:
 	env.fog_enabled = true
 	env.fog_mode = Environment.FOG_MODE_DEPTH
 	env.fog_light_color = Color("e9d7b0")
-	env.fog_depth_begin = 22.0
-	env.fog_depth_end = 70.0
+	env.fog_depth_begin = 30.0
+	env.fog_depth_end = 110.0
 	env.fog_depth_curve = 1.6
 	env.fog_sky_affect = 0.0
 	var we := WorldEnvironment.new()
@@ -120,6 +120,8 @@ func _ciel() -> void:
 	appoint.light_color = Color("8fa6c8")
 	appoint.light_energy = 0.25
 	appoint.shadow_enabled = false
+	# pas de second disque dans le ciel : il y dessinait une tache sombre au zénith de la vue de départ (juge, v0.14)
+	appoint.sky_mode = DirectionalLight3D.SKY_MODE_LIGHT_ONLY
 	add_child(appoint)
 	var ha := deg_to_rad(30.0)
 	var aa := a + PI
@@ -246,9 +248,14 @@ func _horaire(poly: PackedVector2Array) -> PackedVector2Array:
 
 func teinte_mur(b: Dictionary) -> Color:
 	var g := int(b.i)
-	if b.mur == "brique" or b.mur == "pierre" and g % 3 == 0:
+	# la ville rose : deux îlots sur trois en brique, quel que soit le relevé (juge, v0.14 : le fond du balcon)
+	if _en_brique(b):
 		return Color(BRIQUES[g % BRIQUES.size()])
 	return Color(ENDUITS[g % ENDUITS.size()])
+
+
+func _en_brique(b: Dictionary) -> bool:
+	return b.mur == "brique" or int(b.i) % 3 != 0
 
 
 ## Les volumes : murs de brique ou d'enduit percés de fenêtres, toit de tuile canal plat vu d'en haut, fondus
@@ -309,7 +316,7 @@ func _ilots() -> void:
 
 ## Un bâtiment en volume : ses murs (UV en mètres le long du mur et en hauteur), son toit plat de tuiles.
 func volume(sm: SurfaceTool, stt: SurfaceTool, b: Dictionary, poly: PackedVector2Array, h: float, teinte: Color) -> void:
-	var brique := 1.0 if b.mur == "brique" or (b.mur == "pierre" and int(b.i) % 3 == 0) else 0.0
+	var brique := 1.0 if _en_brique(b) else 0.0
 	var hm := h * UNITE
 	var x := 0.0
 	for k in poly.size():
@@ -331,6 +338,20 @@ func volume(sm: SurfaceTool, stt: SurfaceTool, b: Dictionary, poly: PackedVector
 	if b.toit == "zinc":
 		toit = Color("8d939a")
 	toit = toit.lerp(Color("a4512e"), 0.35 * float(int(b.i) % 3) / 2.0)
+	# Le rang de tuiles de l'égout, en débord sur chaque mur : de loin, le toit se lit au-dessus de la façade.
+	for k in poly.size():
+		var a := poly[k]
+		var c := poly[(k + 1) % poly.size()]
+		var u := (c - a).normalized()
+		var d := Vector2(u.y, -u.x) * 0.22
+		var pts := [Vector3(a.x, h + 0.06, a.y), Vector3(c.x, h + 0.06, c.y), Vector3(c.x + d.x, h - 0.1, c.y + d.y), Vector3(a.x + d.x, h - 0.1, a.y + d.y)]
+		var l := a.distance_to(c) * UNITE
+		var uvs := [Vector2(0, 0), Vector2(l, 0), Vector2(l, 0.6), Vector2(0, 0.6)]
+		stt.set_normal(Vector3(d.x, 1.4, d.y).normalized())
+		for t in [0, 1, 2, 0, 2, 3]:
+			stt.set_color(toit)
+			stt.set_uv(uvs[t])
+			stt.add_vertex(pts[t])
 	stt.set_normal(Vector3.UP)
 	for k in Geometry2D.triangulate_polygon(poly):
 		stt.set_color(toit)
