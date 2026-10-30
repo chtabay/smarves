@@ -31,6 +31,11 @@ const PERSIENNES := ["8f9e8c", "b9b2a0", "6f7f8f", "e8e0cc", "9a6a4a"]
 const DEVANTURES := ["7a2a2a", "2f4f3f", "2e3f5f", "5a3a28", "1f2a2a"]
 const TOILES := [["b8322c", "b8322c"], ["b8322c", "f3ead6"], ["2f5f8f", "f3ead6"], ["e0a93a", "f3ead6"], ["2f5a3a", "2f5a3a"]]
 const FLEURS := ["d04a8a", "b06ad0", "e0605a", "f2c14e", "f4f0e6"]
+## Le Vieux-Lyon (Saint-Paul, Saint-Jean) : les ocres rouges et roses de la Renaissance et la pierre grise des
+## encadrements, de la bible visuelle de Lyon (cartes/lyon/VILLE.md).
+const ENDUITS_RENAISSANCE := ["c98a62", "d4a074", "b9705a", "d6826c"]
+const PIERRE_GRISE := Color("a9a294")
+const PIERRE_GRISE_SOMBRE := Color("8e887b")
 const PIERRE := Color("e7d6b0")
 const PIERRE_SOMBRE := Color("c9b48a")
 const VERRE := Color("4a5f78")
@@ -53,7 +58,11 @@ const ETAGE := 3.3
 ## sans store banne ; vrai par défaut), grain (0 à 2, 0 par défaut : le grain des pans de tuile lisible de loin, un
 ## rang sur quatre assombri de moitié et des plaques de tuiles plus neuves ou plus passées de ± 32 %, sur à peu
 ## près six tuiles sur cinq rangs, neuf dixièmes de la surface ; à 1, l'écart-type de luminance des toits vus de
-## 70 m passe de 33 à 40 sur la planche toits, ce que demandait le verdict n° 32 de Sathonay).
+## 70 m passe de 33 à 40 sur la planche toits, ce que demandait le verdict n° 32 de Sathonay), renaissance (vrai :
+## la façade Renaissance du Vieux-Lyon, pour Saint-Paul et Saint-Jean : enduit ocre rouge ou rose tiré par la graine
+## (ou enduit), encadrements de pierre grise, croisées à meneaux dont certaines sous une accolade, cordons à chaque
+## étage et sous les appuis, chaînes d'angle harpées, porte en arc surbaissé ; ni persiennes ni balcons ; toit bas
+## (pente 20 sauf pente) ; faux par défaut).
 ## Rend le nœud de l'immeuble ; ses métadonnées : type, graine, w, d, hauteur (au faîte), porte (le seuil).
 static func maison(parent: Node3D, p: Vector3, type: String, graine: int, opt := {}) -> Node3D:
 	if not type in TYPES:
@@ -70,7 +79,10 @@ static func maison(parent: Node3D, p: Vector3, type: String, graine: int, opt :=
 	var w := float(opt.get("w", r.randf_range(g[1], g[2])))
 	var d := float(opt.get("d", w if type == "angle" else r.randf_range(10.0, 13.0)))
 	var niveaux := clampi(int(opt.get("niveaux", g[0])), 1, 6)
+	var renaissance := bool(opt.get("renaissance", false))
 	var nom := str(opt.get("enduit", ENDUITS.keys()[r.randi() % ENDUITS.size()] if type != "bourgeois" else ["creme", "pierre_doree", "beige"][r.randi() % 3]))
+	if renaissance and not opt.has("enduit"):
+		nom = ENDUITS_RENAISSANCE[r.randi() % ENDUITS_RENAISSANCE.size()]
 	var enduit := Color(str(ENDUITS.get(nom, nom)))
 	var toit := str(opt.get("toit", g[3]))
 	var rdc := str(opt.get("rdc", g[4]))
@@ -89,7 +101,13 @@ static func maison(parent: Node3D, p: Vector3, type: String, graine: int, opt :=
 		"avancee": float(opt.get("avancee", 0.0)),
 		"toile_choisie": opt.has("toile"),
 		"store": bool(opt.get("store", true)),
+		"renaissance": renaissance,
 	}
+	if renaissance:
+		style.persiennes = Color(0, 0, 0, 0)
+		style.balcons = false
+		style.chaines = true
+		style.cintre = false
 	# le corps, enduit, le dos un peu plus sombre
 	o.boite(Transform3D(Basis(), Vector3(0, H * 0.5, -d * 0.5)), Vector3(w, H, d), [enduit.darkened(0.06), enduit.darkened(0.06), enduit, enduit, enduit, enduit.darkened(0.1)], Outils.DUR, true)
 	# le soubassement, enterré de 30 cm pour asseoir l'immeuble sur un sol inégal
@@ -106,7 +124,7 @@ static func maison(parent: Node3D, p: Vector3, type: String, graine: int, opt :=
 	if toit == "mansarde":
 		faite = _mansarde(o, w, d, H, r)
 	else:
-		faite = _quatre_pans(o, w, d, H, r, _tuile(opt), float(opt.get("pente", 24.0)), int(opt.get("chassis", 0)), clampf(float(opt.get("grain", 0.0)), 0.0, 2.0))
+		faite = _quatre_pans(o, w, d, H, r, _tuile(opt), float(opt.get("pente", 20.0 if renaissance else 24.0)), int(opt.get("chassis", 0)), clampf(float(opt.get("grain", 0.0)), 0.0, 2.0))
 	# les souches de cheminée, massives, enduites, sur le versant arrière ; les grosses souches des immeubles
 	# lyonnais montent plus haut et portent quatre mitrons de terre cuite
 	var grosses := str(opt.get("souches", "")) == "grosses"
@@ -160,6 +178,8 @@ static func _persiennes(opt: Dictionary, r: RandomNumberGenerator) -> Color:
 ## Une façade de largeur w dans le repère t (x en travers, y vers le haut, z vers la rue) : le rez-de-chaussée,
 ## les bandeaux, les chaînes d'angle, les étages et leurs fenêtres, la corniche. Rend le seuil de la porte.
 static func _facade(o: Outils, t: Transform3D, w: float, niveaux: int, rdc: String, type: String, s: Dictionary, n: Node3D) -> Vector3:
+	if s.renaissance:
+		return _facade_renaissance(o, t, w, niveaux, rdc, s, n)
 	var r := o.rng
 	var H := RDC + niveaux * ETAGE
 	var enduit: Color = s.enduit
@@ -215,6 +235,177 @@ static func _facade(o: Outils, t: Transform3D, w: float, niveaux: int, rdc: Stri
 			var x := -w * 0.5 + 0.7 + pas * (i + 0.5)
 			_fenetre(o, t, Vector3(x, y0, 0), 1.0, haute, s, not filant, e == 0 and type in ["bourgeois", "hotel"])
 	return t * porte
+
+
+## La façade Renaissance du Vieux-Lyon (demandée pour Saint-Paul puis Saint-Jean) : l'enduit ocre rouge ou rose
+## jusqu'au sol sur un soubassement de pierre grise, des cordons de pierre grise à chaque étage et sous les appuis,
+## les chaînes d'angle harpées, des croisées à meneaux (le meneau et le croisillon de pierre, les petits carreaux)
+## dont une sur deux porte une accolade, la porte en arc surbaissé sous son cordon ; le rez-de-chaussée d'habitation
+## garde ses fenêtres grillagées, et un rez-de-chaussée demandé (boutique, café, arcades, passage) se bâtit comme
+## ailleurs. Rend le seuil de la porte.
+static func _facade_renaissance(o: Outils, t: Transform3D, w: float, niveaux: int, rdc: String, s: Dictionary, n: Node3D) -> Vector3:
+	var r := o.rng
+	var H := RDC + niveaux * ETAGE
+	# le soubassement de pierre grise
+	o.boite(t * Transform3D(Basis(), Vector3(0, 0.3, 0.1)), Vector3(w + 0.04, 0.6, 0.2), PIERRE_GRISE_SOMBRE)
+	var porte := Vector3(0, 0, 0.3)
+	match rdc:
+		"arcades":
+			porte = _arcades(o, t, w, s, false)
+		"passage":
+			porte = _arcades(o, t, w, s, true)
+		"cafe":
+			porte = _devanture(o, t, w, s, true, n)
+		"boutique":
+			porte = _devanture(o, t, w, s, false, n)
+		_:
+			porte = _logis_renaissance(o, t, w, s)
+	# les cordons : un à chaque étage, un plus fin sous les appuis des fenêtres ; le dernier sous la génoise
+	for i in niveaux:
+		var y := RDC + i * ETAGE
+		o.boite(t * Transform3D(Basis(), Vector3(0, y - 0.05, 0.08)), Vector3(w + 0.04, 0.18, 0.16), PIERRE_GRISE)
+		o.boite(t * Transform3D(Basis(), Vector3(0, y + 0.5, 0.06)), Vector3(w + 0.02, 0.1, 0.12), PIERRE_GRISE)
+	o.boite(t * Transform3D(Basis(), Vector3(0, H - 0.12, 0.1)), Vector3(w + 0.08, 0.2, 0.2), PIERRE_GRISE)
+	# les chaînes d'angle harpées, du sol à la corniche
+	for cote in [-1.0, 1.0]:
+		var yy := 0.6
+		var k := 0
+		while yy < H - 0.4:
+			var large := 0.62 if k % 2 == 0 else 0.4
+			o.boite(t * Transform3D(Basis(), Vector3(cote * (w * 0.5 - large * 0.5 + 0.02), yy + 0.21, 0.06)), Vector3(large, 0.38, 0.12), PIERRE_GRISE.lightened(0.03 if k % 2 == 0 else 0.0))
+			yy += 0.44
+			k += 1
+	# les travées de croisées, une accolade une fois sur deux (toujours au premier étage des travées impaires)
+	var nf := clampi(int(round((w - 1.2) / 2.2)), 1, 5)
+	var pas := (w - 1.6) / nf
+	var decale := r.randi() % 2
+	for e in niveaux:
+		var y0 := RDC + e * ETAGE + 0.6
+		var haute := 2.0 if e < niveaux - 1 else 1.7
+		for i in nf:
+			var x := -w * 0.5 + 0.8 + pas * (i + 0.5)
+			_croisee(o, t, Vector3(x, y0, 0), 1.15, haute, s, (i + e + decale) % 2 == 0)
+	return t * porte
+
+
+## Une croisée à meneaux : la baie droite dans son encadrement de pierre grise, le meneau et le croisillon de
+## pierre qui la partagent en quatre, les petits carreaux au plomb, l'appui saillant ; avec accolade, le larmier
+## en accolade qui coiffe l'encadrement et son fleuron.
+static func _croisee(o: Outils, t: Transform3D, p: Vector3, l: float, h: float, s: Dictionary, accolade: bool) -> void:
+	var pts := _baie(l, h, "droite")
+	var tf := t * Transform3D(Basis(), p)
+	o.profil(tf, pts, -0.02, 0.02, VERRE.darkened(0.1))
+	_cadre(o, tf, pts, 0.18, 0.0, 0.2, PIERRE_GRISE, PIERRE_GRISE_SOMBRE)
+	# le meneau et le croisillon
+	o.boite(tf * Transform3D(Basis(), Vector3(0, h * 0.5, 0.1)), Vector3(0.14, h, 0.2), PIERRE_GRISE)
+	o.boite(tf * Transform3D(Basis(), Vector3(0, h * 0.62, 0.1)), Vector3(l, 0.14, 0.2), PIERRE_GRISE)
+	# les petits carreaux : des plombs fins dans chaque quartier
+	for cote in [-1.0, 1.0]:
+		var xc: float = cote * (l * 0.25 + 0.035)
+		o.boite(tf * Transform3D(Basis(), Vector3(xc, h * 0.31, 0.04)), Vector3(0.025, h * 0.62, 0.02), Color("6f6a62"))
+		o.boite(tf * Transform3D(Basis(), Vector3(xc, h * 0.81, 0.04)), Vector3(0.025, h * 0.38, 0.02), Color("6f6a62"))
+	for k in [0.2, 0.42, 0.8]:
+		o.boite(tf * Transform3D(Basis(), Vector3(0, h * k, 0.04)), Vector3(l, 0.025, 0.02), Color("6f6a62"))
+	# l'appui saillant
+	o.boite(tf * Transform3D(Basis(), Vector3(0, -0.07, 0.16)), Vector3(l + 0.5, 0.14, 0.32), PIERRE_GRISE)
+	if s.fleurs and o.rng.randf() < 0.3:
+		for i in 2:
+			var q := Vector3(-l * 0.25 + i * l * 0.5, 0.06, 0.22)
+			o.boule(tf * q, Vector3(0.18, 0.12, 0.12), VERT, 0.25, Outils.FEUILLE, 0.06, 0.2)
+			o.boule(tf * (q + Vector3(0, 0.07, 0.05)), Vector3(0.12, 0.07, 0.08), s.fleur, 0.3, Outils.FEUILLE, 0.08, 0.2)
+	if accolade:
+		_accolade(o, tf, l + 0.36, h + 0.02)
+	else:
+		# un simple larmier droit
+		o.boite(tf * Transform3D(Basis(), Vector3(0, h + 0.26, 0.14)), Vector3(l + 0.5, 0.12, 0.28), PIERRE_GRISE)
+
+
+## Le larmier en accolade au-dessus d'une baie de largeur l, posé en y0 : une moulure de pierre grise qui monte
+## en arc depuis les retombées puis se redresse en pointe au milieu, et le fleuron qui la couronne.
+static func _accolade(o: Outils, tf: Transform3D, l: float, y0: float) -> void:
+	var W := l * 0.5
+	var A := 0.42
+	var n := 10
+	var ogive := func(u: float) -> float:
+		# u de 0 (retombée) à 1 (pointe) : l'arc convexe jusqu'aux six dixièmes, puis la contre-courbe en pointe
+		if u < 0.6:
+			return A * 0.55 * sin(u / 0.6 * PI * 0.5)
+		return A * (0.55 + 0.45 * pow((u - 0.6) / 0.4, 2.2))
+	var haut := PackedVector2Array()
+	var bas := PackedVector2Array()
+	for i in 2 * n + 1:
+		var x := -W + l * i / (2.0 * n)
+		var u := 1.0 - absf(x) / W
+		var y: float = ogive.call(u)
+		haut.append(Vector2(x, y0 + 0.12 + y))
+		bas.append(Vector2(x, y0 + y - 0.02 * (1.0 - u)))
+	var poly := PackedVector2Array()
+	poly.append_array(haut)
+	var inv := bas.duplicate()
+	inv.reverse()
+	poly.append_array(inv)
+	o.profil(tf, poly, 0.2, 0.3, [PIERRE_GRISE.lightened(0.04), PIERRE_GRISE_SOMBRE])
+	# le dessous ombré de la moulure : une bande plus sombre juste sous l'arc, lisible de la rue
+	var ombre := PackedVector2Array()
+	for q in bas:
+		ombre.append(q)
+	var inv2 := PackedVector2Array()
+	for q in bas:
+		inv2.append(Vector2(q.x, q.y - 0.05))
+	inv2.reverse()
+	ombre.append_array(inv2)
+	o.profil(tf, ombre, 0.2, 0.24, PIERRE_GRISE_SOMBRE.darkened(0.15))
+	# le fleuron et les petits crochets des retombées
+	o.boite(tf * Transform3D(Basis(Vector3.BACK, PI * 0.25), Vector3(0, y0 + 0.12 + A + 0.1, 0.24)), Vector3(0.14, 0.14, 0.1), PIERRE_GRISE.lightened(0.04))
+	for cote in [-1.0, 1.0]:
+		o.boite(tf * Transform3D(Basis(), Vector3(cote * W, y0 + 0.02, 0.24)), Vector3(0.12, 0.2, 0.1), PIERRE_GRISE)
+
+
+## Le rez-de-chaussée d'habitation Renaissance : la porte en arc surbaissé dans son encadrement de pierre grise à
+## claveaux, sous un cordon, le seuil ; des fenêtres basses grillagées de part et d'autre.
+static func _logis_renaissance(o: Outils, t: Transform3D, w: float, s: Dictionary) -> Vector3:
+	var r := o.rng
+	var x_porte := 0.0 if w < 6.0 else (w * 0.5 - 1.8) * (1.0 if r.randf() < 0.5 else -1.0)
+	var pts := _baie(1.6, 2.7, "cintree")
+	var tp := t * Transform3D(Basis(), Vector3(x_porte, 0.1, 0.12))
+	o.profil(tp, pts, -0.02, 0.02, s.bois.darkened(0.1))
+	_cadre(o, tp, pts, 0.28, 0.0, 0.3, PIERRE_GRISE, PIERRE_GRISE_SOMBRE)
+	# les claveaux : des joints sombres dans l'arc de l'encadrement
+	for k in 7:
+		var a := lerpf(-0.55, 0.55, k / 6.0)
+		var q := Vector3(sin(a) * 0.98, 2.7 - 0.2 + cos(a) * 0.3 - 0.3 + 0.02, 0.31)
+		o.boite(tp * Transform3D(Basis(Vector3.BACK, -a), q), Vector3(0.02, 0.3, 0.02), PIERRE_GRISE_SOMBRE.darkened(0.2))
+	# les planches de la porte, les pentures et le heurtoir
+	for k in 4:
+		o.boite(tp * Transform3D(Basis(), Vector3(-0.6 + k * 0.4, 1.3, 0.03)), Vector3(0.03, 2.5, 0.03), s.bois.darkened(0.35))
+	for yk in [0.7, 1.9]:
+		o.boite(tp * Transform3D(Basis(), Vector3(0, yk, 0.05)), Vector3(1.3, 0.07, 0.03), FER)
+	o.boite(tp * Transform3D(Basis(), Vector3(0.5, 1.2, 0.06)), Vector3(0.08, 0.08, 0.06), FER)
+	# le cordon qui coiffe la porte
+	o.boite(tp * Transform3D(Basis(), Vector3(0, 3.1, 0.2)), Vector3(2.5, 0.12, 0.28), PIERRE_GRISE)
+	o.boite(t * Transform3D(Basis(), Vector3(x_porte, 0.08, 0.5)), Vector3(2.2, 0.16, 0.6), PIERRE_GRISE_SOMBRE)
+	# les fenêtres basses grillagées
+	var xs := []
+	var x := x_porte - 2.3
+	while x > -w * 0.5 + 0.9:
+		xs.append(x)
+		x -= 2.2
+	x = x_porte + 2.3
+	while x < w * 0.5 - 0.9:
+		xs.append(x)
+		x += 2.2
+	for xf in xs:
+		var tf := t * Transform3D(Basis(), Vector3(xf, 1.3, 0.12))
+		var pf := _baie(1.0, 1.5, "droite")
+		o.profil(tf, pf, -0.02, 0.02, VERRE.darkened(0.1))
+		_cadre(o, tf, pf, 0.16, 0.0, 0.22, PIERRE_GRISE, PIERRE_GRISE_SOMBRE)
+		o.boite(tf * Transform3D(Basis(), Vector3(0, 0.75, 0.1)), Vector3(0.1, 1.5, 0.2), PIERRE_GRISE)
+		for k in 4:
+			o.boite(tf * Transform3D(Basis(), Vector3(-0.3 + k * 0.2, 0.75, 0.09)), Vector3(0.025, 1.5, 0.025), FER)
+		for k in 2:
+			o.boite(tf * Transform3D(Basis(), Vector3(0, 0.5 + k * 0.5, 0.09)), Vector3(1.0, 0.025, 0.025), FER)
+		o.boite(tf * Transform3D(Basis(), Vector3(0, -0.07, 0.16)), Vector3(1.4, 0.14, 0.32), PIERRE_GRISE)
+	return Vector3(x_porte, 0, 0.8)
 
 
 ## Une fenêtre lyonnaise : haute, en retrait dans un encadrement de pierre, l'appui saillant, le garde-corps de
