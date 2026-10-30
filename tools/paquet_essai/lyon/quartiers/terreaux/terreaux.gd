@@ -719,8 +719,8 @@ static func _blo(t: Vector3) -> BoxMesh:
 
 
 ## Le sol du sas : un seul pavé, celui des rues de la ville, de la limite du quartier au bord de la place,
-## d'une façade à l'autre, posé sur la chaussée et les trottoirs de la commune. Il monte de 3 à 20 cm sur ses
-## huit premiers mètres au milieu de la rue, pour que le pas ne bute pas sur la couture.
+## d'une façade à l'autre, posé sur la chaussée et les trottoirs de la commune. Il monte de 10 à 28 cm sur ses
+## six premiers mètres au milieu de la rue, pour que le pas ne bute pas sur la couture.
 static func _rues(q: Dictionary) -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -741,12 +741,12 @@ static func _rues(q: Dictionary) -> void:
 		var l := 7.0 if pts[i].y < 184.0 else 4.5
 		if i > 0:
 			depart += pts[i].distance_to(pts[i - 1])
-		# la chaussée de la commune monte de 3 à 22 cm ; ses trottoirs et leurs bordures restent dessous
-		var dy := lerpf(0.03, 0.22, clampf(depart / 8.0, 0.0, 1.0))
+		# la chaussée de la commune monte de 10 à 28 cm ; ses trottoirs, leurs bordures et leurs dalles restent dessous
+		var dy := lerpf(0.1, 0.28, clampf(depart / 6.0, 0.0, 1.0))
 		var cote := []
 		for e in [-l, -3.2, 3.2, l]:
 			var p: Vector2 = pts[i] + n * e
-			cote.append(Vector3(p.x, hauteur(q, p.x, p.y) + (dy if absf(e) < 3.5 else 0.22), p.y))
+			cote.append(Vector3(p.x, hauteur(q, p.x, p.y) + (dy if absf(e) < 3.5 else 0.28), p.y))
 		bords.append(cote)
 	var coll := PackedVector3Array()
 	for i in bords.size() - 1:
