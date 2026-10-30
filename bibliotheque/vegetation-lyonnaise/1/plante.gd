@@ -39,7 +39,10 @@ const PIERRE_SOMBRE := Color("cdbb92")
 ## de fonte, « bordure » une bordure de pierre), fleurs (un hexa), longueur (le bac, la vigne, le massif, l'herbe),
 ## vent (0 à 1, l'amplitude du souffle), fruits (false : l'oranger sans ses oranges) ; l'herbe : largeur, points (le
 ## contour de la nappe en mètres, à la place de longueur × largeur), densite (un multiplicateur des touffes, 1 par
-## défaut), plafond (2 500 touffes au plus par défaut : au-delà elles grossissent au lieu de se multiplier).
+## défaut), plafond (2 500 touffes au plus par défaut : au-delà elles grossissent au lieu de se multiplier) ; lod
+## (0 par défaut soit aucun niveau de détail ; une distance en mètres, ou « loin » pour les quartiers de Lyon : au-delà, le massif et le buisson s'effacent au profit d'un corps
+## lointain de quelques centaines de sommets, des boules grossières sans feuilles, les fleurs en pastilles ;
+## demandé par le chef de chantier de Lyon pour tenir le budget d'un quartier).
 @export var options := {}
 
 var fait := false
@@ -67,7 +70,28 @@ static func pousser(parent: Node3D, p: Vector3, nom: String, g: int, opt := {}) 
 	var verts: Array = VERTS[nom].map(func(h): return Color(h))
 	var mesures: Vector2 = Callable(_Plantes, nom).call(o, p, verts, opt)
 	_pied(o, p, str(opt.get("pied", "")), opt)
-	o.construire(parent, nom.capitalize())
+	var mi := o.construire(parent, nom.capitalize())
+	# le niveau de détail du massif et du buisson, sur demande (0 par défaut). Un nombre : au-delà de lod, un corps
+	# lointain de boules grossières. « loin » (les quartiers de Lyon) : les deux corps sans bascule en jeu, le corps
+	# lointain hors de vue (visibility_range_begin 100 000) et le corps de près marqué sans_lointain, pour que la
+	# version légère du quartier (Quartiers.fondre) prenne le corps lointain et ignore le corps de près.
+	var loin := str(opt.get("lod", "")) == "loin"
+	var lod := 0.0 if loin else maxf(float(opt.get("lod", 0.0)), 0.0)
+	if (lod > 0.0 or loin) and nom in ["massif", "buisson"]:
+		var o2 := Outils.new(g * 7919 + PLANTES.find(nom) * 17)
+		o2.leger = true
+		Callable(_Plantes, nom).call(o2, p, verts, opt)
+		o2.collisions.clear()
+		var ml := o2.construire(parent, nom.capitalize() + "Lointain")
+		ml.set_meta("corps_lointain", true)
+		if loin:
+			mi.set_meta("sans_lointain", true)
+			ml.visibility_range_begin = 100000.0
+		else:
+			mi.visibility_range_end = lod
+			mi.visibility_range_end_margin = 4.0
+			ml.visibility_range_begin = lod
+			ml.visibility_range_begin_margin = 4.0
 	return {"plante": nom, "graine": g, "hauteur": mesures.x, "couronne": mesures.y}
 
 
@@ -120,6 +144,10 @@ class _Plantes:
 
 	## Une masse de feuillage couverte de ses feuilles : la boule un peu réduite et assombrie, les cartes dessus.
 	static func _masse(o: Outils, c: Vector3, r: Vector3, col: Color, vent: float) -> void:
+		if o.leger:
+			# le corps lointain : une boule grossière, sans feuilles
+			o.boule(c, r, col.darkened(0.02), 0.12, Outils.FEUILLE, 0.0, vent, 4, 8)
+			return
 		o.boule(c, r * 0.92, col.darkened(0.05), 0.18, Outils.FEUILLE, 0.05, vent)
 		_feuilles(o, c, r, col, int(clampf(r.x * r.y * 400.0, 14.0, 90.0)))
 
@@ -132,7 +160,14 @@ class _Plantes:
 			var y := o.rng.randf_range(0.15, 0.9)
 			var s := sqrt(1.0 - y * y)
 			var d := Vector3(cos(a) * s, y, sin(a) * s)
-			var q := c + Vector3(d.x * r.x, d.y * r.y, d.z * r.z) + Vector3(d.x / r.x, d.y / r.y, d.z / r.z).normalized() * taille * 0.6
+			var nrm := Vector3(d.x / r.x, d.y / r.y, d.z / r.z).normalized()
+			var q := c + Vector3(d.x * r.x, d.y * r.y, d.z * r.z) + nrm * taille * 0.6
+			if o.leger:
+				# le corps lointain : une pastille à plat sur la masse, de la couleur de la fleur
+				var t := nrm.cross(Vector3.UP if absf(nrm.y) < 0.9 else Vector3.RIGHT).normalized() * taille * 1.5
+				var b2 := nrm.cross(t).normalized() * taille * 1.5
+				o.quad(q - t - b2, q + t - b2, q + t + b2, q - t + b2, nrm, fleur, Outils.FEUILLE)
+				continue
 			o.boule(q, Vector3.ONE * taille, fleur.lightened(o.rng.randf_range(-0.08, 0.1)), 0.2, Outils.FEUILLE, 0.05, vent)
 
 	static func _touffe(o: Outils, c: Vector3, r: float, vert: Color, fleur: Color, n_fleurs := 6) -> void:

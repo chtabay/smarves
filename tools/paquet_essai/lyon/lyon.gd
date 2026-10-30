@@ -124,6 +124,8 @@ func _ready() -> void:
 	ville.name = "Ville"
 	ville.scale = Vector3.ONE / U
 	add_child(ville)
+	# les quartiers bâtissent en mètres, comme la ville : même repère, même réduction
+	$Quartiers.scale = Vector3.ONE / U
 	_niveler()
 	_creuser_lit()
 	_ciel()
@@ -134,6 +136,9 @@ func _ready() -> void:
 	_rues()
 	_choisir_heros()
 	_batiments()
+	# au-delà du cadre, la ville en volumes (quartiers/_ville, tenue par la maquette des quartiers)
+	if ResourceLoader.exists(DOSSIER + "quartiers/_ville/volumes.gd"):
+		load(DOSSIER + "quartiers/_ville/volumes.gd").call("batir", $Quartiers)
 	_place()
 	_escalier()
 	_arbres()
@@ -436,11 +441,21 @@ const RIVE_SUD := [Vector2(-432, 188), Vector2(-351, 188), Vector2(-314, 186), V
 const PASSERELLE := [Vector2(-166.0, 163.0), Vector2(-202.0, 226.5)]
 ## Le point de vue du quai, à trois mètres du parapet : la passerelle de trois quarts, la Saône et Fourvière.
 const QUAI_VUE := Vector2(-138.0, 177.0)
-## Le regard de la Vue1a : tourné de 15° vers le quai pour le prendre en enfilade, et l'œil reculé d'un pas
-## (1,5 m), pour que le parapet passe sous le quart bas du cadre.
 ## au-delà, en mètres (la scène est en unités du jeu, d'où le / U), le relief des façades de la ville s'efface devant leur volume peint
 const RELIEF_PORTEE := 70.0
 var _modules_ville: Array[Node3D] = []
+## Le parcours à pied par les rues (parcours_commune --reperes=Pas) : du quai au belvédère par la Martinière,
+## Rambaud, Louis-Vitet et la place, puis redescendu jusqu'au sas des Terreaux. Chaque repère est un coude de rue,
+## pour que la marche en ligne droite d'un repère au suivant reste sur la chaussée. En mètres.
+const PAS := [
+	Vector2(-129, 179), Vector2(-162, 153), Vector2(-156, 142), Vector2(-151, 121), Vector2(-73, 120),
+	Vector2(-21, 120), Vector2(46, 121), Vector2(70, 116), Vector2(70, 109), Vector2(34, 57), Vector2(12, 49),
+	Vector2(-8, 49), Vector2(-8, -10), Vector2(10, -11), Vector2(16.4, -44), Vector2(16.4, -83), Vector2(16.4, -44),
+	Vector2(10, -11), Vector2(-8, -10), Vector2(-8, 49), Vector2(12, 49), Vector2(34, 57), Vector2(70, 109),
+	Vector2(70, 119), Vector2(136, 122), Vector2(133, 118)
+]
+## Le regard de la Vue1a : tourné de 15° vers le quai pour le prendre en enfilade, et l'œil reculé d'un pas
+## (1,5 m), pour que le parapet passe sous le quart bas du cadre.
 const VUE1A_REGARD := Vector2(-0.989, 0.146)
 const VUE1A_OEIL := Vector2(-136.5, 175.3)
 
@@ -741,7 +756,9 @@ func materiau_paves() -> ShaderMaterial:
 	sh.code = """
 shader_type spatial;
 varying vec3 monde;
-void vertex() { monde = VERTEX; }
+// en mètres du monde (le jeu compte en unités de 2,4 m) : le même grain sous la ville et dans chaque quartier,
+// quel que soit le repère de leur maillage
+void vertex() { monde = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz * 2.4; }
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 void fragment() {
 	vec2 q = monde.xz / vec2(0.32, 0.22);
@@ -3061,6 +3078,12 @@ func _reperes() -> void:
 		var pa := Vector3(a.x, sol + 0.1, a.y) / U
 		m.global_transform = Transform3D(Basis(), pa)
 		m.look_at(Vector3(b.x / U, pa.y, b.y / U), Vector3.UP)
+	for k in PAS.size():
+		var q: Vector2 = PAS[k]
+		var m := Marker3D.new()
+		m.name = "Pas%02d" % (k + 1)
+		add_child(m)
+		m.global_position = Vector3(q.x, hauteur(q.x, q.y) + 0.1, q.y) / U
 
 
 func _joueur() -> void:
@@ -3090,6 +3113,25 @@ func _joueur() -> void:
 	camera.target = player.global_position + Vector3(0, 0.3, 0)
 	camera.set("_target_goal", camera.target)
 	camera.use_notches(CRANS, 1)
+	_veille()
+
+
+## La veille des sas (socle 1.29, cartes/lyon/VILLE.md § 4) : les quartiers que le paquet déclare se posent
+## en détail quand le joueur y va, au loin sinon. La place Sathonay, bâtie ici, n'est pas un quartier posé :
+## elle déclare elle-même son sas de la rue Terme vers les Terreaux (Sas_terreaux, 6 m), au même point que
+## le Sas_sathonay des Terreaux. Sans paquet inscrit (scène ouverte seule), pas de veille.
+func _veille() -> void:
+	var communes := get_tree().root.get_node_or_null("Communes")
+	var c: Commune = communes.commune("lyon") if communes != null else null
+	if c == null or Quartiers.de(c).is_empty():
+		return
+	var sas := Marker3D.new()
+	sas.name = "Sas_terreaux"
+	sas.set_meta("rayon", 6.0)
+	sas.position = Vector3(133.0, hauteur(133.0, 118.0), 118.0)
+	ville.add_child(sas)
+	var veille := Quartiers.veiller_de($Quartiers, c, player, "sathonay")
+	veille.ajouter_sas(ville)
 
 
 ## La caméra de dessus suit l'habitant (Guillaume, 30 octobre : en marchant vers le haut de l'écran, il en
