@@ -103,7 +103,9 @@ static func construire(t) -> void:
 	_vie(racine)
 	_fondre(racine, "Facades")
 	_fondre(racine, "Mobilier")
-	_fondre(racine, "Platanes")
+	# la fonte perd les réglages d'instance des arbres : on rend le jour du cœur de la voûte au maillage fondu
+	# (verdict du juge sur la v0.8, la voûte vue d'en bas reste trop sombre).
+	_fondre(racine, "Platanes", {"jour": 1.4})
 	_fondre(racine, "Bacs")
 
 
@@ -409,7 +411,7 @@ static func _platanes(t, racine: Node3D) -> void:
 			var porteur := Node3D.new()
 			porteur.transform = Transform3D(Basis(Vector3.UP, k * 1.7).scaled(Vector3.ONE / UNITE), Vector3(p.x, 0.015, p.y))
 			groupe.add_child(porteur)
-			ombriere.pousser(porteur, Vector3.ZERO, "platane", k, {"hauteur": 17.0 + (k % 4) * 0.7})
+			ombriere.pousser(porteur, Vector3.ZERO, "platane", k, {"hauteur": 15.0 + (k % 4) * 0.4})
 			if sol != null:
 				sol.poser(porteur, Vector3.ZERO, "fosse_arbre", k, {"largeur": 2.4})
 		elif Geometry2D.is_point_in_polygon(p, place):
@@ -428,7 +430,7 @@ static func _platanes(t, racine: Node3D) -> void:
 		porteur.transform = Transform3D(Basis(Vector3.UP, k * 2.3).scaled(Vector3.ONE / UNITE), Vector3(p.x, PELOUSE / UNITE, p.y))
 		groupe.add_child(porteur)
 		if ombriere != null:
-			ombriere.pousser(porteur, Vector3.ZERO, "platane", 700 + k, {"hauteur": 17.5 + (k % 3) * 0.8})
+			ombriere.pousser(porteur, Vector3.ZERO, "platane", 700 + k, {"hauteur": 15.5 + (k % 3) * 0.5})
 		else:
 			veg.pousser(porteur, Vector3.ZERO, "platane", 700 + k, {"hauteur": 19.0 + (k % 3) * 0.9})
 			_eclaircir(porteur, clair)
@@ -966,7 +968,7 @@ static func _vie(racine: Node3D) -> void:
 ## Fond les maillages d'un groupe en un maillage par matériau et par case de 12 unités (assez gros pour peu de
 ## surfaces dessinées, assez petit pour que le moteur en écarte une partie hors du champ), en gardant leurs
 ## corps de collision.
-static func _fondre(racine: Node3D, nom: String) -> void:
+static func _fondre(racine: Node3D, nom: String, reglages := {}) -> void:
 	var groupe: Node3D = racine.get_node_or_null(nom)
 	if groupe == null:
 		return
@@ -993,6 +995,8 @@ static func _fondre(racine: Node3D, nom: String) -> void:
 		var mi := MeshInstance3D.new()
 		mi.name = "%s_%d_%d" % [nom, cle.x, cle.y]
 		mi.mesh = mesh
+		for r in reglages:
+			mi.set_instance_shader_parameter(r, reglages[r])
 		racine.add_child(mi)
 	for mi in groupe.find_children("*", "MeshInstance3D", true, false):
 		mi.get_parent().remove_child(mi)

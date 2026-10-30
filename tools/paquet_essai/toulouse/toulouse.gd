@@ -12,7 +12,7 @@ const UNITE := 2.4
 const CRANS := [[9.0, -48.0, 34.0], [18.0, -51.0, 30.0], [32.0, -58.0, 30.0]]
 
 ## La lumière de 18 h en septembre (note : « Lumière et caméras ») : soleil d'ouest-sud-ouest, bas et doré.
-const SOLEIL := {"hauteur": 36.0, "vient_de": 250.0, "couleur": Color("ffd9a8")}
+const SOLEIL := {"hauteur": 36.0, "vient_de": 262.0, "couleur": Color("ffd9a8")}
 
 ## Les familles de la palette (note : « Palette et matières »).
 const BRIQUES := ["c8653f", "d2714a", "be5b38", "db8158", "c46a48"]
@@ -66,6 +66,8 @@ func _ciel() -> void:
 	# Un bleu franc qui pâlit vers un horizon jaune, sans rose (CONCEPTION.md, « Les pièges »).
 	sm.sky_top_color = Color("4f86c6")
 	sm.sky_horizon_color = Color("e9d9b0")
+	# le bleu dès quelques degrés au-dessus de l'horizon : la vue du balcon voyait un ciel gris (juge, v0.9)
+	sm.sky_curve = 0.06
 	sm.ground_horizon_color = Color("b9a48a")
 	sm.ground_bottom_color = Color("5a4a3c")
 	sm.sun_angle_max = 20.0
