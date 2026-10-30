@@ -443,6 +443,8 @@ const PASSERELLE := [Vector2(-166.0, 163.0), Vector2(-202.0, 226.5)]
 const QUAI_VUE := Vector2(-138.0, 177.0)
 ## au-delà, en mètres (la scène est en unités du jeu, d'où le / U), le relief des façades de la ville s'efface devant leur volume peint
 const RELIEF_PORTEE := 70.0
+## Les sas de la veille vers les quartiers voisins, en mètres (VILLE.md, section 4) : le même point chez le voisin.
+const SAS := {"terreaux": Vector2(133.0, 118.0), "saint_paul": Vector2(-199.0, 236.0)}
 var _modules_ville: Array[Node3D] = []
 ## Le parcours à pied par les rues (parcours_commune --reperes=Pas) : du quai au belvédère par la Martinière,
 ## Rambaud, Louis-Vitet et la place, puis redescendu jusqu'au sas des Terreaux. Chaque repère est un coude de rue,
@@ -756,7 +758,9 @@ func materiau_paves() -> ShaderMaterial:
 	sh.code = """
 shader_type spatial;
 varying vec3 monde;
-void vertex() { monde = VERTEX; }
+// en mètres du monde (le jeu compte en unités de 2,4 m) : le même grain sous la ville et dans chaque quartier,
+// quel que soit le repère de leur maillage
+void vertex() { monde = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz * 2.4; }
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 void fragment() {
 	vec2 q = monde.xz / vec2(0.32, 0.22);
@@ -3123,11 +3127,18 @@ func _veille() -> void:
 	var c: Commune = communes.commune("lyon") if communes != null else null
 	if c == null or Quartiers.de(c).is_empty():
 		return
-	var sas := Marker3D.new()
-	sas.name = "Sas_terreaux"
-	sas.set_meta("rayon", 6.0)
-	sas.position = Vector3(133.0, hauteur(133.0, 118.0), 118.0)
-	ville.add_child(sas)
+	# les sas de Sathonay vers ses voisins : le haut de la rue Terme vers les Terreaux, le pied sud de la
+	# passerelle Saint-Vincent vers Saint-Paul ; chaque voisin pose le sien au même point
+	var declares := Quartiers.de(c)
+	for nom in SAS:
+		if not declares.has(nom):
+			continue
+		var p: Vector2 = SAS[nom]
+		var sas := Marker3D.new()
+		sas.name = "Sas_" + nom
+		sas.set_meta("rayon", 6.0)
+		sas.position = Vector3(p.x, hauteur(p.x, p.y), p.y)
+		ville.add_child(sas)
 	var veille := Quartiers.veiller_de($Quartiers, c, player, "sathonay")
 	veille.ajouter_sas(ville)
 

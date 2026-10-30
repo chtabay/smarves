@@ -34,6 +34,8 @@ const HDV_LONG := Vector2(0.1458, 0.9893)
 const REMPLACES := [4, 169, 264]
 ## Les fronts bâtis par le façadier : la place (nord et ouest) et la rue Terme, avec leur rez-de-chaussée.
 const FRONTS_PLACE := [22, 38, 64, 150, 151, 152, 154, 235, 236, 85, 178, 179]
+## Dans la rue Terme : le café « Au Tiercé » (148), la traboule (137), et les fronts 136 et 238, découpés en
+## façades de quatre à six travées (le corps lointain du façadier, "lod": "loin", ne coûte plus au loin).
 const FRONTS_TERME := [136, 137, 148, 238]
 
 const ENDUITS := ["e2c28a", "d8a888", "ebdab8", "e6c08e", "dcb48c", "efdcb6", "d9b27e"]
@@ -51,7 +53,10 @@ const PLOMB := Color("#4c5254")
 const OR := Color("#c9a66b")
 const DALLE := Color("#b3a998")
 const PAVE := Color("#a39b93")
-const SABLE := Color("#b48e62")
+## le sable stabilisé du cloître, pris plus bleu que la cible (180, 142, 98) : le soleil doré le réchauffe
+## la hauteur des impostes des arcades du cloître (le départ des arcs)
+const IMPOSTE := 3.0
+const SABLE := Color("#b48e78")
 const VILLEBOIS := Color("#c7c3b6")
 const EAU := Color("#3d5b57")
 
@@ -119,6 +124,7 @@ uniform float monument = 0.0;
 uniform float rdc = 4.2;
 uniform float etage = 3.3;
 uniform float ombre = 0.6;
+uniform float terne = 0.0;
 varying vec3 dehors;
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 void vertex() { dehors = (MODELVIEW_MATRIX * vec4(NORMAL, 0.0)).xyz; }
@@ -128,7 +134,7 @@ void fragment() {
 	// la lumière du ciel baisse sur la pierre, pour que le mur au soleil vaille deux fois et demie le mur à l'ombre
 	AO = ombre;
 	vec3 c = pow(COLOR.rgb, vec3(2.2));
-	c = mix(c, vec3(dot(c, vec3(0.3, 0.59, 0.11))), 0.35 * (1.0 - monument)) * 1.04;
+	c = mix(c, vec3(dot(c, vec3(0.3, 0.59, 0.11))), max(0.35 * (1.0 - monument), terne)) * 1.04;
 	float h = UV2.x;
 	float y = UV.y;
 	float bx = floor(UV.x);
@@ -427,7 +433,13 @@ static func _fronts(q: Dictionary) -> void:
 				vers = (P0 - m).normalized()
 			if n.dot(vers) < 0.75:
 				continue
-			_front(q, groupe, i, a, e, n, l, terme, cafes)
+			if terme and l > 14.0 and i != 148:
+				# un long front de la rue se lit en plusieurs maisons, de 9 à 12 m, d'enduits alternés
+				var parts := int(ceil(l / 12.0))
+				for j in parts:
+					_front(q, groupe, i, a.lerp(e, float(j) / parts), a.lerp(e, float(j + 1) / parts), n, l / parts, terme, j)
+				continue
+			_front(q, groupe, i, a, e, n, l, terme, 0 if terme else cafes)
 			if not terme:
 				cafes += 1
 
@@ -435,10 +447,11 @@ static func _fronts(q: Dictionary) -> void:
 static func _front(q: Dictionary, groupe: Node3D, i: int, a: Vector2, e: Vector2, n: Vector2, l: float, terme: bool, rang: int) -> void:
 	var niveaux: int = q.corniches.get(i, 5) - 1
 	var type := "immeuble"
-	var opt := {"w": l, "d": 8.0, "niveaux": niveaux, "grain": 1, "tuile": TUILES[i % TUILES.size()]}
+	# "lod": "loin" : le corps lointain ne sert qu'à la version lointaine du quartier, vue depuis Sathonay
+	var opt := {"w": l, "d": 8.0, "niveaux": niveaux, "grain": 1, "tuile": TUILES[i % TUILES.size()], "lod": "loin"}
 	if terme:
-		opt["enduit"] = ENDUITS_RUE[i % ENDUITS_RUE.size()]
-		type = "traboule" if i == 137 else ("etroite" if l < 6.0 else "immeuble")
+		opt["enduit"] = ENDUITS_RUE[(i + rang * 2) % ENDUITS_RUE.size()]
+		type = "traboule" if i == 137 and rang == 0 else ("etroite" if l < 6.0 else "immeuble")
 		if i == 148:
 			type = "cafe"
 			opt["enseigne"] = "AU TIERCÉ"
@@ -464,18 +477,23 @@ static func _front(q: Dictionary, groupe: Node3D, i: int, a: Vector2, e: Vector2
 			opt["toile"] = ["2e4a6e", "2e4a6e"]
 	var f: Node3D = load(Bibliotheque.scene(FACADIER, "decor")).instantiate()
 	f.type = type
-	f.graine = 2000 + i
+	f.graine = 2000 + i + rang * 400
 	f.options = opt
 	var m := (a + e) * 0.5 + n * 0.15
 	f.position = Vector3(m.x, hauteur(q, m.x, m.y), m.y)
 	f.rotation.y = atan2(n.x, n.y)
-	f.name = "Front%d" % i
+	f.name = "Front%d_%d" % [i, rang] if terme else "Front%d" % i
 	groupe.add_child(f)
 	if type == "cafe" and not terme:
-		# la terrasse du café, sous son store : deux rangs de tables
+		# la terrasse du café, sur la dalle de la place, chaque table sous son parasol aux couleurs du store
+		var toile := mat(Color(opt["toile"][0]), 0.9)
+		var bois := mat(Color("#4a3a2c"), 0.8)
 		for k in 3:
-			var p := m + n * 3.2 + (e - a).normalized() * (k - 1) * 3.4
-			_poser(q, MOBILIER, "objet", "terrasse", Vector3(p.x, hauteur(q, p.x, p.y), p.y), 300 + i * 7 + k, {}, atan2(n.x, n.y))
+			var p := m + n * 3.6 + (e - a).normalized() * (k - 1) * 3.4
+			var y := hauteur(q, p.x, p.y) + 0.22
+			_poser(q, MOBILIER, "objet", "terrasse", Vector3(p.x, y, p.y), 300 + i * 7 + k, {}, atan2(n.x, n.y))
+			_forme(q.racine, _cyl(0.04, 0.04, 2.5, 6), Vector3(p.x, y + 1.25, p.y), bois)
+			_forme(q.racine, _cyl(0.06, 1.5, 0.55, 12), Vector3(p.x, y + 2.6, p.y), toile)
 
 
 static func _poser(q: Dictionary, id: String, cle: String, valeur: String, p: Vector3, g: int, opt := {}, lacet := 0.0, parent: Node3D = null) -> Node3D:
@@ -483,6 +501,7 @@ static func _poser(q: Dictionary, id: String, cle: String, valeur: String, p: Ve
 	if s == "":
 		return null
 	var b: Node3D = load(s).instantiate()
+	b.name = "%s_%d" % [valeur.capitalize().replace(" ", ""), g]
 	b.set(cle, valeur)
 	b.graine = g
 	b.options = opt
@@ -529,7 +548,8 @@ static func _place(q: Dictionary) -> void:
 				st.add_index(t)
 	st.generate_normals()
 	dalle.mesh = st.commit()
-	dalle.material_override = materiau_dalle()
+	# le module des grands carreaux : 7 m, celui de la grille des jets, qui tombent sur ses nœuds
+	dalle.material_override = materiau_dalle(7.0)
 	place.add_child(dalle)
 	var corps := StaticBody3D.new()
 	var forme := CollisionShape3D.new()
@@ -539,12 +559,14 @@ static func _place(q: Dictionary) -> void:
 	# les jets : une grille de 7 m, sauf autour de la fontaine
 	var jets := MultiMesh.new()
 	jets.transform_format = MultiMesh.TRANSFORM_3D
+	# chaque jet est une gerbe : fine à la grille, ouverte en haut, où l'eau retombe
 	var cyl := CylinderMesh.new()
-	cyl.top_radius = 0.015
-	cyl.bottom_radius = 0.06
+	cyl.top_radius = 0.16
+	cyl.bottom_radius = 0.04
 	cyl.height = 1.0
-	cyl.radial_segments = 8
+	cyl.radial_segments = 10
 	cyl.rings = 1
+	cyl.cap_top = false
 	jets.mesh = cyl
 	var grilles := MultiMesh.new()
 	grilles.transform_format = MultiMesh.TRANSFORM_3D
@@ -567,13 +589,17 @@ static func _place(q: Dictionary) -> void:
 	grilles.instance_count = poses.size()
 	for k in poses.size():
 		var p: Vector2 = poses[k]
-		var hj: float = 1.4 + q.rng.randf() * 1.2
+		var hj: float = 1.0 + q.rng.randf() * 1.0
 		jets.set_instance_transform(k, Transform3D(Basis().scaled(Vector3(1, hj, 1)), Vector3(p.x, sol_place(q, p.x, p.y) + hj * 0.5, p.y)))
 		grilles.set_instance_transform(k, Transform3D(Basis(), Vector3(p.x, sol_place(q, p.x, p.y) + 0.01, p.y)))
 	var mj := MultiMeshInstance3D.new()
 	mj.name = "Jets"
 	mj.multimesh = jets
-	mj.material_override = materiau_eau(true)
+	var gerbe := mat(Color("#eef3f2"), 0.1, 0.0)
+	gerbe.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	gerbe.albedo_color.a = 0.45
+	gerbe.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mj.material_override = gerbe
 	mj.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	place.add_child(mj)
 	var mg := MultiMeshInstance3D.new()
@@ -603,27 +629,44 @@ static func _place(q: Dictionary) -> void:
 	mf.material_override = mfl
 	mf.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	place.add_child(mf)
-	# les quatorze piliers devant le palais
+	# les quatorze piliers devant le palais : des colonnes de 4 m, base et chapiteau, dans l'axe des jets
 	var piliers := MultiMesh.new()
 	piliers.transform_format = MultiMesh.TRANSFORM_3D
-	var pb := BoxMesh.new()
-	pb.size = Vector3(0.6, 2.0, 0.6)
+	var pb := CylinderMesh.new()
+	pb.top_radius = 0.3
+	pb.bottom_radius = 0.34
+	pb.height = 4.0
+	pb.radial_segments = 14
 	piliers.mesh = pb
 	piliers.instance_count = 14
+	var bouts := MultiMesh.new()
+	bouts.transform_format = MultiMesh.TRANSFORM_3D
+	bouts.mesh = _blo(Vector3(0.9, 0.3, 0.9))
+	bouts.instance_count = 28
 	for k in 14:
-		piliers.set_instance_transform(k, Transform3D(Basis(), Vector3(-45.5 + 7.0 * k, sol_place(q, -45.5 + 7.0 * k, 34.0) + 1.0, 34.0)))
+		var pu := -45.5 + 7.0 * k
+		var y0 := sol_place(q, pu, 34.0)
+		piliers.set_instance_transform(k, Transform3D(Basis(), Vector3(pu, y0 + 2.0, 34.0)))
+		bouts.set_instance_transform(2 * k, Transform3D(Basis(), Vector3(pu, y0 + 0.15, 34.0)))
+		bouts.set_instance_transform(2 * k + 1, Transform3D(Basis(), Vector3(pu, y0 + 4.1, 34.0)))
 	var mp := MultiMeshInstance3D.new()
 	mp.name = "Piliers"
 	mp.multimesh = piliers
-	mp.material_override = mat(Color("#77746e"), 0.6)
+	mp.material_override = mat(Color("#8f8b82"), 0.6)
 	place.add_child(mp)
+	var mb := MultiMeshInstance3D.new()
+	mb.name = "BasesEtChapiteaux"
+	mb.multimesh = bouts
+	mb.material_override = mat(Color("#77746e"), 0.6)
+	place.add_child(mb)
 	var cp := StaticBody3D.new()
 	for k in 14:
 		var fp := CollisionShape3D.new()
-		var bp := BoxShape3D.new()
-		bp.size = pb.size
+		var bp := CylinderShape3D.new()
+		bp.radius = 0.4
+		bp.height = 4.0
 		fp.shape = bp
-		fp.position = Vector3(-45.5 + 7.0 * k, sol_place(q, -45.5 + 7.0 * k, 34.0) + 1.0, 34.0)
+		fp.position = Vector3(-45.5 + 7.0 * k, sol_place(q, -45.5 + 7.0 * k, 34.0) + 2.0, 34.0)
 		cp.add_child(fp)
 	place.add_child(cp)
 
@@ -761,7 +804,7 @@ static func _fontaine(q: Dictionary) -> void:
 	fc.position = Vector3(0, 0.5, 0)
 	corps.add_child(fc)
 	f.add_child(corps)
-	_forme(f, _bou(3.8), Vector3(0, 1.0, -0.6), mat(Color("#7d7a70"), 0.9), Vector3.ZERO, Vector3(1.25, 0.55, 1.0))
+	_forme(f, _bou(3.8), Vector3(0, 0.9, -0.6), mat(Color("#7d7a70"), 0.9), Vector3.ZERO, Vector3(1.4, 0.42, 1.0))
 	_forme(f, _bou(2.0), Vector3(-1.4, 2.4, -1.5), mat(Color("#6f6d66"), 0.9), Vector3(0.2, 0.4, 0), Vector3(1.0, 0.7, 0.9))
 	# l'écume au pied des chevaux et les gerbes des naseaux
 	for k in 9:
@@ -776,11 +819,11 @@ static func _fontaine(q: Dictionary) -> void:
 	_forme(f, _cap(0.13, 1.6), Vector3(-0.45, 5.9, -2.0), plomb, Vector3(-0.3, 0, 0.6))
 	# la draperie qui flotte derrière elle
 	_forme(f, _bou(0.9), Vector3(0, 5.1, -3.0), plomb, Vector3(0.6, 0, 0), Vector3(0.9, 1.6, 0.4))
-	# les quatre chevaux cabrés, deux paires décalées
+	# les quatre chevaux cabrés, en éventail et assez écartés pour que chacun se découpe sur le ciel
 	for k in 4:
-		var x := -2.7 + k * 1.8
-		var avance := 1.6 if k == 1 or k == 2 else 1.0
-		_cheval(f, Vector3(x, 2.1, avance), (k - 1.5) * 0.12, plomb)
+		var x := -4.8 + k * 3.2
+		var avance := 2.0 if k == 1 or k == 2 else 1.2
+		_cheval(f, Vector3(x, 2.2, avance), (k - 1.5) * 0.28, plomb)
 
 
 static func _cheval(f: Node3D, p: Vector3, ecart: float, m: Material) -> void:
@@ -789,22 +832,24 @@ static func _cheval(f: Node3D, p: Vector3, ecart: float, m: Material) -> void:
 	c.rotation.y = ecart
 	f.add_child(c)
 	# le corps cabré : 40° vers le haut, vers +z
-	var cabre := Vector3(-0.7, 0, 0)
-	_forme(c, _cap(0.78, 3.4), Vector3(0, 1.3, 0.4), m, Vector3(PI * 0.5, 0, 0) + cabre * 1.0)
-	# l'encolure et la tête
-	_forme(c, _cap(0.42, 2.0), Vector3(0, 3.0, 1.75), m, Vector3(0.35, 0, 0))
-	_forme(c, _cap(0.3, 1.3), Vector3(0, 3.8, 2.45), m, Vector3(1.9, 0, 0))
-	# la crinière
-	_forme(c, _cap(0.16, 1.6), Vector3(0, 3.35, 1.45), m, Vector3(0.45, 0, 0))
-	# les antérieurs repliés, battant l'air
+	var cabre := Vector3(-0.85, 0, 0)
+	_forme(c, _cap(0.72, 3.4), Vector3(0, 1.5, 0.3), m, Vector3(PI * 0.5, 0, 0) + cabre)
+	# l'encolure dressée et la tête tendue en avant, naseaux au vent
+	_forme(c, _cap(0.4, 2.2), Vector3(0, 3.5, 1.5), m, Vector3(0.25, 0, 0))
+	_forme(c, _cap(0.28, 1.4), Vector3(0, 4.45, 2.05), m, Vector3(1.75, 0, 0))
+	# les oreilles et la crinière en mèches
 	for s in [-1.0, 1.0]:
-		_forme(c, _cap(0.15, 1.2), Vector3(0.35 * s, 2.0, 2.0), m, Vector3(1.0 + 0.3 * s, 0, 0))
-		_forme(c, _cap(0.13, 1.0), Vector3(0.35 * s, 1.55, 2.6), m, Vector3(-0.2, 0, 0))
+		_forme(c, _cap(0.06, 0.4), Vector3(0.12 * s, 4.85, 1.8), m, Vector3(-0.3, 0, 0.2 * s))
+	_forme(c, _cap(0.15, 1.8), Vector3(0, 3.8, 1.15), m, Vector3(0.4, 0, 0))
+	# les antérieurs battant l'air : le bras levé, le canon replié
+	for s in [-1.0, 1.0]:
+		_forme(c, _cap(0.16, 1.3), Vector3(0.36 * s, 2.45, 1.85), m, Vector3(1.2 + 0.35 * s, 0, 0))
+		_forme(c, _cap(0.13, 1.1), Vector3(0.36 * s, 2.15, 2.5), m, Vector3(-0.35 + 0.3 * s, 0, 0))
 	# les postérieurs plantés dans le rocher
 	for s in [-1.0, 1.0]:
-		_forme(c, _cap(0.19, 1.8), Vector3(0.38 * s, -0.1, -0.7), m, Vector3(-0.3, 0, 0))
-	# la queue
-	_forme(c, _cap(0.14, 1.4), Vector3(0, 0.0, -1.3), m, Vector3(-0.6, 0, 0))
+		_forme(c, _cap(0.2, 1.9), Vector3(0.4 * s, -0.05, -0.75), m, Vector3(-0.25, 0, 0))
+	# la queue, qui retombe
+	_forme(c, _cap(0.15, 1.6), Vector3(0, 0.3, -1.45), m, Vector3(-0.35, 0, 0))
 
 
 # --- L'Hôtel de Ville ----------------------------------------------------------------------------
@@ -918,6 +963,14 @@ static func _hotel_de_ville(q: Dictionary) -> void:
 	# le perron
 	for k in 3:
 		_forme(h, _blo(Vector3(16.0 - k * 1.2, 0.18, 2.2 - k * 0.5)), Vector3(0, 0.09 + k * 0.18, 2.6 - k * 0.25), mat(VILLEBOIS))
+	# le mariage du samedi : le tapis rouge du perron à la place, deux colonnes de fleurs blanches, les pétales
+	_forme(h, _blo(Vector3(2.4, 0.03, 9.0)), Vector3(0, 0.6, 7.0), mat(Color("#9e2228"), 0.95), Vector3(-0.06, 0, 0))
+	var blanc := mat(Color("#f6f2ea"), 0.7)
+	for s in [-1.0, 1.0]:
+		_forme(h, _cyl(0.35, 0.45, 1.6, 10), Vector3(s * 2.2, 0.8, 4.4), blanc)
+		_forme(h, _bou(0.75), Vector3(s * 2.2, 1.9, 4.4), blanc)
+	for k in 14:
+		_forme(h, _bou(0.12), Vector3(sin(k * 2.3) * 1.6, 0.05, 5.0 + k * 0.7), blanc, Vector3.ZERO, Vector3(1.0, 0.2, 1.0))
 	# le beffroi : la tour carrée à horloge, le tambour à baies, le dôme, le lanternon doré
 	var b := Node3D.new()
 	b.name = "Beffroi"
@@ -996,7 +1049,11 @@ static func _palais(q: Dictionary) -> void:
 	var mi := MeshInstance3D.new()
 	mi.name = "Ailes"
 	mi.mesh = st.commit()
-	mi.material_override = materiau_murs(true, 6.0, 6.0)
+	# la pierre du palais, moins chaude que celle de l'Hôtel de Ville : à l'ombre, elle ne doit pas tourner à l'ocre
+	var pm := materiau_murs(true, 6.0, 6.0)
+	pm.set_shader_parameter("terne", 0.4)
+	pm.set_shader_parameter("ombre", 0.5)
+	mi.material_override = pm
 	p.add_child(mi)
 	_forme(p, _blo(Vector3(5.0, 0.4, inn.position.y - ext.position.y)), Vector3(PORCHE, 6.5, (ext.position.y + inn.position.y) * 0.5), mat(Color("#8a7a62"), 0.9))
 	_forme(p, _blo(Vector3(5.0, 0.12, inn.position.y - ext.position.y)), Vector3(PORCHE, 0.04, (ext.position.y + inn.position.y) * 0.5), mat(DALLE))
@@ -1045,20 +1102,33 @@ static func _cloitre(q: Dictionary) -> void:
 	fp.shape = bp
 	cp.add_child(fp)
 	passage.add_child(cp)
-	# les allées en croix et le tour du jardin, de dalle claire
-	var allee := mat(Color("#cbbf9f"), 0.9)
-	_forme(c, _blo(Vector3(inn.size.x - 9.0, 0.06, 3.0)), ctr + Vector3(0, 0.06, 0), allee)
-	_forme(c, _blo(Vector3(3.0, 0.06, inn.size.y - 9.0)), ctr + Vector3(0, 0.06, 0), allee)
-	_forme(c, _blo(Vector3(3.0, 0.06, ctr.z - inn.position.y)), Vector3(PORCHE, 0.06, (inn.position.y + ctr.z) * 0.5), allee)
-	# le bassin rond
-	_forme(c, _cyl(4.2, 4.3, 0.55), ctr + Vector3(0, 0.27, 0), mat(VILLEBOIS))
-	_forme(c, _cyl(3.8, 3.8, 0.56), ctr + Vector3(0, 0.3, 0), materiau_eau())
-	_forme(c, _cyl(0.35, 0.6, 1.6, 12), ctr + Vector3(0, 0.8, 0), mat(VILLEBOIS))
-	_forme(c, _cyl(1.0, 0.3, 0.3, 16), ctr + Vector3(0, 1.7, 0), mat(VILLEBOIS))
+	# le plan du jardin : deux allées de sable en croix (3 m) et le tour, quatre carrés de pelouse bordés de buis
+	var pelouse := mat(Color("#7db83a"), 0.95)
+	var buis := mat(Color("#355f2c"), 0.9)
+	var x0 := inn.position.x + 4.0 + 1.5
+	var x1 := inn.end.x - 4.0 - 1.5
+	var z0 := inn.position.y + 4.0 + 1.5
+	var z1 := inn.end.y - 4.0 - 1.5
+	for carre in [Rect2(x0, z0, ctr.x - 1.5 - x0, ctr.z - 1.5 - z0), Rect2(ctr.x + 1.5, z0, x1 - ctr.x - 1.5, ctr.z - 1.5 - z0),
+			Rect2(x0, ctr.z + 1.5, ctr.x - 1.5 - x0, z1 - ctr.z - 1.5), Rect2(ctr.x + 1.5, ctr.z + 1.5, x1 - ctr.x - 1.5, z1 - ctr.z - 1.5)]:
+		var r: Rect2 = carre
+		var cc := r.get_center()
+		_forme(c, _blo(Vector3(r.size.x, 0.08, r.size.y)), Vector3(cc.x, 0.04, cc.y), pelouse)
+		for bord in [[Vector3(r.size.x, 0.45, 0.45), Vector3(cc.x, 0.22, r.position.y)], [Vector3(r.size.x, 0.45, 0.45), Vector3(cc.x, 0.22, r.end.y)],
+				[Vector3(0.45, 0.45, r.size.y), Vector3(r.position.x, 0.22, cc.y)], [Vector3(0.45, 0.45, r.size.y), Vector3(r.end.x, 0.22, cc.y)]]:
+			_forme(c, _blo(bord[0]), bord[1], buis)
+	# le bassin rond : la margelle à hauteur de banc, la vasque haute et son jet, qu'on voit par-dessus les massifs
+	_forme(c, _cyl(2.9, 3.0, 0.7), ctr + Vector3(0, 0.35, 0), mat(VILLEBOIS))
+	_forme(c, _cyl(3.05, 3.05, 0.12), ctr + Vector3(0, 0.74, 0), mat(VILLEBOIS.lightened(0.1)))
+	_forme(c, _cyl(2.6, 2.6, 0.62), ctr + Vector3(0, 0.36, 0), materiau_eau())
+	_forme(c, _cyl(0.32, 0.55, 2.4, 12), ctr + Vector3(0, 1.2, 0), mat(VILLEBOIS))
+	_forme(c, _cyl(1.1, 0.3, 0.4, 20), ctr + Vector3(0, 2.6, 0), mat(VILLEBOIS))
+	_forme(c, _cyl(0.95, 0.95, 0.05, 20), ctr + Vector3(0, 2.78, 0), materiau_eau(true))
+	_forme(c, _cyl(0.05, 0.1, 1.4, 8), ctr + Vector3(0, 3.5, 0), materiau_eau(true))
 	var cb := StaticBody3D.new()
 	var fb := CollisionShape3D.new()
 	var cyb := CylinderShape3D.new()
-	cyb.radius = 4.3
+	cyb.radius = 3.05
 	cyb.height = 0.6
 	fb.shape = cyb
 	fb.position = ctr + Vector3(0, 0.3, 0)
@@ -1067,19 +1137,19 @@ static func _cloitre(q: Dictionary) -> void:
 	# les galeries d'arcades au pied des quatre ailes : piliers, arcs, toit en appentis
 	var piliers := MultiMesh.new()
 	piliers.transform_format = MultiMesh.TRANSFORM_3D
-	piliers.mesh = _blo(Vector3(0.7, 4.2, 0.7))
+	piliers.mesh = _blo(Vector3(0.7, IMPOSTE, 0.7))
 	var poses: Array = []
 	var prof := 4.0
 	var u := inn.position.x + prof
 	while u <= inn.end.x - prof + 0.1:
 		if absf(u - PORCHE) > 2.0:
-			poses.append(Vector3(u, 2.1, inn.position.y + prof))
-		poses.append(Vector3(u, 2.1, inn.end.y - prof))
+			poses.append(Vector3(u, IMPOSTE * 0.5, inn.position.y + prof))
+		poses.append(Vector3(u, IMPOSTE * 0.5, inn.end.y - prof))
 		u += 4.0
 	var v := inn.position.y + prof + 4.0
 	while v <= inn.end.y - prof - 0.1:
-		poses.append(Vector3(inn.position.x + prof, 2.1, v))
-		poses.append(Vector3(inn.end.x - prof, 2.1, v))
+		poses.append(Vector3(inn.position.x + prof, IMPOSTE * 0.5, v))
+		poses.append(Vector3(inn.end.x - prof, IMPOSTE * 0.5, v))
 		v += 4.0
 	piliers.instance_count = poses.size()
 	for k in poses.size():
@@ -1093,11 +1163,12 @@ static func _cloitre(q: Dictionary) -> void:
 	for pp in poses:
 		var f := CollisionShape3D.new()
 		var b := BoxShape3D.new()
-		b.size = Vector3(0.7, 4.2, 0.7)
+		b.size = Vector3(0.7, IMPOSTE, 0.7)
 		f.shape = b
 		f.position = pp
 		cpl.add_child(f)
 	c.add_child(cpl)
+	_arcs(c, poses)
 	var galeries := [[Vector3(ctr.x, 0, inn.position.y + prof * 0.5), Vector3(inn.size.x, 0, prof), 0.0],
 		[Vector3(ctr.x, 0, inn.end.y - prof * 0.5), Vector3(inn.size.x, 0, prof), PI],
 		[Vector3(inn.position.x + prof * 0.5, 0, ctr.z), Vector3(inn.size.y - prof * 2.0, 0, prof), -PI * 0.5],
@@ -1108,13 +1179,12 @@ static func _cloitre(q: Dictionary) -> void:
 		piv.rotation.y = g[2]
 		c.add_child(piv)
 		var l: float = g[1].x
-		# l'arc au-dessus des piliers (un bandeau percé d'ombre), la voûte, l'appentis de tuile
-		_forme(piv, _blo(Vector3(l, 1.0, 0.7)), Vector3(0, 4.7, prof * 0.5), mat(PIERRE_PALAIS.lightened(0.05), 0.85))
-		_forme(piv, _blo(Vector3(l, 0.3, prof)), Vector3(0, 5.3, 0), mat(Color("#8d7d64"), 0.9))
+		# la voûte, sombre, et l'appentis de tuile ; les arcs sont à part (_arcs)
+		_forme(piv, _blo(Vector3(l, 0.3, prof)), Vector3(0, 5.3, 0), mat(Color("#6f6352"), 0.9))
 		_forme(piv, _blo(Vector3(l, 0.25, prof + 1.0)), Vector3(0, 6.0, 0.2), mat(Color(TUILES[0]), 0.8), Vector3(-0.32, 0, 0))
 		_forme(piv, _blo(Vector3(l, 0.06, prof)), Vector3(0, 0.04, 0), mat(DALLE))
 	# les arbres, en quinconce le long des allées, la vue vers le nord-est laissée libre
-	var arbres := [Vector2(-22, 64), Vector2(-22, 98), Vector2(-8, 66), Vector2(-14, 104), Vector2(14, 96), Vector2(28, 96), Vector2(28, 76), Vector2(14, 66)]
+	var arbres := [Vector2(-22, 64), Vector2(-22, 98), Vector2(-13, 64), Vector2(-14, 104), Vector2(14, 96), Vector2(28, 96), Vector2(28, 76), Vector2(14, 66)]
 	for k in arbres.size():
 		var a: Vector2 = arbres[k]
 		_poser(q, ARBRES, "espece", "tilleul", Vector3(a.x, 0.0, a.y), 500 + k, {"hauteur": 12.0 + (k % 3), "pied": "bordure"}, 0.0, c)
@@ -1127,21 +1197,81 @@ static func _cloitre(q: Dictionary) -> void:
 		_forme(c, _cap(0.38, 1.9), sp + Vector3(0, 2.6, 0), marbre)
 		_forme(c, _bou(0.24), sp + Vector3(0, 3.75, 0), marbre)
 	# les bancs, tournés vers le bassin, et les massifs
-	var bancs := [[Vector2(-12, 81), PI * 0.5], [Vector2(18, 81), -PI * 0.5], [Vector2(3, 70), 0.0], [Vector2(3, 92), PI], [Vector2(-18, 72), PI * 0.25], [Vector2(24, 90), -PI * 0.75]]
+	var bancs := [[Vector2(-20, 83.0), PI * 0.5], [Vector2(24, 79.0), -PI * 0.5], [Vector2(3, 70), 0.0], [Vector2(3, 92), PI], [Vector2(-18, 72), PI * 0.25], [Vector2(24, 90), -PI * 0.75]]
 	for k in bancs.size():
 		var bp2: Vector2 = bancs[k][0]
 		_poser(q, MOBILIER, "objet", "banc", Vector3(bp2.x, 0.0, bp2.y), 600 + k, {}, bancs[k][1], c)
 	q["bancs"] = bancs
-	for k in 4:
-		var m := Vector2(ctr.x + (-16.0 if k % 2 == 0 else 16.0), ctr.z + (-10.0 if k < 2 else 10.0))
-		_poser(q, VEGETATION, "plante", "massif", Vector3(m.x, 0.0, m.y), 700 + k, {"longueur": 8.0, "largeur": 3.0, "fleurs": "#d04a8a" if k % 2 == 0 else "#f4f0e6"}, 0.0, c)
+	# deux massifs seulement, de part et d'autre du bassin dans l'axe du porche (88 000 sommets chacun)
+	for k in 2:
+		# dans les deux carrés de l'est : ceux de l'ouest restent libres pour la promenade vers le fond du cloître
+		var m := Vector2(ctr.x + 12.0, ctr.z + (-9.0 if k == 0 else 9.0))
+		_poser(q, VEGETATION, "plante", "massif", Vector3(m.x, 0.0, m.y), 700 + k, {"longueur": 8.0, "largeur": 3.0, "fleurs": "#d04a8a" if k % 2 == 0 else "#f4f0e6", "lod": "loin"}, 0.0, c)
+
+
+## Les arcs en plein cintre des galeries, entre deux piliers voisins (4 m d'axe) : les écoinçons des deux
+## faces jusqu'à la voûte, et l'intrados. Dans le repère du cloître.
+static func _arcs(c: Node3D, poses: Array) -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var haut := 5.3
+	var ep := 0.35
+	for i in poses.size():
+		for j in range(i + 1, poses.size()):
+			var a := Vector2(poses[i].x, poses[i].z)
+			var b := Vector2(poses[j].x, poses[j].z)
+			if absf(a.distance_to(b) - 4.0) > 0.2:
+				continue
+			var t := (b - a).normalized()
+			var n := Vector2(-t.y, t.x)
+			var mil := (a + b) * 0.5
+			var r := 2.0 - ep
+			var pas := 10
+			for f in [1.0, -1.0]:
+				var o: Vector2 = n * ep * f
+				var nf := Vector3(n.x * f, 0.0, n.y * f)
+				# au-dessus des piliers, de l'imposte à la voûte
+				for bout in [a, b]:
+					var p0: Vector2 = bout - t * ep + o
+					var p1: Vector2 = bout + t * ep + o
+					_quad(st, Vector3(p0.x, IMPOSTE, p0.y), Vector3(p1.x, IMPOSTE, p1.y), Vector3(p1.x, haut, p1.y), Vector3(p0.x, haut, p0.y), nf)
+				for k in pas:
+					var t0 := PI * (1.0 - float(k) / pas)
+					var t1 := PI * (1.0 - float(k + 1) / pas)
+					var q0: Vector2 = mil + t * r * cos(t0) + o
+					var q1: Vector2 = mil + t * r * cos(t1) + o
+					_quad(st, Vector3(q0.x, IMPOSTE + r * sin(t0), q0.y), Vector3(q1.x, IMPOSTE + r * sin(t1), q1.y), Vector3(q1.x, haut, q1.y), Vector3(q0.x, haut, q0.y), nf)
+			# l'intrados, tourné vers le centre de l'arc
+			for k in pas:
+				var t0 := PI * (1.0 - float(k) / pas)
+				var t1 := PI * (1.0 - float(k + 1) / pas)
+				var q0: Vector2 = mil + t * r * cos(t0)
+				var q1: Vector2 = mil + t * r * cos(t1)
+				var tm := (t0 + t1) * 0.5
+				var ni := Vector3(-t.x * cos(tm), -sin(tm), -t.y * cos(tm))
+				_quad(st, Vector3(q0.x + n.x * ep, IMPOSTE + r * sin(t0), q0.y + n.y * ep), Vector3(q1.x + n.x * ep, IMPOSTE + r * sin(t1), q1.y + n.y * ep),
+					Vector3(q1.x - n.x * ep, IMPOSTE + r * sin(t1), q1.y - n.y * ep), Vector3(q0.x - n.x * ep, IMPOSTE + r * sin(t0), q0.y - n.y * ep), ni)
+	var mi := MeshInstance3D.new()
+	mi.name = "Arcs"
+	mi.mesh = st.commit()
+	var m := mat(PIERRE_PALAIS.lightened(0.05), 0.85)
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mi.material_override = m
+	c.add_child(mi)
+
+
+static func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, n: Vector3) -> void:
+	for v in [a, b, c, a, c, d]:
+		st.set_normal(n)
+		st.add_vertex(v)
 
 
 # --- La vie ---------------------------------------------------------------------------------------
 
 ## Le samedi soir : le mariage sur le perron de l'Hôtel de Ville, les terrasses du nord, deux enfants dans
 ## les jets, des passants en diagonale, le livreur de la rue Terme, les joueurs du cloître. Les figurants
-## du socle sont à l'échelle du jeu : leur groupe annule l'échelle de la racine.
+## du socle sont à l'échelle du jeu : leur groupe annule l'échelle de la racine. Chaque figurant coûte deux
+## scripts actifs : 28 en tout, pour que la commune reste sous le seuil de 250.
 static func _vie(q: Dictionary) -> void:
 	var racine: Node3D = q.racine
 	var k := 1.0 / racine.scale.x if racine.scale.x != 0.0 else 1.0
@@ -1154,8 +1284,8 @@ static func _vie(q: Dictionary) -> void:
 	var e := 1.0 / k
 	# le mariage : un arc de figurants devant le perron, le photographe en face
 	var hdv: Node3D = q.hdv
-	for j in 12:
-		var a := -1.2 + j * 0.22
+	for j in 8:
+		var a := -1.05 + j * 0.3
 		var lp := Vector3(sin(a) * 5.5, 0.0, 4.6 + cos(a) * 1.5 + (j % 2) * 0.8)
 		var w: Vector3 = hdv.transform * lp
 		var f: Node3D = Atelier.figurant(g, "idle", "soiree" if j % 3 == 0 else "village")
@@ -1170,8 +1300,8 @@ static func _vie(q: Dictionary) -> void:
 	groupe.add_child(fph)
 	g += 1
 	# les terrasses : des attablés devant les cafés du nord
-	for j in 14:
-		var uv := Vector2(-40.0 + j * 6.5 + (j % 2) * 1.5, -21.5 - (j % 3) * 1.1)
+	for j in 8:
+		var uv := Vector2(-40.0 + j * 11.0 + (j % 2) * 1.5, -21.5 - (j % 3) * 1.1)
 		var w := monde(uv.x, uv.y)
 		var f: Node3D = Atelier.figurant(g, "sit")
 		f.position = Vector3(w.x, sol_place(q, uv.x, uv.y), w.y) * e
@@ -1190,8 +1320,6 @@ static func _vie(q: Dictionary) -> void:
 	# les passants : en diagonale sur la place, le long des façades, dans la rue Terme
 	var routes := [
 		[Vector2(-50, 30), Vector2(0, 12), Vector2(55, -5)],
-		[Vector2(55, 25), Vector2(10, 22), Vector2(-50, -18)],
-		[Vector2(-50, -24), Vector2(10, -25), Vector2(58, -24)],
 		[Vector2(58, 30), Vector2(0, 31), Vector2(-50, 31)],
 		[Vector2(-2, 36), Vector2(-2, 20), Vector2(30, 0)],
 	]
@@ -1240,13 +1368,14 @@ static func _reperes(q: Dictionary) -> void:
 		return Vector2(w.x, w.z)
 	var reperes := {
 		# dans l'ombre de la rue d'Algérie, à 25 m du débouché : les façades cadrent la place, le beffroi au fond
-		"Vue1a_Terme": [Vector2(172.0, 180.5), Vector2(305.0, 196.0)],
+		"Vue1a_Terme": [Vector2(172.0, 180.5), Vector2(305.0, 220.0)],
 		"Vue1b_Debouche": [Vector2(200.0, 178.0), Vector2(305.0, 180.0)],
 		"Vue2a_Salle": [monde(-35.0, 26.0), Vector2(305.0, 176.0)],
 		# les coudes de la promenade : devant le porche, puis dans la galerie nord du cloître
 		"Vue2b_Porche": [monde(PORCHE, 31.0), monde(PORCHE, 60.0)],
-		"Vue2c_Galerie": [cl.call(Vector2(PORCHE, 60.0)), cl.call(Vector2(-20.0, 100.0))],
-		"Vue3_Cloitre": [cl.call(Vector2(-20.0, 100.0)), Vector2(HDV.x, HDV.y - 5.0)],
+		"Vue2c_Galerie": [cl.call(Vector2(PORCHE, 60.0)), cl.call(Vector2(-6.0, 80.5))],
+		# sur l'allée est-ouest, le bassin au croisement et le dôme du beffroi par-dessus l'aile est
+		"Vue3_Cloitre": [cl.call(Vector2(-6.0, 80.5)), cl.call(Vector2(36.0, 79.0))],
 		"Arrivee_Terreaux": [Vector2(321.0, 236.0), Vector2(290.0, 205.0)],
 	}
 	for nom in reperes:

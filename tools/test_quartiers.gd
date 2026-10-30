@@ -207,6 +207,42 @@ func _init() -> void:
 	ouvragee.material_override = ShaderMaterial.new()
 	ouvragee.position = Vector3(40, 5, 0)
 	lourd.add_child(ouvragee)
+	# un volume de quartier : 3 000 sommets de quads disjoints, qui ne se simplifient pas ; il reste tel quel
+	var quads := SurfaceTool.new()
+	quads.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in 500:
+		var o := Vector3(80 + (i % 25) * 0.5, 0, 40 + (i / 25) * 0.5)
+		for coin in [Vector3(0, 0, 0), Vector3(0.4, 0, 0), Vector3(0.4, 3, 0), Vector3(0, 0, 0), Vector3(0.4, 3, 0), Vector3(0, 3, 0)]:
+			quads.set_normal(Vector3.BACK)
+			quads.add_vertex(o + coin)
+	var volume := MeshInstance3D.new()
+	volume.mesh = quads.commit()
+	lourd.add_child(volume)
+	# les volumes d'un quartier (les Terreaux) : des murs de 6 à 10 m autour de 130 emprises, un pan de mur
+	# par triangle, aux UV du shader des murs ; meshoptimizer saurait les réduire, mais il n'en ferait que des
+	# pans crevés et aveugles (planche 43 de la rue Terme) : déjà au plus simple, ils restent entiers
+	var murs := SurfaceTool.new()
+	murs.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in 130:
+		var o := Vector2(120 + (i % 13) * 12.0, 40 + (i / 13) * 12.0)
+		var coins := [o, o + Vector2(8, 0), o + Vector2(8, 6), o + Vector2(0, 6)]
+		for k in 4:
+			var a: Vector2 = coins[k]
+			var bout: Vector2 = coins[(k + 1) % 4]
+			var n := Vector2(bout.y - a.y, a.x - bout.x).normalized()
+			var pts := [Vector3(a.x, 0, a.y), Vector3(bout.x, 0, bout.y), Vector3(bout.x, 15, bout.y), Vector3(a.x, 15, a.y)]
+			var uvs := [Vector2(0, 0), Vector2(2.5, 0), Vector2(2.5, 15), Vector2(0, 15)]
+			for j in [0, 1, 2, 0, 2, 3]:
+				murs.set_normal(Vector3(n.x, 0, n.y))
+				murs.set_color(Color.BISQUE)
+				murs.set_uv(uvs[j])
+				murs.set_uv2(Vector2(15, i))
+				murs.add_vertex(pts[j])
+	var volumes := MeshInstance3D.new()
+	volumes.name = "Volumes"
+	volumes.mesh = murs.commit()
+	volumes.material_override = ShaderMaterial.new()
+	lourd.add_child(volumes)
 	var leger := Quartiers.fondre(lourd)
 	var sommets := 0
 	var matieres := []
@@ -214,13 +250,19 @@ func _init() -> void:
 		var am: ArrayMesh = (morceau as MeshInstance3D).mesh
 		for si in am.get_surface_count():
 			matieres.append(am.surface_get_material(si))
-	check(matieres.all(func(m): return not m is ShaderMaterial) and matieres.any(func(m): return m is StandardMaterial3D and m.albedo_color == Lointain.ENDUIT_BOITE), "version légère : la boîte d'une façade à shader prend un enduit simple")
-	sommets = Lointain._sommets(pm2)
-	var attendu := sommets + 48 + 24 + Lointain._sommets(pm)
-	sommets = 0
+			sommets += am.surface_get_array_len(si)
+	var plein_sommets := 0
+	for mi: MeshInstance3D in lourd.find_children("*", "MeshInstance3D", true, false):
+		plein_sommets += Lointain._sommets(mi.mesh)
+	var volumes_loin := 0
 	for morceau in leger.get_children():
-		sommets += Lointain._sommets((morceau as MeshInstance3D).mesh)
-	check(leger != null and sommets == attendu, "version légère : la sphère de 8 000 sommets devient sa boîte, la caisse de 50 cm disparaît, la maison reste, d'une brique à deux niveaux seul le corps lointain est pris, et un pan de 100 m reste entier (%d sommets, %d attendus)" % [sommets, attendu])
+		var am: ArrayMesh = (morceau as MeshInstance3D).mesh
+		for si in am.get_surface_count():
+			if am.surface_get_material(si) == volumes.material_override:
+				volumes_loin += am.surface_get_array_len(si)
+	check(volumes_loin == 130 * 4 * 6, "version légère : les volumes d'un quartier, un pan de mur par triangle, restent entiers (%d sommets pour %d)" % [volumes_loin, 130 * 4 * 6])
+	check(leger != null and matieres.any(func(m): return m is ShaderMaterial), "version légère : une façade à shader simplifiée garde son shader")
+	check(sommets > 3000 + 3120 + 48 + Lointain._sommets(pm) and (sommets - volumes_loin) * 4 < plein_sommets - volumes_loin, "version légère : les maillages lourds sont simplifiés, pas mis en boîte, un volume de quads qui ne se simplifie pas reste entier (%d sommets pour %d), la caisse de 50 cm disparaît, la maison et le corps lointain de la brique restent" % [sommets, plein_sommets])
 	leger.free()
 	lourd.free()
 
