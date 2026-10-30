@@ -8,9 +8,9 @@ extends CanvasLayer
 ## la brume, l'aéroport de Poitiers-Biard dessert les destinations lointaines (socle 1.5) : la fiche
 ## de Poitiers donne leurs vols, et l'on y part en avion (voler). Dézoomer encore sur le département
 ## entier montre la France (vers_france) : les régions cernées, la Vienne en or, l'épingle sur la
-## commune où l'on est. On y désigne une région, puis on la regarde (vers_region) pour désigner ses
-## départements ; zoomer sur un département que le jeu connaît (la Nouvelle-Aquitaine, l'Auvergne-Rhône-Alpes et l'Occitanie), ou « Voir ses
-## communes », y redescend (vers_departement). En haut à gauche, le fil d'Ariane (France › région ›
+## commune où l'on est. Un clic sur une région s'en approche (vers_region), un clic sur un de ses
+## départements que le jeu connaît (la Nouvelle-Aquitaine, l'Auvergne-Rhône-Alpes et l'Occitanie) y
+## redescend (vers_departement), sans fiche à valider ; seule la commune demande « Y aller ». En haut à gauche, le fil d'Ariane (France › région ›
 ## département) dit où l'on regarde et y remonte d'un clic, et « Où aller » liste les villes ouvertes ou
 ## à installer, les plus proches d'abord ; la fiche d'une ville dit ce qu'on y trouve et le trajet.
 
@@ -417,6 +417,22 @@ func vers_departement(code := France.VIENNE) -> void:
 	_en_route = false
 
 
+## Le clic sur un département de la France : sur la France entière, sa région s'approche (la Vienne,
+## elle, s'ouvre tout de suite) ; dans une région, un département connu montre ses communes, un
+## département d'une autre région ouvre cette région, un département pas encore dans le jeu garde sa fiche.
+func _descendre(code: String) -> void:
+	var reg := France.region_de(code)
+	if code == France.VIENNE and _carte.region == "":
+		vers_departement(code)
+	elif reg != "" and reg != _carte.region:
+		vers_region(reg)
+	elif Departements.connu(code):
+		vers_departement(code)
+	else:
+		_carte.choisie = code
+		_montrer(code)
+
+
 ## L'ancien nom : redescendre dans la Vienne.
 func vers_vienne() -> void:
 	vers_departement(France.VIENNE)
@@ -648,14 +664,18 @@ func _construire() -> void:
 	_carte.rivieres = true
 	_carte.marge = 36.0
 	_carte.set_anchors_preset(Control.PRESET_FULL_RECT)
+	# Une commune choisie garde sa fiche : en allant vers « Y aller », la souris passe sur d'autres
+	# communes sans que la fiche change sous elle. Sans choix, la fiche suit le survol.
 	_carte.survol.connect(func(i):
-		if i != "":
-			_montrer(i)
-		elif _carte.choisie != "":
-			_montrer(_carte.choisie)
-		else:
-			_montrer(_defaut()))
+		if _carte.choisie != "":
+			return
+		_montrer(i if i != "" else _defaut()))
 	_carte.choix.connect(func(i):
+		# Sur la France, un clic descend d'un cran, sans fiche à valider : la confirmation n'a lieu
+		# qu'au niveau des communes, avant le chargement.
+		if _carte.niveau == "france" and i != "":
+			_descendre(i)
+			return
 		_carte.choisie = i
 		_carte.trajet = i if _carte.niveau == "departement" else ""
 		_montrer(i if i != "" else _defaut()))
@@ -731,6 +751,8 @@ func _construire() -> void:
 	_fiche.offset_right = -28
 	_fiche.offset_bottom = -28
 	_fiche.custom_minimum_size.x = 340
+	# La fiche capte la souris : ce qu'elle couvre de la carte ne s'allume pas sous elle.
+	_fiche.mouse_filter = Control.MOUSE_FILTER_STOP
 	_root.add_child(_fiche)
 	_fiche_box = VBoxContainer.new()
 	_fiche_box.add_theme_constant_override("separation", 8)
@@ -821,8 +843,8 @@ func _rafraichir(garder := true) -> void:
 		else ("Arrêt de la Place, %s" % (ici.nom if ici else "Smarves")) if _mode == "car" else str(dep.get("nom", "Vienne"))
 	_retour.text = "←  Revenir au menu" if _titre else "←  Revenir à %s" % (ici.nom if ici else "Smarves")
 	if france:
-		_aide.text = ("Pincer pour zoomer  ·  toucher une région, puis un département  ·  zoomer sur un département pour y descendre" if Tactile.active
-			else "Molette pour zoomer  ·  cliquer une région, puis un département  ·  zoomer sur un département pour y descendre  ·  Échap ou M pour revenir")
+		_aide.text = ("Pincer pour zoomer  ·  toucher une région, puis un département pour voir ses communes" if Tactile.active
+			else "Molette pour zoomer  ·  cliquer une région, puis un département pour voir ses communes  ·  Échap ou M pour revenir")
 	else:
 		_aide.text = ("Pincer pour zoomer  ·  glisser pour déplacer  ·  toucher une commune  ·  écarter encore pour la France" if Tactile.active
 			else "Molette pour zoomer  ·  glisser pour déplacer  ·  cliquer une commune  ·  dézoomer encore pour la France  ·  Échap ou M pour revenir")
