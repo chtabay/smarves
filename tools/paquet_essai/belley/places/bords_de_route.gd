@@ -12,6 +12,9 @@ const PIERRE_PONT := Color("c9b994", 0.0)
 ## Le pont du canal : le tronçon du parcours, en mètres depuis la ville, où l'eau borde la route (couverture.json).
 const PONT := [3690.0, 3790.0]
 ## Les vignes de la descente vers le Rhône : [tronçon, abscisse, côté] des parcelles au bord du parcours.
+## L'épingle des lacets de la montée au banc : [début, fin] en mètres depuis la ville, et le centre du virage.
+const EPINGLE := [5630.0, 5760.0]
+const CENTRE_EPINGLE := Vector2(2793.0, 1012.0)
 const VIGNES := [[1, 560.0, 1.0], [1, 640.0, -1.0], [1, 1160.0, 1.0]]
 ## Les verts de la vigne fin septembre, qui tournent déjà au jaune par endroits.
 const VERTS_VIGNE := ["b8b24e", "9cac44", "86983c", "6f8234", "5a6c2c"]
@@ -31,6 +34,8 @@ var objets := {}
 var tablier := PackedVector2Array()
 ## Les ancres des parcelles de vigne : [point, direction, côté].
 var ancres: Array = []
+## Les points du parcours dans l'épingle des lacets, pour son muret.
+var epingle := PackedVector2Array()
 
 
 func _init(sol: Callable) -> void:
@@ -53,6 +58,7 @@ func batir(parent: Node3D) -> void:
 		t += 1
 	_sortie_de_ville(n)
 	_pont()
+	_muret_epingle()
 	for an in ancres:
 		_vigne(n, an[0], an[1], an[2])
 	for cle in objets:
@@ -97,6 +103,8 @@ func _longer(n: Node3D, ombriere: PackedScene, pts: PackedVector2Array, t: int) 
 			for vg in VIGNES:
 				if t == vg[0] and abs_s >= vg[1] and abs_s < vg[1] + 12.0:
 					ancres.append([c, dir, vg[2]])
+			if t == 0 and abs_s >= EPINGLE[0] and abs_s <= EPINGLE[1]:
+				epingle.append(c)
 			var sur_pont: bool = t == 0 and abs_s >= PONT[0] and abs_s <= PONT[1]
 			if sur_pont:
 				tablier.append(c)
@@ -182,8 +190,8 @@ func _sortie_de_ville(n: Node3D) -> void:
 			if absf(z - 806.0) > 1.6:
 				var v := Vector2(x, z + 1.0)
 				var y: float = hauteur.call(v.x, v.y)
-				o.boite(Transform3D(Basis(), Vector3(v.x, y + 0.6, v.y)), Vector3(0.45, 1.6, 2.02), Color("c9b994", 0.0))
-				o.boite(Transform3D(Basis(), Vector3(v.x, y + 1.45, v.y)), Vector3(0.6, 0.1, 2.02), Color("b7ad97", 0.0))
+				o.boite(Transform3D(Basis(), Vector3(v.x, y + 0.6, v.y)), Vector3(0.45, 1.6, 2.02), Color("a99d80", 0.0))
+				o.boite(Transform3D(Basis(), Vector3(v.x, y + 1.45, v.y)), Vector3(0.6, 0.1, 2.02), Color("b3a88f", 0.0))
 			z += 2.0
 		# Le trottoir, bordé, qui finit avec le mur.
 		var x0: float = x - float(cote[1]) * 1.9
@@ -315,3 +323,24 @@ func _vigne(n: Node3D, c: Vector2, dir: Vector2, cote: float) -> void:
 
 func _sur(v: Vector2, dy: float) -> Vector3:
 	return Vector3(v.x, hauteur.call(v.x, v.y) + dy, v.y)
+
+
+## Le muret de pierre sèche à l'extérieur de l'épingle, côté vallée, avec son chaperon.
+func _muret_epingle() -> void:
+	if epingle.size() < 2:
+		return
+	var o: RefCounted = _objets(epingle[0])
+	# Des points serrés le long du virage (ceux du parcours sont tous les 12 m).
+	var pts := PackedVector2Array()
+	for i in epingle.size() - 1:
+		for k in 4:
+			pts.append(epingle[i].lerp(epingle[i + 1], k / 4.0))
+	pts.append(epingle[-1])
+	for i in pts.size() - 1:
+		var a := pts[i] + (pts[i] - CENTRE_EPINGLE).normalized() * 3.4
+		var b := pts[i + 1] + (pts[i + 1] - CENTRE_EPINGLE).normalized() * 3.4
+		var m := (a + b) * 0.5
+		var y: float = hauteur.call(m.x, m.y)
+		var bm := Basis(Vector3.UP, atan2(-(b - a).y, (b - a).x))
+		o.boite(Transform3D(bm, Vector3(m.x, y + 0.35, m.y)), Vector3(a.distance_to(b) + 0.05, 0.9, 0.5), Color("a69c86", 0.0))
+		o.boite(Transform3D(bm, Vector3(m.x, y + 0.84, m.y)), Vector3(a.distance_to(b) + 0.05, 0.1, 0.6), Color("b7ad97", 0.0))
