@@ -36,6 +36,7 @@ var terrain: Node3D
 
 func _ready() -> void:
 	_ciel()
+	_saturer_briques()
 	terrain = TERRAIN.new()
 	terrain.name = "Terrain"
 	add_child(terrain)
@@ -64,6 +65,16 @@ func _cathedrale() -> void:
 
 func hauteur(x: float, z: float) -> float:
 	return terrain.sol(x, z)
+
+
+## Les briques de Belley prennent un matériau « dur » à saturation sélective (atelier/sature.gdshader, verdict
+## n° 24) : on le pose dans leur cache de matériaux avant qu'elles ne bâtissent.
+func _saturer_briques() -> void:
+	var m := ShaderMaterial.new()
+	m.shader = load("res://communes/belley/atelier/sature.gdshader")
+	for brique in ["facadier-du-bugey", "mobilier-du-bugey"]:
+		var outils: GDScript = load("res://bibliotheque/%s/1/outils.gd" % brique)
+		outils._materiaux[0] = m
 
 
 func _ciel() -> void:

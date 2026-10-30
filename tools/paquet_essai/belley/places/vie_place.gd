@@ -15,6 +15,14 @@ const TROTTOIR := Color("a89c84")
 ## L'axe de la rue des Barons dans son tronçon d'arrivée, et sa demi-largeur de chaussée (bourg.json).
 const BARONS := [Vector2(117.0, 295.0), Vector2(128.0, 299.0), Vector2(159.0, 313.0), Vector2(165.0, 315.0)]
 const DEMI_CHAUSSEE := 2.5
+## Le mur du jardin de gauche, entre la première maison et la suivante, en retrait (abscisses le long de la rue
+## depuis BARONS[1]), et son portail.
+const MUR_DE := 7.6
+const MUR_A := 30.0
+const PORTAIL := 14.0
+const MOELLON := Color("a89574")
+const CHAPERON := Color("c9bba0")
+const PORTE := Color("4f6b52")
 
 var hauteur: Callable
 
@@ -37,6 +45,7 @@ func batir(parent: Node3D) -> void:
 	_course(n, d, nrm, longueur)
 	_trottoirs(n)
 	_rue_des_barons(n)
+	_mur_de_jardin(n)
 	# Le côté ouvert de la rue des Barons, en descendant vers la place : un trottoir, sa bordure et une haie basse
 	# devant les jardins, au lieu d'un talus de pelouse (verdict n° 19).
 	var bugey: PackedScene = load(Bibliotheque.scene("vegetation-du-bugey@1", "decor"))
@@ -103,7 +112,8 @@ func _course(n: Node3D, d: Vector2, nrm: Vector2, longueur: float) -> void:
 	var banderole: Node3D = scene.instantiate()
 	banderole.set("objet", "banderole")
 	banderole.set("graine", 11)
-	banderole.set("options", {"texte": "GRAND PRIX DE LA LOUVE", "largeur": 9.5, "couleur": "d22a2a"})
+	# taille_texte : la PR #309 de la bibliothèque ; ignorée tant qu'elle n'est pas fusionnée.
+	banderole.set("options", {"texte": "GRAND PRIX DE LA LOUVE", "largeur": 9.5, "couleur": "d22a2a", "taille_texte": "ajuste"})
 	banderole.position = _p(Vector2(133.0, 301.2))
 	banderole.rotation.y = atan2(-0.91, -0.41)
 	n.add_child(banderole)
@@ -184,7 +194,7 @@ func _rue_des_barons(n: Node3D) -> void:
 		n.add_child(f)
 		f.suivre(pts, k % 2, 0.9 + 0.1 * (k % 3), 3.0, "idle")
 		f.position = pts[0].lerp(pts[1], 0.1 + 0.18 * k)
-	var seuil := a + dr * 17.0 - flanc * 4.2
+	var seuil := a + dr * PORTAIL - flanc * 4.2
 	for k in 2:
 		var f := Atelier.personnage("client", 370 + k)
 		if f == null:
@@ -193,3 +203,41 @@ func _rue_des_barons(n: Node3D) -> void:
 		f.position = _p(seuil + dr * (0.8 if k == 0 else -0.8), 0.28)
 		f.regarder(_p(seuil))
 		f.jouer(["talk", "arms"][k])
+
+
+## Le jardin de gauche, dans le vide après la première maison (verdict n° 24) : un mur de moellons de 1,8 m au
+## bord du trottoir, son chaperon, et un portail de bois peint entre deux piliers de pierre de taille.
+func _mur_de_jardin(n: Node3D) -> void:
+	var o := OUTILS.new(1036)
+	var a: Vector2 = BARONS[1]
+	var dr := (BARONS[2] - a).normalized()
+	var dehors := -Vector2(-dr.y, dr.x)
+	var bord := DEMI_CHAUSSEE + 2.45 + 0.25
+	var base := Basis(Vector3.UP, -atan2(dr.y, dr.x))
+	for troncon in [[MUR_DE, PORTAIL - 1.7], [PORTAIL + 1.7, MUR_A]]:
+		var nb := ceili((troncon[1] - troncon[0]) / 2.0)
+		var l: float = (troncon[1] - troncon[0]) / nb
+		for k in nb:
+			var v: Vector2 = a + dr * (float(troncon[0]) + (k + 0.5) * l) + dehors * bord
+			var y: float = hauteur.call(v.x, v.y)
+			o.boite(Transform3D(base, Vector3(v.x, y + 0.8, v.y)), Vector3(l + 0.02, 2.0, 0.45), MOELLON)
+			o.boite(Transform3D(base, Vector3(v.x, y + 1.84, v.y)), Vector3(l + 0.04, 0.1, 0.58), CHAPERON)
+	for cote: float in [-1.0, 1.0]:
+		var v := a + dr * (PORTAIL + cote * 1.45) + dehors * bord
+		var y: float = hauteur.call(v.x, v.y)
+		o.boite(Transform3D(base, Vector3(v.x, y + 1.0, v.y)), Vector3(0.5, 2.4, 0.55), CHAPERON.darkened(0.04))
+		o.boite(Transform3D(base, Vector3(v.x, y + 2.25, v.y)), Vector3(0.62, 0.12, 0.66), CHAPERON)
+		o.boite(Transform3D(base, Vector3(v.x, y + 2.42, v.y)), Vector3(0.3, 0.22, 0.3), CHAPERON.lightened(0.04))
+	# Les deux vantaux de planches, avec leur traverse haute et leur écharpe.
+	var p := a + dr * PORTAIL + dehors * bord
+	var yp: float = hauteur.call(p.x, p.y)
+	for cote: float in [-1.0, 1.0]:
+		var c := p + dr * cote * 0.6
+		o.boite(Transform3D(base, Vector3(c.x, yp + 0.95, c.y)), Vector3(1.16, 1.75, 0.06), PORTE)
+		for k in 5:
+			var x := c + dr * (-0.46 + k * 0.23)
+			o.boite(Transform3D(base, Vector3(x.x, yp + 0.95, x.y) + Vector3(-dehors.x, 0, -dehors.y) * 0.04), Vector3(0.02, 1.7, 0.02), PORTE.darkened(0.25))
+		o.boite(Transform3D(base, Vector3(c.x, yp + 1.62, c.y) + Vector3(-dehors.x, 0, -dehors.y) * 0.05), Vector3(1.12, 0.12, 0.04), PORTE.darkened(0.12))
+		o.boite(Transform3D(base, Vector3(c.x, yp + 0.32, c.y) + Vector3(-dehors.x, 0, -dehors.y) * 0.05), Vector3(1.12, 0.12, 0.04), PORTE.darkened(0.12))
+		o.boite(Transform3D(base * Basis(Vector3.BACK, cote * 0.95), Vector3(c.x, yp + 0.97, c.y) + Vector3(-dehors.x, 0, -dehors.y) * 0.05), Vector3(1.45, 0.1, 0.04), PORTE.darkened(0.12))
+	o.construire(n, "MurDeJardin")

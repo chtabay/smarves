@@ -19,7 +19,8 @@ const UNITE := 2.4
 ## Les enduits de la note, et ceux de la planche (crème, sable, ocre pâle).
 const ENDUITS := [Color("e4d7bd"), Color("d2be98"), Color("e8dcc2"), Color("ddc9a3"), Color("efe4cc"), Color("d9c7a5"), Color("e2cfa8")]
 const PIERRES := [Color("ddd3bc"), Color("cfc3a6"), Color("d8ccb0")]
-const TUILES := [Color("c27a50", 0.0), Color("b56b45", 0.0), Color("a8613f", 0.0), Color("c98a5e", 0.0), Color("b9744c", 0.0), Color("9c5a3e", 0.0)]
+## Saturées de 13 % (verdict n° 24 : la saturation de la planche vient des albédos).
+const TUILES := [Color("c97849", 0.0), Color("bc693e", 0.0), Color("af5f38", 0.0), Color("d08957", 0.0), Color("c07245", 0.0), Color("a25838", 0.0)]
 const ARDOISE := Color("4b535c", 0.0)
 const ZINC := Color("8a9298", 0.4)
 const BRIQUE := Color("b5603e", 0.9)
@@ -290,11 +291,15 @@ func _facadier(m: Dictionary, graine: int, rng: RandomNumberGenerator, leger := 
 	var vers_soleil := Vector2(sin(deg_to_rad(SOLEIL_VIENT_DE)), -cos(deg_to_rad(SOLEIL_VIENT_DE)))
 	if v.dot(vers_soleil) > 0.75:
 		opt["enduit"] = "c9b08a"
-	if _pres_des_barons(c, lu, lv):
+	if _pres_des_barons(c, lu, lv, 6.0):
 		opt["enduit"] = "bfa47e"
 		opt["mur"] = "enduit"
 		# Les volets de bois à barres n'ont pas de relief à cette distance : des persiennes, lames comprises.
 		opt["volets"] = "persiennes"
+	elif _pres_des_barons(c, lu, lv, 30.0):
+		# En retrait de la rue, à l'ombre : des moellons gris, les encadrements ne s'y lisaient pas (verdict n° 24).
+		# Un enduit chaud, sur lequel la pierre de taille claire se détache.
+		opt["mur"] = "enduit"
 	if leger:
 		opt.merge({"fleurs": false, "mur": "enduit", "vigne": false, "balcon": false, "auvent": false, "lanterne": false}, true)
 	var n: Node3D = FACADIER.maison(noeud, Vector3(pied.x, y, pied.y), type, graine, opt)
@@ -302,12 +307,12 @@ func _facadier(m: Dictionary, graine: int, rng: RandomNumberGenerator, leger := 
 	return true
 
 
-## La maison borde-t-elle la rue des Barons, à l'arrivée sur la place ?
-func _pres_des_barons(c: Vector2, lu: float, lv: float) -> bool:
+## La maison est-elle à moins de marge de la rue des Barons, à l'arrivée sur la place ?
+func _pres_des_barons(c: Vector2, lu: float, lv: float, marge: float) -> bool:
 	var axe: Array = VIE.BARONS
 	for i in axe.size() - 1:
 		var q := Geometry2D.get_closest_point_to_segment(c, axe[i], axe[i + 1])
-		if q.distance_to(c) < maxf(lu, lv) * 0.5 + 6.0:
+		if q.distance_to(c) < maxf(lu, lv) * 0.5 + marge:
 			return true
 	return false
 
