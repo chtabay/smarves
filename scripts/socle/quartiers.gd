@@ -123,7 +123,7 @@ static func poser_de(parent: Node, c: Commune, nom: String) -> Node3D:
 
 ## Les objets lointains à l'image suivante, si le quartier est encore là (la veille peut l'avoir allégé).
 static func _lointain_differe(n: Node3D) -> void:
-	var w := weakref(n)
+	var w: WeakRef = weakref(n)
 	(func() -> void:
 		var o = w.get_ref()
 		if o != null and o.is_inside_tree():
