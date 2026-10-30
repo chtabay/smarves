@@ -756,7 +756,9 @@ func materiau_paves() -> ShaderMaterial:
 	sh.code = """
 shader_type spatial;
 varying vec3 monde;
-void vertex() { monde = VERTEX; }
+// en mètres du monde (le jeu compte en unités de 2,4 m) : le même grain sous la ville et dans chaque quartier,
+// quel que soit le repère de leur maillage
+void vertex() { monde = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz * 2.4; }
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 void fragment() {
 	vec2 q = monde.xz / vec2(0.32, 0.22);
