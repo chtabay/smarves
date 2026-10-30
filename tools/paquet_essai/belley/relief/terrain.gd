@@ -70,6 +70,9 @@ func sol(x: float, z: float) -> float:
 			continue
 		var pas: float = a[2]
 		var cote: float = a[3]
+		# Sur le bord haut du cadre, le carreau d'après serait vide (un pas nul) : on reste dans le dernier.
+		x = minf(x, c[2] - 0.001)
+		z = minf(z, c[3] - 0.001)
 		var x0: float = c[0] + floorf((x - c[0]) / cote) * cote
 		var z0: float = c[1] + floorf((z - c[1]) / cote) * cote
 		var x1 := minf(x0 + cote, c[2])
