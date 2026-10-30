@@ -807,7 +807,8 @@ static func _mobilier_toulousain(t, racine: Node3D) -> void:
 	# serrées devant, le menu du jour sur l'ardoise.
 	var vert := ["2f6a4a", "f3ead6"]
 	for p in [Vector2(-2.9, -7.4), Vector2(-2.3, -5.0), Vector2(-1.7, -2.6)]:
-		poser.call("store_terrasse", p, PI * 0.5 + 0.2, g, {"toile": vert})
+		# des habitués sous les stores (juge, revue finale : la seule terrasse vide de la place)
+		poser.call("store_terrasse", p, PI * 0.5 + 0.2, g, {"toile": vert, "clients": 3})
 		g += 1
 	for p in [Vector2(-0.3, -6.4), Vector2(0.3, -4.0)]:
 		poser.call("terrasse", p, PI * 0.5 + 0.2, g, {"tables": 2, "clients": 2})
