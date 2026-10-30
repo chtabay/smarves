@@ -44,3 +44,5 @@ jobs:
         run: ./godot --headless --path . -s tools/test_minimap.gd
       - name: Vérifier la musique des lieux
         run: ./godot --headless --path . -s tools/test_musique.gd
+      - name: Vérifier l'assise des bâtiments sur le relief
+        run: ./godot --headless --path . -s tools/test_assise.gd

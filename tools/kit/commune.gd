@@ -46,7 +46,11 @@ func _lumiere() -> void:
 ##   Atelier.modele("nature/tree_oak_fall")   un modèle ; Atelier.modeles("nature") liste une famille
 ##   Atelier.personnage("livreur", 7)   un habitant qui joue un rôle ; Atelier.figurant(1, "sit") un figurant
 ##   Bibliotheque.matiere("matieres-de-minuit@1", "marbre_noir")   une matière de la bibliothèque commune
-## Le vrai plan du bourg : python3 -I tools/bourg_reel.py <id>.
+## Le vrai plan du bourg : python3 -I tools/bourg_reel.py <id>. Sur son relief, les bâtiments s'assoient sur le terrain
+## dessiné et les toits coiffent les murs (docs/COMMUNE.md, « L'assise des bâtiments ») :
+##   Assise.caler_tout(self, hauteur)   l'assise de pierre des maisons du façadier, jusqu'au point bas du terrain
+##   Assise.sol(hauteur, plan)          le pied d'un mur ; Assise.deux_pans(plan, …) un toit sur le plan réel
+## et tools/mesure_assise.gd le vérifie.
 func _maquette() -> void:
 	pass
 
