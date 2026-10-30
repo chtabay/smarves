@@ -18,7 +18,7 @@ const SOLEIL := {"hauteur": 36.0, "vient_de": 262.0, "couleur": Color("ffd9a8")}
 const BRIQUES := ["c8653f", "d2714a", "be5b38", "db8158", "c46a48"]
 const ENDUITS := ["ebcfc0", "f2e4cf", "e7c9b0", "efdcc4"]
 const RUE := Color("dccdab")
-const PLACE := Color("d6a07a")
+const PLACE := Color("c98a5e")
 const FILET := Color("efe7da")
 
 ## La place Saint-Georges, en unités : le tapis de brique d'une façade à l'autre, rue de bordure comprise
@@ -75,8 +75,10 @@ func _ciel() -> void:
 	env.sky = sky
 	env.background_mode = Environment.BG_SKY
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 1.15
-	env.ambient_light_sky_contribution = 0.85
+	# une ombre colorée, chaude, pas noire : l'ambiance du soir renvoyée par la brique (juge, v0.11)
+	env.ambient_light_color = Color("e8b48a")
+	env.ambient_light_energy = 1.5
+	env.ambient_light_sky_contribution = 0.6
 	env.tonemap_mode = Environment.TONE_MAPPER_AGX
 	# Sans halo (Guillaume, 29 octobre : « les flash sont inutiles »).
 	env.glow_enabled = false
