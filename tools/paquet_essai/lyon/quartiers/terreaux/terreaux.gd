@@ -40,6 +40,10 @@ const ENDUITS := ["e2c28a", "d8a888", "ebdab8", "e6c08e", "dcb48c", "efdcb6", "d
 const ENDUITS_RUE := ["dccaa6", "d6c09a", "e2d0ac", "cfb894", "e0caa0"]
 const TUILES := ["8f4a38", "86422f", "965040", "7e3f30", "92503f", "8a4836"]
 const PIERRE := Color("#e8dcc3")
+## la pierre de l'Hôtel de Ville sous le soleil du soir : la même, prise plus dorée pour que l'or passe à l'écran
+const PIERRE_HDV := Color("#ebd9b8")
+const RUE_TERME := [Vector2(136.0, 124.0), Vector2(138.0, 130.0), Vector2(139.0, 138.0), Vector2(144.0, 183.0),
+	Vector2(146.0, 187.5), Vector2(149.0, 186.0), Vector2(183.0, 177.0), Vector2(199.0, 175.0)]
 const PIERRE_PALAIS := Color("#d9c49a")
 const ARDOISE := Color("#4a5058")
 const DOME := Color("#3e464e")
@@ -59,6 +63,7 @@ static func batir(racine: Node3D) -> void:
 	_volumes(q)
 	_fronts(q)
 	_place(q)
+	_rues(q)
 	_fontaine(q)
 	_hotel_de_ville(q)
 	_palais(q)
@@ -104,10 +109,15 @@ render_mode diffuse_burley, cull_disabled;
 uniform float monument = 0.0;
 uniform float rdc = 4.2;
 uniform float etage = 3.3;
+uniform float ombre = 0.6;
+varying vec3 dehors;
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+void vertex() { dehors = (MODELVIEW_MATRIX * vec4(NORMAL, 0.0)).xyz; }
 void fragment() {
-	// les normales sont posées vers le dehors ; le rendu les retourne sur les faces vues de dos, on les rend
-	NORMAL = FRONT_FACING ? NORMAL : -NORMAL;
+	// les normales sont posées vers le dehors : on les reprend telles quelles, quel que soit le sens des faces
+	NORMAL = normalize(dehors);
+	// la lumière du ciel baisse sur la pierre, pour que le mur au soleil vaille deux fois et demie le mur à l'ombre
+	AO = ombre;
 	vec3 c = pow(COLOR.rgb, vec3(2.2));
 	c = mix(c, vec3(dot(c, vec3(0.3, 0.59, 0.11))), 0.35 * (1.0 - monument)) * 1.04;
 	float h = UV2.x;
@@ -656,6 +666,69 @@ static func _blo(t: Vector3) -> BoxMesh:
 	return b
 
 
+## Le sol du sas : un seul pavé, celui des rues de la ville, de la limite du quartier au bord de la place,
+## d'une façade à l'autre, posé sur la chaussée et les trottoirs de la commune. Il monte de 3 à 20 cm sur ses
+## huit premiers mètres au milieu de la rue, pour que le pas ne bute pas sur la couture.
+static func _rues(q: Dictionary) -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var pts := PackedVector2Array()
+	for k in RUE_TERME.size() - 1:
+		var a: Vector2 = RUE_TERME[k]
+		var b: Vector2 = RUE_TERME[k + 1]
+		var n := int(ceil(a.distance_to(b) / 2.0))
+		for i in n:
+			pts.append(a.lerp(b, float(i) / n))
+	pts.append(RUE_TERME[-1])
+	var bords: Array = []
+	var depart := 0.0
+	for i in pts.size():
+		var t := (pts[mini(i + 1, pts.size() - 1)] - pts[maxi(i - 1, 0)]).normalized()
+		var n := Vector2(-t.y, t.x)
+		# 14 m entre façades dans la rue Terme, 9 m dans la rue d'Algérie
+		var l := 7.0 if pts[i].y < 184.0 else 4.5
+		if i > 0:
+			depart += pts[i].distance_to(pts[i - 1])
+		# la chaussée de la commune monte de 3 à 22 cm ; ses trottoirs et leurs bordures restent dessous
+		var dy := lerpf(0.03, 0.22, clampf(depart / 8.0, 0.0, 1.0))
+		var cote := []
+		for e in [-l, -3.2, 3.2, l]:
+			var p: Vector2 = pts[i] + n * e
+			cote.append(Vector3(p.x, hauteur(q, p.x, p.y) + (dy if absf(e) < 3.5 else 0.22), p.y))
+		bords.append(cote)
+	var coll := PackedVector3Array()
+	for i in bords.size() - 1:
+		for k in 3:
+			var a0: Vector3 = bords[i][k]
+			var a1: Vector3 = bords[i][k + 1]
+			var b0: Vector3 = bords[i + 1][k]
+			var b1: Vector3 = bords[i + 1][k + 1]
+			for v in [a0, b0, a1, a1, b0, b1]:
+				st.set_normal(Vector3.UP)
+				st.set_color(PAVE)
+				st.add_vertex(v)
+				coll.append(v)
+	var mi := MeshInstance3D.new()
+	mi.name = "RueTerme"
+	mi.mesh = st.commit()
+	var c = q.commune
+	if c != null and c.has_method("materiau_paves"):
+		mi.material_override = c.materiau_paves()
+	else:
+		var m := mat(PAVE, 0.9)
+		m.vertex_color_use_as_albedo = true
+		mi.material_override = m
+	q.racine.add_child(mi)
+	var corps := StaticBody3D.new()
+	var forme := CollisionShape3D.new()
+	var tri := ConcavePolygonShape3D.new()
+	tri.backface_collision = true
+	tri.set_faces(coll)
+	forme.shape = tri
+	corps.add_child(forme)
+	mi.add_child(corps)
+
+
 ## Le char triomphant : le bassin de pierre, le rocher, le char en conque, la femme qui mène, et les quatre
 ## chevaux cabrés vers le palais (+v), le poitrail dans l'écume. Un peu plus grand que nature (la note).
 static func _fontaine(q: Dictionary) -> void:
@@ -753,9 +826,9 @@ static func _hotel_de_ville(q: Dictionary) -> void:
 		var a: Vector2 = r[0]
 		var b: Vector2 = r[1]
 		var hh: float = r[2]
-		mur(st, Vector2(a.x, a.y), Vector2(b.x, b.y), -1.0, 0.0, hh, PIERRE, 3.0, 4.36, Vector2((a.x + b.x) * 0.5, -D * 0.5))
-		mur(st, Vector2(b.x, b.y), Vector2(b.x, -D), -1.0, 0.0, hh, PIERRE, 3.0, 4.36, Vector2((a.x + b.x) * 0.5, -D * 0.5))
-		mur(st, Vector2(a.x, -D), Vector2(a.x, a.y), -1.0, 0.0, hh, PIERRE, 3.0, 4.36, Vector2((a.x + b.x) * 0.5, -D * 0.5))
+		mur(st, Vector2(a.x, a.y), Vector2(b.x, b.y), -1.0, 0.0, hh, PIERRE_HDV, 3.0, 4.36, Vector2((a.x + b.x) * 0.5, -D * 0.5))
+		mur(st, Vector2(b.x, b.y), Vector2(b.x, -D), -1.0, 0.0, hh, PIERRE_HDV, 3.0, 4.36, Vector2((a.x + b.x) * 0.5, -D * 0.5))
+		mur(st, Vector2(a.x, -D), Vector2(a.x, a.y), -1.0, 0.0, hh, PIERRE_HDV, 3.0, 4.36, Vector2((a.x + b.x) * 0.5, -D * 0.5))
 	var mi := MeshInstance3D.new()
 	mi.name = "Facade"
 	mi.mesh = st.commit()
@@ -1157,7 +1230,9 @@ static func _reperes(q: Dictionary) -> void:
 		var w: Vector3 = palais.transform * Vector3(lp.x, 0.0, lp.y)
 		return Vector2(w.x, w.z)
 	var reperes := {
-		"Vue1_Terme": [Vector2(196.0, 178.0), Vector2(305.0, 180.0)],
+		# dans l'ombre de la rue d'Algérie, à 25 m du débouché : les façades cadrent la place, le beffroi au fond
+		"Vue1a_Terme": [Vector2(172.0, 180.5), Vector2(305.0, 196.0)],
+		"Vue1b_Debouche": [Vector2(200.0, 178.0), Vector2(305.0, 180.0)],
 		"Vue2a_Salle": [monde(-35.0, 26.0), Vector2(305.0, 176.0)],
 		# les coudes de la promenade : devant le porche, puis dans la galerie nord du cloître
 		"Vue2b_Porche": [monde(PORCHE, 31.0), monde(PORCHE, 60.0)],

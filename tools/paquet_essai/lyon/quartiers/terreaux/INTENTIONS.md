@@ -61,7 +61,7 @@ Rien pour le moment, comme à Sathonay : pas d'intérieur, ni table, ni jeu, ni 
 
 ### 1 La rue Terme et l'ouverture
 
-**Lieu** : le bas de la rue Terme, à l'angle nord-ouest de la place. Repère `Vue1_Terme`, en (196, 178), tourné vers l'est.
+**Lieu** : le bas de la rue Terme, à l'angle nord-ouest de la place. Repère `Vue1a_Terme`, en (172, 180), dans la rue d'Algérie à 25 m du débouché, tourné vers l'est-sud-est ; le coude `Vue1b_Debouche`, en (200, 178), sur le seuil de la place.
 
 On descend la rue Terme dans l'ombre, entre des façades hautes et pâles, le beffroi de l'Hôtel de Ville en haut à droite au-dessus des toits. Au dernier tiers, la rue s'élargit en un vestibule ; on sort, et la place est là, en enfilade : à gauche le front nord rasé de soleil avec ses stores, au premier plan les chevaux de Bartholdi dans leur eau, au fond l'Hôtel de Ville doré.
 
@@ -114,7 +114,7 @@ Les familles de VILLE.md, section 2 ; ce qui est propre au quartier :
 
 La lumière est celle de la commune, sans réglage propre : soleil de 258°, 31° de haut, `#FFE1B0`, saturation ×1,3 (VILLE.md). Les fourchettes du juge valent : médiane 75 à 150, noirs 20 à 60, hautes lumières 160 à 240, saturation 75 à 180 ; ciel de 15 à 22 % sur la place, 3 à 10 % dans la rue Terme.
 
-**Caméras de contrôle** (repère de la ville, en mètres, y au sol + 1,65) : les repères `Vue1_Terme`, `Vue2a_Salle`, `Vue3_Cloitre` (et les coudes `Vue2b_Porche`, `Vue2c_Galerie`) ; la vue d'ensemble depuis le sud-ouest, au-dessus du palais : `--libre=75,29,137,-40,-28,55` (en unités de la scène, 2,4 m) ; la vue du sas depuis le haut de la rue Terme vers le sud : `--libre=57.9,6,52,180,-2,70`.
+**Caméras de contrôle** (repère de la ville, en mètres, y au sol + 1,65) : les repères `Vue1a_Terme` (et le coude `Vue1b_Debouche`), `Vue2a_Salle`, `Vue3_Cloitre` (et les coudes `Vue2b_Porche`, `Vue2c_Galerie`) ; la vue d'ensemble depuis le sud-ouest, au-dessus du palais : `--libre=75,29,137,-40,-28,55` (en unités de la scène, 2,4 m) ; la vue du sas depuis le haut de la rue Terme vers le sud : `--libre=57.9,6,52,180,-2,70`.
 
 ## Ce que livre la maquette
 
