@@ -1,6 +1,7 @@
 extends SceneTree
 ## Vérifie la musique des lieux (Sfx.musique) sans affichage : godot --headless --path . -s tools/test_musique.gd
-## Les thèmes du socle se chargent et bouclent ; un thème monte pendant que l'autre descend, puis s'arrête ;
+## Les thèmes du socle se chargent et bouclent, les couches de la ville ont la même longueur et entrent avec
+## le total gagné ; un thème monte pendant que l'autre descend, puis s'arrête ;
 ## redemander le thème en cours ne fait rien ; un thème inconnu est ignoré ; le casino fait taire la musique
 ## et le village ramène la ville ; un thème retrouvé reprend où il en était ; la place et les trois socles
 ## des environs ont chacun leur thème.
@@ -32,10 +33,23 @@ func _jouent(sfx: Node) -> Array:
 
 func _lancer() -> void:
 	var sfx: Node = root.get_node("Sfx")
+	var game: Node = root.get_node("Game")
+	game.saving_enabled = false
+	game.won = 0
 	for nom in sfx.MUSIQUES:
-		var flux = load(sfx.MUSIQUES[nom])
-		check(flux is AudioStreamOggVorbis and flux.get_length() > 20.0, "le thème « %s » se charge (%.1f s)" % [nom, flux.get_length() if flux else 0.0])
-		check(sfx._flux_de(nom) != null and sfx._flux_de(nom).loop, "le thème « %s » boucle" % nom)
+		var chemins: Array = sfx.MUSIQUES[nom] if sfx.MUSIQUES[nom] is Array else [sfx.MUSIQUES[nom]]
+		var longueurs := []
+		for c in chemins:
+			var flux = load(c)
+			check(flux is AudioStreamOggVorbis and flux.get_length() > 40.0, "« %s » se charge (%.1f s)" % [c.get_file(), flux.get_length() if flux else 0.0])
+			longueurs.append(snappedf(flux.get_length(), 0.001) if flux else 0.0)
+		check(longueurs.count(longueurs[0]) == longueurs.size(), "les couches de « %s » ont la même longueur (%s)" % [nom, longueurs])
+		var f = sfx._flux_de(nom)
+		var boucle: bool = f != null and (f.loop if f is AudioStreamOggVorbis else f is AudioStreamSynchronized and f.get_sync_stream(0).loop)
+		check(boucle, "le thème « %s » boucle" % nom)
+	check(sfx._flux_de("ville") is AudioStreamSynchronized and sfx._flux_de("ville").stream_count == 3, "la ville est en trois couches qui tournent ensemble")
+	check(sfx.couches_pour("ville", 0) == 1 and sfx.couches_pour("ville", 999) == 1 and sfx.couches_pour("ville", 1000) == 2 and sfx.couches_pour("ville", 25000) == 3 and sfx.couches_pour("titre", 5000) == 0,
+		"les couches de la ville suivent le total gagné : le fond, les cuivres à 1 000, le chant à 10 000")
 
 	sfx.musique("titre")
 	check(sfx.musique_courante == "titre" and _jouent(sfx) == ["titre"], "l'écran titre a son thème")
@@ -50,6 +64,20 @@ func _lancer() -> void:
 	await _attendre(sfx.FONDU + 0.4)
 	check(_jouent(sfx) == ["ville"], "après le fondu, seule la ville joue (%s)" % [_jouent(sfx)])
 	check(sfx._positions.has("titre"), "on retient où en était le thème de l'écran titre")
+
+	var ville: AudioStreamSynchronized = sfx._flux_de("ville")
+	check(sfx.couches == 1 and ville.get_sync_stream_volume(0) == 0.0 and ville.get_sync_stream_volume(1) <= sfx.SILENCE_DB and ville.get_sync_stream_volume(2) <= sfx.SILENCE_DB,
+		"sans rien gagné, seul le fond de la ville joue")
+	game.won = 1500
+	sfx._poser_couches(0.3)
+	await _attendre(0.6)
+	check(sfx.couches == 2 and is_equal_approx(ville.get_sync_stream_volume(1), 0.0) and ville.get_sync_stream_volume(2) <= sfx.SILENCE_DB,
+		"à 1 500 gagnés, les cuivres entrent en fondu (%.1f dB), pas le chant" % ville.get_sync_stream_volume(1))
+	game.won = 12000
+	sfx._poser_couches(0.3)
+	await _attendre(0.6)
+	check(sfx.couches == 3 and is_equal_approx(ville.get_sync_stream_volume(2), 0.0), "à 12 000, le chant aussi")
+	game.won = 0
 
 	var lecteur: AudioStreamPlayer = sfx._lecteurs[sfx._actif]
 	sfx.musique("ville")
