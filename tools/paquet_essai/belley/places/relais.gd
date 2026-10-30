@@ -318,12 +318,7 @@ func _vegetation(parent: Node3D) -> void:
 	var v := OUTILS.new(8)
 	var cypres := [Vector2(-3, 4), Vector2(-3, 12), Vector2(22, 1.8), Vector2(34, 1.8), Vector2(40, 9), Vector2(66, 14), Vector2(62, 46), Vector2(50, 47)]
 	for c in cypres:
-		var pc := p(c.x, c.y, -0.1)
-		var hh := 8.5 + absi(hash(c)) % 3
-		v.branche(pc, pc + Vector3(0, 1.0, 0), 0.12, 0.1, Color("5a4632", 0.9))
-		for k in 5:
-			var f := k / 5.0
-			v.boule(pc + Vector3(0, 1.0 + f * hh * 0.82, 0), Vector3(1.05 - f * 0.7, hh * 0.2, 1.05 - f * 0.7), Color("2f5a2a").lightened(f * 0.08), 0.12, OUTILS.FEUILLE, 0.03, 0.6, 5, 8)
+		_cypres(v, c, 8.5 + absi(hash(c)) % 3)
 	# L'îlot planté qui sépare les places de la cour, les pots de fleurs devant la terrasse, les arbustes fleuris
 	# contre la façade, la haie le long du pré (vegetation-du-bugey@1), comme sur la planche.
 	_poser(parent, bugey, "plante", "haie", 301, {"longueur": 9.0}, Vector2(23.0, 6.5), 0.0)
@@ -354,7 +349,37 @@ func _vegetation(parent: Node3D) -> void:
 		v.boule(p(x, 2.0, 0.5), Vector3(1.5, 0.9, 0.9), Color("5f9436"), 0.25, OUTILS.FEUILLE, 0.08, 0.6, 5, 8)
 		if k % 2 == 0:
 			v.boule(p(x + 0.6, 2.2, 1.1), Vector3(0.5, 0.3, 0.4), Color("e37fa0"), 0.3, OUTILS.FEUILLE, 0.05, 0.3, 4, 6)
+	# De l'autre côté de la route, au premier plan de la vue : un rang de cyprès et de buissons sur l'accotement,
+	# puis des massifs bas jusqu'au bas du cadre, comme sur la planche ; le pré nu y levait la médiane (verdict
+	# n° 28).
+	var xb := -12.0
+	while xb < 72.0:
+		var hb := absi(hash(Vector2i(int(xb * 10.0), 5)))
+		var zb := -13.8 - float(hb % 10) / 10.0
+		if hb % 3 == 0:
+			_cypres(v, Vector2(xb, zb), 7.0 + float(hb % 4))
+		else:
+			v.boule(p(xb, zb, 0.6), Vector3(1.6, 1.0, 1.2), [Color("5f9436"), Color("4e7f2e"), Color("6a9a3c")][hb % 3], 0.25, OUTILS.FEUILLE, 0.08, 0.6, 5, 8)
+			if hb % 4 == 1:
+				v.boule(p(xb + 0.5, zb, 1.3), Vector3(0.5, 0.3, 0.4), [Color("e37fa0"), Color("f4f0e6")][hb % 2], 0.3, OUTILS.FEUILLE, 0.05, 0.3, 4, 6)
+		xb += 3.2 + float(hb % 20) / 10.0
+	for k in 120:
+		var hm := absi(hash(Vector2i(k, 404)))
+		var mx := -10.0 + float(hm % 820) / 10.0
+		var mz := -17.0 - float((hm / 820) % 240) / 10.0
+		var r := 0.8 + float(hm % 9) * 0.14
+		v.boule(p(mx, mz, r * 0.45), Vector3(r, r * 0.7, r * 0.9), [Color("557f2d"), Color("4a7328"), Color("628c35"), Color("3f6624")][hm % 4], 0.3, OUTILS.FEUILLE, 0.1, 0.6, 7, 10)
+		if hm % 9 == 0:
+			_cypres(v, Vector2(mx + 1.5, mz), 6.0 + float(hm % 3))
 	v.construire(parent, "Vegetation")
+
+
+func _cypres(v: RefCounted, c: Vector2, hh: float) -> void:
+	var pc := p(c.x, c.y, -0.1)
+	v.branche(pc, pc + Vector3(0, 1.0, 0), 0.12, 0.1, Color("5a4632", 0.9))
+	for k in 5:
+		var f := k / 5.0
+		v.boule(pc + Vector3(0, 1.0 + f * hh * 0.82, 0), Vector3(1.05 - f * 0.7, hh * 0.2, 1.05 - f * 0.7), Color("2f5a2a").lightened(f * 0.08), 0.12, OUTILS.FEUILLE, 0.03, 0.6, 5, 8)
 
 
 func _voitures(parent: Node3D) -> void:
