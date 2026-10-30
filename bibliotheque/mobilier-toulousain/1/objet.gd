@@ -32,6 +32,8 @@ const PIERRE := Color("efe6d4")
 const BRIQUE := Color("c8653f")
 const TERRE := Color("6b4f36")
 const VERT := Color("5f9e33")
+## Les verts des massifs du bac végétal, mêlés.
+const VERTS_BAC := ["5f9e33", "4a8a2c", "6fa844", "3f7028"]
 const FLEURS := ["e0605a", "f2c14e", "d04a6a", "f4f0e6", "e8823a", "c05ac0"]
 const TOILES := [["f0e3c4", "f0e3c4"], ["8a2a2e", "8a2a2e"], ["f0e3c4", "8a2a2e"]]
 
@@ -44,7 +46,9 @@ const TOILES := [["f0e3c4", "f0e3c4"], ["8a2a2e", "8a2a2e"], ["f0e3c4", "8a2a2e"
 ## le carrousel à l'arrêt). Le bac végétal : forme (« rectangle », « L » ou « polygone »), longueur et largeur (le
 ## rectangle, le L), retour (la branche du L), points (le polygone : des Vector2 ou des paires [x, z], en mètres,
 ## le contour extérieur), hauteur (le muret, 0,5 m), terre (de la terre au rebord, 0,12 m), plantation (« dense »,
-## « fleurie » ou « buis »).
+## « fleurie » ou « buis »), densite (un multiplicateur des touffes, 1 par défaut) et plafond (le nombre de touffes au plus,
+## 500 par défaut : au-delà, les touffes grossissent au lieu de se multiplier), couvertine (un hexa : la pierre du
+## rebord, #D6BF98 par défaut).
 @export var options := {}
 
 var fait := false
@@ -321,7 +325,9 @@ class _Objets:
 		var plantation := str(opt.get("plantation", "dense"))
 		var ep := 0.22
 		var brique := Color("c46a46")
-		var couvertine := Color("d9cdb6")
+		# la couvertine, une pierre chaude (#D6BF98 : la #D9CDB6 d'avant tirait au gris bleuté sous le ciel), ou l'hexa
+		# de l'option couvertine
+		var couvertine := Color(str(opt.get("couvertine", "d6bf98")))
 		var mini := Vector2(INF, INF)
 		var maxi := Vector2(-INF, -INF)
 		for i in pts.size():
@@ -359,25 +365,39 @@ class _Objets:
 			dedans_pts = r[0]
 		var sol := Basis(Vector3(1, 0, 0), Vector3(0, 0, 1), Vector3(0, -1, 0))
 		o.profil(Transform3D(sol, p), dedans_pts, -(h - terre), -(h - terre) + 0.3, TERRE)
+		if plantation != "buis":
+			# le couvre-sol du massif : un tapis de feuilles sombres sur la terre, que les buissons ne cachent pas tout
+			o.profil(Transform3D(sol, p), dedans_pts, -(h - terre) - 0.1, -(h - terre), Color("3a6a26"), Outils.FEUILLE)
 		# la plantation, semée dans le dedans
-		var aire := (maxi.x - mini.x) * (maxi.y - mini.y)
+		# on sème selon l'aire réelle du dedans, pas celle du cadre : un grand polygone maigre ne coûte pas plus que
+		# sa terre ; au-delà du plafond de touffes, les touffes grossissent au lieu de se multiplier
+		var cadre := (maxi.x - mini.x) * (maxi.y - mini.y)
+		var aire := 0.0
+		for i in dedans_pts.size():
+			aire += dedans_pts[i].cross(dedans_pts[(i + 1) % dedans_pts.size()])
+		aire = absf(aire) * 0.5
 		var fleur := _fleur(o, opt)
-		var n := int(aire * (2.2 if plantation == "buis" else 6.0))
+		var voulu := aire * (2.2 if plantation == "buis" else 6.0) * maxf(0.05, float(opt.get("densite", 1.0)))
+		var n := int(minf(voulu, float(opt.get("plafond", 500))))
+		var grossir := clampf(sqrt(voulu / maxf(1, n)), 1.0, 2.2)
 		var faits := 0
 		var essais := 0
+		var essais_max := int(n * 8 * clampf(cadre / maxf(aire, 0.01), 1.0, 50.0))
 		var haut := h - terre
-		while faits < n and essais < n * 8:
+		while faits < n and essais < essais_max:
 			essais += 1
 			var q := Vector2(o.rng.randf_range(mini.x, maxi.x), o.rng.randf_range(mini.y, maxi.y))
 			if not Geometry2D.is_point_in_polygon(q, dedans_pts):
 				continue
 			var c := p + Vector3(q.x, haut, q.y)
 			if plantation == "buis":
-				var rb := o.rng.randf_range(0.2, 0.28)
+				var rb := o.rng.randf_range(0.2, 0.28) * grossir
 				o.boule(c + Vector3(0, rb * 0.85, 0), Vector3(rb, rb * 0.95, rb), Color("355e2a").lightened(o.rng.randf_range(-0.04, 0.08)), 0.08, Outils.FEUILLE, 0.03, 0.15)
 			else:
-				var rv := o.rng.randf_range(0.18, 0.38)
-				o.boule(c + Vector3(0, rv * 0.6, 0), Vector3(rv, rv * o.rng.randf_range(0.7, 1.3), rv), VERT.darkened(o.rng.randf_range(0.0, 0.25)).lightened(o.rng.randf_range(0.0, 0.08)), 0.25, Outils.FEUILLE, 0.06, 0.4)
+				# des buissons de tailles variées, en trois verts mêlés
+				var rv := o.rng.randf_range(0.14, 0.46) * grossir
+				var vert_b: Color = Color(VERTS_BAC[o.rng.randi() % VERTS_BAC.size()]).lightened(o.rng.randf_range(-0.06, 0.08))
+				o.boule(c + Vector3(0, rv * 0.55, 0), Vector3(rv, rv * o.rng.randf_range(0.7, 1.3), rv), vert_b, 0.25, Outils.FEUILLE, 0.06, 0.4)
 				if plantation == "fleurie" or (plantation == "dense" and o.rng.randf() < 0.12):
 					for k in 5:
 						o.boule(c + Vector3(o.rng.randf_range(-rv, rv) * 0.7, rv * o.rng.randf_range(0.8, 1.3), o.rng.randf_range(-rv, rv) * 0.7), Vector3.ONE * 0.06, fleur.lightened(o.rng.randf_range(-0.1, 0.12)), 0.2, Outils.FEUILLE, 0.05, 0.3)

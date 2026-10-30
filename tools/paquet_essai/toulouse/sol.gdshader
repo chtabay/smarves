@@ -37,7 +37,7 @@ void fragment() {
 		// fontaine, Guillaume, 29 octobre) : chaque pavé légèrement de travers, le joint fin et de même ton.
 		vec2 b = p / vec2(0.25, 0.25);
 		cellule = floor(b);
-		vec2 g = fract(b) + (vec2(hash(cellule + 1.3), hash(cellule + 5.9)) - 0.5) * 0.06;
+		vec2 g = fract(b) + (vec2(hash(cellule + 1.3), hash(cellule + 5.9)) - 0.5) * 0.1;
 		joint = min(min(g.x, 1.0 - g.x), min(g.y, 1.0 - g.y)) * mix(0.8, 1.2, hash(cellule + 2.2));
 	} else if (false) {
 		// L'épi : des briques de 22 × 5,5 cm, alternées à 90° par blocs, tournées de 45°.
@@ -74,14 +74,18 @@ void fragment() {
 	}
 	float j = smoothstep(0.0, 0.07, joint);
 	if (epi > 0.5) {
-		// Le joint d'un centimètre, un peu plus sombre, et le léger biseau du bord de chaque pavé.
-		col *= mix(0.93, 1.0, smoothstep(0.0, 0.12, joint));
-		j = smoothstep(0.0, 0.02, joint);
-		col = mix(base * 0.8, col, j);
+		// Le joint d'un centimètre, plus sombre que le pavé de 15 à 20 % (verdict du juge sur la v0.5 : un joint
+		// clair fait carrelage), et le léger biseau du bord de chaque pavé. Au loin, le joint se fond dans une
+		// nuance moyenne au lieu de scintiller.
+		float flou = fwidth(joint);
+		col *= mix(0.9, 1.0, smoothstep(0.0, 0.14, joint));
+		j = smoothstep(0.0, max(0.025, flou * 1.5), joint);
+		col = mix(col * 0.8, col, mix(j, 0.85, smoothstep(0.03, 0.12, flou)));
+		j = 1.0;
 	} else {
 		col = mix(base * 0.62 + vec3(0.06), col, j);
 	}
 	ALBEDO = col;
 	ROUGHNESS = mix(0.95, 0.85, j);
-	NORMAL_MAP = vec3(0.5, 0.5, 1.0) + vec3(0.0, (1.0 - j) * 0.25, 0.0);
+	NORMAL_MAP = vec3(0.5, 0.5, 1.0) + vec3(0.0, (1.0 - j) * 0.25 * (1.0 - epi), 0.0);
 }

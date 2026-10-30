@@ -8,6 +8,9 @@ render_mode cull_disabled, diffuse_burley, specular_disabled;
 uniform float souffle = .06;
 // la part de lumière qui traverse les feuilles à contre-jour, réglable arbre par arbre (option contre_jour)
 instance uniform float contre_jour = .15;
+// le jour du ciel au cœur de la couronne : une lueur propre aux feuilles, que l'ombre portée n'éteint pas, si bien que
+// le dessous et le cœur de la voûte restent lisibles (réglable arbre par arbre, option jour)
+instance uniform float jour = .6;
 
 void vertex() {
  vec3 monde = (MODEL_MATRIX * vec4(VERTEX, 1.)).xyz;
@@ -102,12 +105,13 @@ void fragment() {
  // le liseré sombre au bord de chaque feuille et les nervures plus claires : la dentelle se lit de près
  base *= mix(1., .8, smoothstep(-.1, 0., dedans));
  base = mix(base, base * 1.18, nervure * .5);
- // vue d'en dessous, la voûte s'assombrit de moitié : le dessous des feuilles est dans l'ombre de la couronne
+ // vue d'en dessous, la voûte s'assombrit un peu : le dessous des feuilles est dans l'ombre de la couronne
  vec3 vers_oeil = (INV_VIEW_MATRIX * vec4(VIEW, 0.)).xyz;
- base *= mix(1., .5, smoothstep(.05, -.45, vers_oeil.y));
+ base *= mix(1., .85, smoothstep(.05, -.45, vers_oeil.y));
  ALBEDO = base;
  ROUGHNESS = .9;
  BACKLIGHT = ALBEDO * contre_jour;
+ EMISSION = ALBEDO * jour;
 }
 
 // La lumière en aplats, à la manière des arbres de Zelda : trois tons nets (l'ombre, le mi-jour, le plein

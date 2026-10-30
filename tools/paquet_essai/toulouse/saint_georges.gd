@@ -585,13 +585,38 @@ static func _jardin(t, racine: Node3D) -> void:
 ## muret bas de pierre claire, 60 cm à chaperon. Une disposition propre à la place, faite comme le sol, avec les
 ## outils du mobilier lyonnais.
 static func _terre_pleins(racine: Node3D) -> void:
+	var groupe := Node3D.new()
+	groupe.name = "Bacs"
+	racine.add_child(groupe)
+	if _toulousain("mobilier-toulousain@1") and _brique("mobilier-toulousain@1", "objet.gd").OBJETS.has("bac_vegetal"):
+		# Le bac végétal de la bibliothèque (verdict du juge sur la v0.6) : le muret de brique foraine à joints, la
+		# couvertine de pierre, la terre sous le rebord et un massif dense, sur le contour relevé de chaque bac.
+		var tou: Script = _brique("mobilier-toulousain@1", "objet.gd")
+		var fleurs := ["b65a4f", "e6dfcd", "8a72a3", "c9a457", "e6dfcd", "b65a4f", "8a72a3", "c9a457"]
+		for k in TERRE_PLEINS.size():
+			var poly := PackedVector2Array(TERRE_PLEINS[k])
+			var cadre := Rect2(poly[0], Vector2.ZERO)
+			for q in poly:
+				cadre = cadre.expand(q)
+			var centre := cadre.get_center()
+			var points := []
+			for q in poly:
+				points.append((q - centre) * UNITE)
+			var porteur := Node3D.new()
+			porteur.transform = Transform3D(Basis().scaled(Vector3.ONE / UNITE), Vector3(centre.x, 0.0, centre.y))
+			groupe.add_child(porteur)
+			tou.poser(porteur, Vector3.ZERO, "bac_vegetal", 4507 + k * 31, {"forme": "polygone", "points": points,
+				"hauteur": 0.6, "terre": 0.6 - PELOUSE, "plantation": "dense", "fleurs": fleurs[k % fleurs.size()]})
+		# Le bac de la bibliothèque est planté en massif dense (plantation dense, semée selon son aire réelle) ; les
+		# taches de fleurs par espèce s'y ajoutent, plus espacées.
+		var veg_buis: Script = _brique("vegetation-lyonnaise@1", "plante.gd")
+		for k in TERRE_PLEINS.size():
+			_semer(PackedVector2Array(TERRE_PLEINS[k]), veg_buis, groupe, k, 1.05, 0.6)
+		return
 	var o = _brique("mobilier-lyonnais@1", "outils.gd").new(1762)
 	var veg: Script = _brique("vegetation-lyonnaise@1", "plante.gd")
-	var plantes := Node3D.new()
-	plantes.name = "Bacs"
-	racine.add_child(plantes)
 	for k in TERRE_PLEINS.size():
-		_parterre(o, PackedVector2Array(TERRE_PLEINS[k]), veg, plantes, k)
+		_parterre(o, PackedVector2Array(TERRE_PLEINS[k]), veg, groupe, k)
 	var porteur := Node3D.new()
 	porteur.name = "TerrePleins"
 	porteur.scale = Vector3.ONE / UNITE
@@ -599,24 +624,14 @@ static func _terre_pleins(racine: Node3D) -> void:
 	o.construire(porteur, "TerrePleins")
 
 
-## Un bac planté (verdict du juge sur la v0.4) : un massif dense d'arbustes et de fleurs qui dépassent le rebord,
-## la terre visible entre eux ; le muret de brique foraine sous une couvertine de pierre claire à arête vive.
-static func _parterre(o, poly: PackedVector2Array, veg: Script, plantes: Node3D, k: int) -> void:
-	var terre := Color("5d6b34")
-	var tri := Geometry2D.triangulate_polygon(poly)
-	for i in range(0, tri.size(), 3):
-		var a := Vector3(poly[tri[i]].x * UNITE, PELOUSE, poly[tri[i]].y * UNITE)
-		var b := Vector3(poly[tri[i + 1]].x * UNITE, PELOUSE, poly[tri[i + 1]].y * UNITE)
-		var d := Vector3(poly[tri[i + 2]].x * UNITE, PELOUSE, poly[tri[i + 2]].y * UNITE)
-		o.tri(a, b, d, Vector3.UP, terre.lightened(0.04 * (i % 3)))
-	# Les arbustes, à 1,2 m les uns des autres environ, sauf au pied des platanes.
+## Les arbustes fleuris d'un bac, tous les `pas` unités, sauf au pied des platanes ; `petit` (0 à 1) les tasse.
+static func _semer(poly: PackedVector2Array, veg: Script, plantes: Node3D, k: int, pas: float, petit: float) -> void:
 	var r := RandomNumberGenerator.new()
 	r.seed = 4507 + k * 31
 	var dedans: PackedVector2Array = Geometry2D.offset_polygon(poly, -0.28)[0]
 	var cadre := Rect2(poly[0], Vector2.ZERO)
 	for q in poly:
 		cadre = cadre.expand(q)
-	var pas := 0.62
 	var y := cadre.position.y + pas * 0.5
 	var rang := 0
 	while y < cadre.end.y:
@@ -635,12 +650,26 @@ static func _parterre(o, poly: PackedVector2Array, veg: Script, plantes: Node3D,
 			var n := Node3D.new()
 			n.transform = Transform3D(Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3.ONE / UNITE), Vector3(q.x, PELOUSE / UNITE, q.y))
 			plantes.add_child(n)
-			var opt := {"hauteur": r.randf_range(0.7, 1.15), "vent": 0.3}
-			if r.randf() < 0.45:
-				opt["fleurs"] = ["d9473b", "f4f0e6", "b06ad0", "d04a8a"][r.randi() % 4]
+			var opt := {"hauteur": r.randf_range(0.7, 1.15) * (1.0 - petit * 0.3), "vent": 0.3}
+			# Les fleurs en taches d'une espèce (verdict du juge sur la v0.5), de 3 à 4 m, aux tons sourds.
+			var tache := Vector2i(floor(q.x / 1.5), floor(q.y / 1.5))
+			opt["fleurs"] = ["b65a4f", "e6dfcd", "8a72a3", "c9a457", "e6dfcd"][absi(tache.x * 7 + tache.y * 13 + k) % 5]
 			veg.pousser(n, Vector3.ZERO, "buisson", k * 997 + rang * 31 + int(x * 10.0), opt)
 		y += pas * 0.87
 		rang += 1
+
+
+## Un bac planté (verdict du juge sur la v0.4) : un massif dense d'arbustes et de fleurs qui dépassent le rebord,
+## la terre visible entre eux ; le muret de brique foraine sous une couvertine de pierre claire à arête vive.
+static func _parterre(o, poly: PackedVector2Array, veg: Script, plantes: Node3D, k: int) -> void:
+	var terre := Color("5d6b34")
+	var tri := Geometry2D.triangulate_polygon(poly)
+	for i in range(0, tri.size(), 3):
+		var a := Vector3(poly[tri[i]].x * UNITE, PELOUSE, poly[tri[i]].y * UNITE)
+		var b := Vector3(poly[tri[i + 1]].x * UNITE, PELOUSE, poly[tri[i + 1]].y * UNITE)
+		var d := Vector3(poly[tri[i + 2]].x * UNITE, PELOUSE, poly[tri[i + 2]].y * UNITE)
+		o.tri(a, b, d, Vector3.UP, terre.lightened(0.04 * (i % 3)))
+	_semer(poly, veg, plantes, k, 0.62, 0.0)
 	var brique := Color("a2624a")
 	var pierre := Color("d9cdb6")
 	for i in poly.size():
@@ -653,7 +682,10 @@ static func _parterre(o, poly: PackedVector2Array, veg: Script, plantes: Node3D,
 		var c := (a + b) * 0.5
 		var bas := Basis(Vector3.UP, atan2(-u.y, u.x))
 		o.boite(Transform3D(bas, Vector3(c.x, 0.27, c.y)), Vector3(l + 0.22, 0.54, 0.22), brique.lightened(0.04 * (i % 3) - 0.02), 0, true)
-		o.boite(Transform3D(bas, Vector3(c.x, 0.575, c.y)), Vector3(l + 0.25, 0.07, 0.25), pierre)
+		# Les rangs de brique : un joint clair tous les 11 cm, sur les deux faces.
+		for h in [0.11, 0.22, 0.33, 0.44]:
+			o.boite(Transform3D(bas, Vector3(c.x, h, c.y)), Vector3(l + 0.2, 0.014, 0.228), Color("c9b9a0"))
+		o.boite(Transform3D(bas, Vector3(c.x, 0.59, c.y)), Vector3(l + 0.27, 0.1, 0.27), pierre)
 
 
 # --- Le mobilier ----------------------------------------------------------------------------------
@@ -780,6 +812,27 @@ static func _mobilier_toulousain(t, racine: Node3D) -> void:
 		g += 1
 	poser.call("chevalet", Vector2(-0.6, -8.8), 1.2, g)
 	g += 1
+	# La grande terrasse de l'ouest, entre le bac du nord-ouest et la bande du nord (verdict du juge sur la v0.5 :
+	# la vie de la place) : trois rangs de tables sous les grands parasols crème et bordeaux.
+	var n_table := 0
+	for p in [Vector2(-2.0, -8.7), Vector2(-0.2, -8.9), Vector2(1.6, -9.1), Vector2(-1.3, -7.1), Vector2(0.5, -7.3), Vector2(2.3, -7.5)]:
+		poser.call("terrasse", p, 0.1, g, {"tables": 3})
+		poser.call("grand_parasol", p + Vector2(0.2, 0.1), 0.0, g + 1, {"toile": creme if n_table % 3 != 1 else ["8a2a2e", "8a2a2e"]})
+		g += 2
+		n_table += 1
+	# La terrasse du sud-ouest, au premier plan de la vue de la cible, entre le bac du sud-ouest et la rue.
+	for p in [Vector2(2.5, 9.2), Vector2(3.1, 11.0), Vector2(3.7, 12.8)]:
+		poser.call("terrasse", p, -0.45, g, {"tables": 2})
+		poser.call("parasol", p + Vector2(0.15, 0.0), 0.0, g + 1, {"toile": creme})
+		g += 2
+	# Une file de potelets de fonte tous les 2,5 m le long de la rue du sud-ouest, côté place (la cible).
+	var rue := [Vector2(-4.6, 1.2), Vector2(0.2, 7.6), Vector2(4.4, 16.8)]
+	for k in rue.size() - 1:
+		var a: Vector2 = rue[k]
+		var b: Vector2 = rue[k + 1]
+		var n := int(a.distance_to(b) * UNITE / 2.5)
+		for i in n:
+			poser.call("potelet", a.lerp(b, (i + 0.5) / n), 0.0, 900 + k * 50 + i)
 	# Sous les arcades de Lafage, côté place : les tables du restaurant de l'hôtel, deux parasols crème.
 	# La façade de Lafage file du nord au sud ; les tables à 2,4 m devant elle, entre les arcades et le parterre.
 	var le_long := func(z: float, recul: float) -> Vector2:

@@ -50,6 +50,13 @@ func _init() -> void:
 					_objet(pl[0], pl[1], 2, opt)
 					_etiquette(pl[1] + Vector3(0, 0.3, 2.6), pl[0])
 				cam.look_at_from_position(Vector3(0, 26, 44), Vector3(0, 1.5, 2))
+		"banderole":
+			# la banderole du Grand Prix : le texte d'office, taille_texte à 0,55 m, puis « ajuste »
+			_sol(Vector2(300, 200), Color("bfae8a"))
+			_objet("banderole", Vector3(-11, 0, 0), 2, {"largeur": 9.5, "texte": "GRAND PRIX DE LA LOUVE"})
+			_objet("banderole", Vector3(0, 0, 0), 2, {"largeur": 9.5, "texte": "GRAND PRIX DE LA LOUVE", "taille_texte": 0.55})
+			_objet("banderole", Vector3(11, 0, 0), 2, {"largeur": 9.5, "texte": "GRAND PRIX DE LA LOUVE", "taille_texte": "ajuste"})
+			cam.look_at_from_position(Vector3(0, 3.5, 22), Vector3(0, 4.2, 0))
 		"arrivee":
 			_arrivee()
 			if nom == "bas":
