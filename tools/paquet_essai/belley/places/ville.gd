@@ -46,6 +46,8 @@ const FACADIERS := 75.0
 ## Plus loin, jusqu'à cette distance, les maisons du façadier en enduit, sans fleurs : les « boîtes peintes » du fond
 ## détonnaient à côté des maisons du premier plan (verdict n° 16).
 const FACADIERS_ENDUITS := 150.0
+## En deçà, les maisons du façadier ont leurs moellons et leurs fleurs.
+const FACADIERS_DETAILLES := 45.0
 
 ## Les numéros des bâtiments (dans bourg.json) qu'une scène bâtit elle-même.
 var passer := {2219: true}
@@ -328,6 +330,10 @@ func _facadier(m: Dictionary, graine: int, rng: RandomNumberGenerator, leger := 
 		opt["mur"] = "enduit"
 	if leger:
 		opt.merge({"fleurs": false, "mur": "enduit", "vigne": false, "balcon": false, "auvent": false, "lanterne": false}, true)
+	elif Vector2(m.rect[0], m.rect[1]).distance_to(PRES_DE / UNITE) * UNITE > FACADIERS_DETAILLES:
+		# Au second rang, les moellons (27 000 triangles par maison), la vigne et les fleurs ne se lisent plus : enduit,
+		# sans vigne, pour tenir le budget du lieu.
+		opt.merge({"fleurs": false, "vigne": false, "mur": "enduit"}, true)
 	var n: Node3D = FACADIER.maison(noeud, Vector3(pied.x, y, pied.y), type, graine, opt)
 	n.rotation.y = atan2(v.x, v.y)
 	return true

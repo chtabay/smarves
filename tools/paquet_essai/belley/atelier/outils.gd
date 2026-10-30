@@ -81,6 +81,23 @@ func quad(a: Vector3, b: Vector3, c: Vector3, d: Vector3, n: Vector3, col: Color
 		tri(a, c, d, n, col, genre)
 
 
+## Un quad dont chaque coin a sa couleur (cols : a, b, c, d) : la teinte se fond d'un coin à l'autre, sans
+## marche entre carreaux voisins (les nappes de pré, les taches de terre).
+func quad_fondu(a: Vector3, b: Vector3, c: Vector3, d: Vector3, n: Vector3, cols: Array, genre := PEINT) -> void:
+	var st := _s(genre)
+	n = n.normalized()
+	for t in [[0, 1, 2], [0, 2, 3]]:
+		var pts := [a, b, c, d]
+		var ordre: Array = t
+		if (pts[ordre[1]] - pts[ordre[0]]).cross(pts[ordre[2]] - pts[ordre[0]]).dot(n) > 0.0:
+			ordre = [t[0], t[2], t[1]]
+		for i in ordre:
+			st.set_color(cols[i])
+			st.set_normal(n)
+			st.set_uv(Vector2.ZERO)
+			st.add_vertex(pts[i])
+
+
 ## Une boîte de taille s centrée sur l'origine de t. col peut être une couleur, ou six (±x, ±y, ±z).
 func boite(t: Transform3D, s: Vector3, col, genre := PIERRE, collision := false) -> void:
 	var h := s * 0.5
