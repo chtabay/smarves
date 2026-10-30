@@ -11,6 +11,7 @@ extends SceneTree
 ##   --vue=arbres      les arbres d'ombrière sur le pavé, au soleil (--nom=platane : un seul, de près)
 ##   --vue=saint_georges  la place Saint-Georges composée avec les quatre briques (--nom=ajour=0.5 : l'ombre des
 ##                     platanes trouée)
+##   --vue=toits       cinq bâtisses vues d'en haut, pour lire les rangs de tuiles canal et le faîtage
 ##   --vue=bacs        trois bacs végétaux : rectangle dense, L fleuri, polygone de buis
 ##                     (--nom=bas : à hauteur d'homme, depuis une terrasse)
 ##   --vue=ombre       l'ombre portée d'un platane seule, vue du ciel, pour mesurer la part du sol qu'elle couvre
@@ -82,6 +83,18 @@ func _init() -> void:
 			var w: float = m.get_meta("w")
 			var h: float = m.get_meta("hauteur")
 			cam.look_at_from_position(Vector3(w * 0.75, h * 0.55, w * 0.9 + h * 0.9), Vector3(0, h * 0.42, -3))
+		"toits":
+			# les toits vus d'en haut, comme du balcon de Saint-Georges : les rangs de tuiles canal et le faîtage
+			_sol(Vector2(120, 80), Color("c9b28c"))
+			var types: Array = load(Bibliotheque.scene(FACADIER, "decor")).instantiate().types()
+			var x := 0.0
+			var k := 0
+			for t in types.slice(0, 5):
+				var m := _pose(FACADIER, "type", t, Vector3(x, 0, 0), 4 + k, {})
+				x += float(m.get_meta("w")) + 0.3
+				k += 1
+			cam.fov = 40
+			cam.look_at_from_position(Vector3(x * 0.5 + 6, 26, 26), Vector3(x * 0.5 - 2, 9, -4))
 		"bacs":
 			_sol(Vector2(80, 80), Color("c9b28c"))
 			_pose(MOBILIER, "objet", "bac_vegetal", Vector3(-6.5, 0, 0), 1, {"longueur": 4.0, "largeur": 1.4, "plantation": "dense"})
