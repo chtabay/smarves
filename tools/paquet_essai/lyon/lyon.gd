@@ -26,9 +26,12 @@ const SOLEIL := {"hauteur": 31.0, "vient_de": 258.0, "couleur": Color("#ffe1b0")
 const ENDUITS_PLACE := ["ecd59c", "f1e1b8", "eac39a", "f0d6a4", "e6c08e", "f3e6c6"]
 const ENDUITS_PENTES := ["e2cc98", "e9d6b0", "dcb78f", "e4c8a0", "d8c3a2"]
 const TOILES := [["b8322c", "f3ead6"], ["2f5a3a", "f3ead6"], ["c8962e", "f3ead6"], ["2f5a3a", "2f5a3a"], ["8a2a2a", "8a2a2a"], ["2e4a6e", "f3ead6"]]
+# les trois palettes des marronniers, du soleil à l'ombre : le jaune-vert de la planche sur le haut des couronnes
+const PALETTES_MARRONNIER := [["b9c84a", "8fb048", "7a9c40", "5f7f3e", "4a6634"], ["b9c84a", "86a845", "6e9440", "587a3a", "455f30"],
+	["a9bc48", "7a9c40", "6a8a3c", "5f7f3e", "4d6e33"]]
 const TUILES := ["8f4a38", "86422f", "965040", "7e3f30", "92503f", "8a4836"]
 const PAVE := Color("#a39b93")
-const DALLE := Color("#c9c1b2")
+const DALLE := Color("#b3a998")
 const SABLE := Color("#b48e62")
 const VILLEBOIS := Color("#c7c3b6")
 const PIERRE_DOREE := Color("#c9a66b")
@@ -169,7 +172,7 @@ func _ciel() -> void:
 	e.ambient_light_energy = 0.55
 	e.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	e.tonemap_exposure = 0.8
+	e.tonemap_exposure = 0.74
 	e.tonemap_white = 1.6
 	# la planche : des couleurs franches, la terre cuite qui chauffe, le vert cru des marronniers
 	e.adjustment_enabled = true
@@ -466,11 +469,14 @@ func _batiments() -> void:
 		_toit(toits, b, poly, sol + h, i)
 	var mm := MeshInstance3D.new()
 	mm.name = "Murs"
+	# les deux faces portent ombre : la vue d'ensemble attend l'ombre des façades ouest sur la rue, soleil bas
+	mm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_DOUBLE_SIDED
 	mm.mesh = murs.commit()
 	mm.material_override = _materiau_murs()
 	ville.add_child(mm)
 	var mt := MeshInstance3D.new()
 	mt.name = "Toits"
+	mt.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_DOUBLE_SIDED
 	mt.mesh = toits.commit()
 	mt.material_override = _materiau_toits()
 	ville.add_child(mt)
@@ -968,10 +974,12 @@ func _place() -> void:
 	s.position = Vector3(BLANDAN.x, y, BLANDAN.y)
 	ville.add_child(s)
 	_blandan(s)
-	# les quatre massifs fleuris au pied du socle, chacun dans sa grille basse
+	# les quatre touffes fleuries aux coins du socle, de la même main que celles des trouées
 	for k in 4:
 		var a := TAU * k / 4.0 + PI * 0.25
-		_pose(VEGETATION, "plante", "massif", Vector3(BLANDAN.x + cos(a) * 3.9, y, BLANDAN.y + sin(a) * 3.9), 300 + k, {"longueur": 2.4, "fleurs": ["f4f0e6", "e0605a", "d04a8a", "f4f0e6"][k]}, -a)
+		for j in 3:
+			var b := a + (float(j) - 1.0) * 0.28
+			_pose(VEGETATION, "plante", "buisson", Vector3(BLANDAN.x + cos(b) * 4.0, y, BLANDAN.y + sin(b) * 4.0), 300 + k * 3 + j, {"hauteur": 1.0 + 0.3 * float(j % 2), "fleurs": ["f4f0e6", "e0605a", "d04a8a", "f4f0e6"][k]})
 	# un bosquet de marronniers irrégulier (la planche) : des troncs semés dans tout le square, une clairière
 	# autour de Blandan et dans l'axe de l'escalier, des massifs fleuris dans les trouées
 	var genants: Array[Vector2] = []
@@ -1008,7 +1016,7 @@ func _place() -> void:
 		troncs.remove_at(proche)
 	for k in troncs.size():
 		var p: Vector2 = troncs[k]
-		var arbre := _pose(OMBRIERE, "arbre", "marronnier", Vector3(p.x, y, p.y), 400 + k, {"hauteur": graines.randf_range(12.0, 16.0), "vent": 0.4, "densite": graines.randf_range(0.75, 0.95), "contre_jour": 0.6, "teinte": ["6e9440", "7a9c40", "5f7f3e"]})
+		var arbre := _pose(OMBRIERE, "arbre", "marronnier", Vector3(p.x, y, p.y), 400 + k, {"hauteur": graines.randf_range(12.0, 16.0), "vent": 0.4, "densite": graines.randf_range(0.75, 0.95), "contre_jour": 0.6, "jour": 0.6, "teinte": PALETTES_MARRONNIER[k % PALETTES_MARRONNIER.size()]})
 		# des couronnes resserrées d'un huitième, que le sable et leur ombre séparent comme sur la planche
 		arbre.scale = Vector3(0.88, 1.0, 0.88)
 	var massifs := 0
