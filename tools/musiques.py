@@ -11,6 +11,11 @@ donc aucun droit à suivre). Deux styles, deux familles de timbres :
   folk en arpèges sur une caisse de bois, banjo en roulements, harmonica qui respire et monte un peu
   sur ses notes, sifflet, contrebasse, nappe d'air. « titre » est une valse en mi mineur pour l'écran
   titre ; « environs », en ré majeur, pour le bois, le moulin et les rochers.
+- **Les grands espaces** (« grands_espaces ») : épique et ouvert. Quelques notes de piano dans le
+  vide, puis les cordes se lèvent, le cor chante, et tout l'orchestre (timbales, cuivres, violons)
+  reprend le thème plus haut avant de redescendre. Ré majeur, 72 à la noire, 107 s.
+- **Les salons** (« salon ») : une sarabande baroque pour les salons huppés, en ré mineur, l'appui
+  sur le deuxième temps ; clavecin et violoncelle, puis les violons ornés, les altos à la tierce.
 
 Ce qui évite le côté mécanique : chaque note bouge un peu dans le temps et dans la force (plus pour la
 guitare que pour la boîte à rythmes), les morceaux ont des parties (on entre seul, les instruments
@@ -291,8 +296,8 @@ def chant(notes, n_total, rng, timbre="synthe"):
         seg = np.arange(i1 - i0)
         freq[i0:i1] = f + (depart - f) * np.exp(-seg / max(g / 3.0, 1.0))
         freq[i1:] = f
-        att = 0.012 if lie else (0.05 if timbre != "synthe" else 0.02)
-        rel = 0.12 if timbre != "synthe" else 0.08
+        att = 0.012 if lie else {"synthe": 0.02, "archet": 0.14, "cor": 0.09}.get(timbre, 0.05)
+        rel = {"synthe": 0.08, "archet": 0.35, "cor": 0.25}.get(timbre, 0.12)
         e = enveloppe(n - i0, att, 0.4, 0.82, l, rel) * force
         amp[i0:] = np.maximum(amp[i0:], e)
         retard = 0.22 if timbre != "harmonica" else 0.3
@@ -310,6 +315,19 @@ def chant(notes, n_total, rng, timbre="synthe"):
         s = additif(freq, n, 1.8 + 3.5 * amp, harm=12, poids=0.8, impair=1.6)
         bruit = filtre(rng.normal(0, 1, n), bas=3500, haut=900)
         s = s + bruit * (0.05 * amp + 0.25 * souffle)
+    elif timbre == "cor":
+        # Le cor : rond quand il joue doux, cuivré quand il force (la brillance suit le souffle).
+        freq = freq * (1.0 + 0.0025 * vib * np.sin(2 * np.pi * np.cumsum(vit) / SR))
+        s = additif(freq, n, 0.8 + 4.5 * amp ** 2, harm=12, poids=1.3)
+        s = s + filtre(rng.normal(0, 1, n), bas=2500, haut=400) * 0.12 * souffle
+    elif timbre == "archet":
+        # Les cordes frottées : un pupitre de trois, chacun son vibrato, et le frottement de l'archet.
+        s = np.zeros(n)
+        for k, (d, v) in enumerate([(-0.06, 5.1), (0.0, 5.6), (0.07, 6.0)]):
+            ph = np.cumsum(v + 0.25 * np.sin(2 * np.pi * (0.17 + 0.05 * k) * t)) / SR
+            fk = freq * (1.0 + d / 100.0) * (1.0 + 0.004 * vib * np.sin(2 * np.pi * ph + k))
+            s += additif(fk, n, 3.0 + 3.0 * amp, harm=12, poids=1.05)
+        s = s / 3.0 + filtre(rng.normal(0, 1, n), bas=6000, haut=2000) * 0.03 * amp
     else:  # sifflet
         freq = freq * (1.0 + 0.006 * vib * np.sin(2 * np.pi * np.cumsum(vit) / SR))
         s = additif(freq, n, 0.35, harm=3, poids=1.0)
@@ -361,6 +379,56 @@ def air(notes, dur, rng):
     s += filtre(rng.normal(0, 1, n), bas=1800, haut=500) * 0.25
     env = enveloppe(n, 1.8, 1.0, 1.0, dur, 2.0)
     return s * env / len(notes)
+
+
+def piano(note, dur, rng, vel=1.0):
+    """Un piano : des partiels légèrement étirés (la raideur de la corde), les aigus qui s'éteignent
+    vite, le marteau plus brillant quand on joue fort."""
+    n = int((dur + 2.5) * SR)
+    t = np.arange(n) / SR
+    f0 = hz(note)
+    s = np.zeros(n)
+    for k in range(1, 13):
+        fk = f0 * k * np.sqrt(1.0 + 0.0004 * k * k)
+        if fk > 15000:
+            break
+        poids = (1.0 / k ** (1.4 - 0.5 * vel)) * (0.6 if k % 7 == 0 else 1.0)
+        s += np.sin(2 * np.pi * fk * t + rng.uniform(0, 6.28)) * poids * np.exp(-t * (0.6 + 0.35 * k) * (f0 / 440.0) ** 0.3)
+    marteau = filtre(rng.normal(0, 1, n), bas=3000 + 3000 * vel, haut=300) * np.exp(-t * 120.0) * 0.15
+    env = np.minimum(t / 0.002, 1.0) * np.clip(1.0 - (t - dur) / 0.4, 0.0, 1.0)
+    return (s + marteau) * env * vel
+
+
+def timbale(note, rng, vel=1.0, roulement=0.0):
+    """Une timbale, frappée ou roulée (`roulement` : la durée du roulement, en s)."""
+    n = int((roulement + 1.8) * SR)
+    t = np.arange(n) / SR
+    f = hz(note)
+    peau = (np.sin(2 * np.pi * f * t) + 0.5 * np.sin(2 * np.pi * f * 1.5 * t) + 0.25 * np.sin(2 * np.pi * f * 1.99 * t))
+    if roulement:
+        env = np.minimum(t / roulement, 1.0) ** 2 * np.exp(-np.maximum(t - roulement, 0) * 3.0)
+        env *= 1.0 + 0.3 * np.sin(2 * np.pi * 14.0 * t)
+        frappe = filtre(rng.normal(0, 1, n), bas=900) * env * 0.4
+    else:
+        env = np.exp(-t * 2.8)
+        frappe = filtre(rng.normal(0, 1, n), bas=1200) * np.exp(-t * 40.0) * 0.8
+    return (peau * env + frappe) * vel
+
+
+def souffle_cymbale(dur, rng, vel=1.0):
+    """Une cymbale frottée qui monte jusqu'au temps fort."""
+    n = int((dur + 1.5) * SR)
+    t = np.arange(n) / SR
+    env = np.minimum(t / dur, 1.0) ** 3 * np.exp(-np.maximum(t - dur, 0) * 2.5)
+    return filtre(rng.normal(0, 1, n), haut=3000, bas=12000) * env * vel
+
+
+def clavecin(note, dur, rng, vel=1.0):
+    """Un clavecin : la corde pincée par un bec, très claire, et sa corde à l'octave (le quatre-pieds)."""
+    a = corde(note, dur, rng, vel, clair=1.0, perte=0.993, pince=0.06)
+    b = corde(note + 12, dur, rng, vel * 0.35, clair=1.0, perte=0.99, pince=0.08)
+    m = min(len(a), len(b))
+    return a[:m] + b[:m]
 
 
 # La batterie électronique.
@@ -741,9 +809,152 @@ def environs():
     return {"environs": maitre(mix, gain_maitre(mix))}
 
 
-THEMES = {"ville": ville, "titre": titre, "environs": environs}
+# --- Les grands espaces : une plaine, un ciel, une chevauchée ---------------------------------
+
+def phrase(p, mesures, depart, transpose=0, jeu=0.012):
+    """Les notes d'une mélodie écrite par mesure [(temps, durée, note)], à partir de la mesure `depart`,
+    en secondes depuis le début de la phrase."""
+    notes = []
+    for m, mesure in enumerate(mesures):
+        for beat, l, note in mesure:
+            notes.append((p.at(depart + m, beat) - p.at(depart, 0) + p.rng.normal(0, jeu), l * p.beat * 0.97,
+                          note + transpose, 0.8 + 0.2 * p.rng.random()))
+    return notes
+
+
+def grands_espaces():
+    """Les grands espaces : ré majeur, 32 mesures à 72. Le piano seul, quelques notes dans le vide ; les
+    cordes se lèvent et le cor chante ; tout l'orchestre, timbales et cuivres, reprend le thème plus
+    haut ; puis tout redescend vers le piano."""
+    p = Piste(72.0, 32, graine=1986)
+    D = [50, 57, 62, 66, 69]
+    D_FS = [42, 57, 62, 66, 69]
+    G = [43, 55, 59, 62, 66]
+    EM7 = [40, 55, 59, 62, 67]
+    BM = [47, 54, 59, 62, 66]
+    ASUS = [45, 57, 62, 64, 69]
+    A = [45, 57, 61, 64, 69]
+    GMAJ7_A = [45, 55, 59, 62, 66]
+    GRILLE = [D, D_FS, G, EM7, BM, G, ASUS, A] * 2 + [BM, G, D, A, BM, G, GMAJ7_A, A] + [D, D_FS, G, EM7, BM, G, ASUS, A]
+    PIANO = [
+        [(0.5, 74), (2, 81)], [(1, 78), (3.5, 76)], [(0, 79), (1.5, 74)], [(2, 71)],
+        [(0.5, 78), (1, 74), (2.5, 73)], [(1, 79)], [(0, 81), (0.5, 76), (3, 74)], [(2, 69), (2.5, 73)],
+    ]
+    COR = [
+        [(0, 2, 62), (2, 1, 66), (3, 1, 69)], [(0, 3, 74), (3, 1, 73)], [(0, 2, 71), (2, 2, 67)],
+        [(0, 3, 69), (3, 1, 66)], [(0, 2, 66), (2, 1, 69), (3, 1, 71)], [(0, 3, 74), (3, 1, 76)],
+        [(0, 4, 74)], [(0, 2, 73), (2, 2, 69)],
+    ]
+    SOMMET = [
+        [(0, 1, 74), (1, 1, 78), (2, 2, 81)], [(0, 3, 79), (3, 1, 78)], [(0, 2, 74), (2, 1, 76), (3, 1, 78)],
+        [(0, 4, 76)], [(0, 1, 78), (1, 1, 81), (2, 2, 86)], [(0, 2, 83), (2, 1, 81), (3, 1, 79)],
+        [(0, 3, 81), (3, 1, 79)], [(0, 2, 78), (2, 2, 76)],
+    ]
+    for bar, accord in enumerate(GRILLE):
+        partie = bar // 8
+        m = bar % 8
+        # Le piano : quelques notes posées, du silence autour ; à la reprise, plus bas et plus rares.
+        if partie in (0, 3):
+            for beat, note in PIANO[m]:
+                if partie == 3 and m % 2 == 1 and beat > 1:
+                    continue
+                p.add("piano", piano(note - (12 if partie == 3 and m < 4 else 0), p.beat * 1.5, p.rng, 0.55 + 0.25 * p.rng.random()),
+                      p.at(bar, beat), pan=0.15 * np.sin(note), jeu=0.02, force=0.1)
+            if m % 2 == 0:
+                p.add("piano", piano(accord[0] - 12 if accord[0] > 45 else accord[0], p.bar * 1.6, p.rng, 0.45), p.at(bar, 0), pan=-0.2, jeu=0.015)
+            p.add("air", air(accord[1:4], p.bar, p.rng), p.at(bar, 0))
+        if partie == 1:
+            # Le piano en arpèges lents sous le cor.
+            for k, beat in enumerate((0, 1, 2, 3)):
+                p.add("piano", piano(accord[1 + k % 4] + 12, p.beat * 1.8, p.rng, 0.45), p.at(bar, beat + 0.5), pan=0.2, jeu=0.015, force=0.1)
+        # Les cordes : une nappe qui se lève dans la deuxième partie, pleine dans la troisième.
+        if partie in (1, 2) or (partie == 3 and m < 2):
+            vel = 0.55 if partie == 1 else 1.0
+            for k, note in enumerate(accord[1:]):
+                notes = [(0.0, p.bar * 0.98, note + (12 if partie == 2 else 0), vel)]
+                p.add("cordes", chant(notes, 0, p.rng, "archet"), p.at(bar, 0), pan=-0.4 + 0.25 * k, jeu=0.01)
+            p.add("violoncelles", chant([(0.0, p.bar * 0.98, accord[0] if accord[0] < 48 else accord[0] - 12, vel)], 0, p.rng, "archet"),
+                  p.at(bar, 0), pan=0.3)
+        if partie == 2:
+            # Les cuivres en accords tenus, les timbales sur le un, et le roulement qui ramène le sommet.
+            for k, note in enumerate(accord[2:5]):
+                p.add("cuivres", chant([(0.0, p.bar * 0.9, note, 0.9)], 0, p.rng, "cor"), p.at(bar, 0), pan=-0.2 + 0.2 * k, jeu=0.008)
+            p.add("timbales", timbale(38 if accord[0] in (50, 42, 38) else 45, p.rng), p.at(bar, 0), jeu=0.004)
+            if m in (3, 7):
+                p.add("timbales", timbale(45, p.rng, 0.7, roulement=p.beat * 1.8), p.at(bar, 2), jeu=0.004)
+        if bar == 15:
+            p.add("cymbale", souffle_cymbale(p.bar, p.rng), p.at(bar, 0))
+            p.add("timbales", timbale(45, p.rng, 0.9, roulement=p.bar * 0.95), p.at(bar, 0))
+    p.add("cor", chant(phrase(p, COR, 8), 0, p.rng, "cor"), p.at(8, 0), pan=0.1)
+    p.add("cor", chant(phrase(p, SOMMET, 16, -12), 0, p.rng, "cor"), p.at(16, 0), pan=0.1)
+    p.add("violons", chant(phrase(p, SOMMET, 16, 0, 0.008), 0, p.rng, "archet"), p.at(16, 0), pan=-0.15)
+    niveaux = {"piano": (-19.0, 0.5), "air": (-35.0, 0.7), "cordes": (-21.0, 0.5), "violoncelles": (-24.0, 0.45),
+               "cuivres": (-23.0, 0.5), "timbales": (-22.0, 0.45), "cymbale": (-30.0, 0.6),
+               "cor": (-19.0, 0.5), "violons": (-19.0, 0.5)}
+    mix = mixer(p, niveaux, (3.2, 6000.0, 0.04))
+    return {"grands_espaces": maitre(mix, gain_maitre(mix))}
+
+
+# --- Les salons : une sarabande ----------------------------------------------------------------
+
+def salon():
+    """Les salons huppés : une sarabande en ré mineur, 24 mesures à 3 temps, 63 à la noire, l'appui sur
+    le deuxième temps. Le clavecin et le violoncelle exposent le thème ; les violons le reprennent,
+    ornés, le clavecin en accords ; la seconde partie passe en fa majeur, les altos à la tierce, et
+    revient en ré mineur."""
+    p = Piste(63.0, 24, graine=1720, temps=3)
+    # (accord du clavecin, basse sur le un, basse sur le deux) par mesure.
+    A = [([62, 65, 69], 50, 45), ([61, 64, 69], 49, 45), ([60, 65, 69], 48, 45), ([62, 65, 70], 46, 43),
+         ([61, 64, 69], 45, 40), ([62, 65, 69], 50, 41), ([62, 64, 67], 43, 45), ([62, 65, 69], 38, 50)]
+    B = [([60, 65, 69], 41, 48), ([60, 64, 67], 40, 43), ([62, 65, 69], 50, 45), ([61, 64, 69], 45, 49),
+         ([62, 65, 70], 46, 41), ([62, 67, 70], 43, 46), ([61, 64, 67], 45, 33), ([62, 65, 69], 38, 50)]
+    THEME = [
+        [(0, 1, 69), (1, 1.5, 74), (2.5, .5, 72)], [(0, 1, 73), (1, 1.5, 76), (2.5, .5, 74)],
+        [(0, 1, 72), (1, 1.5, 77), (2.5, .5, 76)], [(0, 1, 74), (1, 2, 70)],
+        [(0, 1, 73), (1, 1.5, 76), (2.5, .5, 74)], [(0, 1, 77), (1, 1.5, 81), (2.5, .5, 79)],
+        [(0, 1, 77), (1, 1, 76), (2, 1, 73)], [(0, 3, 74)],
+    ]
+    # La reprise ornée : un pincé sur le deuxième temps, et un trille à la cadence.
+    ORNE = [list(m) for m in THEME]
+    ORNE[1] = [(0, 1, 73), (1, .25, 76), (1.25, .25, 77), (1.5, 1, 76), (2.5, .5, 74)]
+    ORNE[3] = [(0, .5, 74), (.5, .5, 72), (1, 2, 70)]
+    ORNE[6] = [(0, 1, 77), (1, .25, 76), (1.25, .25, 77), (1.5, .25, 76), (1.75, .25, 77), (2, 1, 73)]
+    SECONDE = [
+        [(0, 1, 72), (1, 1.5, 77), (2.5, .5, 76)], [(0, 1, 79), (1, 1.5, 76), (2.5, .5, 72)],
+        [(0, 1, 77), (1, 1.5, 74), (2.5, .5, 72)], [(0, 1, 73), (1, 2, 76)],
+        [(0, 1, 74), (1, 1.5, 77), (2.5, .5, 74)], [(0, 1, 70), (1, 1.5, 74), (2.5, .5, 79)],
+        [(0, 1, 77), (1, .5, 76), (1.5, .5, 74), (2, 1, 73)], [(0, 3, 74)],
+    ]
+    TIERCE = {72: 69, 77: 74, 76: 72, 79: 76, 74: 70, 73: 69, 70: 67}
+    for bar in range(24):
+        partie = bar // 8
+        accord, b1, b2 = (A if partie < 2 else B)[bar % 8]
+        # Le violoncelle : une blanche sur le un, une noire sur le deux (l'appui de la sarabande).
+        p.add("violoncelle", chant([(0.0, p.beat * 1.9, b1, 0.9), (p.beat * 2, p.beat * 0.95, b2, 0.7)], 0, p.rng, "archet"),
+              p.at(bar, 0), pan=0.3, jeu=0.01)
+        # Le clavecin : l'accord égrené sur le un, et de nouveau, plus fort, sur le deux.
+        for beat, vel in ((0, 0.7), (1, 0.9)):
+            if partie == 0 and beat == 1 and bar % 2 == 1:
+                continue
+            for k, note in enumerate(accord):
+                p.add("clavecin", clavecin(note, p.beat * 0.9, p.rng, vel), p.at(bar, beat) + k * 0.025, pan=-0.3 + 0.1 * k, jeu=0.004, force=0.08)
+    # Le thème : au clavecin d'abord (dessus, une octave plus haut), puis aux violons, puis la seconde partie.
+    for m, mesure in enumerate(THEME):
+        for beat, l, note in mesure:
+            p.add("clavecin", clavecin(note, l * p.beat, p.rng, 0.95), p.at(m, beat), pan=-0.1, jeu=0.006, force=0.08)
+    p.add("violons", chant(phrase(p, ORNE, 8, 0, 0.01), 0, p.rng, "archet"), p.at(8, 0), pan=-0.25)
+    p.add("violons", chant(phrase(p, SECONDE, 16, 0, 0.01), 0, p.rng, "archet"), p.at(16, 0), pan=-0.25)
+    altos = [[(b, l, TIERCE.get(n, n - 3)) for b, l, n in mesure] for mesure in SECONDE]
+    p.add("altos", chant(phrase(p, altos, 16, 0, 0.012), 0, p.rng, "archet"), p.at(16, 0), pan=0.2)
+    niveaux = {"violoncelle": (-21.0, 0.35), "clavecin": (-20.0, 0.3), "violons": (-19.0, 0.4), "altos": (-25.0, 0.4)}
+    traitements = {"clavecin": lambda b: caisse(filtre(b, haut=90), [(210, 0.8), (460, 0.6), (930, 0.4)], 0.03)}
+    mix = mixer(p, niveaux, (2.2, 7000.0, 0.03), traitements)
+    return {"salon": maitre(mix, gain_maitre(mix))}
+
+
+THEMES = {"ville": ville, "titre": titre, "environs": environs, "grands_espaces": grands_espaces, "salon": salon}
 # Ce que le jeu emporte : le mélange complet de la ville ne sert qu'à l'écoute.
-DANS_LE_JEU = {"ville_fond", "ville_cuivres", "ville_chant", "titre", "environs"}
+DANS_LE_JEU = {"ville_fond", "ville_cuivres", "ville_chant", "titre", "environs", "grands_espaces", "salon"}
 
 
 def ecrire(nom, mix, sortie):
