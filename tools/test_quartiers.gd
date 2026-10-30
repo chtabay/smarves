@@ -191,11 +191,36 @@ func _init() -> void:
 	loin_brique.visibility_range_begin = 40.0
 	loin_brique.position = Vector3(-20, 3, 0)
 	lourd.add_child(loin_brique)
+	# un pan fondu de 100 m, lourd : trop grand pour une boîte, il reste tel quel
+	var pan := MeshInstance3D.new()
+	var pm2 := SphereMesh.new()
+	pm2.radius = 50.0
+	pm2.height = 100.0
+	pm2.radial_segments = 64
+	pm2.rings = 32
+	pan.mesh = pm2
+	pan.position = Vector3(200, 0, 0)
+	lourd.add_child(pan)
+	# une façade à shader : sa boîte prend un enduit simple, pas le shader
+	var ouvragee := MeshInstance3D.new()
+	ouvragee.mesh = sm
+	ouvragee.material_override = ShaderMaterial.new()
+	ouvragee.position = Vector3(40, 5, 0)
+	lourd.add_child(ouvragee)
 	var leger := Quartiers.fondre(lourd)
 	var sommets := 0
+	var matieres := []
+	for morceau in leger.get_children():
+		var am: ArrayMesh = (morceau as MeshInstance3D).mesh
+		for si in am.get_surface_count():
+			matieres.append(am.surface_get_material(si))
+	check(matieres.all(func(m): return not m is ShaderMaterial) and matieres.any(func(m): return m is StandardMaterial3D and m.albedo_color == Lointain.ENDUIT_BOITE), "version légère : la boîte d'une façade à shader prend un enduit simple")
+	sommets = Lointain._sommets(pm2)
+	var attendu := sommets + 48 + 24 + Lointain._sommets(pm)
+	sommets = 0
 	for morceau in leger.get_children():
 		sommets += Lointain._sommets((morceau as MeshInstance3D).mesh)
-	check(leger != null and sommets == 48 + Lointain._sommets(pm), "version légère : la sphère de 8 000 sommets devient sa boîte, la caisse de 50 cm disparaît, la maison reste, et d'une brique à deux niveaux seul le corps lointain est pris (%d sommets)" % sommets)
+	check(leger != null and sommets == attendu, "version légère : la sphère de 8 000 sommets devient sa boîte, la caisse de 50 cm disparaît, la maison reste, d'une brique à deux niveaux seul le corps lointain est pris, et un pan de 100 m reste entier (%d sommets, %d attendus)" % [sommets, attendu])
 	leger.free()
 	lourd.free()
 
