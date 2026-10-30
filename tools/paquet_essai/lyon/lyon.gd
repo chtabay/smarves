@@ -124,6 +124,8 @@ func _ready() -> void:
 	ville.name = "Ville"
 	ville.scale = Vector3.ONE / U
 	add_child(ville)
+	# les quartiers bâtissent en mètres, comme la ville : même repère, même réduction
+	$Quartiers.scale = Vector3.ONE / U
 	_niveler()
 	_creuser_lit()
 	_ciel()
