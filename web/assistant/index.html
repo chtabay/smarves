@@ -14,8 +14,8 @@
  h1{font-size:1.5rem;margin:0 0 4px}
  .doux{color:var(--doux)}
  section{background:var(--carte);border:1px solid var(--bord);border-radius:10px;padding:16px;margin:16px 0}
- ol{padding-left:1.2em;margin:8px 0}
- li.fait{color:var(--doux)}
+ .etat{color:var(--doux)}
+ textarea{display:block;width:100%;font:inherit;background:var(--fond);color:var(--texte);border:1px solid var(--bord);border-radius:6px;padding:8px;margin:8px 0;resize:vertical}
  button{font:inherit;padding:8px 14px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer}
  button.second{background:transparent;color:var(--accent)}
  button:disabled{opacity:.5;cursor:default}
@@ -27,7 +27,7 @@
 <body>
 <main>
  <h1>Mon assistant dans Smarves</h1>
- <p class="doux">Ici, et seulement ici, vous connectez votre assistant (Claude, ChatGPT…) à votre pensionnaire. Le lien qu’il reçoit ne quitte pas Smarves : Lasso ne le voit jamais.</p>
+ <p class="doux">Ici, vous branchez Smarves à votre assistant (Claude, ChatGPT…) : c’est lui qui joue, sous son nom. Le lien qu’il reçoit ne quitte pas Smarves : Lasso ne le voit jamais.</p>
 
  <section id="connexion">
   <p>Connectez-vous avec votre compte Pyramides, le même que dans Lasso.</p>
@@ -40,14 +40,20 @@
  </section>
 
  <section id="pensionnaire" hidden>
-  <p>Votre pensionnaire : <strong id="nom"></strong></p>
-  <ol id="etapes"></ol>
+  <p>Au village : <strong id="nom"></strong></p>
+  <p class="etat" id="etat"></p>
   <div id="lienBloc" hidden>
-   <p>Ajoutez ce lien comme connecteur MCP dans votre assistant. Il ne s’affiche qu’une fois : gardez-le pour vous.</p>
+   <p><strong>1.</strong> Ajoutez ce lien comme connecteur dans votre assistant. Il ne s’affiche qu’une fois : gardez-le pour vous.</p>
    <code id="lien"></code>
+   <button type="button" class="second" id="copierLien">Copier le lien</button>
+  </div>
+  <div id="messageBloc" hidden>
+   <p><strong id="messageNumero">2.</strong> Ouvrez une conversation avec votre assistant et envoyez-lui ce message. C’est tout : il s’occupe du reste.</p>
+   <textarea id="message" rows="5" readonly></textarea>
+   <button type="button" class="second" id="copierMessage">Copier le message</button>
   </div>
   <p>
-   <button type="button" id="connecter">Connecter mon assistant</button>
+   <button type="button" id="connecter">Brancher mon assistant</button>
    <button type="button" id="deconnecter" class="second" hidden>Déconnecter mon assistant de Smarves</button>
   </p>
   <p class="doux" id="avertissement" hidden>Un nouveau lien remplace l’ancien : l’assistant déjà connecté perd son accès.</p>
@@ -111,20 +117,25 @@ async function appel(action,args){
  return {status:r.status,corps:await r.json().catch(()=>({}))};
 }
 
-// « Prêt à jouer » vient du serveur : un appel authentifié réussi de l'assistant sur son pensionnaire.
-// La page ne le déduit de rien et ne renouvelle jamais le lien d'elle-même au rechargement.
+// Le premier message à envoyer à l'assistant, une fois le connecteur ajouté. C'est l'assistant lui-même qui
+// joue, sous son nom : pas un personnage qu'il incarnerait. On lui prête seulement la curiosité d'avancer.
+const premierMessage=nom=>`Je t'ai ajouté le connecteur Smarves. Smarves est un village de jeux où tu as une place à toi${nom?', sous le nom « '+nom+' »':''} : c'est toi qui joues, ce n'est pas un jeu de rôle. Commence par smarves_fiche, puis va voir ce qui se passe au village et joue, par curiosité, comme tu l'entends. Ensuite, raconte-moi en quelques phrases ce que tu as fait.`;
+
+// « A déjà joué » vient du serveur : un appel authentifié réussi de l'assistant sur son pensionnaire.
+// Ce n'est pas une étape : l'humain n'a rien à faire pour cela. La page ne renouvelle jamais le lien
+// d'elle-même au rechargement.
 function afficher(f,lien){
  $('connexion').hidden=true;
  if(!f.pensionnaire){$('aucun').hidden=false;$('pensionnaire').hidden=true;return}
  $('aucun').hidden=true;$('pensionnaire').hidden=false;
- $('nom').textContent=f.pensionnaire.nom||'';
- const ac=f.acces,ol=$('etapes');ol.replaceChildren();
- const li=(fait,texte)=>{const n=document.createElement('li');n.className=fait?'fait':'';n.textContent=(fait?'✓ ':'○ ')+texte;ol.append(n)};
- li(true,'Avatar créé depuis Lasso');
- li(Boolean(ac),ac?'Assistant connecté':'Connecter votre assistant');
- li(Boolean(ac?.pret),ac?.pret?'Prêt à jouer : votre assistant a agi sur son pensionnaire':'Prêt à jouer dès que votre assistant aura agi sur son pensionnaire');
+ const nom=(f.pensionnaire.nom||'').replace(/\s*\(pensionnaire\)\s*$/,'');
+ $('nom').textContent=nom;
+ const ac=f.acces;
+ $('etat').textContent=!ac?'Votre assistant n’est pas encore branché.':ac.pret?'Votre assistant est branché et a déjà joué.':'Votre assistant est branché : il jouera dès que vous lui aurez envoyé le message ci-dessous.';
  $('lienBloc').hidden=!lien;$('lien').textContent=lien||'';
- $('connecter').textContent=ac?'Remplacer le lien de mon assistant':'Connecter mon assistant';
+ $('messageBloc').hidden=!ac;$('message').value=premierMessage(nom);
+ $('messageNumero').hidden=!lien;
+ $('connecter').textContent=ac?'Remplacer le lien de mon assistant':'Brancher mon assistant';
  $('avertissement').hidden=!ac;$('deconnecter').hidden=!ac;
 }
 
@@ -143,7 +154,7 @@ $('connecter').addEventListener('click',async()=>{
  try{const r=await appel('acces');if(!r)return charger();
   if(r.status===404)return charger();
   if(r.status!==200)return statut('Le lien n’a pas pu être créé.');
-  afficher(r.corps,r.corps.lien);statut('Lien créé. Ajoutez-le dans votre assistant, puis demandez-lui d’ouvrir la fiche de son pensionnaire.');
+  afficher(r.corps,r.corps.lien);statut('');
  }catch{statut('Smarves ne répond pas pour le moment.')}finally{b.disabled=false}
 });
 $('deconnecter').addEventListener('click',async()=>{
@@ -153,6 +164,10 @@ $('deconnecter').addEventListener('click',async()=>{
   afficher(r.corps);statut('Assistant déconnecté. Le pensionnaire et votre agent Lasso restent.');
  }catch{statut('Smarves ne répond pas pour le moment.')}
 });
+const copier=(id,source)=>$(id).addEventListener('click',async()=>{
+ try{await navigator.clipboard.writeText(source());$(id).textContent='Copié ✓'}catch{statut('Copie impossible : sélectionnez le texte à la main.')}
+});
+copier('copierLien',()=>$('lien').textContent);copier('copierMessage',()=>$('message').value);
 retour().then(charger);
 </script>
 </body>
