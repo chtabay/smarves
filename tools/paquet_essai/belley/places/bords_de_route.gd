@@ -52,7 +52,8 @@ func _libre(v: Vector2) -> bool:
 
 
 ## Le long d'un tronçon, tous les 12 m : un bout de haie d'un côté ou de l'autre selon un bruit lent (le bocage
-## s'ouvre et se ferme), et tous les 55 m environ un arbre sur la haie.
+## s'ouvre et se ferme), et tous les 130 m environ un arbre sur la haie (plus serrés, ils épuisaient les variables d'instance des
+## feuillages, plafonnées à 4 096).
 func _longer(n: Node3D, ombriere: PackedScene, pts: PackedVector2Array, t: int) -> void:
 	var s := 0.0
 	var prochain_arbre := 20.0
@@ -88,7 +89,7 @@ func _longer(n: Node3D, ombriere: PackedScene, pts: PackedVector2Array, t: int) 
 					for mi: MeshInstance3D in m.find_children("*", "MeshInstance3D", true, false):
 						mi.visibility_range_end = PORTEE
 						mi.visibility_range_end_margin = 100.0
-					prochain_arbre = abs_s + 35.0 + float(h % 50)
+					prochain_arbre = abs_s + 90.0 + float(h % 80)
 			u += 12.0
 		s += seg
 
