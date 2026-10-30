@@ -2805,8 +2805,9 @@ void fragment() {
 	var touffe := SphereMesh.new()
 	touffe.radius = 1.0
 	touffe.height = 1.6
-	touffe.radial_segments = 8
-	touffe.rings = 4
+	# à deux cents mètres et plus, six côtés et trois rangs suffisent à la touffe
+	touffe.radial_segments = 6
+	touffe.rings = 3
 	bois.mesh = touffe
 	var touffes: Array = []
 	for k in 16000:
@@ -3050,3 +3051,10 @@ func _joueur() -> void:
 	camera.target = player.global_position + Vector3(0, 0.3, 0)
 	camera.set("_target_goal", camera.target)
 	camera.use_notches(CRANS, 1)
+
+
+## La caméra de dessus suit l'habitant (Guillaume, 30 octobre : en marchant vers le haut de l'écran, il en
+## sortait, la vue restait fixe). En vue à pied (Vue, Tab), l'habitant n'a plus de caméra à suivre.
+func _process(_delta: float) -> void:
+	if player != null and player.follow_camera == camera:
+		camera.set("_target_goal", player.global_position + Vector3(0, 0.3, 0))
