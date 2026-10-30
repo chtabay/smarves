@@ -736,6 +736,18 @@ SalleDuo bat toutes les deux secondes et fait passer `Presences` dans le salon d
 
 **Le faux serveur** (`SalleDuoEssai`, `scripts/socle/salle_duo_essai.gd`) : les mêmes règles, sans compte ni réseau. `s.essai = SalleDuoEssai.new()` et `s.joueur_essai = {"id": "e1", "nom": "Ernestine"}` ; deux SalleDuo qui partagent le même faux serveur sont deux joueurs. Ses tarifs se règlent (`tarifs`, 100 et 1 000 sans réglage) et `valider` juge la sortie (un Callable qui reçoit le carnet et la variante) ; avec `fichier = "user://salles.json"`, deux fenêtres du jeu sur la même machine jouent ensemble. L'essai bout à bout est `tools/test_salle_duo.gd` : appariement, descente, sortie, prime une seule fois, plaque, départ et report, coupure et reprise, deux fenêtres.
 
+### L'assise des bâtiments (classe `Assise`, `scripts/socle/assise.gd`) — socle 1.30
+
+Sur un relief réel (`tools/bourg_reel.py`), un bâtiment ne flotte pas au-dessus du sol et son toit coiffe ses murs. Trois règles, pour toute commune qui pose des maisons sur un terrain en pente (`"socle_min": "1.30"`), toutes avec `hauteur`, la fonction de la scène qui donne l'altitude du terrain dessiné, dans le repère du parent des maisons :
+
+| | |
+|---|---|
+| `Assise.caler(maison, hauteur, pierre = Assise.PIERRE)` | une maison du façadier posée (position et lacet réglés, donc après son entrée dans l'arbre) : si le terrain descend sous son emprise w × d plus bas que son soubassement, une assise de pierre descend du pied de la façade jusqu'à 30 cm sous le point le plus bas. La maison ne bouge pas, sa porte reste au niveau de la rue. Rend l'écart rattrapé |
+| `Assise.sol(hauteur, plan, pas = 1.5)` | le plus bas (`x`) et le plus haut (`y`) du terrain sous un plan fermé, aux sommets, le long des bords et dedans. Le pied d'un mur se pose à `sol(...).x - 0.3`, jamais sur le seul champ `sol` de `bourg.json` : la scène nivelle, creuse et interpole son terrain, et entre deux sommets le sol passe sous le pied |
+| `Assise.deux_pans(plan, egout, montee, centre, axe, demi, debord = 0.3)` | un toit à deux pans taillé sur le plan réel depuis le haut des murs (`egout`), le faîtage le long de `axe` par `centre`, et les pignons qui montent les murs jusqu'au toit. Rend des triangles (`pans`, `pignons`) à verser dans le maillage de la commune (`Assise.normale(t)`). Pour tout plan qui ne remplit pas son rectangle (`rempli` sous 0,92 environ) : un toit posé sur `rect` déborde dans le vide d'un côté et laisse le mur nu de l'autre |
+
+Le contrôle : `godot --headless --path . -s tools/mesure_assise.gd -- <id> [--depuis=res://chemin/] [--detail]` ouvre la commune et dit combien de maisons du façadier flottent (et de combien), et combien de pieds de mur des volumes peints (`Murs…`) laissent voir le jour. Une commune se livre à zéro. Test : `godot --headless --path . -s tools/test_assise.gd`.
+
 ### `Vienne` (classe, `scripts/socle/vienne.gd`)
 
 Le référentiel : `Vienne.communes()`, `Vienne.commune(insee)`, `Vienne.centre(insee)`. `Commune.smarves()` est Smarves, lue une fois.
