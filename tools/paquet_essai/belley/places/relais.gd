@@ -25,7 +25,8 @@ const VOLET := Color("7e9a96", 0.6)
 const BOIS := Color("8a6440", 0.8)
 const BOIS_CLAIR := Color("b08a5a", 0.8)
 const GRAVIER := Color("cfb38a", 0.95)
-const PELOUSE := Color("8fb34c", 0.95)
+## Plus sourde depuis le verdict n° 28 : la vue du Relais était levée (médiane 161).
+const PELOUSE := Color("7a9a42", 0.95)
 const ARDOISE_HALLE := Color("5d6066", 0.0)
 const VITRE := Color(0.18, 0.21, 0.25, 0.2)
 
@@ -141,7 +142,8 @@ func _terrasse(parent: Node3D) -> void:
 	# Devant la façade sous la treille, et à droite sous le grand platane, à découvert sur la cour (revue finale
 	# n° 1 : le platane était caché derrière le pavillon).
 	var tables := [Vector2(7, 12.5), Vector2(11.5, 13), Vector2(16, 12.5), Vector2(20.5, 13), Vector2(39.5, 4.5), Vector2(44.0, 3.5),
-		Vector2(47.5, 6.5), Vector2(40.0, 9.5), Vector2(45.0, 10.5)]
+		Vector2(47.5, 6.5), Vector2(40.0, 9.5), Vector2(45.0, 10.5), Vector2(36.5, 2.5), Vector2(36.0, 7.0), Vector2(41.5, 0.8),
+		Vector2(48.0, 2.0), Vector2(43.0, 13.0), Vector2(38.5, 12.5)]
 	for i in tables.size():
 		var m: Node3D = scene.instantiate()
 		m.set("objet", "terrasse")
@@ -278,7 +280,7 @@ func _barriere(a: Vector2, b: Vector2, graine: int) -> void:
 func _vegetation(parent: Node3D) -> void:
 	var rives: PackedScene = load(Bibliotheque.scene("arbres-des-rives@1", "decor"))
 	var bugey: PackedScene = load(Bibliotheque.scene("vegetation-du-bugey@1", "decor"))
-	_poser(parent, load(Bibliotheque.scene("arbres-d-ombriere@1", "decor")), "arbre", "platane", 207, {"hauteur": 19.0}, Vector2(43.5, 7.2))
+	_poser(parent, load(Bibliotheque.scene("arbres-d-ombriere@1", "decor")), "arbre", "platane", 207, {"hauteur": 22.0, "densite": 1.3}, Vector2(43.5, 7.2))
 	# Les peupliers d'Italie entre le pré et les lônes, en bouquets irréguliers de deux à quatre, pas en rideau
 	# (revue finale n° 1).
 	var bouquets := [[Vector2(-6.0, 55.0), 3], [Vector2(12.0, 58.5), 2], [Vector2(27.0, 54.0), 4], [Vector2(49.0, 57.0), 3], [Vector2(66.0, 53.5), 2]]

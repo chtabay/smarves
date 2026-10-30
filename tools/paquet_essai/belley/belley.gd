@@ -121,7 +121,8 @@ func _ciel() -> void:
 	# La brume de distance : les crêtes à 15 km passent au bleu gris, sans disparaître.
 	env.fog_enabled = true
 	env.fog_mode = Environment.FOG_MODE_EXPONENTIAL
-	env.fog_light_color = Color("a9b7c4")
+	# Bleu-gris : les lointains à 11 km sortaient blancs (revue finale n° 1, visée #93A6AE).
+	env.fog_light_color = Color("93a6ae")
 	env.fog_density = 0.00005
 	env.fog_aerial_perspective = 0.2
 	env.fog_sky_affect = 0.0
@@ -139,7 +140,7 @@ func _ciel() -> void:
 	soleil.shadow_enabled = true
 	soleil.directional_shadow_max_distance = 220.0
 	# Des ombres de dessin animé : franches mais pas noires, le bord adouci.
-	soleil.shadow_opacity = 0.85
+	soleil.shadow_opacity = 0.95
 	soleil.shadow_blur = 1.5
 
 

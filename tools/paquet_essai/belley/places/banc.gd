@@ -44,13 +44,25 @@ func batir(parent: Node3D, x: float, z: float, lacet_deg: float) -> void:
 	var lacet_noeud := -l
 	var o := OUTILS.new(1572)
 	# La terre usée devant et sous le banc, et le chemin de terre qui monte de la route, par la gauche.
-	_tache(o, BANC_AV - 0.6, 0.0, 3.4, 2.6, TERRE_USEE)
-	var k := 0
-	while k < 16:
-		var av := 0.6 - k * 1.9
-		var dr := -2.2 - k * 0.9 + sin(k * 0.7) * 0.8
-		_tache(o, av, dr, 2.0, 1.4, TERRE)
-		k += 1
+	var chemin := PackedVector2Array()
+	for k in 16:
+		chemin.append(Vector2(0.6 - k * 1.9, -2.2 - k * 0.9 + sin(k * 0.7) * 0.8))
+	var av1 := -32.0
+	while av1 < 6.0:
+		var dr1 := -18.0
+		while dr1 < 3.0:
+			var cs := []
+			var garde := false
+			for cn: Vector2 in [Vector2(0, 0), Vector2(0.5, 0), Vector2(0.5, 0.5), Vector2(0, 0.5)]:
+				var a := av1 + cn.x
+				var b := dr1 + cn.y
+				var k := _terre(a, b, chemin)
+				garde = garde or k > 0.0
+				cs.append(_pre(a, b).lerp(TERRE_USEE if k > 1.5 else TERRE, clampf(k, 0.0, 1.0)))
+			if garde:
+				o.quad_fondu(_p(av1, dr1, 0.04), _p(av1 + 0.5, dr1, 0.04), _p(av1 + 0.5, dr1 + 0.5, 0.04), _p(av1, dr1 + 0.5, 0.04), Vector3.UP, cs)
+			dr1 += 0.5
+		av1 += 0.5
 	o.construire(n, "Terre")
 	var mob: PackedScene = load(Bibliotheque.scene("mobilier-du-bugey@1", "decor"))
 	var banc: Node3D = mob.instantiate()
@@ -83,36 +95,42 @@ func batir(parent: Node3D, x: float, z: float, lacet_deg: float) -> void:
 	fond.rotation.y = lacet_noeud
 	n.add_child(fond)
 	var bugey: PackedScene = load(Bibliotheque.scene("vegetation-du-bugey@1", "decor"))
-	# Le chêne du banc, un peu à gauche derrière : sa couronne fait le haut du cadre.
-	_plante(n, bugey, "chene", 161, {"hauteur": 15.0}, -1.5, -5.5)
+	# Le chêne du banc, en repoussoir en haut à gauche du cadre (verdict n° 28).
+	_plante(n, bugey, "chene", 161, {"hauteur": 12.0}, 0.5, -4.0)
 	# Les bosquets qui cadrent la vue, à gauche et à droite, plus bas sur la pente.
 	_plante(n, bugey, "chene", 162, {"hauteur": 12.0}, 16.0, -24.0)
 	_plante(n, bugey, "charme", 163, {"hauteur": 10.0}, 19.0, -19.0)
 	_plante(n, bugey, "cerisier", 164, {}, 12.0, 21.0)
 	_plante(n, bugey, "charme", 165, {"hauteur": 9.0}, 17.0, 26.0)
-	# Les herbes hautes et les fleurs des champs du pré, de part et d'autre de la vue : des touffes d'herbe et des
-	# semis de petites fleurs, pas des pots.
+	# Le pré sec du replat, blond (#A8A864), sur la moitié de la vue, et ses taches de fleurs des champs : de
+	# petites fleurs en semis, groupées par taches, pas un tapis régulier (verdict n° 28).
 	var herbe := OUTILS.new(1573)
-	for i in 420:
+	var sec := OUTILS.new(1574)
+	# Sans bord ni marche d'un carreau à l'autre : chaque coin prend sa teinte (_pre).
+	var av0 := -2.0
+	while av0 < 34.0:
+		var dr0 := -26.0
+		while dr0 < 26.0:
+			sec.quad_fondu(_p(av0, dr0, 0.03), _p(av0 + 1.0, dr0, 0.03), _p(av0 + 1.0, dr0 + 1.0, 0.03), _p(av0, dr0 + 1.0, 0.03), Vector3.UP, [_pre(av0, dr0), _pre(av0 + 1.0, dr0), _pre(av0 + 1.0, dr0 + 1.0), _pre(av0, dr0 + 1.0)])
+			dr0 += 1.0
+		av0 += 1.0
+	sec.construire(n, "PreSec")
+	var taches := [Vector2(6.0, -7.0), Vector2(9.0, 6.5), Vector2(14.0, -13.0), Vector2(17.0, 11.0), Vector2(22.0, -3.0), Vector2(5.0, 12.0)]
+	for i in 140:
 		var h := absi(hash(Vector2i(i, 77)))
-		var av := 1.0 + float(h % 220) / 10.0
-		var dr := float((h / 220) % 400) / 10.0 - 20.0
-		if absf(dr) < 2.2 and av < 5.0:
-			continue
+		var t: Vector2 = taches[h % taches.size()]
+		var av := t.x + float((h / 7) % 50) / 10.0 - 2.5
+		var dr := t.y + float((h / 350) % 50) / 10.0 - 2.5
 		var c := _p(av, dr, 0.0)
-		# Une touffe : quatre brins effilés, d'un vert plus sombre que le pré.
-		var hh := 0.2 + float(h % 7) * 0.04
-		for b in 4:
-			var db := Vector3(float((h >> b) % 7) * 0.04 - 0.12, 0, float((h >> (b + 2)) % 7) * 0.04 - 0.12)
-			herbe.boule(c + db + Vector3(0, hh * 0.45, 0), Vector3(0.035, hh * 0.5, 0.035), Color("4a7a2a").lightened(float(h % 9) * 0.015), 0.2, OUTILS.FEUILLE, 0.06, 1.0, 3, 5)
-		if h % 3 != 0:
-			var fl: Color = [Color("f4f0e6"), Color("f2c14e"), Color("b06ad0"), Color("e0605a")][(h / 7) % 4]
-			for q in 4:
-				var dq := Vector3(float((h >> q) % 7) * 0.07 - 0.21, hh * 0.8, float((h >> (q + 3)) % 7) * 0.07 - 0.21)
-				herbe.boule(c + dq, Vector3(0.06, 0.04, 0.06), fl, 0.1, OUTILS.FEUILLE, 0.05, 1.0, 3, 5)
+		var hh := 0.12 + float(h % 5) * 0.03
+		for b in 3:
+			var db := Vector3(float((h >> b) % 5) * 0.03 - 0.06, 0, float((h >> (b + 2)) % 5) * 0.03 - 0.06)
+			herbe.boule(c + db + Vector3(0, hh * 0.45, 0), Vector3(0.02, hh * 0.5, 0.02), Color("6b7f34").lightened(float(h % 9) * 0.015), 0.2, OUTILS.FEUILLE, 0.06, 1.0, 3, 4)
+		var fl: Color = [Color("f4f0e6"), Color("f2c14e"), Color("b06ad0"), Color("e0605a")][(h / 11) % 4].darkened(0.1)
+		for q in 2:
+			var dq := Vector3(float((h >> q) % 5) * 0.04 - 0.08, hh * 0.85, float((h >> (q + 3)) % 5) * 0.04 - 0.08)
+			herbe.boule(c + dq, Vector3(0.025, 0.018, 0.025), fl, 0.1, OUTILS.FEUILLE, 0.05, 1.0, 3, 4)
 	herbe.construire(n, "HerbesHautes")
-	for i in 6:
-		_plante(n, bugey, "haie", 200 + i, {"longueur": 2.5, "hauteur": 1.1}, 6.0 + i * 1.5, (-1.0 if i % 2 == 0 else 1.0) * (9.0 + i * 1.4))
 	# Derrière soi, la maison à vendre, son panneau à la grille.
 	var mp0 := _p(-26.0, 4.0)
 	var m: Node3D = FACADIER.maison(n, mp0, "r1", 158, {"mur": "enduit", "enduit": "d2be98", "couverture": "tuile_vieillie", "volets": "bois", "volet": "8ea78c", "fleurs": false})
@@ -140,17 +158,23 @@ func _plante(n: Node3D, scene: PackedScene, nom: String, graine: int, options: D
 	n.add_child(m)
 
 
-## Une tache de terre de taille w × d (le long du devant, en travers), drapée sur le sol par carreaux de 0,5 m.
-func _tache(o: RefCounted, av: float, dr: float, w: float, d: float, col: Color) -> void:
-	var pas := 0.5
-	var i := -w * 0.5
-	while i < w * 0.5 - 0.01:
-		var j := -d * 0.5
-		while j < d * 0.5 - 0.01:
-			# Un bord irrégulier : les coins de la tache s'effilochent dans l'herbe.
-			var r := Vector2(i / (w * 0.5), j / (d * 0.5)).length()
-			if r < 1.0 - float(absi(hash(Vector2i(int(i * 10.0 + av * 7.0), int(j * 10.0 + dr * 7.0)))) % 30) / 100.0:
-				var c := col.darkened(float(absi(hash(Vector2i(int(i * 4.0), int(j * 4.0)))) % 8) * 0.01)
-				o.quad(_p(av + i, dr + j, 0.04), _p(av + i + pas, dr + j, 0.04), _p(av + i + pas, dr + j + pas, 0.04), _p(av + i, dr + j + pas, 0.04), Vector3.UP, c, OUTILS.PEINT)
-			j += pas
-		i += pas
+## La teinte du pré sec à av, dr : du vert du pré (PRE du terrain) au blond (#A8A864) par un bruit lent, revenue au
+## vert sur le pourtour pour que la nappe se fonde dans le terrain ; dégagée devant le banc.
+func _pre(a: float, b: float) -> Color:
+	var bruit := sin(a * 0.21 + b * 0.13) + sin(b * 0.31 - a * 0.07) + 0.4
+	var bord := minf(minf(a + 2.0, 34.0 - a) / 6.0, minf(b + 26.0, 26.0 - b) / 6.0)
+	var ks := smoothstep(-0.4, 0.8, bruit) * clampf(bord, 0.0, 1.0)
+	ks *= smoothstep(1.5, 3.5, Vector2(a - BANC_AV, b).length())
+	return Color(0.49, 0.61, 0.23).lerp(Color("a8a864"), ks)
+
+
+## La part de terre à av, dr (0 : le pré ; 1 : la terre ; au-delà de 1,5 : la terre usée sous le banc) : une
+## ellipse sous le banc et le ruban du chemin, aux bords effilochés par un bruit fin.
+func _terre(a: float, b: float, chemin: PackedVector2Array) -> float:
+	var frange := sin(a * 2.3 + b * 1.7) * 0.18 + sin(a * 5.1 - b * 3.7) * 0.1
+	var banc := 2.6 - Vector2((a - BANC_AV + 0.6) / 1.9, b / 1.5).length() * 2.4 + frange
+	var d := INF
+	for i in chemin.size() - 1:
+		d = minf(d, Geometry2D.get_closest_point_to_segment(Vector2(a, b), chemin[i], chemin[i + 1]).distance_to(Vector2(a, b)))
+	var ruban := (0.5 - d) / 0.25 + frange
+	return maxf(banc, minf(ruban, 1.0))
