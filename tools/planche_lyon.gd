@@ -8,6 +8,7 @@ extends SceneTree
 ##   --vue=mobilier    chaque objet du mobilier, avec son nom
 ##   --vue=vegetation  chaque plante, avec son nom
 ##   --vue=quais       les sols et les modules de quai
+##   --vue=renaissance une ruelle de façades Renaissance du Vieux-Lyon (--nom=pres : une façade de près)
 ##   --vue=toits      un îlot de huit immeubles vu de 70 m, pour le grain des toits (--nom=grain=1 ; verdict n° 32)
 ##   --vue=jardin      un coin de jardin : la nappe d'herbe, des buissons et un massif en feuilles fines, de près
 ##   --vue=place       une place lyonnaise : fontaine au lion, terrasses, quai, rivière, pont, colline
@@ -98,6 +99,25 @@ func _init() -> void:
 					x += float(m.get_meta("w")) + 0.4
 			cam.fov = 40
 			cam.look_at_from_position(Vector3(-6, 52.0, 46.8 - 13.0), Vector3(-6, 0, -13.0))
+		"renaissance":
+			# une ruelle du Vieux-Lyon : cinq façades Renaissance en rangée (option renaissance), à hauteur d'œil ;
+			# --nom=pres : une seule façade de près, pour lire les croisées et les accolades
+			_sol(Vector2(80, 60), Color("a39b93"), Vector3(0, -0.01, 8))
+			var rang := [["classique", {"vigne": false}], ["etroite", {}], ["maison", {}], ["traboule", {}], ["classique", {"rdc": "boutique", "toile": ["7a2a2a", "f3ead6"]}]]
+			var x := -22.0
+			for i in rang.size():
+				var opt: Dictionary = rang[i][1]
+				opt["renaissance"] = true
+				var m := _pose(FACADIER, "type", rang[i][0], Vector3(x, 0, 0), i + 11, opt)
+				var w: float = m.get_meta("w")
+				m.position.x += w * 0.5
+				x += w + 0.3
+			if nom == "pres":
+				cam.fov = 48
+				cam.look_at_from_position(Vector3(-14, 2.2, 9.0), Vector3(-11.5, 6.5, 0))
+			else:
+				cam.fov = 60
+				cam.look_at_from_position(Vector3(-24, 1.65, 12.0), Vector3(-2, 5.5, -1))
 		"facadier", "detail":
 			_sol(Vector2(140, 60), Color("b8a27a"))
 			var types: Array = load(Bibliotheque.scene(FACADIER, "decor")).instantiate().types()
