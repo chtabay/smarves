@@ -26,6 +26,8 @@ const RAYON_DEFAUT := 150.0
 const SAS_RAYON := 6.0
 ## Les secondes entre deux regards de la veille sur la position du joueur.
 const VEILLE_PAS := 0.4
+## Les mètres au-delà du rayon d'un quartier avant que la veille le lâche comme quartier courant.
+const MARGE := 20.0
 const _NOM := "^[a-z_][a-z0-9_]{0,47}$"
 
 
@@ -287,12 +289,19 @@ class Veille extends Node:
 		_horloge = 0.0
 		verifier()
 
+	## Un point du monde dans le repère du parent de la veille (en mètres sous une ville réduite).
+	func _local(p: Vector3) -> Vector3:
+		var parent := get_parent() as Node3D
+		return parent.to_local(p) if parent != null else p
+
 	## Les quartiers que le joueur demande en détail, d'où il se tient : le courant et ceux des sas.
 	func voulus() -> Array:
 		var q := Quartiers.de(commune)
 		if joueur == null or not is_instance_valid(joueur):
 			return [courant] if courant != "" else []
-		var p := joueur.global_position
+		# Tout se mesure dans le repère du parent (celui où les quartiers sont posés) : sous une ville
+		# réduite à 1/U, les centres, rayons et sas restent en mètres.
+		var p := _local(joueur.global_position)
 		var ici := Vector2(p.x, p.z)
 		var plus_pres := courant
 		var d_pres := ici.distance_to(q[courant].centre) if q.has(courant) and q[courant].centre != Vector2.INF else INF
@@ -304,8 +313,8 @@ class Veille extends Node:
 			if d <= q[nom].rayon and d < d_pres:
 				plus_pres = nom
 				d_pres = d
-		courant = plus_pres
-		var out := [courant] if courant != "" else []
+		# Les sas où le joueur se tient : ils demandent le quartier d'en face, et retiennent le leur.
+		var par_les_sas := []
 		for cle in _sas:
 			var liste: Array = _sas[cle]
 			for i in range(liste.size() - 1, -1, -1):
@@ -315,10 +324,22 @@ class Veille extends Node:
 					continue
 				if not sas.is_inside_tree():
 					continue
-				var vers := String(sas.name).trim_prefix("Sas_")
 				var r := float(sas.get_meta("rayon", Quartiers.SAS_RAYON))
-				if q.has(vers) and not vers in out and sas.global_position.distance_to(p) <= r:
-					out.append(vers)
+				if _local(sas.global_position).distance_to(p) > r:
+					continue
+				for nom in [String(sas.name).trim_prefix("Sas_"), cle]:
+					if q.has(nom) and not nom in par_les_sas:
+						par_les_sas.append(nom)
+		# Le quartier courant lâche quand le joueur est sorti de son rayon (avec une marge, pour ne pas
+		# battre au bord) et d'aucun de ses sas : là où rien n'est déclaré, la scène de la commune tient le décor.
+		if plus_pres == courant and q.has(courant) and q[courant].centre != Vector2.INF \
+				and d_pres > q[courant].rayon + MARGE and not courant in par_les_sas:
+			plus_pres = ""
+		courant = plus_pres
+		var out := [courant] if courant != "" else []
+		for nom in par_les_sas:
+			if not nom in out:
+				out.append(nom)
 		return out
 
 	## Déclare les sas d'une partie de la commune qui n'est pas un quartier posé par la veille : ses nœuds
@@ -336,8 +357,10 @@ class Veille extends Node:
 	## Un regard : pose en détail ce que le joueur demande, allège le reste. Renvoie les quartiers voulus.
 	func verifier() -> Array:
 		var v := voulus()
+		var q := Quartiers.de(commune)
 		for nom in v:
-			if not detailles.has(nom) and not _en_cours.has(nom):
+			# le quartier de départ peut ne pas être déclaré (bâti par la scène de la commune) : rien à poser
+			if q.has(nom) and not detailles.has(nom) and not _en_cours.has(nom):
 				_detailler(nom)
 		for nom in detailles.keys():
 			if not nom in v and not _en_cours.has(nom):

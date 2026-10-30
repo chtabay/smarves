@@ -143,6 +143,33 @@ func _init() -> void:
 	for i in 6:
 		await process_frame
 	check(v == ["bas"] and veille.courant == "bas" and not veille.detailles.has("chateau") and veille.lointains.has("chateau") and ville.get_node_or_null("chateau_loin") != null, "sorti du sas côté bas, le château repasse au loin")
+	joueur.position = Vector3(300, 0, 115)
+	check(veille.voulus() == ["bas"], "à 15 m au-delà du rayon, le quartier courant tient encore (marge)")
+	joueur.position = Vector3(300, 0, 130)
+	v = veille.verifier()
+	for i in 6:
+		await process_frame
+	check(v == [] and veille.courant == "" and not veille.detailles.has("bas") and veille.lointains.has("bas"), "sorti du rayon et de sa marge, le quartier courant lâche : tout est au loin, la scène de la commune tient le décor")
+	joueur.position = Vector3(300, 0, 50)
+	check(veille.voulus() == ["bas"], "revenu dans le rayon, le quartier redevient courant")
 	ville.free()
+
+	# Sous une ville réduite (Lyon : 1/2,4), la veille mesure toujours en mètres, dans le repère du parent.
+	var reduite := Node3D.new()
+	reduite.scale = Vector3.ONE / 2.4
+	root.add_child(reduite)
+	var j2 := Node3D.new()
+	root.add_child(j2)
+	var v2 := Quartiers.veiller_de(reduite, c2, j2, "chateau")
+	for i in 6:
+		await process_frame
+	j2.position = Vector3(60, 0, 0) / 2.4
+	check(v2.voulus() == ["chateau"], "ville réduite : à 60 m (25 unités) du château, le château reste courant")
+	j2.position = Vector3(148, 0, 0) / 2.4
+	check(v2.voulus() == ["chateau", "bas"], "ville réduite : dans le sas de 6 m, mesuré en mètres, le quartier d'en face est voulu")
+	j2.position = Vector3(240, 0, 0) / 2.4
+	check(v2.voulus() == ["bas"], "ville réduite : au-delà, le bas est courant et le château lâche")
+	reduite.free()
+	j2.free()
 	print("%d échec(s)" % fails)
 	quit(1 if fails > 0 else 0)

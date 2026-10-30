@@ -57,7 +57,7 @@ const EAU := Color("#3d5b57")
 
 
 static func batir(racine: Node3D) -> void:
-	var q := {"racine": racine, "commune": racine.get_parent(), "rng": RandomNumberGenerator.new(),
+	var q := {"racine": racine, "commune": _commune(racine), "rng": RandomNumberGenerator.new(),
 		"data": JSON.parse_string(FileAccess.get_file_as_string(DOSSIER + "bourg.json"))}
 	q.rng.seed = 69123002
 	_volumes(q)
@@ -70,6 +70,15 @@ static func batir(racine: Node3D) -> void:
 	_cloitre(q)
 	_vie(q)
 	_reperes(q)
+
+
+## La commune (lyon.gd), qui tient le sol : le premier ancêtre de la racine qui sait hauteur(x, z). Posé par
+## la veille, le quartier est sous le nœud Quartiers de la commune ; à l'essai, il peut être sous elle.
+static func _commune(racine: Node) -> Node:
+	var n := racine.get_parent()
+	while n != null and not n.has_method("hauteur"):
+		n = n.get_parent()
+	return n
 
 
 ## L'altitude du sol, celle de la commune (VILLE.md : un quartier ne refait pas le sol).
