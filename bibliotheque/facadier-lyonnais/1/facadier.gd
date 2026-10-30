@@ -50,7 +50,10 @@ const ETAGE := 3.3
 ## café et 1,3 à la boutique par défaut), tuile (un hexa : la teinte des tuiles canal, le rouge orangé lyonnais sinon),
 ## pente (en degrés, 24 par défaut), chassis (0 à 3 fenêtres de toit sur le pan côté rue, 0 par défaut), souches
 ## (« grosses » : des souches plus larges et plus hautes, à quatre mitrons), store (faux : la boutique ou le café
-## sans store banne ; vrai par défaut).
+## sans store banne ; vrai par défaut), grain (0 à 2, 0 par défaut : le grain des pans de tuile lisible de loin, un
+## rang sur quatre assombri de moitié et des plaques de tuiles plus neuves ou plus passées de ± 32 %, sur à peu
+## près six tuiles sur cinq rangs, neuf dixièmes de la surface ; à 1, l'écart-type de luminance des toits vus de
+## 70 m passe de 33 à 40 sur la planche toits, ce que demandait le verdict n° 32 de Sathonay).
 ## Rend le nœud de l'immeuble ; ses métadonnées : type, graine, w, d, hauteur (au faîte), porte (le seuil).
 static func maison(parent: Node3D, p: Vector3, type: String, graine: int, opt := {}) -> Node3D:
 	if not type in TYPES:
@@ -103,7 +106,7 @@ static func maison(parent: Node3D, p: Vector3, type: String, graine: int, opt :=
 	if toit == "mansarde":
 		faite = _mansarde(o, w, d, H, r)
 	else:
-		faite = _quatre_pans(o, w, d, H, r, _tuile(opt), float(opt.get("pente", 24.0)), int(opt.get("chassis", 0)))
+		faite = _quatre_pans(o, w, d, H, r, _tuile(opt), float(opt.get("pente", 24.0)), int(opt.get("chassis", 0)), clampf(float(opt.get("grain", 0.0)), 0.0, 2.0))
 	# les souches de cheminée, massives, enduites, sur le versant arrière ; les grosses souches des immeubles
 	# lyonnais montent plus haut et portent quatre mitrons de terre cuite
 	var grosses := str(opt.get("souches", "")) == "grosses"
@@ -497,7 +500,7 @@ static func _vigne(o: Outils, w: float, H: float, r: RandomNumberGenerator) -> v
 
 ## Le toit lyonnais à quatre pans, en tuile canal, peu pentu (24° ou degres), sur sa génoise, et ses châssis de
 ## toit côté rue ; rend le faîte.
-static func _quatre_pans(o: Outils, w: float, d: float, H: float, r: RandomNumberGenerator, tuile: Array, degres := 24.0, chassis := 0) -> float:
+static func _quatre_pans(o: Outils, w: float, d: float, H: float, r: RandomNumberGenerator, tuile: Array, degres := 24.0, chassis := 0, grain := 0.0) -> float:
 	var e := 0.55
 	var pente := deg_to_rad(clampf(degres, 15.0, 45.0))
 	var x0 := -w * 0.5 - e
@@ -551,6 +554,8 @@ static func _quatre_pans(o: Outils, w: float, d: float, H: float, r: RandomNumbe
 			var centre: Vector3 = bas + monte * f + nrm.normalized() * 0.03
 			var bb := Basis(dir, nrm.normalized(), dir.cross(nrm.normalized()))
 			o.boite(Transform3D(bb.orthonormalized(), centre), Vector3(lk, 0.05, 0.08), tuile[1])
+		if grain > 0.0:
+			_grain(o, r, bas, monte, dir, long, 0.0 if pan.size() == 3 else (pan[2] - pan[3]).length(), nrm.normalized(), rangs, tuile[0], grain)
 	# les châssis de toit, posés dans le pan côté rue : un cadre clair, la vitre, le rejingot qui la protège
 	if chassis > 0:
 		var avant: Array = pans[0]
@@ -579,6 +584,35 @@ static func _quatre_pans(o: Outils, w: float, d: float, H: float, r: RandomNumbe
 		o.boite(Transform3D(Basis(), Vector3(0, H + 0.2 - k * 0.12, ek * 0.5)), Vector3(w + ek * 2.0, 0.08, ek), Color("e6dcc6").darkened(k * 0.05))
 		o.boite(Transform3D(Basis(), Vector3(0, H + 0.2 - k * 0.12, -d - ek * 0.5)), Vector3(w + ek * 2.0, 0.08, ek), Color("e6dcc6").darkened(k * 0.05))
 	return sommet
+
+
+## Le grain d'un pan de tuiles, lisible de loin (verdict n° 32 de Sathonay : vus de 70 m, les pans étaient presque
+## unis) : des plaques de tuiles plus neuves ou plus passées (± 32 % × grain, six tuiles sur cinq rangs environ, neuf
+## dixièmes de la surface), puis un rang sur quatre assombri (la moitié × grain) ; des quads à plat sur le pan, dont
+## la largeur suit celle du pan (long en bas, long_haut en haut : 0 sur une croupe triangulaire). Les 25 % et ± 15 %
+## demandés ne faisaient passer l'écart-type que de 33 à 34 : le ton mappé écrase les écarts d'albédo.
+static func _grain(o: Outils, r: RandomNumberGenerator, bas: Vector3, monte: Vector3, dir: Vector3, long: float, long_haut: float, nrm: Vector3, rangs: int, col: Color, grain: float) -> void:
+	var pt := func(f: float, u: float, z: float) -> Vector3: return bas + monte * f + dir * (u * lerpf(long, long_haut, f)) + nrm * z
+	var hr := 5.0 / maxf(rangs, 1)
+	var n := int(monte.length() * (long + long_haut) * 0.5 / 2.7 * 0.9)
+	for i in n:
+		var f0 := r.randf_range(0.0, maxf(0.0, 1.0 - hr))
+		var f1 := minf(1.0, f0 + hr)
+		var lk := lerpf(long, long_haut, f1)
+		if lk < 1.3:
+			continue
+		var u0 := r.randf_range(-0.5, 0.5 - 1.2 / lk)
+		var u1 := u0 + 1.2 / lk
+		var k := r.randf_range(-0.32, 0.32) * grain
+		var c := col.darkened(-k) if k < 0.0 else col.lightened(k)
+		o.quad(pt.call(f0, u0, 0.012), pt.call(f0, u1, 0.012), pt.call(f1, u1, 0.012), pt.call(f1, u0, 0.012), nrm, c)
+	var sombre := col.darkened(0.5 * grain)
+	for k in rangs:
+		if k % 4 != 1:
+			continue
+		var f0 := float(k) / rangs
+		var f1 := float(k + 1) / rangs
+		o.quad(pt.call(f0, -0.5, 0.02), pt.call(f0, 0.5, 0.02), pt.call(f1, 0.5, 0.02), pt.call(f1, -0.5, 0.02), nrm, sombre)
 
 
 ## La mansarde d'ardoise de l'immeuble bourgeois : le brisis raide et ses lucarnes à fronton, le terrasson ;
