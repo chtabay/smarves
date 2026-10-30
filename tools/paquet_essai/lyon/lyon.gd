@@ -981,6 +981,10 @@ func _batiments() -> void:
 			poly.append(Vector2(q[0], q[1]) * U)
 		var sol: float = b.sol * U - 0.5
 		var h: float = b.h * U + 0.5
+		if i == 745:
+			# l'immeuble à fenêtres carrées au haut de la montée, vu de la mairie : un étage de moins, il se range
+			# derrière elle au lieu de la dominer (verdicts 24 et 34)
+			h -= 3.3
 		var en_relief := _reliefs(i, b, poly)
 		if not en_relief.is_empty():
 			# le volume s'arrête à la corniche des façades posées devant lui, et son toit les coiffe
@@ -2634,6 +2638,16 @@ func _quai_habite() -> void:
 		f.rotation.y = atan2(ma[1].x, ma[1].y)
 		groupe.add_child(f)
 		g += 1
+	# dans le champ du retour : un promeneur qui s'éloigne sur les dalles, à huit mètres et plus de l'œil
+	var retour: Array[Vector3] = []
+	var dos := -VUE1A_REGARD
+	for ecart in [9.0, 15.0, 22.0, 30.0]:
+		var qr: Vector2 = VUE1A_OEIL + dos * ecart + Vector2(-dos.y, dos.x) * ecart * 0.62
+		retour.append(Vector3(qr.x, maxf(hauteur(qr.x, qr.y), float(depart[2])), qr.y) / U)
+	var promeneur: Node3D = Atelier.figurant(g, "walk", "village", retour)
+	promeneur.position = retour[0]
+	groupe.add_child(promeneur)
+	g += 1
 	# les voitures de la rue du quai, garées contre la bordure côté platanes, quand une vraie chaussée y passe
 	var n := 0
 	var m := 1
