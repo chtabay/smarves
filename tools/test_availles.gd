@@ -115,6 +115,20 @@ func _init() -> void:
 		check(tableau.is_open() and str(tableau._en_tete()).contains("A V A I L L E S"), "E l'ouvre, au nom de la commune")
 		tableau.fermer()
 		await process_frame
+		# Avec un voisinage (la mise en scène des captures) : les amis et le rendez-vous relevé dans un mot (docs/AMIS.md).
+		var voisinage: Node = root.get_node("/root/Voisinage")
+		voisinage._mise_en_scene()
+		p.interact.emit(zone)
+		await process_frame
+		var textes := _textes(tableau)
+		check(tableau.is_open() and textes.any(func(t): return t == "VOS AMIS") and textes.any(func(t): return t.begins_with("Bastien")),
+			"le panneau dit les amis du joueur")
+		check(textes.any(func(t): return t.begins_with("Proposé par Bastien, demain à")), "et le rendez-vous relevé dans le mot de Bastien")
+		check(textes.any(func(t): return t.begins_with("Bastien, à la mairie")), "le mot laissé à la mairie se lit au livre d'or")
+		tableau.fermer()
+		voisinage.donnees = {}
+		voisinage.etat = ""
+		await process_frame
 
 	# Il marche : vers l'église, par la rue.
 	var depart := p.global_position
@@ -171,3 +185,12 @@ func _init() -> void:
 
 func _attendre(s: float) -> void:
 	await create_timer(s, true).timeout
+
+
+static func _textes(n: Node) -> Array:
+	var out := []
+	if n is Label:
+		out.append(str(n.text))
+	for c in n.get_children():
+		out.append_array(_textes(c))
+	return out

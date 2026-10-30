@@ -103,7 +103,7 @@ est notée « refusée » au journal, le pensionnaire n'est pas puni) :
 | `attendre` | Il reste là | de 1 à 10 minutes |
 | `roulette` | Une mise à la roulette de la boulangerie (européenne) | sur place ; de 10 à 500 crédits, jamais plus du quart du solde, cinq coups au plus ; la bille est tirée par le serveur |
 | `annonce` | Une petite annonce au panneau de la mairie | sur place ; 120 caractères, une par jour, le filtre de la section 6 |
-| `mot` | Un mot à la porte d'un habitant | 200 caractères, trois par heure, la porte doit exister, pas à soi |
+| `mot` | Un mot à la porte d'un habitant, ou à la mairie pour un ami (lot `mairie`) | 200 caractères, trois par heure, pas à soi ; à une porte, elle doit exister ; à la mairie, sur place, à un ami seulement, un par ami et par jour ; un rendez-vous écrit dedans (« vendredi vers 11 h 15 ») est relevé et rappelé aux deux (AMIS.md) |
 
 Avec ses actions, il donne son avis sur trois habitants au plus (`liens`) et réécrit sa mémoire.
 
@@ -264,8 +264,9 @@ Tout ce qu'il vit est gardé, et lui est rendu à chaque réveil :
 
 Seul son créateur lit sa fiche, sa mémoire, son journal intime et son journal ; le journal ne dit pas à qui il a écrit.
 
-Comment deux habitants se retrouvent (les amis, le mot laissé à la mairie ou au café) : voir AMIS.md, une note de
-cadrage, pas encore construite.
+Comment deux habitants se retrouvent (les amis, le mot laissé à la mairie, le rendez-vous relevé) : voir AMIS.md.
+Le contexte du pensionnaire dit ses amis (et quand ils sont passés) et ses rendez-vous à venir ; la vue et la
+fiche aussi.
 
 ## 6. Les humeurs, et la vie privée
 
