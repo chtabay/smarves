@@ -3,10 +3,10 @@ extends Node
 ## joueur crée depuis Lasso, pour un agent qu'il y a inscrit : le jeu ne crée plus de pensionnaire, ni
 ## par l'assistant ni avec une clé. En jeu, ils ne se connaissent pas. Il vit aux événements du jeu (le
 ## tournoi du mercredi, le poker du vendredi, le loto du samedi, le match du dimanche), tenu par l'assistant
-## du joueur (Claude, ChatGPT…) branché sur le connecteur de la fonction ; l'assistant se connecte sur la
-## page Smarves « Mon assistant » (ASSISTANT), pas ici. Ici, la fiche « Mon pensionnaire » que le carnet
-## déplie (onglet « Mon compte ») : le consulter, le régler, poser son humeur, déconnecter son assistant,
-## l'effacer. Tout passe par la fonction `doublures` (dépôt chtabay/addict, nom du premier lot) :
+## du joueur (Claude, ChatGPT…) : l'assistant n'a qu'un connecteur, celui de Lasso, qui lui relaie les outils
+## du pensionnaire (il n'y a rien à brancher ici ni ailleurs). Ici, la fiche « Mon pensionnaire » que le carnet
+## déplie (onglet « Mon compte ») : le consulter, le régler, poser son humeur, couper Smarves pour son
+## assistant puis reprendre, l'effacer. Tout passe par la fonction `doublures` (dépôt chtabay/addict, nom du premier lot) :
 ## le jeu ne garde ni la clé ni l'humeur. Sans compte, ou tant que la fonction n'est pas en ligne, la fiche le
 ## dit et rien d'autre ne change.
 
@@ -21,9 +21,8 @@ const NOMS_RAISONS := {"pari": "pari inconnu", "mise": "mise hors limites", "sol
 	"texte": "texte refusé", "jour": "déjà une annonce aujourd'hui", "porte": "porte inconnue", "heure": "trop de mots cette heure",
 	"soi": "à sa propre porte", "type": "geste inconnu", "trop": "trop d'actions", "forme": "illisible"}
 
-## Où le pensionnaire se crée, et où l'humain connecte son assistant (web/assistant, servie avec la version web).
+## Où le pensionnaire se crée, et d'où l'assistant vient : Lasso, par son seul connecteur.
 const LASSO := "https://lasso-sigma-ten.vercel.app/"
-const ASSISTANT := "https://smarves.placet.app/assistant/"
 
 ## Les onglets de la fiche d'un pensionnaire.
 const ONGLETS := [["vie", "Sa vie"], ["histoire", "Son histoire"], ["humeur", "Humeur"], ["reglages", "Réglages"]]
@@ -290,18 +289,22 @@ func _reglages(carnet: Node, page: VBoxContainer, d: Dictionary) -> void:
 			change.emit()).disabled = _occupe
 
 
-## Son assistant : l'état seulement. Le lien se demande sur la page Smarves « Mon assistant », jamais ici ni
-## dans Lasso. « Prêt à jouer » vient du serveur (un appel réussi de l'assistant sur son pensionnaire).
+## Son assistant : il vient par le connecteur Lasso, il n'y a rien à brancher. Ici seulement son dernier passage
+## (le serveur garde l'heure de chaque appel d'outil, jamais son contenu), et la coupure : « couper » fait refuser
+## ses appels jusqu'à « reprendre » ; le pensionnaire reste. La même coupure se voit et se lève dans Lasso.
 func _lien(carnet: Node, page: VBoxContainer) -> void:
-	var ac = fiche.get("acces")
-	if ac is Dictionary:
-		var vu := "pas encore utilisé" if ac.get("vu") == null else "dernier passage de l'assistant le " + _date(int(ac.vu))
-		carnet._text(page, "Assistant connecté (%s)." % vu, 15, carnet.INK)
-		carnet._text(page, "Prêt à jouer." if ac.get("pret") != null else "Prêt à jouer dès que votre assistant aura agi sur son pensionnaire.", 14, carnet.PENCIL)
-		carnet._link(page, "→ déconnecter mon assistant de Smarves", _appeler.bind("deconnecter", {}), not _occupe)
+	var a = fiche.get("assistant")
+	var coupe = a.get("coupe") if a is Dictionary else null
+	var dernier = a.get("dernier") if a is Dictionary else null
+	if coupe != null:
+		carnet._text(page, "Smarves est coupé pour votre assistant depuis le %s : ses appels sont refusés." % _date(int(coupe)), 15, carnet.INK)
+		carnet._link(page, "→ reprendre : laisser mon assistant revenir", _appeler.bind("reconnecter", {}), not _occupe)
 	else:
-		carnet._text(page, "Aucun assistant connecté.", 15, carnet.INK_LIGHT)
-	carnet._link(page, "→ connecter mon assistant (page Smarves)", func(): OS.shell_open(ASSISTANT))
+		var passage := "il n'est pas encore venu" if dernier == null else "dernier passage le " + _date(int(dernier))
+		carnet._text(page, "Votre assistant vient par Lasso (%s)." % passage, 15, carnet.INK)
+		carnet._text(page, "Pour qu'il y aille, dites-lui simplement : « Va faire un tour à Smarves ».", 14, carnet.PENCIL)
+		carnet._link(page, "→ couper Smarves pour mon assistant", _appeler.bind("deconnecter", {}), not _occupe)
+	carnet._link(page, "→ ouvrir Lasso", func(): OS.shell_open(LASSO))
 
 
 func _date(t: int) -> String:
@@ -567,7 +570,7 @@ func _mise_en_scene() -> void:
 			{"quand": maintenant - 50 * 3600, "motif": "evenement:match:2026-10-25", "statut": "erreur", "jetons_entree": 0, "jetons_sortie": 0,
 				"actions": [], "refusees": [], "erreur": "429 trop de demandes ou crédit épuisé"},
 		]
-		fiche.acces = {"cree": maintenant - 4 * 86400, "vu": maintenant - 5 * 3600}
+		fiche.assistant = {"coupe": null, "dernier": maintenant - 5 * 3600}
 		brouillon.cle = ""
 	else:
 		fiche.humeur = {"consentement": false, "humeur": null, "expire": null}

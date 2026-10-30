@@ -23,6 +23,11 @@ var rng := RandomNumberGenerator.new()
 static var _materiaux := {}
 
 
+## Vrai quand on bâtit le corps lointain d'une brique (le niveau de détail au-delà de lod) : les fonctions qui
+## le consultent simplifient (boules grossières, pas de feuilles ni de lames).
+var leger := false
+
+
 func _init(graine := 1) -> void:
 	rng.seed = hash(graine)
 
@@ -157,9 +162,14 @@ static func arc(c: Vector2, r: float, a0: float, a1: float, n: int) -> PackedVec
 
 ## Une boule de feuillage bosselée (ou d'autre chose : genre DUR) : rayons r selon x, y, z ; bosse en part du
 ## rayon. Les normales restent celles de la boule lisse, pour une ombre douce de dessin animé.
-func boule(centre: Vector3, r: Vector3, col: Color, bosse := 0.18, genre := FEUILLE, variation := 0.06, vent := 1.0) -> void:
-	var anneaux := 8
-	var cotes := 12
+## La densité suit le rayon (une boule de fleurs de 7 cm n'a pas besoin de 192 triangles) : 4 × 6 sous 16 cm,
+## 6 × 8 sous 40 cm, 8 × 12 au-delà ; anneaux et cotes passés (> 0) l'imposent, pour un corps lointain allégé.
+func boule(centre: Vector3, r: Vector3, col: Color, bosse := 0.18, genre := FEUILLE, variation := 0.06, vent := 1.0, anneaux := 0, cotes := 0) -> void:
+	var rmax := maxf(r.x, maxf(r.y, r.z))
+	if anneaux <= 0:
+		anneaux = 4 if rmax < 0.16 else (6 if rmax < 0.4 else 8)
+	if cotes <= 0:
+		cotes = 6 if rmax < 0.16 else (8 if rmax < 0.4 else 12)
 	var pts := []
 	var dec := rng.randf() * TAU
 	for j in anneaux + 1:

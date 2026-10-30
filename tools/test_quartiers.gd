@@ -178,11 +178,59 @@ func _init() -> void:
 	maison.mesh.size = Vector3(8, 6, 8)
 	maison.position = Vector3(20, 3, 0)
 	lourd.add_child(maison)
+	# une brique qui a ses deux niveaux : le corps de près (fini à 40 m) et le corps lointain (commence à 40 m)
+	var pres := MeshInstance3D.new()
+	pres.mesh = sm
+	pres.visibility_range_end = 40.0
+	pres.position = Vector3(-20, 5, 0)
+	lourd.add_child(pres)
+	var loin_brique := MeshInstance3D.new()
+	var pm := PrismMesh.new()
+	pm.size = Vector3(8, 6, 8)
+	loin_brique.mesh = pm
+	loin_brique.visibility_range_begin = 40.0
+	loin_brique.position = Vector3(-20, 3, 0)
+	lourd.add_child(loin_brique)
+	# un pan fondu de 100 m, lourd : trop grand pour une boîte, il reste tel quel
+	var pan := MeshInstance3D.new()
+	var pm2 := SphereMesh.new()
+	pm2.radius = 50.0
+	pm2.height = 100.0
+	pm2.radial_segments = 64
+	pm2.rings = 32
+	pan.mesh = pm2
+	pan.position = Vector3(200, 0, 0)
+	lourd.add_child(pan)
+	# une façade à shader : sa boîte prend un enduit simple, pas le shader
+	var ouvragee := MeshInstance3D.new()
+	ouvragee.mesh = sm
+	ouvragee.material_override = ShaderMaterial.new()
+	ouvragee.position = Vector3(40, 5, 0)
+	lourd.add_child(ouvragee)
+	# un volume de quartier : 3 000 sommets de quads disjoints, qui ne se simplifient pas ; il reste tel quel
+	var quads := SurfaceTool.new()
+	quads.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in 500:
+		var o := Vector3(80 + (i % 25) * 0.5, 0, 40 + (i / 25) * 0.5)
+		for coin in [Vector3(0, 0, 0), Vector3(0.4, 0, 0), Vector3(0.4, 3, 0), Vector3(0, 0, 0), Vector3(0.4, 3, 0), Vector3(0, 3, 0)]:
+			quads.set_normal(Vector3.BACK)
+			quads.add_vertex(o + coin)
+	var volume := MeshInstance3D.new()
+	volume.mesh = quads.commit()
+	lourd.add_child(volume)
 	var leger := Quartiers.fondre(lourd)
 	var sommets := 0
+	var matieres := []
 	for morceau in leger.get_children():
-		sommets += Lointain._sommets((morceau as MeshInstance3D).mesh)
-	check(leger != null and sommets == 48, "version légère : la sphère de 8 000 sommets devient sa boîte, la caisse de 50 cm disparaît, la maison reste (%d sommets)" % sommets)
+		var am: ArrayMesh = (morceau as MeshInstance3D).mesh
+		for si in am.get_surface_count():
+			matieres.append(am.surface_get_material(si))
+			sommets += am.surface_get_array_len(si)
+	var plein_sommets := 0
+	for mi: MeshInstance3D in lourd.find_children("*", "MeshInstance3D", true, false):
+		plein_sommets += Lointain._sommets(mi.mesh)
+	check(leger != null and matieres.any(func(m): return m is ShaderMaterial), "version légère : une façade à shader simplifiée garde son shader")
+	check(sommets > 3000 + 48 + Lointain._sommets(pm) and sommets * 4 < plein_sommets, "version légère : les maillages lourds sont simplifiés, pas mis en boîte, un volume de quads qui ne se simplifie pas reste entier (%d sommets pour %d), la caisse de 50 cm disparaît, la maison et le corps lointain de la brique restent" % [sommets, plein_sommets])
 	leger.free()
 	lourd.free()
 

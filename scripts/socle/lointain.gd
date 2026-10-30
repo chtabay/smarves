@@ -436,6 +436,15 @@ const SURFACES_MAX := 64
 ## au-dessus de ce nombre de sommets, il devient sa boîte.
 const LEGER_MIN := 1.0
 const LEGER_SOMMETS := 2_000
+## Au-delà de cette taille, en mètres, un maillage lourd n'est pas mis en boîte (ce n'est pas un objet, c'est
+## un pan de quartier fondu) : il reste tel quel.
+const LEGER_BOITE_MAX := 60.0
+## La part des triangles qu'un maillage simplifié garde au moins (le niveau le plus grossier au-dessus).
+const LEGER_PART := 0.1
+## Au-dessus de ce nombre de sommets, un maillage qui ne se simplifie pas devient une boîte ; en dessous, il reste.
+const LEGER_GARDE := 20_000
+## La teinte des boîtes dont la matière ne se lit pas (un shader) : un enduit moyen.
+const ENDUIT_BOITE := Color("#d2c2a0")
 
 
 ## Donne au quartier (un nœud et tout ce qu'il porte) sa version lointaine : un nœud « <nom>_loin », enfant
@@ -451,9 +460,22 @@ static func quartier(q: Node3D, des := QUARTIER_DES, leger := false) -> int:
 	var pris: Array[MeshInstance3D] = []
 	var repere := q.global_transform.affine_inverse()
 	for mi: MeshInstance3D in q.find_children("*", "MeshInstance3D", true, false):
-		if not _fondable(mi, q):
+		if not _fondable(mi, q, leger):
 			continue
 		var t := repere * mi.global_transform
+		if leger and mi.visibility_range_begin > 0.0:
+			# Le niveau de détail lointain d'une brique (option « lod » du façadier) : c'est lui qu'on garde, tel quel.
+			for s in mi.mesh.get_surface_count():
+				var mat_l: Material = mi.material_override
+				if mat_l == null:
+					mat_l = mi.get_surface_override_material(s)
+				if mat_l == null:
+					mat_l = mi.mesh.surface_get_material(s)
+				if not par_matiere.has(mat_l):
+					par_matiere[mat_l] = []
+				par_matiere[mat_l].append([mi.mesh, s, t])
+			pris.append(mi)
+			continue
 		if leger:
 			# La version légère d'un quartier de ville (socle 1.29) : ce qui fait moins de LEGER_MIN m ne se
 			# voit pas d'un autre quartier et disparaît ; un maillage lourd (une façade ouvragée, un massif de
@@ -462,14 +484,32 @@ static func quartier(q: Node3D, des := QUARTIER_DES, leger := false) -> int:
 			if boite_mi.get_longest_axis_size() * t.basis.get_scale().x < LEGER_MIN:
 				continue
 			if _sommets(mi.mesh) > LEGER_SOMMETS:
-				var box := BoxMesh.new()
-				box.size = boite_mi.size
-				var mat := _matiere_principale(mi)
-				if not par_matiere.has(mat):
-					par_matiere[mat] = []
-				par_matiere[mat].append([box, 0, t * Transform3D(Basis(), boite_mi.get_center())])
-				pris.append(mi)
-				continue
+				# Un maillage lourd est simplifié (le niveau le plus grossier de meshoptimizer), dans sa matière :
+				# il garde sa silhouette, son toit et ses fenêtres. Une boîte, à défaut, si rien ne se simplifie.
+				var simple := _simplifie(mi.mesh)
+				if simple != null:
+					for s in simple.get_surface_count():
+						var mat_s: Material = mi.material_override
+						if mat_s == null:
+							mat_s = mi.get_surface_override_material(int(simple.surface_get_name(s)))
+						if mat_s == null:
+							mat_s = simple.surface_get_material(s)
+						if not par_matiere.has(mat_s):
+							par_matiere[mat_s] = []
+						par_matiere[mat_s].append([simple, s, t])
+					pris.append(mi)
+					continue
+				# Un maillage qui ne se simplifie pas (des quads disjoints, déjà au plus simple : les volumes d'un
+				# quartier) reste tel quel tant qu'il n'est pas énorme ; en boîte seulement au-delà.
+				if _sommets(mi.mesh) > LEGER_GARDE and boite_mi.get_longest_axis_size() * t.basis.get_scale().x <= LEGER_BOITE_MAX:
+					var box := BoxMesh.new()
+					box.size = boite_mi.size
+					var mat := _matiere_boite(_matiere_principale(mi))
+					if not par_matiere.has(mat):
+						par_matiere[mat] = []
+					par_matiere[mat].append([box, 0, t * Transform3D(Basis(), boite_mi.get_center())])
+					pris.append(mi)
+					continue
 		for s in mi.mesh.get_surface_count():
 			if mi.mesh is ArrayMesh and mi.mesh.surface_get_primitive_type(s) != Mesh.PRIMITIVE_TRIANGLES:
 				continue
@@ -519,6 +559,67 @@ static func quartier(q: Node3D, des := QUARTIER_DES, leger := false) -> int:
 	return pris.size()
 
 
+## Une copie simplifiée d'un maillage lourd : chaque surface de triangles au niveau de détail le plus grossier
+## que meshoptimizer en tire (ImporterMesh.generate_lods), recompactée ; les surfaces gardent leur matière et
+## portent en nom l'indice de la surface d'origine. null si rien ne se simplifie.
+static func _simplifie(m: Mesh) -> ArrayMesh:
+	var out := ArrayMesh.new()
+	var avant := 0
+	var apres := 0
+	for s in m.get_surface_count():
+		if m is ArrayMesh and (m as ArrayMesh).surface_get_primitive_type(s) != Mesh.PRIMITIVE_TRIANGLES:
+			continue
+		var arrays := m.surface_get_arrays(s)
+		if arrays.size() <= Mesh.ARRAY_VERTEX or arrays[Mesh.ARRAY_VERTEX] == null:
+			continue
+		var idx = arrays[Mesh.ARRAY_INDEX]
+		if idx == null or (idx as PackedInt32Array).is_empty() or arrays[Mesh.ARRAY_NORMAL] == null:
+			var st0 := SurfaceTool.new()
+			st0.create_from_arrays(arrays)
+			if arrays[Mesh.ARRAY_NORMAL] == null:
+				st0.generate_normals()
+			st0.index()
+			arrays = st0.commit_to_arrays()
+		var im := ImporterMesh.new()
+		im.add_surface(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		im.generate_lods(FUSION, ARETE, [])
+		var n := im.get_surface_lod_count(0)
+		var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		# Le niveau le plus grossier qui garde au moins LEGER_PART des triangles, sinon le plus fin : au-delà,
+		# la silhouette d'un bâtiment se perd.
+		var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+		for l in n:
+			var cand := im.get_surface_lod_indices(0, l)
+			if cand.size() >= (arrays[Mesh.ARRAY_INDEX] as PackedInt32Array).size() * LEGER_PART or l == 0:
+				indices = cand
+		avant += verts.size()
+		var normales = arrays[Mesh.ARRAY_NORMAL]
+		var couleurs = arrays[Mesh.ARRAY_COLOR]
+		var uv = arrays[Mesh.ARRAY_TEX_UV]
+		var uv2 = arrays[Mesh.ARRAY_TEX_UV2]
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		for i in indices:
+			if normales != null:
+				st.set_normal(normales[i])
+			if couleurs != null:
+				st.set_color(couleurs[i])
+			if uv != null:
+				st.set_uv(uv[i])
+			if uv2 != null:
+				st.set_uv2(uv2[i])
+			st.add_vertex(verts[i])
+		st.index()
+		st.commit(out)
+		var k := out.get_surface_count() - 1
+		out.surface_set_name(k, str(s))
+		out.surface_set_material(k, m.surface_get_material(s))
+		apres += out.surface_get_array_len(k)
+	if out.get_surface_count() == 0 or apres * 2 > avant:
+		return null
+	return out
+
+
 ## Le nombre de sommets d'un maillage, toutes surfaces confondues.
 static func _sommets(m: Mesh) -> int:
 	var n := 0
@@ -530,6 +631,27 @@ static func _sommets(m: Mesh) -> int:
 			if a.size() > Mesh.ARRAY_VERTEX and a[Mesh.ARRAY_VERTEX] != null:
 				n += (a[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()
 	return n
+
+
+## La matière d'une boîte : celle du maillage si elle est simple (BaseMaterial3D, éclairée), sinon un enduit
+## moyen qui prend la lumière. Les boîtes d'une même teinte partagent leur matière.
+static var _boites := {}
+static func _matiere_boite(mat: Material) -> Material:
+	if mat is BaseMaterial3D:
+		return mat
+	var c := ENDUIT_BOITE
+	if mat is ShaderMaterial:
+		for nom in ["teinte", "couleur", "albedo", "enduit"]:
+			var v = (mat as ShaderMaterial).get_shader_parameter(nom)
+			if v is Color:
+				c = v
+				break
+	if not _boites.has(c):
+		var m := StandardMaterial3D.new()
+		m.albedo_color = c
+		m.roughness = 0.9
+		_boites[c] = m
+	return _boites[c]
 
 
 ## La matière de la plus grande surface d'un maillage (celle qui a le plus de sommets), résolue comme le moteur :
@@ -549,12 +671,19 @@ static func _matiere_principale(mi: MeshInstance3D) -> Material:
 	return mat if mat != null else m.surface_get_material(meilleur)
 
 
-static func _fondable(mi: MeshInstance3D, q: Node) -> bool:
+## En version légère, un maillage qui a déjà sa distance est pris s'il est le niveau lointain (il commence au
+## loin) et laissé s'il est le niveau de près (il finit à une distance) : la brique a fait le travail.
+static func _fondable(mi: MeshInstance3D, q: Node, leger := false) -> bool:
 	if mi.mesh == null or mi.mesh.get_surface_count() == 0 or not mi.is_visible_in_tree():
 		return false
 	if mi.skeleton != NodePath(""):
 		return false
-	if mi.visibility_range_end > 0.0 or mi.visibility_range_begin > 0.0 or mi.visibility_parent != NodePath("") or mi.has_meta("lointain_quartier"):
+	if mi.has_meta("lointain_quartier"):
+		return false
+	if leger:
+		if (mi.visibility_range_end > 0.0 and mi.visibility_range_begin <= 0.0) or (mi.visibility_parent != NodePath("") and mi.visibility_range_begin <= 0.0):
+			return false
+	elif mi.visibility_range_end > 0.0 or mi.visibility_range_begin > 0.0 or mi.visibility_parent != NodePath(""):
 		return false
 	var n: Node = mi
 	while n != null and n != q:
