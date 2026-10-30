@@ -214,13 +214,12 @@ func _init() -> void:
 		var am: ArrayMesh = (morceau as MeshInstance3D).mesh
 		for si in am.get_surface_count():
 			matieres.append(am.surface_get_material(si))
-	check(matieres.all(func(m): return not m is ShaderMaterial) and matieres.any(func(m): return m is StandardMaterial3D and m.albedo_color == Lointain.ENDUIT_BOITE), "version légère : la boîte d'une façade à shader prend un enduit simple")
-	sommets = Lointain._sommets(pm2)
-	var attendu := sommets + 48 + 24 + Lointain._sommets(pm)
-	sommets = 0
-	for morceau in leger.get_children():
-		sommets += Lointain._sommets((morceau as MeshInstance3D).mesh)
-	check(leger != null and sommets == attendu, "version légère : la sphère de 8 000 sommets devient sa boîte, la caisse de 50 cm disparaît, la maison reste, d'une brique à deux niveaux seul le corps lointain est pris, et un pan de 100 m reste entier (%d sommets, %d attendus)" % [sommets, attendu])
+			sommets += am.surface_get_array_len(si)
+	var plein_sommets := 0
+	for mi: MeshInstance3D in lourd.find_children("*", "MeshInstance3D", true, false):
+		plein_sommets += Lointain._sommets(mi.mesh)
+	check(leger != null and matieres.any(func(m): return m is ShaderMaterial), "version légère : une façade à shader simplifiée garde son shader")
+	check(sommets > 48 + Lointain._sommets(pm) and sommets * 4 < plein_sommets, "version légère : les maillages lourds sont simplifiés, pas mis en boîte (%d sommets pour %d), la caisse de 50 cm disparaît, la maison et le corps lointain de la brique restent" % [sommets, plein_sommets])
 	leger.free()
 	lourd.free()
 
