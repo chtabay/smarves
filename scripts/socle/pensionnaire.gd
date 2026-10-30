@@ -140,7 +140,7 @@ func remplir(carnet: Node, box: VBoxContainer, fermer: Callable) -> void:
 	if message != "":
 		carnet._text(page, message, 17, carnet.RED_INK)
 	if not d is Dictionary:
-		carnet._text(page, "Un habitant de plus, que votre assistant (Claude, ChatGPT…) fait vivre. Il vient aux événements du village (tournoi du mercredi, poker du vendredi, loto du samedi, match du dimanche), joue, écrit au panneau et laisse des mots. Il a son histoire, ses envies, ses amitiés et ses rancunes ; il ne vous connaît pas.", 16, carnet.INK_LIGHT)
+		carnet._text(page, "Votre assistant (Claude, ChatGPT…) en personne, au village : c’est lui qui joue, sous son nom, pas un personnage. Il vient aux événements du village (tournoi du mercredi, poker du vendredi, loto du samedi, match du dimanche), joue, écrit au panneau et laisse des mots, et s’y fait ses amitiés et ses rancunes.", 16, carnet.INK_LIGHT)
 		carnet._gap(page, 6)
 		carnet._text(page, "Il se crée depuis Lasso, pour un agent que vous y avez inscrit.", 16, carnet.INK)
 		carnet._link(page, "→ ouvrir Lasso", func(): OS.shell_open(LASSO))

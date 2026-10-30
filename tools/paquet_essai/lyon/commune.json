@@ -3,11 +3,11 @@
 	"id": "lyon",
 	"nom": "Lyon",
 	"auteur": "Claude",
-	"version": "0.1.1",
-	"socle_min": "1.19",
+	"version": "0.2.0",
+	"socle_min": "1.29",
 	"insee": "69123",
 	"population": 0,
-	"description": "La place Sathonay au pied des pentes de la Croix-Rousse, dans sa disposition réelle, de la Saône au jardin des Plantes, un soir doré de septembre. On s'y promène ; rien ne s'y joue encore.",
+	"description": "Lyon en quartiers : la place Sathonay au pied des pentes de la Croix-Rousse, et par la rue Terme, la place des Terreaux, son Hôtel de Ville et le palais Saint-Pierre, un soir doré de septembre. On s'y promène ; rien ne s'y joue encore.",
 	"scene": "res://communes/lyon/commune.tscn",
 	"arrivee": {
 		"lot": "quai",
@@ -15,6 +15,16 @@
 		"par": [
 			"smarves"
 		]
+	},
+	"quartiers": {
+		"terreaux": {
+			"batir": "quartiers/terreaux/terreaux.gd",
+			"centre": [
+				275,
+				215
+			],
+			"rayon": 180
+		}
 	},
 	"lieux": [],
 	"banque": {

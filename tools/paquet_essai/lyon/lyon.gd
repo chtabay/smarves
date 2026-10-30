@@ -124,6 +124,8 @@ func _ready() -> void:
 	ville.name = "Ville"
 	ville.scale = Vector3.ONE / U
 	add_child(ville)
+	# les quartiers bâtissent en mètres, comme la ville : même repère, même réduction
+	$Quartiers.scale = Vector3.ONE / U
 	_niveler()
 	_creuser_lit()
 	_ciel()
@@ -134,6 +136,9 @@ func _ready() -> void:
 	_rues()
 	_choisir_heros()
 	_batiments()
+	# au-delà du cadre, la ville en volumes (quartiers/_ville, tenue par la maquette des quartiers)
+	if ResourceLoader.exists(DOSSIER + "quartiers/_ville/volumes.gd"):
+		load(DOSSIER + "quartiers/_ville/volumes.gd").call("batir", $Quartiers)
 	_place()
 	_escalier()
 	_arbres()
@@ -3090,6 +3095,25 @@ func _joueur() -> void:
 	camera.target = player.global_position + Vector3(0, 0.3, 0)
 	camera.set("_target_goal", camera.target)
 	camera.use_notches(CRANS, 1)
+	_veille()
+
+
+## La veille des sas (socle 1.29, cartes/lyon/VILLE.md § 4) : les quartiers que le paquet déclare se posent
+## en détail quand le joueur y va, au loin sinon. La place Sathonay, bâtie ici, n'est pas un quartier posé :
+## elle déclare elle-même son sas de la rue Terme vers les Terreaux (Sas_terreaux, 6 m), au même point que
+## le Sas_sathonay des Terreaux. Sans paquet inscrit (scène ouverte seule), pas de veille.
+func _veille() -> void:
+	var communes := get_tree().root.get_node_or_null("Communes")
+	var c: Commune = communes.commune("lyon") if communes != null else null
+	if c == null or Quartiers.de(c).is_empty():
+		return
+	var sas := Marker3D.new()
+	sas.name = "Sas_terreaux"
+	sas.set_meta("rayon", 6.0)
+	sas.position = Vector3(133.0, hauteur(133.0, 118.0), 118.0)
+	ville.add_child(sas)
+	var veille := Quartiers.veiller_de($Quartiers, c, player, "sathonay")
+	veille.ajouter_sas(ville)
 
 
 ## La caméra de dessus suit l'habitant (Guillaume, 30 octobre : en marchant vers le haut de l'écran, il en
