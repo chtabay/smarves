@@ -934,7 +934,7 @@ static func _vie(racine: Node3D) -> void:
 	racine.add_child(groupe)
 	var g := 31555
 	# Devant le café de courses : trois groupes qui parlent du match, tournés les uns vers les autres.
-	for centre in [Vector2(-1.6, -9.6), Vector2(1.2, -2.2), Vector2(1.8, -4.8), Vector2(12.6, -7.6)]:
+	for centre in [Vector2(-1.6, -9.6), Vector2(1.2, -2.2), Vector2(1.8, -4.8), Vector2(6.4, -4.4)]:
 		for k in 3:
 			var a: float = TAU * k / 3.0 + centre.x
 			var f: Node3D = Atelier.figurant(g, "idle")
@@ -979,7 +979,7 @@ static func _vie(racine: Node3D) -> void:
 	# Des haltes : deux voisins devant les étals, deux au bord de la terrasse de Lafage, deux sur le trottoir
 	# de la grande terrasse du sud-ouest.
 	for paire in [[Vector2(12.2, 7.6), Vector2(12.7, 7.1)], [Vector2(10.6, -6.8), Vector2(11.1, -7.3)], [Vector2(0.9, 9.4), Vector2(1.3, 10.0)],
-			[Vector2(8.6, -5.6), Vector2(9.1, -6.1)], [Vector2(15.2, -5.2), Vector2(15.7, -5.7)], [Vector2(17.5, -7.5), Vector2(18.0, -7.0)]]:
+			[Vector2(8.6, -5.6), Vector2(9.1, -6.1)], [Vector2(15.2, -5.2), Vector2(15.7, -5.7)], [Vector2(17.5, -7.5), Vector2(18.0, -7.0)], [Vector2(9.6, -4.2), Vector2(10.1, -4.0)]]:
 		for k in 2:
 			var p: Vector2 = paire[k]
 			var q: Vector2 = paire[1 - k]

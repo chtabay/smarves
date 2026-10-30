@@ -65,7 +65,7 @@ func _ciel() -> void:
 	var sm := ProceduralSkyMaterial.new()
 	# Un bleu franc qui pâlit vers un horizon bleu-gris, sans rose (CONCEPTION.md, « Les pièges »).
 	sm.sky_top_color = Color("4f86c6")
-	sm.sky_horizon_color = Color("c4d2d6")
+	sm.sky_horizon_color = Color("9ec2de")
 	# le bleu dès quelques degrés au-dessus de l'horizon : la vue du balcon voyait un ciel gris (juge, v0.9)
 	sm.sky_curve = 0.06
 	sm.ground_horizon_color = Color("b0a492")
@@ -113,6 +113,17 @@ func _ciel() -> void:
 	var h := deg_to_rad(SOLEIL.hauteur)
 	var a := deg_to_rad(SOLEIL.vient_de)
 	soleil.look_at_from_position(Vector3.ZERO, Vector3(-sin(a) * cos(h), -sin(h), cos(a) * cos(h)))
+	# Le bleu du ciel à l'opposé du soleil, sans ombre : il refroidit les faces que le soleil ne touche pas
+	# (juge, v0.13).
+	var appoint := DirectionalLight3D.new()
+	appoint.name = "Appoint"
+	appoint.light_color = Color("8fa6c8")
+	appoint.light_energy = 0.25
+	appoint.shadow_enabled = false
+	add_child(appoint)
+	var ha := deg_to_rad(30.0)
+	var aa := a + PI
+	appoint.look_at_from_position(Vector3.ZERO, Vector3(-sin(aa) * cos(ha), -sin(ha), cos(aa) * cos(ha)))
 
 
 # --- Le sol ---------------------------------------------------------------------------------------
