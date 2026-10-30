@@ -1,11 +1,12 @@
--- Essai de 20261029235000_smarves_pensionnaire_vues.sql, sur une base jetable où les migrations sont
+-- Essai de 20261101110000_smarves_pensionnaire_vues.sql, sur une base jetable où les migrations sont
 -- passées. Transaction annulée à la fin : rien ne reste.
---   psql -v ON_ERROR_STOP=1 -f supabase/tests/20261029235000_pensionnaire_vues.sql
+--   psql -v ON_ERROR_STOP=1 -f supabase/tests/20261101110000_pensionnaire_vues.sql
 begin;
 
 insert into smarves.joueurs (pyramide_id, nom) values ('doublure:vuesvuesvues', 'Vues (pensionnaire)'),
-  ('doublure:autreautrevue', 'Autre (pensionnaire)');
-insert into smarves.doublures (id, humain) values ('doublure:vuesvuesvues', 'humain:v'), ('doublure:autreautrevue', 'humain:w');
+  ('doublure:autreautrevue', 'Autre (pensionnaire)'),
+  ('humain:v', 'Humain V'), ('humain:w', 'Humain W');
+insert into smarves.doublures (id, humain, personnalite, mode) values ('doublure:vuesvuesvues', 'humain:v', 'autre', 'agent'), ('doublure:autreautrevue', 'humain:w', 'autre', 'agent');
 
 do $$ declare img text := '/9j/' || repeat('A', 200); r record; n int; begin
   insert into smarves.doublure_vues (doublure, genre, quand, lieu, image) values

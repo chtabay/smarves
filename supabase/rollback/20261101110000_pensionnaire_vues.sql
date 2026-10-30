@@ -1,4 +1,4 @@
--- Retour arrière de 20261029235000_smarves_pensionnaire_vues.sql (appliquer d'abord celui de Lasso 010,
+-- Retour arrière de 20261101110000_smarves_pensionnaire_vues.sql (appliquer d'abord celui de Lasso 010,
 -- sql/010_rollback.sql). Les vues gardées sont effacées : ce ne sont que les dernières images, que le
 -- jeu refait au geste suivant. La fonction doublures continue de tourner (l'écriture est seulement notée).
 begin;
