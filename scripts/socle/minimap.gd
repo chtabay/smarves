@@ -127,11 +127,14 @@ func _sur_scene() -> void:
 	var s := tree.current_scene
 	if s == null or not is_instance_valid(s) or not (s is Node3D):
 		return
-	var c: Commune = Communes.commune(Communes.actuelle())
-	if c == null or c.id == Communes.ORIGINE or str(c.data.get("scene", "")) != s.scene_file_path:
+	# Les autoloads par leur nœud : ce script est chargé par Communes elle-même, avant qu'ils aient un nom.
+	var communes = tree.root.get_node("Communes")
+	var c: Commune = communes.commune(communes.actuelle())
+	if c == null or c.id == communes.ORIGINE or str(c.data.get("scene", "")) != s.scene_file_path:
 		return
 	# La ville se bâtit en plusieurs images derrière l'écran de chargement : la photo attend qu'elle soit finie.
-	while Chargement.actif():
+	var chargement = tree.root.get_node_or_null("Chargement")
+	while chargement != null and chargement.actif():
 		await tree.process_frame
 	if not is_instance_valid(s) or tree.current_scene != s or not _voulue:
 		return
@@ -290,4 +293,4 @@ func _clic(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		if (event.position - Vector2(DIAMETRE, DIAMETRE) / 2.0).length() <= DIAMETRE / 2.0:
 			_rond.accept_event()
-			Carte.ouvrir()
+			get_tree().root.get_node("Carte").ouvrir()
