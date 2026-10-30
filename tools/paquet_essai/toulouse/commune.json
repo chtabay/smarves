@@ -3,11 +3,11 @@
 	"id": "toulouse",
 	"nom": "Toulouse",
 	"auteur": "Claude",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"socle_min": "1.25",
 	"insee": "31555",
 	"population": 514819,
-	"description": "Préversion : la place Saint-Georges, son tapis de brique sous les platanes, ses terrasses et l'hôtel de Lafage, dans le plan réel du centre de Toulouse. Saint-Étienne et Wilson suivront.",
+	"description": "La place Saint-Georges, son tapis de brique sous les platanes, ses terrasses et l'hôtel de Lafage, dans le plan réel du centre de Toulouse. Saint-Étienne et Wilson suivront.",
 	"scene": "res://communes/toulouse/commune.tscn",
 	"arrivee": {
 		"lot": "place",
