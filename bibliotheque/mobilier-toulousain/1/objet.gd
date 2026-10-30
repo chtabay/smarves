@@ -122,6 +122,32 @@ class _Objets:
 				var tour := o.rng.randf_range(-0.4, 0.4)
 				_chaise(o, c + Vector3(sin(a), 0, cos(a)) * ecart, a + tour)
 
+	## Les feuilles d'un buisson : n petites cartes de 6 à 11 cm posées sur la masse de rayons r en c, chacune
+	## tournée au hasard autour de sa normale et un peu relevée, dans la teinte du buisson nuancée.
+	static func _feuilles(o: Outils, c: Vector3, r: Vector3, col: Color, n: int) -> void:
+		for i in n:
+			var th := o.rng.randf() * TAU
+			# plus de feuilles vers le haut, là où on les voit
+			var y := o.rng.randf_range(-0.3, 1.0)
+			var s := sqrt(maxf(0.0, 1.0 - y * y))
+			var d := Vector3(cos(th) * s, y, sin(th) * s)
+			var q := c + Vector3(d.x * r.x, d.y * r.y, d.z * r.z) * 1.0
+			var nrm := Vector3(d.x / r.x, d.y / r.y, d.z / r.z).normalized()
+			var t := nrm.cross(Vector3.UP if absf(nrm.y) < 0.9 else Vector3.RIGHT).normalized()
+			var b2 := nrm.cross(t)
+			var rot := o.rng.randf() * TAU
+			var u := (t * cos(rot) + b2 * sin(rot))
+			var v := (b2 * cos(rot) - t * sin(rot))
+			var l := o.rng.randf_range(0.06, 0.11)
+			var w := l * 0.6
+			# la feuille se relève un peu de la masse, pour l'ombre et le relief
+			var p0 := q - u * w * 0.5
+			var p1 := q + u * w * 0.5
+			var p2 := q + u * w * 0.3 + v * l + nrm * l * 0.35
+			var p3 := q - u * w * 0.3 + v * l + nrm * l * 0.35
+			var teinte := col.lightened(o.rng.randf_range(-0.08, 0.12))
+			o.quad(p0, p1, p2, p3, nrm, teinte, Outils.FEUILLE)
+
 	## Les teintes des clients : peau, haut, bas, cheveux.
 	const PEAUX := ["f1c9a5", "e0b08a", "c58b5c", "8d5a36", "5c3a22"]
 	const HAUTS := ["d94f3a", "3a6ea5", "e9e1c8", "2f2f33", "6c9a4e", "f0c04a", "b26aa3", "f5f0e6", "7fb3d5"]
@@ -477,10 +503,14 @@ class _Objets:
 				var rb := o.rng.randf_range(0.2, 0.28) * grossir
 				o.boule(c + Vector3(0, rb * 0.85, 0), Vector3(rb, rb * 0.95, rb), Color("355e2a").lightened(o.rng.randf_range(-0.04, 0.08)), 0.08, Outils.FEUILLE, 0.03, 0.15)
 			else:
-				# des buissons de tailles variées, en trois verts mêlés
+				# des buissons de tailles variées, en quatre verts mêlés : une masse, et par-dessus des feuilles, de
+				# petites cartes posées sur la masse, pour qu'on lise des feuilles et non des facettes
 				var rv := o.rng.randf_range(0.14, 0.46) * grossir
 				var vert_b: Color = Color(VERTS_BAC[o.rng.randi() % VERTS_BAC.size()]).lightened(o.rng.randf_range(-0.06, 0.08))
-				o.boule(c + Vector3(0, rv * 0.55, 0), Vector3(rv, rv * o.rng.randf_range(0.7, 1.3), rv), vert_b, 0.25, Outils.FEUILLE, 0.06, 0.4)
+				var rayons := Vector3(rv, rv * o.rng.randf_range(0.7, 1.3), rv)
+				var centre_b := c + Vector3(0, rv * 0.55, 0)
+				o.boule(centre_b, rayons * 0.92, vert_b.darkened(0.05), 0.18, Outils.FEUILLE, 0.05, 0.4)
+				_feuilles(o, centre_b, rayons, vert_b, int(18 + rv * 70))
 				if plantation == "fleurie" or (plantation == "dense" and o.rng.randf() < 0.12):
 					for k in 5:
 						o.boule(c + Vector3(o.rng.randf_range(-rv, rv) * 0.7, rv * o.rng.randf_range(0.8, 1.3), o.rng.randf_range(-rv, rv) * 0.7), Vector3.ONE * 0.06, fleur.lightened(o.rng.randf_range(-0.1, 0.12)), 0.2, Outils.FEUILLE, 0.05, 0.3)

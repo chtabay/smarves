@@ -9,9 +9,12 @@ extends SceneTree
 ##   --vue=mobilier    les onze objets du mobilier (--nom=carrousel : un seul, de près)
 ##   --vue=sols        les dix modules de sol (--nom=fosse_arbre : un seul, de près)
 ##   --vue=arbres      les arbres d'ombrière sur le pavé, au soleil (--nom=platane : un seul, de près)
-##   --vue=saint_georges  la place Saint-Georges composée avec les quatre briques
+##   --vue=saint_georges  la place Saint-Georges composée avec les quatre briques (--nom=ajour=0.5 : l'ombre des
+##                     platanes trouée)
 ##   --vue=bacs        trois bacs végétaux : rectangle dense, L fleuri, polygone de buis
 ##                     (--nom=bas : à hauteur d'homme, depuis une terrasse)
+##   --vue=ombre       l'ombre portée d'un platane seule, vue du ciel, pour mesurer la part du sol qu'elle couvre
+##                     (--nom=ajour=0.35,densite=0.8 : les options de l'arbre)
 ## Sans carte graphique : xvfb-run avec --rendering-driver opengl3.
 
 const FACADIER := "facadier-toulousain@1"
@@ -21,6 +24,8 @@ const SOLS := "sols-toulousains@1"
 const OMBRE := "arbres-d-ombriere@1"
 
 var monde: Node3D
+# l'ajour des platanes de la place (--nom=ajour=0.5 sur la vue saint_georges)
+var ajour_sg := 0.0
 
 
 func _init() -> void:
@@ -138,7 +143,22 @@ func _init() -> void:
 				cam.look_at_from_position(Vector3(0, 9, 64), Vector3(0, 8.5, 0))
 			else:
 				cam.look_at_from_position(Vector3(10, 4, 30), Vector3(0, 9, 0))
+		"ombre":
+			# le sol nu et l'ombre seule du platane (le maillage ne se dessine pas) : on compte les pixels sombres
+			_sol(Vector2(60, 60), Color("c9b28c"))
+			var opt := {}
+			for paire in nom.split(",", false):
+				var kv := paire.split("=")
+				opt[kv[0]] = float(kv[1]) if kv.size() > 1 else true
+			var arbre := _pose(OMBRE, "arbre", "platane", Vector3.ZERO, 3, opt)
+			for mi in arbre.find_children("*", "MeshInstance3D", true, false):
+				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+			# en perspective, comme les caméras du jeu : l'ajour ne joue que dans la passe d'ombre du soleil
+			cam.fov = 20
+			cam.look_at_from_position(Vector3(0, 125, 0), Vector3.ZERO, Vector3(0, 0, -1))
 		"saint_georges":
+			if nom.begins_with("ajour="):
+				ajour_sg = float(nom.trim_prefix("ajour="))
 			_saint_georges()
 			if nom == "bas":
 				cam.fov = 62
@@ -298,7 +318,7 @@ func _saint_georges() -> void:
 	var k := 0
 	for a in arbres:
 		var v: Vector2 = a
-		_pose(OMBRE, "arbre", "platane", Vector3(v.x, 0, v.y), 20 + k, {"hauteur": 16.0})
+		_pose(OMBRE, "arbre", "platane", Vector3(v.x, 0, v.y), 20 + k, {"hauteur": 16.0, "ajour": ajour_sg})
 		k += 1
 	# les terrasses du fond, sous les parasols
 	for t in [[-22.0, ["f0e3c4", "f0e3c4"]], [-15.0, ["8a2a2e", "8a2a2e"]], [17.0, ["f0e3c4", "f0e3c4"]], [24.0, ["8a2a2e", "8a2a2e"]]]:

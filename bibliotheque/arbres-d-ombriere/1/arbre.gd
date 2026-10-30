@@ -27,7 +27,8 @@ const VERTS := {
 const ECORCE := {"platane": "b8ae98", "micocoulier": "9a978a", "jeune_platane": "b8ae98", "marronnier": "5a4f46"}
 ## La forme des feuilles dans le shader : 0 la feuille lobée du platane, 1 la feuille palmée du marronnier.
 const FORMES := {"platane": 0, "micocoulier": 0, "jeune_platane": 0, "marronnier": 1}
-const PLAQUES := ["a9a487", "b3aa8e", "9e9c80", "c9c0a6", "bfb397"]
+## Les plaques de desquamation du platane, en trois teintes : crème, gris vert, ocre (verdict de Saint-Georges v0.8).
+const PLAQUES := ["e4dabe", "d8ccaa", "9aa58b", "8b977e", "c9a66c", "b8925a"]
 
 ## L'arbre (voir ARBRES).
 @export var arbre := "platane"
@@ -37,7 +38,8 @@ const PLAQUES := ["a9a487", "b3aa8e", "9e9c80", "c9c0a6", "bfb397"]
 ## 1,5 : le nombre de touffes, 1 par défaut ; moins de touffes, plus de ciel), contre_jour (0 à 1 : la lumière qui
 ## traverse les feuilles, 0,15 par défaut), teinte (un hexa vers lequel tirer les verts, une liste de cinq hexas qui
 ## remplace la palette, ou une liste de deux ou trois hexas dont la graine choisit un : des verts mêlés), jour (0 à 1,5 :
-## le jour du ciel au cœur et sous la couronne, 0,6 par défaut ; plus haut, la voûte vue d'en bas s'éclaircit).
+## le jour du ciel au cœur et sous la couronne, 0,6 par défaut ; plus haut, la voûte vue d'en bas s'éclaircit), ajour
+## (0 à 1 : la part des cartes de feuillage qui ne portent pas d'ombre au sol, 0 par défaut ; l'ombre se troue de soleil).
 @export var options := {}
 
 var fait := false
@@ -93,12 +95,18 @@ static func pousser(parent: Node3D, p: Vector3, nom: String, g: int, opt := {}) 
 			var rr := lerpf(rt * 1.15, rt, y / fut) + 0.005
 			o.boite(Transform3D(b, p + Vector3(0, y, 0) + b * Vector3(0, 0, rr)), Vector3(rr * 0.12, r.randf_range(0.5, 1.4), 0.014), ec.darkened(0.35))
 	elif nom != "micocoulier":
-		for i in 40:
+		# le platane se desquame : une soixantaine de plaques crème, gris vert et ocre, aux bords irréguliers (deux
+		# boîtes décalées par plaque), qui couvrent le fût bien plus que l'aplat d'écorce
+		for i in 64:
 			var y := r.randf_range(0.3, fut)
 			var a := r.randf() * TAU
 			var b := Basis(Vector3.UP, a)
 			var rr := lerpf(rt * 1.15, rt, y / fut) + 0.006
-			o.boite(Transform3D(b, p + Vector3(0, y, 0) + b * Vector3(0, 0, rr)), Vector3(rr * r.randf_range(0.3, 0.7), r.randf_range(0.18, 0.45), 0.012), Color(PLAQUES[r.randi() % PLAQUES.size()]))
+			var teinte := Color(PLAQUES[r.randi() % PLAQUES.size()]).lightened(r.randf_range(-0.05, 0.05))
+			var larg := rr * r.randf_range(0.35, 0.8)
+			var haut := r.randf_range(0.2, 0.55)
+			o.boite(Transform3D(b, p + Vector3(0, y, 0) + b * Vector3(0, 0, rr)), Vector3(larg, haut, 0.012), teinte)
+			o.boite(Transform3D(b * Basis(Vector3.UP, r.randf_range(-0.25, 0.25)), p + Vector3(0, y + r.randf_range(-0.15, 0.15), 0) + b * Vector3(r.randf_range(-larg, larg) * 0.4, 0, rr + 0.003)), Vector3(larg * 0.6, haut * 0.7, 0.012), teinte)
 
 	# la charpente : des charpentières en coupe ouverte, chacune se partage deux fois ; les bouts portent les touffes
 	var bouts := []
@@ -148,6 +156,7 @@ static func pousser(parent: Node3D, p: Vector3, nom: String, g: int, opt := {}) 
 	var mi := o.construire(parent, nom.capitalize())
 	mi.set_instance_shader_parameter("contre_jour", float(opt.get("contre_jour", 0.15)))
 	mi.set_instance_shader_parameter("jour", float(opt.get("jour", 0.6)))
+	mi.set_instance_shader_parameter("ajour", clampf(float(opt.get("ajour", 0.0)), 0.0, 1.0))
 	return {"arbre": nom, "graine": g, "hauteur": c.y - p.y + R.y, "couronne": R.x}
 
 

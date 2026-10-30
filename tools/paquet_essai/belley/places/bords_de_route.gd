@@ -413,17 +413,57 @@ func _soutenement(o: RefCounted, pts: PackedVector2Array, ecart: float, soutient
 			dedans = -dedans
 		var a := p0 + dedans * ecart
 		var b := p1 + dedans * ecart
-		var ta: float = hauteur.call(p0.x, p0.y) + 0.3 if soutient else hauteur.call(a.x, a.y) + 0.8
-		var tb: float = hauteur.call(p1.x, p1.y) + 0.3 if soutient else hauteur.call(b.x, b.y) + 0.8
+		# Le muret dépasse le pré des deux côtés : sur le versant, le sol monte derrière lui (verdict n° 38).
+		var ta: float = hauteur.call(p0.x, p0.y) + 0.3 if soutient else _plus_haut(a, dedans) + 0.75
+		var tb: float = hauteur.call(p1.x, p1.y) + 0.3 if soutient else _plus_haut(b, dedans) + 0.75
 		var pa: float = hauteur.call(a.x, a.y) - 0.4
 		var pb: float = hauteur.call(b.x, b.y) - 0.4
 		var n3 := Vector3(dedans.x, 0.0, dedans.y)
 		var e := n3 * 0.25
-		# La face vue de l'épingle, un peu fruitée, puis le chaperon de dalles.
-		o.quad(Vector3(a.x, pa, a.y) + e, Vector3(b.x, pb, b.y) + e, Vector3(b.x, tb, b.y) + e * 0.6, Vector3(a.x, ta, a.y) + e * 0.6, n3, Color("5a554a", 0.0), OUTILS.SECHE)
-		o.quad(Vector3(a.x, pa, a.y) - e, Vector3(b.x, pb, b.y) - e, Vector3(b.x, tb, b.y) - e, Vector3(a.x, ta, a.y) - e, -n3, Color("5a554a", 0.0), OUTILS.SECHE)
-		o.quad(Vector3(a.x, ta + 0.08, a.y) + e * 0.9, Vector3(b.x, tb + 0.08, b.y) + e * 0.9, Vector3(b.x, tb + 0.08, b.y) - e * 1.1, Vector3(a.x, ta + 0.08, a.y) - e * 1.1, Vector3.UP, Color("6b6556", 0.0), OUTILS.SECHE)
-		o.quad(Vector3(a.x, ta - 0.04, a.y) + e * 0.9, Vector3(b.x, tb - 0.04, b.y) + e * 0.9, Vector3(b.x, tb + 0.08, b.y) + e * 0.9, Vector3(a.x, ta + 0.08, a.y) + e * 0.9, n3, Color("4e4a40", 0.0), OUTILS.SECHE)
+		if soutient:
+			# La face vue de l'épingle, un peu fruitée, puis le chaperon de dalles.
+			o.quad(Vector3(a.x, pa, a.y) + e, Vector3(b.x, pb, b.y) + e, Vector3(b.x, tb, b.y) + e * 0.6, Vector3(a.x, ta, a.y) + e * 0.6, n3, Color("5a554a", 0.0), OUTILS.SECHE)
+			o.quad(Vector3(a.x, pa, a.y) - e, Vector3(b.x, pb, b.y) - e, Vector3(b.x, tb, b.y) - e, Vector3(a.x, ta, a.y) - e, -n3, Color("5a554a", 0.0), OUTILS.SECHE)
+			o.quad(Vector3(a.x, ta + 0.08, a.y) + e * 0.9, Vector3(b.x, tb + 0.08, b.y) + e * 0.9, Vector3(b.x, tb + 0.08, b.y) - e * 1.1, Vector3(a.x, ta + 0.08, a.y) - e * 1.1, Vector3.UP, Color("6b6556", 0.0), OUTILS.SECHE)
+		if soutient:
+			continue
+		# Le muret plein, d'une pièce par segment : ses faces en quads laissaient voir le pré par-dessus l'arase.
+		var lg0 := a.distance_to(b)
+		var bm0 := Basis(Vector3.UP, atan2(-(b - a).y, (b - a).x))
+		var bas := minf(pa, pb)
+		var haut0 := (ta + tb) * 0.5 + 0.08
+		var mm := (a + b) * 0.5
+		o.boite(Transform3D(bm0, Vector3(mm.x, (bas + haut0) * 0.5, mm.y)), Vector3(lg0 + 0.04, haut0 - bas, 0.55), Color("5a554a", 0.0), OUTILS.SECHE)
+		# Le couronnement du muret : des pierres posées de chant, serrées, de hauteurs inégales (verdict n° 36).
+		var lg := a.distance_to(b)
+		var k := 0.0
+		var bm := Basis(Vector3.UP, atan2(-(b - a).y, (b - a).x))
+		while k < lg:
+			var hk := absi(hash(Vector2i(int((a.x + d.x * k) * 10.0), int((a.y + d.y * k) * 10.0))))
+			var l := 0.07 + float(hk % 5) * 0.02
+			var hp := 0.2 + float((hk / 5) % 5) * 0.025
+			var v := a + d * (k + l * 0.5)
+			var yv := lerpf(ta, tb, (k + l * 0.5) / lg) + 0.06
+			o.boite(Transform3D(bm.rotated(Vector3.UP, float(hk % 7 - 3) * 0.03), Vector3(v.x, yv + hp * 0.5, v.y)), Vector3(l, hp, 0.32), Color("625c4d", 0.0), OUTILS.SECHE)
+			k += l
+		# L'accotement entre la route et le muret : des touffes d'herbe courbées de 20 à 35 cm, vert sec et vert,
+		# couchées dans le sens du vent qui monte le virage (verdict n° 38).
+		var g := 0.0
+		while g < lg:
+			var hg := absi(hash(Vector2i(int((a.x + d.x * g) * 7.0), int((a.y + d.y * g) * 7.0))))
+			var off := 0.5 + float(hg % 9) * 0.1
+			var pg := a + d * g - dedans * off
+			var yg: float = hauteur.call(pg.x, pg.y) - 0.03
+			var teinte := Color("545a2c") if hg % 3 else Color("3e5a1e")
+			for j in 7:
+				var hh := 0.2 + float((hg >> (j + 1)) % 7) * 0.025
+				var ecarte := Vector3(float(j - 3) * 0.035, 0.0, float((hg >> j) % 5 - 2) * 0.03)
+				var pied := Vector3(pg.x, yg, pg.y) + ecarte
+				var vent := Vector3(d.x, 0.0, d.y) * hh * 0.45 + ecarte * 1.5
+				var mi := pied + Vector3(0, hh * 0.6, 0) + vent * 0.35
+				o.branche(pied, mi, 0.022, 0.014, teinte.lerp(Color("6a6a3c"), float(j % 3) * 0.15), 3, OUTILS.FEUILLE)
+				o.branche(mi, mi + Vector3(0, hh * 0.35, 0) + vent * 0.65, 0.014, 0.004, teinte.lerp(Color("6a6a3c"), float(j % 3) * 0.15), 3, OUTILS.FEUILLE)
+			g += 0.3
 
 
 
@@ -465,3 +505,12 @@ func _classe(couv: Image, v: Vector2) -> int:
 	if i.x < 0 or i.y < 0 or i.x >= couv.get_width() or i.y >= couv.get_height():
 		return -1
 	return int(couv.get_pixelv(i).r * 255.0 + 0.5)
+
+
+## Le sol le plus haut en travers d'un mur en v, d'un mètre devant à un mètre derrière : le maillage du sol est plus
+## grossier que hauteur(), et le pré passait par-dessus l'arase.
+func _plus_haut(v: Vector2, dedans: Vector2) -> float:
+	var h := -INF
+	for k: float in [-1.0, -0.5, 0.0, 0.5, 1.0, 2.0]:
+		h = maxf(h, hauteur.call(v.x + dedans.x * k, v.y + dedans.y * k))
+	return h
