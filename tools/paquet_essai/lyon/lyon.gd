@@ -904,11 +904,11 @@ void fragment() {
 ## passée au soleil, et la trace du toit d'une maison démolie. x : le flanc, dans le repère de l'immeuble.
 func _pignon(m: Node3D, x: float, corniche: float, enduit: Color, graine: int) -> void:
 	var s := signf(x)
-	var zinc := Color("#7d8288")
+	var zinc := Color("#8a9094")
 	var px := x + s * 0.14
-	_segment(m, Vector3(px, 0.9, -0.9), Vector3(px, corniche - 0.5, -0.9), 0.06, zinc, 0.45)
+	_segment(m, Vector3(px, 0.9, -0.9), Vector3(px, corniche - 0.5, -0.9), 0.05, zinc, 0.45)
 	_boite(m, Vector3(0.22, 0.32, 0.26), Vector3(px, corniche - 0.35, -0.9), zinc.darkened(0.1))
-	_segment(m, Vector3(px, 0.0, -0.9), Vector3(px, 0.95, -0.9), 0.075, Color("#2f3236"), 0.3)
+	_segment(m, Vector3(px, 0.0, -0.9), Vector3(px, 0.95, -0.9), 0.06, Color("#4a4a48"), 0.3)
 	var y := 2.6
 	while y < corniche - 0.8:
 		_boite(m, Vector3(0.2, 0.05, 0.16), Vector3(x + s * 0.07, y, -0.9), zinc.darkened(0.25))
@@ -936,19 +936,10 @@ func _pignon(m: Node3D, x: float, corniche: float, enduit: Color, graine: int) -
 		return
 	var fond := enduit.lerp(Color("#efe4c8"), 0.35)
 	_boite(m, Vector3(0.02, 3.4, 2.4), Vector3(x + s * 0.012, yr, -1.5), fond)
-	# chaque ligne, des lettres, une à une : la grande ligne rouge sombre, la petite bleue, la dernière rouge
-	var lignes := [[0.5, 0.17, 10, Color("#7a3e30")], [0.3, 0.11, 13, Color("#3e5a6e")], [0.38, 0.14, 11, Color("#7a3e30")]]
-	for l in 3:
-		var hl: float = lignes[l][0]
-		var lw: float = lignes[l][1]
-		var nl: int = lignes[l][2]
-		var teinte: Color = fond.lerp(lignes[l][3], 0.4)
-		var pas := lw + 0.05
-		for c in nl:
-			if (graine + c * 3 + l) % 6 == 0:
-				continue
-			var zl := -1.5 + (c - (nl - 1) * 0.5) * pas
-			_boite(m, Vector3(0.02, hl, lw), Vector3(x + s * 0.02, yr + 1.0 - l * 0.85, zl), teinte)
+	# deux bandes de couleur passée, à 40 % dans l'enduit : une large rouge sombre, une plus étroite bleue
+	for l in 2:
+		var teinte: Color = fond.lerp(Color("#7a3e30") if l == 0 else Color("#3e5a6e"), 0.4)
+		_boite(m, Vector3(0.02, 0.8 if l == 0 else 0.45, 2.0), Vector3(x + s * 0.02, yr + 0.55 - l * 1.15, -1.5), teinte)
 
 
 func _choisir_heros() -> void:
