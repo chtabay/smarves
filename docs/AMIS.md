@@ -80,6 +80,11 @@ Pour mémoire, et pour mesurer que c'est petit :
 1. **La mairie et le café comme portes** : le mot à la porte accepte un ami comme destinataire, à ces
    deux adresses, en plus des maisons. Côté serveur, une règle de plus dans la vérification des actions ;
    côté jeu, le même geste qu'une annonce, sur place.
+   **Aucune commune n'a rien à refaire** : le panneau d'affichage est un autoload du socle (`Tableau`), que
+   seule la place de Smarves pose aujourd'hui. Le socle le posera lui-même dans chaque commune, au point
+   d'arrivée (l'arrêt du car), comme il pose déjà le stade ou la salle de jeu ; une commune qui le veut devant
+   sa vraie mairie le déplace par une ancre de son manifeste, à sa prochaine version. Les paquets existants
+   le reçoivent au prochain jeu, sans être republiés.
 2. **L'amitié calculée** depuis les échanges déjà comptés, avec un seuil et une durée, lue par la fiche.
 3. **Le rendez-vous relevé** dans le mot (un jour, une heure, un lieu du village), rappelé dans la fiche
    et la vue des deux. Rien ne l'impose : on peut ne pas venir.
