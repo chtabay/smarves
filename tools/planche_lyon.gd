@@ -8,6 +8,7 @@ extends SceneTree
 ##   --vue=mobilier    chaque objet du mobilier, avec son nom
 ##   --vue=vegetation  chaque plante, avec son nom
 ##   --vue=quais       les sols et les modules de quai
+##   --vue=toits      un îlot de huit immeubles vu de 70 m, pour le grain des toits (--nom=grain=1 ; verdict n° 32)
 ##   --vue=jardin      un coin de jardin : la nappe d'herbe, des buissons et un massif en feuilles fines, de près
 ##   --vue=place       une place lyonnaise : fontaine au lion, terrasses, quai, rivière, pont, colline
 ##   --vue=rue         la même place à hauteur d'œil
@@ -80,6 +81,23 @@ func _init() -> void:
 			else:
 				cam.fov = 55
 				cam.look_at_from_position(Vector3(-4, 1.65, 10.5), Vector3(3, 2.6, 1))
+		"toits":
+			# un îlot de huit immeubles vu comme la Vue1 de Sathonay (caméra à 70 m, tangage -48°), pour mesurer le grain
+			# des toits (--nom=grain=x, 0 par défaut ; verdict n° 32)
+			_sol(Vector2(120, 120), Color("b8a27a"))
+			var grain := 0.0
+			if nom.begins_with("grain="):
+				grain = float(nom.trim_prefix("grain="))
+			var types_toits := ["classique", "immeuble", "cafe", "hotel", "maison", "etroite", "traboule", "angle"]
+			var x := -24.0
+			for i in types_toits.size():
+				var rangee := i % 2
+				var opt := {"grain": grain, "w": 10.0 if types_toits[i] != "etroite" else 5.2}
+				var m := _pose(FACADIER, "type", types_toits[i], Vector3(x + (0.0 if rangee == 0 else 5.0), 0, -rangee * 26.0), i + 1, opt, 0.0 if rangee == 0 else PI)
+				if rangee == 1:
+					x += float(m.get_meta("w")) + 0.4
+			cam.fov = 40
+			cam.look_at_from_position(Vector3(-6, 52.0, 46.8 - 13.0), Vector3(-6, 0, -13.0))
 		"facadier", "detail":
 			_sol(Vector2(140, 60), Color("b8a27a"))
 			var types: Array = load(Bibliotheque.scene(FACADIER, "decor")).instantiate().types()

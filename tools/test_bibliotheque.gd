@@ -228,6 +228,31 @@ func _init() -> void:
 	var enseignes := l2.find_children("*", "Label3D", true, false).map(func(e): return e.text)
 	check(is_equal_approx(float(l2.get_meta("w")), 10.5) and float(l2.get_meta("hauteur")) > 4.2 + 3 * 3.3 and "CAFÉ DU GONE" in enseignes and float(l1.get_meta("w")) != float(l2.get_meta("w")),
 		"les options passent au façadier lyonnais (largeur, étages, enseigne du café), et deux graines font deux immeubles")
+	# le verdict n° 32 de Sathonay : l'option grain donne du grain aux pans de tuile, lisible de loin ; 0 par défaut
+	var l3: Node3D = paquet_lyon.instantiate()
+	l3.type = "classique"
+	l3.graine = 4
+	l3.options = {"w": 10.0, "grain": 1.0}
+	var l4: Node3D = paquet_lyon.instantiate()
+	l4.type = "classique"
+	l4.graine = 4
+	l4.options = {"w": 10.0}
+	lyon.add_child(l3)
+	lyon.add_child(l4)
+	var sommets_l3 := 0
+	var sommets_l4 := 0
+	var sombres := 0
+	for mi in l3.find_children("*", "MeshInstance3D", true, false):
+		for si in mi.mesh.get_surface_count():
+			var arr = mi.mesh.surface_get_arrays(si)
+			sommets_l3 += arr[Mesh.ARRAY_VERTEX].size()
+			for c in arr[Mesh.ARRAY_COLOR]:
+				if absf(c.r - 0.425) < 0.03 and absf(c.g - 0.225) < 0.03 and absf(c.b - 0.124) < 0.03:
+					sombres += 1
+	for mi in l4.find_children("*", "MeshInstance3D", true, false):
+		for si in mi.mesh.get_surface_count():
+			sommets_l4 += mi.mesh.surface_get_array_len(si)
+	check(sommets_l3 > sommets_l4 + 40 and sombres >= 12, "l'option grain du façadier lyonnais pose des plaques et des rangs sombres sur les pans de tuile (%d sommets de plus, %d sommets de rangs sombres), rien sans elle" % [sommets_l3 - sommets_l4, sombres])
 	var quai: Node3D = load(Bibliotheque.scene("quais-lyonnais@1", "decor")).instantiate()
 	quai.module = "escalier_haut"
 	lyon.add_child(quai)
