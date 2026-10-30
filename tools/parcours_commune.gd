@@ -203,6 +203,13 @@ func _libres(s: Node, libres: Array) -> void:
 		cam.global_position = Vector3(v[0], v[1], v[2])
 		cam.rotation = Vector3(deg_to_rad(v[4]) if v.size() > 4 else 0.0, deg_to_rad(v[3]) if v.size() > 3 else 0.0, 0.0)
 		cam.fov = v[5] if v.size() > 5 else 70.0
+		# septième valeur : une bascule d'objectif, le cadre décalé vers le haut (en fraction de sa hauteur) sans
+		# incliner la caméra, pour garder les verticales droites
+		cam.projection = Camera3D.PROJECTION_PERSPECTIVE
+		if v.size() > 6 and v[6] != 0.0:
+			cam.projection = Camera3D.PROJECTION_FRUSTUM
+			cam.size = 2.0 * cam.near * tan(deg_to_rad(cam.fov) * 0.5)
+			cam.frustum_offset = Vector2(0.0, v[6] * cam.size)
 		cam.make_current()
 		await create_timer(0.5, true).timeout
 		await _capturer("libre-%d" % (i + 1))
