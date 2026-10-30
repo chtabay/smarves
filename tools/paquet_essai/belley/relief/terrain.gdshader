@@ -338,6 +338,10 @@ void fragment() {
 	col = mix(col, vec3(0.38, 0.45, 0.50), smoothstep(1500.0, 8000.0, distance(monde, CAMERA_POSITION_WORLD)) * (0.85 + 0.1 * roc));
 	// Au-delà de 5 km, un cran plus sombre : l'arête de la crête du Chat au soleil sortait pâle (#C2D2D3, verdict n° 30).
 	col *= mix(1.0, 0.84, smoothstep(5000.0, 10000.0, distance(monde, CAMERA_POSITION_WORLD)));
+	// La brume écrasait le modelé de la crête : faces au soleil et faces à l'ombre au même gris (verdict n° 33).
+	// Au-delà de 3 km, on rend à l'albédo l'écart que la brume lui a pris, selon la pente face au soleil.
+	float face = smoothstep(-0.2, 0.6, dot(normale, normalize(vec3(-0.75, 0.47, 0.47))));
+	col *= mix(1.0, mix(0.66, 0.98, face), smoothstep(3000.0, 7000.0, distance(monde, CAMERA_POSITION_WORLD)));
 	// Les teintes sont écrites en sRGB, comme la palette de la note ; le rendu de compatibilité ne convertit pas
 	// sa sortie (mesuré : un albédo de 0,5 ressort à 0,5), on les lui donne donc telles quelles.
 	ALBEDO = col;

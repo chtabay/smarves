@@ -196,6 +196,15 @@ func _sortie_de_ville(n: Node3D) -> void:
 				o.boite(Transform3D(Basis(), Vector3(v.x, y + 0.6, v.y)), Vector3(0.45, 1.6, 2.02), Color("a99d80", 0.0), OUTILS.RUSTIQUE)
 				o.boite(Transform3D(Basis(), Vector3(v.x, y + 1.45, v.y)), Vector3(0.6, 0.1, 2.02), Color("b3a88f", 1.0), OUTILS.RUSTIQUE)
 			z += 2.0
+		# Le portail de bois, peint, dans la brèche du mur : le jardin est habité (verdict n° 35).
+		var vp := Vector2(x, 807.0)
+		var yp: float = hauteur.call(vp.x, vp.y)
+		for i in 5:
+			o.boite(Transform3D(Basis(), Vector3(x, yp + 0.7, 806.38 + float(i) * 0.31)), Vector3(0.06, 1.4 - float(i % 2) * 0.08, 0.28), Color("3f5f5a"), OUTILS.PEINT)
+		for yr: float in [0.35, 1.1]:
+			o.boite(Transform3D(Basis(), Vector3(x, yp + yr, 807.0)), Vector3(0.09, 0.12, 1.5), Color("355049"), OUTILS.PEINT)
+		for zp: float in [806.0, 808.0]:
+			o.boite(Transform3D(Basis(), Vector3(x, yp + 0.9, zp)), Vector3(0.55, 1.8, 0.4), Color("a99d80", 0.0), OUTILS.RUSTIQUE)
 		# Le trottoir, bordé, qui finit avec le mur.
 		var x0: float = x - float(cote[1]) * 1.9
 		o.quad(_sur(Vector2(x0, 786.0), 0.15), _sur(Vector2(x0, 820.0), 0.15), _sur(Vector2(x, 820.0), 0.15), _sur(Vector2(x, 786.0), 0.15), Vector3.UP, Color("a89c84", 0.95), OUTILS.PEINT)
@@ -216,6 +225,13 @@ func _sortie_de_ville(n: Node3D) -> void:
 	nom.position = Vector3(v.x, y + 2.05, v.y - 0.04)
 	nom.rotation.y = PI
 	n.add_child(nom)
+	# Une voiture garée le long du trottoir, devant le portail (verdict n° 35).
+	var vo: Node3D = load(Bibliotheque.scene("voitures-des-annees-80@1", "decor")).instantiate()
+	vo.set("voiture", "compacte")
+	vo.set("graine", 806)
+	vo.set("options", {"couleur": "8a3b32"})
+	vo.position = _sur(Vector2(95.9, 828.0), 0.05)
+	n.add_child(vo)
 	# La barre rouge en travers.
 	o.boite(Transform3D(Basis(Vector3.BACK, 0.32), Vector3(v.x, y + 2.05, v.y - 0.045)), Vector3(1.25, 0.05, 0.01), Color("b8322c"), OUTILS.PEINT)
 
@@ -370,11 +386,12 @@ func _roseaux(o: RefCounted, a0: Vector2, a1: Vector2, eau: float) -> void:
 			# Ni sur le tablier ni contre ses parapets.
 			var axe := Geometry2D.get_closest_point_to_segment(v, a0, a1).distance_to(v)
 			if _classe(couv, v) != 7 and rive and axe > 6.0:
-				for k in 6:
-					var hr := 1.2 + float((hk >> k) % 8) * 0.12
-					var d := Vector3(float((hk >> (k + 2)) % 9) * 0.08 - 0.32, 0, float((hk >> (k + 4)) % 9) * 0.08 - 0.32)
+				# Serrés et sombres, au vert de roseau (#6E8A3A au rendu, verdict n° 35).
+				for k in 12:
+					var hr := 1.2 + float((hk >> (k % 8)) % 8) * 0.12
+					var d := Vector3(float(((hk >> (k % 10 + 2)) + k * 5) % 9) * 0.09 - 0.36, 0, float(((hk >> (k % 10 + 4)) + k * 3) % 9) * 0.09 - 0.36)
 					var pied := Vector3(v.x, y - 0.1, v.y) + d
-					o.branche(pied, pied + Vector3(d.x * 0.3, hr, d.z * 0.3), 0.025, 0.012, Color("6f7a3a").lerp(Color("9a8a52"), float(k % 3) * 0.3), 3, OUTILS.FEUILLE)
+					o.branche(pied, pied + Vector3(d.x * 0.3, hr, d.z * 0.3), 0.025, 0.012, Color("3f5520").lerp(Color("5e6a30"), float(k % 3) * 0.35), 3, OUTILS.FEUILLE)
 					if k % 2 == 0:
 						o.boule(pied + Vector3(d.x * 0.3, hr + 0.1, d.z * 0.3), Vector3(0.05, 0.16, 0.05), Color("8a6a48"), 0.1, OUTILS.FEUILLE, 0.03, 0.5, 3, 4)
 			z += 1.5
