@@ -9,7 +9,9 @@ extends Node3D
 const DOSSIER := "res://communes/toulouse/"
 const SAINT_GEORGES := preload(DOSSIER + "saint_georges.gd")
 const UNITE := 2.4
-const CRANS := [[9.0, -48.0, 34.0], [18.0, -51.0, 30.0], [32.0, -58.0, 30.0]]
+## Les crans de la caméra : [distance, plongée, champ]. On arrive au premier, sous les platanes, à hauteur
+## d'homme (Guillaume, 30 octobre : de haut, depuis un toit, on ne voit rien).
+const CRANS := [[4.5, -16.0, 50.0], [9.0, -48.0, 34.0], [18.0, -51.0, 30.0], [32.0, -58.0, 30.0]]
 
 ## La lumière de 18 h en septembre (note : « Lumière et caméras ») : soleil d'ouest-sud-ouest, bas et doré.
 const SOLEIL := {"hauteur": 36.0, "vient_de": 262.0, "couleur": Color("ffd9a8")}
@@ -394,11 +396,27 @@ func _joueur() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	camera.target = player.global_position + Vector3(0, 0.3, 0)
 	camera.set("_target_goal", camera.target)
-	camera.use_notches(CRANS, 1)
+	# la caméra derrière l'habitant, qui regarde la place comme lui
+	var devant: Vector3 = player.global_basis.z
+	camera.yaw = atan2(-devant.x, -devant.z)
+	camera.set("_yaw_goal", camera.yaw)
+	camera.use_notches(CRANS, 0)
 
 
 ## Les portes de la place : les salles de jeu du manifeste, ouvertes par le socle (fermées, la porte dit le seuil).
 func _interagir(cible: Node) -> void:
 	var id := str(cible.get_meta("interact", ""))
-	if SAINT_GEORGES.PORTES.has(id):
-		SalleJeu.ouvrir("toulouse", id)
+	match id:
+		"taxi":
+			Carte.ouvrir_car()
+		"notaire":
+			Etude.ouvrir("toulouse")
+		"chemiserie":
+			Commerce.ouvrir("toulouse", id)
+		"change":
+			ChargeCommune.ouvrir("toulouse", id)
+		"maison_violette", "maison_pomme":
+			Biens.enter("toulouse/" + id)
+		_:
+			if SAINT_GEORGES.PORTES.has(id):
+				SalleJeu.ouvrir("toulouse", id)
