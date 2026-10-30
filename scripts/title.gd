@@ -13,6 +13,8 @@ func _ready() -> void:
 	village = MAIN.instantiate()
 	village.set_meta("vitrine", true)
 	add_child(village)
+	# La place tourne derrière, mais on n'y est pas encore : le thème de l'écran titre (tools/musiques.py).
+	Sfx.musique("titre")
 	_build_ui()
 
 
