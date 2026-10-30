@@ -8,6 +8,7 @@ extends SceneTree
 ##   --vue=mobilier    chaque objet du mobilier, avec son nom
 ##   --vue=vegetation  chaque plante, avec son nom
 ##   --vue=quais       les sols et les modules de quai
+##   --vue=jardin      un coin de jardin : la nappe d'herbe, des buissons et un massif en feuilles fines, de près
 ##   --vue=place       une place lyonnaise : fontaine au lion, terrasses, quai, rivière, pont, colline
 ##   --vue=rue         la même place à hauteur d'œil
 ##   --vue=quai        le quai, la rivière et le pont, vus du parapet
@@ -95,6 +96,15 @@ func _init() -> void:
 			else:
 				cam.fov = 50
 				cam.look_at_from_position(Vector3(-64, 3.0, 11), Vector3(-40, 9, -1))
+		"jardin":
+			# un coin de jardin : la nappe d'herbe, deux buissons et un massif en feuilles fines, de près (revue n° 4)
+			_sol(Vector2(60, 60), Color("b8a27a"))
+			_pose(VEGETATION, "plante", "herbe", Vector3(0, 0, 0), 1, {"points": [[-5, -3], [5, -3.5], [5.5, 3], [1, 3.5], [-4.5, 2.5]]})
+			_pose(VEGETATION, "plante", "buisson", Vector3(-2.5, 0, -1.5), 2, {"hauteur": 1.3})
+			_pose(VEGETATION, "plante", "buisson", Vector3(3.0, 0, -1.8), 3, {"hauteur": 1.0})
+			_pose(VEGETATION, "plante", "massif", Vector3(0.5, 0, 1.2), 4, {"longueur": 3.5})
+			cam.fov = 45
+			cam.look_at_from_position(Vector3(2.5, 1.9, 6.5), Vector3(0, 0.5, -0.5))
 		"mobilier", "vegetation", "quais":
 			var id: String = {"mobilier": MOBILIER, "vegetation": VEGETATION, "quais": QUAIS}[vue]
 			var cle: String = {"mobilier": "objet", "vegetation": "plante", "quais": "module"}[vue]

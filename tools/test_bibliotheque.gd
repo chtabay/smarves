@@ -198,7 +198,7 @@ func _init() -> void:
 	var lyon := Node3D.new()
 	root.add_child(lyon)
 	var lyonnais := {"facadier-lyonnais@1": ["types", "type", 11], "mobilier-lyonnais@1": ["objets", "objet", 15],
-		"vegetation-lyonnaise@1": ["noms", "plante", 8], "quais-lyonnais@1": ["noms", "module", 12]}
+		"vegetation-lyonnaise@1": ["noms", "plante", 9], "quais-lyonnais@1": ["noms", "module", 12]}
 	for ref in lyonnais:
 		var sc := Bibliotheque.scene(ref, "decor")
 		check(sc != "" and ResourceLoader.exists(sc), "la bibliothèque a %s, un décor" % ref)
@@ -259,6 +259,23 @@ func _init() -> void:
 				rates.append(nom)
 		check(noms.size() == bugistes[ref][2] and rates.is_empty(), "%s : les %d se bâtissent, un maillage et un corps chacun %s" % [ref, noms.size(), str(rates)])
 	var essences: Array = load(Bibliotheque.scene("vegetation-du-bugey@1", "decor")).instantiate().call("noms")
+	# la revue de Sathonay n° 4 : l'herbe en cartes (un contour en points), et des feuilles fines sur le buisson
+	var herbe: Node3D = load(Bibliotheque.scene("vegetation-lyonnaise@1", "decor")).instantiate()
+	herbe.plante = "herbe"
+	herbe.graine = 3
+	herbe.options = {"points": [[0, 0], [6, 0], [6, 4], [0, 4]]}
+	lyon.add_child(herbe)
+	var mi_herbe: MeshInstance3D = herbe.find_children("*", "MeshInstance3D", true, false)[0]
+	var sommets_herbe := 0
+	for si in mi_herbe.mesh.get_surface_count():
+		sommets_herbe += mi_herbe.mesh.surface_get_array_len(si)
+	check(herbe.get_meta("plante") == "herbe" and sommets_herbe > 24 * 45 * 12 * 0.8 and sommets_herbe < 2500 * 12 + 100, "l'herbe lyonnaise sème ses touffes selon l'aire de son contour (%d sommets pour 24 m²)" % sommets_herbe)
+	var buisson_fin: Node3D = load(Bibliotheque.scene("vegetation-lyonnaise@1", "decor")).instantiate()
+	buisson_fin.plante = "buisson"
+	buisson_fin.graine = 3
+	lyon.add_child(buisson_fin)
+	var mi_bf: MeshInstance3D = buisson_fin.find_children("*", "MeshInstance3D", true, false)[0]
+	check(mi_bf.mesh.surface_get_array_len(0) > 3 * 14 * 6, "le buisson lyonnais est couvert de feuilles fines, pas de facettes (%d sommets)" % mi_bf.mesh.surface_get_array_len(0))
 	var lyonnaises: Array = load(Bibliotheque.scene("vegetation-lyonnaise@1", "decor")).instantiate().call("noms")
 	check(not ("tilleul" in essences or "bouleau" in essences or "cypres" in essences or "vigne" in essences or essences.any(func(e): return e in lyonnaises)),
 		"la végétation du Bugey ne redouble aucune essence des autres décors")

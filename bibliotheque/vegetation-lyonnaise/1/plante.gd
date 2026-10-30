@@ -11,8 +11,9 @@ extends Node3D
 const Outils := preload("res://bibliotheque/vegetation-lyonnaise/1/outils.gd")
 
 ## Les plantes : le grand platane des quais à l'écorce tachée, l'arbre d'alignement taillé, l'oranger en caisse,
-## le cyprès, le bac fleuri, la vigne grimpante sur son treillage, le massif et le buisson.
-const PLANTES := ["platane", "alignement", "oranger", "cypres", "bac_fleuri", "vigne", "massif", "buisson"]
+## le cyprès, le bac fleuri, la vigne grimpante sur son treillage, le massif, le buisson et l'herbe (une nappe de
+## touffes en cartes, à la place d'un gazon en aplat ; revue de Sathonay n° 4).
+const PLANTES := ["platane", "alignement", "oranger", "cypres", "bac_fleuri", "vigne", "massif", "buisson", "herbe"]
 
 const VERTS := {
 	"platane": ["94c44c", "7cb23f", "679d35", "548829"],
@@ -23,6 +24,7 @@ const VERTS := {
 	"massif": ["7cc23c", "69b032", "5a9c30", "4b8a2a"],
 	"buisson": ["86c445", "72b23a", "5f9a30", "4f8a2a"],
 	"bac_fleuri": ["7cc23c", "69b032", "5a9c30", "4b8a2a"],
+	"herbe": ["9ccf4e", "7fb83c", "63a030", "4a8428"],
 }
 const FLEURS := ["e0605a", "f2c14e", "d04a8a", "b06ad0", "f4f0e6", "e8823a", "8a6ad0"]
 const TERRE := Color("6b4f36")
@@ -34,8 +36,10 @@ const PIERRE_SOMBRE := Color("cdbb92")
 ## La graine : deux plantes de même nom et de graines différentes ne se ressemblent pas.
 @export var graine := 1
 ## Les options, toutes facultatives : hauteur (en mètres), pied (les arbres : « » la terre, « grille » une grille
-## de fonte, « bordure » une bordure de pierre), fleurs (un hexa), longueur (le bac, la vigne, le massif), vent
-## (0 à 1, l'amplitude du souffle), fruits (false : l'oranger sans ses oranges).
+## de fonte, « bordure » une bordure de pierre), fleurs (un hexa), longueur (le bac, la vigne, le massif, l'herbe),
+## vent (0 à 1, l'amplitude du souffle), fruits (false : l'oranger sans ses oranges) ; l'herbe : largeur, points (le
+## contour de la nappe en mètres, à la place de longueur × largeur), densite (un multiplicateur des touffes, 1 par
+## défaut), plafond (2 500 touffes au plus par défaut : au-delà elles grossissent au lieu de se multiplier).
 @export var options := {}
 
 var fait := false
@@ -89,8 +93,38 @@ static func _pied(o: Outils, p: Vector3, pied: String, opt: Dictionary) -> void:
 
 class _Plantes:
 	## Une touffe de feuilles semée de fleurs, centrée en c, de rayon r.
+	## Des feuilles sur une masse : des cartes de 6 à 11 cm posées sur l'ellipsoïde de centre c et de rayons r,
+	## tournées au hasard, un peu relevées, plus nombreuses vers le haut ; on lit des feuilles, pas des facettes
+	## (celles des buissons du bac toulousain, demandées pour Sathonay par la revue n° 4).
+	static func _feuilles(o: Outils, c: Vector3, r: Vector3, col: Color, n: int) -> void:
+		for i in n:
+			var th := o.rng.randf() * TAU
+			var y := o.rng.randf_range(-0.3, 1.0)
+			var s := sqrt(maxf(0.0, 1.0 - y * y))
+			var d := Vector3(cos(th) * s, y, sin(th) * s)
+			var q := c + Vector3(d.x * r.x, d.y * r.y, d.z * r.z)
+			var nrm := Vector3(d.x / r.x, d.y / r.y, d.z / r.z).normalized()
+			var t := nrm.cross(Vector3.UP if absf(nrm.y) < 0.9 else Vector3.RIGHT).normalized()
+			var b2 := nrm.cross(t)
+			var rot := o.rng.randf() * TAU
+			var u := (t * cos(rot) + b2 * sin(rot))
+			var v := (b2 * cos(rot) - t * sin(rot))
+			var l := o.rng.randf_range(0.06, 0.11)
+			var w := l * 0.6
+			var p0 := q - u * w * 0.5
+			var p1 := q + u * w * 0.5
+			var p2 := q + u * w * 0.3 + v * l + nrm * l * 0.35
+			var p3 := q - u * w * 0.3 + v * l + nrm * l * 0.35
+			var teinte := col.lightened(o.rng.randf_range(-0.08, 0.12))
+			o.quad(p0, p1, p2, p3, nrm, teinte, Outils.FEUILLE)
+
+	## Une masse de feuillage couverte de ses feuilles : la boule un peu réduite et assombrie, les cartes dessus.
+	static func _masse(o: Outils, c: Vector3, r: Vector3, col: Color, vent: float) -> void:
+		o.boule(c, r * 0.92, col.darkened(0.05), 0.18, Outils.FEUILLE, 0.05, vent)
+		_feuilles(o, c, r, col, int(clampf(r.x * r.y * 400.0, 14.0, 90.0)))
+
 	static func _touffe(o: Outils, c: Vector3, r: float, vert: Color, fleur: Color, n_fleurs := 6) -> void:
-		o.boule(c, Vector3(r, r * 0.75, r), vert, 0.22, Outils.FEUILLE, 0.06, 0.3)
+		_masse(o, c, Vector3(r, r * 0.75, r), vert, 0.3)
 		for i in n_fleurs:
 			var a := o.rng.randf() * TAU
 			var y := o.rng.randf_range(0.1, 0.7)
@@ -296,7 +330,7 @@ class _Plantes:
 		var n := int(l / 0.5)
 		for i in n:
 			var x := -l * 0.5 + 0.35 + i * (l - 0.7) / maxf(1, n - 1)
-			o.boule(p + Vector3(x, 0.6, -0.3), Vector3(0.36, 0.42, 0.3), verts[r.randi() % 2 + 1], 0.16, Outils.FEUILLE, 0.05, 0.3)
+			_masse(o, p + Vector3(x, 0.6, -0.3), Vector3(0.36, 0.42, 0.3), verts[r.randi() % 2 + 1], 0.3)
 			_touffe(o, p + Vector3(x + r.randf_range(-0.1, 0.1), 0.38, 0.2), r.randf_range(0.22, 0.28), verts[0], fleur if i % 2 == 0 else fleur2, 7)
 		o.collisions.append([Transform3D(Basis(), p + Vector3(0, 0.3, 0)), Vector3(l, 0.6, 1.6)])
 		return Vector2(0.9, l * 0.5)
@@ -311,11 +345,85 @@ class _Plantes:
 			var a := TAU * i / n + r.randf()
 			var d := r.randf_range(0.2, 0.55) * h
 			var s := h * r.randf_range(0.45, 0.6)
-			o.boule(p + Vector3(cos(a) * d, s * 0.8, sin(a) * d), Vector3(s, s * 0.85, s), verts[r.randi() % 4], 0.2, Outils.FEUILLE, 0.06, vent * 0.4)
+			_masse(o, p + Vector3(cos(a) * d, s * 0.8, sin(a) * d), Vector3(s, s * 0.85, s), verts[r.randi() % 4], vent * 0.4)
 		if r.randf() < 0.6:
 			var fleur := Color(str(opt.get("fleurs", ["f4f0e6", "f2c14e", "d04a8a"][r.randi() % 3])))
 			for i in 9:
 				var a := r.randf() * TAU
-				o.boule(p + Vector3(cos(a) * h * 0.6, r.randf_range(0.5, 1.2) * h, sin(a) * h * 0.6), Vector3.ONE * 0.08, fleur, 0.2, Outils.FEUILLE, 0.05, vent * 0.4)
+				o.boule(p + Vector3(cos(a) * h * 0.45, r.randf_range(0.35, 0.85) * h, sin(a) * h * 0.45), Vector3.ONE * 0.07, fleur, 0.2, Outils.FEUILLE, 0.05, vent * 0.4)
 		o.collisions.append([Transform3D(Basis(), p + Vector3(0, h * 0.5, 0)), Vector3(h * 1.4, h, h * 1.4)])
 		return Vector2(h, h * 0.9)
+
+	## L'herbe : une nappe de touffes en cartes sur un fond de vert sombre, à la place d'un gazon en aplat. Le
+	## contour : longueur × largeur (centré sur l'origine), ou points (en mètres). Chaque touffe est quatre brins
+	## triangulaires écartés, sombres au pied et clairs à la pointe, qui frémissent au vent ; semées selon l'aire,
+	## 45 par m² (densite) jusqu'au plafond, puis elles grossissent au lieu de se multiplier.
+	static func herbe(o: Outils, p: Vector3, verts: Array, opt: Dictionary) -> Vector2:
+		var r := o.rng
+		var vent := float(opt.get("vent", 1.0))
+		var l := float(opt.get("longueur", 4.0))
+		var w := float(opt.get("largeur", 2.0))
+		var pts := PackedVector2Array()
+		if opt.has("points") and opt["points"] is Array and (opt["points"] as Array).size() >= 3:
+			for q in opt["points"]:
+				pts.append(q if q is Vector2 else Vector2(float(q[0]), float(q[1])))
+		else:
+			pts = PackedVector2Array([Vector2(-l * 0.5, -w * 0.5), Vector2(l * 0.5, -w * 0.5), Vector2(l * 0.5, w * 0.5), Vector2(-l * 0.5, w * 0.5)])
+		var mini := pts[0]
+		var maxi := pts[0]
+		var aire := 0.0
+		for i in pts.size():
+			var a := pts[i]
+			var b := pts[(i + 1) % pts.size()]
+			aire += a.x * b.y - b.x * a.y
+			mini = Vector2(minf(mini.x, a.x), minf(mini.y, a.y))
+			maxi = Vector2(maxf(maxi.x, a.x), maxf(maxi.y, a.y))
+		aire = absf(aire) * 0.5
+		# le fond : le contour en vert sombre, à peine au-dessus du sol
+		var sol := Basis(Vector3(1, 0, 0), Vector3(0, 0, 1), Vector3(0, -1, 0))
+		o.profil(Transform3D(sol, p), pts, -0.012, 0.0, (verts[3] as Color).darkened(0.25), Outils.DUR)
+		var voulu := aire * 45.0 * float(opt.get("densite", 1.0))
+		var n := mini(int(voulu), int(opt.get("plafond", 2500)))
+		var grossir := clampf(sqrt(voulu / maxf(1.0, n)), 1.0, 1.6)
+		var cadre := (maxi.x - mini.x) * (maxi.y - mini.y)
+		var essais := 0
+		var semees := 0
+		var essais_max := n * 8 * int(clampf(cadre / maxf(aire, 0.1), 1.0, 50.0))
+		while semees < n and essais < essais_max:
+			essais += 1
+			var q := Vector2(r.randf_range(mini.x, maxi.x), r.randf_range(mini.y, maxi.y))
+			if not Geometry2D.is_point_in_polygon(q, pts):
+				continue
+			semees += 1
+			var h := r.randf_range(0.09, 0.19) * grossir * float(opt.get("hauteur", 1.0))
+			var pied_col: Color = verts[3]
+			var pointe: Color = (verts[r.randi() % 2] as Color).lightened(r.randf_range(-0.05, 0.1))
+			# quatre brins par touffe, écartés d'une dizaine de centimètres, penchés chacun à sa guise
+			for brin in 4:
+				var ecart := Vector2(r.randf_range(-0.1, 0.1), r.randf_range(-0.1, 0.1)) * grossir
+				var pied := p + Vector3(q.x + ecart.x, 0.0, q.y + ecart.y)
+				var a := TAU * brin / 4.0 + r.randf() * TAU
+				var u := Vector3(cos(a), 0, sin(a))
+				var hb := h * r.randf_range(0.7, 1.2)
+				var larg := hb * r.randf_range(0.22, 0.32)
+				var penche := Vector3(r.randf_range(-0.4, 0.4), 0, r.randf_range(-0.4, 0.4)) * hb
+				var haut := pied + Vector3(0, hb, 0) + penche
+				_brin(o, pied - u * larg * 0.5, pied + u * larg * 0.5, haut, u.cross(Vector3.UP), pied_col, pointe, vent)
+		# pas d'obstacle : on marche dans l'herbe ; le corps, une plaque sous le sol, ne fait que tenir le contrat
+		o.collisions.append([Transform3D(Basis(), p + Vector3((mini.x + maxi.x) * 0.5, -0.06, (mini.y + maxi.y) * 0.5)), Vector3(maxi.x - mini.x, 0.02, maxi.y - mini.y)])
+		return Vector2(0.26, maxf(maxi.x - mini.x, maxi.y - mini.y) * 0.5)
+
+	## Un brin d'herbe : un triangle du pied a-b à la pointe c, sombre au pied, clair à la pointe (la pointe seule
+	## bouge au vent).
+	static func _brin(o: Outils, a: Vector3, b: Vector3, c: Vector3, n: Vector3, pied: Color, pointe: Color, vent: float) -> void:
+		var st := o._s(Outils.FEUILLE)
+		var nn := n.normalized()
+		var sommets := [[a, pied, 0.0], [b, pied, 0.0], [c, pointe, vent]]
+		if (b - a).cross(c - a).dot(nn) > 0.0:
+			sommets = [sommets[0], sommets[2], sommets[1]]
+		for sommet in sommets:
+			var col: Color = sommet[1]
+			col.a = clampf(float(sommet[2]), 0.0, 1.0)
+			st.set_color(col)
+			st.set_normal(nn)
+			st.add_vertex(sommet[0])
