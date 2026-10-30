@@ -24,6 +24,14 @@
 				215
 			],
 			"rayon": 180
+		},
+		"saint_paul": {
+			"batir": "quartiers/saint_paul/saint_paul.gd",
+			"centre": [
+				-230,
+				420
+			],
+			"rayon": 220
 		}
 	},
 	"lieux": [],
