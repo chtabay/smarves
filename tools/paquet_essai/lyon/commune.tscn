@@ -24,3 +24,5 @@ script = ExtResource("1")
 [node name="Vue2c_Palier" type="Marker3D" parent="."]
 
 [node name="Vue3a_Belvedere" type="Marker3D" parent="."]
+
+[node name="Quartiers" type="Node3D" parent="."]
