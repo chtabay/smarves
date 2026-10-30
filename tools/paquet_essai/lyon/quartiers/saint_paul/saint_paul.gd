@@ -37,6 +37,10 @@ const RELIEF := [Rect2(-250.0, 226.0, 85.0, 104.0), Rect2(-262.0, 318.0, 92.0, 6
 const RIVE_SUD := [Vector2(-432, 188), Vector2(-351, 188), Vector2(-314, 186), Vector2(-302, 187), Vector2(-250, 202),
 	Vector2(-200, 227), Vector2(-147, 280)]
 
+## Les deux places, où toutes les façades qui les bordent ont leur relief.
+const PLACE_CHANGE := Rect2(-172.0, 495.0, 55.0, 60.0)
+const PLACE_SAINT_PAUL := Rect2(-252.0, 330.0, 60.0, 50.0)
+
 ## Les monuments, d'après le relevé : centre, longueur, largeur, angle du grand côté (radians).
 const EGLISE := [Vector2(-247.0, 287.0), 54.0, 30.0, 2.4]
 const GARE := [Vector2(-266.0, 352.0), 34.0, 36.0, 0.0]
@@ -57,10 +61,13 @@ const TRACES := {
 ## Les points de vue (œil, regard) et les sas.
 const REPERES := {
 	"Arrivee_SaintPaul": [Vector2(-196.0, 352.0), Vector2(-260.0, 356.0)],
-	"Vue1a_Passerelle": [Vector2(-178.0, 268.0), Vector2(-212.0, 298.0)],
-	# les coudes du parcours : le bas de la rue du Docteur-Augros, la place Saint-Paul, le bas de la rue Juiverie
-	"Vue1b_Augros": [Vector2(-213.5, 305.0), Vector2(-214.0, 330.0)],
-	"Vue1c_PlaceSaintPaul": [Vector2(-213.0, 343.0), Vector2(-240.0, 370.0)],
+	# au débouché de la passerelle, sur le quai : la tour-lanterne au-dessus des toits de droite, la rue qui monte
+	"Vue1a_Passerelle": [Vector2(-218.0, 232.0), Vector2(-226.0, 290.0)],
+	# les coudes du parcours : le quai, l'angle de la rue Saint-Paul, le bas de la rue du Docteur-Augros, la place
+	"Vue1b_Quai": [Vector2(-182.0, 264.0), Vector2(-150.0, 300.0)],
+	"Vue1c_Gerson": [Vector2(-186.0, 276.5), Vector2(-212.0, 297.0)],
+	"Vue1d_Augros": [Vector2(-213.5, 305.0), Vector2(-214.0, 330.0)],
+	"Vue1e_PlaceSaintPaul": [Vector2(-213.0, 343.0), Vector2(-240.0, 370.0)],
 	"Vue2a_Juiverie": [Vector2(-231.5, 384.0), Vector2(-227.0, 440.0)],
 	# devant le porche de l'hôtel Bullioud, le regard dans la cour vers la galerie de Delorme
 	"Vue2b_Bullioud": [Vector2(-228.6, 422.5), Vector2(-260.0, 422.5)],
@@ -302,18 +309,30 @@ class Batisseur:
 		var collisions := PackedVector3Array()
 		var occ_v := PackedVector3Array()
 		var occ_i := PackedInt32Array()
+		# d'abord la hauteur réelle de chaque volume (celles des façades en relief l'emportent), pour que les murs
+		# mitoyens se règlent sur le voisin tel qu'il est bâti
+		var hauts := {}
 		for i in miens:
 			var b: Dictionary = data.batiments[i]
-			var poly: PackedVector2Array = emprises[i]
-			var c := Vector2(b.rect[0], b.rect[1]) * U
 			var sol: float = b.sol * U - 0.5
 			var haut: float = minf(b.h * U, 22.0) + 0.5
-			var en_relief := _reliefs(i, b, poly)
+			var c0 := Vector2(b.rect[0], b.rect[1]) * U
+			for z in RELIEF:
+				if z.has_point(c0):
+					haut = minf(haut, 17.0)
+			var en_relief := _reliefs(i, b, emprises[i])
 			if not en_relief.is_empty():
 				var hmax := 0.0
 				for f in en_relief:
 					hmax = maxf(hmax, f)
 				haut = hmax - sol
+			hauts[i] = haut
+		for i in miens:
+			var b: Dictionary = data.batiments[i]
+			var poly: PackedVector2Array = emprises[i]
+			var c := Vector2(b.rect[0], b.rect[1]) * U
+			var sol: float = b.sol * U - 0.5
+			var haut: float = hauts[i]
 			var col := Color(_enduit(c, i))
 			var baie := 3.1 + float((i * 37) % 7) * 0.1
 			for k in poly.size():
@@ -332,7 +351,7 @@ class Batisseur:
 				var voisin := dans_qui((a + bb) * 0.5 + Vector2(n.x, n.z) * 0.6, i)
 				if voisin >= 0:
 					var bv: Dictionary = data.batiments[voisin]
-					var haut_voisin: float = bv.sol * U + minf(bv.h * U, 22.0)
+					var haut_voisin: float = bv.sol * U - 0.5 + hauts[voisin] if hauts.has(voisin) else bv.sol * U + minf(bv.h * U, 22.0)
 					if sol + haut - haut_voisin < 1.0:
 						continue
 					for j in 2:
@@ -415,7 +434,9 @@ class Batisseur:
 			var milieu := (a + bb) * 0.5
 			if Geometry2D.is_point_in_polygon(milieu + n * 0.4, poly):
 				n = -n
-			if dans_qui(milieu + n * 0.6, i) >= 0 or ouverture(milieu + n * 3.0) > 6.0:
+			# une façade loin de toute voie ne se voit pas, sauf sur les places, où l'axe de la voie passe au milieu
+			var portee := 16.0 if (PLACE_CHANGE.has_point(milieu) or PLACE_SAINT_PAUL.has_point(milieu)) else 6.0
+			if dans_qui(milieu + n * 0.6, i) >= 0 or ouverture(milieu + n * 3.0) > portee:
 				continue
 			relief_pose[Vector2i(i, k)] = true
 			var nb := maxi(1, int(round(long / 8.0)))
@@ -469,6 +490,14 @@ class Batisseur:
 			var u := Vector2(cos(rc[4]), sin(rc[4]))
 			var v := Vector2(-u.y, u.x)
 			var coins := [c - u * lu - v * lv, c + u * lu - v * lv, c + u * lu + v * lv, c - u * lu + v * lv]
+			# un rectangle mal tourné ferait déborder le toit au-dessus de la rue : on s'en tient alors au terrasson
+			var juste := true
+			for q in coins:
+				if not Geometry2D.is_point_in_polygon(q + (c - q).normalized() * 1.8, poly):
+					juste = false
+			if not juste:
+				_terrasson(st, poly, haut, tuile)
+				return
 			var A := Vector3(coins[0].x, haut, coins[0].y)
 			var B := Vector3(coins[1].x, haut, coins[1].y)
 			var C := Vector3(coins[2].x, haut, coins[2].y)
@@ -487,6 +516,9 @@ class Batisseur:
 					st.set_normal(n)
 					st.add_vertex(p)
 			return
+		_terrasson(st, poly, haut, tuile)
+
+	func _terrasson(st: SurfaceTool, poly: PackedVector2Array, haut: float, tuile: Color) -> void:
 		var tri := Geometry2D.triangulate_polygon(poly)
 		for k in range(0, tri.size(), 3):
 			for j in [0, 2, 1]:
