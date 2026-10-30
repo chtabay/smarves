@@ -25,8 +25,8 @@ const ZINC := Color("8a9298", 0.4)
 const BRIQUE := Color("b5603e", 0.9)
 const POT := Color("c06a40", 0.9)
 
-const ASPHALTE := Color("8e8780", 0.95)
-const TROTTOIR := Color("c9bea8", 0.95)
+const ASPHALTE := Color("7b7570", 0.95)
+const TROTTOIR := Color("a89c84", 0.95)
 const PAVE := Color("b0a48f", 0.95)
 const BORDURE := Color("b3ab9c", 0.9)
 ## Le caniveau, entre la bordure et la chaussée : une bande plus sombre de pavés.
@@ -293,6 +293,8 @@ func _facadier(m: Dictionary, graine: int, rng: RandomNumberGenerator, leger := 
 	if _pres_des_barons(c, lu, lv):
 		opt["enduit"] = "bfa47e"
 		opt["mur"] = "enduit"
+		# Les volets de bois à barres n'ont pas de relief à cette distance : des persiennes, lames comprises.
+		opt["volets"] = "persiennes"
 	if leger:
 		opt.merge({"fleurs": false, "mur": "enduit", "vigne": false, "balcon": false, "auvent": false, "lanterne": false}, true)
 	var n: Node3D = FACADIER.maison(noeud, Vector3(pied.x, y, pied.y), type, graine, opt)

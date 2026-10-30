@@ -9,7 +9,9 @@ extends RefCounted
 const PLACE := preload("res://communes/belley/places/place_cathedrale.gd")
 const OUTILS := preload("res://communes/belley/atelier/outils.gd")
 const BORDURE := Color("b3ab9c")
-const TROTTOIR := Color("c9bea8")
+## Le trottoir et la chaussée au soleil rendaient la vue à pied trop claire (verdict n° 23 : médiane 161) : des
+## albédos plus sourds, qui rendent #B5AA92 et #8E8780 à la lumière de Belley.
+const TROTTOIR := Color("a89c84")
 ## L'axe de la rue des Barons dans son tronçon d'arrivée, et sa demi-largeur de chaussée (bourg.json).
 const BARONS := [Vector2(117.0, 295.0), Vector2(128.0, 299.0), Vector2(159.0, 313.0), Vector2(165.0, 315.0)]
 const DEMI_CHAUSSEE := 2.5
@@ -34,6 +36,7 @@ func batir(parent: Node3D) -> void:
 	var longueur := PLACE.ALLEE_A.distance_to(PLACE.ALLEE_B)
 	_course(n, d, nrm, longueur)
 	_trottoirs(n)
+	_rue_des_barons(n)
 	# Le côté ouvert de la rue des Barons, en descendant vers la place : un trottoir, sa bordure et une haie basse
 	# devant les jardins, au lieu d'un talus de pelouse (verdict n° 19).
 	var bugey: PackedScene = load(Bibliotheque.scene("vegetation-du-bugey@1", "decor"))
@@ -139,3 +142,54 @@ func _trottoirs(n: Node3D) -> void:
 				var t := TROTTOIR.darkened(float(absi(hash(Vector2i(k + i * 40, int(cote)))) % 5) * 0.012)
 				o.quad(Vector3(q0.x, y0 + 0.145, q0.y), Vector3(q1.x, y1 + 0.145, q1.y), Vector3(r1.x, y1 + 0.145, r1.y), Vector3(r0.x, y0 + 0.145, r0.y), Vector3.UP, t, OUTILS.PEINT)
 	o.construire(n, "TrottoirsBarons")
+
+
+## La rue des Barons n'est plus vide (verdict n° 23) : c'est le parcours de dimanche. Les barrières de foule
+## attendent déjà le long de la haie, un vélo est appuyé contre une façade, des passants montent et descendent les
+## trottoirs, deux voisins causent sur le pas d'une porte.
+func _rue_des_barons(n: Node3D) -> void:
+	var scene: PackedScene = load(Bibliotheque.scene("course-cycliste@1", "decor"))
+	var a: Vector2 = BARONS[1]
+	var c: Vector2 = BARONS[2]
+	var dr := (c - a).normalized()
+	var flanc := Vector2(-dr.y, dr.x)
+	var lacet := -atan2(dr.y, dr.x)
+	for k in 3:
+		var b: Node3D = scene.instantiate()
+		b.set("objet", "barrieres")
+		b.set("graine", 30 + k)
+		b.set("options", {"largeur": 8.0, "couleur": "d22a2a", "texte": "LA LOUVE"})
+		b.position = _p(a + dr * (6.0 + k * 8.6) + flanc * 4.4, 0.28)
+		b.rotation.y = lacet
+		n.add_child(b)
+	var velo: Node3D = scene.instantiate()
+	velo.set("objet", "velo")
+	velo.set("graine", 41)
+	velo.set("options", {"couleur": "2f5f8f"})
+	velo.position = _p(a + dr * 9.0 - flanc * 4.6, 0.28)
+	velo.rotation.y = lacet
+	n.add_child(velo)
+	# Les passants des trottoirs, en allers et retours lents.
+	var circuits := [
+		[a - flanc * 3.6 + dr * 1.0, c - flanc * 3.6],
+		[c - flanc * 4.1, a - flanc * 4.1 + dr * 3.0],
+		[a + flanc * 3.2 + dr * 2.0, c + flanc * 3.2],
+	]
+	for k in 5:
+		var cir: Array = circuits[k % circuits.size()]
+		var pts := [_p(cir[0], 0.28), _p(cir[1], 0.28)]
+		var f := Atelier.personnage("client", 360 + k)
+		if f == null:
+			continue
+		n.add_child(f)
+		f.suivre(pts, k % 2, 0.9 + 0.1 * (k % 3), 3.0, "idle")
+		f.position = pts[0].lerp(pts[1], 0.1 + 0.18 * k)
+	var seuil := a + dr * 17.0 - flanc * 4.2
+	for k in 2:
+		var f := Atelier.personnage("client", 370 + k)
+		if f == null:
+			continue
+		n.add_child(f)
+		f.position = _p(seuil + dr * (0.8 if k == 0 else -0.8), 0.28)
+		f.regarder(_p(seuil))
+		f.jouer(["talk", "arms"][k])

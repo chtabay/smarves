@@ -80,12 +80,13 @@ func _ciel() -> void:
 	env.ambient_light_color = Color("e2dccf")
 	env.ambient_light_sky_contribution = 0.6
 	# Linéaire : en ACES (blanc 1,6), le rendu de compatibilité délave tout, mesuré (verdict n° 21). Un soleil
-	# plus bas assombrissait la vue d'ensemble (verdict n° 22) : la lumière garde sa force, la saturation descend
-	# (c'est elle qui écrêtait le rouge) et les façades en plein soleil prennent un enduit plus sourd (ville.gd).
+	# plus bas assombrissait la vue d'ensemble (verdict n° 22) : la lumière garde sa force, et les façades en plein
+	# soleil prennent un enduit plus sourd (ville.gd). La saturation est celle de la planche (verdict n° 23), au prix
+	# d'un rouge un peu écrêté sur ces façades.
 	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	# L'étalonnage des planches : un peu plus saturé, un peu plus contrasté (mesuré : le rendu de compatibilité l'honore).
 	env.adjustment_enabled = true
-	env.adjustment_saturation = 1.05
+	env.adjustment_saturation = 1.15
 	env.adjustment_contrast = 1.1
 	# Une courbe de tons qui relève les demi-teintes sans toucher aux blancs (gamma 0,88) : la médiane de la vue
 	# d'ensemble remonte vers celle de la planche (147) sans rallumer l'écrêtage des façades (verdict n° 22).
