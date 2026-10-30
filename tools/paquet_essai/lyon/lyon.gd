@@ -1579,18 +1579,19 @@ void fragment() {
 	if (etage < 0.5) {
 		fen = step(0.12, fx) * step(fx, 0.88) * step(0.02, fy) * step(fy, 0.7);
 	} else if (y < h - 1.3) {
-		fen = step(0.33, fx) * step(fx, 0.67) * step(0.18, fy) * step(fy, 0.9);
-		volet = (step(0.2, fx) * step(fx, 0.33) + step(0.67, fx) * step(fx, 0.8)) * step(0.18, fy) * step(fy, 0.9) * step(0.45, id);
+		fen = step(0.3, fx) * step(fx, 0.7) * step(0.18, fy) * step(fy, 0.9);
+		volet = (step(0.17, fx) * step(fx, 0.3) + step(0.7, fx) * step(fx, 0.83)) * step(0.18, fy) * step(fy, 0.9) * step(0.45, id);
 	}
 	float bandeau = step(rdc - 0.25, y) * step(y, rdc + 0.05) + step(h - 0.6, y);
 	// l'encadrement de pierre claire autour de chaque fenêtre d'étage, et la jardinière de géraniums
 	float cadre = 0.0;
 	float fleurs = 0.0;
 	if (etage > 0.5 && y < h - 1.3) {
-		cadre = step(0.29, fx) * step(fx, 0.71) * step(0.13, fy) * step(fy, 0.94) * (1.0 - fen);
-		fleurs = step(0.31, fx) * step(fx, 0.69) * step(0.18, fy) * step(fy, 0.27) * step(0.4, hash(vec2(bx, etage) + UV2.y + 7.0));
+		cadre = step(0.26, fx) * step(fx, 0.74) * step(0.13, fy) * step(fy, 0.94) * (1.0 - fen);
+		fleurs = step(0.28, fx) * step(fx, 0.72) * step(0.18, fy) * step(fy, 0.27) * step(0.4, hash(vec2(bx, etage) + UV2.y + 7.0));
 	}
-	vec3 verre = vec3(0.17, 0.2, 0.25) + vec3(0.1, 0.1, 0.08) * step(fy, 0.5);
+	// le verre des modules du façadier, bleu-gris pâle, pour que la relève ne se voie pas au fondu
+	vec3 verre = vec3(0.3, 0.37, 0.44) + vec3(0.06, 0.06, 0.05) * step(fy, 0.5);
 	vec3 col = c * (0.92 + 0.1 * hash(vec2(floor(y * 2.0), bx)));
 	col = mix(col, vec3(0.42, 0.5, 0.44) * (0.8 + 0.4 * hash(vec2(UV2.y, 3.0))), volet);
 	col = mix(col, c * 1.12, bandeau);
@@ -1599,7 +1600,8 @@ void fragment() {
 	col = mix(col, mix(vec3(0.78, 0.12, 0.14), vec3(0.24, 0.42, 0.18), step(0.23, fy)), fleurs);
 	// l'ombre de contact que le rendu n'a pas : sous l'égout et au pied du mur
 	col *= 1.0 - 0.35 * smoothstep(h - 0.6, h, y) - 0.3 * (1.0 - smoothstep(0.0, 0.4, y));
-	ALBEDO = col;
+	// au loin, le volume prend le relais des façades du façadier : même clarté d'enduit au soleil
+	ALBEDO = col * mix(1.0, 1.35, 1.0 - fen);
 	ROUGHNESS = mix(0.92, 0.25, fen);
 }
 """
