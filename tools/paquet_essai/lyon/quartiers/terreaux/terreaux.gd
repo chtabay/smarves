@@ -34,7 +34,9 @@ const HDV_LONG := Vector2(0.1458, 0.9893)
 const REMPLACES := [4, 169, 264]
 ## Les fronts bâtis par le façadier : la place (nord et ouest) et la rue Terme, avec leur rez-de-chaussée.
 const FRONTS_PLACE := [22, 38, 64, 150, 151, 152, 154, 235, 236, 85, 178, 179]
-const FRONTS_TERME := [136, 137, 148, 238]
+## Dans la rue Terme, seulement le café « Au Tiercé » (148) et la traboule (137) : les autres côtés de la rue
+## gardent les fenêtres peintes de leur volume, plus légères.
+const FRONTS_TERME := [137, 148]
 
 const ENDUITS := ["e2c28a", "d8a888", "ebdab8", "e6c08e", "dcb48c", "efdcb6", "d9b27e"]
 const ENDUITS_RUE := ["dccaa6", "d6c09a", "e2d0ac", "cfb894", "e0caa0"]
@@ -483,6 +485,7 @@ static func _poser(q: Dictionary, id: String, cle: String, valeur: String, p: Ve
 	if s == "":
 		return null
 	var b: Node3D = load(s).instantiate()
+	b.name = "%s_%d" % [valeur.capitalize().replace(" ", ""), g]
 	b.set(cle, valeur)
 	b.graine = g
 	b.options = opt
@@ -1132,8 +1135,9 @@ static func _cloitre(q: Dictionary) -> void:
 		var bp2: Vector2 = bancs[k][0]
 		_poser(q, MOBILIER, "objet", "banc", Vector3(bp2.x, 0.0, bp2.y), 600 + k, {}, bancs[k][1], c)
 	q["bancs"] = bancs
-	for k in 4:
-		var m := Vector2(ctr.x + (-16.0 if k % 2 == 0 else 16.0), ctr.z + (-10.0 if k < 2 else 10.0))
+	# deux massifs seulement, de part et d'autre du bassin dans l'axe du porche (88 000 sommets chacun)
+	for k in 2:
+		var m := Vector2(ctr.x + (-16.0 if k == 0 else 16.0), ctr.z)
 		_poser(q, VEGETATION, "plante", "massif", Vector3(m.x, 0.0, m.y), 700 + k, {"longueur": 8.0, "largeur": 3.0, "fleurs": "#d04a8a" if k % 2 == 0 else "#f4f0e6"}, 0.0, c)
 
 
@@ -1141,7 +1145,8 @@ static func _cloitre(q: Dictionary) -> void:
 
 ## Le samedi soir : le mariage sur le perron de l'Hôtel de Ville, les terrasses du nord, deux enfants dans
 ## les jets, des passants en diagonale, le livreur de la rue Terme, les joueurs du cloître. Les figurants
-## du socle sont à l'échelle du jeu : leur groupe annule l'échelle de la racine.
+## du socle sont à l'échelle du jeu : leur groupe annule l'échelle de la racine. Chaque figurant coûte deux
+## scripts actifs : 28 en tout, pour que la commune reste sous le seuil de 250.
 static func _vie(q: Dictionary) -> void:
 	var racine: Node3D = q.racine
 	var k := 1.0 / racine.scale.x if racine.scale.x != 0.0 else 1.0
@@ -1154,8 +1159,8 @@ static func _vie(q: Dictionary) -> void:
 	var e := 1.0 / k
 	# le mariage : un arc de figurants devant le perron, le photographe en face
 	var hdv: Node3D = q.hdv
-	for j in 12:
-		var a := -1.2 + j * 0.22
+	for j in 8:
+		var a := -1.05 + j * 0.3
 		var lp := Vector3(sin(a) * 5.5, 0.0, 4.6 + cos(a) * 1.5 + (j % 2) * 0.8)
 		var w: Vector3 = hdv.transform * lp
 		var f: Node3D = Atelier.figurant(g, "idle", "soiree" if j % 3 == 0 else "village")
@@ -1170,8 +1175,8 @@ static func _vie(q: Dictionary) -> void:
 	groupe.add_child(fph)
 	g += 1
 	# les terrasses : des attablés devant les cafés du nord
-	for j in 14:
-		var uv := Vector2(-40.0 + j * 6.5 + (j % 2) * 1.5, -21.5 - (j % 3) * 1.1)
+	for j in 8:
+		var uv := Vector2(-40.0 + j * 11.0 + (j % 2) * 1.5, -21.5 - (j % 3) * 1.1)
 		var w := monde(uv.x, uv.y)
 		var f: Node3D = Atelier.figurant(g, "sit")
 		f.position = Vector3(w.x, sol_place(q, uv.x, uv.y), w.y) * e
@@ -1190,8 +1195,6 @@ static func _vie(q: Dictionary) -> void:
 	# les passants : en diagonale sur la place, le long des façades, dans la rue Terme
 	var routes := [
 		[Vector2(-50, 30), Vector2(0, 12), Vector2(55, -5)],
-		[Vector2(55, 25), Vector2(10, 22), Vector2(-50, -18)],
-		[Vector2(-50, -24), Vector2(10, -25), Vector2(58, -24)],
 		[Vector2(58, 30), Vector2(0, 31), Vector2(-50, 31)],
 		[Vector2(-2, 36), Vector2(-2, 20), Vector2(30, 0)],
 	]
