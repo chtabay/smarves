@@ -322,8 +322,11 @@ class _Objets:
 			var col: Color = toile[i % 2]
 			o.boite(Transform3D(Basis(Vector3.RIGHT, pente), p + Vector3(x, 2.32, 0)), Vector3(lt, 0.04, dz + 0.2), col)
 			o.boite(Transform3D(Basis(), p + Vector3(x, 1.98, dz * 0.5 + 0.1)), Vector3(lt, 0.26, 0.02), col)
+		# les clients (option clients, 0 à 4, 0 par défaut) : répartis sur les deux tables, la première d'abord
+		var clients := clampi(int(opt.get("clients", 0)), 0, 4)
 		for k in 2:
-			_table(o, p + Vector3(-1.0 + k * 2.0, 0, 0.1), 2, 0.2 + k)
+			var part := clampi(ceili(clients / 2.0) if k == 0 else clients / 2, 0, 2)
+			_table(o, p + Vector3(-1.0 + k * 2.0, 0, 0.1), 2, 0.2 + k, part)
 		o.collisions.append([Transform3D(Basis(), p + Vector3(0, 0.45, 0)), Vector3(3.6, 0.9, 1.4)])
 		return Vector2(w + 0.2, dz + 0.4)
 
