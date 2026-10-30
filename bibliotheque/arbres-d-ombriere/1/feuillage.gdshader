@@ -11,6 +11,10 @@ instance uniform float contre_jour = .15;
 // le jour du ciel au cœur de la couronne : une lueur propre aux feuilles, que l'ombre portée n'éteint pas, si bien que
 // le dessous et le cœur de la voûte restent lisibles (réglable arbre par arbre, option jour)
 instance uniform float jour = .6;
+// l'ajour de l'ombre portée : la part des cartes (par variante) qui ne laissent pas d'ombre au sol, pour que l'ombre
+// d'un platane se troue de soleil au lieu de couvrir tout le pavé (option ajour, 0 par défaut). La passe d'ombre du
+// soleil se reconnaît à sa projection orthographique ; les caméras du jeu sont en perspective.
+instance uniform float ajour = 0.;
 
 void vertex() {
  vec3 monde = (MODEL_MATRIX * vec4(VERTEX, 1.)).xyz;
@@ -53,6 +57,9 @@ vec2 marronnier(vec2 l, vec2 c, float ang, float taille) {
 
 void fragment() {
  float k = floor(UV.x);
+ if (ajour > 0. && PROJECTION_MATRIX[3][3] > .5 && (k + .5) / 64. < ajour) {
+  discard;
+ }
  float forme = floor(UV.y * .5);
  vec2 l = vec2(fract(UV.x), UV.y - forme * 2.);
  float dedans = 1.;

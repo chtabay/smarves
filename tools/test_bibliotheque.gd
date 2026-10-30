@@ -396,6 +396,16 @@ func _init() -> void:
 	check(is_equal_approx(float(mi_clair.get_instance_shader_parameter("jour")), 1.1) and is_equal_approx(float(platane.find_children("*", "MeshInstance3D", true, false)[0].get_instance_shader_parameter("jour")), 0.6),
 		"l'arbre d'ombrière règle le jour de sa voûte par l'option jour (0,6 par défaut)")
 	check(str(platane.ECORCE["platane"]) == "b8ae98" and Color(platane.ECORCE["platane"]).get_luminance() < Color("c9bea0").get_luminance(), "le fût du platane est moins blanc qu'avant (#B8AE98)")
+	# l'ajour de l'ombre portée (verdict de Saint-Georges v0.10a) : un paramètre d'instance que le shader n'applique
+	# que dans la passe d'ombre du soleil (projection orthographique), 0 par défaut
+	var troue: Node3D = load(Bibliotheque.scene("arbres-d-ombriere@1", "decor")).instantiate()
+	troue.options = {"ajour": 0.65}
+	toulouse.add_child(troue)
+	var mi_troue: MeshInstance3D = troue.find_children("*", "MeshInstance3D", true, false)[0]
+	var code_feuillage: String = (mi_troue.mesh.surface_get_material(mi_troue.mesh.get_surface_count() - 1) as ShaderMaterial).shader.code
+	check(is_equal_approx(float(mi_troue.get_instance_shader_parameter("ajour")), 0.65) and is_equal_approx(float(mi_clair.get_instance_shader_parameter("ajour")), 0.0)
+		and "PROJECTION_MATRIX[3][3]" in code_feuillage and "ajour" in code_feuillage,
+		"l'arbre d'ombrière troue son ombre portée par l'option ajour, dans la seule passe d'ombre (0 par défaut)")
 	var teintes_plaques := {}
 	for hexa in platane.PLAQUES:
 		teintes_plaques[int(Color(hexa).h * 12.0)] = true

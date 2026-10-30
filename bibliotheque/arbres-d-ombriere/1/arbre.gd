@@ -38,7 +38,8 @@ const PLAQUES := ["e4dabe", "d8ccaa", "9aa58b", "8b977e", "c9a66c", "b8925a"]
 ## 1,5 : le nombre de touffes, 1 par défaut ; moins de touffes, plus de ciel), contre_jour (0 à 1 : la lumière qui
 ## traverse les feuilles, 0,15 par défaut), teinte (un hexa vers lequel tirer les verts, une liste de cinq hexas qui
 ## remplace la palette, ou une liste de deux ou trois hexas dont la graine choisit un : des verts mêlés), jour (0 à 1,5 :
-## le jour du ciel au cœur et sous la couronne, 0,6 par défaut ; plus haut, la voûte vue d'en bas s'éclaircit).
+## le jour du ciel au cœur et sous la couronne, 0,6 par défaut ; plus haut, la voûte vue d'en bas s'éclaircit), ajour
+## (0 à 1 : la part des cartes de feuillage qui ne portent pas d'ombre au sol, 0 par défaut ; l'ombre se troue de soleil).
 @export var options := {}
 
 var fait := false
@@ -155,6 +156,7 @@ static func pousser(parent: Node3D, p: Vector3, nom: String, g: int, opt := {}) 
 	var mi := o.construire(parent, nom.capitalize())
 	mi.set_instance_shader_parameter("contre_jour", float(opt.get("contre_jour", 0.15)))
 	mi.set_instance_shader_parameter("jour", float(opt.get("jour", 0.6)))
+	mi.set_instance_shader_parameter("ajour", clampf(float(opt.get("ajour", 0.0)), 0.0, 1.0))
 	return {"arbre": nom, "graine": g, "hauteur": c.y - p.y + R.y, "couronne": R.x}
 
 
