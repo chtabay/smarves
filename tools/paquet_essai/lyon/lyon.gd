@@ -53,7 +53,7 @@ const SQUARE := Rect2(-2.5, -6.0, 25.5, 51.0)
 ## Là où le joueur passe (le quai et la rue de la Martinière, la place, les rues Rambaud et Louis-Vitet, la montée) :
 ## chaque façade tournée vers une rue y est un immeuble du façadier, en relief, jamais un mur peint.
 const RELIEF := [Rect2(-180.0, 92.0, 260.0, 45.0), Rect2(-62.0, -100.0, 145.0, 200.0), Rect2(-280.0, 137.0, 230.0, 35.0),
-		Rect2(-60.0, 40.0, 170.0, 140.0)]
+		Rect2(-60.0, 40.0, 170.0, 140.0), Rect2(-62.0, -230.0, 145.0, 130.0)]
 ## Fourvière, ramenée de 975 m à 730 m dans son vrai relèvement (sud-ouest), et la tour métallique.
 const FOURVIERE := Vector3(-560.0, 0.0, 470.0)
 const TOUR := Vector3(-545.0, 0.0, 330.0)
@@ -899,6 +899,58 @@ void fragment() {
 
 ## Les immeubles qui bordent la place et la montée sont des immeubles du façadier lyonnais, posés sur
 ## leur rectangle réel ; les autres, des volumes à fenêtres peintes par le shader de la ville.
+## Le pignon d'un immeuble du façadier, là où la rangée s'arrête : la descente d'eau de zinc sur ses colliers, sa
+## cuvette sous la corniche et son dauphin de fonte au pied ; un pignon sur deux garde une vieille réclame peinte,
+## passée au soleil, et la trace du toit d'une maison démolie. x : le flanc, dans le repère de l'immeuble.
+func _pignon(m: Node3D, x: float, corniche: float, enduit: Color, graine: int) -> void:
+	var s := signf(x)
+	var zinc := Color("#7d8288")
+	var px := x + s * 0.14
+	_segment(m, Vector3(px, 0.9, -0.9), Vector3(px, corniche - 0.5, -0.9), 0.06, zinc, 0.45)
+	_boite(m, Vector3(0.22, 0.32, 0.26), Vector3(px, corniche - 0.35, -0.9), zinc.darkened(0.1))
+	_segment(m, Vector3(px, 0.0, -0.9), Vector3(px, 0.95, -0.9), 0.075, Color("#2f3236"), 0.3)
+	var y := 2.6
+	while y < corniche - 0.8:
+		_boite(m, Vector3(0.2, 0.05, 0.16), Vector3(x + s * 0.07, y, -0.9), zinc.darkened(0.25))
+		y += 2.8
+	if graine % 2 == 1:
+		return
+	# la trace du toit disparu : un triangle d'enduit plus sombre, au pied du pignon
+	var trace := Node3D.new()
+	trace.position = Vector3(x + s * 0.012, 0.0, -1.5)
+	m.add_child(trace)
+	var haut := minf(corniche * 0.45, 7.0)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for q in [Vector3(0, 0, 1.45), Vector3(0, 0, -1.45), Vector3(0, haut, -0.2)]:
+		st.set_normal(Vector3(s, 0, 0))
+		st.add_vertex(q)
+	var tri := MeshInstance3D.new()
+	tri.mesh = st.commit()
+	tri.material_override = _mat(enduit.darkened(0.14))
+	tri.material_override.cull_mode = BaseMaterial3D.CULL_DISABLED
+	trace.add_child(tri)
+	# la réclame peinte, au-dessus de la trace : un fond crème passé, trois lignes de lettres délavées
+	var yr := haut + 2.4
+	if yr + 1.7 > corniche - 0.5:
+		return
+	var fond := enduit.lerp(Color("#efe4c8"), 0.35)
+	_boite(m, Vector3(0.02, 3.4, 2.4), Vector3(x + s * 0.012, yr, -1.5), fond)
+	# chaque ligne, des lettres, une à une : la grande ligne rouge sombre, la petite bleue, la dernière rouge
+	var lignes := [[0.5, 0.17, 10, Color("#7a3e30")], [0.3, 0.11, 13, Color("#3e5a6e")], [0.38, 0.14, 11, Color("#7a3e30")]]
+	for l in 3:
+		var hl: float = lignes[l][0]
+		var lw: float = lignes[l][1]
+		var nl: int = lignes[l][2]
+		var teinte: Color = fond.lerp(lignes[l][3], 0.4)
+		var pas := lw + 0.05
+		for c in nl:
+			if (graine + c * 3 + l) % 6 == 0:
+				continue
+			var zl := -1.5 + (c - (nl - 1) * 0.5) * pas
+			_boite(m, Vector3(0.02, hl, lw), Vector3(x + s * 0.02, yr + 1.0 - l * 0.85, zl), teinte)
+
+
 func _choisir_heros() -> void:
 	for i in data.batiments.size():
 		var b: Dictionary = data.batiments[i]
@@ -1214,6 +1266,16 @@ func _reliefs(i: int, b: Dictionary, poly: PackedVector2Array) -> Array:
 			ville.add_child(m)
 			if j % 2 == 0:
 				_souches_cote_rue(m, w - 0.04, 3.0, Color(str(opt["enduit"])))
+			for bout in [-1.0, 1.0]:
+				if (bout < 0.0 and j > 0) or (bout > 0.0 and j < nb - 1):
+					continue
+				# le flanc que rien ne cache, au bout de la rangée : un pignon nu, que l'on habille
+				var dehors: Vector2 = q + u * bout * (w * 0.5 + 0.8) - n * 1.5
+				if Geometry2D.is_point_in_polygon(dehors, poly) or _dans_un_autre(dehors, i):
+					continue
+				# le x de l'immeuble court le long de (n.y, -n.x), qui va dans le sens de u ou à rebours
+				var cote: float = signf(Vector2(n.y, -n.x).dot(u)) * bout
+				_pignon(m, cote * (w * 0.5 - 0.02), 4.2 + float(opt.niveaux) * 3.3, Color(str(opt["enduit"])), i * 7 + k + j)
 			corniches.append(y + 4.2 + float(opt.niveaux) * 3.3)
 	return corniches
 
@@ -2310,6 +2372,15 @@ func _parcours() -> void:
 				return [a.lerp(b, clampf(reste / l, 0.0, 1.0)), (b - a).normalized()]
 			reste -= l
 		return [PARCOURS[0], Vector2.RIGHT]
+	# un passant qui monte l'allée du jardin, à une dizaine de mètres du pied de la montée : deux pas de terrasse
+	# seulement, pour qu'on l'y trouve encore quand on regarde
+	var montee: Array[Vector3] = []
+	for zc in [-57.2, -58.8]:
+		montee.append(Vector3(10.6, hauteur(10.0, zc) + 0.08, zc) / U)
+	var fm: Node3D = Atelier.figurant(g, "walk", "village", montee)
+	fm.position = montee[0]
+	groupe.add_child(fm)
+	g += 1
 	# les passants : chacun marche une quarantaine de mètres sur un trottoir, dans un sens ou dans l'autre
 	for k in 22:
 		var d0 := alea.randf_range(10.0, longueur - 50.0)
