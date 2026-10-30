@@ -292,6 +292,8 @@ func _ciel() -> void:
 	add_child(soleil)
 	soleil.look_at_from_position(Vector3.ZERO, Vector3(-sin(a) * cos(h), -sin(h), cos(a) * cos(h)))
 	soleil.light_color = SOLEIL.couleur
+	# le ciel garde le halo doré du couchant mais pas le disque, un rond pâle et net qui détonnait au-dessus du quai
+	soleil.sky_mode = DirectionalLight3D.SKY_MODE_LIGHT_ONLY
 	soleil.light_energy = 1.05
 	soleil.shadow_enabled = true
 	soleil.shadow_opacity = 0.78
