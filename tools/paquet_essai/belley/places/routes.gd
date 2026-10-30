@@ -7,7 +7,9 @@ extends RefCounted
 const OUTILS := preload("res://communes/belley/atelier/outils.gd")
 const DONNEES := "res://communes/belley/relief/routes.json"
 
-const ENROBE := Color("6c6f72", 0.85)
+## Un gris chaud, écrit plus sombre qu'à l'écran : l'étalonnage de belley.gd tirait l'ancien (6c6f72) au
+## bleu-gris (#8796A7 au rendu, verdict n° 30), puis 57544f à #6B7177 ; visé #6E6C66.
+const ENROBE := Color("5a4f3e", 0.85)
 const EMPIERRE := Color("c7b796", 0.95)
 const TERRE := Color("b39f7b", 0.95)
 const PEINTURE := Color("eeeee6", 0.9)
@@ -40,7 +42,13 @@ func batir(parent: Node3D) -> void:
 		# planche, a son axe en tirets et ses rives.
 		var g := int(r.g)
 		var l := float(r.l)
-		_route(_echantillonner(pts), l + (1.0 if g == 0 else 0.0), g, 1 if g == 0 and l >= 4.0 else int(r.m), k)
+		var marque := 1 if g == 0 and l >= 4.0 else int(r.m)
+		var large := l + (1.0 if g == 0 else 0.0)
+		# Hors du bourg, les départementales du Bugey : 5 m, l'axe en tirets, sans ligne de rive (verdict n° 30).
+		if g == 0 and not _fin(pts[0]):
+			large = minf(large, 5.0)
+			marque = 2 if marque == 1 else marque
+		_route(_echantillonner(pts), large, g, marque, k)
 		k += 1
 	for cle in lots:
 		var mi: MeshInstance3D = lots[cle].construire(n, "Route")
@@ -109,9 +117,9 @@ func _route(pts: PackedVector2Array, l: float, genre: int, marque: int, k: int) 
 		o.quad(_p(a, na, -h, ya), _p(b, nb, -h, ya), _p(b, nb, 0.0, ya), _p(a, na, 0.0, ya), Vector3.UP, col, OUTILS.PEINT)
 		o.quad(_p(a, na, 0.0, ya), _p(b, nb, 0.0, ya), _p(b, nb, h, ya), _p(a, na, h, ya), Vector3.UP, col, OUTILS.PEINT)
 		var seg := a.distance_to(b)
-		if marque == 1:
-			# Les rives : un trait continu à 0,3 m du bord.
-			for s: float in [-1.0, 1.0]:
+		if marque == 1 or marque == 2:
+			# Les rives : un trait continu à 0,3 m du bord (pas sur les départementales).
+			for s: float in ([-1.0, 1.0] if marque == 1 else []):
 				var e := s * (h - 0.3)
 				o.quad(_p(a, na, e - 0.06, ya + 0.03), _p(b, nb, e - 0.06, ya + 0.03), _p(b, nb, e + 0.06, ya + 0.03), _p(a, na, e + 0.06, ya + 0.03), Vector3.UP, PEINTURE, OUTILS.PEINT)
 			# L'axe : des tirets de 3 m tous les 9 m.

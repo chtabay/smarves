@@ -14,6 +14,7 @@ const OUTILS := preload("res://communes/belley/atelier/outils.gd")
 const ARBRES := preload("res://communes/belley/places/arbres.gd")
 const FACADIER := preload("res://bibliotheque/facadier-du-bugey/1/facadier.gd")
 const REPEINDRE := preload("res://communes/belley/atelier/repeindre.gd")
+const HAIE := preload("res://communes/belley/atelier/haie_bocage.gd")
 
 const ORIGINE := Vector2(7173.0, 639.2)
 ## Le lacet du repère : +Z regarde le nord-est, vers les lônes.
@@ -256,6 +257,8 @@ func _clotures() -> void:
 	_barriere(Vector2(70.0, -0.8), Vector2(70.0, 46.0), 1)
 	_barriere(Vector2(70.0, 46.0), Vector2(46.0, 46.0), 2)
 	_barriere(Vector2(46.0, 16.0), Vector2(46.0, 46.0), 3)
+	# Devant la haie du pré, de l'autre côté de la route (_vegetation).
+	_barriere(Vector2(-14.0, -12.6), Vector2(72.0, -12.6), 4)
 
 
 ## Une barrière de bois de a à b (repère du relais) : poteaux tous les 2 m, deux lisses, une écharpe sur trois.
@@ -349,28 +352,26 @@ func _vegetation(parent: Node3D) -> void:
 		v.boule(p(x, 2.0, 0.5), Vector3(1.5, 0.9, 0.9), Color("5f9436"), 0.25, OUTILS.FEUILLE, 0.08, 0.6, 5, 8)
 		if k % 2 == 0:
 			v.boule(p(x + 0.6, 2.2, 1.1), Vector3(0.5, 0.3, 0.4), Color("e37fa0"), 0.3, OUTILS.FEUILLE, 0.05, 0.3, 4, 6)
-	# De l'autre côté de la route, au premier plan de la vue : un rang de cyprès et de buissons sur l'accotement,
-	# puis des massifs bas jusqu'au bas du cadre, comme sur la planche ; le pré nu y levait la médiane (verdict
-	# n° 28).
-	var xb := -12.0
+	# De l'autre côté de la route, au premier plan de la vue : une haie de bocage continue en cartes de feuillage,
+	# une clôture de bois devant, les cyprès qui la ponctuent, et quelques arbres isolés dans le pré derrière
+	# (verdict n° 30 : les massifs à facettes en semis y faisaient jeu d'enfant).
+	var haie := HAIE.new(hauteur, 61)
+	var xb := -14.0
+	var kb := 0
 	while xb < 72.0:
 		var hb := absi(hash(Vector2i(int(xb * 10.0), 5)))
-		var zb := -13.8 - float(hb % 10) / 10.0
+		var a0 := p(xb, -14.5)
+		var a1 := p(xb + 6.0, -14.5)
+		haie.troncon(Vector2(a0.x, a0.z), Vector2(a1.x, a1.z), 3 + kb / 3, 2.2, 1.6)
 		if hb % 3 == 0:
-			_cypres(v, Vector2(xb, zb), 7.0 + float(hb % 4))
-		else:
-			v.boule(p(xb, zb, 0.6), Vector3(1.6, 1.0, 1.2), [Color("5f9436"), Color("4e7f2e"), Color("6a9a3c")][hb % 3], 0.25, OUTILS.FEUILLE, 0.08, 0.6, 5, 8)
-			if hb % 4 == 1:
-				v.boule(p(xb + 0.5, zb, 1.3), Vector3(0.5, 0.3, 0.4), [Color("e37fa0"), Color("f4f0e6")][hb % 2], 0.3, OUTILS.FEUILLE, 0.05, 0.3, 4, 6)
-		xb += 3.2 + float(hb % 20) / 10.0
-	for k in 120:
-		var hm := absi(hash(Vector2i(k, 404)))
-		var mx := -10.0 + float(hm % 820) / 10.0
-		var mz := -17.0 - float((hm / 820) % 240) / 10.0
-		var r := 0.8 + float(hm % 9) * 0.14
-		v.boule(p(mx, mz, r * 0.45), Vector3(r, r * 0.7, r * 0.9), [Color("557f2d"), Color("4a7328"), Color("628c35"), Color("3f6624")][hm % 4], 0.3, OUTILS.FEUILLE, 0.1, 0.6, 7, 10)
-		if hm % 9 == 0:
-			_cypres(v, Vector2(mx + 1.5, mz), 6.0 + float(hm % 3))
+			_cypres(v, Vector2(xb + 3.0, -13.6), 7.0 + float(hb % 4))
+		xb += 6.0
+		kb += 1
+	haie.construire(parent, "HaieDuPre")
+	var ombriere: PackedScene = load(Bibliotheque.scene("arbres-d-ombriere@1", "decor"))
+	for ia in 5:
+		var pa: Vector2 = [Vector2(2.0, -24.0), Vector2(19.0, -31.0), Vector2(37.0, -22.0), Vector2(52.0, -34.0), Vector2(66.0, -25.0)][ia]
+		_poser(parent, ombriere, "arbre", ["marronnier", "jeune_platane"][ia % 2], 420 + ia, {"hauteur": 11.0 + ia % 3 * 2.0, "densite": 0.8}, pa)
 	v.construire(parent, "Vegetation")
 
 
