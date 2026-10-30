@@ -175,6 +175,18 @@ func _ciel() -> void:
 	e.adjustment_enabled = true
 	e.adjustment_saturation = 1.05
 	e.adjustment_contrast = 1.06
+	# une courbe de tons à gamma 0,9 : les ombres se relèvent sans que les lumières ne brûlent
+	var courbe := Gradient.new()
+	courbe.offsets = PackedFloat32Array()
+	courbe.colors = PackedColorArray()
+	for k in 17:
+		var x := k / 16.0
+		var v := pow(x, 0.9)
+		courbe.add_point(x, Color(v, v, v))
+	var lut := GradientTexture1D.new()
+	lut.gradient = courbe
+	lut.width = 256
+	e.adjustment_color_correction = lut
 	e.ssao_enabled = true
 	e.ssao_intensity = 0.6
 	e.glow_enabled = true
@@ -617,12 +629,20 @@ func _toit(st: SurfaceTool, b: Dictionary, poly: PackedVector2Array, haut: float
 				st.set_normal(n)
 				st.add_vertex(p)
 		# les grosses souches de cheminée enduites, posées sur le faîtage, et leur couronnement de pierre
-		var nc := 2 if lu > 6.0 else 1
+		var nc := clampi(int(lu * 2.0 / 7.0), 2, 3)
 		for k in nc:
 			var t := (float(k) + 0.5) / nc + (float(i % 5) - 2.0) * 0.04
 			var q := E.lerp(F, t) + Vector3(v.x, 0, v.y) * (0.9 if (i + k) % 2 else -0.9)
 			_boite_st(st, q + Vector3(0, 0.6, 0), Vector3(1.3, 2.4, 0.8), rc[4], Color(ENDUITS_PLACE[(i + k) % ENDUITS_PLACE.size()]).darkened(0.08))
 			_boite_st(st, q + Vector3(0, 1.88, 0), Vector3(1.5, 0.16, 1.0), rc[4], Color("#b9ac92"))
+		# les lucarnes à mi-pente sur le pan côté rue : un petit corps enduit, sa fenêtre et son chapeau de tuile
+		var nl := clampi(int(lu / 3.5), 1, 4)
+		for k in nl:
+			var t := (float(k) + 0.5) / nl
+			var pied := A.lerp(B, t).lerp(E.lerp(F, t), 0.45)
+			_boite_st(st, pied + Vector3(0, 0.45, 0), Vector3(1.0, 1.0, 0.9), rc[4], Color(ENDUITS_PLACE[(i + k) % ENDUITS_PLACE.size()]))
+			_boite_st(st, pied + Vector3(0, 0.45, 0) - Vector3(v.x, 0, v.y) * 0.46, Vector3(0.55, 0.6, 0.04), rc[4], Color("#3a4250"))
+			_boite_st(st, pied + Vector3(0, 1.02, 0), Vector3(1.2, 0.18, 1.1), rc[4], tuile.darkened(0.1))
 		return
 	var dessus := poly
 	var rehausse := 0.15
@@ -696,13 +716,13 @@ void fragment() {
 	vec3 c = COLOR.rgb;
 	if (abs(ln.y) > 0.2 && abs(ln.y) < 0.97) {
 		vec2 h = normalize(ln.xz);
-		float s = dot(lp.xz, vec2(-h.y, h.x)) / 0.24;
-		float r = lp.y / 0.2;
+		float s = dot(lp.xz, vec2(-h.y, h.x)) / 0.3;
+		float r = lp.y / 0.3;
 		float rang = floor(r);
 		float onde = 0.5 + 0.5 * cos(6.2832 * s);
 		float recouvrement = smoothstep(0.0, 0.35, fract(r));
 		float nuance = floor(hash(vec2(rang, floor(s))) * 6.0) / 5.0;
-		c *= (0.78 + 0.22 * onde) * (0.72 + 0.28 * recouvrement) * (0.9 + 0.2 * nuance);
+		c *= (0.72 + 0.28 * onde) * (0.6 + 0.4 * recouvrement) * (0.88 + 0.24 * nuance);
 	}
 	ALBEDO = pow(c, vec3(2.2)) * 1.4;
 	ROUGHNESS = 0.85;
@@ -943,22 +963,30 @@ func _place() -> void:
 		arbre.scale = Vector3(0.8, 1.0, 0.8)
 	var massifs := 0
 	essais = 0
-	while massifs < 7 and essais < 2000:
+	# deux allées de gravier clair le long du square, de part et d'autre de Blandan, comme sur la planche
+	var allees := [BLANDAN.x - 6.5, BLANDAN.x + 6.5]
+	for ax in allees:
+		_boite(ville, Vector3(1.8, 0.03, sq.size.y - 4.0), Vector3(ax, y + 0.015, sq.get_center().y), Color("#dcc8a2"))
+	# les massifs fleuris de 3 à 5 m dans les trouées entre les couronnes : c'est eux qu'on voit d'en haut
+	while massifs < 16 and essais < 4000:
 		essais += 1
 		var p := Vector2(graines.randf_range(sq.position.x + 3.0, sq.end.x - 3.0), graines.randf_range(sq.position.y + 3.0, sq.end.y - 3.0))
 		var e := Vector2((p.x - BLANDAN.x) / 7.0, (p.y - BLANDAN.y) / 9.5)
 		if e.length() < 1.0:
 			continue
 		var libre := true
+		for ax in allees:
+			if absf(p.x - ax) < 2.2:
+				libre = false
 		for q in troncs:
-			if q.distance_to(p) < 3.2:
+			if q.distance_to(p) < 4.0:
 				libre = false
 		for q in genants:
 			if q.distance_to(p) < 2.6:
 				libre = false
 		if libre:
 			massifs += 1
-			_pose(VEGETATION, "plante", "massif", Vector3(p.x, y, p.y), 700 + massifs, {"longueur": graines.randf_range(2.2, 3.6), "fleurs": ["f4f0e6", "d04a8a", "e0605a"][massifs % 3]}, graines.randf_range(0.0, PI))
+			_pose(VEGETATION, "plante", "massif", Vector3(p.x, y, p.y), 700 + massifs, {"longueur": graines.randf_range(3.0, 5.0), "fleurs": ["f4f0e6", "d04a8a", "e0605a", "f2c14e"][massifs % 4]}, graines.randf_range(0.0, PI))
 			genants.append(p)
 	# la bordure basse de fonte noire et les plates-bandes fleuries le long du pourtour
 	var noir := Color("#1f2422")
@@ -1008,6 +1036,24 @@ func _place() -> void:
 		_pose(MOBILIER, "objet", "jardiniere", Vector3(-12.8, y, z), 100 + int(z), {"fleurs": "e0605a"})
 	for z in [-6.0, 10.0, 34.0]:
 		_pose(MOBILIER, "objet", "jardiniere", Vector3(32.4, y, z), 120 + int(z), {"fleurs": "d04a8a"})
+	_rues(y)
+
+
+## Les rues autour du square, comme sur la planche : le caniveau de la rue est, son passage piéton au sud, une
+## voiture rouge garée au bout et une camionnette dans la rue ouest, hors des couronnes pour qu'on les voie d'en haut.
+func _rues(y: float) -> void:
+	_boite(ville, Vector3(0.35, 0.02, 60.0), Vector3(30.5, y + 0.012, SQUARE.get_center().y), Color("#6f6a62"))
+	for k in 7:
+		_boite(ville, Vector3(0.5, 0.02, 3.2), Vector3(24.0 + k * 0.9, y + 0.014, SQUARE.end.y + 2.5), Color("#ece8de"))
+	var garees := [["citadine", Vector2(28.0, 50.6), {"couleur": "c8102e"}], ["fourgonnette", Vector2(-5.0, 24.0), {"couleur": "efe9dc"}]]
+	for k in garees.size():
+		var g: Array = garees[k]
+		var vo: Node3D = load(Bibliotheque.scene("voitures-des-annees-80@1", "decor")).instantiate()
+		vo.voiture = g[0]
+		vo.graine = 80 + k
+		vo.options = g[2]
+		vo.position = Vector3(g[1].x, y, g[1].y)
+		ville.add_child(vo)
 
 
 ## La vie du square, un soir de septembre : des groupes qui bavardent autour de Blandan, deux lecteurs sur
