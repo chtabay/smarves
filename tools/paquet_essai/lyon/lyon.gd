@@ -1458,6 +1458,8 @@ float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
 void fragment() {
 	// les teintes d'enduit sont en sRGB, comme celles du façadier
 	vec3 c = pow(COLOR.rgb, vec3(2.2));
+	// un mur peint n'est qu'un fond : moins saturé que le façadier, il ne tire pas l'œil en brun ou en orange
+	c = mix(c, vec3(dot(c, vec3(0.3, 0.59, 0.11))), 0.45) * 1.06;
 	float h = UV2.x;
 	float y = UV.y;
 	float bx = floor(UV.x);
@@ -2263,6 +2265,13 @@ func _parcours() -> void:
 			route.append(Vector3(q.x, hauteur(q.x, q.y), q.y) / U)
 		if k % 3 == 0:
 			route.reverse()
+		# pas de passant collé à l'objectif d'un point de vue : il mangerait le cadre
+		var trop_pres := false
+		for oeil in [Vector2(-76.0, 118.6), Vector2(-30.1, 117.0), Vector2(68.0, 116.0), Vector2(34.0, 57.0)]:
+			if (Vector2(route[0].x, route[0].z) * U).distance_to(oeil) < 6.0:
+				trop_pres = true
+		if trop_pres:
+			continue
 		var f: Node3D = Atelier.figurant(g, "walk", "village", route)
 		f.position = route[0]
 		groupe.add_child(f)
@@ -2364,8 +2373,14 @@ func _parcours() -> void:
 	for vue_r in [[Vector2(-30.0, 114.0), Vector2(68.0, 118.0)], [Vector2(68.0, 116.0), Vector2(34.0, 57.0)]]:
 		var o: Vector2 = vue_r[0]
 		var dir: Vector2 = (vue_r[1] - o).normalized()
-		for m in 6:
+		for m in 8:
+			# 0 à 3 : les voitures ; 4 et 5 : les passants au loin ; 6 : un passant à 7 m sur le trottoir du point de
+			# vue ; 7 : le passage piéton à 38 m, sur Rambaud seulement
 			var cible_r := o + dir * (9.0 + m * 5.6)
+			if m == 6:
+				cible_r = o + dir * 7.0
+			elif m == 7:
+				cible_r = o + dir * 38.0
 			var pc := -1
 			var ec := 1e9
 			for c in _chaussees.size():
@@ -2392,11 +2407,23 @@ func _parcours() -> void:
 				vo.rotation.y = atan2(t.x, t.y)
 				ville.add_child(vo)
 				n += 1
+			elif m == 7:
+				if vue_r[0].x > 0.0:
+					continue
+				var ang := atan2(t.x, t.y)
+				var nbb := int(floor((lw * 2.0 - 0.6) / 0.9))
+				for k in nbb:
+					var qz: Vector2 = pied + t.orthogonal() * (-lw + 0.6 + k * 0.9)
+					var bande := _boite(ville, Vector3(0.5, 0.02, 3.0), Vector3(qz.x, hauteur(qz.x, qz.y) + 0.03, qz.y), Color("#ece8de"))
+					bande.rotation.y = ang
 			else:
 				var cote_r := 1.0 if m == 4 else -1.0
 				var route: Array[Vector3] = []
 				for e in 4:
 					var qr: Vector2 = pied + t * (6.0 - e * 6.0) + t.orthogonal() * cote_r * (lw + 2.0)
+					if m == 6:
+						# il s'éloigne devant nous, sur notre trottoir
+						qr = pied + t * (e * 6.0) - t.orthogonal() * (lw + 1.6)
 					route.append(Vector3(qr.x, hauteur(qr.x, qr.y), qr.y) / U)
 				var fr: Node3D = Atelier.figurant(g, "walk", "village", route)
 				fr.position = route[0]
@@ -2789,7 +2816,8 @@ func _reperes() -> void:
 		"Vue1a_Passerelle": [VUE1A_OEIL, VUE1A_OEIL + VUE1A_REGARD * 160.0],
 		# sur le trottoir sud, la halle de trois quarts de l'autre côté de la rue
 		"Vue1b_Martiniere": [Vector2(-76.0, 118.6), Vector2(-36.0, 101.0)],
-		"Vue1c_Rambaud": [Vector2(-30.0, 114.0), Vector2(68.0, 118.0)],
+		# sur le trottoir sud, la chaussée sur la gauche et ses voitures garées en premier plan
+		"Vue1c_Rambaud": [Vector2(-30.1, 117.0), Vector2(68.0, 121.0)],
 		"Vue1d_Vitet": [Vector2(68.0, 116.0), Vector2(34.0, 57.0)],
 		"Vue1e_Rue": [Vector2(34.0, 57.0), Vector2(12.0, 40.0)],
 		"Vue2a_Place": [Vector2(12.0, 49.0), Vector2(10.0, -30.0)],
