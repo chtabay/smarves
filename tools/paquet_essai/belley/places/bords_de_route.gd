@@ -12,6 +12,13 @@ const PIERRE_PONT := Color("c9b994", 0.0)
 ## Le pont du canal : le tronçon du parcours, en mètres depuis la ville, où l'eau borde la route (couverture.json).
 const PONT := [3690.0, 3790.0]
 ## Les vignes de la descente vers le Rhône : [tronçon, abscisse, côté] des parcelles au bord du parcours.
+## L'épingle des lacets de la montée au banc : [début, fin] en mètres depuis la ville, et le centre du virage.
+const EPINGLE := [5630.0, 5760.0]
+const CENTRE_EPINGLE := Vector2(2793.0, 1012.0)
+## Le muret court au-delà du virage sur les deux branches ; la branche du dessus, à partir de MONTEE, a son
+## soutènement de pierre sèche côté épingle et sa haie côté montagne (revue finale n° 2).
+const EPINGLE_MUR := [5560.0, 5830.0]
+const MONTEE := 5712.0
 const VIGNES := [[1, 560.0, 1.0], [1, 640.0, -1.0], [1, 1160.0, 1.0]]
 ## Les verts de la vigne fin septembre, qui tournent déjà au jaune par endroits.
 const VERTS_VIGNE := ["b8b24e", "9cac44", "86983c", "6f8234", "5a6c2c"]
@@ -31,6 +38,10 @@ var objets := {}
 var tablier := PackedVector2Array()
 ## Les ancres des parcelles de vigne : [point, direction, côté].
 var ancres: Array = []
+## Les points du parcours dans l'épingle des lacets, pour son muret.
+var epingle := PackedVector2Array()
+var epingle_haut := PackedVector2Array()
+var epingle_bas := PackedVector2Array()
 
 
 func _init(sol: Callable) -> void:
@@ -53,6 +64,18 @@ func batir(parent: Node3D) -> void:
 		t += 1
 	_sortie_de_ville(n)
 	_pont()
+	_muret_epingle()
+	# Un marronnier dans l'épingle, entre les deux branches : l'ombre et le proche de la vue (revue finale n° 2).
+	var q := CENTRE_EPINGLE + Vector2(-2.0, 4.0)
+	var ar: Node3D = ombriere.instantiate()
+	ar.set("arbre", "marronnier")
+	ar.set("graine", 5712)
+	ar.set("options", {"hauteur": 13.0, "densite": 0.7})
+	ar.position = Vector3(q.x, hauteur.call(q.x, q.y) - 0.1, q.y)
+	n.add_child(ar)
+	REPEINDRE.feuillage(ar)
+	for mi: MeshInstance3D in ar.find_children("*", "MeshInstance3D", true, false):
+		mi.visibility_range_end = PORTEE
 	for an in ancres:
 		_vigne(n, an[0], an[1], an[2])
 	for cle in objets:
@@ -97,11 +120,20 @@ func _longer(n: Node3D, ombriere: PackedScene, pts: PackedVector2Array, t: int) 
 			for vg in VIGNES:
 				if t == vg[0] and abs_s >= vg[1] and abs_s < vg[1] + 12.0:
 					ancres.append([c, dir, vg[2]])
+			if t == 0 and abs_s >= EPINGLE_MUR[0] and abs_s <= EPINGLE_MUR[1]:
+				epingle.append(c)
+				if abs_s < MONTEE - 40.0:
+					epingle_bas.append(c)
+				if abs_s >= MONTEE:
+					epingle_haut.append(c)
+					# La haie côté montagne, dehors du virage.
+					var dehors := nrm if nrm.dot(c - CENTRE_EPINGLE) > 0.0 else -nrm
+					_haie(c + dehors * 6.0, dir, h)
 			var sur_pont: bool = t == 0 and abs_s >= PONT[0] and abs_s <= PONT[1]
 			if sur_pont:
 				tablier.append(c)
-			# Ni haie, ni arbre, ni poteau sur le pont et à ses abords.
-			var abords: bool = t == 0 and abs_s >= PONT[0] - 15.0 and abs_s <= PONT[1] + 15.0
+			# Ni haie, ni arbre, ni poteau sur le pont et à ses abords, ni dans l'épingle (le muret s'y voit).
+			var abords: bool = t == 0 and ((abs_s >= PONT[0] - 15.0 and abs_s <= PONT[1] + 15.0) or (abs_s >= EPINGLE[0] - 80.0 and abs_s <= EPINGLE[1] + 60.0))
 			# La ligne du téléphone, sur des poteaux de bois tous les 50 m, du côté droit.
 			if abs_s > prochain_poteau and not abords:
 				_poteau(c + nrm * 3.4)
@@ -169,12 +201,15 @@ func _poteau(v: Vector2) -> void:
 ## de la ville, barré de rouge pour qui sort, sur ses deux poteaux (verdict n° 31).
 func _sortie_de_ville(n: Node3D) -> void:
 	var o: RefCounted = _objets(Vector2(98.0, 820.0))
-	# Les deux maisons, de part et d'autre, pignon sur la route.
-	for m: Array in [[Vector2(84.0, 806.0), "r2", 3, -1.0], [Vector2(113.0, 800.0), "r1", 4, 1.0]]:
+	# Les deux maisons, de part et d'autre, façade sur la route ; celle de gauche en retrait, pour que son ombre ne
+	# noircisse pas la chaussée (verdict n° 33), celle de droite au bout de son mur, dans le champ de qui sort de la
+	# ville (verdict n° 34).
+	for m: Array in [[Vector2(83.0, 792.0), "r2", 3, 1.0], [Vector2(112.0, 829.0), "r1", 4, -1.0]]:
 		var pm: Vector2 = m[0]
 		var mf: Node3D = FACADIER.maison(n, Vector3(pm.x, hauteur.call(pm.x, pm.y) - 0.2, pm.y), m[1], 801 + int(m[2]), {"w": 10.0, "d": 8.0, "mur": "enduit", "enduit": ["d2be98", "cdb894"][int(m[2]) % 2], "couverture": "tuile_vieillie", "volets": "bois", "fleurs": true, "vigne": int(m[2]) == 3})
 		mf.rotation.y = PI * 0.5 * float(m[3])
-	# Les murs de clôture des jardins, le long de la route, jusqu'au bout du trottoir ; un portail dans chacun.
+	# Les murs de clôture des jardins, le long de la route, jusqu'au bout du trottoir ; un portail dans chacun. En
+	# moellon, chaperon de dalles (verdict n° 34).
 	for cote: Array in [[93.6, -1.0], [103.4, 1.0]]:
 		var x: float = cote[0]
 		var z := 786.0
@@ -182,9 +217,18 @@ func _sortie_de_ville(n: Node3D) -> void:
 			if absf(z - 806.0) > 1.6:
 				var v := Vector2(x, z + 1.0)
 				var y: float = hauteur.call(v.x, v.y)
-				o.boite(Transform3D(Basis(), Vector3(v.x, y + 0.6, v.y)), Vector3(0.45, 1.6, 2.02), Color("c9b994", 0.0))
-				o.boite(Transform3D(Basis(), Vector3(v.x, y + 1.45, v.y)), Vector3(0.6, 0.1, 2.02), Color("b7ad97", 0.0))
+				o.boite(Transform3D(Basis(), Vector3(v.x, y + 0.6, v.y)), Vector3(0.45, 1.6, 2.02), Color("a99d80", 0.0), OUTILS.RUSTIQUE)
+				o.boite(Transform3D(Basis(), Vector3(v.x, y + 1.45, v.y)), Vector3(0.6, 0.1, 2.02), Color("b3a88f", 1.0), OUTILS.RUSTIQUE)
 			z += 2.0
+		# Le portail de bois, peint, dans la brèche du mur : le jardin est habité (verdict n° 35).
+		var vp := Vector2(x, 807.0)
+		var yp: float = hauteur.call(vp.x, vp.y)
+		for i in 5:
+			o.boite(Transform3D(Basis(), Vector3(x, yp + 0.7, 806.38 + float(i) * 0.31)), Vector3(0.06, 1.4 - float(i % 2) * 0.08, 0.28), Color("3f5f5a"), OUTILS.PEINT)
+		for yr: float in [0.35, 1.1]:
+			o.boite(Transform3D(Basis(), Vector3(x, yp + yr, 807.0)), Vector3(0.09, 0.12, 1.5), Color("355049"), OUTILS.PEINT)
+		for zp: float in [806.0, 808.0]:
+			o.boite(Transform3D(Basis(), Vector3(x, yp + 0.9, zp)), Vector3(0.55, 1.8, 0.4), Color("a99d80", 0.0), OUTILS.RUSTIQUE)
 		# Le trottoir, bordé, qui finit avec le mur.
 		var x0: float = x - float(cote[1]) * 1.9
 		o.quad(_sur(Vector2(x0, 786.0), 0.15), _sur(Vector2(x0, 820.0), 0.15), _sur(Vector2(x, 820.0), 0.15), _sur(Vector2(x, 786.0), 0.15), Vector3.UP, Color("a89c84", 0.95), OUTILS.PEINT)
@@ -205,6 +249,13 @@ func _sortie_de_ville(n: Node3D) -> void:
 	nom.position = Vector3(v.x, y + 2.05, v.y - 0.04)
 	nom.rotation.y = PI
 	n.add_child(nom)
+	# Une voiture garée le long du trottoir, devant le portail (verdict n° 35).
+	var vo: Node3D = load(Bibliotheque.scene("voitures-des-annees-80@1", "decor")).instantiate()
+	vo.set("voiture", "compacte")
+	vo.set("graine", 806)
+	vo.set("options", {"couleur": "8a3b32"})
+	vo.position = _sur(Vector2(95.9, 828.0), 0.05)
+	n.add_child(vo)
 	# La barre rouge en travers.
 	o.boite(Transform3D(Basis(Vector3.BACK, 0.32), Vector3(v.x, y + 2.05, v.y - 0.045)), Vector3(1.25, 0.05, 0.01), Color("b8322c"), OUTILS.PEINT)
 
@@ -267,6 +318,7 @@ func _pont() -> void:
 			var pr := c + off
 			var r := 0.5 + float(hk % 5) * 0.15
 			o.boule(Vector3(pr.x, minf(hauteur.call(pr.x, pr.y), eau + 0.6) + r * 0.3, pr.y), Vector3(r, r * 0.6, r * 0.8), Color("8f8a7e").lightened(float(hk % 7) * 0.02), 0.3, OUTILS.PIERRE, 0.1, 0.0, 4, 6)
+	_roseaux(o, a0, a1, eau)
 
 
 ## La hauteur de l'intrados à t mètres du début du pont : trois arches en plein cintre surbaissé de 20 m au
@@ -315,3 +367,101 @@ func _vigne(n: Node3D, c: Vector2, dir: Vector2, cote: float) -> void:
 
 func _sur(v: Vector2, dy: float) -> Vector3:
 	return Vector3(v.x, hauteur.call(v.x, v.y) + dy, v.y)
+
+
+## Le muret de pierre sèche à l'extérieur de l'épingle, côté vallée, avec son chaperon.
+func _muret_epingle() -> void:
+	if epingle.size() < 2:
+		return
+	var o: RefCounted = _objets(epingle[0])
+	# Des points serrés le long du virage (ceux du parcours sont tous les 12 m).
+	var pts := PackedVector2Array()
+	for i in epingle.size() - 1:
+		for k in 4:
+			pts.append(epingle[i].lerp(epingle[i + 1], k / 4.0))
+	pts.append(epingle[-1])
+	for i in pts.size() - 1:
+		var a := pts[i] + (pts[i] - CENTRE_EPINGLE).normalized() * 3.4
+		var b := pts[i + 1] + (pts[i + 1] - CENTRE_EPINGLE).normalized() * 3.4
+		var m := (a + b) * 0.5
+		var y: float = hauteur.call(m.x, m.y)
+		var bm := Basis(Vector3.UP, atan2(-(b - a).y, (b - a).x))
+		o.boite(Transform3D(bm, Vector3(m.x, y + 0.35, m.y)), Vector3(a.distance_to(b) + 0.05, 0.9, 0.5), Color("9c917b", 0.0), OUTILS.RUSTIQUE)
+		o.boite(Transform3D(bm, Vector3(m.x, y + 0.84, m.y)), Vector3(a.distance_to(b) + 0.05, 0.1, 0.6), Color("b7ad97", 0.0))
+	# Sous la route du dessus, côté épingle, le soutènement de pierre sèche : le talus tenu par un mur qui suit la
+	# route en haut et le pré en bas, sous un chaperon de dalles.
+	_soutenement(o, epingle_haut, 3.6, true)
+	# Devant, le long de la branche du bas, un muret de pierre sèche bas, côté épingle.
+	_soutenement(o, epingle_bas, 4.2, false)
+
+
+## Un mur de pierre sèche le long des points pts, à ecart mètres de l'axe côté épingle : soutènement (sa tête suit
+## la route, son pied le pré) ou muret de 0,8 m.
+func _soutenement(o: RefCounted, pts: PackedVector2Array, ecart: float, soutient: bool) -> void:
+	var serres := PackedVector2Array()
+	for i in pts.size() - 1:
+		for k in 3:
+			serres.append(pts[i].lerp(pts[i + 1], k / 3.0))
+	if pts.size() > 0:
+		serres.append(pts[-1])
+	for i in serres.size() - 1:
+		var p0 := serres[i]
+		var p1 := serres[i + 1]
+		var d := (p1 - p0).normalized()
+		var dedans := Vector2(-d.y, d.x)
+		if dedans.dot(CENTRE_EPINGLE - p0) < 0.0:
+			dedans = -dedans
+		var a := p0 + dedans * ecart
+		var b := p1 + dedans * ecart
+		var ta: float = hauteur.call(p0.x, p0.y) + 0.3 if soutient else hauteur.call(a.x, a.y) + 0.8
+		var tb: float = hauteur.call(p1.x, p1.y) + 0.3 if soutient else hauteur.call(b.x, b.y) + 0.8
+		var pa: float = hauteur.call(a.x, a.y) - 0.4
+		var pb: float = hauteur.call(b.x, b.y) - 0.4
+		var n3 := Vector3(dedans.x, 0.0, dedans.y)
+		var e := n3 * 0.25
+		# La face vue de l'épingle, un peu fruitée, puis le chaperon de dalles.
+		o.quad(Vector3(a.x, pa, a.y) + e, Vector3(b.x, pb, b.y) + e, Vector3(b.x, tb, b.y) + e * 0.6, Vector3(a.x, ta, a.y) + e * 0.6, n3, Color("5a554a", 0.0), OUTILS.SECHE)
+		o.quad(Vector3(a.x, pa, a.y) - e, Vector3(b.x, pb, b.y) - e, Vector3(b.x, tb, b.y) - e, Vector3(a.x, ta, a.y) - e, -n3, Color("5a554a", 0.0), OUTILS.SECHE)
+		o.quad(Vector3(a.x, ta + 0.08, a.y) + e * 0.9, Vector3(b.x, tb + 0.08, b.y) + e * 0.9, Vector3(b.x, tb + 0.08, b.y) - e * 1.1, Vector3(a.x, ta + 0.08, a.y) - e * 1.1, Vector3.UP, Color("6b6556", 0.0), OUTILS.SECHE)
+		o.quad(Vector3(a.x, ta - 0.04, a.y) + e * 0.9, Vector3(b.x, tb - 0.04, b.y) + e * 0.9, Vector3(b.x, tb + 0.08, b.y) + e * 0.9, Vector3(a.x, ta + 0.08, a.y) + e * 0.9, n3, Color("4e4a40", 0.0), OUTILS.SECHE)
+
+
+
+## Les roseaux de la berge autour du pont : là où le sol frôle l'eau, des touffes de tiges vert-brun, la plupart
+## surmontées d'un plumet (verdict n° 33 : l'herbe touchait l'eau sur une ligne nette).
+func _roseaux(o: RefCounted, a0: Vector2, a1: Vector2, eau: float) -> void:
+	var c := (a0 + a1) * 0.5
+	var couv: Image = load("res://communes/belley/relief/couverture.png").get_image()
+	var x := -90.0
+	while x <= 90.0:
+		var z := -90.0
+		while z <= 90.0:
+			var hk := absi(hash(Vector2i(int(x), int(z))))
+			var v := c + Vector2(x + float(hk % 20) / 10.0, z + float((hk / 20) % 20) / 10.0)
+			var y: float = hauteur.call(v.x, v.y)
+			# Une ligne continue au bord de l'eau, sur les deux rives (verdict n° 34) : hors de l'eau de la
+			# couverture, mais à moins de 3 m d'elle.
+			var rive := false
+			for d: Vector2 in [Vector2(3, 0), Vector2(-3, 0), Vector2(0, 3), Vector2(0, -3)]:
+				rive = rive or _classe(couv, v + d) == 7
+			# Ni sur le tablier ni contre ses parapets.
+			var axe := Geometry2D.get_closest_point_to_segment(v, a0, a1).distance_to(v)
+			if _classe(couv, v) != 7 and rive and axe > 6.0:
+				# Serrés et sombres, au vert de roseau (#6E8A3A au rendu, verdict n° 35).
+				for k in 12:
+					var hr := 1.2 + float((hk >> (k % 8)) % 8) * 0.12
+					var d := Vector3(float(((hk >> (k % 10 + 2)) + k * 5) % 9) * 0.09 - 0.36, 0, float(((hk >> (k % 10 + 4)) + k * 3) % 9) * 0.09 - 0.36)
+					var pied := Vector3(v.x, y - 0.1, v.y) + d
+					o.branche(pied, pied + Vector3(d.x * 0.3, hr, d.z * 0.3), 0.025, 0.012, Color("3f5520").lerp(Color("5e6a30"), float(k % 3) * 0.35), 3, OUTILS.FEUILLE)
+					if k % 2 == 0:
+						o.boule(pied + Vector3(d.x * 0.3, hr + 0.1, d.z * 0.3), Vector3(0.05, 0.16, 0.05), Color("8a6a48"), 0.1, OUTILS.FEUILLE, 0.03, 0.5, 3, 4)
+			z += 1.5
+		x += 1.5
+
+
+## La classe de couverture (relief/couverture.json) au point v du sol.
+func _classe(couv: Image, v: Vector2) -> int:
+	var i := Vector2i(int((v.x + 1600.0) / 5.0), int((v.y + 2600.0) / 5.0))
+	if i.x < 0 or i.y < 0 or i.x >= couv.get_width() or i.y >= couv.get_height():
+		return -1
+	return int(couv.get_pixelv(i).r * 255.0 + 0.5)

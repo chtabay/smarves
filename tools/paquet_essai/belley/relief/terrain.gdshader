@@ -33,8 +33,9 @@ const vec3 HAIE = vec3(0.27, 0.38, 0.16);
 const vec3 VIGNE = vec3(0.60, 0.55, 0.26);
 const vec3 VERGER = vec3(0.44, 0.52, 0.24);
 const vec3 LANDE = vec3(0.50, 0.50, 0.32);
-const vec3 EAU = vec3(0.30, 0.44, 0.52);
-const vec3 CIEL_REFLET = vec3(0.50, 0.63, 0.74);
+// Un vert d'eau profond (visé #4E7A78 au rendu, verdict n° 32) : le bleu clair sortait en aplat, identique au ciel.
+const vec3 EAU = vec3(0.19, 0.31, 0.31);
+const vec3 CIEL_REFLET = vec3(0.44, 0.57, 0.64);
 const vec3 ROUTE = vec3(0.53, 0.50, 0.47);
 // Plus sourdes depuis le verdict n° 25 : les barres sortaient en taches blanches sur les crêtes de la vue d'ensemble.
 const vec3 ROCHE = vec3(0.54, 0.53, 0.49);
@@ -315,6 +316,10 @@ void fragment() {
 	// les falaises sont le sujet de la vue du relais.
 	float mi_loin = smoothstep(500.0, 2500.0, distance(monde, CAMERA_POSITION_WORLD));
 	col = mix(col, vec3(0.44, 0.49, 0.37), roc * mi_loin * 0.75 * (1.0 - step(7300.0, xz.x)));
+	// Sous 500 m, les classes de roche du relevé ne sont que des aplats gris sans arête sur le versant (verdict
+	// n° 33) : elles s'effacent sous le pré. Pas sur la rive savoyarde, dont les falaises sont un sujet.
+	float pres_roc = roc * (1.0 - smoothstep(350.0, 600.0, distance(monde, CAMERA_POSITION_WORLD))) * (1.0 - step(7300.0, xz.x));
+	col = mix(col, mix(PRE, PRE_SEC, g2 * 0.9) * (0.86 + 0.26 * g), pres_roc);
 	// Dès 800 m, le pré perd son vert lumineux (visée #7FA050 au rendu, verdict n° 29) : moins saturé, un peu plus
 	// sombre, avant que la brume de 2 km ne le bleuisse.
 	float moyen = smoothstep(500.0, 1300.0, distance(monde, CAMERA_POSITION_WORLD)) * (1.0 - eau);
@@ -322,7 +327,8 @@ void fragment() {
 	// L'eau prend le ciel, d'autant plus qu'on la voit en rasant ; des rides plus claires la parcourent.
 	float rasant = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);
 	float ride = smoothstep(0.62, 0.8, fbm(vec2(xz.x * 0.08, xz.y * 0.5))) * pres;
-	col = mix(col, CIEL_REFLET, eau * clamp(0.25 + 0.6 * rasant + 0.25 * ride, 0.0, 0.85));
+	// Le ciel s'y reflète en bandes, le long des rides, plus qu'en nappe.
+	col = mix(col, CIEL_REFLET, eau * clamp(0.08 + 0.35 * rasant * smoothstep(0.3, 0.7, fbm(vec2(xz.x * 0.02, xz.y * 0.15))) + 0.3 * ride, 0.0, 0.6));
 	// La perspective atmosphérique de la note : les lointains passent au bleu gris, en trois plans.
 	float k = 1.0 - exp(-distance(monde, CAMERA_POSITION_WORLD) / 9000.0);
 	col = mix(col, vec3(0.50, 0.57, 0.60), k * 0.7);
@@ -330,6 +336,18 @@ void fragment() {
 	// Bleu-gris, pas blanc : la Dent du Chat sortait en névé depuis le banc (revue finale n° 1, visée #93A6AE).
 	// Les lointains passent au bleu-gris de la planche (#93A6AE) dès 2 km : la crête du Chat, vue du banc, restait verte (verdict n° 28).
 	col = mix(col, vec3(0.38, 0.45, 0.50), smoothstep(1500.0, 8000.0, distance(monde, CAMERA_POSITION_WORLD)) * (0.85 + 0.1 * roc));
+	// Au-delà de 5 km, un cran plus sombre : l'arête de la crête du Chat au soleil sortait pâle (#C2D2D3, verdict n° 30).
+	col *= mix(1.0, 0.84, smoothstep(5000.0, 10000.0, distance(monde, CAMERA_POSITION_WORLD)));
+	// La brume écrasait le modelé de la crête : faces au soleil et faces à l'ombre au même gris (verdict n° 33).
+	// Au-delà de 3 km, on rend à l'albédo l'écart que la brume lui a pris, selon la pente face au soleil.
+	// Vue du banc, toutes les faces regardent le soleil : le modelé vient des côtes et des couloirs, faces sud
+	// claires, faces nord d'un cran plus sombres, et de la pente, l'arête raide plus sombre que l'épaulement
+	// (revue finale n° 2 : #BBCACA sur l'arête).
+	float face = smoothstep(-0.2, 0.6, dot(normale, normalize(vec3(-0.75, 0.47, 0.47))));
+	float flanc = smoothstep(-0.35, 0.35, normale.z);
+	float raideur = smoothstep(0.55, 0.9, normale.y);
+	float modele = mix(0.66, 0.98, face) * mix(0.72, 1.0, flanc) * mix(0.82, 1.0, raideur);
+	col *= mix(1.0, modele, smoothstep(3000.0, 7000.0, distance(monde, CAMERA_POSITION_WORLD)));
 	// Les teintes sont écrites en sRGB, comme la palette de la note ; le rendu de compatibilité ne convertit pas
 	// sa sortie (mesuré : un albédo de 0,5 ressort à 0,5), on les lui donne donc telles quelles.
 	ALBEDO = col;

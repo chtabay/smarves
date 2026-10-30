@@ -99,7 +99,8 @@ func batir(parent: Node3D, x: float, z: float, lacet_deg: float) -> void:
 	# (arbres-d-ombriere@1), repeint du vert posé ; le chêne de vegetation-du-bugey@1 lisait en boule à facettes
 	# vert pomme (verdict n° 29).
 	var ombriere: PackedScene = load(Bibliotheque.scene("arbres-d-ombriere@1", "decor"))
-	_dentelle(n, ombriere, "marronnier", 161, 12.0, 4.0, -7.0)
+	# Vu de dessous, à contre-jour, il sortait presque noir (#0E1E04, verdict n° 30) : un vert posé plus clair.
+	_dentelle(n, ombriere, "marronnier", 161, 12.0, 4.0, -7.0, 1.6)
 	# Les bosquets qui cadrent la vue, à gauche et à droite, plus bas sur la pente.
 	_dentelle(n, ombriere, "marronnier", 162, 12.0, 16.0, -24.0)
 	_dentelle(n, ombriere, "jeune_platane", 163, 10.0, 19.0, -19.0)
@@ -151,7 +152,7 @@ func batir(parent: Node3D, x: float, z: float, lacet_deg: float) -> void:
 	n.add_child(vendre)
 
 
-func _dentelle(n: Node3D, scene: PackedScene, nom: String, graine: int, h: float, av: float, dr: float) -> void:
+func _dentelle(n: Node3D, scene: PackedScene, nom: String, graine: int, h: float, av: float, dr: float, eclat := 1.0) -> void:
 	var m: Node3D = scene.instantiate()
 	m.set("arbre", nom)
 	m.set("graine", graine)
@@ -160,6 +161,14 @@ func _dentelle(n: Node3D, scene: PackedScene, nom: String, graine: int, h: float
 	m.rotation.y = float(graine % 628) / 100.0
 	n.add_child(m)
 	REPEINDRE.feuillage(m)
+	if eclat != 1.0:
+		for mi: MeshInstance3D in m.find_children("*", "MeshInstance3D", true, false):
+			for i in mi.get_surface_override_material_count():
+				var mat := mi.get_surface_override_material(i) as ShaderMaterial
+				if mat != null:
+					var clair := mat.duplicate() as ShaderMaterial
+					clair.set_shader_parameter("eclat", eclat)
+					mi.set_surface_override_material(i, clair)
 
 
 func _plante(n: Node3D, scene: PackedScene, nom: String, graine: int, options: Dictionary, av: float, dr: float) -> void:
