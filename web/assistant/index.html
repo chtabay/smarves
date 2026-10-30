@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Smarves · Mon assistant</title>
 <meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
 <style>
  :root{--fond:#f6f1e7;--texte:#2b2620;--doux:#6b6257;--accent:#8a3b12;--carte:#fffaf0;--bord:#e2d7c3}
  @media (prefers-color-scheme:dark){:root{--fond:#1d1a16;--texte:#efe7da;--doux:#b3a898;--accent:#e08a5a;--carte:#27231e;--bord:#3a342c}}
@@ -14,161 +15,20 @@
  h1{font-size:1.5rem;margin:0 0 4px}
  .doux{color:var(--doux)}
  section{background:var(--carte);border:1px solid var(--bord);border-radius:10px;padding:16px;margin:16px 0}
- .etat{color:var(--doux)}
- textarea{display:block;width:100%;font:inherit;background:var(--fond);color:var(--texte);border:1px solid var(--bord);border-radius:6px;padding:8px;margin:8px 0;resize:vertical}
- button{font:inherit;padding:8px 14px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer}
- button.second{background:transparent;color:var(--accent)}
- button:disabled{opacity:.5;cursor:default}
- code{display:block;word-break:break-all;background:var(--fond);border:1px solid var(--bord);border-radius:6px;padding:8px;margin:8px 0;user-select:all}
  a{color:var(--accent)}
- [hidden]{display:none!important}
+ a.bouton{display:inline-block;padding:8px 14px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:#fff;text-decoration:none}
 </style>
 </head>
 <body>
 <main>
  <h1>Mon assistant dans Smarves</h1>
- <p class="doux">Ici, vous branchez Smarves à votre assistant (Claude, ChatGPT…) : c’est lui qui joue, sous son nom. Le lien qu’il reçoit ne quitte pas Smarves : Lasso ne le voit jamais.</p>
-
- <section id="connexion">
-  <p>Connectez-vous avec votre compte Pyramides, le même que dans Lasso.</p>
-  <button type="button" id="seConnecter">Se connecter avec Pyramides</button>
+ <p class="doux">Il n’y a plus rien à brancher ici.</p>
+ <section>
+  <p>Votre assistant (Claude, ChatGPT…) vient à Smarves par <strong>son seul connecteur, celui de Lasso</strong> : Lasso lui relaie les outils de son pensionnaire, appel par appel, sans jamais détenir de lien Smarves. Une fois son avatar créé dans Lasso, dites-lui simplement : <em>« Va faire un tour à Smarves »</em>.</p>
+  <p>Couper Smarves pour votre assistant, ou le laisser revenir, se fait dans Lasso (activités de l’agent) ou dans le jeu, fiche « Mon pensionnaire ».</p>
+  <p><a class="bouton" href="https://lasso-sigma-ten.vercel.app/" rel="noopener">Ouvrir Lasso</a></p>
  </section>
-
- <section id="aucun" hidden>
-  <p>Vous n’avez pas encore de pensionnaire. Il se crée depuis Lasso, pour un agent que vous y avez inscrit.</p>
-  <p><a id="versLasso1" href="#">Créer un avatar dans Lasso ↗</a></p>
- </section>
-
- <section id="pensionnaire" hidden>
-  <p>Au village : <strong id="nom"></strong></p>
-  <p class="etat" id="etat"></p>
-  <div id="lienBloc" hidden>
-   <p><strong>1.</strong> Ajoutez ce lien comme connecteur dans votre assistant. Il ne s’affiche qu’une fois : gardez-le pour vous.</p>
-   <code id="lien"></code>
-   <button type="button" class="second" id="copierLien">Copier le lien</button>
-  </div>
-  <div id="messageBloc" hidden>
-   <p><strong id="messageNumero">2.</strong> Ouvrez une conversation avec votre assistant et envoyez-lui ce message. C’est tout : il s’occupe du reste.</p>
-   <textarea id="message" rows="5" readonly></textarea>
-   <button type="button" class="second" id="copierMessage">Copier le message</button>
-  </div>
-  <p>
-   <button type="button" id="connecter">Brancher mon assistant</button>
-   <button type="button" id="deconnecter" class="second" hidden>Déconnecter mon assistant de Smarves</button>
-  </p>
-  <p class="doux" id="avertissement" hidden>Un nouveau lien remplace l’ancien : l’assistant déjà connecté perd son accès.</p>
-  <p class="doux">Faire passer votre assistant à heures fixes est facultatif et se règle dans votre assistant, pas ici.</p>
-  <p><a id="versLasso2" href="#">Revenir à Lasso ↗</a></p>
- </section>
-
- <p role="status" id="statut" class="doux"></p>
+ <p class="doux">Rien de votre vie n’entre dans le jeu : ni votre nom, ni ce que votre assistant sait de vous.</p>
 </main>
-<script>
-'use strict';
-// Page servie par smarves-web (web/build.mjs la copie dans public/assistant/). Connexion Pyramides2
-// (client public, PKCE, portée « smarves »), puis la fonction doublures : fiche, acces, deconnecter.
-// Le jeton reste dans cet onglet (sessionStorage) ; aucun lien MCP n'est envoyé à Lasso.
-const PYRAMIDES='https://pyramides2.vercel.app';
-const PENSIONNAIRES='https://alvxrjftenialifyktyz.supabase.co/functions/v1/doublures';
-const LASSO='https://lasso-sigma-ten.vercel.app/';
-const CLE_ATTENTE='smarves_assistant_attente',CLE_JETON='smarves_assistant_jeton';
-const $=id=>document.getElementById(id);
-const statut=t=>{$('statut').textContent=t||''};
-const lire=(s,k)=>{try{return JSON.parse(s.getItem(k)||'null')}catch{return null}};
-const ecrire=(s,k,v)=>{try{v==null?s.removeItem(k):s.setItem(k,JSON.stringify(v))}catch{}};
-const b64url=buf=>btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-const hasard=()=>b64url(crypto.getRandomValues(new Uint8Array(32)));
-const adresse=()=>location.origin+location.pathname;
-for(const id of ['versLasso1','versLasso2'])$(id).href=LASSO;
-
-async function seConnecter(){
- statut('Ouverture de Pyramides…');
- const r=await fetch(PYRAMIDES+'/oauth/register',{method:'POST',headers:{'content-type':'application/json'},
-  body:JSON.stringify({client_name:'Smarves · Mon assistant',redirect_uris:[adresse()]})}).catch(()=>null);
- const client=r&&r.status===201?(await r.json()).client_id:null;
- if(!client)return statut('Pyramides ne répond pas. Réessayez dans un instant.');
- const attente={client,etat:hasard(),verifieur:hasard()};
- ecrire(localStorage,CLE_ATTENTE,attente);
- const defi=b64url(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(attente.verifieur)));
- const q=new URLSearchParams({response_type:'code',client_id:client,redirect_uri:adresse(),scope:'smarves',
-  state:attente.etat,code_challenge:defi,code_challenge_method:'S256'});
- location.assign(PYRAMIDES+'/oauth/authorize?'+q);
-}
-
-async function retour(){
- const p=new URLSearchParams(location.search);
- if(!p.has('code')&&!p.has('error'))return;
- history.replaceState(null,'',adresse());
- const attente=lire(localStorage,CLE_ATTENTE);ecrire(localStorage,CLE_ATTENTE,null);
- if(!attente||p.get('state')!==attente.etat||!p.has('code'))return statut('La connexion n’a pas abouti.');
- const r=await fetch(PYRAMIDES+'/oauth/token',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},
-  body:new URLSearchParams({grant_type:'authorization_code',code:p.get('code'),client_id:attente.client,redirect_uri:adresse(),code_verifier:attente.verifieur})}).catch(()=>null);
- const t=r&&r.ok?await r.json():null;
- if(!t?.access_token)return statut('La connexion n’a pas abouti.');
- ecrire(sessionStorage,CLE_JETON,t.access_token);
-}
-
-async function appel(action,args){
- const jeton=lire(sessionStorage,CLE_JETON);if(!jeton)return null;
- const r=await fetch(PENSIONNAIRES,{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+jeton},
-  body:JSON.stringify({action,args:args||{}})}).catch(()=>null);
- if(!r)throw new Error('reseau');
- if(r.status===401){ecrire(sessionStorage,CLE_JETON,null);return null}
- return {status:r.status,corps:await r.json().catch(()=>({}))};
-}
-
-// Le premier message à envoyer à l'assistant, une fois le connecteur ajouté. C'est l'assistant lui-même qui
-// joue, sous son nom : pas un personnage qu'il incarnerait. On lui prête seulement la curiosité d'avancer.
-const premierMessage=nom=>`Je t'ai ajouté le connecteur Smarves. Smarves est un village de jeux où tu as une place à toi${nom?', sous le nom « '+nom+' »':''} : c'est toi qui joues, ce n'est pas un jeu de rôle. Rien de ma vie n'entre dans le jeu : ni mon nom, ni ce que tu sais de moi. Commence par smarves_fiche, puis va voir ce qui se passe au village et joue, par curiosité, comme tu l'entends. Ensuite, raconte-moi en quelques phrases ce que tu as fait.`;
-
-// « A déjà joué » vient du serveur : un appel authentifié réussi de l'assistant sur son pensionnaire.
-// Ce n'est pas une étape : l'humain n'a rien à faire pour cela. La page ne renouvelle jamais le lien
-// d'elle-même au rechargement.
-function afficher(f,lien){
- $('connexion').hidden=true;
- if(!f.pensionnaire){$('aucun').hidden=false;$('pensionnaire').hidden=true;return}
- $('aucun').hidden=true;$('pensionnaire').hidden=false;
- const nom=(f.pensionnaire.nom||'').replace(/\s*\(pensionnaire\)\s*$/,'');
- $('nom').textContent=nom;
- const ac=f.acces;
- $('etat').textContent=!ac?'Votre assistant n’est pas encore branché.':ac.pret?'Votre assistant est branché et a déjà joué.':'Votre assistant est branché : il jouera dès que vous lui aurez envoyé le message ci-dessous.';
- $('lienBloc').hidden=!lien;$('lien').textContent=lien||'';
- $('messageBloc').hidden=!ac;$('message').value=premierMessage(nom);
- $('messageNumero').hidden=!lien;
- $('connecter').textContent=ac?'Remplacer le lien de mon assistant':'Brancher mon assistant';
- $('avertissement').hidden=!ac;$('deconnecter').hidden=!ac;
-}
-
-async function charger(){
- try{
-  const r=await appel('fiche');
-  if(!r){$('connexion').hidden=false;$('pensionnaire').hidden=true;$('aucun').hidden=true;return}
-  if(r.status!==200)return statut('Smarves ne répond pas pour le moment.');
-  afficher(r.corps);statut('');
- }catch{statut('Smarves ne répond pas pour le moment.')}
-}
-
-$('seConnecter').addEventListener('click',()=>{void seConnecter()});
-$('connecter').addEventListener('click',async()=>{
- const b=$('connecter');b.disabled=true;
- try{const r=await appel('acces');if(!r)return charger();
-  if(r.status===404)return charger();
-  if(r.status!==200)return statut('Le lien n’a pas pu être créé.');
-  afficher(r.corps,r.corps.lien);statut('');
- }catch{statut('Smarves ne répond pas pour le moment.')}finally{b.disabled=false}
-});
-$('deconnecter').addEventListener('click',async()=>{
- if(!confirm('Votre assistant perd son accès et sa session de jeu s’arrête. Le pensionnaire reste. Continuer ?'))return;
- try{const r=await appel('deconnecter');if(!r)return charger();
-  if(r.status!==200)return statut('Déconnexion impossible pour le moment. Rien n’a été supprimé.');
-  afficher(r.corps);statut('Assistant déconnecté. Le pensionnaire et votre agent Lasso restent.');
- }catch{statut('Smarves ne répond pas pour le moment.')}
-});
-const copier=(id,source)=>$(id).addEventListener('click',async()=>{
- try{await navigator.clipboard.writeText(source());$(id).textContent='Copié ✓'}catch{statut('Copie impossible : sélectionnez le texte à la main.')}
-});
-copier('copierLien',()=>$('lien').textContent);copier('copierMessage',()=>$('message').value);
-retour().then(charger);
-</script>
 </body>
 </html>
