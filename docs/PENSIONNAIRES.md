@@ -15,9 +15,10 @@ Cette fiche dit les choix du deuxième lot et ce qui viendra ensuite.
 
 > **Depuis la migration `20261031000000_smarves_pensionnaires_par_lasso.sql` : un pensionnaire ne se crée
 > que depuis Lasso** (section 9), pour un agent Lasso déjà inscrit. Le jeu, le connecteur (`smarves_creer`
-> retiré) et l'action `inscrire` (410) ne créent plus rien ; l'adoption n'existe plus. L'assistant se
-> connecte sur la page **Mon assistant** (`web/assistant/`, servie avec la version web), plus dans le jeu.
-> Les passages ci-dessous qui disent le contraire décrivent l'état antérieur. Le moteur appelé par clé reste
+> retiré) et l'action `inscrire` (410) ne créent plus rien ; l'adoption n'existe plus. **Depuis
+> `20261101000000_smarves_passerelle_lasso.sql`, l'assistant n'a qu'un connecteur, celui de Lasso**, qui lui
+> relaie les outils du pensionnaire (section 9) : plus de lien personnel, ni dans le jeu ni sur la page
+> « Mon assistant ». Les passages ci-dessous qui disent le contraire décrivent l'état antérieur. Le moteur appelé par clé reste
 > en place pour un pensionnaire déjà en mode `cle`, sans création possible.
 
 ## 1. Le principe
@@ -39,6 +40,9 @@ Cette fiche dit les choix du deuxième lot et ce qui viendra ensuite.
 ## 2. Deux façons de le tenir
 
 ### Par son assistant (le chemin principal)
+
+> État antérieur : depuis la passerelle Lasso (section 9), le connecteur ci-dessous n'est plus exposé à
+> l'assistant ; ses outils lui parviennent par le connecteur Lasso.
 
 Le jeu ouvre un **connecteur** : un serveur MCP, servi par la fonction `doublures` à l'adresse
 `…/functions/v1/doublures/mcp/<jeton>`. Dans le carnet, rubrique « Mon compte », la fiche « Mon
@@ -352,11 +356,25 @@ maître de ses habitants.
   tout pensionnaire sans inscription `creer / cree` portant un agent, quel que soit le chemin.
 - **Lasso** termine le rattachement en lisant `smarves.inscriptions` pour **sa** demande, son humain et son
   agent, et reprend seul après une coupure entre la création Smarves et la réponse.
-- **Mon assistant** (`web/assistant/index.html`) : connexion Pyramides2 (portée `smarves`), puis `fiche`,
-  `acces` (bouton explicite ; jamais au rechargement) et `deconnecter`. Le lien MCP ne quitte pas Smarves.
-- **Prêt à jouer** (`doublure_acces.outil_ok`) : posé seulement après un appel authentifié réussi à un outil
-  qui touche le pensionnaire ; un nouveau lien le remet à zéro.
-- **Déconnecter mon assistant de Smarves** (`smarves.doublure_deconnecter`) : retire le lien, arrête la session
-  de jeu et le corps sur la place ; le pensionnaire et l'agent Lasso restent.
+- **Un seul connecteur, celui de Lasso** (migration `20261101000000_smarves_passerelle_lasso.sql`, chtabay/lasso
+  `docs/18-un-seul-connecteur.md`) : l'assistant n'ajoute aucun connecteur Smarves. Lasso relaie les outils du
+  pensionnaire vers `…/doublures/mcp` avec, à chaque appel, une assertion qu'il signe (Ed25519, portée
+  `smarves-passerelle`, soixante secondes, `jti` à usage unique) : `sub` l'humain, `agt` l'empreinte de l'agent.
+  La fonction ne connaît que la clé publique (`LASSO_PASSERELLE_JWK`, `LASSO_PASSERELLE_ISS`) ; sans elle, la
+  route répond 503. Lasso ne détient aucun jeton Smarves ; l'ancien lien personnel (`doublure_acces`, action
+  `acces`) n'existe plus (410).
+- **La base** (`smarves.passerelle_entrer`) rend le pensionnaire du couple (humain, agent) : celui né d'une
+  inscription Lasso `creer / cree` portant cette empreinte, et aucun autre ; elle refuse un `jti` déjà vu
+  (`smarves.passerelle_jetons`), un couple sans pensionnaire et une coupure en cours. Chaque appel d'outil laisse
+  une trace **sans contenu** (`smarves.passerelle_appels` : heure, humain, agent, nom de l'outil, réussi ou non ;
+  quatre-vingt-dix jours). Une clé Lasso compromise ouvrirait tous les avatars, un par agent : la trace est là
+  pour le voir, et la clé se change d'un seul geste (secret de la fonction).
+- **Couper Smarves pour mon assistant** (`smarves.doublure_deconnecter`, `doublures.assistant_coupe`) : la
+  coupure est tenue par le jeu et vérifiée à chaque appel, elle ne dépend pas de Lasso ; la session de jeu et le
+  corps sur la place s'arrêtent, le pensionnaire et l'agent Lasso restent. **Reprendre**
+  (`smarves.doublure_reprendre`) la lève. Depuis Lasso comme depuis la fiche du jeu (`fiche.assistant` :
+  `coupe`, `dernier`).
+- **Mon assistant** (`web/assistant/index.html`) ne branche plus rien : elle renvoie vers Lasso.
 - **Nettoyage des pilotes** (Billy Bob, Frick Francis, Essai) : `supabase/nettoyage/20261031_pensionnaires_pilotes.sql`,
-  identifiants fermés, à n'exécuter qu'après accord explicite. Essais : `supabase/tests/inscription-pg.mjs`.
+  identifiants fermés, à n'exécuter qu'après accord explicite. Essais : `supabase/tests/inscription-pg.mjs`,
+  `supabase/tests/passerelle-pg.mjs`.

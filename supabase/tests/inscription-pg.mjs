@@ -54,7 +54,8 @@ try {
   // La bourse reste hors périmètre : ses fonctions réseau ne sont pas exercées.
   const files = (await readdir(new URL('../migrations/', import.meta.url))).sort();
   for (const file of files) {
-    if (/bourse/.test(file) || file === PAR_LASSO) continue;
+    // Les migrations postérieures (la passerelle Lasso) ont leur propre essai : passerelle-pg.mjs.
+    if (/bourse/.test(file) || file >= PAR_LASSO) continue;
     if (file === '20261020080000_smarves_basket_club.sql') await db.query(await sql('./basket-fixture.sql'));
     await db.query(await sql('../migrations/' + file));
   }
