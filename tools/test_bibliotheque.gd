@@ -291,6 +291,14 @@ func _init() -> void:
 	var loin7: MeshInstance3D = l7.find_child("Lointain", true, false)
 	var loin6: Node = l6.find_child("Lointain", true, false)
 	check(loin6 == null and corps7 != null and loin7 != null and is_equal_approx(corps7.visibility_range_end, 40.0) and is_equal_approx(loin7.visibility_range_begin, 40.0) and loin7.mesh.surface_get_array_len(0) < 2000, "l'option lod du façadier lyonnais ajoute un corps Lointain qui prend le relais à 40 m (%d sommets), rien sans elle" % (loin7.mesh.surface_get_array_len(0) if loin7 else -1))
+	var l8: Node3D = paquet_lyon.instantiate()
+	l8.type = "immeuble"
+	l8.graine = 3
+	l8.options = {"lod": "loin"}
+	lyon.add_child(l8)
+	var corps8: MeshInstance3D = l8.find_child("Corps", true, false)
+	var loin8: MeshInstance3D = l8.find_child("Lointain", true, false)
+	check(corps8 != null and loin8 != null and corps8.visibility_range_end == 0.0 and corps8.has_meta("sans_lointain") and loin8.visibility_range_begin >= 100000.0 and loin8.has_meta("corps_lointain"), "lod « loin » du façadier lyonnais bâtit les deux corps sans bascule en jeu : le corps de près marqué sans_lointain, le corps lointain hors de vue")
 	var quai: Node3D = load(Bibliotheque.scene("quais-lyonnais@1", "decor")).instantiate()
 	quai.module = "escalier_haut"
 	lyon.add_child(quai)

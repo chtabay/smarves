@@ -62,7 +62,7 @@ const ETAGE := 3.3
 ## la façade Renaissance du Vieux-Lyon, pour Saint-Paul et Saint-Jean : enduit ocre rouge ou rose tiré par la graine
 ## (ou enduit), encadrements de pierre grise, croisées à meneaux dont certaines sous une accolade, cordons à chaque
 ## étage et sous les appuis, chaînes d'angle harpées, porte en arc surbaissé ; ni persiennes ni balcons ; toit bas
-## (pente 20 sauf pente) ; faux par défaut), lod (en mètres, 0 par défaut soit aucun niveau de détail, 40 dans les quartiers de Lyon : au-delà, le corps
+## (pente 20 sauf pente) ; faux par défaut), lod (0 par défaut soit aucun niveau de détail ; une distance en mètres, ou « loin » pour les quartiers de Lyon : au-delà, le corps
 ## détaillé s'efface au profit d'un corps lointain de quelques centaines de sommets, l'enduit, le toit et ses
 ## souches, les fenêtres et les devantures peintes à plat ; demandé par le chef de chantier de Lyon pour tenir le
 ## budget d'un quartier).
@@ -154,18 +154,27 @@ static func maison(parent: Node3D, p: Vector3, type: String, graine: int, opt :=
 			else:
 				o.cylindre(Transform3D(Basis(), Vector3(xm, y + sh - 0.37, z)), 0.09, 0.08, 0.32, 6, Color("b86a45"))
 	var mi := o.construire(n, "Corps")
-	# le niveau de détail, sur demande (0 par défaut : Guillaume ne veut pas de niveaux de détail dans les cartes
-	# existantes) : au-delà de lod, le corps lointain remplace le corps détaillé (chef de chantier de Lyon)
-	var lod := maxf(float(opt.get("lod", 0.0)), 0.0)
-	if lod > 0.0:
-		mi.visibility_range_end = lod
-		mi.visibility_range_end_margin = 4.0
+	# le niveau de détail, sur demande (0 par défaut : Guillaume ne veut pas de niveaux de détail dans le façadier
+	# en marchant). Un nombre : au-delà de lod, le corps lointain remplace le corps détaillé. « loin » (les
+	# quartiers de Lyon) : les deux corps sans bascule en jeu, le corps lointain hors de vue (visibility_range_begin
+	# 100 000) et le corps de près marqué sans_lointain, pour que la version légère du quartier (Quartiers.fondre)
+	# prenne le corps lointain comme imposteur et ignore le corps de près.
+	var loin := str(opt.get("lod", "")) == "loin"
+	var lod := 0.0 if loin else maxf(float(opt.get("lod", 0.0)), 0.0)
+	if lod > 0.0 or loin:
 		var o2 := Outils.new(graine * 2654435 + TYPES.find(type) * 13 + 7)
 		o2.leger = true
 		_corps_lointain(o2, w, d, H, faite, type, rdc, niveaux, style, toit, opt, souches, sw, sh, sd)
 		var ml := o2.construire(n, "Lointain")
-		ml.visibility_range_begin = lod
-		ml.visibility_range_begin_margin = 4.0
+		ml.set_meta("corps_lointain", true)
+		if loin:
+			mi.set_meta("sans_lointain", true)
+			ml.visibility_range_begin = 100000.0
+		else:
+			mi.visibility_range_end = lod
+			mi.visibility_range_end_margin = 4.0
+			ml.visibility_range_begin = lod
+			ml.visibility_range_begin_margin = 4.0
 	n.set_meta("type", type)
 	n.set_meta("graine", graine)
 	n.set_meta("w", w)

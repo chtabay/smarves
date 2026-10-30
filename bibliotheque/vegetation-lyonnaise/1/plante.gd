@@ -40,7 +40,7 @@ const PIERRE_SOMBRE := Color("cdbb92")
 ## vent (0 à 1, l'amplitude du souffle), fruits (false : l'oranger sans ses oranges) ; l'herbe : largeur, points (le
 ## contour de la nappe en mètres, à la place de longueur × largeur), densite (un multiplicateur des touffes, 1 par
 ## défaut), plafond (2 500 touffes au plus par défaut : au-delà elles grossissent au lieu de se multiplier) ; lod
-## (en mètres, 0 par défaut soit aucun niveau de détail, 40 dans les quartiers de Lyon : au-delà, le massif et le buisson s'effacent au profit d'un corps
+## (0 par défaut soit aucun niveau de détail ; une distance en mètres, ou « loin » pour les quartiers de Lyon : au-delà, le massif et le buisson s'effacent au profit d'un corps
 ## lointain de quelques centaines de sommets, des boules grossières sans feuilles, les fleurs en pastilles ;
 ## demandé par le chef de chantier de Lyon pour tenir le budget d'un quartier).
 @export var options := {}
@@ -71,18 +71,27 @@ static func pousser(parent: Node3D, p: Vector3, nom: String, g: int, opt := {}) 
 	var mesures: Vector2 = Callable(_Plantes, nom).call(o, p, verts, opt)
 	_pied(o, p, str(opt.get("pied", "")), opt)
 	var mi := o.construire(parent, nom.capitalize())
-	# le niveau de détail du massif et du buisson, sur demande (0 par défaut) : au-delà de lod, un corps lointain de boules grossières
-	var lod := maxf(float(opt.get("lod", 0.0)), 0.0)
-	if lod > 0.0 and nom in ["massif", "buisson"]:
-		mi.visibility_range_end = lod
-		mi.visibility_range_end_margin = 4.0
+	# le niveau de détail du massif et du buisson, sur demande (0 par défaut). Un nombre : au-delà de lod, un corps
+	# lointain de boules grossières. « loin » (les quartiers de Lyon) : les deux corps sans bascule en jeu, le corps
+	# lointain hors de vue (visibility_range_begin 100 000) et le corps de près marqué sans_lointain, pour que la
+	# version légère du quartier (Quartiers.fondre) prenne le corps lointain et ignore le corps de près.
+	var loin := str(opt.get("lod", "")) == "loin"
+	var lod := 0.0 if loin else maxf(float(opt.get("lod", 0.0)), 0.0)
+	if (lod > 0.0 or loin) and nom in ["massif", "buisson"]:
 		var o2 := Outils.new(g * 7919 + PLANTES.find(nom) * 17)
 		o2.leger = true
 		Callable(_Plantes, nom).call(o2, p, verts, opt)
 		o2.collisions.clear()
 		var ml := o2.construire(parent, nom.capitalize() + "Lointain")
-		ml.visibility_range_begin = lod
-		ml.visibility_range_begin_margin = 4.0
+		ml.set_meta("corps_lointain", true)
+		if loin:
+			mi.set_meta("sans_lointain", true)
+			ml.visibility_range_begin = 100000.0
+		else:
+			mi.visibility_range_end = lod
+			mi.visibility_range_end_margin = 4.0
+			ml.visibility_range_begin = lod
+			ml.visibility_range_begin_margin = 4.0
 	return {"plante": nom, "graine": g, "hauteur": mesures.x, "couronne": mesures.y}
 
 
