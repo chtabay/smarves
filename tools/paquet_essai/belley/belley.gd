@@ -76,6 +76,13 @@ func _ready() -> void:
 	add_child(MOBYLETTE.new(self))
 
 
+
+## La caméra de dessus suit l'habitant (et sa Mobylette, qui roule sous lui) : elle ne reçoit sa cible qu'à
+## l'arrivée et à chaque bascule de vue, sinon il sort de l'écran.
+func _process(_delta: float) -> void:
+	if player != null and player.follow_camera == camera:
+		camera.set("_target_goal", player.global_position + Vector3(0, 0.3, 0))
+
 ## La cathédrale, posée sur le point le plus haut de son parvis.
 func _cathedrale() -> void:
 	var c := CATHEDRALE.new()

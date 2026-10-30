@@ -3,7 +3,7 @@
 	"id": "belley",
 	"nom": "Belley",
 	"auteur": "",
-	"version": "0.1.4",
+	"version": "0.1.5",
 	"socle_min": "1.25",
 	"insee": "01034",
 	"population": 9388,
