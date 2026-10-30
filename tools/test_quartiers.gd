@@ -207,6 +207,17 @@ func _init() -> void:
 	ouvragee.material_override = ShaderMaterial.new()
 	ouvragee.position = Vector3(40, 5, 0)
 	lourd.add_child(ouvragee)
+	# un volume de quartier : 3 000 sommets de quads disjoints, qui ne se simplifient pas ; il reste tel quel
+	var quads := SurfaceTool.new()
+	quads.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in 500:
+		var o := Vector3(80 + (i % 25) * 0.5, 0, 40 + (i / 25) * 0.5)
+		for coin in [Vector3(0, 0, 0), Vector3(0.4, 0, 0), Vector3(0.4, 3, 0), Vector3(0, 0, 0), Vector3(0.4, 3, 0), Vector3(0, 3, 0)]:
+			quads.set_normal(Vector3.BACK)
+			quads.add_vertex(o + coin)
+	var volume := MeshInstance3D.new()
+	volume.mesh = quads.commit()
+	lourd.add_child(volume)
 	var leger := Quartiers.fondre(lourd)
 	var sommets := 0
 	var matieres := []
@@ -219,7 +230,7 @@ func _init() -> void:
 	for mi: MeshInstance3D in lourd.find_children("*", "MeshInstance3D", true, false):
 		plein_sommets += Lointain._sommets(mi.mesh)
 	check(leger != null and matieres.any(func(m): return m is ShaderMaterial), "version légère : une façade à shader simplifiée garde son shader")
-	check(sommets > 48 + Lointain._sommets(pm) and sommets * 4 < plein_sommets, "version légère : les maillages lourds sont simplifiés, pas mis en boîte (%d sommets pour %d), la caisse de 50 cm disparaît, la maison et le corps lointain de la brique restent" % [sommets, plein_sommets])
+	check(sommets > 3000 + 48 + Lointain._sommets(pm) and sommets * 4 < plein_sommets, "version légère : les maillages lourds sont simplifiés, pas mis en boîte, un volume de quads qui ne se simplifie pas reste entier (%d sommets pour %d), la caisse de 50 cm disparaît, la maison et le corps lointain de la brique restent" % [sommets, plein_sommets])
 	leger.free()
 	lourd.free()
 
