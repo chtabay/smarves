@@ -72,6 +72,14 @@ const BUTE := 0.6
 const ATTENTE_MAX := 30.0
 ## Après un geste, le temps que l'écran se pose (une porte qui charge sa scène, un panneau qui s'ouvre).
 const POSE := 1.2
+## Après un clic, on attend encore que l'écran change puis reste calme ce temps-là (la réponse d'une table
+## en ligne), sans dépasser POSE_MAX ; s'il n'a pas changé après POSE_RIEN, on n'attend plus.
+const POSE_CALME := 1.0
+const POSE_RIEN := 2.5
+const POSE_MAX := 6.0
+## Les champs où l'on écrit (une petite annonce), et la longueur d'un texte écrit d'un coup.
+const CHAMPS_MAX := 10
+const ECRIT_LONG := 400
 ## Au-delà de cette différence de hauteur, une zone est à un autre étage.
 const ETAGE := 2.5
 ## La grille du chemin : tant de cases de côté au plus, tant de cases visitées au plus.
@@ -156,6 +164,9 @@ func vue() -> Dictionary:
 	if not gens.is_empty():
 		v["gens"] = gens
 	v["boutons"] = _boutons()
+	var champs := _champs()
+	if not champs.is_empty():
+		v["champs"] = champs
 	var cases := _cases()
 	if not cases.is_empty():
 		v["cases"] = cases
@@ -564,6 +575,69 @@ func _boutons() -> Array:
 	return out
 
 
+## Les champs à l'écran où l'on peut écrire : leur invite (le texte grisé), et ce qui y est déjà écrit.
+func _champs() -> Array:
+	var out := []
+	var ecran := get_viewport().get_visible_rect()
+	for r in _racines():
+		for n in r.find_children("*", "Control", true, false):
+			if not (n is LineEdit or n is TextEdit):
+				continue
+			var c := n as Control
+			if not c.is_visible_in_tree() or not bool(c.get("editable")) or not ecran.intersects(c.get_global_rect()):
+				continue
+			var id := "f%d" % (out.size() + 1)
+			_reperes[id] = c
+			var e := {"id": id, "invite": str(c.get("placeholder_text")).strip_edges().left(80), "texte": str(c.get("text")).left(TEXTE_LONG)}
+			if c.has_focus():
+				e["actif"] = true
+			out.append(e)
+			if out.size() >= CHAMPS_MAX:
+				return out
+	return out
+
+
+## Écrire dans un champ : on le prend (un clic, comme du doigt), et le texte s'y tape à la suite de ce qui
+## y est déjà. Sans champ nommé, celui qui a la main, sinon le seul à l'écran.
+func _ecrire(quoi: String, texte: String) -> Dictionary:
+	var t := texte.strip_edges().left(ECRIT_LONG)
+	if t == "":
+		return {"ok": false, "dit": "rien à écrire"}
+	var champs := _champs()
+	if champs.is_empty():
+		return {"ok": false, "dit": "pas de champ où écrire à l'écran"}
+	var c: Control = null
+	var cherche := quoi.strip_edges().to_lower()
+	for e in champs:
+		if cherche == "" and e.get("actif", false):
+			c = _reperes[e.id]
+		elif cherche != "" and (e.id == cherche or str(e.invite).to_lower().contains(cherche)):
+			c = _reperes[e.id]
+			break
+	if c == null and cherche == "" and champs.size() == 1:
+		c = _reperes[champs[0].id]
+	if c == null:
+		return {"ok": false, "dit": "quel champ ? (%s)" % ", ".join(champs.map(func(e): return "%s « %s »" % [e.id, e.invite]))}
+	await _clic(c.get_global_rect().get_center())
+	if not c.has_focus():
+		c.grab_focus()
+	await get_tree().process_frame
+	var avant := str(c.get("text"))
+	if c is LineEdit:
+		(c as LineEdit).caret_column = avant.length()
+		(c as LineEdit).insert_text_at_caret(t)
+	else:
+		var te := c as TextEdit
+		te.set_caret_line(te.get_line_count() - 1)
+		te.set_caret_column(te.get_line(te.get_line_count() - 1).length())
+		te.insert_text_at_caret(t)
+	await get_tree().process_frame
+	var ecrit := str(c.get("text"))
+	if ecrit == avant:
+		return {"ok": false, "dit": "le champ n'a rien pris (plein ?)"}
+	return {"ok": true, "dit": "écrit dans le champ : « %s » (pour l'envoyer, son bouton, ou la touche Entrée)" % ecrit.left(TEXTE_LONG)}
+
+
 func _texte_du_bouton(b: BaseButton) -> String:
 	var t := ""
 	if "text" in b:
@@ -659,6 +733,8 @@ func geste(g: Dictionary) -> Dictionary:
 			r = await _touche(str(g.get("touche", "")))
 		"cliquer":
 			r = await _cliquer(str(g.get("quoi", "")))
+		"ecrire":
+			r = await _ecrire(str(g.get("quoi", "")), str(g.get("texte", "")))
 		"attendre":
 			await _attendre(clampf(float(g.get("secondes", 3.0)), 0.5, ATTENTE_MAX))
 			r = {"ok": true, "dit": ""}
@@ -736,6 +812,10 @@ func _repere(quoi: String) -> Variant:
 		for b in r.find_children("*", "BaseButton", true, false):
 			if (b as BaseButton).is_visible_in_tree() and _texte_du_bouton(b).to_lower().contains(cherche):
 				return b
+	# Une case par un mot de son nom (« café » pour « Café de la Place »).
+	for k in _reperes:
+		if str(k).begins_with("c:") and str(k).to_lower().contains(cherche):
+			return _repere(k)
 	return null
 
 
@@ -1213,6 +1293,7 @@ func _cliquer(quoi: String) -> Dictionary:
 	var r = _repere(quoi)
 	if r == null:
 		return {"ok": false, "dit": "rien de tel à l'écran : %s" % quoi}
+	var avant := _empreinte()
 	if r is Array and r[0] is Control:
 		# La case d'un plateau à l'écran : un clic de souris en son milieu, appuyé puis relâché.
 		var c: Control = r[0]
@@ -1225,7 +1306,7 @@ func _cliquer(quoi: String) -> Dictionary:
 			e.pressed = appui
 			c._gui_input(e)
 			await get_tree().process_frame
-		await _attendre(POSE)
+		await _poser(avant)
 		return {"ok": true, "dit": ""}
 	if r is Array:
 		var table: Node3D = r[0]
@@ -1256,9 +1337,28 @@ func _cliquer(quoi: String) -> Dictionary:
 				b.pressed.emit()
 			if b.pressed.is_connected(vu):
 				b.pressed.disconnect(vu)
-		await _attendre(POSE)
+		await _poser(avant)
 		return {"ok": true, "dit": ""}
 	return {"ok": false, "dit": "on ne clique pas sur une zone : il faut aller devant et appuyer sur E"}
+
+
+## Après un clic : le temps de pose, puis, si l'écran change (la réponse d'une table en ligne qui arrive
+## un peu plus tard), jusqu'à ce qu'il reste calme ; s'il ne change pas, on n'attend pas plus.
+func _poser(avant: String) -> void:
+	await _attendre(POSE)
+	var t0 := Time.get_ticks_msec()
+	var vu := _empreinte()
+	var calme := t0
+	while Time.get_ticks_msec() - t0 < (POSE_MAX - POSE) * 1000.0:
+		if vu == avant and Time.get_ticks_msec() - t0 >= (POSE_RIEN - POSE) * 1000.0:
+			return
+		if vu != avant and Time.get_ticks_msec() - calme >= POSE_CALME * 1000.0:
+			return
+		await _attendre(0.25)
+		var n := _empreinte()
+		if n != vu:
+			vu = n
+			calme = Time.get_ticks_msec()
 
 
 func _clic(at: Vector2) -> void:

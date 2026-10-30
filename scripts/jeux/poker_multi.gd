@@ -219,9 +219,12 @@ func appliquer(v: Dictionary, action := "voir") -> void:
 		else:
 			_suivre(h)
 		_options = h.get("options", {}) if h.get("options") is Dictionary else {}
+		var etait := _waiting_player
 		_waiting_player = not _options.is_empty()
 		if _waiting_player:
-			_raise_to = clampi(_raise_to, int(_options.minTo), int(_options.maxTo))
+			# À chaque tour de parole, la relance repart du minimum : celle de la main d'avant (980)
+			# demandait une quinzaine de clics pour redescendre à 150.
+			_raise_to = int(_options.minTo) if not etait else clampi(_raise_to, int(_options.minTo), int(_options.maxTo))
 		if me.is_empty():
 			seats[0].folded = true
 	else:

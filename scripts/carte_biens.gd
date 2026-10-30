@@ -226,3 +226,53 @@ func _fit(t: String, r: Rect2, design_fs: int, color: Color, centered := true) -
 	var x := r.get_center().x - w / 2.0 if centered else r.position.x + pad
 	var y := r.get_center().y - _font.get_height(fs) / 2.0 + _font.get_ascent(fs)
 	draw_string(_font, Vector2(x, y), t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, color)
+
+
+# --- Pour le pilote d'un pensionnaire (scripts/socle/pilote.gd) -------------------------------------
+
+## Le nom d'une adresse, tel qu'on le lit sur le plan : son enseigne, précédée du numéro dans une rue.
+func _nom_lot(a: Dictionary) -> String:
+	var nom := str(a.etiquette).strip_edges()
+	if _style() == "rue" and int(a.get("numero", 0)) > 0:
+		nom = ("%s %s" % [a.numero, nom]).strip_edges()
+	return nom if nom != "" else str(a.id)
+
+
+func _style() -> String:
+	return str(_quartier(quartier).get("style", ""))
+
+
+## Les adresses du quartier affiché, par leur nom, et les bouts de rue qui mènent ailleurs : chacune se
+## clique comme du doigt.
+func pilote_cases() -> Dictionary:
+	var out := {}
+	for a in _lots():
+		var nom := _nom_lot(a)
+		if out.has(nom):
+			nom = "%s (%s)" % [nom, a.id]
+		out[nom] = _target(a.rect)
+	for l in _quartier(quartier).get("liens", []):
+		var t := str(l.texte).strip_edges()
+		if t != "" and not out.has(t):
+			out[t] = _target(l.rect)
+	return out
+
+
+## Ce que montre le plan, en mots : chaque adresse, son état et son prix.
+func pilote_texte() -> String:
+	var q := _quartier(quartier)
+	if q.is_empty():
+		return ""
+	var lignes := ["Plan : %s." % str(q.get("nom", quartier))]
+	for a in _lots():
+		var id := NOTAIRE.cle_adresse(_c(), a)
+		var etat := ""
+		match state_of(id):
+			"vente":
+				etat = "à vendre, %s cr." % Game.fmt(Biens.next_price(id))
+			"a_vous":
+				etat = "à vous"
+			"ferme":
+				etat = "pas encore cédé"
+		lignes.append("%s : %s" % [_nom_lot(a), etat])
+	return "\n".join(lignes)

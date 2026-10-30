@@ -497,7 +497,7 @@ func _on_played(bet: int, payout: int) -> void:
 	var c: Commune = Communes.commune(commune)
 	for l in (c.lieux() if c else []):
 		if l.seuil > 0 and before < l.seuil and Game.won >= l.seuil:
-			_note("%s vous fait signe : %s ouvre ce soir." % [l.host, l.name.substr(0, 1).to_lower() + l.name.substr(1)])
+			_note("%s vous fait signe : %s %s ce soir." % [l.host, l.name.substr(0, 1).to_lower() + l.name.substr(1), "ouvrent" if l.name.begins_with("Les ") else "ouvre"])
 
 
 func _capture_commune() -> void:
