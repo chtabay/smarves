@@ -95,11 +95,14 @@ func batir(parent: Node3D, x: float, z: float, lacet_deg: float) -> void:
 	fond.rotation.y = lacet_noeud
 	n.add_child(fond)
 	var bugey: PackedScene = load(Bibliotheque.scene("vegetation-du-bugey@1", "decor"))
-	# Le chêne du banc, en repoussoir en haut à gauche du cadre (verdict n° 28).
-	_plante(n, bugey, "chene", 161, {"hauteur": 12.0}, 0.5, -4.0)
+	# L'arbre du banc, en repoussoir en haut à gauche du cadre (verdict n° 28) : un marronnier en dentelle
+	# (arbres-d-ombriere@1), repeint du vert posé ; le chêne de vegetation-du-bugey@1 lisait en boule à facettes
+	# vert pomme (verdict n° 29).
+	var ombriere: PackedScene = load(Bibliotheque.scene("arbres-d-ombriere@1", "decor"))
+	_dentelle(n, ombriere, "marronnier", 161, 12.0, 4.0, -7.0)
 	# Les bosquets qui cadrent la vue, à gauche et à droite, plus bas sur la pente.
-	_plante(n, bugey, "chene", 162, {"hauteur": 12.0}, 16.0, -24.0)
-	_plante(n, bugey, "charme", 163, {"hauteur": 10.0}, 19.0, -19.0)
+	_dentelle(n, ombriere, "marronnier", 162, 12.0, 16.0, -24.0)
+	_dentelle(n, ombriere, "jeune_platane", 163, 10.0, 19.0, -19.0)
 	_plante(n, bugey, "cerisier", 164, {}, 12.0, 21.0)
 	_plante(n, bugey, "charme", 165, {"hauteur": 9.0}, 17.0, 26.0)
 	# Le pré sec du replat, blond (#A8A864), sur la moitié de la vue, et ses taches de fleurs des champs : de
@@ -148,6 +151,17 @@ func batir(parent: Node3D, x: float, z: float, lacet_deg: float) -> void:
 	n.add_child(vendre)
 
 
+func _dentelle(n: Node3D, scene: PackedScene, nom: String, graine: int, h: float, av: float, dr: float) -> void:
+	var m: Node3D = scene.instantiate()
+	m.set("arbre", nom)
+	m.set("graine", graine)
+	m.set("options", {"hauteur": h})
+	m.position = _p(av, dr, -0.05)
+	m.rotation.y = float(graine % 628) / 100.0
+	n.add_child(m)
+	REPEINDRE.feuillage(m)
+
+
 func _plante(n: Node3D, scene: PackedScene, nom: String, graine: int, options: Dictionary, av: float, dr: float) -> void:
 	var m: Node3D = scene.instantiate()
 	m.set("plante", nom)
@@ -165,7 +179,9 @@ func _pre(a: float, b: float) -> Color:
 	var bord := minf(minf(a + 2.0, 34.0 - a) / 6.0, minf(b + 26.0, 26.0 - b) / 6.0)
 	var ks := smoothstep(-0.4, 0.8, bruit) * clampf(bord, 0.0, 1.0)
 	ks *= smoothstep(1.5, 3.5, Vector2(a - BANC_AV, b).length())
-	return Color(0.49, 0.61, 0.23).lerp(Color("a8a864"), ks)
+	# Écrites plus sourdes qu'à l'écran : la saturation et la courbe de tons de belley.gd les relèvent (le blond
+	# visé #B0AE6A sortait #C1DA76, verdict n° 29).
+	return Color(0.40, 0.50, 0.20).lerp(Color("8e8652"), ks)
 
 
 ## La part de terre à av, dr (0 : le pré ; 1 : la terre ; au-delà de 1,5 : la terre usée sous le banc) : une

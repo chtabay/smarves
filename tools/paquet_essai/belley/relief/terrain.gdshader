@@ -307,13 +307,17 @@ void fragment() {
 	// les falaises sont le sujet de la vue du relais.
 	float mi_loin = smoothstep(500.0, 2500.0, distance(monde, CAMERA_POSITION_WORLD));
 	col = mix(col, vec3(0.44, 0.49, 0.37), roc * mi_loin * 0.75 * (1.0 - step(7300.0, xz.x)));
+	// Dès 800 m, le pré perd son vert lumineux (visée #7FA050 au rendu, verdict n° 29) : moins saturé, un peu plus
+	// sombre, avant que la brume de 2 km ne le bleuisse.
+	float moyen = smoothstep(500.0, 1300.0, distance(monde, CAMERA_POSITION_WORLD)) * (1.0 - eau);
+	col = mix(col, mix(vec3(dot(col, vec3(0.3, 0.59, 0.11))), col, 0.6) * 0.9, moyen);
 	// L'eau prend le ciel, d'autant plus qu'on la voit en rasant ; des rides plus claires la parcourent.
 	float rasant = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);
 	float ride = smoothstep(0.62, 0.8, fbm(vec2(xz.x * 0.08, xz.y * 0.5))) * pres;
 	col = mix(col, CIEL_REFLET, eau * clamp(0.25 + 0.6 * rasant + 0.25 * ride, 0.0, 0.85));
 	// La perspective atmosphérique de la note : les lointains passent au bleu gris, en trois plans.
 	float k = 1.0 - exp(-distance(monde, CAMERA_POSITION_WORLD) / 9000.0);
-	col = mix(col, vec3(0.58, 0.65, 0.68), k * 0.7);
+	col = mix(col, vec3(0.50, 0.57, 0.60), k * 0.7);
 	// Au-delà de 8 km, la brume noie encore les barres claires : plus de taches blanches sur la crête lointaine.
 	// Bleu-gris, pas blanc : la Dent du Chat sortait en névé depuis le banc (revue finale n° 1, visée #93A6AE).
 	// Les lointains passent au bleu-gris de la planche (#93A6AE) dès 2 km : la crête du Chat, vue du banc, restait verte (verdict n° 28).

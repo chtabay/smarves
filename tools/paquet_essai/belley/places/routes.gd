@@ -58,13 +58,14 @@ func _fin(v: Vector2) -> bool:
 	return false
 
 
-## Des points assez serrés pour suivre le sol : tous les 5 m là où il est maillé fin, tous les 10 m ailleurs.
+## Des points assez serrés pour suivre le sol : tous les 5 m (à 10 m, le sol maillé au pas de 15 m perçait la
+## chaussée entre deux points, vu du vélo).
 func _echantillonner(pts: PackedVector2Array) -> PackedVector2Array:
 	var out := PackedVector2Array([pts[0]])
 	for i in pts.size() - 1:
 		var a := pts[i]
 		var b := pts[i + 1]
-		var pas := 5.0 if _fin(a) or _fin(b) else 10.0
+		var pas := 5.0
 		var n := maxi(int(ceil(a.distance_to(b) / pas)), 1)
 		for j in range(1, n + 1):
 			out.append(a.lerp(b, float(j) / n))
@@ -102,13 +103,17 @@ func _route(pts: PackedVector2Array, l: float, genre: int, marque: int, k: int) 
 		var na := nrms[i]
 		var nb := nrms[i + 1]
 		var o: RefCounted = _outils(a)
-		o.quad(_p(a, na, -h, y), _p(b, nb, -h, y), _p(b, nb, h, y), _p(a, na, h, y), Vector3.UP, col, OUTILS.PEINT)
+		# En deux bandes, l'axe posé sur le sol lui aussi : le pli du sol sous une chaussée large ne la perce plus.
+		# Hors des carrés fins, la chaussée est un peu plus relevée (le pli y est plus grand).
+		var ya := y + (0.0 if _fin(a) else 0.2)
+		o.quad(_p(a, na, -h, ya), _p(b, nb, -h, ya), _p(b, nb, 0.0, ya), _p(a, na, 0.0, ya), Vector3.UP, col, OUTILS.PEINT)
+		o.quad(_p(a, na, 0.0, ya), _p(b, nb, 0.0, ya), _p(b, nb, h, ya), _p(a, na, h, ya), Vector3.UP, col, OUTILS.PEINT)
 		var seg := a.distance_to(b)
 		if marque == 1:
 			# Les rives : un trait continu à 0,3 m du bord.
 			for s: float in [-1.0, 1.0]:
 				var e := s * (h - 0.3)
-				o.quad(_p(a, na, e - 0.06, y + 0.03), _p(b, nb, e - 0.06, y + 0.03), _p(b, nb, e + 0.06, y + 0.03), _p(a, na, e + 0.06, y + 0.03), Vector3.UP, PEINTURE, OUTILS.PEINT)
+				o.quad(_p(a, na, e - 0.06, ya + 0.03), _p(b, nb, e - 0.06, ya + 0.03), _p(b, nb, e + 0.06, ya + 0.03), _p(a, na, e + 0.06, ya + 0.03), Vector3.UP, PEINTURE, OUTILS.PEINT)
 			# L'axe : des tirets de 3 m tous les 9 m.
 			var t0 := abscisse
 			while t0 < abscisse + seg:
@@ -119,7 +124,7 @@ func _route(pts: PackedVector2Array, l: float, genre: int, marque: int, k: int) 
 					var c0 := a.lerp(b, u0)
 					var c1 := a.lerp(b, u1)
 					var nn := na.lerp(nb, (u0 + u1) * 0.5).normalized()
-					o.quad(_p(c0, nn, -0.07, y + 0.03), _p(c1, nn, -0.07, y + 0.03), _p(c1, nn, 0.07, y + 0.03), _p(c0, nn, 0.07, y + 0.03), Vector3.UP, PEINTURE, OUTILS.PEINT)
+					o.quad(_p(c0, nn, -0.07, ya + 0.03), _p(c1, nn, -0.07, ya + 0.03), _p(c1, nn, 0.07, ya + 0.03), _p(c0, nn, 0.07, ya + 0.03), Vector3.UP, PEINTURE, OUTILS.PEINT)
 					t0 += 3.0 - debut + 6.0
 				else:
 					t0 += 9.0 - debut

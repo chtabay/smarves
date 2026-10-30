@@ -13,6 +13,7 @@ const RELAIS := preload("res://communes/belley/places/relais.gd")
 const VIE := preload("res://communes/belley/places/vie_place.gd")
 const JARDINS := preload("res://communes/belley/places/jardins.gd")
 const ROUTES := preload("res://communes/belley/places/routes.gd")
+const BORDS := preload("res://communes/belley/places/bords_de_route.gd")
 
 ## Les crans de la caméra de dessus : distance, tangage, champ, du plus près au plus loin (à taille d'homme).
 const CRANS := [[5.0, -38.0, 50.0], [9.0, -48.0, 50.0], [16.0, -58.0, 50.0]]
@@ -50,6 +51,7 @@ func _ready() -> void:
 	JARDINS.new(hauteur).batir(self)
 	VIE.new(hauteur).batir(self)
 	ROUTES.new(hauteur).batir(self)
+	BORDS.new(hauteur).batir(self)
 	RELAIS.new(hauteur).batir(self)
 	var rb: Array = REPERES["Vue2_Banc"]
 	BANC.new(hauteur).batir(self, rb[0], rb[1], rb[2])
