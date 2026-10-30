@@ -1096,7 +1096,7 @@ static func _taxi(racine: Node3D) -> void:
 	var zone := Area3D.new()
 	zone.name = "Zone"
 	zone.set_meta("interact", "taxi")
-	zone.set_meta("prompt", "E : prendre un taxi (la carte des communes)")
+	zone.set_meta("prompt", "E : prendre un taxi pour une autre ville")
 	var f := CollisionShape3D.new()
 	var b := BoxShape3D.new()
 	b.size = Vector3(6.4, 2.0, 3.6) * u
