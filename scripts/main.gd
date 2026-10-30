@@ -1334,7 +1334,7 @@ func _capture_carte(quoi: String) -> void:
 		if quoi == "":
 			return
 		await get_tree().create_timer(1.3).timeout
-		# --carte=france:r75 regarde une région ; --carte=france:r75:33 y désigne un département.
+		# --carte=france:r75 regarde une région ; --carte=france:r75:33 y survole un département.
 		if quoi.begins_with("r"):
 			Carte.vers_region(quoi.get_slice(":", 0).trim_prefix("r"))
 			quoi = quoi.get_slice(":", 1) if ":" in quoi else ""
@@ -1349,7 +1349,11 @@ func _capture_carte(quoi: String) -> void:
 		if quoi == "":
 			return
 	var insee := quoi.get_slice("@", 0)
-	c.choix.emit(insee)
+	# Sur la France, un clic descendrait d'un cran : on survole le département pour montrer sa fiche.
+	if c.niveau == "france":
+		c._survoler(insee)
+	else:
+		c.choix.emit(insee)
 	if "@" in quoi:
 		c.cadrer(insee, float(quoi.get_slice("@", 1)), 0.5)
 
