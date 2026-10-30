@@ -731,7 +731,8 @@ void fragment() {
 	vec2 f = fract(q);
 	float joint = smoothstep(0.0, 0.03, f.x) * smoothstep(1.0, 0.97, f.x) * smoothstep(0.0, 0.045, f.y) * smoothstep(1.0, 0.955, f.y);
 	float v = 0.9 + 0.12 * hash(floor(q));
-	ALBEDO = pow(vec3(0.78, 0.73, 0.63), vec3(2.2)) * mix(0.78, v, joint);
+	// le granit gris du quai Saint-Vincent, pris un peu bleuté : la lumière dorée le ramène au gris à l'écran
+	ALBEDO = pow(vec3(0.68, 0.69, 0.74), vec3(2.2)) * mix(0.62, v, joint);
 	ROUGHNESS = 0.92;
 }
 """
@@ -1055,7 +1056,7 @@ func _halle(b: Dictionary) -> void:
 	rangs.sort_custom(func(u, w): return u[0] < w[0])
 	for j in 3:
 		ouvertes[rangs[j][1]] = true
-	var ceramiques := [Color("#3f6f8f"), Color("#d8b25a"), Color("#4f7f5a"), Color("#e8e0cc")]
+	var ceramiques := [Color("#2f6ea0"), Color("#e0a93a"), Color("#3f8a55"), Color("#b8452e")]
 	for cote in [[L, P, 0.0], [L, P, PI], [P, L, PI * 0.5], [P, L, -PI * 0.5]]:
 		var longueur: float = cote[0]
 		var profond: float = cote[1]
@@ -1071,9 +1072,11 @@ func _halle(b: Dictionary) -> void:
 			_boite(f, Vector3(0.95, 0.35, 0.4), Vector3(x, 6.6, z + 0.15), claire.darkened(0.04))
 		var sur_rue: bool = longueur == L and ((cote[2] == 0.0 and cote_rue > 0.0) or (cote[2] == PI and cote_rue < 0.0))
 		# la frise de céramique sous la corniche, en carreaux de couleur alternés
-		var nc := int(longueur / 0.6)
+		# des carreaux de 55 cm sur une bande de 60, pour qu'elle se lise depuis le trottoir d'en face
+		_boite(f, Vector3(longueur, 0.62, 0.05), Vector3(0, 6.42, z + 0.05), claire)
+		var nc := int(longueur / 0.62)
 		for j in nc:
-			_boite(f, Vector3(0.5, 0.32, 0.06), Vector3(-longueur * 0.5 + (j + 0.5) * longueur / nc, 6.82, z + 0.04), ceramiques[j % 4])
+			_boite(f, Vector3(0.55, 0.5, 0.06), Vector3(-longueur * 0.5 + (j + 0.5) * longueur / nc, 6.42, z + 0.07), ceramiques[j % 4])
 		for k in nb:
 			var x := -longueur * 0.5 + (k + 0.5) * pas
 			var r := (pas - 0.75) * 0.5 - 0.25
@@ -2278,6 +2281,42 @@ func _parcours() -> void:
 		f.position = Vector3(q.x, hauteur(q.x, q.y) + 0.1, q.y) / U
 		f.rotation.y = 0.0 if q.y < 118.8 else PI
 		groupe.add_child(f)
+		g += 1
+	# dans le champ de la Vue1b : une voiture garée à dix mètres le long de la halle, un passant sur le trottoir d'en face
+	var vue := Vector2(-76.0, 118.6)
+	var regard := (Vector2(-36.0, 101.0) - vue).normalized()
+	var cible := vue + regard * 10.0
+	var proche_v := -1
+	var ecart_v := 1e9
+	for c in _chaussees.size():
+		var e: float = Geometry2D.get_closest_point_to_segment(cible, _chaussees[c][0], _chaussees[c][1]).distance_to(cible)
+		if e < ecart_v:
+			ecart_v = e
+			proche_v = c
+	if proche_v >= 0:
+		var sa: Vector2 = _chaussees[proche_v][0]
+		var sb: Vector2 = _chaussees[proche_v][1]
+		var tv := (sb - sa).normalized()
+		var cote_halle := tv.orthogonal()
+		if cote_halle.dot(Vector2(-42.0, 97.0) - cible) < 0.0:
+			cote_halle = -cote_halle
+		var pied := Geometry2D.get_closest_point_to_segment(cible, sa, sb)
+		var qv: Vector2 = pied + cote_halle * (float(_chaussees[proche_v][2]) - 1.05)
+		var vo: Node3D = load(Bibliotheque.scene("voitures-des-annees-80@1", "decor")).instantiate()
+		vo.voiture = "berline"
+		vo.graine = 290
+		vo.options = {"couleur": "2c4a7a"}
+		vo.position = Vector3(qv.x, hauteur(qv.x, qv.y) + 0.06, qv.y)
+		vo.rotation.y = atan2(tv.x, tv.y)
+		ville.add_child(vo)
+		# le passant, sur le trottoir de la halle, qui vient vers nous
+		var route: Array[Vector3] = []
+		for e in 4:
+			var q: Vector2 = pied + tv * (18.0 - e * 6.0) * (1.0 if tv.dot(regard) > 0.0 else -1.0) + cote_halle * (float(_chaussees[proche_v][2]) + 2.2)
+			route.append(Vector3(q.x, hauteur(q.x, q.y), q.y) / U)
+		var fp: Node3D = Atelier.figurant(g, "walk", "village", route)
+		fp.position = route[0]
+		groupe.add_child(fp)
 		g += 1
 	# les voitures garées le long de la bordure droite, par paquets, et une qui roule au milieu
 	var d := 18.0
