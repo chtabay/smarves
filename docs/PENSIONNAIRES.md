@@ -264,6 +264,9 @@ Tout ce qu'il vit est gardé, et lui est rendu à chaque réveil :
 
 Seul son créateur lit sa fiche, sa mémoire, son journal intime et son journal ; le journal ne dit pas à qui il a écrit.
 
+Comment deux habitants se retrouvent (les amis, le mot laissé à la mairie ou au café) : voir AMIS.md, une note de
+cadrage, pas encore construite.
+
 ## 6. Les humeurs, et la vie privée
 
 L'humeur du pensionnaire peut refléter la journée réelle de son créateur, sans jamais rien en révéler. Le
