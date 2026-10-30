@@ -1036,12 +1036,12 @@ func _place() -> void:
 		_pose(MOBILIER, "objet", "jardiniere", Vector3(-12.8, y, z), 100 + int(z), {"fleurs": "e0605a"})
 	for z in [-6.0, 10.0, 34.0]:
 		_pose(MOBILIER, "objet", "jardiniere", Vector3(32.4, y, z), 120 + int(z), {"fleurs": "d04a8a"})
-	_rues(y)
+	_rues_du_square(y)
 
 
 ## Les rues autour du square, comme sur la planche : le caniveau de la rue est, son passage piéton au sud, une
 ## voiture rouge garée au bout et une camionnette dans la rue ouest, hors des couronnes pour qu'on les voie d'en haut.
-func _rues(y: float) -> void:
+func _rues_du_square(y: float) -> void:
 	_boite(ville, Vector3(0.35, 0.02, 60.0), Vector3(30.5, y + 0.012, SQUARE.get_center().y), Color("#6f6a62"))
 	for k in 7:
 		_boite(ville, Vector3(0.5, 0.02, 3.2), Vector3(24.0 + k * 0.9, y + 0.014, SQUARE.end.y + 2.5), Color("#ece8de"))
