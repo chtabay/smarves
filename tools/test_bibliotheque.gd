@@ -303,6 +303,21 @@ func _init() -> void:
 			if d.get_meta(toulousains[ref][1], "") != nom or maillages.size() != 1 or maillages[0].mesh.get_surface_count() > 3 or d.find_children("*", "CollisionShape3D", true, false).is_empty():
 				rates.append(nom)
 		check(noms.size() == toulousains[ref][2] and rates.is_empty(), "%s : les %d se bâtissent, un maillage et un corps chacun %s" % [ref, noms.size(), str(rates)])
+	# les toits en tuile canal se lisent d'en haut (verdict de Saint-Georges v0.11) : les courants plus sombres entre
+	# les couvrants, les lignes d'ombre des rangs, l'ombre du faîtage, toutes présentes dans le maillage
+	var toiture: Node3D = load(Bibliotheque.scene("facadier-toulousain@1", "decor")).instantiate()
+	toiture.type = "moyenne"
+	toiture.graine = 5
+	toiture.options = {"toit": "deux_pans"}
+	toulouse.add_child(toiture)
+	var couleurs_toit := {}
+	var Fac: GDScript = load("res://bibliotheque/facadier-toulousain/1/facadier.gd")
+	var tableaux: Array = (toiture.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).mesh.surface_get_arrays(0)
+	for c in tableaux[Mesh.ARRAY_COLOR]:
+		couleurs_toit[(c as Color).to_html(false)] = true
+	var attendues: Array = [Fac.COURANT, Fac.OMBRE_TUILE, Fac.OMBRE_FAITE].map(func(c): return (c as Color).to_html(false))
+	check(attendues.all(func(h): return couleurs_toit.has(h)) and Fac.OMBRE_FAITE.get_luminance() < Fac.COURANT.get_luminance() and Fac.COURANT.get_luminance() < Fac.TUILE[0].get_luminance(),
+		"le toit toulousain porte ses courants sombres, ses lignes de rangs et l'ombre du faîtage")
 	# la terrasse prend des clients assis (option clients) : le maillage grossit d'autant
 	var sommets_terrasse := {}
 	for nb in [0, 5]:

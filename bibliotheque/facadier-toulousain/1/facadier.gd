@@ -42,6 +42,10 @@ const BRIQUE_SOMBRE := Color("9e4a2e")
 const PIERRE := Color("efe6d4")
 const PIERRE_SOMBRE := Color("d6c9ae")
 const TUILE := [Color("d9733f"), Color("b85b30"), Color("c76a45")]
+## Le courant entre deux couvrants, la ligne d'ombre d'un rang sur le suivant, l'ombre portée du faîtage.
+const COURANT := Color("a04f2b")
+const OMBRE_TUILE := Color("8a4322")
+const OMBRE_FAITE := Color("7e3e21")
 const ARDOISE := [Color("5a6170"), Color("485060")]
 const VERRE := Color("3f5468")
 const FER := Color("26292c")
@@ -582,7 +586,10 @@ static func _vigne(o: Outils, w: float, H: float, r: RandomNumberGenerator) -> v
 		o.boule(Vector3(x, haut - r.randf_range(0.0, 0.5), 0.38), Vector3(0.42, 0.3, 0.2), VERT.lightened(0.08), 0.25, Outils.FEUILLE, 0.08, 0.2)
 
 
-## Les tuiles canal d'un pan : des rangs de couvrants qui descendent la pente, du faîte à l'égout.
+## Les tuiles canal d'un pan : des rangs de couvrants qui descendent la pente, du faîte à l'égout, sur leurs
+## courants plus sombres ; en travers, le recouvrement de chaque rang de tuiles sur le suivant, en lignes d'ombre
+## tous les 38 cm ; et sous le faîtage, l'ombre qu'il porte sur les premiers rangs. Vu d'en haut (le balcon de
+## Saint-Georges), le toit se lit en tuiles et non en aplat orange (verdict v0.11).
 static func _canaux(o: Outils, bas_a: Vector3, bas_b: Vector3, haut_a: Vector3, haut_b: Vector3, nrm: Vector3) -> void:
 	var long := bas_a.distance_to(bas_b)
 	var nb := int(long / 0.32)
@@ -592,7 +599,30 @@ static func _canaux(o: Outils, bas_a: Vector3, bas_b: Vector3, haut_a: Vector3, 
 		var a := bas_a.lerp(bas_b, f)
 		var b := haut_a.lerp(haut_b, f)
 		var col: Color = TUILE[1] if i % 3 != 1 else TUILE[2]
-		o.branche(a + nn * 0.04, b + nn * 0.04, 0.07, 0.07, col, 4)
+		o.branche(a + nn * 0.05, b + nn * 0.05, 0.08, 0.08, col, 5)
+		# le courant, entre deux couvrants : un creux plus sombre
+		if i + 1 < nb:
+			var f2 := (i + 1.5) / nb
+			var a2 := bas_a.lerp(bas_b, f2)
+			var b2 := haut_a.lerp(haut_b, f2)
+			var ca := a.lerp(a2, 0.3) + nn * 0.012
+			var cb := a.lerp(a2, 0.7) + nn * 0.012
+			var cc := b.lerp(b2, 0.7) + nn * 0.012
+			var cd := b.lerp(b2, 0.3) + nn * 0.012
+			o.quad(ca, cb, cc, cd, nn, COURANT)
+	# les rangs : la ligne d'ombre du recouvrement, en travers, posée juste au-dessus des couvrants
+	var pente := bas_a.distance_to(haut_a)
+	var nr := int(pente / 0.38)
+	for j in range(1, nr):
+		var t := j * 0.38 / pente
+		var dt := 0.05 / pente
+		o.quad(bas_a.lerp(haut_a, t) + nn * 0.135, bas_b.lerp(haut_b, t) + nn * 0.135,
+			bas_b.lerp(haut_b, t + dt) + nn * 0.135, bas_a.lerp(haut_a, t + dt) + nn * 0.135, nn, OMBRE_TUILE)
+	# l'ombre du faîtage sur les premiers rangs
+	if pente > 0.6:
+		var t0 := 1.0 - 0.28 / pente
+		o.quad(bas_a.lerp(haut_a, t0) + nn * 0.14, bas_b.lerp(haut_b, t0) + nn * 0.14,
+			haut_b + nn * 0.14, haut_a + nn * 0.14, nn, OMBRE_FAITE)
 
 
 ## Le toit à deux pans en tuile canal, faîtage parallèle à la rue, pignons de brique sur les côtés ; rend le faîte.
