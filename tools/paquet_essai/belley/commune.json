@@ -3,15 +3,39 @@
 	"id": "belley",
 	"nom": "Belley",
 	"auteur": "",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"socle_min": "1.25",
 	"insee": "01034",
 	"population": 9388,
-	"description": "",
+	"description": "Belley, capitale du Bugey, à l'échelle réelle : la place de la Cathédrale un jour de marché, la rue des Barons, le banc d'Au Replat face à la Dent du Chat, et le relais au bord du Rhône, reliés par la route à vélo.",
 	"scene": "res://communes/belley/commune.tscn",
-	"arrivee": {"lot": "place", "nom": "La place", "par": ["smarves"]},
-	"lieux": [{"id": "comptoir", "nom": "Le comptoir", "jeu": "à écrire", "seuil": 40000, "hote": "Le tenancier"}],
-	"banque": {"id": "caisse_belley", "nom": "La caisse de Belley", "banquier": "à écrire", "preteur": "belley", "lieu": "comptoir"},
+	"arrivee": {
+		"lot": "place",
+		"nom": "La place",
+		"par": [
+			"smarves"
+		]
+	},
+	"lieux": [
+		{
+			"id": "comptoir",
+			"nom": "Le comptoir",
+			"jeu": "à écrire",
+			"seuil": 40000,
+			"hote": "Le tenancier"
+		}
+	],
+	"banque": {
+		"id": "caisse_belley",
+		"nom": "La caisse de Belley",
+		"banquier": "à écrire",
+		"preteur": "belley",
+		"lieu": "comptoir"
+	},
 	"licence": "",
-	"sources": []
+	"sources": [
+		"Relief : IGN RGE ALTI, Licence Ouverte Etalab 2.0",
+		"Routes, bâti et rochers : IGN BD TOPO, Licence Ouverte Etalab 2.0",
+		"Bâti et voies du bourg : OpenStreetMap, ODbL"
+	]
 }

@@ -933,7 +933,9 @@ func _heros_poser(i: int, b: Dictionary) -> void:
 		m.position = Vector3(p.x, hauteur(p.x, p.y) - 0.05 if not est_mairie else sol, p.y)
 		m.rotation.y = lacet
 		ville.add_child(m)
-		if not est_mairie:
+		if est_mairie:
+			_mairie(m, w - 0.05)
+		else:
 			_souches_cote_rue(m, w - 0.05, lv, Color(str(opt["enduit"])))
 		# le socle de l'immeuble, jusqu'au point le plus bas de la pente
 		var bas := minf(hauteur(p.x - u.x * w * 0.5, p.y - u.y * w * 0.5), hauteur(p.x + u.x * w * 0.5, p.y + u.y * w * 0.5))
@@ -1194,11 +1196,12 @@ func _escalier() -> void:
 			var zb := lerpf(z0, z1, float(mini(k + pas, marches)) / marches)
 			var ya := lerpf(y0, y1, float(mini(k + pas, marches)) / marches)
 			var haut := ya - y0 + 1.0
-			_boite(e, Vector3(0.9, haut, za - zb + 0.02), Vector3(x, y0 + haut * 0.5, (za + zb) * 0.5), PIERRE_DOREE.darkened(0.03 * (k / pas % 2)))
+			var mur := _boite(e, Vector3(0.9, haut, za - zb + 0.02), Vector3(x, y0 + haut * 0.5, (za + zb) * 0.5), PIERRE_DOREE)
+			mur.material_override = _materiau_appareil(PIERRE_DOREE.darkened(0.03 * (k / pas % 2)))
 			_boite(e, Vector3(1.1, 0.14, za - zb + 0.06), Vector3(x, y0 + haut + 0.07, (za + zb) * 0.5), VILLEBOIS)
 		for z in [z0, z1]:
 			var yy := y0 if z == z0 else y1
-			_boite(e, Vector3(1.2, 1.5, 1.2), Vector3(x, yy + 0.55 if z == z1 else y0 + 0.75, z - 0.6 if z == z0 else z + 0.6), PIERRE_DOREE)
+			_boite(e, Vector3(1.2, 1.5, 1.2), Vector3(x, yy + 0.55 if z == z1 else y0 + 0.75, z - 0.6 if z == z0 else z + 0.6), PIERRE_DOREE).material_override = _materiau_appareil(PIERRE_DOREE)
 			_boite(e, Vector3(1.4, 0.18, 1.4), Vector3(x, (yy + 1.4) if z == z1 else y0 + 1.59, z - 0.6 if z == z0 else z + 0.6), VILLEBOIS)
 	_boite(e, Vector3(16.0, y1 - y0 + 0.2, 6.0), Vector3(10.5, (y0 + y1) * 0.5 - 0.1, z1 - 3.0), pierre)
 	_pose(MOBILIER, "objet", "garde_corps", Vector3(10.5, y1, z1 - 0.2), 7, {"longueur": 7.0})
@@ -1303,6 +1306,126 @@ func _moulure(parent: Node3D, y: float, l: float, p: float, c: Color, sens := 1.
 		_forme(parent, _blo(Vector3(l + e * 2.0, 0.1, p + e * 2.0)), Vector3(0, y + k * 0.1 + 0.05, 0), c.darkened(0.03 * k))
 
 
+## La pierre appareillée des murs d'échiffre et des dés de l'escalier : des assises de 42 cm, des blocs de
+## 90 cm à joints décalés, chacun d'une nuance ; le dessus reste lisse. En coordonnées du monde (unités de 2,4 m).
+var _appareils := {}
+func _materiau_appareil(c: Color) -> ShaderMaterial:
+	if _appareils.has(c):
+		return _appareils[c]
+	var sh := Shader.new()
+	sh.code = """
+shader_type spatial;
+render_mode diffuse_burley;
+uniform vec4 teinte : source_color;
+varying vec3 w;
+varying vec3 n;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+void vertex() {
+	w = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz * 2.4;
+	n = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
+}
+void fragment() {
+	vec3 c = teinte.rgb;
+	if (abs(n.y) < 0.7) {
+		float a = abs(n.x) > abs(n.z) ? w.z : w.x;
+		float rang = floor(w.y / 0.42);
+		a += rang * 0.45;
+		vec2 f = vec2(fract(a / 0.9), fract(w.y / 0.42));
+		float joint = smoothstep(0.0, 0.04, f.x) * smoothstep(1.0, 0.96, f.x) * smoothstep(0.0, 0.08, f.y) * smoothstep(1.0, 0.92, f.y);
+		c *= (0.9 + 0.16 * hash(vec2(floor(a / 0.9), rang))) * mix(0.62, 1.0, joint);
+	}
+	ALBEDO = c;
+	ROUGHNESS = 0.88;
+}
+"""
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	m.set_shader_parameter("teinte", c)
+	_appareils[c] = m
+	return m
+
+
+## La mairie du 1er, pièce unique comme Blandan : sur la façade d'hôtel du façadier, un avant-corps de pierre
+## claire, quatre pilastres d'ordre ionique sur un rez-de-chaussée à refends, l'entablement, le fronton
+## triangulaire et son horloge, le balcon d'honneur et la porte cintrée. m : l'immeuble (façade en z = 0, devant
+## vers +Z), w : sa largeur.
+func _mairie(m: Node3D, w: float) -> void:
+	var pierre := Color("#ddd2b8")
+	var ombre := pierre.darkened(0.12)
+	var l := minf(w * 0.45, 11.0)
+	var rdc := 4.2
+	var corniche: float = m.get_meta("hauteur", 16.0) - 3.0
+	corniche = clampf(corniche, 12.0, 16.0)
+	# l'avant-corps, et les refends du rez-de-chaussée
+	_boite(m, Vector3(l, corniche, 0.5), Vector3(0, corniche * 0.5, 0.25), pierre).material_override = _materiau_appareil(pierre)
+	for k in 6:
+		_boite(m, Vector3(l + 0.04, 0.06, 0.06), Vector3(0, 0.7 * (k + 1), 0.52), ombre)
+	# les quatre pilastres, leurs bases et leurs chapiteaux à volutes
+	for j in 4:
+		var x := lerpf(-l * 0.5 + 0.6, l * 0.5 - 0.6, j / 3.0)
+		_boite(m, Vector3(0.62, corniche - rdc - 0.6, 0.22), Vector3(x, (rdc + corniche) * 0.5, 0.6), pierre.lightened(0.05))
+		_boite(m, Vector3(0.8, 0.3, 0.3), Vector3(x, rdc + 0.15, 0.62), ombre)
+		_boite(m, Vector3(0.86, 0.32, 0.32), Vector3(x, corniche - 0.45, 0.64), pierre.lightened(0.08))
+		for cote in [-1.0, 1.0]:
+			_boite(m, Vector3(0.12, 0.22, 0.22), Vector3(x + cote * 0.42, corniche - 0.5, 0.72), ombre)
+	# les hautes fenêtres de l'avant-corps, trois travées entre les pilastres, à chambranle et à fronton plat
+	var etages := int((corniche - rdc - 0.8) / 3.3)
+	for j in 3:
+		var x := lerpf(-l * 0.5 + 0.6, l * 0.5 - 0.6, (j + 0.5) / 3.0)
+		for e in etages:
+			var yb := rdc + 0.9 + e * 3.3
+			_boite(m, Vector3(1.4, 2.5, 0.06), Vector3(x, yb + 1.15, 0.52), pierre.lightened(0.08))
+			_boite(m, Vector3(1.1, 2.2, 0.08), Vector3(x, yb + 1.1, 0.54), Color("#2c3640"))
+			_boite(m, Vector3(1.7, 0.18, 0.3), Vector3(x, yb + 2.5, 0.6), ombre)
+	# l'entablement : architrave, frise, corniche saillante
+	_boite(m, Vector3(l + 0.3, 0.35, 0.75), Vector3(0, corniche + 0.1, 0.4), pierre)
+	_boite(m, Vector3(l + 0.3, 0.45, 0.6), Vector3(0, corniche + 0.5, 0.35), pierre.lightened(0.04))
+	_boite(m, Vector3(l + 0.8, 0.22, 1.1), Vector3(0, corniche + 0.84, 0.5), ombre)
+	# le fronton triangulaire, son rampant mouluré et l'horloge du tympan
+	var haut := l * 0.22
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var b := corniche + 0.95
+	var g := Vector3(-l * 0.5 - 0.2, b, 0.9)
+	var d := Vector3(l * 0.5 + 0.2, b, 0.9)
+	var s := Vector3(0, b + haut, 0.9)
+	var arriere := Vector3(0, 0, -1.2)
+	for tri in [[g, d, s], [g + arriere, s + arriere, d + arriere], [g, s, s + arriere], [g, s + arriere, g + arriere], [d, d + arriere, s + arriere], [d, s + arriere, s]]:
+		var nn: Vector3 = (tri[1] - tri[0]).cross(tri[2] - tri[0]).normalized()
+		for q in tri:
+			st.set_normal(nn)
+			st.add_vertex(q)
+	var fronton := MeshInstance3D.new()
+	fronton.mesh = st.commit()
+	fronton.material_override = _mat(pierre)
+	fronton.material_override.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.add_child(fronton)
+	var pente := atan2(haut, l * 0.5 + 0.2)
+	for cote in [-1.0, 1.0]:
+		var r := _boite(m, Vector3(sqrt(pow(l * 0.5 + 0.2, 2) + haut * haut) + 0.3, 0.24, 1.3), Vector3(cote * (l * 0.25 + 0.1), b + haut * 0.5 + 0.1, 0.4), ombre)
+		r.rotation.z = -cote * pente
+	var cadran := _boite(m, Vector3(1.3, 1.3, 0.08), Vector3(0, b + haut * 0.42, 0.95), Color("#f2ecd8"))
+	cadran.rotation.z = PI * 0.25
+	_boite(m, Vector3(0.08, 0.5, 0.04), Vector3(0, b + haut * 0.42 + 0.2, 1.0), Color("#2a2a2a"))
+	_boite(m, Vector3(0.36, 0.08, 0.04), Vector3(0.16, b + haut * 0.42, 1.0), Color("#2a2a2a"))
+	# le balcon d'honneur sur consoles, et la porte cintrée sous lui
+	_boite(m, Vector3(l * 0.42, 0.18, 1.0), Vector3(0, rdc + 0.1, 0.9), pierre)
+	_boite(m, Vector3(l * 0.42, 0.85, 0.05), Vector3(0, rdc + 0.6, 1.38), Color("#24282a"))
+	for cote in [-1.0, 1.0]:
+		_boite(m, Vector3(0.3, 0.5, 0.6), Vector3(cote * l * 0.17, rdc - 0.25, 0.75), ombre)
+	_boite(m, Vector3(2.0, 3.0, 0.1), Vector3(0, 1.5, 0.52), Color("#3b2a20"))
+	var arc := _boite(m, Vector3(1.4, 1.4, 0.1), Vector3(0, 3.0, 0.52), Color("#3b2a20"))
+	arc.rotation.z = PI * 0.25
+	_boite(m, Vector3(2.6, 0.3, 0.2), Vector3(0, 3.65, 0.6), pierre.lightened(0.05))
+	# le drapeau
+	_boite(m, Vector3(0.05, 2.2, 0.05), Vector3(l * 0.18, rdc + 1.4, 1.6), Color("#2a2a2a")).rotation.x = 0.5
+	var drapeau := Node3D.new()
+	drapeau.position = Vector3(l * 0.18, rdc + 2.2, 2.05)
+	m.add_child(drapeau)
+	for k in 3:
+		_boite(drapeau, Vector3(0.05, 0.9, 0.42), Vector3(0, -0.35, 0.21 + 0.42 * k), [Color("#24408e"), Color("#f4f1ea"), Color("#c8102e")][k])
+
+
 ## Le sergent Blandan de Lamotte, bronze vert sur son haut socle de pierre de Villebois, face au sud (la
 ## planche) : le soldat debout, le shako, la capote, le fusil à la main droite, le bras gauche tendu.
 func _blandan(s: Node3D) -> void:
@@ -1319,7 +1442,19 @@ func _blandan(s: Node3D) -> void:
 	_forme(s, _blo(Vector3(1.5, 0.2, 1.5)), Vector3(0, 3.46, 0), pierre.darkened(0.04))
 	var vert := Color("#4a4a35")
 	var vert_clair := Color("#5f6b4e")
-	_forme(s, _blo(Vector3(0.9, 0.6, 0.03)), Vector3(0, 2.2, 0.965), vert, Vector3.ZERO, 0.5)
+	# la plaque de bronze sur le dé, à cadre mouluré et lettres en relief, polies par la patine
+	_forme(s, _blo(Vector3(1.0, 0.7, 0.03)), Vector3(0, 2.2, 0.965), vert.darkened(0.2), Vector3.ZERO, 0.5).material_override = _bronze(vert.darkened(0.2), vert)
+	_forme(s, _blo(Vector3(0.88, 0.58, 0.03)), Vector3(0, 2.2, 0.98), vert, Vector3.ZERO, 0.5).material_override = _bronze(vert, vert_clair)
+	var lettres := Label3D.new()
+	lettres.text = "AU SERGENT\nBLANDAN\n1842"
+	lettres.font_size = 40
+	lettres.pixel_size = 0.0042
+	lettres.outline_size = 0
+	lettres.modulate = Color("#b9b07a")
+	lettres.shaded = true
+	lettres.double_sided = false
+	lettres.position = Vector3(0, 2.2, 0.997)
+	s.add_child(lettres)
 	# le soldat (2,8 m), modelé à part (sculptures/sculpter.py), sur sa terrasse de bronze, face à la place
 	_forme(s, _sculpture("blandan"), Vector3(0, 3.56, 0), vert, Vector3.ZERO, 0.55).material_override = _bronze(vert, vert_clair)
 
@@ -1516,7 +1651,8 @@ func _colline(x: float, z: float) -> float:
 func _reperes() -> void:
 	var reperes := {
 		"Arrivee": [Vector2(-157.0, 143.0), Vector2(-148.0, 40.0)],
-		"Vue1a_Passerelle": [Vector2(-157.0, 143.0), Vector2(-148.0, 40.0)],
+		# sur le quai Saint-Vincent, à douze mètres de l'eau : la Saône, la passerelle et Fourvière en face
+		"Vue1a_Passerelle": [Vector2(-152.0, 160.0), Vector2(-300.0, 285.0)],
 		"Vue1b_Martiniere": [Vector2(-149.0, 114.0), Vector2(0.0, 116.0)],
 		"Vue1c_Rambaud": [Vector2(-30.0, 114.0), Vector2(68.0, 118.0)],
 		"Vue1d_Vitet": [Vector2(68.0, 116.0), Vector2(34.0, 57.0)],
