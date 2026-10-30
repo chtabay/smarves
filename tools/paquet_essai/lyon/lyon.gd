@@ -441,11 +441,21 @@ const RIVE_SUD := [Vector2(-432, 188), Vector2(-351, 188), Vector2(-314, 186), V
 const PASSERELLE := [Vector2(-166.0, 163.0), Vector2(-202.0, 226.5)]
 ## Le point de vue du quai, à trois mètres du parapet : la passerelle de trois quarts, la Saône et Fourvière.
 const QUAI_VUE := Vector2(-138.0, 177.0)
-## Le regard de la Vue1a : tourné de 15° vers le quai pour le prendre en enfilade, et l'œil reculé d'un pas
-## (1,5 m), pour que le parapet passe sous le quart bas du cadre.
 ## au-delà, en mètres (la scène est en unités du jeu, d'où le / U), le relief des façades de la ville s'efface devant leur volume peint
 const RELIEF_PORTEE := 70.0
 var _modules_ville: Array[Node3D] = []
+## Le parcours à pied par les rues (parcours_commune --reperes=Pas) : du quai au belvédère par la Martinière,
+## Rambaud, Louis-Vitet et la place, puis redescendu jusqu'au sas des Terreaux. Chaque repère est un coude de rue,
+## pour que la marche en ligne droite d'un repère au suivant reste sur la chaussée. En mètres.
+const PAS := [
+	Vector2(-129, 179), Vector2(-162, 153), Vector2(-156, 142), Vector2(-151, 121), Vector2(-73, 120),
+	Vector2(-21, 120), Vector2(46, 121), Vector2(70, 116), Vector2(70, 109), Vector2(34, 57), Vector2(12, 49),
+	Vector2(-8, 49), Vector2(-8, -10), Vector2(10, -11), Vector2(16.4, -44), Vector2(16.4, -83), Vector2(16.4, -44),
+	Vector2(10, -11), Vector2(-8, -10), Vector2(-8, 49), Vector2(12, 49), Vector2(34, 57), Vector2(70, 109),
+	Vector2(70, 119), Vector2(136, 122), Vector2(133, 118)
+]
+## Le regard de la Vue1a : tourné de 15° vers le quai pour le prendre en enfilade, et l'œil reculé d'un pas
+## (1,5 m), pour que le parapet passe sous le quart bas du cadre.
 const VUE1A_REGARD := Vector2(-0.989, 0.146)
 const VUE1A_OEIL := Vector2(-136.5, 175.3)
 
@@ -3066,6 +3076,12 @@ func _reperes() -> void:
 		var pa := Vector3(a.x, sol + 0.1, a.y) / U
 		m.global_transform = Transform3D(Basis(), pa)
 		m.look_at(Vector3(b.x / U, pa.y, b.y / U), Vector3.UP)
+	for k in PAS.size():
+		var q: Vector2 = PAS[k]
+		var m := Marker3D.new()
+		m.name = "Pas%02d" % (k + 1)
+		add_child(m)
+		m.global_position = Vector3(q.x, hauteur(q.x, q.y) + 0.1, q.y) / U
 
 
 func _joueur() -> void:
