@@ -23,7 +23,7 @@ const NOMS_RAISONS := {"pari": "pari inconnu", "mise": "mise hors limites", "sol
 
 ## Où le pensionnaire se crée, et où l'humain connecte son assistant (web/assistant, servie avec la version web).
 const LASSO := "https://lasso-sigma-ten.vercel.app/"
-const ASSISTANT := "https://smarves-web-chtabays-projects.vercel.app/assistant/"
+const ASSISTANT := "https://smarves.placet.app/assistant/"
 
 ## Les onglets de la fiche d'un pensionnaire.
 const ONGLETS := [["vie", "Sa vie"], ["histoire", "Son histoire"], ["humeur", "Humeur"], ["reglages", "Réglages"]]
