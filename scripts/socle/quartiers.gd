@@ -200,7 +200,8 @@ static func lointain_de(parent: Node, c: Commune, nom: String) -> Node3D:
 ## maillages fixes fondus par matière (Lointain.quartier), visibles à toute distance. null si rien à fondre.
 static func fondre(plein: Node3D) -> Node3D:
 	# Un quartier déjà traité par Lointain (méta « lointain » lue par Chargement) a déjà ses maillages fondus.
-	Lointain.quartier(plein, 0.0)
+	# Version légère : ce qui fait moins d'un mètre disparaît, les maillages lourds deviennent leur boîte.
+	Lointain.quartier(plein, 0.0, true)
 	var n := Node3D.new()
 	n.name = "%s_loin" % plein.name
 	n.transform = plein.transform

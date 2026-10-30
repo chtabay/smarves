@@ -154,6 +154,38 @@ func _init() -> void:
 	check(veille.voulus() == ["bas"], "revenu dans le rayon, le quartier redevient courant")
 	ville.free()
 
+	# La version légère : sous un mètre, rien ; un maillage lourd devient sa boîte.
+	var lourd := Node3D.new()
+	lourd.name = "lourd"
+	# la racine reçoit ses objets lointains (Chargement) à l'image suivante : pas ici, on fond tout de suite
+	lourd.set_meta("sans_lointain", true)
+	root.add_child(lourd)
+	var sphere := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = 5.0
+	sm.height = 10.0
+	sm.radial_segments = 128
+	sm.rings = 64
+	sphere.mesh = sm
+	sphere.position = Vector3(0, 5, 0)
+	lourd.add_child(sphere)
+	var petit := MeshInstance3D.new()
+	petit.mesh = BoxMesh.new()
+	petit.mesh.size = Vector3(0.5, 0.5, 0.5)
+	lourd.add_child(petit)
+	var maison := MeshInstance3D.new()
+	maison.mesh = BoxMesh.new()
+	maison.mesh.size = Vector3(8, 6, 8)
+	maison.position = Vector3(20, 3, 0)
+	lourd.add_child(maison)
+	var leger := Quartiers.fondre(lourd)
+	var sommets := 0
+	for morceau in leger.get_children():
+		sommets += Lointain._sommets((morceau as MeshInstance3D).mesh)
+	check(leger != null and sommets == 48, "version légère : la sphère de 8 000 sommets devient sa boîte, la caisse de 50 cm disparaît, la maison reste (%d sommets)" % sommets)
+	leger.free()
+	lourd.free()
+
 	# Sous une ville réduite (Lyon : 1/2,4), la veille mesure toujours en mètres, dans le repère du parent.
 	var reduite := Node3D.new()
 	reduite.scale = Vector3.ONE / 2.4

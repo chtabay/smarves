@@ -432,6 +432,10 @@ static func _morceau(mm: MultiMeshInstance3D, mesh: Mesh, indices: Array, quoi: 
 const QUARTIER_DES := 150.0
 ## Les surfaces d'un maillage fondu : au-delà, un second maillage prend la suite.
 const SURFACES_MAX := 64
+## La version légère (quartier(q, des, true)) : en dessous de cette taille, en mètres, un maillage disparaît ;
+## au-dessus de ce nombre de sommets, il devient sa boîte.
+const LEGER_MIN := 1.0
+const LEGER_SOMMETS := 2_000
 
 
 ## Donne au quartier (un nœud et tout ce qu'il porte) sa version lointaine : un nœud « <nom>_loin », enfant
@@ -439,7 +443,7 @@ const SURFACES_MAX := 64
 ## maillages fixes et visibles : pas ceux à os, ni ceux qui ont déjà leur distance, ni ceux d'une branche
 ## marquée « sans_lointain » (une porte qui s'ouvre, une enseigne qui clignote). Renvoie le nombre de
 ## maillages fondus (0 : rien à faire, ou quartier déjà traité).
-static func quartier(q: Node3D, des := QUARTIER_DES) -> int:
+static func quartier(q: Node3D, des := QUARTIER_DES, leger := false) -> int:
 	if not is_instance_valid(q) or q.has_meta("lointain_fait"):
 		return 0
 	q.set_meta("lointain_fait", true)
@@ -450,6 +454,22 @@ static func quartier(q: Node3D, des := QUARTIER_DES) -> int:
 		if not _fondable(mi, q):
 			continue
 		var t := repere * mi.global_transform
+		if leger:
+			# La version légère d'un quartier de ville (socle 1.29) : ce qui fait moins de LEGER_MIN m ne se
+			# voit pas d'un autre quartier et disparaît ; un maillage lourd (une façade ouvragée, un massif de
+			# plantes) devient sa boîte, dans la matière de sa plus grande surface.
+			var boite_mi := mi.mesh.get_aabb()
+			if boite_mi.get_longest_axis_size() * t.basis.get_scale().x < LEGER_MIN:
+				continue
+			if _sommets(mi.mesh) > LEGER_SOMMETS:
+				var box := BoxMesh.new()
+				box.size = boite_mi.size
+				var mat := _matiere_principale(mi)
+				if not par_matiere.has(mat):
+					par_matiere[mat] = []
+				par_matiere[mat].append([box, 0, t * Transform3D(Basis(), boite_mi.get_center())])
+				pris.append(mi)
+				continue
 		for s in mi.mesh.get_surface_count():
 			if mi.mesh is ArrayMesh and mi.mesh.surface_get_primitive_type(s) != Mesh.PRIMITIVE_TRIANGLES:
 				continue
@@ -497,6 +517,36 @@ static func quartier(q: Node3D, des := QUARTIER_DES) -> int:
 	for mi in pris:
 		mi.visibility_parent = mi.get_path_to(premier)
 	return pris.size()
+
+
+## Le nombre de sommets d'un maillage, toutes surfaces confondues.
+static func _sommets(m: Mesh) -> int:
+	var n := 0
+	for s in m.get_surface_count():
+		if m is ArrayMesh:
+			n += (m as ArrayMesh).surface_get_array_len(s)
+		else:
+			var a := m.surface_get_arrays(s)
+			if a.size() > Mesh.ARRAY_VERTEX and a[Mesh.ARRAY_VERTEX] != null:
+				n += (a[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()
+	return n
+
+
+## La matière de la plus grande surface d'un maillage (celle qui a le plus de sommets), résolue comme le moteur :
+## la surcharge du nœud, puis celle de la surface, puis la matière du maillage.
+static func _matiere_principale(mi: MeshInstance3D) -> Material:
+	if mi.material_override != null:
+		return mi.material_override
+	var m := mi.mesh
+	var meilleur := 0
+	var taille := -1
+	for s in m.get_surface_count():
+		var n := (m as ArrayMesh).surface_get_array_len(s) if m is ArrayMesh else 1
+		if n > taille:
+			taille = n
+			meilleur = s
+	var mat: Material = mi.get_surface_override_material(meilleur)
+	return mat if mat != null else m.surface_get_material(meilleur)
 
 
 static func _fondable(mi: MeshInstance3D, q: Node) -> bool:
