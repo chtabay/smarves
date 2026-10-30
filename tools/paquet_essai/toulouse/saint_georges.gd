@@ -376,6 +376,44 @@ static func _portes(t, portes: Dictionary) -> void:
 		f.shape = forme
 		zone.add_child(f)
 		repere.add_child(zone)
+		if id == "notaire":
+			_panonceau(repere)
+
+
+## Le panonceau du notaire, à droite de la porte : l'ovale noir bordé d'or, « NOTAIRE », lisible de la place
+## (juge, v0.30 : sans lui on ne sait pas que c'est un notaire).
+static func _panonceau(repere: Node3D) -> void:
+	var u := 1.0 / UNITE
+	var p := Node3D.new()
+	p.position = Vector3(1.0, 1.75 * u, -0.3)
+	repere.add_child(p)
+	var or_ := StandardMaterial3D.new()
+	or_.albedo_color = Color("c9a45c")
+	or_.metallic = 0.6
+	or_.roughness = 0.35
+	var noir := StandardMaterial3D.new()
+	noir.albedo_color = Color("141414")
+	for k in 2:
+		var mi := MeshInstance3D.new()
+		var c := CylinderMesh.new()
+		c.top_radius = (0.27 if k == 0 else 0.24) * u
+		c.bottom_radius = c.top_radius
+		c.height = 0.03 * u
+		c.material = or_ if k == 0 else noir
+		mi.mesh = c
+		mi.rotation.x = PI * 0.5
+		mi.scale = Vector3(1.0, 1.0, 0.72)
+		mi.position.z = k * 0.012 * u
+		p.add_child(mi)
+	var l := Label3D.new()
+	l.text = "NOTAIRE"
+	l.font = Polices.texte()
+	l.font_size = 48
+	l.pixel_size = 0.0018
+	l.modulate = Color("e3c172")
+	l.outline_size = 0
+	l.position.z = 0.04 * u
+	p.add_child(l)
 
 
 ## Vrai si la brique est dans la bibliothèque de ce socle (les briques toulousaines, tant qu'elles n'y sont pas,
@@ -1001,6 +1039,9 @@ static func _taxi(racine: Node3D) -> void:
 		_pave(arret, Vector3(0.0, 0.004, z * u), Vector3(5.2, 0.008, 0.1) * u, jaune)
 	for x in [-2.6, 2.6]:
 		_pave(arret, Vector3(x * u, 0.004, 0.0), Vector3(0.1, 0.008, 1.2) * u, jaune)
+	for z in [-0.55, 0.55]:
+		_pave(arret, Vector3(-5.2 * u, 0.004, z * u), Vector3(5.2, 0.008, 0.1) * u, jaune)
+	_pave(arret, Vector3(-7.8 * u, 0.004, 0.0), Vector3(0.1, 0.008, 1.2) * u, jaune)
 	var sol := Label3D.new()
 	sol.text = "TAXI"
 	sol.font = Polices.texte()
@@ -1012,21 +1053,34 @@ static func _taxi(racine: Node3D) -> void:
 	sol.position = Vector3(-1.6 * u, 0.012, 0.0)
 	arret.add_child(sol)
 	# le taxi garé, le long de la rue (la voiture de la ville du socle, à l'échelle)
+	# deux taxis garés à la file, le lumineux « TAXI » sur le toit (juge, v0.30)
 	var voiture: PackedScene = load("res://assets/kaykit/city/car_taxi.gltf")
-	if voiture != null:
-		var v := voiture.instantiate() as Node3D
-		v.rotation.y = PI * 0.5
-		v.scale = Vector3.ONE * 4.5 * u
-		v.position = Vector3(0.3 * u, 0.0, 0.05 * u)
-		arret.add_child(v)
 	var corps := StaticBody3D.new()
-	var forme := CollisionShape3D.new()
-	var boite := BoxShape3D.new()
-	boite.size = Vector3(4.3, 1.5, 1.9) * u
-	forme.shape = boite
-	forme.position = Vector3(0.3 * u, 0.75 * u, 0.05 * u)
-	corps.add_child(forme)
 	arret.add_child(corps)
+	for x in [0.3, -4.6]:
+		if voiture != null:
+			var v := voiture.instantiate() as Node3D
+			v.rotation.y = PI * 0.5
+			v.scale = Vector3.ONE * 4.5 * u
+			v.position = Vector3(x * u, 0.0, 0.05 * u)
+			arret.add_child(v)
+		_pave(arret, Vector3(x * u, 1.62 * u, 0.05 * u), Vector3(0.22, 0.16, 0.6) * u, blanc)
+		var toit := Label3D.new()
+		toit.text = "TAXI"
+		toit.font = Polices.texte()
+		toit.font_size = 32
+		toit.pixel_size = 0.0016
+		toit.modulate = Color("1d2422")
+		toit.outline_size = 0
+		toit.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
+		toit.position = Vector3(x * u, 1.7 * u, 0.05 * u)
+		arret.add_child(toit)
+		var forme := CollisionShape3D.new()
+		var boite := BoxShape3D.new()
+		boite.size = Vector3(4.3, 1.5, 1.9) * u
+		forme.shape = boite
+		forme.position = Vector3(x * u, 0.75 * u, 0.05 * u)
+		corps.add_child(forme)
 	# la zone : devant le taxi, côté rue
 	var zone := Area3D.new()
 	zone.name = "Zone"
@@ -1107,7 +1161,7 @@ static func _vie(racine: Node3D) -> void:
 			g += 1
 	# Des haltes : deux voisins devant les étals, deux au bord de la terrasse de Lafage, deux sur le trottoir
 	# de la grande terrasse du sud-ouest.
-	for paire in [[Vector2(12.2, 7.6), Vector2(12.7, 7.1)], [Vector2(10.6, -6.8), Vector2(11.1, -7.3)], [Vector2(-1.0, 4.6), Vector2(-0.6, 5.2)],
+	for paire in [[Vector2(12.2, 7.6), Vector2(12.7, 7.1)], [Vector2(10.6, -6.8), Vector2(11.1, -7.3)], [Vector2(-1.0, 4.6), Vector2(-0.6, 5.2)], [Vector2(-1.7, -1.7), Vector2(-1.2, -1.2)],
 			[Vector2(8.6, -5.6), Vector2(9.1, -6.1)], [Vector2(15.2, -5.2), Vector2(15.7, -5.7)], [Vector2(17.5, -7.5), Vector2(18.0, -7.0)], [Vector2(9.6, -4.2), Vector2(10.1, -4.0)]]:
 		for k in 2:
 			var p: Vector2 = paire[k]
