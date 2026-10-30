@@ -827,9 +827,13 @@ static func _mobilier_toulousain(t, racine: Node3D) -> void:
 	for rang in 2:
 		for i in 5:
 			var p: Vector2 = Vector2(0.2, 7.6) + rue_sw * (1.4 + i * 1.6) + vers_place * (1.4 + rang * 1.25)
-			poser.call("terrasse", p, -0.45, g, {"tables": 2})
-			if (i + rang) % 2 == 0:
-				poser.call("parasol", p + rue_sw * 0.15, 0.0, g + 1, {"toile": creme if i % 3 != 1 else ["8a2a2e", "8a2a2e"]})
+			# un client sur une table sur trois (verdict du juge sur la v0.8a)
+			poser.call("terrasse", p, -0.45, g, {"tables": 2, "clients": 1 if (rang * 5 + i) % 3 != 2 else 0})
+			# des parasols ronds et des grands parasols mêlés, crème et bordeaux sur un rythme irrégulier
+			var k := rang * 5 + i
+			if k in [0, 2, 3, 6, 8, 9]:
+				var toile = ["8a2a2e", "8a2a2e"] if k in [2, 6, 9] else creme
+				poser.call("grand_parasol" if k in [3, 8] else "parasol", p + rue_sw * 0.15, 0.0, g + 1, {"toile": toile})
 			g += 2
 	# Une file de potelets de fonte tous les 2,5 m le long de la rue du sud-ouest, côté place (la cible).
 	var rue := [Vector2(-4.6, 1.2), Vector2(0.2, 7.6), Vector2(4.4, 16.8)]
