@@ -11,6 +11,8 @@ const Outils := preload("res://bibliotheque/facadier-lyonnais/1/outils.gd")
 const ENDUIT := Color("f2e4cf")
 const BRIQUE := Color("c8653f")
 const BRIQUE_SOMBRE := Color("a4512e")
+# le fond de brique des étages, chaînages et encadrements clairs (juge, v0.13 : 54 % de brique sur la cible)
+const FOND := Color("b5603c")
 const PIERRE := Color("efe6d4")
 const PIERRE_OMBRE := Color("d9cbb0")
 const VOLET := Color("9daa92")
@@ -33,24 +35,24 @@ static func construire(parent: Node3D, l: float, d: float) -> void:
 	var x0 := -l * 0.5 + 1.2
 	var H := RDC + ETAGE1 + ETAGE2
 	var centre := [5, 6, 7]
-	# Le mur des étages, l'enduit pâle ; l'avant-corps central avance de 40 cm.
-	o.boite(Transform3D(Basis(), Vector3(0, RDC + (H - RDC) * 0.5, -0.1)), Vector3(l, H - RDC, 0.4), ENDUIT)
+	# Le mur des étages, en brique ; l'avant-corps central avance de 40 cm.
+	o.boite(Transform3D(Basis(), Vector3(0, RDC + (H - RDC) * 0.5, -0.1)), Vector3(l, H - RDC, 0.4), FOND)
 	var ac0 := x0 + 5 * t
 	var ac1 := x0 + 8 * t
-	o.boite(Transform3D(Basis(), Vector3((ac0 + ac1) * 0.5, H * 0.5, 0.25)), Vector3(ac1 - ac0, H, 0.3), ENDUIT)
-	# Les chaînes de brique et de pierre en harpe : aux angles, et de part et d'autre de l'avant-corps.
+	o.boite(Transform3D(Basis(), Vector3((ac0 + ac1) * 0.5, H * 0.5, 0.25)), Vector3(ac1 - ac0, H, 0.3), FOND)
+	# Les chaînes de pierre claire en harpe : aux angles, et de part et d'autre de l'avant-corps.
 	for x in [-l * 0.5 + 0.45, l * 0.5 - 0.45, ac0 + 0.4, ac1 - 0.4]:
 		var z := 0.45 if x == ac0 + 0.4 or x == ac1 - 0.4 else 0.15
 		var y := RDC
 		var k := 0
 		while y < H - 0.1:
 			var h := minf(0.5, H - y)
-			o.boite(Transform3D(Basis(), Vector3(x, y + h * 0.5, z)), Vector3(0.9 if k % 2 == 0 else 0.62, h, 0.12), BRIQUE if k % 2 == 0 else PIERRE)
+			o.boite(Transform3D(Basis(), Vector3(x, y + h * 0.5, z)), Vector3(0.9 if k % 2 == 0 else 0.62, h, 0.12), PIERRE if k % 2 == 0 else PIERRE_OMBRE.lerp(PIERRE, 0.5))
 			y += h
 			k += 1
 	# Les bandeaux de brique entre les étages, la corniche de pierre.
-	o.boite(Transform3D(Basis(), Vector3(0, RDC + 0.12, 0.2)), Vector3(l + 0.1, 0.24, 0.3), BRIQUE)
-	o.boite(Transform3D(Basis(), Vector3(0, RDC + ETAGE1 + 0.08, 0.17)), Vector3(l + 0.1, 0.16, 0.24), BRIQUE)
+	o.boite(Transform3D(Basis(), Vector3(0, RDC + 0.12, 0.2)), Vector3(l + 0.1, 0.24, 0.3), PIERRE)
+	o.boite(Transform3D(Basis(), Vector3(0, RDC + ETAGE1 + 0.08, 0.17)), Vector3(l + 0.1, 0.16, 0.24), PIERRE)
 	o.boite(Transform3D(Basis(), Vector3(0, H + 0.25, 0.2)), Vector3(l + 0.4, 0.5, 0.5), PIERRE_OMBRE)
 	o.boite(Transform3D(Basis(), Vector3(0, H + 0.62, 0.32)), Vector3(l + 0.6, 0.24, 0.74), PIERRE)
 	# Le rez-de-chaussée : treize arcades en plein cintre, claveaux alternés, la galerie sombre derrière.
@@ -127,7 +129,7 @@ static func _arcades(o: Outils, x0: float, t: float, l: float) -> void:
 		var pts := PackedVector2Array([Vector2(-t * 0.5, naissance), Vector2(-t * 0.5, RDC), Vector2(t * 0.5, RDC), Vector2(t * 0.5, naissance)])
 		for p in arc:
 			pts.append(p)
-		o.profil(Transform3D(Basis(), Vector3(cx, 0, 0)), pts, 0.0, 0.6, ENDUIT)
+		o.profil(Transform3D(Basis(), Vector3(cx, 0, 0)), pts, 0.0, 0.6, FOND)
 		for k in 9:
 			var a0 := PI * k / 9.0
 			var a1 := PI * (k + 1) / 9.0
@@ -145,8 +147,8 @@ static func _arcades(o: Outils, x0: float, t: float, l: float) -> void:
 
 
 static func _fenetre(o: Outils, p: Vector3, w: float, h: float, balcon: bool, graine: int) -> void:
-	# L'encadrement de brique, la clé de pierre, l'appui saillant.
-	o.boite(Transform3D(Basis(), p + Vector3(0, h * 0.5, 0.04)), Vector3(w + 0.42, h + 0.32, 0.1), BRIQUE)
+	# L'encadrement de pierre, la clé de pierre, l'appui saillant.
+	o.boite(Transform3D(Basis(), p + Vector3(0, h * 0.5, 0.04)), Vector3(w + 0.42, h + 0.32, 0.1), PIERRE_OMBRE)
 	o.boite(Transform3D(Basis(), p + Vector3(0, h * 0.5, 0.06)), Vector3(w, h, 0.1), VITRE)
 	o.boite(Transform3D(Basis(), p + Vector3(0, h * 0.5, 0.075)), Vector3(0.06, h, 0.06), PIERRE)
 	o.boite(Transform3D(Basis(), p + Vector3(0, h + 0.2, 0.1)), Vector3(0.36, 0.42, 0.14), PIERRE)
