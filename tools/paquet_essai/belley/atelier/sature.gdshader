@@ -4,7 +4,7 @@ shader_type spatial;
 // franches (tuiles, volets, portes, fleurs) gagnent en saturation, les enduits et les pierres, peu chromatiques,
 // restent sourds.
 render_mode diffuse_burley;
-uniform float gain = 1.35;
+uniform float gain = 1.1;
 
 void fragment() {
  vec3 c = COLOR.rgb;

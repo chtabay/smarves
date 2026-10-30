@@ -46,6 +46,7 @@ func batir(parent: Node3D) -> void:
 	_trottoirs(n)
 	_rue_des_barons(n)
 	_mur_de_jardin(n)
+	_marche(n, d, nrm, longueur)
 	# Le côté ouvert de la rue des Barons, en descendant vers la place : un trottoir, sa bordure et une haie basse
 	# devant les jardins, au lieu d'un talus de pelouse (verdict n° 19).
 	var bugey: PackedScene = load(Bibliotheque.scene("vegetation-du-bugey@1", "decor"))
@@ -241,3 +242,39 @@ func _mur_de_jardin(n: Node3D) -> void:
 		o.boite(Transform3D(base, Vector3(c.x, yp + 0.32, c.y) + Vector3(-dehors.x, 0, -dehors.y) * 0.05), Vector3(1.12, 0.12, 0.04), PORTE.darkened(0.12))
 		o.boite(Transform3D(base * Basis(Vector3.BACK, cote * 0.95), Vector3(c.x, yp + 0.97, c.y) + Vector3(-dehors.x, 0, -dehors.y) * 0.05), Vector3(1.45, 0.1, 0.04), PORTE.darkened(0.12))
 	o.construire(n, "MurDeJardin")
+
+
+## Un peu de vie sur la place (verdict n° 25) : deux étals de primeurs au bout du parvis, leurs caisses et une
+## charrette, des clients devant ; deux bancs où l'on s'arrête.
+func _marche(n: Node3D, d: Vector2, nrm: Vector2, longueur: float) -> void:
+	var scene: PackedScene = load(Bibliotheque.scene("mobilier-du-bugey@1", "decor"))
+	var lacet := atan2(d.x, d.y)
+	var objets := [
+		["etal", longueur - 5.0, -7.4, 0.0],
+		["etal", longueur - 10.5, -7.4, 0.0],
+		["caisses", longueur - 7.8, -6.2, 0.4],
+		["charrette", longueur - 2.0, -8.8, 1.2],
+		["banc", 11.5, -9.6, 0.0],
+		["banc", 22.0, -9.6, 0.0],
+	]
+	var g := 80
+	for ob in objets:
+		var m: Node3D = scene.instantiate()
+		m.set("objet", ob[0])
+		m.set("options", {"allume": false})
+		m.set("graine", g)
+		g += 1
+		m.position = _p(PLACE.ALLEE_A + d * float(ob[1]) + nrm * float(ob[2]), 0.17)
+		m.rotation.y = lacet + PI * 0.5 + float(ob[3])
+		n.add_child(m)
+	# Les clients devant les étals.
+	for k in 5:
+		var f := Atelier.personnage("client", 380 + k)
+		if f == null:
+			continue
+		n.add_child(f)
+		var t := longueur - 4.0 - k * 1.6
+		var v := PLACE.ALLEE_A + d * t + nrm * (-5.4 + 0.3 * float(k % 2))
+		f.position = _p(v, 0.17)
+		f.regarder(_p(PLACE.ALLEE_A + d * t + nrm * -7.4))
+		f.jouer(["idle", "talk", "arms", "idle", "phone"][k])

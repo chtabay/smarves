@@ -23,8 +23,10 @@ uniform float roche_pente = 0.6;   // sous ce cos de pente, la roche apparaît
 uniform float roche_pleine = 0.45;  // et couvre tout
 uniform float loin = 0.0;           // 1 sur les lointains : moins de grain, plus de lavis
 
-const vec3 PRE = vec3(0.49, 0.58, 0.29);
-const vec3 PRE_SEC = vec3(0.59, 0.58, 0.34);
+// Plus verts depuis le verdict n° 25 (les verts du rendu à 86 de saturation contre 161 sur la planche) : vers
+// #8FB03A, en gardant la marge du jeu sur l'illustration.
+const vec3 PRE = vec3(0.53, 0.645, 0.25);
+const vec3 PRE_SEC = vec3(0.60, 0.62, 0.31);
 const vec3 FORET = vec3(0.20, 0.30, 0.13);
 const vec3 FORET_CLAIR = vec3(0.33, 0.44, 0.18);
 const vec3 HAIE = vec3(0.27, 0.38, 0.16);
@@ -34,9 +36,10 @@ const vec3 LANDE = vec3(0.50, 0.50, 0.32);
 const vec3 EAU = vec3(0.30, 0.44, 0.52);
 const vec3 CIEL_REFLET = vec3(0.50, 0.63, 0.74);
 const vec3 ROUTE = vec3(0.53, 0.50, 0.47);
-const vec3 ROCHE = vec3(0.60, 0.59, 0.55);
+// Plus sourdes depuis le verdict n° 25 : les barres sortaient en taches blanches sur les crêtes de la vue d'ensemble.
+const vec3 ROCHE = vec3(0.54, 0.53, 0.49);
 const vec3 ROCHE_OMBRE = vec3(0.40, 0.40, 0.38);
-const vec3 ROCHE_LOIN = vec3(0.64, 0.61, 0.54);
+const vec3 ROCHE_LOIN = vec3(0.55, 0.53, 0.47);
 const vec3 OMBRE_BORD = vec3(0.43, 0.42, 0.37);  // le trait d'ombre sous le bord haut de la barre
 
 varying vec3 monde;
@@ -128,7 +131,8 @@ vec3 jardins(vec2 xz, float g) {
 	vec2 f = vec2(xq - cel.x * long_, fy);
 	vec2 taille = vec2(long_, prof);
 	float h = h21(cel);
-	vec3 pelouse = mix(vec3(0.43, 0.50, 0.31), vec3(0.39, 0.46, 0.28), h21(cel + 3.1)) * (0.93 + 0.12 * fbm(xz * 0.4));
+	// La pelouse des jardins vers #5F9A30 (verdict n° 25).
+	vec3 pelouse = mix(vec3(0.40, 0.56, 0.24), vec3(0.37, 0.53, 0.22), h21(cel + 3.1)) * (0.93 + 0.12 * fbm(xz * 0.4));
 	vec3 potager = mix(vec3(0.48, 0.41, 0.31), vec3(0.37, 0.47, 0.26), smoothstep(0.35, 0.65, fract(f.y / 1.3)));
 	vec3 gravier = vec3(0.70, 0.65, 0.55) * (0.95 + 0.08 * fbm(xz * 2.0));
 	// Le verger : des fruitiers à peu près alignés, chacun de sa taille.
@@ -231,6 +235,9 @@ void fragment() {
 			roc = max(roc, m);
 			col = mix(teinte(1, xz, monde.y, g, g2, pres, pr), col, m);
 		}
+		// La roche relevée de ce côté-ci (le Molard, les côtes au-dessus du bourg) : comptée comme roche, pour que
+		// les lointains la fondent (verdict n° 25 : les taches blanches de la vue d'ensemble étaient elle).
+		if (c == 10 && xz.x <= 7300.0) roc = max(roc, 1.0);
 		eau = c == 7 ? 1.0 : 0.0;
 	} else {
 		// Le lointain : les teintes des quatre cases voisines, fondues (la carte a 37,5 m au pas).
@@ -294,6 +301,11 @@ void fragment() {
 		// Une face sur deux à l'ombre, au gris de la planche (#A9A391 au rendu).
 		col = mix(col, vec3(0.40, 0.39, 0.35), roc * smoothstep(0.42, 0.5, fbm(xz * 0.01 + 51.0)));
 	}
+	// Au-delà de 500 m, les barres des collines voisines sortaient en taches blanches sur le pré (verdicts n° 21
+	// à 25) : elles s'y fondent dans le vert gris du versant. Pas sur la rive savoyarde, dont
+	// les falaises sont le sujet de la vue du relais.
+	float mi_loin = smoothstep(500.0, 2500.0, distance(monde, CAMERA_POSITION_WORLD));
+	col = mix(col, vec3(0.44, 0.49, 0.37), roc * mi_loin * 0.75 * (1.0 - step(7300.0, xz.x)));
 	// L'eau prend le ciel, d'autant plus qu'on la voit en rasant ; des rides plus claires la parcourent.
 	float rasant = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);
 	float ride = smoothstep(0.62, 0.8, fbm(vec2(xz.x * 0.08, xz.y * 0.5))) * pres;

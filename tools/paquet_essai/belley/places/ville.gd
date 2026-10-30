@@ -219,6 +219,32 @@ func maison(o: RefCounted, m: Dictionary, graine: int) -> void:
 	retrait = minf(retrait, dx * 0.9)
 	var F1 := centre - ux * (dx - retrait)
 	var F2 := centre + ux * (dx - retrait)
+	# Les très grands plans (une halle, une école, un îlot fondu en un rectangle) portaient un seul toit à deux
+	# pans plus large que tout le reste de la ville (verdicts n° 19 à 25) : on le divise en corps de 10 à 14 m,
+	# chacun sa croupe, son faîtage un peu plus haut ou plus bas et sa tuile.
+	var corps := ceili(lx / 12.0) if (lx > 18.0 or lz > 11.0) and dist < 900.0 else 1
+	if corps > 1:
+		var l1 := lx / corps
+		var montee1 := minf(montee, 4.5)
+		for k in corps:
+			var cb := centre + ux * (-lx * 0.5 + (k + 0.5) * l1)
+			var dx1 := l1 * 0.5 + (debord if k == 0 or k == corps - 1 else 0.05)
+			var yf1 := egout + montee1 * (0.85 + 0.3 * float((k * 7 + graine) % 3) / 2.0)
+			var ye1 := egout - debord * montee1 / (lz * 0.5)
+			var t1: Color = TUILES[(rng.randi() + k) % TUILES.size()] if genre == OUTILS.TUILE else toit
+			var A1 := cb - ux * dx1 - uz * dz
+			var B1 := cb + ux * dx1 - uz * dz
+			var C1 := cb + ux * dx1 + uz * dz
+			var D1 := cb - ux * dx1 + uz * dz
+			var r1 := minf(dz, dx1 * 0.9)
+			var G1 := cb - ux * (dx1 - r1)
+			var G2 := cb + ux * (dx1 - r1)
+			o.pan(p3.call(A1, ye1), p3.call(B1, ye1), p3.call(G2, yf1), p3.call(G1, yf1), t1, genre)
+			o.pan(p3.call(C1, ye1), p3.call(D1, ye1), p3.call(G1, yf1), p3.call(G2, yf1), t1, genre)
+			o.croupe(p3.call(D1, ye1), p3.call(A1, ye1), p3.call(G1, yf1), t1, genre)
+			o.croupe(p3.call(B1, ye1), p3.call(C1, ye1), p3.call(G2, yf1), t1, genre)
+		o.quad(p3.call(A, ye - 0.08), p3.call(B, ye - 0.08), p3.call(Cc, ye - 0.08), p3.call(D, ye - 0.08), Vector3.DOWN, Color(0.35, 0.3, 0.26, 0.9), OUTILS.PEINT)
+		return
 	o.pan(p3.call(A, ye), p3.call(B, ye), p3.call(F2, yf), p3.call(F1, yf), toit, genre)
 	o.pan(p3.call(Cc, ye), p3.call(D, ye), p3.call(F1, yf), p3.call(F2, yf), toit, genre)
 	if croupe:
