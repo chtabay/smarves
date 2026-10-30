@@ -212,7 +212,8 @@ func _init() -> void:
 			d.set(lyonnais[ref][1], nom)
 			d.graine = 3
 			lyon.add_child(d)
-			var maillages := d.find_children("*", "MeshInstance3D", true, false)
+			# un maillage, plus au besoin son corps lointain (le niveau de détail au-delà de lod)
+			var maillages := d.find_children("*", "MeshInstance3D", true, false).filter(func(m): return not m.name.ends_with("Lointain"))
 			if d.get_meta(lyonnais[ref][1], "") != nom or maillages.size() != 1 or maillages[0].mesh.get_surface_count() > 3 or d.find_children("*", "CollisionShape3D", true, false).is_empty():
 				rates.append(nom)
 		check(noms.size() == lyonnais[ref][2] and rates.is_empty(), "%s : les %d se bâtissent, un maillage et un corps chacun %s" % [ref, noms.size(), str(rates)])

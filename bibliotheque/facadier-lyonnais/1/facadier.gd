@@ -62,7 +62,10 @@ const ETAGE := 3.3
 ## la façade Renaissance du Vieux-Lyon, pour Saint-Paul et Saint-Jean : enduit ocre rouge ou rose tiré par la graine
 ## (ou enduit), encadrements de pierre grise, croisées à meneaux dont certaines sous une accolade, cordons à chaque
 ## étage et sous les appuis, chaînes d'angle harpées, porte en arc surbaissé ; ni persiennes ni balcons ; toit bas
-## (pente 20 sauf pente) ; faux par défaut).
+## (pente 20 sauf pente) ; faux par défaut), lod (en mètres, 40 par défaut, 0 pour s'en passer : au-delà, le corps
+## détaillé s'efface au profit d'un corps lointain de quelques centaines de sommets, l'enduit, le toit et ses
+## souches, les fenêtres et les devantures peintes à plat ; demandé par le chef de chantier de Lyon pour tenir le
+## budget d'un quartier).
 ## Rend le nœud de l'immeuble ; ses métadonnées : type, graine, w, d, hauteur (au faîte), porte (le seuil).
 static func maison(parent: Node3D, p: Vector3, type: String, graine: int, opt := {}) -> Node3D:
 	if not type in TYPES:
@@ -133,10 +136,12 @@ static func maison(parent: Node3D, p: Vector3, type: String, graine: int, opt :=
 	var sd := 0.95 if grosses else 0.6
 	var nm := 4 if grosses else 3
 	var nc := 2 + (1 if w > 10.0 else 0)
+	var souches := []
 	for i in nc:
 		var x := lerpf(-w * 0.4, w * 0.4, float(i) / maxf(1, nc - 1)) + r.randf_range(-0.4, 0.4)
 		var z := -d * r.randf_range(0.45, 0.7)
 		var y := H + (faite - H) * 0.5
+		souches.append(Vector3(x, y, z))
 		o.boite(Transform3D(Basis(), Vector3(x, y + sh * 0.5 - 0.5, z)), Vector3(sw, sh, sd), enduit.lightened(0.05))
 		o.boite(Transform3D(Basis(), Vector3(x, y + sh - 0.45, z)), Vector3(sw + 0.15, 0.16, sd + 0.15), PIERRE_SOMBRE)
 		if grosses:
@@ -148,7 +153,18 @@ static func maison(parent: Node3D, p: Vector3, type: String, graine: int, opt :=
 				o.cylindre(Transform3D(Basis(), Vector3(xm, y + sh + 0.13, z)), 0.13, 0.14, 0.06, 8, Color("a85c3a"))
 			else:
 				o.cylindre(Transform3D(Basis(), Vector3(xm, y + sh - 0.37, z)), 0.09, 0.08, 0.32, 6, Color("b86a45"))
-	o.construire(n, "Corps")
+	var mi := o.construire(n, "Corps")
+	# le niveau de détail : au-delà de lod, le corps lointain remplace le corps détaillé (chef de chantier de Lyon)
+	var lod := maxf(float(opt.get("lod", 40.0)), 0.0)
+	if lod > 0.0:
+		mi.visibility_range_end = lod
+		mi.visibility_range_end_margin = 4.0
+		var o2 := Outils.new(graine * 2654435 + TYPES.find(type) * 13 + 7)
+		o2.leger = true
+		_corps_lointain(o2, w, d, H, faite, type, rdc, niveaux, style, toit, opt, souches, sw, sh, sd)
+		var ml := o2.construire(n, "Lointain")
+		ml.visibility_range_begin = lod
+		ml.visibility_range_begin_margin = 4.0
 	n.set_meta("type", type)
 	n.set_meta("graine", graine)
 	n.set_meta("w", w)
@@ -156,6 +172,72 @@ static func maison(parent: Node3D, p: Vector3, type: String, graine: int, opt :=
 	n.set_meta("hauteur", faite)
 	n.set_meta("porte", porte)
 	return n
+
+
+## Le corps lointain d'un immeuble, quelques centaines de sommets : le corps enduit, le toit sans ses rangs de
+## tuiles (mais avec son grain), la génoise en deux boîtes, les souches, et les façades peintes à plat.
+static func _corps_lointain(o: Outils, w: float, d: float, H: float, faite: float, type: String, rdc: String, niveaux: int, s: Dictionary, toit: String, opt: Dictionary, souches: Array, sw: float, sh: float, sd: float) -> void:
+	var enduit: Color = s.enduit
+	o.boite(Transform3D(Basis(), Vector3(0, H * 0.5, -d * 0.5)), Vector3(w, H, d), [enduit.darkened(0.06), enduit.darkened(0.06), enduit, enduit, enduit, enduit.darkened(0.1)])
+	_facade_lointaine(o, Transform3D(), w, niveaux, rdc, type, s)
+	if type == "angle":
+		var b := Basis(Vector3(0, 0, -1), Vector3(0, 1, 0), Vector3(1, 0, 0))
+		_facade_lointaine(o, Transform3D(b, Vector3(w * 0.5, 0, -d * 0.5)), d, niveaux, "boutique", "angle", s)
+	if toit == "mansarde":
+		_mansarde(o, w, d, H, o.rng)
+	else:
+		_quatre_pans(o, w, d, H, o.rng, _tuile(opt), float(opt.get("pente", 20.0 if s.renaissance else 24.0)), 0, clampf(float(opt.get("grain", 0.0)), 0.0, 2.0))
+	for q in souches:
+		o.boite(Transform3D(Basis(), q + Vector3(0, sh * 0.5 - 0.5, 0)), Vector3(sw, sh, sd), enduit.lightened(0.05))
+		o.boite(Transform3D(Basis(), q + Vector3(0, sh - 0.45, 0)), Vector3(sw + 0.15, 0.16, sd + 0.15), PIERRE_SOMBRE)
+
+
+## Une façade peinte à plat pour le corps lointain : les bandeaux, les fenêtres (le verre sombre dans un cadre de
+## pierre), la devanture, les arcades ou la porte, aux mêmes places que la façade détaillée.
+static func _facade_lointaine(o: Outils, t: Transform3D, w: float, niveaux: int, rdc: String, type: String, s: Dictionary) -> void:
+	var H := RDC + niveaux * ETAGE
+	var pierre := PIERRE_GRISE if s.renaissance else PIERRE
+	var nrm := t.basis * Vector3(0, 0, 1)
+	var plat := func(x0: float, y0: float, x1: float, y1: float, z: float, col: Color) -> void:
+		o.quad(t * Vector3(x0, y0, z), t * Vector3(x1, y0, z), t * Vector3(x1, y1, z), t * Vector3(x0, y1, z), nrm, col)
+	# le rez-de-chaussée
+	if not s.renaissance:
+		plat.call(-w * 0.5, 0.0, w * 0.5, RDC, 0.12, PIERRE)
+	match rdc:
+		"boutique", "cafe":
+			var bois: Color = Color("6e1f22") if rdc == "cafe" else s.bois
+			var l := w - 1.2
+			plat.call(-l * 0.5, 0.0, l * 0.5, 3.4, 0.16, bois)
+			plat.call(-l * 0.5 + 0.3, 0.3, l * 0.5 - 0.3, 2.6, 0.17, VERRE.darkened(0.15))
+			if s.store:
+				plat.call(-l * 0.5, 3.0, l * 0.5, 3.5, 0.3, Color(str(s.toile[0])))
+		"arcades", "passage":
+			var n := clampi(int(round(w / 2.9)), 2, 5)
+			if rdc == "passage" and n % 2 == 0:
+				n += 1
+			var pas := w / n
+			for i in n:
+				var x := -w * 0.5 + pas * (i + 0.5)
+				var milieu := rdc == "passage" and i == n / 2
+				plat.call(x - (pas - 0.7) * 0.5, 0.0, x + (pas - 0.7) * 0.5, 3.6 if milieu else 3.3, 0.13, SOMBRE if milieu else s.bois)
+		_:
+			plat.call(-0.8, 0.0, 0.8, 3.0, 0.13, s.bois.darkened(0.1))
+	# les bandeaux et la corniche
+	plat.call(-w * 0.5, RDC - 0.1, w * 0.5, RDC + 0.2, 0.18, pierre)
+	for i in range(1, niveaux):
+		plat.call(-w * 0.5, RDC + i * ETAGE - 0.12, w * 0.5, RDC + i * ETAGE + 0.02, 0.1, pierre)
+	plat.call(-w * 0.5, H - 0.2, w * 0.5, H, 0.24, pierre)
+	# les fenêtres, aux places de la façade détaillée
+	var nf := clampi(int(round((w - 1.2) / (2.2 if s.renaissance else 2.1))), 1, 5 if s.renaissance else 6)
+	var pas := (w - (1.6 if s.renaissance else 1.4)) / nf
+	var l := 1.15 if s.renaissance else 1.0
+	for e in niveaux:
+		var y0 := RDC + e * ETAGE + (0.6 if s.renaissance else 0.55)
+		var haute := (2.0 if e < niveaux - 1 else 1.7) if s.renaissance else (2.1 if e < 2 else (1.9 if e < niveaux - 1 else 1.7))
+		for i in nf:
+			var x := -w * 0.5 + (0.8 if s.renaissance else 0.7) + pas * (i + 0.5)
+			plat.call(x - l * 0.5 - 0.16, y0 - 0.1, x + l * 0.5 + 0.16, y0 + haute + 0.16, 0.04, pierre)
+			plat.call(x - l * 0.5, y0, x + l * 0.5, y0 + haute, 0.05, VERRE.darkened(0.2))
 
 
 ## Les deux teintes des tuiles : le pan et les rangs, l'option tuile (un hexa) ou le rouge orangé lyonnais.
@@ -445,8 +527,11 @@ static func _fenetre(o: Outils, t: Transform3D, p: Vector3, l: float, h: float, 
 		for cote in [-1.0, 1.0]:
 			var x: float = cote * (l * 0.5 + 0.16 + 0.27)
 			o.boite(tf * Transform3D(Basis(), Vector3(x, h * 0.5, 0.05)), Vector3(0.52, h, 0.05), per)
+			# les lames : des quads à plat sur le volet (24 sommets la boîte, 4 le quad ; le poids des façades)
+			var nrm := tf.basis * Vector3(0, 0, 1)
 			for k in int(h / 0.16):
-				o.boite(tf * Transform3D(Basis(), Vector3(x, 0.1 + k * 0.16, 0.08)), Vector3(0.46, 0.03, 0.02), per.darkened(0.15))
+				var y0 := 0.085 + k * 0.16
+				o.quad(tf * Vector3(x - 0.23, y0, 0.0765), tf * Vector3(x + 0.23, y0, 0.0765), tf * Vector3(x + 0.23, y0 + 0.03, 0.0765), tf * Vector3(x - 0.23, y0 + 0.03, 0.0765), nrm, per.darkened(0.15))
 
 
 ## Un balcon filant sur toute la largeur : la dalle de pierre sur ses consoles et la rampe de fonte.
@@ -739,7 +824,7 @@ static func _quatre_pans(o: Outils, w: float, d: float, H: float, r: RandomNumbe
 		var dir: Vector3 = (pan[1] - pan[0]).normalized()
 		var monte: Vector3 = haut - bas
 		var rangs := int(monte.length() / 0.45)
-		for k in rangs:
+		for k in (0 if o.leger else rangs):
 			var f := (k + 0.5) / rangs
 			var lk: float = long * (1.0 - f) if pan.size() == 3 else lerpf(long, (pan[2] - pan[3]).length(), f)
 			var centre: Vector3 = bas + monte * f + nrm.normalized() * 0.03
@@ -769,8 +854,8 @@ static func _quatre_pans(o: Outils, w: float, d: float, H: float, r: RandomNumbe
 		o.branche(a, b, 0.1, 0.1, tuile[1], 6)
 	for c in [c00, c10, c11, c01]:
 		o.branche(c, a if c.distance_to(a) < c.distance_to(b) else b, 0.08, 0.08, tuile[1], 5)
-	# la génoise : trois rangs de tuiles en encorbellement sous l'égout
-	for k in 3:
+	# la génoise : trois rangs de tuiles en encorbellement sous l'égout (un seul sur le corps lointain)
+	for k in (1 if o.leger else 3):
 		var ek := 0.1 + k * 0.15
 		o.boite(Transform3D(Basis(), Vector3(0, H + 0.2 - k * 0.12, ek * 0.5)), Vector3(w + ek * 2.0, 0.08, ek), Color("e6dcc6").darkened(k * 0.05))
 		o.boite(Transform3D(Basis(), Vector3(0, H + 0.2 - k * 0.12, -d - ek * 0.5)), Vector3(w + ek * 2.0, 0.08, ek), Color("e6dcc6").darkened(k * 0.05))
@@ -819,11 +904,13 @@ static func _mansarde(o: Outils, w: float, d: float, H: float, r: RandomNumberGe
 	o.profil(Transform3D(b, Vector3.ZERO), pts, -w * 0.5 - 0.1, w * 0.5 + 0.1, [ardoise[1], ardoise[0]])
 	var pente := atan2(hb, recul + 0.4)
 	var bb := Basis(Vector3.RIGHT, -(PI * 0.5 - pente))
-	for k in 6:
+	for k in (0 if o.leger else 6):
 		var f := (k + 0.5) / 6.0
 		o.boite(Transform3D(bb, Vector3(0, H + 0.15 + f * hb, 0.4 - f * (recul + 0.4) + 0.03)), Vector3(w + 0.2, 0.04, 0.04), ardoise[1])
 	# le zinc du brisis
 	o.boite(Transform3D(Basis(), Vector3(0, H + hb + 0.02, -recul)), Vector3(w + 0.25, 0.08, 0.14), Color("9aa0a3"))
+	if o.leger:
+		return H + hb + ht
 	var n := clampi(int(round((w - 1.2) / 2.1)), 2, 6)
 	var pas := (w - 1.4) / n
 	for i in n:
