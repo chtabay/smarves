@@ -13,6 +13,7 @@ const RELIEF := DOSSIER + "quartiers/_ville/relief.gd"
 const PAS_TERRAIN := 20.0
 ## Les hauteurs sous lesquelles le terrain est de l'eau (la Saône et le Rhône sont au zéro).
 const EAU_SOUS := 0.6
+const SHADER_MURS := DOSSIER + "quartiers/_ville/volumes.gdshader"
 const COULEUR_SOL := Color("#b8a98a")
 const COULEUR_EAU := Color("#3d5b57")
 const COULEUR_BOIS := Color("#4a6634")
@@ -110,6 +111,22 @@ static func _materiau() -> StandardMaterial3D:
 	return m
 
 
+## Les murs : la teinte de l'instance, des fenêtres peintes, les faces à l'ombre éclaircies (verdict 38).
+## Le soleil vient de lyon.gd (SOLEIL : hauteur et azimut d'où il vient), dans le repère de la ville.
+static func _materiau_murs(lyon: Script) -> Material:
+	var sh: Shader = load(SHADER_MURS)
+	if sh == null:
+		return _materiau()
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	var soleil = lyon.get("SOLEIL")
+	if typeof(soleil) == TYPE_DICTIONARY:
+		var h := deg_to_rad(float(soleil.get("hauteur", 31.0)))
+		var az := deg_to_rad(float(soleil.get("vient_de", 258.0)))
+		m.set_shader_parameter("soleil", Vector3(sin(az) * cos(h), sin(h), -cos(az) * cos(h)))
+	return m
+
+
 ## Les boîtes : un multimaillage pour les murs, un pour les toits, chaque boîte colorée.
 static func _boites(racine: Node3D, relief: Script, lyon: Script, sans: Rect2, reserves: Array) -> int:
 	var d = Atelier.donnees(VOLUMES)
@@ -131,6 +148,7 @@ static func _boites(racine: Node3D, relief: Script, lyon: Script, sans: Rect2, r
 	var murs := MultiMesh.new()
 	murs.transform_format = MultiMesh.TRANSFORM_3D
 	murs.use_colors = true
+	murs.use_custom_data = true
 	murs.mesh = BoxMesh.new()
 	murs.instance_count = gardes.size()
 	var toits := MultiMesh.new()
@@ -155,14 +173,15 @@ static func _boites(racine: Node3D, relief: Script, lyon: Script, sans: Rect2, r
 		var base := Basis(Vector3.UP, -ang)
 		murs.set_instance_transform(i, Transform3D(base.scaled(Vector3(l, h, pr)), Vector3(x, sol + h * 0.5, z)))
 		murs.set_instance_color(i, enduits[rng.randi() % enduits.size()])
+		murs.set_instance_custom_data(i, Color(l, h, pr, 0.0))
 		var ht := 0.0 if toit == 3 else clampf(pr * 0.35, 1.5, 6.0)
 		toits.set_instance_transform(i, Transform3D(base.scaled(Vector3(l + 0.6, maxf(ht, 0.2), pr + 0.6)), Vector3(x, sol + h + maxf(ht, 0.2) * 0.5, z)))
 		toits.set_instance_color(i, TOITS.get(toit, TOITS[0]))
-	for e in [["MursVille", murs], ["ToitsVille", toits]]:
+	for e in [["MursVille", murs, _materiau_murs(lyon)], ["ToitsVille", toits, _materiau()]]:
 		var mmi := MultiMeshInstance3D.new()
 		mmi.name = e[0]
 		mmi.multimesh = e[1]
-		mmi.material_override = _materiau()
+		mmi.material_override = e[2]
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		mmi.set_meta("sans_lointain", true)
 		racine.add_child(mmi)
