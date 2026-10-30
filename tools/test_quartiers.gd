@@ -124,6 +124,15 @@ func _init() -> void:
 	joueur.position = Vector3(60, 0, 0)
 	var v := veille.verifier()
 	check(v == ["chateau"], "à 60 m du château, loin du sas, rien ne change")
+	var hors := Node3D.new()
+	ville.add_child(hors)
+	var sas_hors := Node3D.new()
+	sas_hors.name = "Sas_bas"
+	sas_hors.position = Vector3(60, 0, 0)
+	hors.add_child(sas_hors)
+	check(veille.ajouter_sas(hors) == 1 and veille.voulus() == ["chateau", "bas"], "un sas déclaré hors des quartiers (la place de départ) compte comme les autres")
+	hors.free()
+	check(veille.voulus() == ["chateau"], "un sas déclaré puis retiré de l'arbre ne compte plus")
 	joueur.position = Vector3(148, 0, 0)
 	v = veille.verifier()
 	for i in 6:

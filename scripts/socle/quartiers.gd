@@ -252,7 +252,9 @@ static func veiller_de(parent: Node3D, c: Commune, joueur: Node3D, depart: Strin
 ## La veille : quel quartier est en détail, lesquels sont au loin, et le passage de l'un à l'autre par
 ## les sas. Le quartier courant est celui dont le joueur est le plus près du centre, dans son rayon ; s'y
 ## ajoutent les quartiers « vers » lesquels mène un sas où le joueur se tient. Ceux-là sont en détail,
-## tous les autres en version lointaine. Un quartier sans centre déclaré reste comme il est posé.
+## tous les autres en version lointaine. Un quartier sans centre déclaré reste comme il est posé. Les sas
+## d'un quartier posé sont relevés quand il se pose ; ceux d'une partie de la commune qui n'est pas un
+## quartier (la place de départ, bâtie par la scène elle-même) se déclarent par ajouter_sas(racine).
 class Veille extends Node:
 	signal pose(nom: String)
 	signal allege(nom: String)
@@ -264,6 +266,8 @@ class Veille extends Node:
 	var detailles := {}
 	var lointains := {}
 	var _en_cours := {}
+	## Les nœuds « Sas_<vers> » connus : ceux des quartiers posés (par nom) et ceux déclarés (clé "").
+	var _sas := {}
 	var _horloge := 0.0
 	var _prete := false
 
@@ -302,16 +306,32 @@ class Veille extends Node:
 				d_pres = d
 		courant = plus_pres
 		var out := [courant] if courant != "" else []
-		for nom in detailles:
-			var n: Node3D = detailles[nom]
-			if not is_instance_valid(n):
-				continue
-			for sas: Node3D in n.find_children("Sas_*", "Node3D", true, false):
+		for cle in _sas:
+			var liste: Array = _sas[cle]
+			for i in range(liste.size() - 1, -1, -1):
+				var sas = liste[i]
+				if not is_instance_valid(sas):
+					liste.remove_at(i)
+					continue
+				if not sas.is_inside_tree():
+					continue
 				var vers := String(sas.name).trim_prefix("Sas_")
 				var r := float(sas.get_meta("rayon", Quartiers.SAS_RAYON))
 				if q.has(vers) and not vers in out and sas.global_position.distance_to(p) <= r:
 					out.append(vers)
 		return out
+
+	## Déclare les sas d'une partie de la commune qui n'est pas un quartier posé par la veille : ses nœuds
+	## « Sas_<vers> » (relevés une fois, maintenant) comptent comme ceux des quartiers.
+	func ajouter_sas(racine: Node) -> int:
+		var liste: Array = _sas.get("", [])
+		var n := 0
+		for sas in racine.find_children("Sas_*", "Node3D", true, false):
+			if not sas in liste:
+				liste.append(sas)
+				n += 1
+		_sas[""] = liste
+		return n
 
 	## Un regard : pose en détail ce que le joueur demande, allège le reste. Renvoie les quartiers voulus.
 	func verifier() -> Array:
@@ -329,6 +349,7 @@ class Veille extends Node:
 		var n: Node3D = await Quartiers.poser_de(get_parent(), commune, nom)
 		if n != null:
 			detailles[nom] = n
+			_sas[nom] = n.find_children("Sas_*", "Node3D", true, false)
 			if lointains.has(nom):
 				if is_instance_valid(lointains[nom]):
 					lointains[nom].queue_free()
@@ -354,5 +375,6 @@ class Veille extends Node:
 			if is_instance_valid(detailles[nom]):
 				detailles[nom].queue_free()
 			detailles.erase(nom)
+		_sas.erase(nom)
 		allege.emit(nom)
 		_en_cours.erase(nom)
