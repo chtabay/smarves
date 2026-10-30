@@ -100,11 +100,11 @@ func batir(parent: Node3D, x: float, z: float, lacet_deg: float) -> void:
 		if absf(dr) < 2.2 and av < 5.0:
 			continue
 		var c := _p(av, dr, 0.0)
-		# Une touffe : trois brins effilés, d'un vert plus sombre que le pré.
-		var hh := 0.3 + float(h % 7) * 0.05
-		for b in 3:
-			var db := Vector3(float((h >> b) % 5) * 0.05 - 0.1, 0, float((h >> (b + 2)) % 5) * 0.05 - 0.1)
-			herbe.boule(c + db + Vector3(0, hh * 0.45, 0), Vector3(0.07, hh * 0.5, 0.07), Color("4a7a2a").lightened(float(h % 9) * 0.015), 0.2, OUTILS.FEUILLE, 0.06, 1.0, 3, 5)
+		# Une touffe : quatre brins effilés, d'un vert plus sombre que le pré.
+		var hh := 0.2 + float(h % 7) * 0.04
+		for b in 4:
+			var db := Vector3(float((h >> b) % 7) * 0.04 - 0.12, 0, float((h >> (b + 2)) % 7) * 0.04 - 0.12)
+			herbe.boule(c + db + Vector3(0, hh * 0.45, 0), Vector3(0.035, hh * 0.5, 0.035), Color("4a7a2a").lightened(float(h % 9) * 0.015), 0.2, OUTILS.FEUILLE, 0.06, 1.0, 3, 5)
 		if h % 3 != 0:
 			var fl: Color = [Color("f4f0e6"), Color("f2c14e"), Color("b06ad0"), Color("e0605a")][(h / 7) % 4]
 			for q in 4:
