@@ -109,7 +109,12 @@ class Batisseur:
 
 	func batir(r: Node3D) -> void:
 		racine = r
+		# la commune est le premier ancêtre qui a un relief : sous Quartiers.poser, le parent direct est $Quartiers
 		commune = r.get_parent()
+		while commune != null and not commune.has_method("hauteur"):
+			commune = commune.get_parent()
+		if commune == null:
+			commune = r.get_parent()
 		racine.scale = Vector3.ONE / U
 		racine.set_meta("lointain", 150.0)
 		rng.seed = 69005
@@ -447,7 +452,7 @@ class Batisseur:
 				var type: String = "etroite" if w < 6.5 else ["immeuble", "classique", "immeuble", "traboule", "classique", "immeuble"][r]
 				var quai := c.x > -140.0 and c.y < 495.0
 				var opt := {"w": w - 0.04, "d": 3.0, "niveaux": niveaux + (1 if quai else 0), "tuile": TUILES[(i + j) % TUILES.size()],
-					"grain": 1.0, "souches": "grosses", "fleurs": (i + j) % 3 == 0, "store": false, "vigne": false}
+					"grain": 1.0, "souches": "grosses", "fleurs": (i + j) % 3 == 0, "store": false, "vigne": false, "lod": "loin"}
 				if quai:
 					# le quai de Bondy : des immeubles classiques, plus pâles, à persiennes
 					opt.merge({"pente": 22.0, "persiennes": true, "balcons": false, "rdc": "boutique" if (i + k + j) % 2 == 0 else "pierre",
@@ -535,7 +540,8 @@ class Batisseur:
 			while not pile.is_empty():
 				var n: Node = pile.pop_back()
 				pile.append_array(n.get_children())
-				if n is GeometryInstance3D:
+				# le corps lointain (« lod »: « loin ») reste hors de vue en jeu : c'est l'imposteur de la version légère
+				if n is GeometryInstance3D and not n.has_meta("corps_lointain"):
 					var g := n as GeometryInstance3D
 					g.visibility_range_end = RELIEF_PORTEE / U
 					g.visibility_range_end_margin = 10.0 / U
@@ -693,7 +699,7 @@ class Batisseur:
 				m.type = "classique"
 				m.graine = 8 + k * 3 + int(t[0])
 				m.options = {"w": l / 2.0 - 0.04, "d": 3.0, "niveaux": 3, "renaissance": true, "enduit": "c98a62" if k == 0 else "d4a074",
-					"rdc": "logis", "tuile": TUILES[k], "store": false, "fleurs": k == 1}
+					"rdc": "logis", "tuile": TUILES[k], "store": false, "fleurs": k == 1, "lod": "loin"}
 				m.position = Vector3(x_rue + 0.02, h(x_rue + 1.0, zc) - 0.05, zc)
 				m.rotation.y = PI * 0.5
 				b.add_child(m)
