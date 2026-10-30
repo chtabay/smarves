@@ -838,7 +838,8 @@ func _rues() -> void:
 						dans = true
 						break
 				if not dans:
-					_boite_st(bordures, Vector3(q.x, hauteur(q.x, q.y) + 0.1, q.y), Vector3(long / nb + 0.02, 0.2, 0.26), ang, Color("#cfcac0"))
+					# granit gris comme le parapet du quai, 13 cm de vue au-dessus de la chaussée
+					_boite_st(bordures, Vector3(q.x, hauteur(q.x, q.y) + 0.09, q.y), Vector3(long / nb + 0.02, 0.2, 0.2), ang, Color("#8e8f94"))
 					# le trottoir en dalles de granit, derrière la bordure, jusqu'aux façades
 					var tq: Vector2 = q + n * s * 1.63
 					if not PLACE.has_point(tq):
@@ -1624,7 +1625,7 @@ func _heros_poser(i: int, b: Dictionary) -> void:
 				var haut_t := maxf(sol - 0.12, rue + 0.14)
 				var dalle := _boite(ville, Vector3(w / 6.0 + 0.02, haut_t - rue + 0.3, 1.9), Vector3(qt.x, (haut_t + rue - 0.3) * 0.5, qt.y), Color("#b9b2a4"))
 				dalle.rotation.y = lacet
-				var bord := _boite(ville, Vector3(w / 6.0 + 0.02, haut_t - rue + 0.32, 0.28), Vector3(qb.x, (haut_t + rue - 0.3) * 0.5 + 0.01, qb.y), Color("#cfcac0"))
+				var bord := _boite(ville, Vector3(w / 6.0 + 0.02, haut_t - rue + 0.32, 0.22), Vector3(qb.x, (haut_t + rue - 0.3) * 0.5 + 0.01, qb.y), Color("#8e8f94"))
 				bord.rotation.y = lacet
 		else:
 			_souches_cote_rue(m, w - 0.05, lv, Color(str(opt["enduit"])))
@@ -1922,8 +1923,17 @@ func _escalier() -> void:
 		var yy := hauteur(10.0, zc)
 		var allee := _boite(e, Vector3(3.0, 0.5, 3.02), Vector3(10.0, yy - 0.17, zc), Color.WHITE)
 		allee.material_override = sable
+		# le muret de pierre dorée au bord bas de chaque terrasse, du niveau de la terrasse d'en dessous jusqu'à
+		# 45 cm au-dessus du gazon ; dans l'allée, une marche de Villebois
+		var bas := hauteur(10.0, za + 1.5)
+		var h_mur := yy + 0.18 - bas
+		if h_mur > 0.05:
+			_boite(e, Vector3(3.0, h_mur + 0.02, 0.4), Vector3(10.0, bas + h_mur * 0.5, za - 0.2), VILLEBOIS)
 		for cote in [-1.0, 1.0]:
 			var xg: float = 10.0 + cote * 3.2
+			var mur := _boite(e, Vector3(3.4, h_mur + 0.45, 0.45), Vector3(xg, bas + (h_mur + 0.45) * 0.5, za - 0.22), PIERRE_DOREE)
+			mur.material_override = _materiau_appareil(PIERRE_DOREE.darkened(0.03 * (k % 2)))
+			_boite(e, Vector3(3.5, 0.08, 0.55), Vector3(xg, bas + h_mur + 0.49, za - 0.22), VILLEBOIS)
 			_boite(e, Vector3(3.4, 0.6, 3.02), Vector3(xg, yy - 0.12, zc), Color("#5f7f35"))
 			_boite(e, Vector3(0.22, 0.75, 3.02), Vector3(10.0 + cote * 1.6, yy - 0.08, zc), VILLEBOIS)
 			if k % 2 == 1:
