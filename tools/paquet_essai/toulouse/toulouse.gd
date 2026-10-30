@@ -16,7 +16,7 @@ const SOLEIL := {"hauteur": 36.0, "vient_de": 262.0, "couleur": Color("ffd9a8")}
 
 ## Les familles de la palette (note : « Palette et matières »).
 const BRIQUES := ["c8653f", "d2714a", "be5b38", "db8158", "c46a48"]
-const ENDUITS := ["ebcfc0", "f2e4cf", "e7c9b0", "efdcc4"]
+const ENDUITS := ["e2b48a", "d9a574", "ebc89f", "e6bc94"]
 const RUE := Color("dccdab")
 const PLACE := Color("c4804e")
 const FILET := Color("efe7da")
