@@ -57,16 +57,16 @@ const TRACES := {
 ## Les points de vue (œil, regard) et les sas.
 const REPERES := {
 	"Arrivee_SaintPaul": [Vector2(-196.0, 352.0), Vector2(-260.0, 356.0)],
-	"Vue1a_Passerelle": [Vector2(-186.0, 276.5), Vector2(-212.0, 297.0)],
+	"Vue1a_Passerelle": [Vector2(-178.0, 268.0), Vector2(-212.0, 298.0)],
 	# les coudes du parcours : le bas de la rue du Docteur-Augros, la place Saint-Paul, le bas de la rue Juiverie
 	"Vue1b_Augros": [Vector2(-213.5, 305.0), Vector2(-214.0, 330.0)],
 	"Vue1c_PlaceSaintPaul": [Vector2(-213.0, 343.0), Vector2(-240.0, 370.0)],
-	"Vue2a_Juiverie": [Vector2(-231.5, 384.0), Vector2(-226.0, 440.0)],
+	"Vue2a_Juiverie": [Vector2(-231.5, 384.0), Vector2(-227.0, 440.0)],
 	# devant le porche de l'hôtel Bullioud, le regard dans la cour vers la galerie de Delorme
-	"Vue2b_Bullioud": [Vector2(-228.0, 422.5), Vector2(-260.0, 422.5)],
+	"Vue2b_Bullioud": [Vector2(-228.6, 422.5), Vector2(-260.0, 422.5)],
 	"Vue2c_Juiverie": [Vector2(-224.5, 458.0), Vector2(-223.0, 500.0)],
 	"Vue2d_Loge": [Vector2(-222.5, 512.5), Vector2(-160.0, 513.0)],
-	"Vue3a_Change": [Vector2(-163.0, 514.0), Vector2(-146.0, 575.0)],
+	"Vue3a_Change": [Vector2(-150.0, 516.0), Vector2(-157.0, 585.0)],
 }
 ## Les sas (socle 1.26, Quartiers.veiller) : un nœud au débouché, son rayon en mètres dans la méta « rayon ».
 const SAS := {
@@ -399,6 +399,10 @@ class Batisseur:
 			return []
 		# le Vieux-Lyon : quatre ou cinq niveaux, toits bas
 		var niveaux := clampi(int(round((minf(b.h * U, 22.0) - 4.2) / 3.3)), 2, 4)
+		# rue Juiverie, la rangée ouest un niveau plus bas que l'autre : le soleil du soir passe par-dessus et
+		# n'allume que le haut des façades d'en face (« le soir tombe par le haut »)
+		if c.x < -229.0 and c.y > 376.0 and c.y < 515.0 and c.x > -252.0:
+			niveaux = maxi(2, niveaux - 1)
 		var corniches := []
 		for k in poly.size():
 			var a := poly[k]
@@ -420,7 +424,7 @@ class Batisseur:
 				var q := a + u * w * (j + 0.5) + n * 0.02
 				var r := (i * 5 + k * 3 + j) % 6
 				var type: String = "etroite" if w < 6.5 else ["immeuble", "classique", "immeuble", "traboule", "classique", "immeuble"][r]
-				var quai := c.x > -140.0
+				var quai := c.x > -140.0 and c.y < 495.0
 				var opt := {"w": w - 0.04, "d": 3.0, "niveaux": niveaux + (1 if quai else 0), "tuile": TUILES[(i + j) % TUILES.size()],
 					"grain": 1.0, "souches": "grosses", "fleurs": (i + j) % 3 == 0, "store": false, "vigne": false}
 				if quai:
@@ -594,6 +598,14 @@ class Batisseur:
 		cadran.rotation.z = PI * 0.5
 		var cercle := cyl(g, 1.45, 1.45, 0.12, Vector3(GARE[1] * 0.5 + 0.01, 12.6, 0), Color("#3a3328"), 24)
 		cercle.rotation.z = PI * 0.5
+		# les aiguilles, à sept heures dix : l'heure des trains du soir
+		for ag in [[TAU * 7.17 / 12.0, 0.75, 0.16], [TAU * 10.0 / 60.0, 1.05, 0.1]]:
+			var dirz := Vector3(0, cos(ag[0]), -sin(ag[0]))
+			var aig := boite(g, Vector3(0.06, ag[1], ag[2]), Vector3(GARE[1] * 0.5 + 0.2, 12.6, 0) + dirz * ag[1] * 0.45, Color("#1e1c1a"))
+			aig.rotation.x = -ag[0]
+		for k in 12:
+			var a := TAU * k / 12.0
+			boite(g, Vector3(0.05, 0.22, 0.07), Vector3(GARE[1] * 0.5 + 0.17, 12.6 + cos(a) * 1.05, -sin(a) * 1.05), Color("#1e1c1a")).rotation.x = -a
 		for s in [-1.0, 1.0]:
 			for k in 4:
 				boite(g, Vector3(0.2, 2.6, 1.4), Vector3(GARE[1] * 0.5 + 0.02, 2.4, s * (8.0 + k * 3.0)), Color("#3b4450"))
@@ -630,7 +642,7 @@ class Batisseur:
 		var haut := 17.4
 		# les deux ailes sur la rue, de part et d'autre du porche, et les ailes autour de la cour
 		var x_rue := BULLIOUD_RUE
-		for bloc in [Rect2(cour.end.x, 406.0, x_rue - 2.9 - cour.end.x, cour.position.y - 406.0 + 7.2),
+		for bloc in [Rect2(cour.end.x, 412.0, x_rue - 2.9 - cour.end.x, cour.position.y - 412.0 + 7.2),
 				Rect2(cour.end.x, cour.position.y + 9.8, x_rue - 2.9 - cour.end.x, cour.end.y - cour.position.y - 9.8 + 7.0),
 				Rect2(-268.0, 406.0, cour.position.x + 268.0, 32.0),
 				Rect2(cour.position.x, 406.0, cour.size.x, cour.position.y - 406.0),
@@ -639,8 +651,9 @@ class Batisseur:
 				continue
 			boite(b, Vector3(bloc.size.x, haut, bloc.size.y), Vector3(bloc.get_center().x, y + haut * 0.5, bloc.get_center().y), enduit)
 			solide(b, Vector3(bloc.size.x, haut, bloc.size.y), Vector3(bloc.get_center().x, y + haut * 0.5, bloc.get_center().y))
-		# la façade sur la rue : quatre travées Renaissance, deux de chaque côté du porche
-		for t in [[406.0, cour.position.y + 7.2], [cour.position.y + 9.8, 438.0]]:
+		# la façade sur la rue : quatre travées Renaissance, deux de chaque côté du porche ; au nord de z = 412, la
+		# rue s'élargit devant la maison voisine, qui recule
+		for t in [[412.0, cour.position.y + 7.2], [cour.position.y + 9.8, 438.0]]:
 			var l: float = t[1] - t[0]
 			for k in 2:
 				var zc: float = t[0] + l * (k + 0.5) / 2.0
@@ -685,24 +698,62 @@ class Batisseur:
 		var pierre := Color("#d8c9a6")
 		var Lx: float = LOGE[1]
 		var Wz: float = LOGE[2]
-		boite(l, Vector3(Lx, 15.0, Wz), Vector3(0, 7.5, 0), pierre.darkened(0.04))
+		boite(l, Vector3(Lx, 15.6, Wz), Vector3(0, 7.8, 0), pierre.darkened(0.04))
 		var fx := Lx * 0.5
-		# les cinq arcades
-		for k in 5:
-			var z := -Wz * 0.5 + Wz * (k + 0.5) / 5.0
-			boite(l, Vector3(0.3, 5.0, 3.0), Vector3(fx + 0.02, 2.9, z), Color("#2e2a26"))
-		boite(l, Vector3(0.8, 0.7, Wz), Vector3(fx + 0.3, 6.6, 0), pierre.lightened(0.05))
-		# l'étage : six colonnes engagées, les fenêtres, l'entablement
+		var sombre := Color("#2a2622")
+		var claire := pierre.lightened(0.1)
+		var pas := Wz / 5.0
+		# le soubassement : cinq arcades en plein cintre entre des piles à refends, la clé de chaque arc
 		for k in 6:
-			var z := -Wz * 0.5 + 1.6 + (Wz - 3.2) * k / 5.0
-			cyl(l, 0.45, 0.4, 6.0, Vector3(fx + 0.35, 10.0, z), pierre.lightened(0.08), 10)
+			var z := -Wz * 0.5 + pas * k
+			boite(l, Vector3(0.6, 6.4, 1.2), Vector3(fx + 0.3, 3.2, z), claire)
+			for r in 4:
+				boite(l, Vector3(0.66, 0.08, 1.24), Vector3(fx + 0.3, 1.2 + r * 1.4, z), pierre.darkened(0.12))
 		for k in 5:
-			var z := -Wz * 0.5 + 1.6 + (Wz - 3.2) * (k + 0.5) / 5.0
-			boite(l, Vector3(0.2, 3.2, 1.6), Vector3(fx + 0.02, 10.0, z), Color("#2e3238"))
-		boite(l, Vector3(1.2, 1.0, Wz + 0.6), Vector3(fx + 0.4, 13.5, 0), pierre.lightened(0.06))
-		boite(l, Vector3(0.6, 1.1, Wz), Vector3(fx + 0.1, 14.6, 0), pierre.lightened(0.04))
+			var z := -Wz * 0.5 + pas * (k + 0.5)
+			var ouv := pas - 1.4
+			# l'arc est peint en retrait des piles : le vide sombre devant, l'archivolte claire qui le borde
+			boite(l, Vector3(0.08, 4.0, ouv), Vector3(fx + 0.05, 2.0, z), sombre)
+			var arc := cyl(l, ouv * 0.5, ouv * 0.5, 0.08, Vector3(fx + 0.05, 4.0, z), sombre, 16)
+			arc.rotation.z = PI * 0.5
+			var archivolte := cyl(l, ouv * 0.5 + 0.3, ouv * 0.5 + 0.3, 0.06, Vector3(fx + 0.02, 4.0, z), claire, 16)
+			archivolte.rotation.z = PI * 0.5
+			boite(l, Vector3(0.5, 0.7, 0.5), Vector3(fx + 0.3, 4.0 + ouv * 0.5 + 0.1, z), claire.lightened(0.05))
+		boite(l, Vector3(1.0, 0.6, Wz + 0.4), Vector3(fx + 0.4, 6.7, 0), claire)
+		# l'étage noble : six colonnes ioniques engagées sur un piédestal, cinq hautes fenêtres à fronton
+		for k in 6:
+			var z := -Wz * 0.5 + pas * k + (0.6 if k == 0 else (-0.6 if k == 5 else 0.0))
+			boite(l, Vector3(1.1, 1.0, 1.3), Vector3(fx + 0.45, 7.5, z), claire)
+			cyl(l, 0.42, 0.36, 5.0, Vector3(fx + 0.55, 10.5, z), claire.lightened(0.05), 12)
+			boite(l, Vector3(1.0, 0.45, 1.2), Vector3(fx + 0.55, 13.2, z), claire)
+		for k in 5:
+			var z := -Wz * 0.5 + pas * (k + 0.5)
+			boite(l, Vector3(0.3, 3.6, 1.7), Vector3(fx - 0.05, 10.3, z), Color("#2e3238"))
+			boite(l, Vector3(0.35, 0.25, 2.3), Vector3(fx + 0.15, 8.4, z), claire)
+			var fr := MeshInstance3D.new()
+			var fpm := PrismMesh.new()
+			fpm.size = Vector3(2.4, 0.6, 0.35)
+			fr.mesh = fpm
+			fr.material_override = mat(claire)
+			fr.position = Vector3(fx + 0.15, 12.6, z)
+			fr.rotation.y = PI * 0.5
+			l.add_child(fr)
+		# l'entablement, la balustrade, le toit bas d'ardoise ; les deux cadrans sur l'attique
+		boite(l, Vector3(1.4, 1.1, Wz + 0.8), Vector3(fx + 0.5, 13.9, 0), claire)
+		boite(l, Vector3(0.9, 0.3, Wz + 0.8), Vector3(fx + 0.6, 14.55, 0), claire.lightened(0.05))
+		for k in 25:
+			cyl(l, 0.13, 0.13, 0.9, Vector3(fx + 0.3, 15.15, -Wz * 0.5 + 0.5 + (Wz - 1.0) * k / 24.0), claire, 6)
+		boite(l, Vector3(0.6, 0.25, Wz + 0.6), Vector3(fx + 0.3, 15.7, 0), claire)
+		var toit := MeshInstance3D.new()
+		var tpm := PrismMesh.new()
+		tpm.size = Vector3(Lx - 1.0, 2.6, Wz - 1.0)
+		toit.mesh = tpm
+		toit.material_override = mat(Color("#5d6268"))
+		toit.position = Vector3(0, 16.3, 0)
+		toit.rotation.y = PI * 0.5
+		l.add_child(toit)
 		for s in [-1.0, 1.0]:
-			var cad := cyl(l, 0.75, 0.75, 0.12, Vector3(fx + 0.5, 12.4, s * 6.0), Color("#efe6cf"), 20)
+			var cad := cyl(l, 0.7, 0.7, 0.12, Vector3(fx + 0.62, 14.0, s * pas * 1.5), Color("#efe6cf"), 20)
 			cad.rotation.z = PI * 0.5
 		# les marches du parvis
 		for k in 3:
@@ -754,6 +805,10 @@ class Batisseur:
 				continue
 			k += 1
 			pose(OMBRIERE, "arbre", "jeune_platane", sur(p.x, p.y), 700 + k, {"hauteur": rng.randf_range(9.0, 12.0), "vent": 0.3})
+		# deux platanes sur la place Saint-Paul : au soleil du soir, leurs ombres traversent la place vers le quai
+		for p in [Vector2(-208.0, 366.0), Vector2(-236.0, 344.0)]:
+			k += 1
+			pose(OMBRIERE, "arbre", "jeune_platane", sur(p.x, p.y), 700 + k, {"hauteur": 11.0, "vent": 0.3})
 
 	# --- La vie -------------------------------------------------------------------------------------
 
@@ -803,13 +858,20 @@ class Batisseur:
 				var tk := boite(racine, Vector3(0.09, 0.005, 0.06), Vector3(p.x, h(p.x, p.y) + 0.07, p.y), Color("#e8e2cf"), rng.randf() * TAU)
 				tk.rotation.x = rng.randf_range(-0.3, 0.3)
 		# la noce sur le parvis de la Loge : les mariés, les invités en demi-cercle, le photographe, le riz
-		var parvis := Vector2(LOGE[0].x + LOGE[1] * 0.5 + 3.0, LOGE[0].y)
-		gens.call(parvis + Vector2(-0.6, -0.5), "idle", parvis + Vector2(6.0, 0.0), "soiree")
-		gens.call(parvis + Vector2(-0.6, 0.5), "idle", parvis + Vector2(6.0, 0.0), "soiree")
-		for k in 9:
-			var a := -1.2 + k * 0.3
-			gens.call(parvis + Vector2(cos(a), sin(a)) * 5.0, "idle", parvis, "soiree")
-		gens.call(parvis + Vector2(7.5, 0.3), "idle", parvis)
+		# les mariés sur la plus haute marche, la famille étagée sur les marches de part et d'autre, des amis en
+		# grappes au pied ; le photographe recule sur la place pour les prendre tous
+		var marche := Vector2(LOGE[0].x + LOGE[1] * 0.5 + 0.9, LOGE[0].y)
+		var parvis := marche + Vector2(3.0, 0.0)
+		gens.call(marche + Vector2(0.0, -0.4), "idle", marche + Vector2(8.0, 0.6), "soiree")
+		gens.call(marche + Vector2(0.0, 0.4), "idle", marche + Vector2(8.0, -0.6), "soiree")
+		for k in 6:
+			var cote := -1.0 if k % 2 == 0 else 1.0
+			var rang := k / 2
+			gens.call(marche + Vector2(0.5 * (rang % 2), cote * (1.6 + rang * 1.3)), "idle", marche + Vector2(8.0, 0.0), "soiree")
+		for k in 7:
+			var a := -1.1 + k * 0.37 + rng.randf_range(-0.1, 0.1)
+			gens.call(marche + Vector2(cos(a) * (4.5 + (k % 3) * 0.9), sin(a) * (5.0 + (k % 2))), "idle", marche, "soiree")
+		gens.call(marche + Vector2(9.0, 0.4), "idle", marche)
 		var riz := MultiMeshInstance3D.new()
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
@@ -818,7 +880,7 @@ class Batisseur:
 		mm.mesh = qm
 		mm.instance_count = 160
 		for k in 160:
-			var p := parvis + Vector2(rng.randf_range(-1.5, 4.5), rng.randf_range(-4.0, 4.0))
+			var p := parvis + Vector2(rng.randf_range(-2.0, 3.0), rng.randf_range(-3.5, 3.5))
 			mm.set_instance_transform(k, Transform3D(Basis(Vector3.UP, rng.randf() * TAU), Vector3(p.x, h(p.x, p.y) + 0.07, p.y)))
 		riz.multimesh = mm
 		riz.material_override = mat(Color("#f4f0e6"))
@@ -828,10 +890,10 @@ class Batisseur:
 			var p := Vector2(-141.5, 512.0 + k * 9.0)
 			pose(MOBILIER, "objet", "terrasse", sur(p.x, p.y), 40 + k, {}, -PI * 0.5)
 			gens.call(p + Vector2(0.0, 1.4), "sit", p)
-		# rue Juiverie : une seule passante, et un chat sur une marche
+		# rue Juiverie : personne dans la rue ; une visiteuse dans la cour de l'hôtel Bullioud, le nez levé vers la galerie
+		gens.call(Vector2(BULLIOUD_COUR.position.x + 9.0, 422.0), "idle", Vector2(BULLIOUD_COUR.position.x, 424.0))
 		var routes := [
-			[Vector2(-214.0, 324.0), Vector2(-212.5, 300.0), Vector2(-196.0, 286.0)],
-			[Vector2(-223.5, 495.0), Vector2(-224.5, 456.0), Vector2(-227.0, 430.0)],
+			[Vector2(-206.0, 296.0), Vector2(-212.5, 306.0), Vector2(-214.0, 330.0)],
 			[Vector2(-150.0, 560.0), Vector2(-153.0, 535.0), Vector2(-158.0, 516.0)],
 			[Vector2(-232.0, 345.0), Vector2(-215.0, 350.0), Vector2(-206.0, 366.0)],
 		]
