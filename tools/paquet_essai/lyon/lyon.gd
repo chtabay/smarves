@@ -169,7 +169,7 @@ func _ciel() -> void:
 	e.ambient_light_energy = 0.55
 	e.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	e.tonemap_exposure = 0.75
+	e.tonemap_exposure = 0.8
 	e.tonemap_white = 1.6
 	# la planche : des couleurs franches, la terre cuite qui chauffe, le vert cru des marronniers
 	e.adjustment_enabled = true
@@ -193,7 +193,7 @@ func _ciel() -> void:
 	add_child(soleil)
 	soleil.look_at_from_position(Vector3.ZERO, Vector3(-sin(a) * cos(h), -sin(h), cos(a) * cos(h)))
 	soleil.light_color = SOLEIL.couleur
-	soleil.light_energy = 1.25
+	soleil.light_energy = 1.05
 	soleil.shadow_enabled = true
 	soleil.shadow_opacity = 0.78
 	soleil.directional_shadow_max_distance = 220.0
@@ -516,6 +516,11 @@ func _reliefs(i: int, b: Dictionary, poly: PackedVector2Array) -> Array:
 			opt["enduit"] = (ENDUITS_PENTES if pentes else ENDUITS_PLACE)[(i + k + j) % 5]
 			if pentes:
 				opt["fleurs"] = false
+			elif q.x > 25.0 and q.y > -15.0 and q.y < 55.0:
+				# le flanc est de la place, en plein soleil sur la planche : ocre, balcons filants, jardinières
+				opt["enduit"] = "d6b27a"
+				opt["balcons"] = true
+				opt["fleurs"] = true
 			var m: Node3D = load(Bibliotheque.scene(FACADIER, "decor")).instantiate()
 			m.type = type
 			m.graine = i * 31 + k * 7 + j
@@ -557,6 +562,9 @@ func _enduit(c: Vector2, i: int) -> Color:
 	var pentes := c.y < -45.0 or c.x > 90.0
 	var liste: Array = ENDUITS_PENTES if pentes else ENDUITS_PLACE
 	var col := Color(liste[(i * 7 + 3) % liste.size()])
+	# le flanc est de la place, en plein soleil sur la planche : ocre
+	if not pentes and c.x > 25.0 and c.x < 60.0 and c.y > -15.0 and c.y < 55.0:
+		col = Color("d6b27a")
 	return col.darkened(float(i % 5) * 0.025)
 
 
@@ -616,13 +624,58 @@ func _toit(st: SurfaceTool, b: Dictionary, poly: PackedVector2Array, haut: float
 			_boite_st(st, q + Vector3(0, 0.6, 0), Vector3(1.3, 2.4, 0.8), rc[4], Color(ENDUITS_PLACE[(i + k) % ENDUITS_PLACE.size()]).darkened(0.08))
 			_boite_st(st, q + Vector3(0, 1.88, 0), Vector3(1.5, 0.16, 1.0), rc[4], Color("#b9ac92"))
 		return
-	var tri := Geometry2D.triangulate_polygon(poly)
+	var dessus := poly
+	var rehausse := 0.15
+	if b.toit != "plat" and poly.size() >= 3:
+		# un toit en croupe sur un plan quelconque : un rampant de tuile de 2,5 m sur tout le pourtour, monté à
+		# 29°, puis un terrasson de tuile ; une souche sur le terrasson
+		var d := 2.5
+		var monte := d * tan(deg_to_rad(29.0))
+		var ccw := Geometry2D.is_polygon_clockwise(poly) == false
+		var dedans := PackedVector2Array()
+		for k in poly.size():
+			var a := poly[(k - 1 + poly.size()) % poly.size()]
+			var o := poly[k]
+			var c := poly[(k + 1) % poly.size()]
+			var n1 := (o - a).normalized().orthogonal()
+			var n2 := (c - o).normalized().orthogonal()
+			if not ccw:
+				n1 = -n1
+				n2 = -n2
+			var m := (n1 + n2).normalized()
+			var cosinus := maxf(m.dot(n1), 0.5)
+			dedans.append(o - m * d / cosinus)
+		if Geometry2D.triangulate_polygon(dedans).size() > 0 and Geometry2D.is_polygon_clockwise(dedans) == Geometry2D.is_polygon_clockwise(poly):
+			for k in poly.size():
+				var k2 := (k + 1) % poly.size()
+				var A := Vector3(poly[k].x, haut, poly[k].y)
+				var B := Vector3(poly[k2].x, haut, poly[k2].y)
+				var C := Vector3(dedans[k2].x, haut + monte, dedans[k2].y)
+				var D := Vector3(dedans[k].x, haut + monte, dedans[k].y)
+				for t3 in [[A, B, C], [A, C, D]]:
+					var nn: Vector3 = (t3[1] - t3[0]).cross(t3[2] - t3[0]).normalized()
+					if nn.y < 0.0:
+						t3 = [t3[0], t3[2], t3[1]]
+						nn = -nn
+					for q in t3:
+						st.set_color(tuile)
+						st.set_normal(nn)
+						st.add_vertex(q)
+			dessus = dedans
+			rehausse = monte
+			var centre := Vector2.ZERO
+			for q in dedans:
+				centre += q
+			centre /= dedans.size()
+			_boite_st(st, Vector3(centre.x, haut + monte + 0.6, centre.y), Vector3(1.3, 2.4, 0.8), 0.0, Color(ENDUITS_PLACE[i % ENDUITS_PLACE.size()]).darkened(0.08))
+			_boite_st(st, Vector3(centre.x, haut + monte + 1.88, centre.y), Vector3(1.5, 0.16, 1.0), 0.0, Color("#b9ac92"))
+	var tri := Geometry2D.triangulate_polygon(dessus)
 	for k in range(0, tri.size(), 3):
 		for j in [0, 2, 1]:
-			var p := poly[tri[k + j]]
+			var p := dessus[tri[k + j]]
 			st.set_color(tuile.darkened(0.06) if b.toit != "plat" else Color("#a39a8c"))
 			st.set_normal(Vector3.UP)
-			st.add_vertex(Vector3(p.x, haut + 0.15, p.y))
+			st.add_vertex(Vector3(p.x, haut + rehausse, p.y))
 
 
 ## Le shader des toits de la ville : la tuile canal du façadier, en rangs parallèles à l'égout, avec ses ondes
@@ -669,7 +722,8 @@ shader_type spatial;
 render_mode diffuse_burley;
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 void fragment() {
-	vec3 c = COLOR.rgb;
+	// les teintes d'enduit sont en sRGB, comme celles du façadier
+	vec3 c = pow(COLOR.rgb, vec3(2.2));
 	float h = UV2.x;
 	float y = UV.y;
 	float bx = floor(UV.x);
@@ -794,6 +848,11 @@ func _heros_poser(i: int, b: Dictionary) -> void:
 				opt["niveaux"] = clampi(niveaux + 1, 4, 6)
 			else:
 				opt["enduit"] = ENDUITS_PLACE[(i + k) % ENDUITS_PLACE.size()]
+				# le flanc est de la place, en plein soleil sur la planche : ocre, balcons filants, jardinières
+				if p.x > 25.0 and p.y > -15.0 and p.y < 55.0:
+					opt["enduit"] = "d6b27a"
+					opt["balcons"] = true
+					opt["fleurs"] = true
 			if absf(p.x - (-14.0)) < 6.0 and p.y > -5.0 and p.y < 45.0 and k == 0 and not _cafe_pose:
 				_cafe_pose = true
 				type = "cafe"
@@ -932,6 +991,11 @@ func _place() -> void:
 	for k in lampes.size():
 		var p: Vector2 = lampes[k]
 		_pose(MOBILIER, "objet", "lampadaire", Vector3(p.x, y, p.y), 80 + k, {})
+	# les candélabres à trois lanternes aux quatre coins du square, comme sur la planche
+	for k in 4:
+		var c := Vector2(sq.position.x + 2.0 if k % 2 == 0 else sq.end.x - 2.0, sq.position.y + 2.0 if k < 2 else sq.end.y - 2.0)
+		_pose(MOBILIER, "objet", "candelabre", Vector3(c.x, y, c.y), 85 + k, {})
+	_vie(y)
 	_pose(MOBILIER, "objet", "corbeille", Vector3(sq.position.x + 4.0, y, sq.end.y - 2.0), 90)
 	_pose(MOBILIER, "objet", "corbeille", Vector3(sq.end.x - 4.0, y, sq.end.y - 2.0), 91)
 	# les terrasses des cafés : à l'ouest sous les stores rouge et vert, à l'est sous un store rayé
@@ -944,6 +1008,47 @@ func _place() -> void:
 		_pose(MOBILIER, "objet", "jardiniere", Vector3(-12.8, y, z), 100 + int(z), {"fleurs": "e0605a"})
 	for z in [-6.0, 10.0, 34.0]:
 		_pose(MOBILIER, "objet", "jardiniere", Vector3(32.4, y, z), 120 + int(z), {"fleurs": "d04a8a"})
+
+
+## La vie du square, un soir de septembre : des groupes qui bavardent autour de Blandan, deux lecteurs sur
+## les bancs, des promeneurs sur les trottoirs et dans l'axe du square. Les figurants du socle sont à l'échelle
+## du jeu : on les pose sous la scène, hors de la ville en mètres.
+func _vie(y: float) -> void:
+	var groupe := Node3D.new()
+	groupe.name = "Habitants"
+	add_child(groupe)
+	var g := 69123
+	for centre in [Vector2(BLANDAN.x - 2.0, BLANDAN.y + 8.5), Vector2(BLANDAN.x + 5.5, 33.0)]:
+		for k in 3:
+			var a: float = TAU * k / 3.0 + centre.x
+			var q := Vector2(centre.x + cos(a) * 1.1, centre.y + sin(a) * 1.1)
+			var f: Node3D = Atelier.figurant(g, "idle")
+			f.position = Vector3(q.x, y, q.y) / U
+			f.rotation.y = atan2(-cos(a), -sin(a))
+			groupe.add_child(f)
+			g += 1
+	# deux lecteurs assis, sur un banc de chaque allée
+	for b in [[Vector2(SQUARE.position.x + 4.9, 20.4), -PI * 0.5], [Vector2(SQUARE.end.x - 4.9, 30.6), PI * 0.5]]:
+		var f: Node3D = Atelier.figurant(g, "sit")
+		f.position = Vector3(b[0].x, y, b[0].y) / U
+		f.rotation.y = b[1]
+		groupe.add_child(f)
+		g += 1
+	# les promeneurs : les deux trottoirs, l'axe du square vers l'escalier, la traversée au sud
+	var routes := [
+		[Vector2(-8.0, 46.0), Vector2(-8.0, 20.0), Vector2(-8.0, -8.0)],
+		[Vector2(27.5, -8.0), Vector2(27.5, 20.0), Vector2(27.5, 46.0)],
+		[Vector2(BLANDAN.x, 44.0), Vector2(BLANDAN.x - 1.0, 22.0), Vector2(BLANDAN.x - 4.0, 13.0), Vector2(BLANDAN.x, 2.0), Vector2(BLANDAN.x, -8.0)],
+		[Vector2(-8.0, 48.0), Vector2(10.0, 48.5), Vector2(27.5, 48.0)],
+	]
+	for k in routes.size():
+		var route: Array[Vector3] = []
+		for q in routes[k]:
+			route.append(Vector3(q.x, hauteur(q.x, q.y), q.y) / U)
+		var f: Node3D = Atelier.figurant(g, "walk", "village", route)
+		f.position = route[0]
+		groupe.add_child(f)
+		g += 1
 
 
 ## La montée de l'Amphithéâtre : la volée centrale entre les deux lions, le palier, puis les deux volées
