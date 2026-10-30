@@ -136,6 +136,9 @@ func _ready() -> void:
 	_rues()
 	_choisir_heros()
 	_batiments()
+	# au-delà du cadre, la ville en volumes (quartiers/_ville, tenue par la maquette des quartiers)
+	if ResourceLoader.exists(DOSSIER + "quartiers/_ville/volumes.gd"):
+		load(DOSSIER + "quartiers/_ville/volumes.gd").call("batir", $Quartiers)
 	_place()
 	_escalier()
 	_arbres()
