@@ -679,7 +679,10 @@ void fragment() {
 	vec2 p = monde.xz;
 	float nappe = bruit(p * 0.35) * 0.6 + bruit(p * 0.9) * 0.4;
 	float grain = hash(floor(p * 18.0));
-	vec3 c = teinte * (0.93 + 0.12 * nappe);
+	// des plaques plus claires, damées par les pas, et plus sombres, que l'on voit encore de haut
+	// les plaques à bords nets : mates là où l'on passe, plus claires ailleurs
+	float pas = step(0.5, bruit(p * 0.45 + 3.7)) - step(0.62, bruit(p * 0.7 + 9.1));
+	vec3 c = teinte * (0.88 + 0.22 * nappe) * (1.0 + 0.1 * pas);
 	c = mix(c, c * 0.82, step(0.93, grain));
 	c = mix(c, c * 1.08, step(grain, 0.05));
 	ALBEDO = c;
@@ -1496,6 +1499,12 @@ void fragment() {
 		float recouvrement = smoothstep(0.0, 0.35, fract(r));
 		float nuance = floor(hash(vec2(rang, floor(s))) * 6.0) / 5.0;
 		c *= (0.72 + 0.28 * onde) * (0.6 + 0.4 * recouvrement) * (0.88 + 0.24 * nuance);
+		// vu de haut, les rangs de 30 cm se fondent : un rang sur quatre plus sombre, et des plaques de tuiles
+		// plus neuves ou plus passées, pour que le pan garde son grain depuis la Vue1
+		float cours = step(3.0, mod(rang, 4.0));
+		c *= 1.0 - 0.25 * cours;
+		float plaque = hash(vec2(floor(s / 6.0), floor(r / 5.0)));
+		c *= 0.85 + 0.3 * plaque;
 	}
 	ALBEDO = pow(c, vec3(2.2)) * 1.4;
 	ROUGHNESS = 0.85;
@@ -1887,8 +1896,9 @@ func _vie(y: float) -> void:
 			f.rotation.y = atan2(-cos(a), -sin(a))
 			groupe.add_child(f)
 			g += 1
-	# deux lecteurs assis, sur un banc de chaque allée
-	for b in [[Vector2(SQUARE.position.x + 4.9, 20.4), -PI * 0.5], [Vector2(SQUARE.end.x - 4.9, 30.6), PI * 0.5]]:
+	# deux lecteurs assis, sur un banc de chaque allée, et un couple sur le banc du bout, côté marronniers
+	for b in [[Vector2(SQUARE.position.x + 4.9, 20.4), -PI * 0.5], [Vector2(SQUARE.end.x - 4.9, 30.6), PI * 0.5],
+			[Vector2(SQUARE.position.x + 4.9, 35.5), -PI * 0.5], [Vector2(SQUARE.position.x + 4.9, 36.5), -PI * 0.5]]:
 		var f: Node3D = Atelier.figurant(g, "sit")
 		f.position = Vector3(b[0].x, y, b[0].y) / U
 		f.rotation.y = b[1]
@@ -1898,8 +1908,10 @@ func _vie(y: float) -> void:
 	var routes := [
 		[Vector2(-8.0, 46.0), Vector2(-8.0, 20.0), Vector2(-8.0, -8.0)],
 		[Vector2(27.5, -8.0), Vector2(27.5, 20.0), Vector2(27.5, 46.0)],
-		[Vector2(BLANDAN.x, 44.0), Vector2(BLANDAN.x - 1.0, 22.0), Vector2(BLANDAN.x - 4.0, 13.0), Vector2(BLANDAN.x, 2.0), Vector2(BLANDAN.x, -8.0)],
-		[Vector2(-8.0, 48.0), Vector2(10.0, 48.5), Vector2(27.5, 48.0)],
+		[Vector2(BLANDAN.x, 40.0), Vector2(BLANDAN.x - 1.0, 22.0), Vector2(BLANDAN.x - 4.0, 13.0), Vector2(BLANDAN.x, 2.0), Vector2(BLANDAN.x, -8.0)],
+		# la traversée au sud s'arrête avant le point de vue des marronniers (12, 49), à plus de 6 m
+		[Vector2(-8.0, 48.0), Vector2(5.0, 48.5)],
+		[Vector2(27.5, 48.0), Vector2(19.0, 48.5)],
 		# les deux rues, dans les deux sens, et sur les trottoirs des terrasses
 		[Vector2(-4.8, -6.0), Vector2(-4.6, 20.0), Vector2(-4.8, 46.0)],
 		[Vector2(-9.0, 40.0), Vector2(-9.0, 12.0), Vector2(-9.2, -6.0)],
