@@ -679,7 +679,9 @@ void fragment() {
 	vec2 p = monde.xz;
 	float nappe = bruit(p * 0.35) * 0.6 + bruit(p * 0.9) * 0.4;
 	float grain = hash(floor(p * 18.0));
-	vec3 c = teinte * (0.93 + 0.12 * nappe);
+	// des plaques plus claires, damées par les pas, et plus sombres, que l'on voit encore de haut
+	float pas = bruit(p * 2.2);
+	vec3 c = teinte * (0.88 + 0.22 * nappe) * (0.94 + 0.1 * pas);
 	c = mix(c, c * 0.82, step(0.93, grain));
 	c = mix(c, c * 1.08, step(grain, 0.05));
 	ALBEDO = c;
@@ -1496,6 +1498,12 @@ void fragment() {
 		float recouvrement = smoothstep(0.0, 0.35, fract(r));
 		float nuance = floor(hash(vec2(rang, floor(s))) * 6.0) / 5.0;
 		c *= (0.72 + 0.28 * onde) * (0.6 + 0.4 * recouvrement) * (0.88 + 0.24 * nuance);
+		// vu de haut, les rangs de 30 cm se fondent : un rang sur quatre plus sombre, et des plaques de tuiles
+		// plus neuves ou plus passées, pour que le pan garde son grain depuis la Vue1
+		float cours = step(3.0, mod(rang, 4.0));
+		c *= 1.0 - 0.1 * cours;
+		float plaque = hash(vec2(floor(s / 6.0), floor(r / 5.0)));
+		c *= 0.9 + 0.2 * plaque;
 	}
 	ALBEDO = pow(c, vec3(2.2)) * 1.4;
 	ROUGHNESS = 0.85;
@@ -1887,8 +1895,9 @@ func _vie(y: float) -> void:
 			f.rotation.y = atan2(-cos(a), -sin(a))
 			groupe.add_child(f)
 			g += 1
-	# deux lecteurs assis, sur un banc de chaque allée
-	for b in [[Vector2(SQUARE.position.x + 4.9, 20.4), -PI * 0.5], [Vector2(SQUARE.end.x - 4.9, 30.6), PI * 0.5]]:
+	# deux lecteurs assis, sur un banc de chaque allée, et un couple sur le banc du bout, côté marronniers
+	for b in [[Vector2(SQUARE.position.x + 4.9, 20.4), -PI * 0.5], [Vector2(SQUARE.end.x - 4.9, 30.6), PI * 0.5],
+			[Vector2(SQUARE.position.x + 4.9, 35.5), -PI * 0.5], [Vector2(SQUARE.position.x + 4.9, 36.5), -PI * 0.5]]:
 		var f: Node3D = Atelier.figurant(g, "sit")
 		f.position = Vector3(b[0].x, y, b[0].y) / U
 		f.rotation.y = b[1]
