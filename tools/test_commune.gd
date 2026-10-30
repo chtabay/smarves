@@ -112,6 +112,33 @@ func _init() -> void:
 			break
 	check(loin > 1.0, "l'habitant marche (%.1f unités)" % loin)
 	check(p.is_on_floor(), "et reste au sol")
+
+	# La vue de dessus le suit : la caméra vise l'habitant là où il est arrivé, pas son point de départ.
+	await create_timer(0.5, true).timeout
+	var vise: Vector3 = cam.get("_target_goal")
+	var ou := Vector2(p.global_position.x - vise.x, p.global_position.z - vise.z).length()
+	check(p.follow_camera != cam or ou < 0.5, "la caméra de dessus suit l'habitant (%.1f unités d'écart)" % ou)
+
+	# Le clic droit glissé tourne la vue de dessus.
+	if p.follow_camera == cam:
+		var lacet0: float = cam.get("_yaw_goal")
+		var clic := InputEventMouseButton.new()
+		clic.button_index = MOUSE_BUTTON_RIGHT
+		clic.pressed = true
+		clic.position = Vector2(400, 300)
+		Input.parse_input_event(clic)
+		await process_frame
+		var glisse := InputEventMouseMotion.new()
+		glisse.relative = Vector2(120, 0)
+		glisse.position = Vector2(520, 300)
+		glisse.button_mask = MOUSE_BUTTON_MASK_RIGHT
+		Input.parse_input_event(glisse)
+		await process_frame
+		clic = clic.duplicate()
+		clic.pressed = false
+		Input.parse_input_event(clic)
+		await process_frame
+		check(absf(float(cam.get("_yaw_goal")) - lacet0) > 0.1, "le clic droit glissé tourne la vue")
 	_fin()
 
 

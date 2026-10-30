@@ -9,9 +9,9 @@ extends Node3D
 const DOSSIER := "res://communes/toulouse/"
 const SAINT_GEORGES := preload(DOSSIER + "saint_georges.gd")
 const UNITE := 2.4
-## Les crans de la caméra : [distance, plongée, champ]. On arrive au premier, sous les platanes, à hauteur
-## d'homme (Guillaume, 30 octobre : de haut, depuis un toit, on ne voit rien).
-const CRANS := [[4.5, -16.0, 50.0], [9.0, -48.0, 34.0], [18.0, -51.0, 30.0], [32.0, -58.0, 30.0]]
+## Les crans de la caméra : [distance, plongée, champ]. On arrive au deuxième, au-dessus de l'habitant
+## (Guillaume, 30 octobre : le premier, sous les platanes, est trop bas pour jouer) ; la molette y descend.
+const CRANS := [[6.0, -28.0, 45.0], [9.0, -48.0, 34.0], [18.0, -51.0, 30.0], [32.0, -58.0, 30.0]]
 
 ## La lumière de 18 h en septembre (note : « Lumière et caméras ») : soleil d'ouest-sud-ouest, bas et doré.
 const SOLEIL := {"hauteur": 36.0, "vient_de": 262.0, "couleur": Color("ffd9a8")}
@@ -400,7 +400,7 @@ func _joueur() -> void:
 	var devant: Vector3 = player.global_basis.z
 	camera.yaw = atan2(-devant.x, -devant.z)
 	camera.set("_yaw_goal", camera.yaw)
-	camera.use_notches(CRANS, 0)
+	camera.use_notches(CRANS, 1)
 
 
 ## La caméra de dessus suit l'habitant (Guillaume, 30 octobre : en marchant vers le haut de l'écran, il en
@@ -415,7 +415,9 @@ func _interagir(cible: Node) -> void:
 	var id := str(cible.get_meta("interact", ""))
 	match id:
 		"taxi":
-			Carte.ouvrir_car()
+			# la carte de toutes les communes, pas celle du car départemental : Toulouse est seule de son
+			# département, le car n'y dessert personne (Guillaume, 30 octobre)
+			Carte.ouvrir()
 		"notaire":
 			Etude.ouvrir("toulouse")
 		"chemiserie":
