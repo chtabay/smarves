@@ -202,7 +202,15 @@ vec3 teinte(int c, vec2 xz, float y, float g, float g2, float pres, float pr) {
 		return roche(xz, y, g, g2, pres, pr);
 	}
 	// Un pré plus sourd et moins uni : vu de haut, la nappe claire levait la médiane du relais (verdict n° 28).
-	return mix(PRE, PRE_SEC, g2 * 0.9) * (0.86 + 0.26 * g);
+	// Par parcelles (verdict n° 31, la recette du banc) : chaque champ d'une centaine de mètres a son état, fauché
+	// en paille, regain plus sombre ou pré ; dedans, des taches blondes lentes.
+	vec2 r = mat2(vec2(0.94, 0.34), vec2(-0.34, 0.94)) * xz;
+	float champ = h21(floor(r / vec2(120.0, 85.0)));
+	vec3 pre = mix(PRE, PRE_SEC, g2 * 0.9);
+	pre = mix(pre, vec3(0.60, 0.58, 0.34), step(0.74, champ) * 0.85);
+	pre = mix(pre, PRE * 0.82, step(champ, 0.22));
+	pre = mix(pre, vec3(0.58, 0.57, 0.33), smoothstep(0.55, 0.75, fbm(xz * 0.03 + 21.0)) * 0.45);
+	return pre * (0.86 + 0.26 * g);
 }
 
 void fragment() {

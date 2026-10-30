@@ -33,12 +33,17 @@ func _init(sol: Callable, graine := 1) -> void:
 
 ## Une haie de a à b (au sol), haute de haut, épaisse de epais.
 func troncon(a: Vector2, b: Vector2, graine: int, haut := 2.0, epais := 1.3) -> void:
+	troncon_couleurs(a, b, VERTS[posmod(graine, VERTS.size())], haut, epais, graine)
+
+
+## La même, dans cinq verts donnés (hexas, du soleil à l'ombre) : le rang de vigne en est une, basse et étroite.
+func troncon_couleurs(a: Vector2, b: Vector2, hexas: Array, haut := 2.0, epais := 1.3, graine := 0) -> void:
 	var l := a.distance_to(b)
 	if l < 0.5:
 		return
 	var dir := (b - a) / l
 	var nrm := Vector2(-dir.y, dir.x)
-	var verts: Array = VERTS[posmod(graine, VERTS.size())].map(func(x): return Color(x))
+	var verts: Array = hexas.map(func(x): return Color(x))
 	var r: RandomNumberGenerator = o.rng
 	for i in int(l * DENSITE):
 		var t := r.randf()
