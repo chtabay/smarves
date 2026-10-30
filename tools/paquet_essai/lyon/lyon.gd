@@ -27,7 +27,7 @@ const ENDUITS_PLACE := ["ecd59c", "f1e1b8", "eac39a", "f0d6a4", "e6c08e", "f3e6c
 const ENDUITS_PENTES := ["e2cc98", "e9d6b0", "dcb78f", "e4c8a0", "d8c3a2"]
 const TOILES := [["b8322c", "f3ead6"], ["2f5a3a", "f3ead6"], ["c8962e", "f3ead6"], ["2f5a3a", "2f5a3a"], ["8a2a2a", "8a2a2a"], ["2e4a6e", "f3ead6"]]
 const TUILES := ["8f4a38", "86422f", "965040", "7e3f30", "92503f", "8a4836"]
-const PAVE := Color("#8e8a84")
+const PAVE := Color("#a39b93")
 const DALLE := Color("#c9c1b2")
 const SABLE := Color("#b48e62")
 const VILLEBOIS := Color("#c7c3b6")
@@ -349,7 +349,8 @@ void fragment() {
 	vec2 f = fract(q);
 	float joint = smoothstep(0.0, 0.1, f.x) * smoothstep(1.0, 0.9, f.x) * smoothstep(0.0, 0.12, f.y) * smoothstep(1.0, 0.88, f.y);
 	float v = 0.86 + 0.18 * hash(floor(q));
-	ALBEDO = COLOR.rgb * mix(0.6, v, joint);
+	// les teintes des sommets sont en sRGB ; les joints, plus sombres que la pierre, la découpent
+	ALBEDO = pow(COLOR.rgb, vec3(2.2)) * mix(0.5, v, joint);
 	ROUGHNESS = 0.9;
 }
 """
@@ -1035,7 +1036,12 @@ func _place() -> void:
 				libre = false
 		if libre:
 			massifs += 1
-			_pose(VEGETATION, "plante", "massif", Vector3(p.x, y, p.y), 700 + massifs, {"longueur": graines.randf_range(3.0, 5.0), "fleurs": ["f4f0e6", "d04a8a", "e0605a", "f2c14e"][massifs % 4]}, graines.randf_range(0.0, PI))
+			# trois boules molles de 1 à 2 m, d'une seule couleur de fleur par touffe
+			var fleur: String = ["f4f0e6", "d04a8a", "e0605a", "f2c14e"][massifs % 4]
+			for j in 3:
+				var a := TAU * j / 3.0 + graines.randf()
+				var q := p + Vector2(cos(a), sin(a)) * graines.randf_range(0.6, 1.1)
+				_pose(VEGETATION, "plante", "buisson", Vector3(q.x, y, q.y), 700 + massifs * 3 + j, {"hauteur": graines.randf_range(1.0, 1.8), "fleurs": fleur})
 			genants.append(p)
 	# la bordure basse de fonte noire et les plates-bandes fleuries le long du pourtour
 	var noir := Color("#1f2422")
@@ -1113,7 +1119,7 @@ func _vie(y: float) -> void:
 	groupe.name = "Habitants"
 	add_child(groupe)
 	var g := 69123
-	for centre in [Vector2(BLANDAN.x - 2.0, BLANDAN.y + 8.5), Vector2(BLANDAN.x + 5.5, 33.0)]:
+	for centre in [Vector2(BLANDAN.x - 2.0, BLANDAN.y + 8.5), Vector2(BLANDAN.x + 5.5, 33.0), Vector2(-9.0, 8.0), Vector2(29.0, 16.0)]:
 		for k in 3:
 			var a: float = TAU * k / 3.0 + centre.x
 			var q := Vector2(centre.x + cos(a) * 1.1, centre.y + sin(a) * 1.1)
@@ -1135,6 +1141,13 @@ func _vie(y: float) -> void:
 		[Vector2(27.5, -8.0), Vector2(27.5, 20.0), Vector2(27.5, 46.0)],
 		[Vector2(BLANDAN.x, 44.0), Vector2(BLANDAN.x - 1.0, 22.0), Vector2(BLANDAN.x - 4.0, 13.0), Vector2(BLANDAN.x, 2.0), Vector2(BLANDAN.x, -8.0)],
 		[Vector2(-8.0, 48.0), Vector2(10.0, 48.5), Vector2(27.5, 48.0)],
+		# les deux rues, dans les deux sens, et sur les trottoirs des terrasses
+		[Vector2(-4.8, -6.0), Vector2(-4.6, 20.0), Vector2(-4.8, 46.0)],
+		[Vector2(-9.0, 40.0), Vector2(-9.0, 12.0), Vector2(-9.2, -6.0)],
+		[Vector2(-6.2, 30.0), Vector2(-6.0, 5.0)],
+		[Vector2(26.0, 46.0), Vector2(26.2, 20.0), Vector2(26.0, -6.0)],
+		[Vector2(28.4, 0.0), Vector2(28.5, 30.0), Vector2(28.2, 46.0)],
+		[Vector2(26.8, 12.0), Vector2(27.0, 40.0)],
 	]
 	for k in routes.size():
 		var route: Array[Vector3] = []
