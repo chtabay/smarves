@@ -6,14 +6,16 @@ extends SceneTree
 ##   --vue=facadier    les treize bâtisses, en rangée
 ##   --vue=detail      la même rangée vue en enfilade, pour lire le relief des façades
 ##   --vue=un          une seule bâtisse, de trois quarts (--nom=lafage)
-##   --vue=mobilier    les onze objets du mobilier (--nom=carrousel : un seul, de près)
+##   --vue=place       les pièces du verdict v0.12 : bornes en deux rangs, lampadaire à deux branches, bancs habités
+##   --vue=mobilier    les objets du mobilier (--nom=carrousel : un seul, de près)
 ##   --vue=sols        les dix modules de sol (--nom=fosse_arbre : un seul, de près)
 ##   --vue=arbres      les arbres d'ombrière sur le pavé, au soleil (--nom=platane : un seul, de près)
 ##   --vue=saint_georges  la place Saint-Georges composée avec les quatre briques (--nom=ajour=0.5 : l'ombre des
 ##                     platanes trouée)
 ##   --vue=toits       cinq bâtisses vues d'en haut, pour lire les rangs de tuiles canal et le faîtage
 ##   --vue=bacs        trois bacs végétaux : rectangle dense, L fleuri, polygone de buis
-##                     (--nom=bas : à hauteur d'homme, depuis une terrasse)
+##                     (--nom=ombre : de près et à l'ombre d'une dalle, pour mesurer le plancher d'ombre ;
+##                     --nom=ombre,jour=1.2 : avec l'option jour)
 ##   --vue=ombre       l'ombre portée d'un platane seule, vue du ciel, pour mesurer la part du sol qu'elle couvre
 ##                     (--nom=ajour=0.35,densite=0.8 : les options de l'arbre)
 ## Sans carte graphique : xvfb-run avec --rendering-driver opengl3.
@@ -97,13 +99,42 @@ func _init() -> void:
 			cam.look_at_from_position(Vector3(x * 0.5 + 6, 26, 26), Vector3(x * 0.5 - 2, 9, -4))
 		"bacs":
 			_sol(Vector2(80, 80), Color("c9b28c"))
-			_pose(MOBILIER, "objet", "bac_vegetal", Vector3(-6.5, 0, 0), 1, {"longueur": 4.0, "largeur": 1.4, "plantation": "dense"})
-			_pose(MOBILIER, "objet", "bac_vegetal", Vector3(0, 0, 0), 2, {"forme": "L", "longueur": 4.0, "largeur": 1.2, "retour": 3.0, "plantation": "fleurie"})
-			_pose(MOBILIER, "objet", "bac_vegetal", Vector3(6.5, 0, 0), 3, {"forme": "polygone", "points": [[0, 0], [3.6, -0.4], [4.2, 1.6], [2.0, 2.6], [0.3, 1.8]], "plantation": "buis"})
+			var jour_bac := {}
+			if nom.begins_with("ombre,jour="):
+				jour_bac = {"jour": float(nom.trim_prefix("ombre,jour="))}
+			_pose(MOBILIER, "objet", "bac_vegetal", Vector3(-6.5, 0, 0), 1, {"longueur": 4.0, "largeur": 1.4, "plantation": "dense"}.merged(jour_bac))
+			_pose(MOBILIER, "objet", "bac_vegetal", Vector3(0, 0, 0), 2, {"forme": "L", "longueur": 4.0, "largeur": 1.2, "retour": 3.0, "plantation": "fleurie"}.merged(jour_bac))
+			_pose(MOBILIER, "objet", "bac_vegetal", Vector3(6.5, 0, 0), 3, {"forme": "polygone", "points": [[0, 0], [3.6, -0.4], [4.2, 1.6], [2.0, 2.6], [0.3, 1.8]], "plantation": "buis"}.merged(jour_bac))
 			for k in 3:
 				_etiquette(Vector3(-6.5 + k * 6.5, 0.3, 3.0), ["rectangle, dense", "L, fleurie", "polygone, buis"][k], 0.006)
 			cam.fov = 45
 			cam.look_at_from_position(Vector3(0, 7, 12), Vector3(0, 0.4, 0.3))
+			if nom.begins_with("ombre"):
+				# les bacs à l'ombre d'une dalle, de près : on mesure le plancher d'ombre du feuillage (verdict v0.12)
+				var dalle := MeshInstance3D.new()
+				var bm := BoxMesh.new()
+				bm.size = Vector3(40, 0.3, 40)
+				dalle.mesh = bm
+				dalle.position = Vector3(8, 9, -8)
+				monde.add_child(dalle)
+				cam.fov = 40
+				cam.look_at_from_position(Vector3(-4, 1.6, 4.5), Vector3(-5.5, 0.9, 0))
+		"place":
+			# les pièces du verdict v0.12 : deux rangs de bornes, le lampadaire à deux branches, deux bancs habités
+			_sol(Vector2(60, 40), Color("c9b28c"))
+			for i in 9:
+				for j in 4:
+					_pose(SOLS, "module", "brique_epi", Vector3(-16 + i * 4, 0, -6 + j * 4), i * 4 + j + 1, {})
+			for i in 7:
+				for rang in [-1.0, 1.0]:
+					_pose(MOBILIER, "objet", "borne", Vector3(-6 + i * 1.6, 0, rang * 1.2 + 3.0), i * 2 + int(rang > 0), {})
+			_pose(MOBILIER, "objet", "lampadaire", Vector3(-4.5, 0, -1.5), 2, {"branches": 2})
+			_pose(MOBILIER, "objet", "lampadaire", Vector3(5.5, 0, -1.5), 3, {})
+			_pose(MOBILIER, "objet", "banc", Vector3(-1.0, 0, -0.8), 4, {"assis": 3})
+			_pose(MOBILIER, "objet", "banc", Vector3(2.0, 0, -0.8), 5, {"assis": 1})
+			_pose(MOBILIER, "objet", "bac_vegetal", Vector3(-3, 0, -4.0), 6, {"longueur": 6.0, "largeur": 1.4, "plantation": "fleurie"})
+			cam.fov = 42
+			cam.look_at_from_position(Vector3(3.5, 2.2, 8.5), Vector3(-0.5, 1.0, -1.0))
 		"mobilier", "sols":
 			var id: String = MOBILIER if vue == "mobilier" else SOLS
 			var cle: String = "objet" if vue == "mobilier" else "module"
