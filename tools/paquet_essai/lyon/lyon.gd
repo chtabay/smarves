@@ -76,6 +76,8 @@ var _chaussees: Array = []
 ## Le niveau du trottoir de quai au point de vue du quai : le piéton y a les yeux au-dessus du parapet.
 var _niveau_quai_vue := -100.0
 var _ecart_quai_vue := 1e9
+## Les modules du quai, près du point de vue : [centre, normale vers l'eau, niveau du trottoir].
+var _quai_modules: Array = []
 var _heros := {}
 var _segments: Array = []
 var _cases_rues := {}
@@ -112,6 +114,7 @@ func _ready() -> void:
 	_escalier()
 	_arbres()
 	_parcours()
+	_quai_habite()
 	_fourviere()
 	_reperes()
 	_joueur()
@@ -407,6 +410,8 @@ func _quais() -> void:
 	for rive in [[RIVE_NORD, 1.0], [RIVE_SUD, -1.0]]:
 		var pts: Array = rive[0]
 		var prochain_arbre := 4.0
+		var prochain_banc := 9.0
+		var prochain_lampe := 2.0
 		var parcouru := 0.0
 		# les modules de 4 m le long de la rive, et le niveau du quai : le plus haut du sol relevé entre le parapet
 		# et la rue, lissé sur cinq modules pour que le trottoir ne fasse pas de marches
@@ -447,6 +452,8 @@ func _quais() -> void:
 				_niveau_quai_vue = y + 0.03
 			var lacet := atan2(n.x, n.y)
 			k += 1
+			if c.distance_to(QUAI_VUE) < 140.0:
+				_quai_modules.append([c, n, y + 0.03])
 			# le trottoir dallé du quai, du parapet jusqu'aux platanes, d'un seul tenant : il recouvre la marche que
 			# le lit creusé laisse dans la grille du relevé, et ses bouts suivent le niveau des modules voisins
 			var t := Vector2(n.y, -n.x)
@@ -480,6 +487,16 @@ func _quais() -> void:
 				# sous la tablette, 40 cm d'épaisseur ; le piéton voit l'eau par-dessus
 				var parapet := _pose(QUAIS, "module", "mur_quai_bas", Vector3(pp.x, y, pp.y), 900 + k, {"largeur": w + 0.02}, lacet)
 				parapet.scale = Vector3(1.0, 0.86, 0.68)
+			# les bancs tournés vers l'eau, à 1,7 m du parapet, et les lampadaires contre lui, en quinconce
+			if libre and c.distance_to(QUAI_VUE) > 5.0:
+				if parcouru + w >= prochain_banc:
+					prochain_banc += alea.randf_range(19.0, 24.0)
+					var pb := c - n * 1.7
+					_pose(MOBILIER, "objet", "banc", Vector3(pb.x, y + 0.03, pb.y), 1200 + k, {}, lacet)
+				if parcouru + w >= prochain_lampe:
+					prochain_lampe += alea.randf_range(24.0, 28.0)
+					var pl := c - n * 0.95
+					_pose(MOBILIER, "objet", "lampadaire", Vector3(pl.x, y + 0.03, pl.y), 1300 + k, {})
 			# les platanes du quai, à cinq mètres du parapet, tous les dix mètres environ
 			parcouru += w
 			if parcouru >= prochain_arbre:
@@ -836,7 +853,8 @@ void fragment() {
 	vec2 p = monde.xz;
 	float reprise = bruit(p * 0.18) * 0.6 + bruit(p * 0.55) * 0.4;
 	float grain = hash(floor(p * 18.0));
-	vec3 c = pow(vec3(0.5, 0.5, 0.49), vec3(2.2));
+	// un gris bleuté : la lumière dorée de fin septembre le ramène au gris neutre à l'écran
+	vec3 c = pow(vec3(0.62, 0.645, 0.71), vec3(2.2));
 	c *= 0.82 + 0.3 * reprise + 0.12 * (grain - 0.5);
 	ALBEDO = c;
 	ROUGHNESS = 0.95;
@@ -903,14 +921,29 @@ func _batiments() -> void:
 			var nb := maxf(1.0, round(long / baie))
 			var uv := [Vector2(0, 0), Vector2(nb, 0), Vector2(nb, h), Vector2(0, h)]
 			var n := Vector3(bb.y - a.y, 0, -(bb.x - a.x)).normalized()
-			# un mur mitoyen ne se voit pas : on ne le dessine pas (il scintillerait contre celui du voisin)
-			if _dans_un_autre((a + bb) * 0.5 + Vector2(n.x, n.z) * 0.6, i):
-				continue
+			# le relevé ne tourne pas toujours dans le même sens : le mur regarde dehors, sinon il disparaît vu de la
+			# rue et laisse voir le dessous du toit, une dalle sombre qui semble basculée
+			var ordre := [0, 2, 1, 0, 3, 2]
+			if Geometry2D.is_point_in_polygon((a + bb) * 0.5 + Vector2(n.x, n.z) * 0.3, poly):
+				n = -n
+				ordre = [0, 1, 2, 0, 2, 3]
+			# un mur mitoyen ne se voit pas : on ne le dessine pas (il scintillerait contre celui du voisin) ; mais
+			# au-dessus d'un voisin plus bas il se voit, et sans lui le toit flotte en dalle sombre vu de la rue
+			var voisin := _dans_qui((a + bb) * 0.5 + Vector2(n.x, n.z) * 0.6, i)
+			if voisin >= 0:
+				var bv: Dictionary = data.batiments[voisin]
+				var haut_voisin: float = bv.sol * U + bv.h * U
+				if sol + h - haut_voisin < 1.0:
+					continue
+				for j in 2:
+					v[j].y = haut_voisin
+				uv[0].y = haut_voisin - sol
+				uv[1].y = haut_voisin - sol
 			if _relief_pose.has(Vector2i(i, k)):
 				# derrière les façades en relief, le mur recule : il ne se voit qu'au-dessus d'une corniche plus basse
 				for j in 4:
 					v[j] -= n * 0.25
-			for idx in [0, 2, 1, 0, 3, 2]:
+			for idx in ordre:
 				murs.set_color(c)
 				murs.set_normal(n)
 				murs.set_uv(uv[idx])
@@ -1156,6 +1189,14 @@ func _dans_un_autre(p: Vector2, sauf: int) -> bool:
 	return false
 
 
+## Le bâtiment voisin dont l'emprise contient p, ou -1.
+func _dans_qui(p: Vector2, sauf: int) -> int:
+	for j in _grille.get(Vector2i(floori(p.x / 10.0), floori(p.y / 10.0)), []):
+		if j != sauf and Geometry2D.is_point_in_polygon(p, _emprises[j]):
+			return j
+	return -1
+
+
 func _enduit(c: Vector2, i: int) -> Color:
 	# les pentes (au nord et à l'est, plus haut) sont plus pâles et plus usées que le bas
 	var pentes := c.y < -45.0 or c.x > 90.0
@@ -1341,7 +1382,9 @@ func _materiau_murs() -> ShaderMaterial:
 	var sh := Shader.new()
 	sh.code = """
 shader_type spatial;
-render_mode diffuse_burley;
+// les deux faces : quelques emprises du relevé tournent à l'envers, et un mur vu de dos laissait voir le
+// dessous du toit comme une dalle sombre basculée
+render_mode diffuse_burley, cull_disabled;
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 void fragment() {
 	// les teintes d'enduit sont en sRGB, comme celles du façadier
@@ -2205,6 +2248,85 @@ func _parcours() -> void:
 			ville.add_child(vo)
 			n += 1
 		d += alea.randf_range(5.2, 6.5) if alea.randf() < 0.8 else 14.0
+
+
+## Le quai habité, autour du point de vue : des promeneurs sur les dalles, dans les deux sens, et quelques-uns
+## accoudés au parapet qui regardent l'eau ; les voitures garées le long de la rue du quai, de l'autre côté
+## des platanes.
+func _quai_habite() -> void:
+	if _quai_modules.size() < 8:
+		return
+	var alea := RandomNumberGenerator.new()
+	alea.seed = 1906
+	var groupe := Node3D.new()
+	groupe.name = "PassantsDuQuai"
+	add_child(groupe)
+	var g := 93000
+	var nb: int = _quai_modules.size()
+	# les promeneurs : chacun suit le quai sur une trentaine de mètres, entre le parapet et les platanes
+	for k in 14:
+		var m0 := alea.randi_range(0, nb - 9)
+		var ecart := alea.randf_range(2.4, 4.0)
+		var route: Array[Vector3] = []
+		for e in 4:
+			var mod: Array = _quai_modules[mini(m0 + e * 2, nb - 1)]
+			var q: Vector2 = mod[0] - mod[1] * ecart
+			route.append(Vector3(q.x, mod[2], q.y) / U)
+		if k % 2 == 0:
+			route.reverse()
+		var c0: Vector2 = Vector2(route[0].x, route[0].z) * U
+		if c0.distance_to(QUAI_VUE) < 4.0:
+			continue
+		var f: Node3D = Atelier.figurant(g, "walk", "village", route)
+		f.position = route[0]
+		groupe.add_child(f)
+		g += 1
+	# accoudés au parapet, seuls ou à deux, tournés vers la Saône
+	for k in 5:
+		var mod: Array = _quai_modules[alea.randi_range(2, nb - 3)]
+		var c: Vector2 = mod[0]
+		if c.distance_to(QUAI_VUE) < 6.0:
+			continue
+		var t := Vector2(mod[1].y, -mod[1].x)
+		for j in (2 if k % 2 == 0 else 1):
+			var q: Vector2 = c - mod[1] * 0.85 + t * (j * 0.8)
+			var f: Node3D = Atelier.figurant(g, "idle")
+			f.position = Vector3(q.x, mod[2], q.y) / U
+			f.rotation.y = atan2(mod[1].x, mod[1].y)
+			groupe.add_child(f)
+			g += 1
+	# les voitures de la rue du quai, garées contre la bordure côté platanes, quand une vraie chaussée y passe
+	var n := 0
+	var m := 1
+	while m < nb:
+		var mod: Array = _quai_modules[m]
+		var pt: Vector2 = mod[0] - mod[1] * 9.0
+		var proche := -1
+		var ecart := 1e9
+		for c in _chaussees.size():
+			var e: float = Geometry2D.get_closest_point_to_segment(pt, _chaussees[c][0], _chaussees[c][1]).distance_to(pt)
+			if e < ecart:
+				ecart = e
+				proche = c
+		if proche >= 0 and ecart < float(_chaussees[proche][2]) + 2.0 and float(_chaussees[proche][2]) >= 2.4 and alea.randf() < 0.75:
+			var sa: Vector2 = _chaussees[proche][0]
+			var sb: Vector2 = _chaussees[proche][1]
+			var t := (sb - sa).normalized()
+			var pied := Geometry2D.get_closest_point_to_segment(pt, sa, sb)
+			# du côté de l'eau, contre la bordure
+			var cote := t.orthogonal()
+			if cote.dot(mod[1]) < 0.0:
+				cote = -cote
+			var q := pied + cote * (float(_chaussees[proche][2]) - 1.05)
+			var vo: Node3D = load(Bibliotheque.scene("voitures-des-annees-80@1", "decor")).instantiate()
+			vo.voiture = ["citadine", "compacte", "berline", "break", "citadine", "fourgonnette"][alea.randi() % 6]
+			vo.graine = 400 + n
+			vo.options = {"couleur": ["efe9dc", "c8102e", "6b1d24", "d9b44a", "8fb3c9", "2c4a7a", "2f5d3a", "b7ab8f", "8d9196"][alea.randi() % 9]}
+			vo.position = Vector3(q.x, hauteur(q.x, q.y) + 0.06, q.y)
+			vo.rotation.y = atan2(t.x, t.y)
+			ville.add_child(vo)
+			n += 1
+		m += 2
 
 
 # --- Le lointain ----------------------------------------------------------------------------------
