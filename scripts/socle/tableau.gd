@@ -4,6 +4,12 @@ extends CanvasLayer
 ## placements » à la craie de Lucien (le total gagné au jeu, qu'il « analyse »), les petites annonces des
 ## joueurs, les rendez-vous des parties à plusieurs, et qui est passé au village depuis hier. À la porte
 ## d'une maison possédée par d'autres joueurs : leurs noms, et un mot à glisser dans leur livre d'or.
+##
+## Smarves pose son panneau sur la place (scripts/village/village.gd). Dans une commune greffée, le socle le
+## pose lui-même, au point d'arrivée, à côté de l'habitant quand il débarque (docs/AMIS.md) : la commune n'a
+## rien à construire ni à republier. Pour le mettre ailleurs (devant sa vraie mairie), elle pose un Node3D
+## nommé « PanneauMairie » dans sa scène, et le socle y bâtit le sien ; une zone à elle portant la méta
+## interact « panneau » le remplace tout à fait.
 
 const OR := Color(0.96, 0.8, 0.45)
 const EAU := Color(0.35, 0.8, 0.75)
@@ -68,6 +74,8 @@ func _ready() -> void:
 	Voisinage.lu.connect(func():
 		if is_open():
 			_remplir())
+	get_tree().scene_changed.connect(_sur_scene)
+	_sur_scene()
 
 
 func is_open() -> bool:
@@ -124,7 +132,7 @@ func _remplir() -> void:
 # --- Le panneau de la mairie -------------------------------------------------------------------
 
 func _remplir_panneau() -> void:
-	_box.add_child(_mot("M A I R I E   D E   S M A R V E S", 13, Color(0.75, 0.68, 0.5)))
+	_box.add_child(_mot(_en_tete(), 13, Color(0.75, 0.68, 0.5)))
 	_box.add_child(_mot("Le panneau d'affichage", 34, Color.WHITE, Polices.titre()))
 	if Voisinage.etat == "hors_ligne":
 		_box.add_child(_mot("Hors ligne : le panneau se lira au retour du réseau.", 16, DOUX))
@@ -346,3 +354,146 @@ func _bouton(t: String, fond: Color, encre: Color, bord: Color, action: Callable
 		b.add_theme_color_override(c, encre)
 	b.pressed.connect(action)
 	return b
+
+
+# --- Le panneau posé par le socle dans une commune greffée ------------------------------------------
+
+## Le panneau se dresse à ce pas de l'habitant qui arrive, sur son côté, un peu devant lui.
+const PANNEAU_COTE := 2.2
+const PANNEAU_DEVANT := 1.2
+
+
+## « M A I R I E   D E   C H A U V I G N Y » : le nom de la commune où l'on est.
+func _en_tete() -> String:
+	var c: Commune = Communes.commune(Communes.actuelle())
+	var nom := str(c.data.get("nom", "")) if c != null else ""
+	if nom.strip_edges() == "":
+		nom = "Smarves"
+	var out := PackedStringArray()
+	for ch in ("MAIRIE DE " + nom.to_upper()):
+		out.append("  " if ch == " " else ch)
+	return " ".join(out)
+
+
+## À chaque scène : si c'est la scène principale d'une commune greffée et qu'elle n'a pas de panneau, on
+## en pose un près de l'habitant. Les intérieurs, les stades et Smarves gardent les leurs.
+func _sur_scene() -> void:
+	var tree := get_tree()
+	# La scène se bâtit dans son _ready et y pose l'habitant ; on lui laisse deux images.
+	await tree.process_frame
+	await tree.process_frame
+	var s := tree.current_scene
+	if s == null or not is_instance_valid(s) or not (s is Node3D):
+		return
+	var id: String = Communes.actuelle()
+	if id == Communes.ORIGINE:
+		return
+	var c: Commune = Communes.commune(id)
+	if c == null or str(c.data.get("scene", "")) != s.scene_file_path:
+		return
+	if _panneau_de(s) != null:
+		return
+	var j := _joueur(s)
+	if j == null:
+		return
+	_poser_panneau(s, j)
+
+
+## La zone du panneau déjà dans la scène (celle de la commune, ou la nôtre), ou null.
+func _panneau_de(s: Node) -> Area3D:
+	for a in s.find_children("*", "Area3D", true, false):
+		if str(a.get_meta("interact", "")) == "panneau":
+			return a
+	return null
+
+
+## Le corps qu'on dirige dans la scène (le groupe « player » de scripts/fp_player.gd).
+func _joueur(s: Node) -> CharacterBody3D:
+	for p in get_tree().get_nodes_in_group("player"):
+		if p is CharacterBody3D and s.is_ancestor_of(p):
+			return p
+	return null
+
+
+func _poser_panneau(s: Node3D, j: CharacterBody3D) -> void:
+	var root := Node3D.new()
+	root.name = "PanneauDuSocle"
+	var ancre := s.find_child("PanneauMairie", true, false)
+	if ancre is Node3D:
+		(ancre as Node3D).add_child(root)
+	else:
+		s.add_child(root)
+		# Sur le côté de l'habitant, un peu devant, au sol, la face tournée vers lui.
+		var devant := -j.global_basis.z
+		devant.y = 0.0
+		devant = devant.normalized() if devant.length() > 0.01 else Vector3.FORWARD
+		var cote := devant.cross(Vector3.UP)
+		var at := j.global_position + cote * PANNEAU_COTE + devant * PANNEAU_DEVANT
+		at.y = _sol(j, at)
+		root.global_position = at
+		var vers := j.global_position
+		vers.y = at.y
+		if vers.distance_to(at) > 0.01:
+			# look_at tourne le -Z vers la cible ; la face du panneau est son +Z.
+			root.look_at(vers, Vector3.UP)
+			root.rotate_object_local(Vector3.UP, PI)
+	var bois := StandardMaterial3D.new()
+	bois.albedo_color = Color(0.36, 0.22, 0.12)
+	var ardoise := StandardMaterial3D.new()
+	ardoise.albedo_color = Color(0.13, 0.19, 0.17)
+	for x in [-0.62, 0.62]:
+		_boite3d(Vector3(0.08, 1.9, 0.08), Vector3(x, 0.95, 0), bois, root)
+	_boite3d(Vector3(1.4, 0.95, 0.06), Vector3(0, 1.3, 0), bois, root)
+	_boite3d(Vector3(1.28, 0.83, 0.02), Vector3(0, 1.3, 0.035), ardoise, root)
+	_boite3d(Vector3(1.5, 0.08, 0.2), Vector3(0, 1.84, 0), bois, root)
+	var titre := Label3D.new()
+	titre.text = "AFFICHAGE"
+	titre.font = Polices.texte()
+	titre.font_size = 44
+	titre.pixel_size = 0.004
+	titre.modulate = CRAIE
+	titre.outline_size = 0
+	titre.position = Vector3(0, 1.6, 0.05)
+	root.add_child(titre)
+	var papier := StandardMaterial3D.new()
+	papier.albedo_color = Color(0.95, 0.92, 0.82)
+	for f in [[-0.35, 1.2, 0.0], [0.05, 1.28, 0.06], [0.4, 1.15, -0.04]]:
+		_boite3d(Vector3(0.28, 0.36, 0.005), Vector3(f[0], f[1], 0.05), papier, root).rotation.z = f[2]
+	var a := Area3D.new()
+	var cs := CollisionShape3D.new()
+	var b := BoxShape3D.new()
+	b.size = Vector3(1.6, 2.0, 1.0)
+	cs.shape = b
+	cs.position = Vector3(0, 1.0, 0.4)
+	a.add_child(cs)
+	a.set_meta("interact", "panneau")
+	a.set_meta("action", ouvrir_panneau)
+	a.set_meta("prompt", "E : lire le panneau d'affichage")
+	root.add_child(a)
+	# La scène de la commune reçoit l'interaction et ne connaît pas cette zone : on l'écoute nous-mêmes.
+	var vu := func(cible: Node):
+		if cible == a and not is_open():
+			ouvrir_panneau()
+	if j.has_signal("interact"):
+		j.interact.connect(vu)
+
+
+## Le sol sous un point : le premier corps en dessous, sinon la hauteur des pieds de l'habitant.
+func _sol(j: CharacterBody3D, at: Vector3) -> float:
+	var q := PhysicsRayQueryParameters3D.create(at + Vector3(0, 2.0, 0), at + Vector3(0, -6.0, 0))
+	q.exclude = [j.get_rid()]
+	var hit := j.get_world_3d().direct_space_state.intersect_ray(q)
+	if hit:
+		return float(hit.position.y)
+	return j.global_position.y - float(j.get("radius")) if "radius" in j else j.global_position.y
+
+
+func _boite3d(size: Vector3, pos: Vector3, mat: Material, parent: Node) -> MeshInstance3D:
+	var m := MeshInstance3D.new()
+	var b := BoxMesh.new()
+	b.size = size
+	m.mesh = b
+	m.material_override = mat
+	m.position = pos
+	parent.add_child(m)
+	return m

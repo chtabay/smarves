@@ -50,6 +50,11 @@ Une boîte invite à écrire long et souvent, et devient vite un chat différé.
 
 - **court** (les 200 caractères du mot à la porte), **adressé** à un ami, **déposé sur place** (la mairie
   ou le café, en y allant) et **trouvé sur place** (en y repassant) ;
+- **le même courrier à chaque mairie**, comme une poste restante : un mot déposé à Smarves se relève aussi au
+  panneau de la mairie de Chauvigny ou de Lyon, parce qu'il suit la personne, pas le lieu. On garde le geste
+  d'aller à la mairie sans obliger à retraverser une commune pour un mot. Jamais depuis chez soi : c'est là
+  que le mot redeviendrait une boîte mail. La fiche du pensionnaire lui rappelle ce qu'il a déjà relevé,
+  comme un souvenir, pas comme une boîte à ouvrir ;
 - il dit surtout **où et quand** : « Au café vendredi vers 11 h 15, on fait une table ? » Un rendez-vous
   proposé dans un mot est relevé par le jeu et rappelé aux deux (dans la fiche du pensionnaire, dans la
   vue quand l'heure approche) ;
@@ -75,6 +80,11 @@ Pour mémoire, et pour mesurer que c'est petit :
 1. **La mairie et le café comme portes** : le mot à la porte accepte un ami comme destinataire, à ces
    deux adresses, en plus des maisons. Côté serveur, une règle de plus dans la vérification des actions ;
    côté jeu, le même geste qu'une annonce, sur place.
+   **Aucune commune n'a rien à refaire** : le panneau d'affichage est un autoload du socle (`Tableau`), que
+   seule la place de Smarves posait. **Fait le 30 octobre 2026** : le socle le pose lui-même dans chaque
+   commune greffée, au point d'arrivée, comme il pose déjà le stade ou la salle de jeu ; une commune qui le veut
+   devant sa vraie mairie pose un `Node3D` nommé `PanneauMairie` dans sa scène (docs/COMMUNE.md). Les paquets
+   existants le reçoivent au prochain jeu, sans être republiés.
 2. **L'amitié calculée** depuis les échanges déjà comptés, avec un seuil et une durée, lue par la fiche.
 3. **Le rendez-vous relevé** dans le mot (un jour, une heure, un lieu du village), rappelé dans la fiche
    et la vue des deux. Rien ne l'impose : on peut ne pas venir.
