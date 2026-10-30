@@ -1731,7 +1731,8 @@ func _place() -> void:
 			_pose(VEGETATION, "plante", "buisson", Vector3(BLANDAN.x + cos(b) * 4.0, y, BLANDAN.y + sin(b) * 4.0), 300 + k * 3 + j, {"hauteur": 1.0 + 0.3 * float(j % 2), "fleurs": ["f4f0e6", "e0605a", "d04a8a", "f4f0e6"][k]})
 	# un bosquet de marronniers irrégulier (la planche) : des troncs semés dans tout le square, une clairière
 	# autour de Blandan et dans l'axe de l'escalier, des massifs fleuris dans les trouées
-	var genants: Array[Vector2] = []
+	# le point de vue de Blandan (la planche) : pas de massif sous l'objectif
+	var genants: Array[Vector2] = [Vector2(12.96, 23.76), Vector2(13.7, 21.4), Vector2(12.0, 21.0)]
 	for k in 6:
 		var zb := lerpf(sq.position.y + 9.0, sq.end.y - 9.0, float(k) / 5.0)
 		genants.append(Vector2(sq.position.x + 4.6, zb))
@@ -1800,8 +1801,8 @@ func _place() -> void:
 				var q := p + Vector2(cos(a), sin(a)) * graines.randf_range(0.6, 1.1)
 				_pose(VEGETATION, "plante", "buisson", Vector3(q.x, y, q.y), 700 + massifs * 3 + j, {"hauteur": graines.randf_range(1.0, 1.8), "fleurs": fleur})
 			genants.append(p)
-	# la bordure basse de fonte noire et les plates-bandes fleuries le long du pourtour
-	var noir := Color("#1f2422")
+	# la bordure basse de pierre grise et les plates-bandes fleuries, en herbe, le long du pourtour
+	var noir := Color("#6e6a64")
 	for cote in [[Vector2(sq.position.x, sq.position.y), Vector2(sq.end.x, sq.position.y)], [Vector2(sq.position.x, sq.end.y), Vector2(sq.end.x, sq.end.y)],
 			[Vector2(sq.position.x, sq.position.y), Vector2(sq.position.x, sq.end.y)], [Vector2(sq.end.x, sq.position.y), Vector2(sq.end.x, sq.end.y)]]:
 		var a: Vector2 = cote[0]
@@ -1820,6 +1821,7 @@ func _place() -> void:
 			if k % 3 == 1:
 				var dedans := Vector2(-dir.y, dir.x) * (1.0 if (cote[0] == Vector2(sq.position.x, sq.position.y) and dir.x != 0.0) or (cote[0] == Vector2(sq.end.x, sq.position.y)) else -1.0)
 				_pose(VEGETATION, "plante", "buisson" if k % 2 else "massif", Vector3(q.x, y, q.y) + Vector3(dedans.x, 0, dedans.y) * 0.9, 600 + k, {"fleurs": ["f4f0e6", "e0605a", "d04a8a"][k % 3], "longueur": 1.8}, atan2(dir.x, dir.y))
+				_pose(VEGETATION, "plante", "herbe", Vector3(q.x, y, q.y) + Vector3(dedans.x, 0, dedans.y) * 0.9, 640 + k, {"longueur": 2.0, "largeur": 1.4}, atan2(dir.x, dir.y))
 	# les bancs de fonte verte, tournés vers la statue, et les réverbères noirs des allées
 	for k in 6:
 		var z := lerpf(sq.position.y + 9.0, sq.end.y - 9.0, float(k) / 5.0)

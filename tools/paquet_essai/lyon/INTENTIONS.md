@@ -123,6 +123,8 @@ La direction (ce fil) tient la note, le plan commun et les arbitrages ; la const
 
 **La bibliothèque d'abord** : `facadier-lyonnais@1`, `mobilier-lyonnais@1`, `vegetation-lyonnaise@1` (le platane), `quais-lyonnais@1`. Ce qui est unique reste dans le paquet : la mairie, Blandan, les deux fontaines aux lions de Sathonay, l'escalier de la montée. **Briques manquantes, demandées au fil « Ajouter des décors à la bibliothèque »** : le **marronnier** (feuilles palmées vert vif, couronne large et irrégulière qui déborde sur les allées, comme la planche) ; en attendant, des platanes tiennent sa place. Plus tard : la façade canut des pentes (une variante haute et austère de `facadier-lyonnais@1`) et une teinte de tuile au choix dans `facadier-lyonnais@1` (le rouge orangé de la planche).
 
+**Réglages à ne pas rechercher** : l'option `ajour` des marronniers (`arbres-d-ombriere@1`) est à 0,55, sans effet mesuré sur cette carte (verdict 30). Avec le soleil bas de l'ouest, les ombres des couronnes tombent hors du sable que montrent les vues.
+
 ## Hors du périmètre
 
 Pas d'intérieur, ni jeu, revenu ou pari pour le moment : la carte est un décor où l'on se promène. Rien ne change dans la première salle de Smarves. Les autres quartiers de Lyon (Presqu'île, Vieux-Lyon, Croix-Rousse) viendront dans d'autres versions de la même commune.
