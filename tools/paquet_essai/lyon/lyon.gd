@@ -31,6 +31,8 @@ const PALETTES_MARRONNIER := [["b9c84a", "8fb048", "7a9c40", "5f7f3e", "4a6634"]
 	["a9bc48", "7a9c40", "6a8a3c", "5f7f3e", "4d6e33"]]
 const TUILES := ["8f4a38", "86422f", "965040", "7e3f30", "92503f", "8a4836"]
 const PAVE := Color("#a39b93")
+## Les voies sans voitures : elles restent pavées.
+const PIETONS := ["footway", "path", "steps", "pedestrian", "living_street", "cycleway"]
 const DALLE := Color("#b3a998")
 const SABLE := Color("#b48e62")
 const VILLEBOIS := Color("#c7c3b6")
@@ -66,6 +68,12 @@ var _x0 := 0.0
 var _z0 := 0.0
 var _pas := 1.0
 var _niveau_place := 12.4
+var _niveau_eau := 0.0
+## Les tronçons de chaussée en enrobé près de la place : [a, b, demi-largeur].
+var _chaussees: Array = []
+## Le niveau du trottoir de quai au point de vue du quai : le piéton y a les yeux au-dessus du parapet.
+var _niveau_quai_vue := -100.0
+var _ecart_quai_vue := 1e9
 var _heros := {}
 var _segments: Array = []
 var _cases_rues := {}
@@ -89,15 +97,19 @@ func _ready() -> void:
 	ville.scale = Vector3.ONE / U
 	add_child(ville)
 	_niveler()
+	_creuser_lit()
 	_ciel()
 	_terrain()
 	_eau()
+	_quais()
+	_passerelle()
 	_rues()
 	_choisir_heros()
 	_batiments()
 	_place()
 	_escalier()
 	_arbres()
+	_parcours()
 	_fourviere()
 	_reperes()
 	_joueur()
@@ -144,6 +156,68 @@ func _niveler() -> void:
 				_h[iz * _nx + ix] = lerpf(_niveau_place, _h[iz * _nx + ix], d / 10.0)
 
 
+## La Saône : un vert profond et sourd sous le quai, qui s'éclaircit en reflet du ciel vers le loin, des rides
+## croisées qui cassent le miroir et accrochent l'or du soleil.
+func _materiau_eau() -> ShaderMaterial:
+	var sh := Shader.new()
+	sh.code = """
+shader_type spatial;
+render_mode diffuse_burley, specular_schlick_ggx;
+varying vec3 monde;
+void vertex() { monde = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
+void fragment() {
+	vec2 p = monde.xz;
+	float r1 = sin(p.x * 0.9 + p.y * 0.35 + TIME * 0.6) + sin(p.x * 0.31 - p.y * 1.3 - TIME * 0.4);
+	float r2 = sin(p.x * 2.7 - p.y * 1.9 + TIME * 1.1) * 0.5 + sin(p.x * 1.7 + p.y * 3.1) * 0.35;
+	vec3 n = normalize(vec3(r1 * 0.025 + r2 * 0.018, 1.0, (r2 - r1) * 0.022));
+	NORMAL = normalize((VIEW_MATRIX * vec4(n, 0.0)).xyz);
+	float fres = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
+	vec3 profond = pow(vec3(0.17, 0.30, 0.27), vec3(2.2));
+	vec3 ciel = pow(vec3(0.62, 0.70, 0.72), vec3(2.2));
+	ALBEDO = mix(profond, ciel, fres * 0.55);
+	ROUGHNESS = 0.12;
+	SPECULAR = 0.45;
+	METALLIC = 0.0;
+}
+"""
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	return m
+
+
+## Le relevé met la Saône presque au ras des quais, et sa grille de cinq mètres fait glisser les quais en pente
+## douce vers l'eau ; en vrai, le quai est de niveau jusqu'au parapet, et le mur tombe de cinq mètres. L'eau
+## descend, le lit se creuse à pic sous elle, et le sol des quais garde le niveau de la rue jusqu'au bord.
+func _creuser_lit() -> void:
+	_niveau_eau = data.niveau_eau * U - 2.2
+	var polys: Array = []
+	for e in data.eau:
+		var poly := PackedVector2Array()
+		for q in e.p:
+			poly.append(Vector2(q[0], q[1]) * U)
+		polys.append(poly)
+	var nouveaux := {}
+	for iz in _nz:
+		for ix in _nx:
+			var p := Vector2(_x0 + ix * _pas, _z0 + iz * _pas)
+			var dedans := false
+			var bord := Vector2.INF
+			for poly in polys:
+				if Geometry2D.is_point_in_polygon(p, poly):
+					dedans = true
+				for k in poly.size():
+					var q := Geometry2D.get_closest_point_to_segment(p, poly[k], poly[(k + 1) % poly.size()])
+					if q.distance_to(p) < bord.distance_to(p):
+						bord = q
+			if dedans:
+				nouveaux[iz * _nx + ix] = -60.0
+			elif p.distance_to(bord) < 14.0 and p.distance_to(bord) > 0.01:
+				var loin: Vector2 = bord + (p - bord).normalized() * 16.0
+				nouveaux[iz * _nx + ix] = maxf(_h[iz * _nx + ix], hauteur(loin.x, loin.y))
+	for k in nouveaux:
+		_h[k] = nouveaux[k]
+
+
 func _distance_rect(p: Vector2, r: Rect2) -> float:
 	var dx := maxf(maxf(r.position.x - p.x, p.x - r.end.x), 0.0)
 	var dz := maxf(maxf(r.position.y - p.y, p.y - r.end.y), 0.0)
@@ -159,12 +233,15 @@ func _ciel() -> void:
 	var e := Environment.new()
 	e.background_mode = Environment.BG_SKY
 	var ciel := ProceduralSkyMaterial.new()
-	ciel.sky_top_color = Color("#7fa6cf")
-	ciel.sky_horizon_color = Color("#f2dcb4")
-	ciel.sky_curve = 0.12
+	ciel.sky_top_color = Color("#5f94d0")
+	ciel.sky_horizon_color = Color("#f4d6a6")
+	# le bleu commence bas sur l'horizon : la caméra à pied ne regarde pas dans une bande de brume grise
+	ciel.sky_curve = 0.05
 	ciel.ground_horizon_color = Color("#e6cfa6")
 	ciel.ground_bottom_color = Color("#4a4a52")
-	ciel.sun_angle_max = 12.0
+	# le soleil, bas et doré : un halo large plutôt qu'un disque
+	ciel.sun_angle_max = 38.0
+	ciel.sun_curve = 0.06
 	e.sky = Sky.new()
 	e.sky.sky_material = ciel
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
@@ -197,8 +274,9 @@ func _ciel() -> void:
 	e.glow_hdr_threshold = 1.2
 	e.fog_enabled = true
 	e.fog_light_color = Color("#d9cbb2")
-	e.fog_density = 0.0005
-	e.fog_aerial_perspective = 0.6
+	e.fog_density = 0.00035
+	e.fog_aerial_perspective = 0.4
+	e.fog_sky_affect = 0.15
 	env.environment = e
 	add_child(env)
 	var soleil := DirectionalLight3D.new()
@@ -211,7 +289,8 @@ func _ciel() -> void:
 	soleil.light_energy = 1.05
 	soleil.shadow_enabled = true
 	soleil.shadow_opacity = 0.78
-	soleil.directional_shadow_max_distance = 220.0
+	soleil.directional_shadow_max_distance = 140.0
+	soleil.shadow_blur = 0.8
 	soleil.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 
 
@@ -280,7 +359,7 @@ func _terrain() -> void:
 
 
 func _eau() -> void:
-	var niveau: float = data.niveau_eau * U
+	var niveau := _niveau_eau
 	for e in data.eau:
 		var poly := PackedVector2Array()
 		for q in e.p:
@@ -296,11 +375,256 @@ func _eau() -> void:
 		var mi := MeshInstance3D.new()
 		mi.name = "Saone"
 		mi.mesh = st.commit()
-		var m := _mat(EAU, 0.08)
-		m.metallic = 0.2
-		m.metallic_specular = 0.8
-		mi.material_override = m
+		mi.material_override = _materiau_eau()
 		ville.add_child(mi)
+
+
+## Les quais de la Saône devant la passerelle : le mur de quai qui tombe dans la rivière, son parapet de pierre
+## dorée et la rangée de platanes du quai Saint-Vincent ; en face, le quai Pierre-Scize, tenu de la même façon.
+## Les rives sont celles du plan réel ; on ne tient que le tronçon que l'on voit depuis le quai.
+const RIVE_NORD := [Vector2(-388, 104), Vector2(-344, 103), Vector2(-333, 104), Vector2(-284, 114), Vector2(-238, 129), Vector2(-188, 150),
+	Vector2(-147, 174), Vector2(-68, 238), Vector2(-45, 266)]
+const RIVE_SUD := [Vector2(-432, 188), Vector2(-351, 188), Vector2(-314, 186), Vector2(-302, 187), Vector2(-250, 202), Vector2(-200, 227),
+	Vector2(-147, 280)]
+## La passerelle Saint-Vincent : ses deux culées, au nord sur le quai Saint-Vincent, au sud sur le quai Pierre-Scize.
+const PASSERELLE := [Vector2(-166.0, 163.0), Vector2(-202.0, 226.5)]
+## Le point de vue du quai, à trois mètres du parapet : la passerelle de trois quarts, la Saône et Fourvière.
+const QUAI_VUE := Vector2(-138.0, 177.0)
+
+func _quais() -> void:
+	var niveau := _niveau_eau
+	var arbres_reels: Array = []
+	for a in data.arbres:
+		arbres_reels.append(Vector2(a[0], a[1]) * U)
+	var k := 0
+	# un tirage à part, pour ne pas déranger celui du reste de la ville
+	var alea := RandomNumberGenerator.new()
+	alea.seed = 4691
+	var trottoir := SurfaceTool.new()
+	trottoir.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for rive in [[RIVE_NORD, 1.0], [RIVE_SUD, -1.0]]:
+		var pts: Array = rive[0]
+		var prochain_arbre := 4.0
+		var parcouru := 0.0
+		# les modules de 4 m le long de la rive, et le niveau du quai : le plus haut du sol relevé entre le parapet
+		# et la rue, lissé sur cinq modules pour que le trottoir ne fasse pas de marches
+		var modules: Array = []
+		for i in pts.size() - 1:
+			var a: Vector2 = pts[i]
+			var b: Vector2 = pts[i + 1]
+			var l := a.distance_to(b)
+			var n_mod := maxi(1, int(ceil(l / 4.0)))
+			var w := l / n_mod
+			var t := (b - a).normalized()
+			# la normale qui regarde l'eau : la rivière est au sud de la rive nord, au nord de la rive sud
+			var n: Vector2 = Vector2(-t.y, t.x) * float(rive[1])
+			if n.y * rive[1] < 0.0:
+				n = -n
+			for j in n_mod:
+				var c := a + t * w * (j + 0.5)
+				var y := -100.0
+				for dd in [2.0, 4.0, 7.5, 12.0]:
+					var dedans: Vector2 = c - n * dd
+					y = maxf(y, hauteur(dedans.x, dedans.y))
+				modules.append([c, n, w, y])
+		for m in modules.size():
+			var somme := 0.0
+			var nb := 0
+			for d in range(-2, 3):
+				if m + d >= 0 and m + d < modules.size():
+					somme += modules[m + d][3]
+					nb += 1
+			modules[m].append(somme / nb)
+		for m in modules.size():
+			var c: Vector2 = modules[m][0]
+			var n: Vector2 = modules[m][1]
+			var w: float = modules[m][2]
+			var y: float = modules[m][4]
+			if c.distance_to(QUAI_VUE) < _ecart_quai_vue:
+				_ecart_quai_vue = c.distance_to(QUAI_VUE)
+				_niveau_quai_vue = y + 0.03
+			var lacet := atan2(n.x, n.y)
+			k += 1
+			# le trottoir dallé du quai, du parapet jusqu'aux platanes, d'un seul tenant : il recouvre la marche que
+			# le lit creusé laisse dans la grille du relevé, et ses bouts suivent le niveau des modules voisins
+			var t := Vector2(n.y, -n.x)
+			var y0: float = (y + (modules[m - 1][4] if m > 0 else y)) * 0.5
+			var y1: float = (y + (modules[m + 1][4] if m < modules.size() - 1 else y)) * 0.5
+			var coins := [[c - t * w * 0.5 - n * 0.5, y0], [c + t * w * 0.5 - n * 0.5, y1], [c + t * w * 0.5 - n * 6.5, y1], [c - t * w * 0.5 - n * 6.5, y0]]
+			for idx in [0, 1, 2, 0, 2, 3]:
+				trottoir.set_normal(Vector3.UP)
+				trottoir.add_vertex(Vector3(coins[idx][0].x, coins[idx][1] + 0.03, coins[idx][0].y))
+			for paire in [[2, 3], [0, 1]]:
+				var pa: Array = coins[paire[0]]
+				var pb: Array = coins[paire[1]]
+				for q in [[pa, 0.0], [pb, 0.0], [pb, -3.0], [pa, 0.0], [pb, -3.0], [pa, -3.0]]:
+					trottoir.set_normal(Vector3(n.x, 0, n.y) * (1.0 if paire[0] == 0 else -1.0))
+					trottoir.add_vertex(Vector3(q[0][0].x, q[0][1] + 0.03 + q[1], q[0][0].y))
+			_pose(QUAIS, "module", "mur_quai_haut", Vector3(c.x, y, c.y), 800 + k, {"largeur": w + 0.04}, lacet)
+			if y - 3.8 > niveau:
+				# le pied du mur, plus haut que la brique : les mêmes assises, dans l'ombre de l'eau
+				var pied := y - 3.8 - niveau + 0.4
+				var mi := _boite(ville, Vector3(w + 0.04, pied, 1.2), Vector3(c.x, niveau - 0.4 + pied * 0.5, c.y) + Vector3(n.x, 0, n.y) * -0.35, Color("#a8936a"))
+				mi.rotation.y = lacet
+				mi.material_override = _materiau_appareil(Color("#b39c6e"))
+			# le parapet, sauf devant les culées de la passerelle
+			var libre := true
+			for q in PASSERELLE:
+				if c.distance_to(q) < 3.2:
+					libre = false
+			if libre:
+				var pp := c - n * 0.45
+				# le parapet du quai Saint-Vincent est plus mince et un peu plus bas que celui de la brique : 0,9 m
+				# sous la tablette, 40 cm d'épaisseur ; le piéton voit l'eau par-dessus
+				var parapet := _pose(QUAIS, "module", "mur_quai_bas", Vector3(pp.x, y, pp.y), 900 + k, {"largeur": w + 0.02}, lacet)
+				parapet.scale = Vector3(1.0, 0.86, 0.68)
+			# les platanes du quai, à cinq mètres du parapet, tous les dix mètres environ
+			parcouru += w
+			if parcouru >= prochain_arbre:
+				prochain_arbre += alea.randf_range(9.0, 11.0)
+				var pa := c - n * 5.0
+				var loin := true
+				for q in PASSERELLE:
+					if pa.distance_to(q) < 7.0:
+						loin = false
+				for q in arbres_reels:
+					if pa.distance_to(q) < 5.0 and q.distance_to(CENTRE_PLACE) <= 220.0:
+						loin = false
+				if pa.distance_to(QUAI_VUE) < 9.0:
+					loin = false
+				if loin:
+					_pose(OMBRIERE, "arbre", "platane", Vector3(pa.x, y, pa.y), 700 + k, {"hauteur": alea.randf_range(12.5, 14.5), "vent": 0.3, "densite": 0.85})
+	var mt := MeshInstance3D.new()
+	mt.name = "TrottoirsDesQuais"
+	mt.mesh = trottoir.commit()
+	mt.material_override = _materiau_dalles_quai()
+	ville.add_child(mt)
+	# on marche dessus
+	var corps := StaticBody3D.new()
+	var forme := CollisionShape3D.new()
+	forme.shape = mt.mesh.create_trimesh_shape()
+	corps.add_child(forme)
+	mt.add_child(corps)
+
+
+## Une poutre dans un SurfaceTool : de a à b, de section l × h (h dans le plan vertical qui la contient).
+func _poutre_st(st: SurfaceTool, a: Vector3, b: Vector3, l: float, h: float, col: Color) -> void:
+	var d := (b - a).normalized()
+	var cote := d.cross(Vector3.UP)
+	if cote.length() < 0.01:
+		cote = Vector3.RIGHT
+	cote = cote.normalized() * l * 0.5
+	var haut := cote.cross(d).normalized() * h * 0.5
+	if haut.y < 0.0:
+		haut = -haut
+	var c := [-cote - haut, cote - haut, cote + haut, -cote + haut]
+	for f in 4:
+		var u: Vector3 = c[f]
+		var v: Vector3 = c[(f + 1) % 4]
+		var nrm := (u + v).normalized()
+		for q in [a + u, b + u, b + v, a + u, b + v, a + v]:
+			st.set_color(col)
+			st.set_normal(nrm)
+			st.add_vertex(q)
+	for bout in [[a, -d], [b, d]]:
+		for idx in [0, 1, 2, 0, 2, 3]:
+			st.set_color(col)
+			st.set_normal(bout[1])
+			st.add_vertex(bout[0] + c[idx])
+
+
+## La passerelle Saint-Vincent, pièce unique : une passerelle suspendue pour les piétons, son tablier de fer
+## vert-de-gris tendu d'une rive à l'autre, ses deux portiques de pierre dorée sur les culées, les câbles en
+## chaînette et leurs suspentes, le garde-corps à barreaux fins.
+func _passerelle() -> void:
+	var a2: Vector2 = PASSERELLE[0]
+	var b2: Vector2 = PASSERELLE[1]
+	var dir := (b2 - a2).normalized()
+	# les culées sont au ras du mur ; le tablier part du niveau du trottoir de quai
+	var ya := hauteur(a2.x - dir.x * 7.5, a2.y - dir.y * 7.5) + 0.15
+	var yb := hauteur(b2.x + dir.x * 7.5, b2.y + dir.y * 7.5) + 0.15
+	var cote := Vector2(-dir.y, dir.x)
+	var long := a2.distance_to(b2)
+	var lacet := atan2(dir.x, dir.y)
+	var fer := Color("#465a52")
+	var fer_sombre := Color("#2c3833")
+	var planches := Color("#8a7a62")
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var n := 48
+	var largeur := 2.8
+	var tablier := func(s: float) -> Vector3:
+		var p := a2 + dir * long * s
+		# une légère contre-flèche : le tablier se bombe de 60 cm au milieu
+		return Vector3(p.x, lerpf(ya, yb, s) + 0.6 * sin(PI * s), p.y)
+	for i in n:
+		var p0: Vector3 = tablier.call(float(i) / n)
+		var p1: Vector3 = tablier.call(float(i + 1) / n)
+		# le platelage, les deux poutres de rive et les entretoises
+		_poutre_st(st, p0, p1, largeur, 0.08, planches)
+		for s in [-1.0, 1.0]:
+			var o: Vector3 = Vector3(cote.x, 0, cote.y) * s * (largeur * 0.5 + 0.06)
+			_poutre_st(st, p0 + o + Vector3(0, -0.12, 0), p1 + o + Vector3(0, -0.12, 0), 0.14, 0.42, fer)
+			# la main courante et la lisse basse
+			_poutre_st(st, p0 + o + Vector3(0, 1.1, 0), p1 + o + Vector3(0, 1.1, 0), 0.08, 0.06, fer_sombre)
+			_poutre_st(st, p0 + o + Vector3(0, 0.15, 0), p1 + o + Vector3(0, 0.15, 0), 0.04, 0.04, fer_sombre)
+			# les barreaux, tous les 25 cm
+			var nb := int(p0.distance_to(p1) / 0.25)
+			for j in nb:
+				var q: Vector3 = p0.lerp(p1, (j + 0.5) / nb) + o
+				_poutre_st(st, q + Vector3(0, 0.15, 0), q + Vector3(0, 1.08, 0), 0.025, 0.025, fer_sombre)
+		var milieu := (p0 + p1) * 0.5
+		_poutre_st(st, milieu - Vector3(cote.x, 0, cote.y) * (largeur * 0.5 + 0.1) + Vector3(0, -0.3, 0),
+			milieu + Vector3(cote.x, 0, cote.y) * (largeur * 0.5 + 0.1) + Vector3(0, -0.3, 0), 0.12, 0.22, fer)
+	# les portiques : deux piles de pierre à refends, leur entablement et un linteau de fer, sur chaque culée
+	var pierre := Color("#d8bf8c")
+	var haut_pile := 9.5
+	var sommets := []
+	for bout in [[0.0, ya], [1.0, yb]]:
+		var p: Vector3 = tablier.call(bout[0])
+		var pierres := []
+		for s in [-1.0, 1.0]:
+			var c: Vector3 = p + Vector3(cote.x, 0, cote.y) * s * (largeur * 0.5 + 0.75)
+			for e in 8:
+				var h := haut_pile / 8.0
+				var retrait := 0.0 if e % 2 == 0 else 0.04
+				_boite_st(st, c + Vector3(0, h * (e + 0.5) - 0.5, 0), Vector3(1.1 - retrait, h - 0.05, 1.1 - retrait), -lacet, pierre.darkened(0.02 * (e % 3)))
+			_boite_st(st, c + Vector3(0, haut_pile - 0.3, 0), Vector3(1.4, 0.35, 1.4), -lacet, pierre.lightened(0.08))
+			_boite_st(st, c + Vector3(0, haut_pile + 0.1, 0), Vector3(1.0, 0.5, 1.0), -lacet, pierre)
+			_boite_st(st, c + Vector3(0, -0.2, 0), Vector3(1.5, 0.6, 1.5), -lacet, pierre.darkened(0.1))
+			pierres.append(c)
+			sommets.append(c + Vector3(0, haut_pile + 0.3, 0))
+		_poutre_st(st, pierres[0] + Vector3(0, haut_pile - 1.4, 0), pierres[1] + Vector3(0, haut_pile - 1.4, 0), 0.3, 0.5, fer)
+		_poutre_st(st, pierres[0] + Vector3(0, haut_pile - 2.2, 0), pierres[1] + Vector3(0, haut_pile - 2.2, 0), 0.12, 0.12, fer)
+	# les câbles porteurs en chaînette, d'un portique à l'autre, et les suspentes tous les deux mètres
+	for s in 2:
+		var c0: Vector3 = sommets[s]
+		var c1: Vector3 = sommets[2 + s]
+		var m := 40
+		var prec := c0
+		for i in range(1, m + 1):
+			var u := float(i) / m
+			var q := c0.lerp(c1, u)
+			var tab: Vector3 = tablier.call(u)
+			q.y = lerpf(c0.y, c1.y, u) - (lerpf(c0.y, c1.y, u) - tab.y - 1.4) * (1.0 - pow(2.0 * u - 1.0, 2.0))
+			_poutre_st(st, prec, q, 0.09, 0.09, fer_sombre)
+			prec = q
+		var nb := int(long / 2.0)
+		for j in range(1, nb):
+			var u := float(j) / nb
+			var tab: Vector3 = tablier.call(u)
+			var q := c0.lerp(c1, u)
+			q.y = lerpf(c0.y, c1.y, u) - (lerpf(c0.y, c1.y, u) - tab.y - 1.4) * (1.0 - pow(2.0 * u - 1.0, 2.0))
+			var o := Vector3(cote.x, 0, cote.y) * (-1.0 if s == 0 else 1.0) * (largeur * 0.5 + 0.06)
+			_poutre_st(st, Vector3(q.x, q.y, q.z), tab + o + Vector3(0, 1.1, 0), 0.03, 0.03, fer_sombre)
+	var mi := MeshInstance3D.new()
+	mi.name = "Passerelle"
+	mi.mesh = st.commit()
+	var mat := _mat(Color.WHITE, 0.7, true)
+	mat.vertex_color_is_srgb = true
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mi.material_override = mat
+	ville.add_child(mi)
 
 
 ## Les rues en rubans posés sur le relief : la chaussée d'enrobé, les rues piétonnes et les montées pavées.
@@ -362,17 +686,47 @@ void fragment() {
 	return m
 
 
+## Les dalles de pierre du trottoir de quai, en rangs décalés, de la teinte de celles de la brique des quais.
+var _dalles_quai: ShaderMaterial
+func _materiau_dalles_quai() -> ShaderMaterial:
+	if _dalles_quai:
+		return _dalles_quai
+	var sh := Shader.new()
+	sh.code = """
+shader_type spatial;
+varying vec3 monde;
+void vertex() { monde = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+void fragment() {
+	// le monde est en unités du jeu : les dalles se comptent en mètres
+	vec2 q = monde.xz * 2.4 / vec2(0.6, 0.4);
+	q.x += floor(q.y) * 0.5;
+	vec2 f = fract(q);
+	float joint = smoothstep(0.0, 0.03, f.x) * smoothstep(1.0, 0.97, f.x) * smoothstep(0.0, 0.045, f.y) * smoothstep(1.0, 0.955, f.y);
+	float v = 0.9 + 0.12 * hash(floor(q));
+	ALBEDO = pow(vec3(0.78, 0.73, 0.63), vec3(2.2)) * mix(0.78, v, joint);
+	ROUGHNESS = 0.92;
+}
+"""
+	_dalles_quai = ShaderMaterial.new()
+	_dalles_quai.shader = sh
+	return _dalles_quai
+
+
 func _rues() -> void:
 	var enrobe := SurfaceTool.new()
 	enrobe.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var pietons := SurfaceTool.new()
 	pietons.begin(Mesh.PRIMITIVE_TRIANGLES)
+	# les chaussées, pour poser les bordures de trottoir là où aucune autre chaussée ne passe
+	var chaussees: Array = []
+	var cases := {}
 	for r in data.routes:
 		if r.get("pont", false):
 			continue
 		var k: String = r.k
-		var st := pietons if k in ["footway", "path", "steps", "pedestrian", "living_street"] else enrobe
-		var l: float = r.l * U * (0.5 if k == "footway" else 0.5)
+		var st := pietons if k in PIETONS else enrobe
+		var l: float = r.l * U * 0.5
 		var pts: Array = []
 		for q in r.p:
 			pts.append(Vector2(q[0], q[1]) * U)
@@ -390,13 +744,94 @@ func _rues() -> void:
 				st.set_color(Color("#86827c") if st == enrobe else Color("#b3ab9d"))
 				st.set_normal(Vector3.UP)
 				st.add_vertex(v[idx])
-	for paire in [[enrobe, Color("#86827c"), "Chaussees"], [pietons, Color("#b3ab9d"), "Pietons"]]:
-		var mi := MeshInstance3D.new()
-		mi.name = paire[2]
-		mi.mesh = paire[0].commit()
-		mi.material_override = _materiau_paves()
-		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		ville.add_child(mi)
+			if st == enrobe and a.distance_to(CENTRE_PLACE) < 320.0:
+				chaussees.append([a, b, l])
+				var bo := Rect2(a, Vector2.ZERO).expand(b).grow(l + 1.0)
+				for gx in range(floori(bo.position.x / 20.0), floori(bo.end.x / 20.0) + 1):
+					for gz in range(floori(bo.position.y / 20.0), floori(bo.end.y / 20.0) + 1):
+						var cle := Vector2i(gx, gz)
+						if not cases.has(cle):
+							cases[cle] = []
+						cases[cle].append(chaussees.size() - 1)
+	_chaussees = chaussees
+	var mi := MeshInstance3D.new()
+	mi.name = "Chaussees"
+	mi.mesh = enrobe.commit()
+	mi.material_override = _materiau_enrobe()
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	ville.add_child(mi)
+	var mp := MeshInstance3D.new()
+	mp.name = "Pietons"
+	mp.mesh = pietons.commit()
+	mp.material_override = _materiau_paves()
+	mp.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	ville.add_child(mp)
+	# les bordures de granit gris clair, de part et d'autre de chaque chaussée, coupées aux carrefours
+	var bordures := SurfaceTool.new()
+	bordures.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for c in chaussees.size():
+		var a: Vector2 = chaussees[c][0]
+		var b: Vector2 = chaussees[c][1]
+		var l: float = chaussees[c][2]
+		var t := (b - a).normalized()
+		var n := t.orthogonal()
+		var long := a.distance_to(b)
+		var nb := maxi(1, int(long / 1.2))
+		var ang := atan2(t.y, t.x)
+		for s in [-1.0, 1.0]:
+			for j in nb:
+				var q: Vector2 = a + t * long * (j + 0.5) / nb + n * s * (l + 0.12)
+				if PLACE.has_point(q):
+					continue
+				var dans := false
+				for o in cases.get(Vector2i(floori(q.x / 20.0), floori(q.y / 20.0)), []):
+					if o == c:
+						continue
+					var sg: Array = chaussees[o]
+					if Geometry2D.get_closest_point_to_segment(q, sg[0], sg[1]).distance_to(q) < sg[2] + 0.1:
+						dans = true
+						break
+				if not dans:
+					_boite_st(bordures, Vector3(q.x, hauteur(q.x, q.y) + 0.1, q.y), Vector3(long / nb + 0.02, 0.2, 0.26), ang, Color("#cfcac0"))
+	var mb := MeshInstance3D.new()
+	mb.name = "Bordures"
+	mb.mesh = bordures.commit()
+	var mat := _mat(Color.WHITE, 0.85, true)
+	mat.vertex_color_is_srgb = true
+	mb.material_override = mat
+	ville.add_child(mb)
+
+
+## L'enrobé des rues des pentes : un gris chaud et sombre, des reprises plus claires ou plus noires, un grain
+## fin de gravillons ; il tient à côté des pavés de la place sans les imiter.
+func _materiau_enrobe() -> ShaderMaterial:
+	var sh := Shader.new()
+	sh.code = """
+shader_type spatial;
+render_mode diffuse_burley;
+varying vec3 monde;
+void vertex() { monde = VERTEX; }
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float bruit(vec2 p) {
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
+}
+void fragment() {
+	vec2 p = monde.xz;
+	float reprise = bruit(p * 0.18) * 0.6 + bruit(p * 0.55) * 0.4;
+	float grain = hash(floor(p * 18.0));
+	vec3 c = pow(vec3(0.52, 0.5, 0.47), vec3(2.2));
+	c *= 0.82 + 0.3 * reprise + 0.12 * (grain - 0.5);
+	ALBEDO = c;
+	ROUGHNESS = 0.95;
+	SPECULAR = 0.2;
+}
+"""
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	return m
 
 
 # --- Le bâti --------------------------------------------------------------------------------------
@@ -1557,6 +1992,93 @@ func _arbres() -> void:
 		_pose(OMBRIERE, "arbre", arbre, _sur(p.x, p.y), 500 + k, {"hauteur": haut, "vent": 0.3})
 
 
+## La vie du parcours, du quai à la place : des passants sur les deux trottoirs de la rue de la Martinière et de
+## la rue Louis-Vitet, des voitures garées le long d'une bordure, une qui roule au pas.
+const PARCOURS := [Vector2(-149.0, 114.0), Vector2(-30.0, 114.0), Vector2(68.0, 117.0), Vector2(34.0, 57.0), Vector2(14.0, 44.0)]
+
+func _parcours() -> void:
+	var alea := RandomNumberGenerator.new()
+	alea.seed = 1830
+	var groupe := Node3D.new()
+	groupe.name = "Passants"
+	add_child(groupe)
+	var g := 91000
+	var longueur := 0.0
+	for i in PARCOURS.size() - 1:
+		longueur += PARCOURS[i].distance_to(PARCOURS[i + 1])
+	# un point du parcours à l'abscisse d, et la direction de la rue
+	var sur := func(d: float) -> Array:
+		var reste := d
+		for i in PARCOURS.size() - 1:
+			var a: Vector2 = PARCOURS[i]
+			var b: Vector2 = PARCOURS[i + 1]
+			var l := a.distance_to(b)
+			if reste <= l or i == PARCOURS.size() - 2:
+				return [a.lerp(b, clampf(reste / l, 0.0, 1.0)), (b - a).normalized()]
+			reste -= l
+		return [PARCOURS[0], Vector2.RIGHT]
+	# les passants : chacun marche une quarantaine de mètres sur un trottoir, dans un sens ou dans l'autre
+	for k in 22:
+		var d0 := alea.randf_range(10.0, longueur - 50.0)
+		var cote := -1.0 if k % 2 == 0 else 1.0
+		var route: Array[Vector3] = []
+		for e in 4:
+			var pt: Array = sur.call(d0 + e * 13.0)
+			var q: Vector2 = pt[0] + (pt[1] as Vector2).orthogonal() * cote * alea.randf_range(3.4, 4.2)
+			route.append(Vector3(q.x, hauteur(q.x, q.y), q.y) / U)
+		if k % 3 == 0:
+			route.reverse()
+		var f: Node3D = Atelier.figurant(g, "walk", "village", route)
+		f.position = route[0]
+		groupe.add_child(f)
+		g += 1
+	# quelques-uns qui s'arrêtent pour causer, devant une vitrine
+	for k in 4:
+		var pt: Array = sur.call(alea.randf_range(30.0, longueur - 30.0))
+		var c: Vector2 = pt[0] + (pt[1] as Vector2).orthogonal() * 4.0 * (1.0 if k % 2 == 0 else -1.0)
+		for j in 2:
+			var q := c + (pt[1] as Vector2) * (j - 0.5) * 1.1
+			var f: Node3D = Atelier.figurant(g, "idle")
+			f.position = Vector3(q.x, hauteur(q.x, q.y), q.y) / U
+			f.rotation.y = atan2(-(pt[1] as Vector2).x, -(pt[1] as Vector2).y) * (1.0 if j == 0 else -1.0)
+			groupe.add_child(f)
+			g += 1
+	# les voitures garées le long de la bordure droite, par paquets, et une qui roule au milieu
+	var d := 18.0
+	var n := 0
+	while d < longueur - 20.0:
+		var pt: Array = sur.call(d)
+		# garée contre la bordure de la vraie chaussée la plus proche, dans son axe ; pas de voiture dans les
+		# rues piétonnes
+		var proche := -1
+		var ecart := 1e9
+		for c in _chaussees.size():
+			var e: float = Geometry2D.get_closest_point_to_segment(pt[0], _chaussees[c][0], _chaussees[c][1]).distance_to(pt[0])
+			if e < ecart:
+				ecart = e
+				proche = c
+		var garable := proche >= 0 and ecart < float(_chaussees[proche][2]) + 2.5 and float(_chaussees[proche][2]) >= 2.4
+		var t := Vector2.RIGHT
+		var q: Vector2 = pt[0]
+		if garable:
+			var sa: Vector2 = _chaussees[proche][0]
+			var sb: Vector2 = _chaussees[proche][1]
+			t = (sb - sa).normalized()
+			if t.dot(pt[1]) < 0.0:
+				t = -t
+			q = Geometry2D.get_closest_point_to_segment(pt[0], sa, sb) + t.orthogonal() * -(float(_chaussees[proche][2]) - 1.05)
+		if garable and alea.randf() < 0.7:
+			var vo: Node3D = load(Bibliotheque.scene("voitures-des-annees-80@1", "decor")).instantiate()
+			vo.voiture = ["citadine", "compacte", "berline", "break", "citadine", "fourgonnette"][alea.randi() % 6]
+			vo.graine = 300 + n
+			vo.options = {"couleur": ["efe9dc", "c8102e", "6b1d24", "d9b44a", "8fb3c9", "2c4a7a", "2f5d3a", "b7ab8f", "8d9196"][alea.randi() % 9]}
+			vo.position = Vector3(q.x, hauteur(q.x, q.y) + 0.06, q.y)
+			vo.rotation.y = atan2(t.x, t.y)
+			ville.add_child(vo)
+			n += 1
+		d += alea.randf_range(5.2, 6.5) if alea.randf() < 0.8 else 14.0
+
+
 # --- Le lointain ----------------------------------------------------------------------------------
 
 ## Fourvière, de l'autre côté de la Saône : la colline qui ferme l'ouest, ses jardins et ses toits étagés, la
@@ -1572,14 +2094,15 @@ func _fourviere() -> void:
 	var n := 64
 	var taille := 1500.0
 	var o := FOURVIERE + Vector3(-taille * 0.5, 0, -taille * 0.5)
-	var vert := Color("#56703f")
+	var vert := Color("#5a6236")
 	for j in n + 1:
 		for i in n + 1:
 			var x := o.x + taille * i / n
 			var z := o.z + taille * j / n
 			var y := _colline(x, z)
 			var t := clampf(y / 130.0, 0.0, 1.0)
-			var c := vert.lerp(Color("#7d8a55"), _rng.randf() * 0.5).darkened(0.15 * (1.0 - t))
+			# les bois en taches sombres, les prés et les jardins plus clairs entre eux
+			var c := vert.lerp(Color("#2f4a24"), _rng.randf() * 0.8).lerp(Color("#7d8a55"), _rng.randf() * 0.25).darkened(0.1 * (1.0 - t))
 			st.set_color(c)
 			st.add_vertex(Vector3(x, y, z))
 	for j in n:
@@ -1590,7 +2113,39 @@ func _fourviere() -> void:
 	st.generate_normals()
 	var mi := MeshInstance3D.new()
 	mi.mesh = st.commit()
-	mi.material_override = _mat(Color.WHITE, 1.0, true)
+	# les bois de la colline, peints sur la pente : des couronnes de dix mètres, claires dessus, sombres entre
+	var sh_colline := Shader.new()
+	sh_colline.code = """
+shader_type spatial;
+render_mode diffuse_burley;
+varying vec3 monde;
+void vertex() { monde = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz * 2.4; }
+vec2 h2(vec2 p) { return fract(sin(vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)))) * 43758.5453); }
+void fragment() {
+	vec2 p = monde.xz / 24.0;
+	vec2 i = floor(p);
+	float d = 9.0;
+	float teinte = 0.0;
+	for (int y = -1; y <= 1; y++) {
+		for (int x = -1; x <= 1; x++) {
+			vec2 g = vec2(float(x), float(y));
+			vec2 o = h2(i + g);
+			float dd = length(g + o - fract(p));
+			if (dd < d) { d = dd; teinte = o.x; }
+		}
+	}
+	float couronne = smoothstep(0.8, 0.35, d);
+	vec3 sombre = pow(vec3(0.11, 0.17, 0.09), vec3(2.2));
+	vec3 clair = pow(mix(vec3(0.40, 0.52, 0.24), vec3(0.55, 0.60, 0.30), teinte), vec3(2.2));
+	ALBEDO = mix(sombre, clair, couronne) * mix(vec3(1.0), pow(COLOR.rgb, vec3(2.2)) * 3.0, 0.25);
+	ROUGHNESS = 1.0;
+	// pas de reflet : face au soleil couchant, le lustre rasant blanchirait toute la pente
+	SPECULAR = 0.0;
+}
+"""
+	var mat_colline := ShaderMaterial.new()
+	mat_colline.shader = sh_colline
+	mi.material_override = mat_colline
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	f.add_child(mi)
 	# les toits et les murs de terrasses sur la pente qui regarde la Saône
@@ -1598,43 +2153,195 @@ func _fourviere() -> void:
 		var x := FOURVIERE.x + _rng.randf_range(-520.0, 420.0)
 		var z := FOURVIERE.z + _rng.randf_range(-560.0, 380.0)
 		var y := _colline(x, z)
-		if y < 8.0 or (x - FOURVIERE.x) > 260.0 + (FOURVIERE.z - z) * 0.2:
+		# les maisons tiennent le bas de la pente ; au-dessus, ce sont les bois et les jardins
+		if y < 8.0 or y > 70.0 or (x - FOURVIERE.x) > 260.0 + (FOURVIERE.z - z) * 0.2:
 			continue
 		var w := _rng.randf_range(10.0, 22.0)
 		var h := _rng.randf_range(9.0, 18.0)
 		var c := Color(ENDUITS_PLACE[k % ENDUITS_PLACE.size()]).lightened(0.05)
 		_boite(f, Vector3(w, h, w * 0.8), Vector3(x, y + h * 0.5 - 2.0, z), c)
 		_boite(f, Vector3(w + 0.8, 1.6, w * 0.8 + 0.8), Vector3(x, y + h - 1.2, z), Color(TUILES[k % TUILES.size()]))
-	# la basilique au sommet, de pierre blanche : la nef, l'abside, et ses quatre tours octogonales
-	var sommet := Vector3(FOURVIERE.x, _colline(FOURVIERE.x, FOURVIERE.z) - 2.0, FOURVIERE.z)
-	var blanc := Color("#ece4d2")
-	_boite(f, Vector3(80.0, 30.0, 32.0), sommet + Vector3(0, 15.0, 0), blanc)
-	_boite(f, Vector3(82.0, 5.0, 34.0), sommet + Vector3(0, 32.0, 0), blanc.darkened(0.15))
-	for cx in [-34.0, 34.0]:
-		for cz in [-15.0, 15.0]:
-			var tour := MeshInstance3D.new()
-			var cy := CylinderMesh.new()
-			cy.top_radius = 4.0
-			cy.bottom_radius = 5.0
-			cy.height = 52.0
-			cy.radial_segments = 8
-			tour.mesh = cy
-			tour.material_override = _mat(blanc)
-			tour.position = sommet + Vector3(cx, 26.0, cz)
-			f.add_child(tour)
-	# la statue dorée de la chapelle, à côté, et la tour métallique plus au nord
-	_boite(f, Vector3(8.0, 30.0, 8.0), sommet + Vector3(-52.0, 15.0, -6.0), blanc.darkened(0.05))
-	var pied := Vector3(TOUR.x, _colline(TOUR.x, TOUR.z), TOUR.z)
-	var tm := MeshInstance3D.new()
-	var cm := CylinderMesh.new()
-	cm.top_radius = 0.8
-	cm.bottom_radius = 7.0
-	cm.height = 86.0
-	cm.radial_segments = 4
-	tm.mesh = cm
-	tm.material_override = _mat(Color("#8a8f94"), 0.5)
-	tm.position = pied + Vector3(0, 43.0, 0)
-	f.add_child(tm)
+	# les bois et les jardins du Rosaire qui tiennent la pente : des touffes sombres serrées, plus claires au soleil
+	var bois := MultiMesh.new()
+	bois.transform_format = MultiMesh.TRANSFORM_3D
+	bois.use_colors = true
+	var touffe := SphereMesh.new()
+	touffe.radius = 1.0
+	touffe.height = 1.6
+	touffe.radial_segments = 8
+	touffe.rings = 4
+	bois.mesh = touffe
+	var touffes: Array = []
+	for k in 16000:
+		var x := FOURVIERE.x + _rng.randf_range(-560.0, 460.0)
+		var z := FOURVIERE.z + _rng.randf_range(-600.0, 420.0)
+		var y := _colline(x, z)
+		if y < 6.0:
+			continue
+		# plus serré sur la pente qui regarde la Saône, plus clair près du sommet
+		if _rng.randf() > 0.5 + clampf((x - FOURVIERE.x) / 400.0, 0.0, 0.45):
+			continue
+		var r := _rng.randf_range(8.0, 15.0)
+		var c := Color(["2f4a24", "3a5a2a", "466a30", "4f7434", "5d7f3a"][_rng.randi() % 5])
+		c = c.lightened(clampf(y / 160.0, 0.0, 1.0) * 0.12)
+		touffes.append([Transform3D(Basis().scaled(Vector3(r, r * 0.85, r)), Vector3(x, y + r * 0.8, z)), c])
+	# et le pied de la colline, dans le relevé même, de l'autre côté de la Saône : les pentes boisées au-dessus
+	# des quais de Pierre-Scize et de Saint-Paul
+	for k in 9000:
+		var x := _rng.randf_range(_x0, -120.0)
+		var z := _rng.randf_range(190.0, _z0 + _nz * _pas)
+		var y := hauteur(x, z)
+		if y < 12.0:
+			continue
+		var r := _rng.randf_range(6.0, 11.0)
+		var c := Color(["2f4a24", "3a5a2a", "466a30", "4f7434", "5d7f3a"][_rng.randi() % 5])
+		touffes.append([Transform3D(Basis().scaled(Vector3(r, r * 0.85, r)), Vector3(x, y + r * 0.55, z)), c])
+	bois.instance_count = touffes.size()
+	for i in touffes.size():
+		bois.set_instance_transform(i, touffes[i][0])
+		bois.set_instance_color(i, touffes[i][1])
+	var mb := MultiMeshInstance3D.new()
+	mb.name = "Bois"
+	mb.multimesh = bois
+	# chaque touffe a son dessus clair et son dessous sombre, pour que le bois se lise en masses de loin
+	var sh := Shader.new()
+	sh.code = """
+shader_type spatial;
+render_mode diffuse_burley;
+void fragment() {
+	vec3 n = (INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz;
+	float haut = clamp(n.y * 0.5 + 0.5, 0.0, 1.0);
+	ALBEDO = pow(COLOR.rgb, vec3(2.2)) * mix(0.62, 1.2, haut * haut);
+	ROUGHNESS = 1.0;
+	SPECULAR = 0.0;
+}
+"""
+	var mat_bois := ShaderMaterial.new()
+	mat_bois.shader = sh
+	mb.material_override = mat_bois
+	mb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	f.add_child(mb)
+	_basilique(f, Vector3(FOURVIERE.x, _colline(FOURVIERE.x, FOURVIERE.z) - 2.0, FOURVIERE.z))
+	_tour_metallique(f, Vector3(TOUR.x, _colline(TOUR.x, TOUR.z), TOUR.z))
+
+
+## La basilique de Fourvière, pièce unique vue de loin : la nef de pierre blanche sous son toit gris, ses quatre
+## tours octogonales à créneaux aux angles, l'abside tournée vers la ville, le porche à fronton et ses colonnes,
+## et le clocher de la vieille chapelle à côté, avec la Vierge dorée.
+func _basilique(f: Node3D, sommet: Vector3) -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var blanc := Color("#efe8d8")
+	var ombre := Color("#d9d0bc")
+	var toit := Color("#7d8288")
+	var L := 72.0
+	var l := 30.0
+	var h := 26.0
+	# la nef, son soubassement, ses corniches et les baies hautes
+	_boite_st(st, sommet + Vector3(0, 2.0, 0), Vector3(L + 4.0, 4.0, l + 4.0), 0.0, ombre)
+	_boite_st(st, sommet + Vector3(0, h * 0.5 + 2.0, 0), Vector3(L, h, l), 0.0, blanc)
+	_boite_st(st, sommet + Vector3(0, h + 2.4, 0), Vector3(L + 1.2, 1.0, l + 1.2), 0.0, ombre)
+	for i in 8:
+		var x := -L * 0.5 + 8.0 + i * (L - 16.0) / 7.0
+		for s in [-1.0, 1.0]:
+			_boite_st(st, sommet + Vector3(x, h * 0.62, s * (l * 0.5 + 0.05)), Vector3(2.6, 9.0, 0.3), 0.0, Color("#6f6a62"))
+			_boite_st(st, sommet + Vector3(x - 4.2, h * 0.5 + 2.0, s * (l * 0.5 + 0.4)), Vector3(1.4, h, 0.8), 0.0, ombre)
+	# le toit à deux pans, gris d'ardoise
+	var y0 := h + 2.9
+	var faite := y0 + 9.0
+	var coins := [Vector3(-L * 0.5, y0, -l * 0.5), Vector3(L * 0.5, y0, -l * 0.5), Vector3(L * 0.5, y0, l * 0.5), Vector3(-L * 0.5, y0, l * 0.5)]
+	var fa := Vector3(-L * 0.5, faite, 0)
+	var fb := Vector3(L * 0.5, faite, 0)
+	for tri in [[coins[0], fa, fb, toit], [coins[0], fb, coins[1], toit], [coins[3], fb, fa, toit.darkened(0.15)], [coins[3], coins[2], fb, toit.darkened(0.15)],
+			[coins[0], coins[3], fa, blanc], [coins[1], fb, coins[2], blanc]]:
+		var nrm: Vector3 = (tri[1] - tri[0]).cross(tri[2] - tri[0]).normalized()
+		for q in [tri[0], tri[1], tri[2]]:
+			st.set_color(tri[3])
+			st.set_normal(nrm)
+			st.add_vertex(sommet + q)
+	# l'abside, à l'est, vers la ville
+	for i in 9:
+		var a := -PI * 0.5 + PI * i / 8.0
+		var p := sommet + Vector3(L * 0.5 + cos(a) * l * 0.42, 0, sin(a) * l * 0.42)
+		_boite_st(st, p + Vector3(0, h * 0.45 + 2.0, 0), Vector3(6.0, h * 0.9, 6.0), -a, blanc.darkened(0.03 * (i % 2)))
+	# les quatre tours octogonales et leurs créneaux
+	for cx in [-1.0, 1.0]:
+		for cz in [-1.0, 1.0]:
+			var c := sommet + Vector3(cx * L * 0.5, 0, cz * l * 0.5)
+			var ht := 46.0
+			for i in 8:
+				var a := TAU * i / 8.0
+				_boite_st(st, c + Vector3(cos(a) * 4.6, ht * 0.5, sin(a) * 4.6), Vector3(3.9, ht, 1.2), a + PI * 0.5, blanc if i % 2 == 0 else ombre)
+			_boite_st(st, c + Vector3(0, ht * 0.5, 0), Vector3(8.0, ht, 8.0), PI / 8.0, blanc)
+			_boite_st(st, c + Vector3(0, ht + 0.6, 0), Vector3(11.0, 1.2, 11.0), PI / 8.0, ombre)
+			for i in 12:
+				var a := TAU * i / 12.0
+				_boite_st(st, c + Vector3(cos(a) * 5.0, ht + 2.2, sin(a) * 5.0), Vector3(1.6, 2.2, 1.0), a + PI * 0.5, blanc)
+			for e in [0.3, 0.55, 0.8]:
+				_boite_st(st, c + Vector3(0, ht * e, 0), Vector3(9.8, 0.6, 9.8), PI / 8.0, ombre)
+	# le porche à l'ouest : quatre colonnes et un fronton
+	var pw := sommet + Vector3(-L * 0.5 - 6.0, 0, 0)
+	for i in 4:
+		var z := -9.0 + i * 6.0
+		_boite_st(st, pw + Vector3(-1.0, 10.0, z), Vector3(1.8, 16.0, 1.8), 0.0, blanc)
+	_boite_st(st, pw + Vector3(0, 19.0, 0), Vector3(8.0, 2.4, 24.0), 0.0, ombre)
+	for tri in [[Vector3(-4, 20.2, -12), Vector3(-4, 27.0, 0), Vector3(-4, 20.2, 12)]]:
+		for q in tri:
+			st.set_color(blanc)
+			st.set_normal(Vector3.LEFT)
+			st.add_vertex(pw + q)
+	# le clocher de la vieille chapelle, au nord-ouest, et la Vierge dorée qui le couronne
+	var ch := sommet + Vector3(-L * 0.5 - 4.0, 0, -l * 0.5 - 16.0)
+	_boite_st(st, ch + Vector3(0, 14.0, 0), Vector3(7.0, 28.0, 7.0), 0.0, blanc.darkened(0.04))
+	_boite_st(st, ch + Vector3(0, 29.0, 0), Vector3(5.0, 3.0, 5.0), 0.0, ombre)
+	_boite_st(st, ch + Vector3(0, 33.0, 0), Vector3(1.6, 5.0, 1.6), 0.0, Color("#d4a63a"))
+	var mi := MeshInstance3D.new()
+	mi.name = "Basilique"
+	mi.mesh = st.commit()
+	var mat := _mat(Color.WHITE, 0.85, true)
+	mat.vertex_color_is_srgb = true
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mi.material_override = mat
+	f.add_child(mi)
+
+
+## La tour métallique de Fourvière : quatre montants de treillis qui se resserrent, leurs croix de Saint-André
+## et la lanterne en haut, d'un gris de fer.
+func _tour_metallique(f: Node3D, pied: Vector3) -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var fer := Color("#7f868c")
+	var h := 86.0
+	var etages := 10
+	var demi := func(y: float) -> float:
+		return lerpf(7.0, 1.2, pow(y / h, 0.8))
+	var coins := [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]
+	for e in etages:
+		var ya := h * e / etages
+		var yb := h * (e + 1) / etages
+		var da: float = demi.call(ya)
+		var db: float = demi.call(yb)
+		for i in 4:
+			var c0: Vector2 = coins[i]
+			var c1: Vector2 = coins[(i + 1) % 4]
+			var a0: Vector3 = pied + Vector3(c0.x * da, ya, c0.y * da)
+			var b0: Vector3 = pied + Vector3(c0.x * db, yb, c0.y * db)
+			var a1: Vector3 = pied + Vector3(c1.x * da, ya, c1.y * da)
+			var b1: Vector3 = pied + Vector3(c1.x * db, yb, c1.y * db)
+			_poutre_st(st, a0, b0, 0.7, 0.7, fer)
+			_poutre_st(st, a0, b1, 0.25, 0.25, fer)
+			_poutre_st(st, a1, b0, 0.25, 0.25, fer)
+			_poutre_st(st, b0, b1, 0.3, 0.3, fer)
+	_boite_st(st, pied + Vector3(0, h + 2.0, 0), Vector3(3.0, 4.0, 3.0), 0.0, fer)
+	_poutre_st(st, pied + Vector3(0, h + 4.0, 0), pied + Vector3(0, h + 12.0, 0), 0.4, 0.4, fer)
+	var mi := MeshInstance3D.new()
+	mi.name = "TourMetallique"
+	mi.mesh = st.commit()
+	var mat := _mat(Color.WHITE, 0.6, true)
+	mat.vertex_color_is_srgb = true
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mi.material_override = mat
+	f.add_child(mi)
 
 
 ## La colline : un dôme allongé du nord au sud, qui plonge sous le quartier avant la Saône.
@@ -1651,8 +2358,8 @@ func _colline(x: float, z: float) -> float:
 func _reperes() -> void:
 	var reperes := {
 		"Arrivee": [Vector2(-157.0, 143.0), Vector2(-148.0, 40.0)],
-		# sur le quai Saint-Vincent, à douze mètres de l'eau : la Saône, la passerelle et Fourvière en face
-		"Vue1a_Passerelle": [Vector2(-152.0, 160.0), Vector2(-300.0, 285.0)],
+		# sur le quai Saint-Vincent, à huit mètres du parapet : la passerelle de trois quarts, la Saône et Fourvière en face
+		"Vue1a_Passerelle": [QUAI_VUE, Vector2(-300.0, 247.0)],
 		"Vue1b_Martiniere": [Vector2(-149.0, 114.0), Vector2(0.0, 116.0)],
 		"Vue1c_Rambaud": [Vector2(-30.0, 114.0), Vector2(68.0, 118.0)],
 		"Vue1d_Vitet": [Vector2(68.0, 116.0), Vector2(34.0, 57.0)],
@@ -1668,7 +2375,10 @@ func _reperes() -> void:
 			continue
 		var a: Vector2 = reperes[nom][0]
 		var b: Vector2 = reperes[nom][1]
-		var pa := Vector3(a.x, hauteur(a.x, a.y) + 0.1, a.y) / U
+		var sol := hauteur(a.x, a.y)
+		if nom == "Vue1a_Passerelle":
+			sol = maxf(sol, _niveau_quai_vue)
+		var pa := Vector3(a.x, sol + 0.1, a.y) / U
 		m.global_transform = Transform3D(Basis(), pa)
 		m.look_at(Vector3(b.x / U, pa.y, b.y / U), Vector3.UP)
 
