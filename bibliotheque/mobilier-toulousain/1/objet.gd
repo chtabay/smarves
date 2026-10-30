@@ -42,7 +42,8 @@ const TOILES := [["f0e3c4", "f0e3c4"], ["8a2a2e", "8a2a2e"], ["f0e3c4", "8a2a2e"
 ## La graine : la toile d'un parasol, les fleurs d'un bac, les chevaux du carrousel, le menu du chevalet.
 @export var graine := 1
 ## Les options, toutes facultatives : toile (deux hexas : un parasol, un store), fleurs (un hexa), allume (false :
-## la lanterne éteinte), longueur (le bac, l'appui-vélo : en mètres), tables (la terrasse : 1 à 4), tourne (false :
+## la lanterne éteinte), longueur (le bac, l'appui-vélo : en mètres), tables (la terrasse : 1 à 4), clients (la
+## terrasse et le parasol : des clients assis aux tables, 0 par défaut ; les chaises vides sont tirées et tournées), tourne (false :
 ## le carrousel à l'arrêt). Le bac végétal : forme (« rectangle », « L » ou « polygone »), longueur et largeur (le
 ## rectangle, le L), retour (la branche du L), points (le polygone : des Vector2 ou des paires [x, z], en mètres,
 ## le contour extérieur), hauteur (le muret, 0,5 m), terre (de la terre au rebord, 0,12 m), plantation (« dense »,
@@ -100,15 +101,92 @@ class _Objets:
 		var t: Array = opt.get("toile", TOILES[o.rng.randi() % TOILES.size()])
 		return t.map(func(h): return Color(str(h)))
 
-	## Une table ronde de bistrot, plateau de marbre clair sur pied de fonte, et n chaises de rotin autour.
-	static func _table(o: Outils, c: Vector3, n: int, a0: float) -> void:
+	## Une table ronde de bistrot, plateau de marbre clair sur pied de fonte, et n chaises de rotin autour, un peu
+	## écartées ou tournées au hasard, comme on les laisse ; les premières clients portent un client assis.
+	static func _table(o: Outils, c: Vector3, n: int, a0: float, clients := 0) -> void:
 		o.cylindre(Transform3D(Basis(), c), 0.24, 0.24, 0.03, 10, FONTE)
 		o.cylindre(Transform3D(Basis(), c), 0.03, 0.03, 0.72, 6, FONTE)
 		o.cylindre(Transform3D(Basis(), c + Vector3(0, 0.72, 0)), 0.34, 0.34, 0.03, 16, Color("ece6d8"))
 		o.cylindre(Transform3D(Basis(), c + Vector3(0.08, 0.75, 0.04)), 0.035, 0.03, 0.12, 8, Color("e8e2d0"))
+		var premier := o.rng.randi() % n
 		for i in n:
 			var a := a0 + TAU * i / n
-			_chaise(o, c + Vector3(sin(a), 0, cos(a)) * 0.62, a)
+			if posmod(i - premier, n) < clients:
+				# la chaise d'un client, approchée de la table et bien dans l'axe
+				var q := c + Vector3(sin(a), 0, cos(a)) * 0.6
+				_chaise(o, q, a)
+				_client(o, q, a)
+			else:
+				# une chaise vide, tirée et tournée
+				var ecart := o.rng.randf_range(0.6, 0.82)
+				var tour := o.rng.randf_range(-0.4, 0.4)
+				_chaise(o, c + Vector3(sin(a), 0, cos(a)) * ecart, a + tour)
+
+	## Les teintes des clients : peau, haut, bas, cheveux.
+	const PEAUX := ["f1c9a5", "e0b08a", "c58b5c", "8d5a36", "5c3a22"]
+	const HAUTS := ["d94f3a", "3a6ea5", "e9e1c8", "2f2f33", "6c9a4e", "f0c04a", "b26aa3", "f5f0e6", "7fb3d5"]
+	const BAS := ["2b3a55", "5a4634", "8c8c8c", "1d1d1f", "c9b89a", "6b7a8f"]
+	const CHEVEUX := ["2a1d14", "6b4a2b", "c8a060", "b5b5b0", "111111", "a0522d"]
+
+	## Un client assis sur la chaise en q, tournée de a (il fait face à la table, vers −z local) : jambes pliées,
+	## buste, tête et cheveux, et une pose de café (la tasse à la main, les avant-bras sur la table, ou le dos
+	## au dossier, les mains sur les genoux).
+	static func _client(o: Outils, q: Vector3, a: float) -> void:
+		var b := Basis(Vector3.UP, a)
+		var r := o.rng
+		var peau := Color(PEAUX[r.randi() % PEAUX.size()])
+		var haut := Color(HAUTS[r.randi() % HAUTS.size()])
+		var bas := Color(BAS[r.randi() % BAS.size()])
+		var cheveux := Color(CHEVEUX[r.randi() % CHEVEUX.size()])
+		var pose := r.randi() % 3
+		var hanche := q + b * Vector3(0, 0.47, 0.02)
+		# les cuisses vers l'avant, les mollets vers le sol, les chaussures
+		for cote in [-1.0, 1.0]:
+			var genou := q + b * Vector3(cote * 0.1, 0.47, -0.36)
+			var pied := q + b * Vector3(cote * 0.11, 0.0, -0.34 + r.randf_range(-0.06, 0.1))
+			o.branche(hanche + b * Vector3(cote * 0.09, 0, 0), genou, 0.075, 0.06, bas, 6)
+			o.branche(genou, pied + Vector3(0, 0.05, 0), 0.055, 0.045, bas, 6)
+			o.boite(Transform3D(b, pied + b * Vector3(0, 0.04, -0.05)), Vector3(0.09, 0.07, 0.24), Color("2a2622"))
+		# le buste, un peu penché vers la table ou calé au dossier
+		var penche := -0.12 if pose == 1 else (0.1 if pose == 2 else 0.0)
+		var bb := b * Basis(Vector3.RIGHT, penche)
+		var buste := q + b * Vector3(0, 0.74, 0.0 + (0.04 if pose == 2 else -0.02))
+		o.boite(Transform3D(bb, buste), Vector3(0.36, 0.5, 0.22), haut)
+		var cou := buste + bb * Vector3(0, 0.3, 0)
+		o.cylindre(Transform3D(bb, cou - Vector3(0, 0.03, 0)), 0.05, 0.05, 0.08, 6, peau)
+		# la tête, et les cheveux : une calotte, parfois un chignon
+		var tete := cou + bb * Vector3(0, 0.15, 0.0)
+		o.boule(tete, Vector3(0.105, 0.125, 0.11), peau, 0.0, Outils.DUR, 0.0)
+		o.boule(tete + bb * Vector3(0, 0.035, 0.025), Vector3(0.112, 0.1, 0.112), cheveux, 0.0, Outils.DUR, 0.0)
+		if r.randf() < 0.3:
+			o.boule(tete + bb * Vector3(0, 0.08, 0.1), Vector3.ONE * 0.06, cheveux, 0.0, Outils.DUR, 0.0)
+		# les bras selon la pose
+		for cote in [-1.0, 1.0]:
+			var epaule := buste + bb * Vector3(cote * 0.2, 0.2, 0)
+			var coude: Vector3
+			var main: Vector3
+			match pose:
+				0:
+					# une tasse à la main droite, l'autre main sur la table
+					if cote > 0:
+						coude = buste + bb * Vector3(0.24, -0.02, -0.14)
+						main = buste + bb * Vector3(0.12, 0.2, -0.22)
+					else:
+						coude = buste + bb * Vector3(-0.24, -0.05, -0.18)
+						main = buste + bb * Vector3(-0.14, 0.0, -0.46)
+				1:
+					# les avant-bras posés sur la table
+					coude = buste + bb * Vector3(cote * 0.22, -0.06, -0.2)
+					main = buste + bb * Vector3(cote * 0.1, -0.02, -0.5)
+				_:
+					# les mains sur les genoux
+					coude = buste + bb * Vector3(cote * 0.23, -0.1, -0.08)
+					main = buste + bb * Vector3(cote * 0.13, -0.28, -0.32)
+			o.branche(epaule, coude, 0.055, 0.045, haut, 6)
+			o.branche(coude, main, 0.042, 0.035, haut if r.randf() < 0.5 else peau, 6)
+			o.boule(main, Vector3.ONE * 0.045, peau, 0.0, Outils.DUR, 0.0)
+			if pose == 0 and cote > 0:
+				o.cylindre(Transform3D(Basis(), main + Vector3(0, -0.02, 0)), 0.035, 0.04, 0.07, 8, Color("f4efe4"))
 
 	## La chaise de rotin tressé : assise, dossier cintré à bandes, pieds de bambou.
 	static func _chaise(o: Outils, c: Vector3, a: float) -> void:
@@ -145,16 +223,21 @@ class _Objets:
 
 	static func terrasse(o: Outils, p: Vector3, opt: Dictionary) -> Vector2:
 		var n := clampi(int(opt.get("tables", 3)), 1, 4)
+		# les clients, répartis sur les tables, une chaise sur deux au plus par table d'abord
+		var restants := int(opt.get("clients", 0))
 		for k in n:
 			var c := p + Vector3((k - (n - 1) * 0.5) * 1.6, 0, (0.25 if k % 2 == 0 else -0.25))
-			_table(o, c, 2 + (k % 2), o.rng.randf_range(0.0, 0.6))
+			var chaises := 2 + (k % 2)
+			var part := clampi(ceili(float(restants) / float(n - k)), 0, chaises)
+			_table(o, c, chaises, o.rng.randf_range(0.0, 0.6), part)
+			restants -= part
 		o.collisions.append([Transform3D(Basis(), p + Vector3(0, 0.45, 0)), Vector3(n * 1.6, 0.9, 1.4)])
 		return Vector2(n * 1.6 + 0.4, 1.8)
 
 	static func parasol(o: Outils, p: Vector3, opt: Dictionary) -> Vector2:
 		# le parasol rond de terrasse, sa table et ses trois chaises
 		_parasol_rond(o, p, 1.5, _toile(o, opt), 2.3)
-		_table(o, p + Vector3(0.0, 0, 0.0), 3, 0.4)
+		_table(o, p + Vector3(0.0, 0, 0.0), 3, 0.4, clampi(int(opt.get("clients", 0)), 0, 3))
 		o.collisions.append([Transform3D(Basis(), p + Vector3(0, 0.45, 0)), Vector3(1.6, 0.9, 1.6)])
 		return Vector2(3.0, 3.0)
 
