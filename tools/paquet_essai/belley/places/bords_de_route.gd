@@ -178,12 +178,14 @@ func _poteau(v: Vector2) -> void:
 func _sortie_de_ville(n: Node3D) -> void:
 	var o: RefCounted = _objets(Vector2(98.0, 820.0))
 	# Les deux maisons, de part et d'autre, façade sur la route ; celle de gauche en retrait, pour que son ombre ne
-	# noircisse pas la chaussée (verdict n° 33).
-	for m: Array in [[Vector2(83.0, 792.0), "r2", 3, 1.0], [Vector2(113.0, 801.0), "r1", 4, -1.0]]:
+	# noircisse pas la chaussée (verdict n° 33), celle de droite au bout de son mur, dans le champ de qui sort de la
+	# ville (verdict n° 34).
+	for m: Array in [[Vector2(83.0, 792.0), "r2", 3, 1.0], [Vector2(112.0, 829.0), "r1", 4, -1.0]]:
 		var pm: Vector2 = m[0]
 		var mf: Node3D = FACADIER.maison(n, Vector3(pm.x, hauteur.call(pm.x, pm.y) - 0.2, pm.y), m[1], 801 + int(m[2]), {"w": 10.0, "d": 8.0, "mur": "enduit", "enduit": ["d2be98", "cdb894"][int(m[2]) % 2], "couverture": "tuile_vieillie", "volets": "bois", "fleurs": true, "vigne": int(m[2]) == 3})
 		mf.rotation.y = PI * 0.5 * float(m[3])
-	# Les murs de clôture des jardins, le long de la route, jusqu'au bout du trottoir ; un portail dans chacun.
+	# Les murs de clôture des jardins, le long de la route, jusqu'au bout du trottoir ; un portail dans chacun. En
+	# moellon, chaperon de dalles (verdict n° 34).
 	for cote: Array in [[93.6, -1.0], [103.4, 1.0]]:
 		var x: float = cote[0]
 		var z := 786.0
@@ -191,8 +193,8 @@ func _sortie_de_ville(n: Node3D) -> void:
 			if absf(z - 806.0) > 1.6:
 				var v := Vector2(x, z + 1.0)
 				var y: float = hauteur.call(v.x, v.y)
-				o.boite(Transform3D(Basis(), Vector3(v.x, y + 0.6, v.y)), Vector3(0.45, 1.6, 2.02), Color("a99d80", 0.0))
-				o.boite(Transform3D(Basis(), Vector3(v.x, y + 1.45, v.y)), Vector3(0.6, 0.1, 2.02), Color("b3a88f", 0.0))
+				o.boite(Transform3D(Basis(), Vector3(v.x, y + 0.6, v.y)), Vector3(0.45, 1.6, 2.02), Color("a99d80", 0.0), OUTILS.RUSTIQUE)
+				o.boite(Transform3D(Basis(), Vector3(v.x, y + 1.45, v.y)), Vector3(0.6, 0.1, 2.02), Color("b3a88f", 1.0), OUTILS.RUSTIQUE)
 			z += 2.0
 		# Le trottoir, bordé, qui finit avec le mur.
 		var x0: float = x - float(cote[1]) * 1.9
@@ -344,7 +346,7 @@ func _muret_epingle() -> void:
 		var m := (a + b) * 0.5
 		var y: float = hauteur.call(m.x, m.y)
 		var bm := Basis(Vector3.UP, atan2(-(b - a).y, (b - a).x))
-		o.boite(Transform3D(bm, Vector3(m.x, y + 0.35, m.y)), Vector3(a.distance_to(b) + 0.05, 0.9, 0.5), Color("9c917b", 0.0))
+		o.boite(Transform3D(bm, Vector3(m.x, y + 0.35, m.y)), Vector3(a.distance_to(b) + 0.05, 0.9, 0.5), Color("9c917b", 0.0), OUTILS.RUSTIQUE)
 		o.boite(Transform3D(bm, Vector3(m.x, y + 0.84, m.y)), Vector3(a.distance_to(b) + 0.05, 0.1, 0.6), Color("b7ad97", 0.0))
 
 
@@ -352,6 +354,7 @@ func _muret_epingle() -> void:
 ## surmontées d'un plumet (verdict n° 33 : l'herbe touchait l'eau sur une ligne nette).
 func _roseaux(o: RefCounted, a0: Vector2, a1: Vector2, eau: float) -> void:
 	var c := (a0 + a1) * 0.5
+	var couv: Image = load("res://communes/belley/relief/couverture.png").get_image()
 	var x := -90.0
 	while x <= 90.0:
 		var z := -90.0
@@ -359,10 +362,14 @@ func _roseaux(o: RefCounted, a0: Vector2, a1: Vector2, eau: float) -> void:
 			var hk := absi(hash(Vector2i(int(x), int(z))))
 			var v := c + Vector2(x + float(hk % 20) / 10.0, z + float((hk / 20) % 20) / 10.0)
 			var y: float = hauteur.call(v.x, v.y)
-			# Sur la berge seulement : là où le sol, encore près de l'eau, monte franchement à côté.
-			var autour := [hauteur.call(v.x + 3.0, v.y), hauteur.call(v.x - 3.0, v.y), hauteur.call(v.x, v.y + 3.0), hauteur.call(v.x, v.y - 3.0)]
-			var ecart: float = autour.max() - autour.min()
-			if y > eau + 0.2 and y < eau + 1.1 and ecart > 0.5 and hk % 3 != 0:
+			# Une ligne continue au bord de l'eau, sur les deux rives (verdict n° 34) : hors de l'eau de la
+			# couverture, mais à moins de 3 m d'elle.
+			var rive := false
+			for d: Vector2 in [Vector2(3, 0), Vector2(-3, 0), Vector2(0, 3), Vector2(0, -3)]:
+				rive = rive or _classe(couv, v + d) == 7
+			# Ni sur le tablier ni contre ses parapets.
+			var axe := Geometry2D.get_closest_point_to_segment(v, a0, a1).distance_to(v)
+			if _classe(couv, v) != 7 and rive and axe > 6.0:
 				for k in 6:
 					var hr := 1.2 + float((hk >> k) % 8) * 0.12
 					var d := Vector3(float((hk >> (k + 2)) % 9) * 0.08 - 0.32, 0, float((hk >> (k + 4)) % 9) * 0.08 - 0.32)
@@ -370,5 +377,13 @@ func _roseaux(o: RefCounted, a0: Vector2, a1: Vector2, eau: float) -> void:
 					o.branche(pied, pied + Vector3(d.x * 0.3, hr, d.z * 0.3), 0.025, 0.012, Color("6f7a3a").lerp(Color("9a8a52"), float(k % 3) * 0.3), 3, OUTILS.FEUILLE)
 					if k % 2 == 0:
 						o.boule(pied + Vector3(d.x * 0.3, hr + 0.1, d.z * 0.3), Vector3(0.05, 0.16, 0.05), Color("8a6a48"), 0.1, OUTILS.FEUILLE, 0.03, 0.5, 3, 4)
-			z += 2.5
-		x += 2.5
+			z += 1.5
+		x += 1.5
+
+
+## La classe de couverture (relief/couverture.json) au point v du sol.
+func _classe(couv: Image, v: Vector2) -> int:
+	var i := Vector2i(int((v.x + 1600.0) / 5.0), int((v.y + 2600.0) / 5.0))
+	if i.x < 0 or i.y < 0 or i.x >= couv.get_width() or i.y >= couv.get_height():
+		return -1
+	return int(couv.get_pixelv(i).r * 255.0 + 0.5)

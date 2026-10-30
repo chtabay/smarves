@@ -20,6 +20,8 @@ const LUEUR := 5
 const VITRE := 6
 ## Les façades de la ville, fenêtres dessinées par le shader (atelier/facade.gdshader).
 const FACADE := 7
+## Le moellon des murs de clôture : la pierre de Belley en petites pierres de 20 à 35 cm (verdict n° 34).
+const RUSTIQUE := 8
 
 ## Les teintes de la note d'intentions (« Palette et matières »).
 const CALCAIRE := Color("e6ddc8")
@@ -112,7 +114,7 @@ func boite(t: Transform3D, s: Vector3, col, genre := PIERRE, collision := false)
 	for i in faces.size():
 		var f: Array = faces[i]
 		var c: Color = col[i] if col is Array else col
-		if c.a <= 0.0 and genre != PIERRE:
+		if c.a <= 0.0 and genre != PIERRE and genre != RUSTIQUE:
 			continue
 		var p: Array = f[1]
 		quad(t * p[0], t * p[1], t * p[2], t * p[3], t.basis * f[0], c, genre)
@@ -364,6 +366,13 @@ static func materiau(genre: int) -> Material:
 		LUEUR:
 			m = ShaderMaterial.new()
 			m.shader = load("res://bibliotheque/facadier-du-bugey/1/lumiere.gdshader")
+		RUSTIQUE:
+			m = ShaderMaterial.new()
+			m.shader = load(DOSSIER + "pierre.gdshader")
+			m.set_shader_parameter("assise", 0.2)
+			m.set_shader_parameter("bloc", 0.3)
+			m.set_shader_parameter("joint", 0.014)
+			m.set_shader_parameter("grain_force", 0.09)
 		FACADE:
 			m = ShaderMaterial.new()
 			m.shader = load(DOSSIER + "facade.gdshader")
@@ -385,7 +394,7 @@ static func materiau(genre: int) -> Material:
 ## collision s'il y en a. Rend le MeshInstance3D.
 func construire(parent: Node3D, nom: String) -> MeshInstance3D:
 	var mesh := ArrayMesh.new()
-	for genre in [PIERRE, PEINT, TUILE, ARDOISE, FEUILLE, LUEUR, VITRE, FACADE]:
+	for genre in [PIERRE, RUSTIQUE, PEINT, TUILE, ARDOISE, FEUILLE, LUEUR, VITRE, FACADE]:
 		if not _st.has(genre):
 			continue
 		var st: SurfaceTool = _st[genre]
