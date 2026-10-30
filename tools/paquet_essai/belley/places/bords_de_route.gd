@@ -108,8 +108,8 @@ func _longer(n: Node3D, ombriere: PackedScene, pts: PackedVector2Array, t: int) 
 			var sur_pont: bool = t == 0 and abs_s >= PONT[0] and abs_s <= PONT[1]
 			if sur_pont:
 				tablier.append(c)
-			# Ni haie, ni arbre, ni poteau sur le pont et à ses abords.
-			var abords: bool = t == 0 and abs_s >= PONT[0] - 15.0 and abs_s <= PONT[1] + 15.0
+			# Ni haie, ni arbre, ni poteau sur le pont et à ses abords, ni dans l'épingle (le muret s'y voit).
+			var abords: bool = t == 0 and ((abs_s >= PONT[0] - 15.0 and abs_s <= PONT[1] + 15.0) or (abs_s >= EPINGLE[0] - 80.0 and abs_s <= EPINGLE[1] + 60.0))
 			# La ligne du téléphone, sur des poteaux de bois tous les 50 m, du côté droit.
 			if abs_s > prochain_poteau and not abords:
 				_poteau(c + nrm * 3.4)
@@ -177,8 +177,9 @@ func _poteau(v: Vector2) -> void:
 ## de la ville, barré de rouge pour qui sort, sur ses deux poteaux (verdict n° 31).
 func _sortie_de_ville(n: Node3D) -> void:
 	var o: RefCounted = _objets(Vector2(98.0, 820.0))
-	# Les deux maisons, de part et d'autre, pignon sur la route.
-	for m: Array in [[Vector2(84.0, 806.0), "r2", 3, -1.0], [Vector2(113.0, 800.0), "r1", 4, 1.0]]:
+	# Les deux maisons, de part et d'autre, façade sur la route ; celle de gauche en retrait, pour que son ombre ne
+	# noircisse pas la chaussée (verdict n° 33).
+	for m: Array in [[Vector2(83.0, 792.0), "r2", 3, 1.0], [Vector2(113.0, 801.0), "r1", 4, -1.0]]:
 		var pm: Vector2 = m[0]
 		var mf: Node3D = FACADIER.maison(n, Vector3(pm.x, hauteur.call(pm.x, pm.y) - 0.2, pm.y), m[1], 801 + int(m[2]), {"w": 10.0, "d": 8.0, "mur": "enduit", "enduit": ["d2be98", "cdb894"][int(m[2]) % 2], "couverture": "tuile_vieillie", "volets": "bois", "fleurs": true, "vigne": int(m[2]) == 3})
 		mf.rotation.y = PI * 0.5 * float(m[3])
@@ -275,6 +276,7 @@ func _pont() -> void:
 			var pr := c + off
 			var r := 0.5 + float(hk % 5) * 0.15
 			o.boule(Vector3(pr.x, minf(hauteur.call(pr.x, pr.y), eau + 0.6) + r * 0.3, pr.y), Vector3(r, r * 0.6, r * 0.8), Color("8f8a7e").lightened(float(hk % 7) * 0.02), 0.3, OUTILS.PIERRE, 0.1, 0.0, 4, 6)
+	_roseaux(o, a0, a1, eau)
 
 
 ## La hauteur de l'intrados à t mètres du début du pont : trois arches en plein cintre surbaissé de 20 m au
@@ -342,5 +344,31 @@ func _muret_epingle() -> void:
 		var m := (a + b) * 0.5
 		var y: float = hauteur.call(m.x, m.y)
 		var bm := Basis(Vector3.UP, atan2(-(b - a).y, (b - a).x))
-		o.boite(Transform3D(bm, Vector3(m.x, y + 0.35, m.y)), Vector3(a.distance_to(b) + 0.05, 0.9, 0.5), Color("a69c86", 0.0))
+		o.boite(Transform3D(bm, Vector3(m.x, y + 0.35, m.y)), Vector3(a.distance_to(b) + 0.05, 0.9, 0.5), Color("9c917b", 0.0))
 		o.boite(Transform3D(bm, Vector3(m.x, y + 0.84, m.y)), Vector3(a.distance_to(b) + 0.05, 0.1, 0.6), Color("b7ad97", 0.0))
+
+
+## Les roseaux de la berge autour du pont : là où le sol frôle l'eau, des touffes de tiges vert-brun, la plupart
+## surmontées d'un plumet (verdict n° 33 : l'herbe touchait l'eau sur une ligne nette).
+func _roseaux(o: RefCounted, a0: Vector2, a1: Vector2, eau: float) -> void:
+	var c := (a0 + a1) * 0.5
+	var x := -90.0
+	while x <= 90.0:
+		var z := -90.0
+		while z <= 90.0:
+			var hk := absi(hash(Vector2i(int(x), int(z))))
+			var v := c + Vector2(x + float(hk % 20) / 10.0, z + float((hk / 20) % 20) / 10.0)
+			var y: float = hauteur.call(v.x, v.y)
+			# Sur la berge seulement : là où le sol, encore près de l'eau, monte franchement à côté.
+			var autour := [hauteur.call(v.x + 3.0, v.y), hauteur.call(v.x - 3.0, v.y), hauteur.call(v.x, v.y + 3.0), hauteur.call(v.x, v.y - 3.0)]
+			var ecart: float = autour.max() - autour.min()
+			if y > eau + 0.2 and y < eau + 1.1 and ecart > 0.5 and hk % 3 != 0:
+				for k in 6:
+					var hr := 1.2 + float((hk >> k) % 8) * 0.12
+					var d := Vector3(float((hk >> (k + 2)) % 9) * 0.08 - 0.32, 0, float((hk >> (k + 4)) % 9) * 0.08 - 0.32)
+					var pied := Vector3(v.x, y - 0.1, v.y) + d
+					o.branche(pied, pied + Vector3(d.x * 0.3, hr, d.z * 0.3), 0.025, 0.012, Color("6f7a3a").lerp(Color("9a8a52"), float(k % 3) * 0.3), 3, OUTILS.FEUILLE)
+					if k % 2 == 0:
+						o.boule(pied + Vector3(d.x * 0.3, hr + 0.1, d.z * 0.3), Vector3(0.05, 0.16, 0.05), Color("8a6a48"), 0.1, OUTILS.FEUILLE, 0.03, 0.5, 3, 4)
+			z += 2.5
+		x += 2.5

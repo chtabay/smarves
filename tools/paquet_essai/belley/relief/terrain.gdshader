@@ -316,6 +316,10 @@ void fragment() {
 	// les falaises sont le sujet de la vue du relais.
 	float mi_loin = smoothstep(500.0, 2500.0, distance(monde, CAMERA_POSITION_WORLD));
 	col = mix(col, vec3(0.44, 0.49, 0.37), roc * mi_loin * 0.75 * (1.0 - step(7300.0, xz.x)));
+	// Sous 500 m, les classes de roche du relevé ne sont que des aplats gris sans arête sur le versant (verdict
+	// n° 33) : elles s'effacent sous le pré. Pas sur la rive savoyarde, dont les falaises sont un sujet.
+	float pres_roc = roc * (1.0 - smoothstep(350.0, 600.0, distance(monde, CAMERA_POSITION_WORLD))) * (1.0 - step(7300.0, xz.x));
+	col = mix(col, mix(PRE, PRE_SEC, g2 * 0.9) * (0.86 + 0.26 * g), pres_roc);
 	// Dès 800 m, le pré perd son vert lumineux (visée #7FA050 au rendu, verdict n° 29) : moins saturé, un peu plus
 	// sombre, avant que la brume de 2 km ne le bleuisse.
 	float moyen = smoothstep(500.0, 1300.0, distance(monde, CAMERA_POSITION_WORLD)) * (1.0 - eau);

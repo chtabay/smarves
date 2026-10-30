@@ -100,7 +100,7 @@ func batir(parent: Node3D, x: float, z: float, lacet_deg: float) -> void:
 	# vert pomme (verdict n° 29).
 	var ombriere: PackedScene = load(Bibliotheque.scene("arbres-d-ombriere@1", "decor"))
 	# Vu de dessous, à contre-jour, il sortait presque noir (#0E1E04, verdict n° 30) : un vert posé plus clair.
-	_dentelle(n, ombriere, "marronnier", 161, 12.0, 4.0, -7.0, 1.5)
+	_dentelle(n, ombriere, "marronnier", 161, 12.0, 4.0, -7.0, 1.6)
 	# Les bosquets qui cadrent la vue, à gauche et à droite, plus bas sur la pente.
 	_dentelle(n, ombriere, "marronnier", 162, 12.0, 16.0, -24.0)
 	_dentelle(n, ombriere, "jeune_platane", 163, 10.0, 19.0, -19.0)
