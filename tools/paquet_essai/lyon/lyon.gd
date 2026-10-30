@@ -723,11 +723,13 @@ func _materiau_dalles_quai() -> ShaderMaterial:
 shader_type spatial;
 render_mode cull_disabled;
 varying vec3 monde;
+// le pas des dalles : celui du quai, en grandes dalles ; les trottoirs des rues le resserrent
+uniform float echelle = 2.4;
 void vertex() { monde = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 void fragment() {
 	// le monde est en unités du jeu : les dalles se comptent en mètres
-	vec2 q = monde.xz * 2.4 / vec2(0.6, 0.4);
+	vec2 q = monde.xz * echelle / vec2(0.6, 0.4);
 	q.x += floor(q.y) * 0.5;
 	vec2 f = fract(q);
 	float joint = smoothstep(0.0, 0.03, f.x) * smoothstep(1.0, 0.97, f.x) * smoothstep(0.0, 0.045, f.y) * smoothstep(1.0, 0.955, f.y);
@@ -851,7 +853,10 @@ func _rues() -> void:
 	var md := MeshInstance3D.new()
 	md.name = "Trottoirs"
 	md.mesh = dalles.commit()
-	md.material_override = _materiau_dalles_quai()
+	# les trottoirs des rues en dalles de 40 sur 27, plus serrées que celles du quai
+	var mtr: ShaderMaterial = _materiau_dalles_quai().duplicate()
+	mtr.set_shader_parameter("echelle", 3.6)
+	md.material_override = mtr
 	md.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	ville.add_child(md)
 
@@ -1600,11 +1605,27 @@ func _heros_poser(i: int, b: Dictionary) -> void:
 		m.type = type
 		m.graine = i * 17 + k
 		m.options = opt
+		if est_mairie:
+			# le seuil au niveau de la rue devant la porte : le relevé la posait sous la chaussée qui monte
+			var devant := p + v * 2.2
+			sol = maxf(sol, hauteur(devant.x, devant.y) + 0.15)
 		m.position = Vector3(p.x, hauteur(p.x, p.y) - 0.05 if not est_mairie else sol, p.y)
 		m.rotation.y = lacet
 		ville.add_child(m)
 		if est_mairie:
 			_mairie(m, w - 0.05)
+			# le trottoir de pierre devant la mairie, au niveau du seuil, et sa bordure de granit : la chaussée
+			# ne monte plus jusqu'à la porte ; en six tronçons, chacun descendu jusqu'à la rue qui monte
+			for j in 6:
+				var qj := p + u * (-w * 0.5 + w * (j + 0.5) / 6.0)
+				var qt := qj + v * 0.95
+				var qb := qj + v * 1.95
+				var rue := hauteur(qb.x, qb.y)
+				var haut_t := maxf(sol - 0.12, rue + 0.14)
+				var dalle := _boite(ville, Vector3(w / 6.0 + 0.02, haut_t - rue + 0.3, 1.9), Vector3(qt.x, (haut_t + rue - 0.3) * 0.5, qt.y), Color("#b9b2a4"))
+				dalle.rotation.y = lacet
+				var bord := _boite(ville, Vector3(w / 6.0 + 0.02, haut_t - rue + 0.32, 0.28), Vector3(qb.x, (haut_t + rue - 0.3) * 0.5 + 0.01, qb.y), Color("#cfcac0"))
+				bord.rotation.y = lacet
 		else:
 			_souches_cote_rue(m, w - 0.05, lv, Color(str(opt["enduit"])))
 		# le socle de l'immeuble, jusqu'au point le plus bas de la pente
@@ -1892,6 +1913,21 @@ func _escalier() -> void:
 			var z := lerpf(-50.0, -80.0, float(k) / n)
 			var yy := lerpf(ya, yb, float(k + 1) / n)
 			_boite(e, Vector3(3.0, 0.4, 1.02), Vector3(x, yy - 0.2, z - 0.5), pierre)
+	# entre les deux volées, le jardin en terrasses de la montée : une allée de sable au milieu, de part et
+	# d'autre des planches de gazon tenues par une bordure de Villebois, des massifs fleuris au pied de chacune
+	var sable := _materiau_sable()
+	for k in 10:
+		var za := -50.0 - k * 3.0
+		var zc := za - 1.5
+		var yy := hauteur(10.0, zc)
+		var allee := _boite(e, Vector3(3.0, 0.5, 3.02), Vector3(10.0, yy - 0.17, zc), Color.WHITE)
+		allee.material_override = sable
+		for cote in [-1.0, 1.0]:
+			var xg: float = 10.0 + cote * 3.2
+			_boite(e, Vector3(3.4, 0.6, 3.02), Vector3(xg, yy - 0.12, zc), Color("#5f7f35"))
+			_boite(e, Vector3(0.22, 0.75, 3.02), Vector3(10.0 + cote * 1.6, yy - 0.08, zc), VILLEBOIS)
+			if k % 2 == 1:
+				_pose(VEGETATION, "plante", "massif" if k % 4 == 1 else "buisson", Vector3(xg + cote * 0.4, yy + 0.18, zc), 820 + k * 2 + int(cote > 0.0), {"fleurs": ["f4f0e6", "e0605a", "d04a8a", "f2c14e"][(k + int(cote > 0.0)) % 4], "longueur": 2.4}, PI * 0.5)
 
 
 # --- Les pièces uniques ---------------------------------------------------------------------------
