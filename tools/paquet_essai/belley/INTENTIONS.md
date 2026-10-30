@@ -179,3 +179,20 @@ Un seul fil de construction, item par item, comme Guillaume le demande ; chaque 
 7. **Deux vagues d'approfondissement** (silhouettes, puis matières et vie), **critique indépendante** à deux verdicts, finition, emballage, `test_commune`, `parcours_commune`.
 
 Les demandes au socle (paris sportifs dans une salle, bourse dans une commune, la course comme activité) partent à part, une à la fois, sans retarder la carte.
+
+## État au 30 octobre 2026 (revue finale n° 1 et verdict n° 28)
+
+Vingt-huit étapes jugées face aux planches. Notes : vue d'ensemble de la place 8, rue des Barons à hauteur de
+joueur 8, façade de la cathédrale 8, falaises de la rive savoyarde 7, Relais des Lônes 7, banc 6.
+
+- **Lumière** : soleil 0,65, ambiance 0,4, rendu linéaire (ACES délave au rendu de compatibilité), courbe de tons
+  à gamma 0,88 (`adjustment_color_correction`), saturation 1,15 ; les façades en plein soleil prennent les
+  enduits les plus sourds (`places/ville.gd`).
+- **Couleurs** : les briques du façadier et du mobilier passent par `atelier/sature.gdshader` (gain 1,0 à ce
+  jour), les arbres d'ombrière par `atelier/feuillage_ombriere.gdshader` (platanes compris).
+- **Banc** : le repère `Vue2_Banc` est passé en (4200, 2160), à 527 m, d'où le Rhône se voit par-dessus la pente
+  (une bosse à 600 m le cachait depuis le premier repère) ; la scène est dans `places/banc.gd`.
+- **Relais** : la halle en charpente apparente au bord de la route, le platane sur la cour, les barrières du pré.
+- **Reste à faire** (verdict n° 28) : les ombres portées et la courbe de tons de la vue du Relais, le pré du
+  premier plan, la terrasse ; au banc, des fleurs plus petites en taches, un pré sec, le chêne en repoussoir, la
+  Dent du Chat plus bleu-gris ; le parcours à vélo entre les scènes ; le budget de triangles (4 M pour 600 k).
