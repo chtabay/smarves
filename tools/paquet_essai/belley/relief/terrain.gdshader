@@ -340,8 +340,14 @@ void fragment() {
 	col *= mix(1.0, 0.84, smoothstep(5000.0, 10000.0, distance(monde, CAMERA_POSITION_WORLD)));
 	// La brume écrasait le modelé de la crête : faces au soleil et faces à l'ombre au même gris (verdict n° 33).
 	// Au-delà de 3 km, on rend à l'albédo l'écart que la brume lui a pris, selon la pente face au soleil.
+	// Vue du banc, toutes les faces regardent le soleil : le modelé vient des côtes et des couloirs, faces sud
+	// claires, faces nord d'un cran plus sombres, et de la pente, l'arête raide plus sombre que l'épaulement
+	// (revue finale n° 2 : #BBCACA sur l'arête).
 	float face = smoothstep(-0.2, 0.6, dot(normale, normalize(vec3(-0.75, 0.47, 0.47))));
-	col *= mix(1.0, mix(0.66, 0.98, face), smoothstep(3000.0, 7000.0, distance(monde, CAMERA_POSITION_WORLD)));
+	float flanc = smoothstep(-0.35, 0.35, normale.z);
+	float raideur = smoothstep(0.55, 0.9, normale.y);
+	float modele = mix(0.66, 0.98, face) * mix(0.72, 1.0, flanc) * mix(0.82, 1.0, raideur);
+	col *= mix(1.0, modele, smoothstep(3000.0, 7000.0, distance(monde, CAMERA_POSITION_WORLD)));
 	// Les teintes sont écrites en sRGB, comme la palette de la note ; le rendu de compatibilité ne convertit pas
 	// sa sortie (mesuré : un albédo de 0,5 ressort à 0,5), on les lui donne donc telles quelles.
 	ALBEDO = col;

@@ -11,6 +11,7 @@ uniform float joint = 0.018;      // la demi-largeur d'un joint
 uniform vec3 joint_couleur : source_color = vec3(0.62, 0.58, 0.50);
 instance uniform float sol = 0.0; // le y du pied des murs, pour la salissure (par bâtiment)
 uniform float grain_force = 0.05;
+uniform float desordre = 0.0;     // 1 : pierre sèche, les assises se cassent d'une pierre à l'autre
 
 varying vec3 monde;
 varying vec3 nmonde;
@@ -35,7 +36,10 @@ vec2 appareil(vec2 uv, float taille) {
 	float decal = h21(vec2(rang, 3.1)) * bloc;
 	float l = bloc * mix(0.75, 1.5, h21(vec2(rang, 8.7))) * mix(0.8, 1.3, taille);
 	float colonne = floor((uv.x + decal) / l);
-	vec2 f = vec2(fract((uv.x + decal) / l) * l, fract(uv.y / a) * a);
+	// En pierre sèche, chaque pierre a sa hauteur : le lit monte ou descend d'une pierre à l'autre.
+	float y = uv.y + (h21(vec2(colonne, rang + 1.3)) - 0.5) * a * 0.7 * desordre;
+	rang = floor(y / a);
+	vec2 f = vec2(fract((uv.x + decal) / l) * l, fract(y / a) * a);
 	float bord = min(min(f.x, l - f.x), min(f.y, a - f.y));
 	float j = 1.0 - smoothstep(joint * 0.6, joint * 1.6, bord);
 	return vec2(h21(vec2(colonne, rang)), j);

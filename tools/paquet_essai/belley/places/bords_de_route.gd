@@ -420,10 +420,10 @@ func _soutenement(o: RefCounted, pts: PackedVector2Array, ecart: float, soutient
 		var n3 := Vector3(dedans.x, 0.0, dedans.y)
 		var e := n3 * 0.25
 		# La face vue de l'épingle, un peu fruitée, puis le chaperon de dalles.
-		o.quad(Vector3(a.x, pa, a.y) + e, Vector3(b.x, pb, b.y) + e, Vector3(b.x, tb, b.y) + e * 0.6, Vector3(a.x, ta, a.y) + e * 0.6, n3, Color("7d725e", 0.0), OUTILS.RUSTIQUE)
-		o.quad(Vector3(a.x, pa, a.y) - e, Vector3(b.x, pb, b.y) - e, Vector3(b.x, tb, b.y) - e, Vector3(a.x, ta, a.y) - e, -n3, Color("7d725e", 0.0), OUTILS.RUSTIQUE)
-		o.quad(Vector3(a.x, ta + 0.08, a.y) + e * 0.9, Vector3(b.x, tb + 0.08, b.y) + e * 0.9, Vector3(b.x, tb + 0.08, b.y) - e * 1.1, Vector3(a.x, ta + 0.08, a.y) - e * 1.1, Vector3.UP, Color("a49a84", 0.0), OUTILS.RUSTIQUE)
-		o.quad(Vector3(a.x, ta - 0.04, a.y) + e * 0.9, Vector3(b.x, tb - 0.04, b.y) + e * 0.9, Vector3(b.x, tb + 0.08, b.y) + e * 0.9, Vector3(a.x, ta + 0.08, a.y) + e * 0.9, n3, Color("6a604f", 0.0), OUTILS.RUSTIQUE)
+		o.quad(Vector3(a.x, pa, a.y) + e, Vector3(b.x, pb, b.y) + e, Vector3(b.x, tb, b.y) + e * 0.6, Vector3(a.x, ta, a.y) + e * 0.6, n3, Color("5a554a", 0.0), OUTILS.SECHE)
+		o.quad(Vector3(a.x, pa, a.y) - e, Vector3(b.x, pb, b.y) - e, Vector3(b.x, tb, b.y) - e, Vector3(a.x, ta, a.y) - e, -n3, Color("5a554a", 0.0), OUTILS.SECHE)
+		o.quad(Vector3(a.x, ta + 0.08, a.y) + e * 0.9, Vector3(b.x, tb + 0.08, b.y) + e * 0.9, Vector3(b.x, tb + 0.08, b.y) - e * 1.1, Vector3(a.x, ta + 0.08, a.y) - e * 1.1, Vector3.UP, Color("6b6556", 0.0), OUTILS.SECHE)
+		o.quad(Vector3(a.x, ta - 0.04, a.y) + e * 0.9, Vector3(b.x, tb - 0.04, b.y) + e * 0.9, Vector3(b.x, tb + 0.08, b.y) + e * 0.9, Vector3(a.x, ta + 0.08, a.y) + e * 0.9, n3, Color("4e4a40", 0.0), OUTILS.SECHE)
 
 
 
