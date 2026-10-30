@@ -31,6 +31,8 @@ const PALETTES_MARRONNIER := [["b9c84a", "8fb048", "7a9c40", "5f7f3e", "4a6634"]
 	["a9bc48", "7a9c40", "6a8a3c", "5f7f3e", "4d6e33"]]
 const TUILES := ["8f4a38", "86422f", "965040", "7e3f30", "92503f", "8a4836"]
 const PAVE := Color("#a39b93")
+## Les voies sans voitures : elles restent pavées.
+const PIETONS := ["footway", "path", "steps", "pedestrian", "living_street", "cycleway"]
 const DALLE := Color("#b3a998")
 const SABLE := Color("#b48e62")
 const VILLEBOIS := Color("#c7c3b6")
@@ -67,6 +69,11 @@ var _z0 := 0.0
 var _pas := 1.0
 var _niveau_place := 12.4
 var _niveau_eau := 0.0
+## Les tronçons de chaussée en enrobé près de la place : [a, b, demi-largeur].
+var _chaussees: Array = []
+## Le niveau du trottoir de quai au point de vue du quai : le piéton y a les yeux au-dessus du parapet.
+var _niveau_quai_vue := -100.0
+var _ecart_quai_vue := 1e9
 var _heros := {}
 var _segments: Array = []
 var _cases_rues := {}
@@ -102,6 +109,7 @@ func _ready() -> void:
 	_place()
 	_escalier()
 	_arbres()
+	_parcours()
 	_fourviere()
 	_reperes()
 	_joueur()
@@ -227,10 +235,13 @@ func _ciel() -> void:
 	var ciel := ProceduralSkyMaterial.new()
 	ciel.sky_top_color = Color("#5f94d0")
 	ciel.sky_horizon_color = Color("#f4d6a6")
-	ciel.sky_curve = 0.12
+	# le bleu commence bas sur l'horizon : la caméra à pied ne regarde pas dans une bande de brume grise
+	ciel.sky_curve = 0.05
 	ciel.ground_horizon_color = Color("#e6cfa6")
 	ciel.ground_bottom_color = Color("#4a4a52")
-	ciel.sun_angle_max = 12.0
+	# le soleil, bas et doré : un halo large plutôt qu'un disque
+	ciel.sun_angle_max = 38.0
+	ciel.sun_curve = 0.06
 	e.sky = Sky.new()
 	e.sky.sky_material = ciel
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
@@ -265,6 +276,7 @@ func _ciel() -> void:
 	e.fog_light_color = Color("#d9cbb2")
 	e.fog_density = 0.00035
 	e.fog_aerial_perspective = 0.4
+	e.fog_sky_affect = 0.15
 	env.environment = e
 	add_child(env)
 	var soleil := DirectionalLight3D.new()
@@ -388,6 +400,8 @@ func _quais() -> void:
 	# un tirage à part, pour ne pas déranger celui du reste de la ville
 	var alea := RandomNumberGenerator.new()
 	alea.seed = 4691
+	var trottoir := SurfaceTool.new()
+	trottoir.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for rive in [[RIVE_NORD, 1.0], [RIVE_SUD, -1.0]]:
 		var pts: Array = rive[0]
 		var prochain_arbre := 4.0
@@ -420,17 +434,32 @@ func _quais() -> void:
 				if m + d >= 0 and m + d < modules.size():
 					somme += modules[m + d][3]
 					nb += 1
+			modules[m].append(somme / nb)
+		for m in modules.size():
 			var c: Vector2 = modules[m][0]
 			var n: Vector2 = modules[m][1]
 			var w: float = modules[m][2]
-			var y := somme / nb
+			var y: float = modules[m][4]
+			if c.distance_to(QUAI_VUE) < _ecart_quai_vue:
+				_ecart_quai_vue = c.distance_to(QUAI_VUE)
+				_niveau_quai_vue = y + 0.03
 			var lacet := atan2(n.x, n.y)
 			k += 1
-			# le trottoir dallé du quai, du parapet jusqu'aux platanes : il recouvre la marche que le lit creusé
-			# laisse dans la grille du relevé
-			var dalles := _boite(ville, Vector3(w + 0.08, 6.0, 6.0), Vector3(c.x, y + 0.03 - 3.0, c.y) - Vector3(n.x, 0, n.y) * 3.5, DALLE)
-			dalles.rotation.y = lacet
-			dalles.material_override = _materiau_dalles_quai()
+			# le trottoir dallé du quai, du parapet jusqu'aux platanes, d'un seul tenant : il recouvre la marche que
+			# le lit creusé laisse dans la grille du relevé, et ses bouts suivent le niveau des modules voisins
+			var t := Vector2(n.y, -n.x)
+			var y0: float = (y + (modules[m - 1][4] if m > 0 else y)) * 0.5
+			var y1: float = (y + (modules[m + 1][4] if m < modules.size() - 1 else y)) * 0.5
+			var coins := [[c - t * w * 0.5 - n * 0.5, y0], [c + t * w * 0.5 - n * 0.5, y1], [c + t * w * 0.5 - n * 6.5, y1], [c - t * w * 0.5 - n * 6.5, y0]]
+			for idx in [0, 1, 2, 0, 2, 3]:
+				trottoir.set_normal(Vector3.UP)
+				trottoir.add_vertex(Vector3(coins[idx][0].x, coins[idx][1] + 0.03, coins[idx][0].y))
+			for paire in [[2, 3], [0, 1]]:
+				var pa: Array = coins[paire[0]]
+				var pb: Array = coins[paire[1]]
+				for q in [[pa, 0.0], [pb, 0.0], [pb, -3.0], [pa, 0.0], [pb, -3.0], [pa, -3.0]]:
+					trottoir.set_normal(Vector3(n.x, 0, n.y) * (1.0 if paire[0] == 0 else -1.0))
+					trottoir.add_vertex(Vector3(q[0][0].x, q[0][1] + 0.03 + q[1], q[0][0].y))
 			_pose(QUAIS, "module", "mur_quai_haut", Vector3(c.x, y, c.y), 800 + k, {"largeur": w + 0.04}, lacet)
 			if y - 3.8 > niveau:
 				# le pied du mur, plus haut que la brique : les mêmes assises, dans l'ombre de l'eau
@@ -445,7 +474,10 @@ func _quais() -> void:
 					libre = false
 			if libre:
 				var pp := c - n * 0.45
-				_pose(QUAIS, "module", "mur_quai_bas", Vector3(pp.x, y, pp.y), 900 + k, {"largeur": w + 0.02}, lacet)
+				# le parapet du quai Saint-Vincent est plus mince et un peu plus bas que celui de la brique : 0,9 m
+				# sous la tablette, 40 cm d'épaisseur ; le piéton voit l'eau par-dessus
+				var parapet := _pose(QUAIS, "module", "mur_quai_bas", Vector3(pp.x, y, pp.y), 900 + k, {"largeur": w + 0.02}, lacet)
+				parapet.scale = Vector3(1.0, 0.86, 0.68)
 			# les platanes du quai, à cinq mètres du parapet, tous les dix mètres environ
 			parcouru += w
 			if parcouru >= prochain_arbre:
@@ -461,7 +493,18 @@ func _quais() -> void:
 				if pa.distance_to(QUAI_VUE) < 9.0:
 					loin = false
 				if loin:
-					_pose(OMBRIERE, "arbre", "platane", Vector3(pa.x, y, pa.y), 700 + k, {"hauteur": alea.randf_range(15.0, 19.0), "vent": 0.3, "densite": 0.85})
+					_pose(OMBRIERE, "arbre", "platane", Vector3(pa.x, y, pa.y), 700 + k, {"hauteur": alea.randf_range(12.5, 14.5), "vent": 0.3, "densite": 0.85})
+	var mt := MeshInstance3D.new()
+	mt.name = "TrottoirsDesQuais"
+	mt.mesh = trottoir.commit()
+	mt.material_override = _materiau_dalles_quai()
+	ville.add_child(mt)
+	# on marche dessus
+	var corps := StaticBody3D.new()
+	var forme := CollisionShape3D.new()
+	forme.shape = mt.mesh.create_trimesh_shape()
+	corps.add_child(forme)
+	mt.add_child(corps)
 
 
 ## Une poutre dans un SurfaceTool : de a à b, de section l × h (h dans le plan vertical qui la contient).
@@ -656,12 +699,12 @@ void vertex() { monde = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 void fragment() {
 	// le monde est en unités du jeu : les dalles se comptent en mètres
-	vec2 q = monde.xz * 2.4 / vec2(0.9, 0.6);
+	vec2 q = monde.xz * 2.4 / vec2(0.6, 0.4);
 	q.x += floor(q.y) * 0.5;
 	vec2 f = fract(q);
-	float joint = smoothstep(0.0, 0.04, f.x) * smoothstep(1.0, 0.96, f.x) * smoothstep(0.0, 0.06, f.y) * smoothstep(1.0, 0.94, f.y);
-	float v = 0.9 + 0.14 * hash(floor(q));
-	ALBEDO = pow(vec3(0.78, 0.73, 0.63), vec3(2.2)) * mix(0.6, v, joint);
+	float joint = smoothstep(0.0, 0.03, f.x) * smoothstep(1.0, 0.97, f.x) * smoothstep(0.0, 0.045, f.y) * smoothstep(1.0, 0.955, f.y);
+	float v = 0.9 + 0.12 * hash(floor(q));
+	ALBEDO = pow(vec3(0.78, 0.73, 0.63), vec3(2.2)) * mix(0.78, v, joint);
 	ROUGHNESS = 0.92;
 }
 """
@@ -675,12 +718,15 @@ func _rues() -> void:
 	enrobe.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var pietons := SurfaceTool.new()
 	pietons.begin(Mesh.PRIMITIVE_TRIANGLES)
+	# les chaussées, pour poser les bordures de trottoir là où aucune autre chaussée ne passe
+	var chaussees: Array = []
+	var cases := {}
 	for r in data.routes:
 		if r.get("pont", false):
 			continue
 		var k: String = r.k
-		var st := pietons if k in ["footway", "path", "steps", "pedestrian", "living_street"] else enrobe
-		var l: float = r.l * U * (0.5 if k == "footway" else 0.5)
+		var st := pietons if k in PIETONS else enrobe
+		var l: float = r.l * U * 0.5
 		var pts: Array = []
 		for q in r.p:
 			pts.append(Vector2(q[0], q[1]) * U)
@@ -698,13 +744,94 @@ func _rues() -> void:
 				st.set_color(Color("#86827c") if st == enrobe else Color("#b3ab9d"))
 				st.set_normal(Vector3.UP)
 				st.add_vertex(v[idx])
-	for paire in [[enrobe, Color("#86827c"), "Chaussees"], [pietons, Color("#b3ab9d"), "Pietons"]]:
-		var mi := MeshInstance3D.new()
-		mi.name = paire[2]
-		mi.mesh = paire[0].commit()
-		mi.material_override = _materiau_paves()
-		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		ville.add_child(mi)
+			if st == enrobe and a.distance_to(CENTRE_PLACE) < 320.0:
+				chaussees.append([a, b, l])
+				var bo := Rect2(a, Vector2.ZERO).expand(b).grow(l + 1.0)
+				for gx in range(floori(bo.position.x / 20.0), floori(bo.end.x / 20.0) + 1):
+					for gz in range(floori(bo.position.y / 20.0), floori(bo.end.y / 20.0) + 1):
+						var cle := Vector2i(gx, gz)
+						if not cases.has(cle):
+							cases[cle] = []
+						cases[cle].append(chaussees.size() - 1)
+	_chaussees = chaussees
+	var mi := MeshInstance3D.new()
+	mi.name = "Chaussees"
+	mi.mesh = enrobe.commit()
+	mi.material_override = _materiau_enrobe()
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	ville.add_child(mi)
+	var mp := MeshInstance3D.new()
+	mp.name = "Pietons"
+	mp.mesh = pietons.commit()
+	mp.material_override = _materiau_paves()
+	mp.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	ville.add_child(mp)
+	# les bordures de granit gris clair, de part et d'autre de chaque chaussée, coupées aux carrefours
+	var bordures := SurfaceTool.new()
+	bordures.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for c in chaussees.size():
+		var a: Vector2 = chaussees[c][0]
+		var b: Vector2 = chaussees[c][1]
+		var l: float = chaussees[c][2]
+		var t := (b - a).normalized()
+		var n := t.orthogonal()
+		var long := a.distance_to(b)
+		var nb := maxi(1, int(long / 1.2))
+		var ang := atan2(t.y, t.x)
+		for s in [-1.0, 1.0]:
+			for j in nb:
+				var q: Vector2 = a + t * long * (j + 0.5) / nb + n * s * (l + 0.12)
+				if PLACE.has_point(q):
+					continue
+				var dans := false
+				for o in cases.get(Vector2i(floori(q.x / 20.0), floori(q.y / 20.0)), []):
+					if o == c:
+						continue
+					var sg: Array = chaussees[o]
+					if Geometry2D.get_closest_point_to_segment(q, sg[0], sg[1]).distance_to(q) < sg[2] + 0.1:
+						dans = true
+						break
+				if not dans:
+					_boite_st(bordures, Vector3(q.x, hauteur(q.x, q.y) + 0.1, q.y), Vector3(long / nb + 0.02, 0.2, 0.26), ang, Color("#cfcac0"))
+	var mb := MeshInstance3D.new()
+	mb.name = "Bordures"
+	mb.mesh = bordures.commit()
+	var mat := _mat(Color.WHITE, 0.85, true)
+	mat.vertex_color_is_srgb = true
+	mb.material_override = mat
+	ville.add_child(mb)
+
+
+## L'enrobé des rues des pentes : un gris chaud et sombre, des reprises plus claires ou plus noires, un grain
+## fin de gravillons ; il tient à côté des pavés de la place sans les imiter.
+func _materiau_enrobe() -> ShaderMaterial:
+	var sh := Shader.new()
+	sh.code = """
+shader_type spatial;
+render_mode diffuse_burley;
+varying vec3 monde;
+void vertex() { monde = VERTEX; }
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float bruit(vec2 p) {
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
+}
+void fragment() {
+	vec2 p = monde.xz;
+	float reprise = bruit(p * 0.18) * 0.6 + bruit(p * 0.55) * 0.4;
+	float grain = hash(floor(p * 18.0));
+	vec3 c = pow(vec3(0.52, 0.5, 0.47), vec3(2.2));
+	c *= 0.82 + 0.3 * reprise + 0.12 * (grain - 0.5);
+	ALBEDO = c;
+	ROUGHNESS = 0.95;
+	SPECULAR = 0.2;
+}
+"""
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	return m
 
 
 # --- Le bâti --------------------------------------------------------------------------------------
@@ -1865,6 +1992,93 @@ func _arbres() -> void:
 		_pose(OMBRIERE, "arbre", arbre, _sur(p.x, p.y), 500 + k, {"hauteur": haut, "vent": 0.3})
 
 
+## La vie du parcours, du quai à la place : des passants sur les deux trottoirs de la rue de la Martinière et de
+## la rue Louis-Vitet, des voitures garées le long d'une bordure, une qui roule au pas.
+const PARCOURS := [Vector2(-149.0, 114.0), Vector2(-30.0, 114.0), Vector2(68.0, 117.0), Vector2(34.0, 57.0), Vector2(14.0, 44.0)]
+
+func _parcours() -> void:
+	var alea := RandomNumberGenerator.new()
+	alea.seed = 1830
+	var groupe := Node3D.new()
+	groupe.name = "Passants"
+	add_child(groupe)
+	var g := 91000
+	var longueur := 0.0
+	for i in PARCOURS.size() - 1:
+		longueur += PARCOURS[i].distance_to(PARCOURS[i + 1])
+	# un point du parcours à l'abscisse d, et la direction de la rue
+	var sur := func(d: float) -> Array:
+		var reste := d
+		for i in PARCOURS.size() - 1:
+			var a: Vector2 = PARCOURS[i]
+			var b: Vector2 = PARCOURS[i + 1]
+			var l := a.distance_to(b)
+			if reste <= l or i == PARCOURS.size() - 2:
+				return [a.lerp(b, clampf(reste / l, 0.0, 1.0)), (b - a).normalized()]
+			reste -= l
+		return [PARCOURS[0], Vector2.RIGHT]
+	# les passants : chacun marche une quarantaine de mètres sur un trottoir, dans un sens ou dans l'autre
+	for k in 22:
+		var d0 := alea.randf_range(10.0, longueur - 50.0)
+		var cote := -1.0 if k % 2 == 0 else 1.0
+		var route: Array[Vector3] = []
+		for e in 4:
+			var pt: Array = sur.call(d0 + e * 13.0)
+			var q: Vector2 = pt[0] + (pt[1] as Vector2).orthogonal() * cote * alea.randf_range(3.4, 4.2)
+			route.append(Vector3(q.x, hauteur(q.x, q.y), q.y) / U)
+		if k % 3 == 0:
+			route.reverse()
+		var f: Node3D = Atelier.figurant(g, "walk", "village", route)
+		f.position = route[0]
+		groupe.add_child(f)
+		g += 1
+	# quelques-uns qui s'arrêtent pour causer, devant une vitrine
+	for k in 4:
+		var pt: Array = sur.call(alea.randf_range(30.0, longueur - 30.0))
+		var c: Vector2 = pt[0] + (pt[1] as Vector2).orthogonal() * 4.0 * (1.0 if k % 2 == 0 else -1.0)
+		for j in 2:
+			var q := c + (pt[1] as Vector2) * (j - 0.5) * 1.1
+			var f: Node3D = Atelier.figurant(g, "idle")
+			f.position = Vector3(q.x, hauteur(q.x, q.y), q.y) / U
+			f.rotation.y = atan2(-(pt[1] as Vector2).x, -(pt[1] as Vector2).y) * (1.0 if j == 0 else -1.0)
+			groupe.add_child(f)
+			g += 1
+	# les voitures garées le long de la bordure droite, par paquets, et une qui roule au milieu
+	var d := 18.0
+	var n := 0
+	while d < longueur - 20.0:
+		var pt: Array = sur.call(d)
+		# garée contre la bordure de la vraie chaussée la plus proche, dans son axe ; pas de voiture dans les
+		# rues piétonnes
+		var proche := -1
+		var ecart := 1e9
+		for c in _chaussees.size():
+			var e: float = Geometry2D.get_closest_point_to_segment(pt[0], _chaussees[c][0], _chaussees[c][1]).distance_to(pt[0])
+			if e < ecart:
+				ecart = e
+				proche = c
+		var garable := proche >= 0 and ecart < float(_chaussees[proche][2]) + 2.5 and float(_chaussees[proche][2]) >= 2.4
+		var t := Vector2.RIGHT
+		var q: Vector2 = pt[0]
+		if garable:
+			var sa: Vector2 = _chaussees[proche][0]
+			var sb: Vector2 = _chaussees[proche][1]
+			t = (sb - sa).normalized()
+			if t.dot(pt[1]) < 0.0:
+				t = -t
+			q = Geometry2D.get_closest_point_to_segment(pt[0], sa, sb) + t.orthogonal() * -(float(_chaussees[proche][2]) - 1.05)
+		if garable and alea.randf() < 0.7:
+			var vo: Node3D = load(Bibliotheque.scene("voitures-des-annees-80@1", "decor")).instantiate()
+			vo.voiture = ["citadine", "compacte", "berline", "break", "citadine", "fourgonnette"][alea.randi() % 6]
+			vo.graine = 300 + n
+			vo.options = {"couleur": ["efe9dc", "c8102e", "6b1d24", "d9b44a", "8fb3c9", "2c4a7a", "2f5d3a", "b7ab8f", "8d9196"][alea.randi() % 9]}
+			vo.position = Vector3(q.x, hauteur(q.x, q.y) + 0.06, q.y)
+			vo.rotation.y = atan2(t.x, t.y)
+			ville.add_child(vo)
+			n += 1
+		d += alea.randf_range(5.2, 6.5) if alea.randf() < 0.8 else 14.0
+
+
 # --- Le lointain ----------------------------------------------------------------------------------
 
 ## Fourvière, de l'autre côté de la Saône : la colline qui ferme l'ouest, ses jardins et ses toits étagés, la
@@ -2161,7 +2375,10 @@ func _reperes() -> void:
 			continue
 		var a: Vector2 = reperes[nom][0]
 		var b: Vector2 = reperes[nom][1]
-		var pa := Vector3(a.x, hauteur(a.x, a.y) + 0.1, a.y) / U
+		var sol := hauteur(a.x, a.y)
+		if nom == "Vue1a_Passerelle":
+			sol = maxf(sol, _niveau_quai_vue)
+		var pa := Vector3(a.x, sol + 0.1, a.y) / U
 		m.global_transform = Transform3D(Basis(), pa)
 		m.look_at(Vector3(b.x / U, pa.y, b.y / U), Vector3.UP)
 
