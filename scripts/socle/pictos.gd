@@ -48,6 +48,8 @@ const TRAITS := {
 	"fermer": "<line x1='6' y1='6' x2='18' y2='18'/><line x1='18' y1='6' x2='6' y2='18'/>",
 	# Habiter, un logement.
 	"maison": "<path d='M3 10 L12 3 L21 10 V20 a1 1 0 0 1 -1 1 H4 a1 1 0 0 1 -1 -1z'/><polyline points='9 21 9 13 15 13 15 21'/>",
+	# Reprendre l'avion, d'une destination lointaine.
+	"avion": "<path d='M17.8 19.2 L16 11 l3.5 -3.5 C21 6 21.5 4 21 3 c-1 -0.5 -3 0 -4.5 1.5 L13 8 L4.8 6.2 c-0.5 -0.1 -0.9 0.1 -1.1 0.5 l-0.3 0.5 c-0.2 0.5 -0.1 1 0.3 1.3 L9 12 l-2 3 H4 l-1 1 l3 2 l2 3 l1 -1 v-3 l3 -2 l3.5 5.3 c0.3 0.4 0.8 0.5 1.3 0.3 l0.5 -0.2 c0.4 -0.3 0.6 -0.7 0.5 -1.2z'/>",
 }
 
 static var _cache := {}

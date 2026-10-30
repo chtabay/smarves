@@ -16,6 +16,7 @@ signal installee(id: String, ok: bool, message: String)
 signal etat_change(id: String)
 
 const GREFFES := "user://communes/"
+const COIN := preload("res://scripts/socle/coin.gd")
 
 ## La commune d'origine du joueur : son banquier est le prêteur par défaut.
 const ORIGINE := "smarves"
@@ -45,7 +46,8 @@ var _seules := {}
 ## Où vont les paquets installés, la dernière copie du catalogue (catalogue.json, pour la liste hors
 ## ligne) et les versions installées (installees.json). Un test le déplace.
 var dossier_greffes := GREFFES
-var _retour: CanvasLayer
+## Le coin des communes greffées (scripts/socle/coin.gd) : où l'on est, le retour et la carte.
+var _retour: COIN
 ## La commune où l'on vient d'entrer (visiter), avant que sa scène ne remplace la précédente.
 var actuelle_apres := ""
 ## Les communes publiées que le joueur n'a pas encore vues dans son carnet (ids), et celles qu'il a
@@ -461,24 +463,13 @@ func revenir() -> void:
 
 func _bouton_retour(visible: bool) -> void:
 	if _retour == null:
-		_retour = CanvasLayer.new()
-		_retour.layer = 90
-		var rang := HBoxContainer.new()
-		rang.position = Vector2(20, 20)
-		rang.add_theme_constant_override("separation", 10)
-		_retour.add_child(rang)
-		for t in [["Revenir à Smarves", _rentrer], ["La carte  (M)", func(): Carte.ouvrir()]]:
-			var b := Button.new()
-			b.text = t[0]
-			b.add_theme_font_override("font", Polices.gras())
-			b.add_theme_font_size_override("font_size", 22)
-			b.pressed.connect(t[1])
-			rang.add_child(b)
+		_retour = COIN.new(_rentrer, func(): Carte.ouvrir())
 		add_child(_retour)
 	_retour.visible = visible
-	# D'une destination lointaine, on rentre en avion (socle 1.5).
-	var loin := commune(actuelle_apres) if actuelle_apres != "" else null
-	(_retour.get_child(0).get_child(0) as Button).text = "Reprendre l'avion" if loin != null and loin.lointaine() else "Revenir à Smarves"
+	if visible:
+		_retour.poser(commune(actuelle_apres) if actuelle_apres != "" else null)
+	# Tant qu'on est dans une commune, un bouton qu'un paquet pose sans style prend celui du coin.
+	get_tree().root.theme = COIN.habit() if visible else null
 
 
 ## Le premier bouton du coin : rentrer à Smarves, en avion depuis une destination lointaine.
