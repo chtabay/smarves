@@ -31,7 +31,10 @@ const PNEU := Color("26272a")
 @export var graine := 1
 ## Les options, toutes facultatives : texte (l'arche, la banderole, le podium, le panneau : ARRIVÉE, DÉPART, 5 KM…),
 ## couleur (un hexa : l'arche, la banderole, le vélo), largeur (l'arche, la banderole, les fanions, la ligne : la
-## largeur de la route, 10 m par défaut ; les barrières : leur longueur, 10 m), velos (le râtelier : 1 à 5).
+## largeur de la route, 10 m par défaut ; les barrières : leur longueur, 10 m), velos (le râtelier : 1 à 5),
+## taille_texte (la banderole : la hauteur des capitales en mètres, ou « ajuste » pour remplir la largeur de la
+## toile, 1,2 m au plus ; la toile grandit pour les porter, et le texte reste dans sa largeur ; sans elle, le texte
+## s'ajuste à une toile d'un mètre).
 @export var options := {}
 
 var fait := false
@@ -158,12 +161,30 @@ class _Objets:
 			o.collisions.append([Transform3D(Basis(), p + Vector3(cote * w * 0.5, h * 0.5, 0)), Vector3(0.2, h, 0.2)])
 			o.branche(p + Vector3(cote * w * 0.5, h + 0.6, 0), p + Vector3(cote * (w * 0.5 + 1.5), 0, 0), 0.008, 0.008, NOIR, 3)
 		# la toile tendue entre les mâts, ses œillets et ses cordes
+		# taille_texte (la hauteur des lettres, en mètres) agrandit la toile pour les porter ; sans elle, le texte
+		# s'ajuste à une toile d'un mètre
 		var tw := w - 0.6
-		_panneau(o, p + Vector3(0, h, 0), tw, 1.0, col, str(opt.get("texte", "ALLEZ LES GARS !")), BLANC if col.get_luminance() < 0.6 else NOIR, textes, 0.02)
-		o.boite(Transform3D(Basis(), p + Vector3(0, h + 0.53, 0)), Vector3(tw, 0.06, 0.07), BLANC)
-		o.boite(Transform3D(Basis(), p + Vector3(0, h - 0.53, 0)), Vector3(tw, 0.06, 0.07), BLANC)
+		var mot := str(opt.get("texte", "ALLEZ LES GARS !"))
+		var encre := BLANC if col.get_luminance() < 0.6 else NOIR
+		# la largeur vraie du texte dans la police des inscriptions, en pixels de police
+		var large := maxf(ThemeDB.fallback_font.get_string_size(mot, HORIZONTAL_ALIGNMENT_LEFT, -1, 96).x, 1.0)
+		var demande = opt.get("taille_texte", 0.0)
+		# la hauteur des capitales vaut à peu près 0,72 du corps de la police
+		var plein := tw * 0.92 / large * 96.0 * 0.72
+		var lettres := minf(plein, 1.2) if str(demande) == "ajuste" else float(demande)
+		var th := maxf(1.0, lettres * 1.45)
+		if lettres > 0.0:
+			# le texte ne déborde jamais de la toile
+			var px := minf(lettres / (0.72 * 96.0), tw * 0.92 / large)
+			_panneau(o, p + Vector3(0, h, 0), tw, th, col, "", encre, textes)
+			textes.append([Transform3D(Basis(), p + Vector3(0, h, 0.035)), mot, encre, px])
+			textes.append([Transform3D(Basis(Vector3.UP, PI), p + Vector3(0, h, -0.035)), mot, encre, px])
+		else:
+			_panneau(o, p + Vector3(0, h, 0), tw, th, col, mot, encre, textes, 0.02)
+		o.boite(Transform3D(Basis(), p + Vector3(0, h + th * 0.5 + 0.03, 0)), Vector3(tw, 0.06, 0.07), BLANC)
+		o.boite(Transform3D(Basis(), p + Vector3(0, h - th * 0.5 - 0.03, 0)), Vector3(tw, 0.06, 0.07), BLANC)
 		for cote in [-1.0, 1.0]:
-			for dy in [-0.45, 0.45]:
+			for dy in [-th * 0.45, th * 0.45]:
 				o.branche(p + Vector3(cote * tw * 0.5, h + dy, 0), p + Vector3(cote * w * 0.5, h + dy * 0.6, 0), 0.008, 0.008, NOIR, 3)
 		return Vector2(w + 3.0, 0.4)
 
