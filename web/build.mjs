@@ -35,5 +35,5 @@ for (;;) {
   if (Date.now() > deadline) { console.error('La Release n’a pas porté ce commit à temps.'); process.exit(1); }
   await sleep(30000);
 }
-// La page où l'humain connecte son assistant à son pensionnaire (docs/PENSIONNAIRES.md) : servie à côté du jeu.
+// L'ancienne page « Mon assistant » (docs/PENSIONNAIRES.md), qui renvoie désormais vers Lasso : servie à côté du jeu.
 cpSync('assistant', 'public/assistant', { recursive: true });

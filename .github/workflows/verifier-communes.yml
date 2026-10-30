@@ -7,6 +7,7 @@ on:
       - 'scripts/**'
       - 'tools/**'
       - 'docs/COMMUNE.md'
+      - 'assets/audio/**'
       - '.github/workflows/verifier-communes.yml'
   push:
     branches: [main]
@@ -41,5 +42,7 @@ jobs:
         run: ./godot --headless --path . -s tools/test_coin.gd
       - name: Vérifier la minimap des communes
         run: ./godot --headless --path . -s tools/test_minimap.gd
+      - name: Vérifier la musique des lieux
+        run: ./godot --headless --path . -s tools/test_musique.gd
       - name: Vérifier l'assise des bâtiments sur le relief
         run: ./godot --headless --path . -s tools/test_assise.gd

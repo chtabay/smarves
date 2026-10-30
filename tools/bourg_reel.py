@@ -583,10 +583,13 @@ def main():
         lit = [(q[0] * UNITE, q[1] * UNITE) for q in grand["p"]]
         dans_lit = [k for k in range(len(rel.alt))
                     if dedans((cadre[0] + (k % rel.nx) * PAS_RELIEF, cadre[1] + (k // rel.nx) * PAS_RELIEF), lit)]
-        surface = sorted(rel.alt[k] for k in dans_lit)[len(dans_lit) // 2]
-        for k in dans_lit:
-            rel.alt[k] = min(rel.alt[k], surface - 1.5)
-        niveau = y(surface + 0.1)
+        # Un plan d'eau si étroit ou si près du bord qu'aucun point de la grille ne tombe dedans (un bassin,
+        # un bout de rivière coupé par le cadre) : on le laisse à la hauteur du terrain, sans le creuser.
+        if dans_lit:
+            surface = sorted(rel.alt[k] for k in dans_lit)[len(dans_lit) // 2]
+            for k in dans_lit:
+                rel.alt[k] = min(rel.alt[k], surface - 1.5)
+            niveau = y(surface + 0.1)
 
     # --- Le sol : prés, bois, places, jardins --------------------------------------------------
     couvert = {"forest": "bois", "wood": "bois", "meadow": "pre", "grass": "pre", "farmland": "champ",

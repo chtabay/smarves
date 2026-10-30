@@ -9,6 +9,12 @@ Il vérifie aussi deux créations et deux adoptions de même `ins` avec des `jti
 après un COMMIT non reçu, le refus d'une autre empreinte `dem`, puis le rollback/réapplication.
 Ce n'est pas un E2E du navigateur, de l'OAuth ni des fonctions Edge Supabase.
 
+`passerelle-pg.mjs` (mêmes variables) rejoue toutes les migrations, la passerelle Lasso comprise
+(`20261101000000_smarves_passerelle_lasso.sql`), crée un pensionnaire par le chemin Lasso et exerce
+`smarves.passerelle_entrer` (le pensionnaire du couple humain + agent, rejeu, autre agent, coupure), la trace des
+appels sans contenu et sa purge, couper / reprendre / effacer, les droits, puis le retour arrière (refusé tant que
+Lasso 012 est en place) et la réapplication. PostgreSQL 16 ou 17.
+
 Sur un Postgres **local** qui imite le projet Supabase partagé : rôles `anon` et `authenticated`, schémas
 `extensions` (pgcrypto), `vault`, `cron`, `net` factices, puis toutes les migrations de ce dépôt et celles de
 `chtabay/addict` (le basket), dans l'ordre de leurs noms.

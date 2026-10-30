@@ -212,7 +212,8 @@ func _init() -> void:
 			d.set(lyonnais[ref][1], nom)
 			d.graine = 3
 			lyon.add_child(d)
-			var maillages := d.find_children("*", "MeshInstance3D", true, false)
+			# un maillage, plus au besoin son corps lointain (le niveau de détail au-delà de lod)
+			var maillages := d.find_children("*", "MeshInstance3D", true, false).filter(func(m): return not m.name.ends_with("Lointain"))
 			if d.get_meta(lyonnais[ref][1], "") != nom or maillages.size() != 1 or maillages[0].mesh.get_surface_count() > 3 or d.find_children("*", "CollisionShape3D", true, false).is_empty():
 				rates.append(nom)
 		check(noms.size() == lyonnais[ref][2] and rates.is_empty(), "%s : les %d se bâtissent, un maillage et un corps chacun %s" % [ref, noms.size(), str(rates)])
@@ -253,6 +254,51 @@ func _init() -> void:
 		for si in mi.mesh.get_surface_count():
 			sommets_l4 += mi.mesh.surface_get_array_len(si)
 	check(sommets_l3 > sommets_l4 + 40 and sombres >= 12, "l'option grain du façadier lyonnais pose des plaques et des rangs sombres sur les pans de tuile (%d sommets de plus, %d sommets de rangs sombres), rien sans elle" % [sommets_l3 - sommets_l4, sombres])
+	# la façade Renaissance du Vieux-Lyon (option renaissance, demandée pour Saint-Paul) : pierre grise des
+	# encadrements, meneaux et accolades ; rien ne change sans l'option
+	var l5: Node3D = paquet_lyon.instantiate()
+	l5.type = "classique"
+	l5.graine = 6
+	l5.options = {"w": 10.0, "renaissance": true}
+	var l6: Node3D = paquet_lyon.instantiate()
+	l6.type = "classique"
+	l6.graine = 6
+	l6.options = {"w": 10.0}
+	lyon.add_child(l5)
+	lyon.add_child(l6)
+	var grise := 0
+	var grise_sans := 0
+	for mi in l5.find_children("*", "MeshInstance3D", true, false):
+		for si in mi.mesh.get_surface_count():
+			for c in mi.mesh.surface_get_arrays(si)[Mesh.ARRAY_COLOR]:
+				if absf(c.r - 0.663) < 0.02 and absf(c.g - 0.635) < 0.02 and absf(c.b - 0.580) < 0.02:
+					grise += 1
+	for mi in l6.find_children("*", "MeshInstance3D", true, false):
+		for si in mi.mesh.get_surface_count():
+			for c in mi.mesh.surface_get_arrays(si)[Mesh.ARRAY_COLOR]:
+				if absf(c.r - 0.663) < 0.02 and absf(c.g - 0.635) < 0.02 and absf(c.b - 0.580) < 0.02:
+					grise_sans += 1
+	check(grise > 500 and grise_sans == 0 and float(l5.get_meta("hauteur")) < float(l6.get_meta("hauteur")), "l'option renaissance du façadier lyonnais bâtit une façade du Vieux-Lyon en pierre grise, sous un toit plus bas (%d sommets gris, %d sans l'option)" % [grise, grise_sans])
+	# le niveau de détail (option lod, demandée par le chef de chantier de Lyon pour ses quartiers) : un corps
+	# Lointain qui prend le relais à la distance donnée ; sans l'option, rien (Guillaume n'en veut pas dans les
+	# cartes existantes)
+	var l7: Node3D = paquet_lyon.instantiate()
+	l7.type = "immeuble"
+	l7.graine = 3
+	l7.options = {"lod": 40.0}
+	lyon.add_child(l7)
+	var corps7: MeshInstance3D = l7.find_child("Corps", true, false)
+	var loin7: MeshInstance3D = l7.find_child("Lointain", true, false)
+	var loin6: Node = l6.find_child("Lointain", true, false)
+	check(loin6 == null and corps7 != null and loin7 != null and is_equal_approx(corps7.visibility_range_end, 40.0) and is_equal_approx(loin7.visibility_range_begin, 40.0) and loin7.mesh.surface_get_array_len(0) < 2000, "l'option lod du façadier lyonnais ajoute un corps Lointain qui prend le relais à 40 m (%d sommets), rien sans elle" % (loin7.mesh.surface_get_array_len(0) if loin7 else -1))
+	var l8: Node3D = paquet_lyon.instantiate()
+	l8.type = "immeuble"
+	l8.graine = 3
+	l8.options = {"lod": "loin"}
+	lyon.add_child(l8)
+	var corps8: MeshInstance3D = l8.find_child("Corps", true, false)
+	var loin8: MeshInstance3D = l8.find_child("Lointain", true, false)
+	check(corps8 != null and loin8 != null and corps8.visibility_range_end == 0.0 and corps8.has_meta("sans_lointain") and loin8.visibility_range_begin >= 100000.0 and loin8.has_meta("corps_lointain"), "lod « loin » du façadier lyonnais bâtit les deux corps sans bascule en jeu : le corps de près marqué sans_lointain, le corps lointain hors de vue")
 	var quai: Node3D = load(Bibliotheque.scene("quais-lyonnais@1", "decor")).instantiate()
 	quai.module = "escalier_haut"
 	lyon.add_child(quai)
