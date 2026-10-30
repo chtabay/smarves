@@ -954,13 +954,29 @@ static func _vie(racine: Node3D) -> void:
 		[Vector3(14.0, 0, -11.5), Vector3(13.0, 0, -9.5), Vector3(6.0, 0, -8.8), Vector3(0.6, 0, -1.5), Vector3(3.2, 0, 1.5), Vector3(3.4, 0, 6.5), Vector3(9.0, 0, 5.4)],
 		[Vector3(-14.0, 0, -2.0), Vector3(-4.0, 0, -2.1), Vector3(-1.5, 0, -2.4), Vector3(0.6, 0, -1.5), Vector3(3.2, 0, 1.5), Vector3(3.4, 0, 6.5), Vector3(9.6, 0, 4.8)],
 	]
+	# chaque route parcourue dans les deux sens : un promeneur à l'aller, un autre au retour (verdict du juge
+	# sur la v0.8 : des passants)
 	for k in routes.size():
-		var route: Array[Vector3] = []
-		route.assign(routes[k])
-		var f: Node3D = Atelier.figurant(g, "walk", "village", route)
-		f.position = route[0]
-		groupe.add_child(f)
-		g += 1
+		for sens in 2:
+			var route: Array[Vector3] = []
+			route.assign(routes[k])
+			if sens == 1:
+				route.reverse()
+			var f: Node3D = Atelier.figurant(g, "walk", "village", route)
+			f.position = route[0]
+			groupe.add_child(f)
+			g += 1
+	# Des haltes : deux voisins devant les étals, deux au bord de la terrasse de Lafage, deux sur le trottoir
+	# de la grande terrasse du sud-ouest.
+	for paire in [[Vector2(12.2, 7.6), Vector2(12.7, 7.1)], [Vector2(10.6, -6.8), Vector2(11.1, -7.3)], [Vector2(0.9, 9.4), Vector2(1.3, 10.0)]]:
+		for k in 2:
+			var p: Vector2 = paire[k]
+			var q: Vector2 = paire[1 - k]
+			var f: Node3D = Atelier.figurant(g, "idle")
+			f.position = Vector3(p.x, 0.0, p.y)
+			f.rotation.y = atan2(q.x - p.x, q.y - p.y)
+			groupe.add_child(f)
+			g += 1
 
 
 # --- La fonte des maillages -----------------------------------------------------------------------
