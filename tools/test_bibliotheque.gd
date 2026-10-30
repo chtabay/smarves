@@ -303,6 +303,16 @@ func _init() -> void:
 			if d.get_meta(toulousains[ref][1], "") != nom or maillages.size() != 1 or maillages[0].mesh.get_surface_count() > 3 or d.find_children("*", "CollisionShape3D", true, false).is_empty():
 				rates.append(nom)
 		check(noms.size() == toulousains[ref][2] and rates.is_empty(), "%s : les %d se bâtissent, un maillage et un corps chacun %s" % [ref, noms.size(), str(rates)])
+	# la terrasse prend des clients assis (option clients) : le maillage grossit d'autant
+	var sommets_terrasse := {}
+	for nb in [0, 5]:
+		var tt: Node3D = load(Bibliotheque.scene("mobilier-toulousain@1", "decor")).instantiate()
+		tt.objet = "terrasse"
+		tt.graine = 4
+		tt.options = {"tables": 3, "clients": nb}
+		toulouse.add_child(tt)
+		sommets_terrasse[nb] = (tt.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).mesh.surface_get_array_len(0)
+	check(sommets_terrasse[5] > sommets_terrasse[0] * 1.5, "la terrasse toulousaine assoit des clients quand on lui en demande (%s)" % str(sommets_terrasse))
 	var manege: Node3D = load(Bibliotheque.scene("mobilier-toulousain@1", "decor")).instantiate()
 	manege.objet = "carrousel"
 	toulouse.add_child(manege)

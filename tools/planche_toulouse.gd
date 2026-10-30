@@ -44,6 +44,16 @@ func _init() -> void:
 	cam.far = 1500
 	monde.add_child(cam)
 	match vue:
+		"terrasse":
+			# la terrasse et ses clients : quatre tables, six clients, les chaises vides tirées au hasard
+			_sol(Vector2(60, 40), Color("c9b28c"))
+			for i in 9:
+				for j in 4:
+					_pose(SOLS, "module", "brique_epi", Vector3(-16 + i * 4, 0, -6 + j * 4), i * 4 + j + 1, {})
+			_pose(MOBILIER, "objet", "terrasse", Vector3(0, 0, 0), 2, {"tables": 4, "clients": 6})
+			_pose(MOBILIER, "objet", "parasol", Vector3(-5.5, 0, 0.3), 3, {"clients": 2})
+			cam.fov = 40
+			cam.look_at_from_position(Vector3(2, 2.4, -7.5), Vector3(-0.5, 0.9, 0))
 		"facadier", "detail":
 			_sol(Vector2(240, 80), Color("c9b28c"))
 			var types: Array = load(Bibliotheque.scene(FACADIER, "decor")).instantiate().types()
