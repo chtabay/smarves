@@ -314,7 +314,8 @@ void fragment() {
 	float k = 1.0 - exp(-distance(monde, CAMERA_POSITION_WORLD) / 9000.0);
 	col = mix(col, vec3(0.58, 0.65, 0.68), k * 0.7);
 	// Au-delà de 8 km, la brume noie encore les barres claires : plus de taches blanches sur la crête lointaine.
-	col = mix(col, vec3(0.60, 0.67, 0.71), smoothstep(7000.0, 14000.0, distance(monde, CAMERA_POSITION_WORLD)) * (0.45 + 0.25 * roc));
+	// Bleu-gris, pas blanc : la Dent du Chat sortait en névé depuis le banc (revue finale n° 1, visée #93A6AE).
+	col = mix(col, vec3(0.42, 0.49, 0.53), smoothstep(7000.0, 14000.0, distance(monde, CAMERA_POSITION_WORLD)) * (0.6 + 0.2 * roc));
 	// Les teintes sont écrites en sRGB, comme la palette de la note ; le rendu de compatibilité ne convertit pas
 	// sa sortie (mesuré : un albédo de 0,5 ressort à 0,5), on les lui donne donc telles quelles.
 	ALBEDO = col;

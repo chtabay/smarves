@@ -74,7 +74,7 @@ func batir(parent: Node3D) -> Node3D:
 ## La cour de gravier et le pré, drapés sur le sol, et les places peintes.
 func _cour() -> void:
 	_draper(Rect2(-6, 0, 52, 30), GRAVIER)
-	_draper(Rect2(46, 12, 22, 34), PELOUSE)
+	_draper(Rect2(46, -1, 24, 47), PELOUSE)
 	for k in 4:
 		var x := 8.0 + k * 3.0
 		_trait(Vector2(x, 2.0), Vector2(x, 7.0))
@@ -138,8 +138,10 @@ func _terrasse(parent: Node3D) -> void:
 		t.rotation.y = LACET
 		parent.add_child(t)
 	var scene: PackedScene = load(Bibliotheque.scene("mobilier-de-place@1", "decor"))
-	var tables := [Vector2(7, 12.5), Vector2(11.5, 13), Vector2(16, 12.5), Vector2(20.5, 13), Vector2(39.5, 15), Vector2(43.5, 18.5),
-		Vector2(39.5, 22), Vector2(43.5, 25.5), Vector2(40, 28.5)]
+	# Devant la façade sous la treille, et à droite sous le grand platane, à découvert sur la cour (revue finale
+	# n° 1 : le platane était caché derrière le pavillon).
+	var tables := [Vector2(7, 12.5), Vector2(11.5, 13), Vector2(16, 12.5), Vector2(20.5, 13), Vector2(39.5, 4.5), Vector2(44.0, 3.5),
+		Vector2(47.5, 6.5), Vector2(40.0, 9.5), Vector2(45.0, 10.5)]
 	for i in tables.size():
 		var m: Node3D = scene.instantiate()
 		m.set("objet", "terrasse")
@@ -147,6 +149,15 @@ func _terrasse(parent: Node3D) -> void:
 		m.set("options", {"toile": ["efe7d6", "efe7d6"]})
 		m.position = p(tables[i].x, tables[i].y, 0.1)
 		parent.add_child(m)
+	# Les tables de pique-nique du pré, autour de l'aire de jeux.
+	var bugey_tables := [Vector2(50.5, 40.0), Vector2(62.0, 41.0), Vector2(61.0, 31.0)]
+	for i in bugey_tables.size():
+		var t: Node3D = bugey_mob.instantiate()
+		t.set("objet", "table")
+		t.set("graine", 70 + i)
+		t.position = p(bugey_tables[i].x, bugey_tables[i].y, 0.0)
+		t.rotation.y = LACET + 0.3 * i
+		parent.add_child(t)
 	# Les jardinières de bois qui ferment la terrasse sur la cour.
 	for k in 5:
 		var m: Node3D = scene.instantiate()
@@ -157,30 +168,54 @@ func _terrasse(parent: Node3D) -> void:
 		parent.add_child(m)
 
 
-## La halle de bois du fond, sous son toit d'ardoise, ouverte de trois côtés.
+## La halle de bois du fond, sous son toit d'ardoise, ouverte de tous côtés et sa charpente apparente, comme
+## sur la planche (revue finale n° 1) : poteaux sur dés de pierre, aisseliers, sablières, et à chaque ferme
+## l'entrait, le poinçon et les deux arbalétriers ; les pignons restent ouverts.
 func _halle() -> void:
-	var x0 := 46.0
-	var z0 := 16.0
+	# Au bord de la route, à droite du platane, comme sur la planche (revue finale n° 1 : elle était cachée au fond).
+	var x0 := 50.0
+	var z0 := 1.5
 	var l := 18.0
 	var pr := 10.0
 	var h := 3.2
-	for i in 4:
-		for j in 2:
-			var x := x0 + i * l / 3.0
-			var z := z0 + j * pr
-			o.boite(Transform3D(base.basis, q(x, h * 0.5, z)), Vector3(0.3, h, 0.3), BOIS)
-	for j in 2:
-		o.boite(Transform3D(base.basis, q(x0 + l * 0.5, h, z0 + j * pr)), Vector3(l + 0.4, 0.3, 0.3), BOIS)
-	for i in 4:
-		o.boite(Transform3D(base.basis, q(x0 + i * l / 3.0, h + 0.1, z0 + pr * 0.5)), Vector3(0.25, 0.25, pr + 0.4), BOIS_CLAIR)
 	var ye := h + 0.1
 	var yf := h + 3.2
 	var d := 0.8
-	o.pan(q(x0 - d, ye, z0 - d), q(x0 + l + d, ye, z0 - d), q(x0 + l + d, yf, z0 + pr * 0.5), q(x0 - d, yf, z0 + pr * 0.5), ARDOISE_HALLE, OUTILS.ARDOISE)
-	o.pan(q(x0 + l + d, ye, z0 + pr + d), q(x0 - d, ye, z0 + pr + d), q(x0 - d, yf, z0 + pr * 0.5), q(x0 + l + d, yf, z0 + pr * 0.5), ARDOISE_HALLE, OUTILS.ARDOISE)
+	var zc := z0 + pr * 0.5
+	for i in 4:
+		var x := x0 + i * l / 3.0
+		for j in 2:
+			var z := z0 + j * pr
+			o.boite(Transform3D(base.basis, q(x, 0.12, z)), Vector3(0.5, 0.3, 0.5), ANGLE)
+			o.boite(Transform3D(base.basis, q(x, h * 0.5, z)), Vector3(0.28, h, 0.28), BOIS)
+			# Les aisseliers : vers la sablière de part et d'autre, et vers l'entrait.
+			var sz := 1.0 if j == 0 else -1.0
+			o.branche(q(x, h - 0.95, z), q(x, h - 0.1, z + sz * 0.95), 0.07, 0.07, BOIS)
+			for sx: float in [-1.0, 1.0]:
+				if (i == 0 and sx < 0.0) or (i == 3 and sx > 0.0):
+					continue
+				o.branche(q(x, h - 0.95, z), q(x + sx * 0.95, h - 0.1, z), 0.07, 0.07, BOIS)
+		# La ferme : l'entrait, le poinçon, les arbalétriers, deux contrefiches.
+		o.boite(Transform3D(base.basis, q(x, h + 0.1, zc)), Vector3(0.26, 0.28, pr + 0.4), BOIS_CLAIR)
+		o.boite(Transform3D(base.basis, q(x, (h + yf) * 0.5 + 0.1, zc)), Vector3(0.2, yf - h - 0.1, 0.2), BOIS_CLAIR)
+		for sz: float in [-1.0, 1.0]:
+			o.branche(q(x, h + 0.25, zc + sz * (pr * 0.5 + 0.2)), q(x, yf - 0.05, zc), 0.1, 0.1, BOIS_CLAIR)
+			o.branche(q(x, h + 0.9, zc), q(x, h + 1.9, zc + sz * pr * 0.25), 0.06, 0.06, BOIS)
+	for j in 2:
+		o.boite(Transform3D(base.basis, q(x0 + l * 0.5, h, z0 + j * pr)), Vector3(l + 0.4, 0.3, 0.3), BOIS)
+	# La panne faîtière et deux pannes intermédiaires de chaque côté.
+	o.boite(Transform3D(base.basis, q(x0 + l * 0.5, yf - 0.12, zc)), Vector3(l + 2.0 * d, 0.2, 0.2), BOIS)
+	for sz: float in [-1.0, 1.0]:
+		var zp := zc + sz * pr * 0.25
+		o.boite(Transform3D(base.basis, q(x0 + l * 0.5, (h + yf) * 0.5 + 0.2, zp)), Vector3(l + 2.0 * d, 0.16, 0.16), BOIS)
+	var ardoise := ARDOISE_HALLE.darkened(0.12)
+	o.pan(q(x0 - d, ye, z0 - d), q(x0 + l + d, ye, z0 - d), q(x0 + l + d, yf, zc), q(x0 - d, yf, zc), ardoise, OUTILS.ARDOISE)
+	o.pan(q(x0 + l + d, ye, z0 + pr + d), q(x0 - d, ye, z0 + pr + d), q(x0 - d, yf, zc), q(x0 + l + d, yf, zc), ardoise, OUTILS.ARDOISE)
+	# Les rives de bois sous le bord des pignons ouverts.
 	for s: float in [0.0, 1.0]:
 		var x := x0 + s * l + (d if s > 0.5 else -d)
-		o.tri(q(x, ye, z0 - d), q(x, ye, z0 + pr + d), q(x, yf, z0 + pr * 0.5), base.basis * Vector3(1 if s > 0.5 else -1, 0, 0), BOIS_CLAIR, OUTILS.PEINT)
+		for sz: float in [-1.0, 1.0]:
+			o.branche(q(x, ye - 0.05, zc + sz * (pr * 0.5 + d)), q(x, yf - 0.05, zc), 0.09, 0.09, BOIS)
 	# Les tables de la halle, de longues planches sur tréteaux.
 	for i in 3:
 		for j in 2:
@@ -213,11 +248,28 @@ func _clotures() -> void:
 	# Les piliers de l'entrée.
 	for xp: float in [4.0, 9.0]:
 		o.boite(Transform3D(base.basis, p(xp, -1.0, 1.0)), Vector3(0.7, 2.0, 0.7), ANGLE)
-	var z := 17.5
-	while z < 46.0:
-		o.boite(Transform3D(base.basis, p(68.0, z, 0.55)), Vector3(0.12, 1.1, 0.12), BOIS)
-		o.boite(Transform3D(base.basis, p(68.0, z + 1.0, 0.8)), Vector3(0.06, 0.1, 2.0), BOIS_CLAIR)
-		z += 2.0
+	# La clôture de bois du pré et de l'aire de jeux, poteaux et deux lisses, comme sur la planche (revue finale
+	# n° 1) : le long du chemin, au fond, et entre la halle et la cour.
+	_barriere(Vector2(46.0, -0.8), Vector2(70.0, -0.8), 0)
+	_barriere(Vector2(70.0, -0.8), Vector2(70.0, 46.0), 1)
+	_barriere(Vector2(70.0, 46.0), Vector2(46.0, 46.0), 2)
+	_barriere(Vector2(46.0, 16.0), Vector2(46.0, 46.0), 3)
+
+
+## Une barrière de bois de a à b (repère du relais) : poteaux tous les 2 m, deux lisses, une écharpe sur trois.
+func _barriere(a: Vector2, b: Vector2, graine: int) -> void:
+	var nb := maxi(1, ceili(a.distance_to(b) / 2.0))
+	for k in nb + 1:
+		var v := a.lerp(b, float(k) / nb)
+		var hh := 1.15 + float(absi(hash(Vector2i(k, graine))) % 10) * 0.01
+		o.branche(p(v.x, v.y, -0.2), p(v.x, v.y, hh), 0.07, 0.065, BOIS, 5)
+		if k == nb:
+			break
+		var w := a.lerp(b, float(k + 1) / nb)
+		for y: float in [0.45, 0.95]:
+			o.branche(p(v.x, v.y, y), p(w.x, w.y, y), 0.04, 0.04, BOIS_CLAIR, 4)
+		if k % 3 == 1:
+			o.branche(p(v.x, v.y, 0.45), p(w.x, w.y, 0.95), 0.035, 0.035, BOIS_CLAIR, 4)
 
 
 ## Le grand chêne de la terrasse, les cyprès, le rideau de peupliers d'Italie et les
@@ -226,10 +278,17 @@ func _clotures() -> void:
 func _vegetation(parent: Node3D) -> void:
 	var rives: PackedScene = load(Bibliotheque.scene("arbres-des-rives@1", "decor"))
 	var bugey: PackedScene = load(Bibliotheque.scene("vegetation-du-bugey@1", "decor"))
-	_poser(parent, load(Bibliotheque.scene("arbres-d-ombriere@1", "decor")), "arbre", "platane", 207, {"hauteur": 18.0}, Vector2(41.5, 20.5))
-	# Le rideau de peupliers d'Italie entre le pré et les lônes.
-	for k in 11:
-		_poser(parent, rives, "arbre", "peuplier", 30 + k, {"hauteur": 22.0 + (k % 3) * 2.5}, Vector2(-8.0 + k * 7.5, 54.0 + (k % 2) * 1.5))
+	_poser(parent, load(Bibliotheque.scene("arbres-d-ombriere@1", "decor")), "arbre", "platane", 207, {"hauteur": 19.0}, Vector2(43.5, 7.2))
+	# Les peupliers d'Italie entre le pré et les lônes, en bouquets irréguliers de deux à quatre, pas en rideau
+	# (revue finale n° 1).
+	var bouquets := [[Vector2(-6.0, 55.0), 3], [Vector2(12.0, 58.5), 2], [Vector2(27.0, 54.0), 4], [Vector2(49.0, 57.0), 3], [Vector2(66.0, 53.5), 2]]
+	var kp := 0
+	for bq in bouquets:
+		for k in int(bq[1]):
+			var hk := absi(hash(Vector2i(kp, 91)))
+			var dv := Vector2(float(hk % 70) / 10.0 - 3.5, float((hk / 70) % 50) / 10.0 - 2.5)
+			_poser(parent, rives, "arbre", "peuplier", 30 + kp, {"hauteur": 20.0 + float(hk % 7)}, bq[0] + dv + Vector2(k * 2.6, 0.0))
+			kp += 1
 	# Le bocage autour : des bouquets de peupliers noirs, de chênes et de charmes, semés hors de la propriété.
 	var semis := 0
 	var essais := 0
@@ -272,7 +331,18 @@ func _vegetation(parent: Node3D) -> void:
 		_poser(parent, bugey, "plante", "fleurs", 310 + k, {}, Vector2(4.5 + k * 3.1, 16.8), 0.0)
 	for k in 5:
 		_poser(parent, bugey, "plante", "arbuste_fleuri", 320 + k, {"fleurs": ["e37fa0", "d04a8a", "f4f0e6"][k % 3]}, Vector2(3.0 + k * 5.6, 17.6), 0.0)
-	_poser(parent, bugey, "plante", "haie", 330, {"longueur": 20.0}, Vector2(57.0, 11.0), 0.0)
+	_poser(parent, bugey, "plante", "haie", 330, {"longueur": 20.0}, Vector2(58.0, 47.5), 0.0)
+	# Les massifs fleuris au pied des barrières et les bosquets aux coins du pré (revue finale n° 1).
+	for k in 6:
+		_poser(parent, bugey, "plante", "arbuste_fleuri", 340 + k, {"fleurs": ["e37fa0", "f4f0e6", "d04a8a"][k % 3]}, Vector2(48.5 + k * 3.8, 0.4), 0.0)
+	for c: Vector2 in [Vector2(72.5, -2.0), Vector2(72.5, 47.5), Vector2(43.5, 47.5)]:
+		for k in 3:
+			var hb := absi(hash(Vector2i(k, int(c.x))))
+			var dv := Vector2(float(hb % 40) / 10.0 - 2.0, float((hb / 40) % 40) / 10.0 - 2.0)
+			if k == 0:
+				_poser(parent, bugey, "plante", "charme", 350 + int(c.x) + k, {"hauteur": 7.0 + float(hb % 3)}, c + dv)
+			else:
+				_poser(parent, bugey, "plante", "haie", 350 + int(c.x) + k, {"longueur": 2.5, "hauteur": 1.6}, c + dv)
 	_poser(parent, bugey, "plante", "haie", 331, {"longueur": 26.0}, Vector2(69.0, 31.0), PI * 0.5)
 	# Les haies fleuries au pied des murs (lauriers, rosiers).
 	for k in 9:

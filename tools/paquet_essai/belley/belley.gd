@@ -7,6 +7,7 @@ const DOSSIER := "res://communes/belley/"
 const TERRAIN := preload("res://communes/belley/relief/terrain.gd")
 const CATHEDRALE := preload("res://communes/belley/places/cathedrale.gd")
 const VILLE := preload("res://communes/belley/places/ville.gd")
+const BANC := preload("res://communes/belley/places/banc.gd")
 const PLACE := preload("res://communes/belley/places/place_cathedrale.gd")
 const RELAIS := preload("res://communes/belley/places/relais.gd")
 const VIE := preload("res://communes/belley/places/vie_place.gd")
@@ -25,7 +26,9 @@ const REPERES := {
 	# Dans la rue des Barons, au tronçon le plus serré (moins de 4 m de part et d'autre) : la place s'ouvre en
 	# avançant (verdicts n° 18 et 19).
 	"Vue1_Cathedrale": [119.0, 296.0, 113.5],
-	"Vue2_Banc": [3784.0, 1578.0, 100.0],
+	# Sur l'épaule de la colline, à 527 m, d'où l'on voit le Rhône par-dessus la pente de 65 à 130° (revue finale
+	# n° 1) : du premier repère (3784, 1578), une bosse à 600 m le cachait.
+	"Vue2_Banc": [4200.0, 2160.0, 108.0],
 	"Vue3_Relais": [7150.0, 640.0, 60.0],
 }
 
@@ -48,6 +51,8 @@ func _ready() -> void:
 	VIE.new(hauteur).batir(self)
 	ROUTES.new(hauteur).batir(self)
 	RELAIS.new(hauteur).batir(self)
+	var rb: Array = REPERES["Vue2_Banc"]
+	BANC.new(hauteur).batir(self, rb[0], rb[1], rb[2])
 	_reperes()
 	_joueur()
 

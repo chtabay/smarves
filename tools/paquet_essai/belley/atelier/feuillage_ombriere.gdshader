@@ -8,6 +8,8 @@ render_mode cull_disabled, diffuse_burley, specular_disabled;
 // entière), UV.y la forme (sa partie paire : 0 le platane, 2 le marronnier) ; couleur par sommet (sRGB), souffle
 // du vent pondéré par l'alpha, lumière qui traverse franchement les feuilles (le vert tilleul à contre-jour).
 uniform float souffle = .06;
+// Les platanes de la brique ont des verts bien plus sombres que les micocouliers : ils les rattrapent ici.
+uniform float eclat = 1.;
 
 void vertex() {
  vec3 monde = (MODEL_MATRIX * vec4(VERTEX, 1.)).xyz;
@@ -97,13 +99,14 @@ void fragment() {
  if (dedans > 0.) {
   discard;
  }
- vec3 base = pow(COLOR.rgb, vec3(2.2)) * teinte;
+ vec3 base = pow(COLOR.rgb, vec3(2.2)) * teinte * eclat;
  // le liseré sombre au bord de chaque feuille et les nervures plus claires : la dentelle se lit de près
  base *= mix(1., .8, smoothstep(-.1, 0., dedans));
  base = mix(base, base * 1.18, nervure * .5);
  // Belley : le vert moyen et posé des tilleuls de la planche (#6E9440), pas le citron du contre-jour ; un peu
- // moins jaune et plus sombre depuis le verdict n° 26 (médiane du rang au rendu #4C9A02, visée #6E9440).
- base = mix(vec3(dot(base, vec3(.3, .59, .11))), base, .62) * vec3(.86, .9, .8) * vec3(.9, .86, .95);
+ // moins jaune depuis le verdict n° 26, un cran plus clair depuis la revue finale n° 1 (médiane du rang au
+ // rendu : #4C9A02, puis #487216 ; la planche #678219).
+ base = mix(vec3(dot(base, vec3(.3, .59, .11))), base, .74) * vec3(.86, .9, .8) * vec3(.96, .95, .9);
  ALBEDO = base;
  ROUGHNESS = .9;
  BACKLIGHT = ALBEDO * .15;
