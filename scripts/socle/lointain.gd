@@ -451,9 +451,22 @@ static func quartier(q: Node3D, des := QUARTIER_DES, leger := false) -> int:
 	var pris: Array[MeshInstance3D] = []
 	var repere := q.global_transform.affine_inverse()
 	for mi: MeshInstance3D in q.find_children("*", "MeshInstance3D", true, false):
-		if not _fondable(mi, q):
+		if not _fondable(mi, q, leger):
 			continue
 		var t := repere * mi.global_transform
+		if leger and mi.visibility_range_begin > 0.0:
+			# Le niveau de détail lointain d'une brique (option « lod » du façadier) : c'est lui qu'on garde, tel quel.
+			for s in mi.mesh.get_surface_count():
+				var mat_l: Material = mi.material_override
+				if mat_l == null:
+					mat_l = mi.get_surface_override_material(s)
+				if mat_l == null:
+					mat_l = mi.mesh.surface_get_material(s)
+				if not par_matiere.has(mat_l):
+					par_matiere[mat_l] = []
+				par_matiere[mat_l].append([mi.mesh, s, t])
+			pris.append(mi)
+			continue
 		if leger:
 			# La version légère d'un quartier de ville (socle 1.29) : ce qui fait moins de LEGER_MIN m ne se
 			# voit pas d'un autre quartier et disparaît ; un maillage lourd (une façade ouvragée, un massif de
@@ -549,12 +562,19 @@ static func _matiere_principale(mi: MeshInstance3D) -> Material:
 	return mat if mat != null else m.surface_get_material(meilleur)
 
 
-static func _fondable(mi: MeshInstance3D, q: Node) -> bool:
+## En version légère, un maillage qui a déjà sa distance est pris s'il est le niveau lointain (il commence au
+## loin) et laissé s'il est le niveau de près (il finit à une distance) : la brique a fait le travail.
+static func _fondable(mi: MeshInstance3D, q: Node, leger := false) -> bool:
 	if mi.mesh == null or mi.mesh.get_surface_count() == 0 or not mi.is_visible_in_tree():
 		return false
 	if mi.skeleton != NodePath(""):
 		return false
-	if mi.visibility_range_end > 0.0 or mi.visibility_range_begin > 0.0 or mi.visibility_parent != NodePath("") or mi.has_meta("lointain_quartier"):
+	if mi.has_meta("lointain_quartier"):
+		return false
+	if leger:
+		if (mi.visibility_range_end > 0.0 and mi.visibility_range_begin <= 0.0) or (mi.visibility_parent != NodePath("") and mi.visibility_range_begin <= 0.0):
+			return false
+	elif mi.visibility_range_end > 0.0 or mi.visibility_range_begin > 0.0 or mi.visibility_parent != NodePath(""):
 		return false
 	var n: Node = mi
 	while n != null and n != q:

@@ -178,11 +178,24 @@ func _init() -> void:
 	maison.mesh.size = Vector3(8, 6, 8)
 	maison.position = Vector3(20, 3, 0)
 	lourd.add_child(maison)
+	# une brique qui a ses deux niveaux : le corps de près (fini à 40 m) et le corps lointain (commence à 40 m)
+	var pres := MeshInstance3D.new()
+	pres.mesh = sm
+	pres.visibility_range_end = 40.0
+	pres.position = Vector3(-20, 5, 0)
+	lourd.add_child(pres)
+	var loin_brique := MeshInstance3D.new()
+	var pm := PrismMesh.new()
+	pm.size = Vector3(8, 6, 8)
+	loin_brique.mesh = pm
+	loin_brique.visibility_range_begin = 40.0
+	loin_brique.position = Vector3(-20, 3, 0)
+	lourd.add_child(loin_brique)
 	var leger := Quartiers.fondre(lourd)
 	var sommets := 0
 	for morceau in leger.get_children():
 		sommets += Lointain._sommets((morceau as MeshInstance3D).mesh)
-	check(leger != null and sommets == 48, "version légère : la sphère de 8 000 sommets devient sa boîte, la caisse de 50 cm disparaît, la maison reste (%d sommets)" % sommets)
+	check(leger != null and sommets == 48 + Lointain._sommets(pm), "version légère : la sphère de 8 000 sommets devient sa boîte, la caisse de 50 cm disparaît, la maison reste, et d'une brique à deux niveaux seul le corps lointain est pris (%d sommets)" % sommets)
 	leger.free()
 	lourd.free()
 
