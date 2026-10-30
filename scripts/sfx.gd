@@ -22,7 +22,7 @@ const GROUPS := {
 }
 const RATE := 22050.0
 ## Les thèmes du socle : la place (jazz-funk de grande ville, en trois couches), l'écran titre et les
-## menus, les environs (musique de feu de camp), les grands espaces et les salons. Un thème en liste est fait de couches de même longueur.
+## menus, les environs (musique de feu de camp), les grands espaces, les salons et la filature. Un thème en liste est fait de couches de même longueur.
 const MUSIQUES := {
 	"ville": [
 		"res://assets/audio/musique/ville_fond.ogg",
@@ -31,10 +31,11 @@ const MUSIQUES := {
 	],
 	"titre": "res://assets/audio/musique/titre.ogg",
 	"environs": "res://assets/audio/musique/environs.ogg",
-	# À disposition des lieux qui les voudront (Atelier.musique) : les grands espaces, épiques, et les
-	# salons huppés, une sarabande.
+	# À disposition des lieux qui les voudront (Atelier.musique) : les grands espaces, épiques, les
+	# salons huppés, une sarabande, et la filature, city pop de détective pour la ville la nuit.
 	"grands_espaces": "res://assets/audio/musique/grands_espaces.ogg",
 	"salon": "res://assets/audio/musique/salon.ogg",
+	"filature": "res://assets/audio/musique/filature.ogg",
 }
 ## Le total gagné au jeu à partir duquel chaque couche d'un thème joue : le fond toujours, les cuivres
 ## et les cordes à 1 000, le chant à 10 000 (l'ouverture du Salon de musique).
