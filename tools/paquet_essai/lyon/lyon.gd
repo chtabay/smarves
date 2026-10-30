@@ -42,6 +42,19 @@ const PIERRE_DOREE := Color("#c9a66b")
 const BRONZE := Color("#3c3a2e")
 const EAU := Color("#3d5b57")
 
+## Les terrains des quartiers de Lyon (quartiers/<nom>/<nom>.gd) : quand un quartier est dans le paquet, la scène n'y bâtit
+## plus ses volumes ni ses bois lointains, le quartier livre les siens. En mètres, x vers l'est, z vers le sud.
+const RESERVES := {
+	# la rue Terme, ses deux rives, et tout ce qui est à l'est, au sud de la rue Sainte-Catherine
+	"terreaux": [[Vector2(104, 124), Vector2(480, 124), Vector2(480, 424), Vector2(104, 424)]],
+	# la rive droite de la Saône au sud de la rive (le quai Pierre-Scize, à l'est de x = -147, reste à Sathonay),
+	# et tout ce qui est au sud de z = 280
+	"saint_paul": [[Vector2(-900, 188), Vector2(-432, 188), Vector2(-351, 188), Vector2(-314, 186),
+			Vector2(-302, 187), Vector2(-250, 202), Vector2(-200, 227), Vector2(-147, 280),
+			Vector2(-900, 280)],
+		[Vector2(-2000, 280), Vector2(2000, 280), Vector2(2000, 3000), Vector2(-2000, 3000)]],
+}
+
 ## Les lieux de la scène, en mètres (x vers l'est, z vers le sud), relevés sur le plan réel.
 const CENTRE_PLACE := Vector2(10.0, 18.0)
 const BLANDAN := Vector2(10.6, 12.8)
@@ -82,6 +95,10 @@ var _quai_modules: Array = []
 var _heros := {}
 var _segments: Array = []
 var _cases_rues := {}
+## Les terrains réservés aux quartiers présents dans le paquet (voir RESERVES).
+var _reserves: Array = []
+## Le relief de toute la ville, tenu par la maquette des quartiers : hauteur() lui passe la main hors du relevé.
+var _relief_ville: Script
 var _rng := RandomNumberGenerator.new()
 
 
@@ -97,6 +114,12 @@ func _ready() -> void:
 	for i in _h.size():
 		_h[i] *= U
 	_rng.seed = 69123
+	for nom in RESERVES:
+		if ResourceLoader.exists(DOSSIER + "quartiers/%s/%s.gd" % [nom, nom]):
+			for poly in RESERVES[nom]:
+				_reserves.append(PackedVector2Array(poly))
+	if ResourceLoader.exists(DOSSIER + "quartiers/_ville/relief.gd"):
+		_relief_ville = load(DOSSIER + "quartiers/_ville/relief.gd")
 	ville = Node3D.new()
 	ville.name = "Ville"
 	ville.scale = Vector3.ONE / U
@@ -125,7 +148,10 @@ func _ready() -> void:
 # --- Le relief ------------------------------------------------------------------------------------
 
 ## L'altitude du sol en (x, z), en mètres, sur les mêmes triangles que le terrain dessiné.
+## Hors du relevé, le relief de la ville s'il est là, sinon l'altitude du bord.
 func hauteur(x: float, z: float) -> float:
+	if _relief_ville != null and (x < _x0 or z < _z0 or x > _x0 + (_nx - 1) * _pas or z > _z0 + (_nz - 1) * _pas):
+		return _relief_ville.call("hauteur", x, z)
 	var fx := clampf((x - _x0) / _pas, 0.0, _nx - 1.001)
 	var fz := clampf((z - _z0) / _pas, 0.0, _nz - 1.001)
 	var ix := int(fx)
@@ -139,6 +165,15 @@ func hauteur(x: float, z: float) -> float:
 	if tx + tz <= 1.0:
 		return h00 + (h10 - h00) * tx + (h01 - h00) * tz
 	return h11 + (h01 - h11) * (1.0 - tx) + (h10 - h11) * (1.0 - tz)
+
+
+
+## Vrai si (x, z) est sur le terrain d'un quartier présent dans le paquet.
+func _reserve(p: Vector2) -> bool:
+	for poly in _reserves:
+		if Geometry2D.is_point_in_polygon(p, poly):
+			return true
+	return false
 
 
 ## La place est une terrasse plate : le seul replat d'un quartier en pente (le parti pris de la note).
@@ -303,7 +338,9 @@ func _ciel() -> void:
 	soleil.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 
 
-func _mat(c: Color, rugueux := 0.9, couleurs_sommets := false) -> StandardMaterial3D:
+## Les fabriques de matières (materiau, materiau_paves, materiau_sable, materiau_enrobe) et les constantes de
+## palette sont publiques : les quartiers de Lyon les reprennent, pour que leurs pavés et leurs enduits soient ceux-ci.
+func materiau(c: Color, rugueux := 0.9, couleurs_sommets := false) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
 	m.albedo_color = c
 	m.roughness = rugueux
@@ -352,11 +389,11 @@ func _terrain() -> void:
 	var mi := MeshInstance3D.new()
 	mi.name = "Sol"
 	mi.mesh = st.commit()
-	mi.material_override = _materiau_paves()
+	mi.material_override = materiau_paves()
 	ville.add_child(mi)
 	# le square de sable stabilisé et sa bordure de pierre, les trottoirs dallés au pied des façades
 	var sable := _boite(ville, Vector3(SQUARE.size.x, 0.1, SQUARE.size.y), Vector3(SQUARE.get_center().x, _niveau_place + 0.05, SQUARE.get_center().y), SABLE)
-	sable.material_override = _materiau_sable()
+	sable.material_override = materiau_sable()
 	_boite(ville, Vector3(SQUARE.size.x + 0.5, 0.16, SQUARE.size.y + 0.5), Vector3(SQUARE.get_center().x, _niveau_place + 0.0, SQUARE.get_center().y), VILLEBOIS)
 	for x in [PLACE.position.x + 1.4, PLACE.end.x - 1.4]:
 		_boite(ville, Vector3(2.8, 0.14, PLACE.size.y), Vector3(x, _niveau_place + 0.05, PLACE.get_center().y), DALLE)
@@ -653,7 +690,7 @@ func _passerelle() -> void:
 	var mi := MeshInstance3D.new()
 	mi.name = "Passerelle"
 	mi.mesh = st.commit()
-	var mat := _mat(Color.WHITE, 0.7, true)
+	var mat := materiau(Color.WHITE, 0.7, true)
 	mat.vertex_color_is_srgb = true
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	mi.material_override = mat
@@ -664,7 +701,7 @@ func _passerelle() -> void:
 ## Les pavés lyonnais en rangs, joints sombres, sur les chaussées et la place ; le reste reste lisse.
 ## Le sable stabilisé du square : des nappes plus claires et plus foncées de 2 à 4 m, un grain de gravillons,
 ## l'usure plus claire au milieu des allées.
-func _materiau_sable() -> ShaderMaterial:
+func materiau_sable() -> ShaderMaterial:
 	var sh := Shader.new()
 	sh.code = """
 shader_type spatial;
@@ -699,7 +736,7 @@ void fragment() {
 	return m
 
 
-func _materiau_paves() -> ShaderMaterial:
+func materiau_paves() -> ShaderMaterial:
 	var sh := Shader.new()
 	sh.code = """
 shader_type spatial;
@@ -810,13 +847,13 @@ func _rues() -> void:
 	var mi := MeshInstance3D.new()
 	mi.name = "Chaussees"
 	mi.mesh = enrobe.commit()
-	mi.material_override = _materiau_enrobe()
+	mi.material_override = materiau_enrobe()
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	ville.add_child(mi)
 	var mp := MeshInstance3D.new()
 	mp.name = "Pietons"
 	mp.mesh = pietons.commit()
-	mp.material_override = _materiau_paves()
+	mp.material_override = materiau_paves()
 	mp.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	ville.add_child(mp)
 	# les bordures de granit gris clair, de part et d'autre de chaque chaussée, coupées aux carrefours
@@ -856,7 +893,7 @@ func _rues() -> void:
 	var mb := MeshInstance3D.new()
 	mb.name = "Bordures"
 	mb.mesh = bordures.commit()
-	var mat := _mat(Color.WHITE, 0.85, true)
+	var mat := materiau(Color.WHITE, 0.85, true)
 	mat.vertex_color_is_srgb = true
 	mb.material_override = mat
 	ville.add_child(mb)
@@ -873,7 +910,7 @@ func _rues() -> void:
 
 ## L'enrobé des rues des pentes : un gris chaud et sombre, des reprises plus claires ou plus noires, un grain
 ## fin de gravillons ; il tient à côté des pavés de la place sans les imiter.
-func _materiau_enrobe() -> ShaderMaterial:
+func materiau_enrobe() -> ShaderMaterial:
 	var sh := Shader.new()
 	sh.code = """
 shader_type spatial;
@@ -936,7 +973,7 @@ func _pignon(m: Node3D, x: float, corniche: float, enduit: Color, graine: int) -
 		st.add_vertex(q)
 	var tri := MeshInstance3D.new()
 	tri.mesh = st.commit()
-	tri.material_override = _mat(enduit.darkened(0.14))
+	tri.material_override = materiau(enduit.darkened(0.14))
 	tri.material_override.cull_mode = BaseMaterial3D.CULL_DISABLED
 	trace.add_child(tri)
 	# la réclame peinte, au-dessus de la trace : un fond crème passé, trois lignes de lettres délavées
@@ -977,6 +1014,8 @@ func _batiments() -> void:
 	_grille_emprises()
 	for i in data.batiments.size():
 		var b: Dictionary = data.batiments[i]
+		if _reserve(Vector2(b.rect[0], b.rect[1]) * U):
+			continue
 		if _heros.has(i):
 			_heros_poser(i, b)
 			continue
@@ -1054,13 +1093,13 @@ func _batiments() -> void:
 	occ.name = "Ecrans"
 	occ.occluder = ecrans
 	ville.add_child(occ)
-	mm.material_override = _materiau_murs()
+	mm.material_override = materiau_murs()
 	ville.add_child(mm)
 	var mt := MeshInstance3D.new()
 	mt.name = "Toits"
 	mt.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_DOUBLE_SIDED
 	mt.mesh = toits.commit()
-	mt.material_override = _materiau_toits()
+	mt.material_override = materiau_toits()
 	ville.add_child(mt)
 	var corps := StaticBody3D.new()
 	corps.name = "Murs_collision"
@@ -1108,7 +1147,7 @@ func _halle(b: Dictionary) -> void:
 	# le toit de zinc à faible pente et la lanterne vitrée
 	_boite(m, Vector3(L - 0.6, 0.5, P - 0.6), Vector3(0, 9.75, 0), Color("#8b9095"))
 	var lanterne := _boite(m, Vector3(L - 4.0, 1.4, P * 0.35), Vector3(0, 10.7, 0), Color("#9fb3b5"))
-	var mv := _mat(Color("#9fb3b5"), 0.15)
+	var mv := materiau(Color("#9fb3b5"), 0.15)
 	mv.metallic = 0.3
 	lanterne.material_override = mv
 	for k in int((L - 4.0) / 1.2):
@@ -1198,7 +1237,7 @@ func _halle(b: Dictionary) -> void:
 				_boite(f, Vector3(1.1, 0.8, 0.1), Vector3(x, 8.4, z - 0.15), vitre)
 	# l'inscription sur la rue, en lettres dorées sur la frise
 	var cartouche := _boite(m, Vector3(15.0, 1.0, 0.1), Vector3(0, 8.4, cote_rue * (P * 0.5 - 0.15)), Color("#4a5249"))
-	cartouche.material_override = _mat(Color("#4a5249"), 0.6)
+	cartouche.material_override = materiau(Color("#4a5249"), 0.6)
 	_boite(m, Vector3(15.4, 0.08, 0.14), Vector3(0, 8.92, cote_rue * (P * 0.5 - 0.15)), Color("#c9a24a"))
 	_boite(m, Vector3(15.4, 0.08, 0.14), Vector3(0, 7.88, cote_rue * (P * 0.5 - 0.15)), Color("#c9a24a"))
 	var mot := Label3D.new()
@@ -1512,7 +1551,7 @@ func _relief_de_pres() -> void:
 
 ## Le shader des toits de la ville : la tuile canal du façadier, en rangs parallèles à l'égout, avec ses ondes
 ## et six nuances d'une tuile à l'autre. Les teintes des sommets sont en sRGB.
-func _materiau_toits() -> ShaderMaterial:
+func materiau_toits() -> ShaderMaterial:
 	var sh := Shader.new()
 	sh.code = """
 shader_type spatial;
@@ -1553,7 +1592,7 @@ void fragment() {
 
 ## Le shader de la ville : les fenêtres hautes des immeubles lyonnais, les persiennes, le bandeau du
 ## rez-de-chaussée et ses boutiques, les encadrements clairs et les géraniums aux fenêtres.
-func _materiau_murs() -> ShaderMaterial:
+func materiau_murs() -> ShaderMaterial:
 	var sh := Shader.new()
 	sh.code = """
 shader_type spatial;
@@ -1738,7 +1777,7 @@ func _heros_poser(i: int, b: Dictionary) -> void:
 			var bm := BoxMesh.new()
 			bm.size = Vector3(w, m.position.y - bas + 0.4, lv)
 			socle.mesh = bm
-			socle.material_override = _mat(PIERRE_DOREE.darkened(0.15))
+			socle.material_override = materiau(PIERRE_DOREE.darkened(0.15))
 			socle.position = Vector3(p.x - v.x * lv * 0.5, bas + bm.size.y * 0.5 - 0.4, p.y - v.y * lv * 0.5)
 			socle.rotation.y = lacet
 			ville.add_child(socle)
@@ -2032,7 +2071,7 @@ func _escalier() -> void:
 				_segment(e, Vector3(x + bord, py, pz), Vector3(x + bord, py + 0.95, pz), 0.022, Color("#23262a"), 0.5)
 	# entre les deux volées, le jardin en terrasses de la montée : une allée de sable au milieu, de part et
 	# d'autre des planches de gazon tenues par une bordure de Villebois, des massifs fleuris au pied de chacune
-	var sable := _materiau_sable()
+	var sable := materiau_sable()
 	for k in 10:
 		var za := -50.0 - k * 3.0
 		var zc := za - 1.5
@@ -2081,7 +2120,7 @@ func _bronze(sombre: Color, patine: Color) -> ShaderMaterial:
 func _forme(parent: Node3D, mesh: Mesh, p: Vector3, c: Color, a := Vector3.ZERO, metal := 0.0) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
 	mi.mesh = mesh
-	var m := _mat(c, 0.38 if metal > 0.0 else 0.88)
+	var m := materiau(c, 0.38 if metal > 0.0 else 0.88)
 	m.metallic = metal
 	mi.material_override = m
 	mi.position = p
@@ -2232,7 +2271,7 @@ func _mairie(m: Node3D, w: float) -> void:
 			st.add_vertex(q)
 	var fronton := MeshInstance3D.new()
 	fronton.mesh = st.commit()
-	fronton.material_override = _mat(pierre)
+	fronton.material_override = materiau(pierre)
 	fronton.material_override.cull_mode = BaseMaterial3D.CULL_DISABLED
 	m.add_child(fronton)
 	var pente := atan2(haut, l * 0.5 + 0.2)
@@ -2346,7 +2385,7 @@ func _fontaine_lion(f: Node3D, _sens: float) -> void:
 	# le lion couché, face à la place, modelé à part (sculptures/sculpter.py)
 	_forme(l, _sculpture("lion"), Vector3.ZERO, bronze).material_override = _bronze(bronze, clair)
 	# le filet d'eau de la gueule à la vasque, en arc
-	var eau := _mat(Color("#cfe3e6"), 0.05)
+	var eau := materiau(Color("#cfe3e6"), 0.05)
 	eau.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	eau.albedo_color.a = 0.65
 	var avant := Vector3(0, 0.7, 0.9)
@@ -2364,7 +2403,7 @@ func _boite(parent: Node3D, taille: Vector3, p: Vector3, c: Color, inclinaison :
 	var bm := BoxMesh.new()
 	bm.size = taille
 	mi.mesh = bm
-	mi.material_override = _mat(c)
+	mi.material_override = materiau(c)
 	mi.position = p
 	mi.rotation.z = inclinaison
 	parent.add_child(mi)
@@ -2829,7 +2868,7 @@ void fragment() {
 		var x := _rng.randf_range(_x0, -120.0)
 		var z := _rng.randf_range(190.0, _z0 + _nz * _pas)
 		var y := hauteur(x, z)
-		if y < 12.0:
+		if y < 12.0 or _reserve(Vector2(x, z)):
 			continue
 		var r := _rng.randf_range(6.0, 11.0)
 		var c := Color(["2f4a24", "3a5a2a", "466a30", "4f7434", "5d7f3a"][_rng.randi() % 5])
@@ -2936,7 +2975,7 @@ func _basilique(f: Node3D, sommet: Vector3) -> void:
 	var mi := MeshInstance3D.new()
 	mi.name = "Basilique"
 	mi.mesh = st.commit()
-	var mat := _mat(Color.WHITE, 0.85, true)
+	var mat := materiau(Color.WHITE, 0.85, true)
 	mat.vertex_color_is_srgb = true
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	mi.material_override = mat
@@ -2975,7 +3014,7 @@ func _tour_metallique(f: Node3D, pied: Vector3) -> void:
 	var mi := MeshInstance3D.new()
 	mi.name = "TourMetallique"
 	mi.mesh = st.commit()
-	var mat := _mat(Color.WHITE, 0.6, true)
+	var mat := materiau(Color.WHITE, 0.6, true)
 	mat.vertex_color_is_srgb = true
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	mi.material_override = mat
