@@ -1,11 +1,12 @@
 extends Node
 ## Le pensionnaire (autoload « Pensionnaire », docs/PENSIONNAIRES.md) : un habitant à part entière que le
-## joueur crée depuis son compte. En jeu, ils ne se connaissent pas. Il vit aux événements du jeu (le
+## joueur crée depuis Lasso, pour un agent qu'il y a inscrit : le jeu ne crée plus de pensionnaire, ni
+## par l'assistant ni avec une clé. En jeu, ils ne se connaissent pas. Il vit aux événements du jeu (le
 ## tournoi du mercredi, le poker du vendredi, le loto du samedi, le match du dimanche), tenu par l'assistant
-## du joueur (Claude, ChatGPT…) branché sur le connecteur de la fonction, ou, en secours, par un modèle
-## appelé avec la clé d'API du joueur. Ici, la fiche « Mon pensionnaire » que le carnet déplie (onglet
-## « Mon compte ») : inviter son assistant, ou le créer avec une clé, le régler, poser son humeur, lire son
-## carnet et son journal. Tout passe par la fonction `doublures` (dépôt chtabay/addict, nom du premier lot) :
+## du joueur (Claude, ChatGPT…) : l'assistant n'a qu'un connecteur, celui de Lasso, qui lui relaie les outils
+## du pensionnaire (il n'y a rien à brancher ici ni ailleurs). Ici, la fiche « Mon pensionnaire » que le carnet
+## déplie (onglet « Mon compte ») : le consulter, le régler, poser son humeur, couper Smarves pour son
+## assistant puis reprendre, l'effacer. Tout passe par la fonction `doublures` (dépôt chtabay/addict, nom du premier lot) :
 ## le jeu ne garde ni la clé ni l'humeur. Sans compte, ou tant que la fonction n'est pas en ligne, la fiche le
 ## dit et rien d'autre ne change.
 
@@ -19,6 +20,9 @@ const NOMS_HUMEURS := {"fatiguee": "fatigué", "euphorique": "euphorique", "moro
 const NOMS_RAISONS := {"pari": "pari inconnu", "mise": "mise hors limites", "solde": "solde trop bas", "coups": "trop de coups",
 	"texte": "texte refusé", "jour": "déjà une annonce aujourd'hui", "porte": "porte inconnue", "heure": "trop de mots cette heure",
 	"soi": "à sa propre porte", "type": "geste inconnu", "trop": "trop d'actions", "forme": "illisible"}
+
+## Où le pensionnaire se crée, et d'où l'assistant vient : Lasso, par son seul connecteur.
+const LASSO := "https://lasso-sigma-ten.vercel.app/"
 
 ## Les onglets de la fiche d'un pensionnaire.
 const ONGLETS := [["vie", "Sa vie"], ["histoire", "Son histoire"], ["humeur", "Humeur"], ["reglages", "Réglages"]]
@@ -37,9 +41,6 @@ var _effacer_arme := false
 ## Le (i) de la clé déplié ; le choix de personnalité ouvert sur la fiche d'un pensionnaire déjà créé.
 var _aide_cle := false
 var _perso_ouvert := false
-## Le lien du connecteur, montré une seule fois (la réponse d'« acces ») ; le formulaire de la clé déplié.
-var lien := ""
-var _avec_cle := false
 var _oublier_aussi := false
 var _occupe := false
 var _essai := false
@@ -89,9 +90,6 @@ func _appeler(action: String, args: Dictionary, montrer := true) -> void:
 		var corps: Dictionary = r.corps
 		if action != "fiche":
 			message = ""
-		lien = str(corps.get("lien", "")) if action == "acces" else lien
-		if action == "acces" and lien != "":
-			onglet = "reglages"
 		fiche = corps
 	change.emit()
 
@@ -141,15 +139,10 @@ func remplir(carnet: Node, box: VBoxContainer, fermer: Callable) -> void:
 	if message != "":
 		carnet._text(page, message, 17, carnet.RED_INK)
 	if not d is Dictionary:
-		carnet._text(page, "Un habitant de plus, que vous créez et que votre assistant (Claude, ChatGPT…) fait vivre. Il vient aux événements du village (tournoi du mercredi, poker du vendredi, loto du samedi, match du dimanche), joue, écrit au panneau et laisse des mots. Il a son histoire, ses envies, ses amitiés et ses rancunes ; il ne vous connaît pas.", 16, carnet.INK_LIGHT)
+		carnet._text(page, "Votre assistant (Claude, ChatGPT…) en personne, au village : c’est lui qui joue, sous son nom, pas un personnage. Il vient aux événements du village (tournoi du mercredi, poker du vendredi, loto du samedi, match du dimanche), joue, écrit au panneau et laisse des mots, et s’y fait ses amitiés et ses rancunes.", 16, carnet.INK_LIGHT)
 		carnet._gap(page, 6)
-		if _avec_cle:
-			_formulaire(carnet, page)
-			carnet._link(page, "← plutôt avec mon assistant", func():
-				_avec_cle = false
-				change.emit())
-		else:
-			_inviter(carnet, page)
+		carnet._text(page, "Il se crée depuis Lasso, pour un agent que vous y avez inscrit.", 16, carnet.INK)
+		carnet._link(page, "→ ouvrir Lasso", func(): OS.shell_open(LASSO))
 		return
 	match onglet:
 		"histoire":
@@ -264,8 +257,6 @@ func _reglages(carnet: Node, page: VBoxContainer, d: Dictionary) -> void:
 	if d.get("mode", "cle") == "agent":
 		carnet._rubrique(page, "Son assistant")
 		_lien(carnet, page)
-		if fiche.get("acces") is Dictionary and lien == "":
-			carnet._link(page, "→ couper le lien", _appeler.bind("acces", {"revoquer": true}), not _occupe)
 	else:
 		carnet._rubrique(page, "Sa clé")
 		carnet._row(page, "Modèle", str(d.modele))
@@ -279,12 +270,9 @@ func _reglages(carnet: Node, page: VBoxContainer, d: Dictionary) -> void:
 			change.emit())
 		remplacer.disabled = _occupe
 		carnet._gap(page, 4)
-		var confier: Button = carnet._link(page, "→ le confier à mon assistant", func():
-			await _appeler("regler", {"mode": "agent"})
-			if message == "":
-				await _appeler("acces", {}))
+		var confier: Button = carnet._link(page, "→ le confier à mon assistant", _appeler.bind("regler", {"mode": "agent"}))
 		confier.disabled = _occupe
-		carnet._aide(confier, "Sa clé est alors effacée : votre assistant le tient par un lien, sur votre abonnement.")
+		carnet._aide(confier, "Sa clé est alors effacée : votre assistant se connecte ensuite sur la page Smarves « Mon assistant ».")
 	carnet._rubrique(page, "Effacer", carnet.RED_INK)
 	carnet._link(page, "→ vider sa mémoire", _appeler.bind("oublier", {}), not _occupe)
 	if _effacer_arme:
@@ -301,97 +289,27 @@ func _reglages(carnet: Node, page: VBoxContainer, d: Dictionary) -> void:
 			change.emit()).disabled = _occupe
 
 
-func _inviter(carnet: Node, page: VBoxContainer) -> void:
-	carnet._text(page, "Créer un pensionnaire", 20, carnet.INK, true)
-	carnet._text(page, "Votre assistant le fait vivre : vous lui racontez qui il est, il le joue aux événements du village, et le jeu vérifie chacun de ses gestes. Pas de clé à donner : il tourne sur votre abonnement.", 15, carnet.INK_LIGHT)
-	carnet._gap(page, 4)
-	_lien(carnet, page)
-	carnet._gap(page, 10)
-	carnet._link(page, "→ sans assistant : avec une clé d'API", func():
-		_avec_cle = true
-		change.emit())
-
-
-## Le lien du connecteur : le demander, puis le montrer une fois, avec les trois gestes à faire.
+## Son assistant : il vient par le connecteur Lasso, il n'y a rien à brancher. Ici seulement son dernier passage
+## (le serveur garde l'heure de chaque appel d'outil, jamais son contenu), et la coupure : « couper » fait refuser
+## ses appels jusqu'à « reprendre » ; le pensionnaire reste. La même coupure se voit et se lève dans Lasso.
 func _lien(carnet: Node, page: VBoxContainer) -> void:
-	var ac = fiche.get("acces")
-	if lien == "":
-		var b: Button = carnet._link(page, "→ nouveau lien pour mon assistant" if ac is Dictionary else "→ inviter mon assistant", _appeler.bind("acces", {}))
-		b.disabled = _occupe
-		if ac is Dictionary:
-			var vu := "pas encore utilisé" if ac.get("vu") == null else "dernier passage de l'assistant le " + _date(int(ac.vu))
-			carnet._text(page, "Un lien est en place (%s). En demander un nouveau coupe l'ancien." % vu, 14, carnet.PENCIL)
-		return
-	carnet._text(page, "Le lien de votre pensionnaire", 17, carnet.INK)
-	var e := LineEdit.new()
-	e.text = lien
-	e.editable = false
-	e.select_all_on_focus = true
-	e.custom_minimum_size.y = 36
-	e.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	page.add_child(e)
-	carnet._link(page, "→ copier le lien", func():
-		DisplayServer.clipboard_set(lien)
-		message = "Lien copié."
-		change.emit())
-	for etape in ["1. Dans Claude : Paramètres, Connecteurs, « Ajouter un connecteur personnalisé », collez le lien et choisissez « Aucune connexion » pour l'authentification. Avec Claude Code : claude mcp add --transport http smarves suivi du lien.",
-			"2. Dites-lui : « Crée mon pensionnaire de Smarves », et racontez-lui qui il est : d'où il vient, ce qu'il veut, ce qui lui manque, un secret.",
-			"3. Demandez-lui une tâche planifiée aux heures des événements : mercredi 18 h, vendredi 11 h, samedi 18 h, dimanche 10 h. Il vient alors tout seul."]:
-		carnet._text(page, etape, 15, carnet.INK)
-	carnet._text(page, "Ce lien est personnel : il donne la main sur votre pensionnaire. Le jeu ne le montre qu'une fois ; vous pourrez en demander un autre.", 14, carnet.RED_INK)
+	var a = fiche.get("assistant")
+	var coupe = a.get("coupe") if a is Dictionary else null
+	var dernier = a.get("dernier") if a is Dictionary else null
+	if coupe != null:
+		carnet._text(page, "Smarves est coupé pour votre assistant depuis le %s : ses appels sont refusés." % _date(int(coupe)), 15, carnet.INK)
+		carnet._link(page, "→ reprendre : laisser mon assistant revenir", _appeler.bind("reconnecter", {}), not _occupe)
+	else:
+		var passage := "il n'est pas encore venu" if dernier == null else "dernier passage le " + _date(int(dernier))
+		carnet._text(page, "Votre assistant vient par Lasso (%s)." % passage, 15, carnet.INK)
+		carnet._text(page, "Pour qu'il y aille, dites-lui simplement : « Va faire un tour à Smarves ».", 14, carnet.PENCIL)
+		carnet._link(page, "→ couper Smarves pour mon assistant", _appeler.bind("deconnecter", {}), not _occupe)
+	carnet._link(page, "→ ouvrir Lasso", func(): OS.shell_open(LASSO))
 
 
 func _date(t: int) -> String:
 	var q := Time.get_datetime_dict_from_unix_time(t + _decalage())
 	return "%02d/%02d à %dh%02d" % [q.day, q.month, q.hour, q.minute]
-
-
-func _formulaire(carnet: Node, page: VBoxContainer) -> void:
-	carnet._text(page, "Créer un pensionnaire avec une clé d'API", 20, carnet.INK, true)
-	_champ(carnet, page, "Son nom", "nom", "Léonce")
-	carnet._text(page, "Il portera « (pensionnaire) » partout où il paraît ; personne ne saura qu'il vient de vous, et lui non plus.", 14, carnet.PENCIL)
-	carnet._text(page, "Sa personnalité", 17, carnet.INK)
-	_choix_personnalite(carnet, page)
-	carnet._gap(page, 6)
-	carnet._text(page, "Son modèle, sur votre clé", 17, carnet.INK)
-	var four := OptionButton.new()
-	var fs: Array = fiche.get("fournisseurs", [])
-	for i in fs.size():
-		four.add_item(str(fs[i].nom), i)
-		if fs[i].id == brouillon.fournisseur:
-			four.select(i)
-	four.item_selected.connect(func(i):
-		brouillon.fournisseur = fs[i].id
-		brouillon.modele = ""
-		change.emit())
-	page.add_child(four)
-	var defaut := ""
-	for f in fs:
-		if f.id == brouillon.fournisseur:
-			defaut = str(f.modele)
-	if brouillon.modele == "":
-		brouillon.modele = defaut
-	_champ(carnet, page, "Modèle", "modele", "nom du modèle")
-	if brouillon.fournisseur == "compatible":
-		_champ(carnet, page, "Adresse (https)", "adresse", "https://api.exemple.com/v1")
-	_champ_cle(carnet, page, "Clé", "collez votre clé", brouillon.fournisseur)
-	carnet._text(page, "Chiffrée par le serveur, elle ne ressort jamais : la fiche n'en montrera que les quatre derniers caractères. À chaque réveil, votre modèle lit ce que tout joueur voit au panneau de la mairie (classement, annonces, noms sur les maisons) et les mots laissés à sa porte.", 14, carnet.PENCIL)
-	_reveils(carnet, page, int(brouillon.reveils), func(n):
-		brouillon.reveils = n)
-	carnet._text(page, "Un appel au modèle par réveil, seulement aux événements du village : avec un petit modèle, de l'ordre d'un centime par réveil, payé sur votre clé.", 14, carnet.PENCIL)
-	carnet._gap(page, 4)
-	var confier: Button = carnet._link(page, "→ créer le pensionnaire", func():
-		var a := brouillon.duplicate()
-		if a.personnalite != "autre":
-			a.erase("caractere")
-			a.erase("envies")
-			a.erase("besoins")
-		await _appeler("inscrire", a)
-		if fiche.get("pensionnaire") is Dictionary:
-			brouillon.cle = ""
-			change.emit())
-	confier.custom_minimum_size.y = 44
-	confier.disabled = _occupe
 
 
 ## Son histoire : celle écrite par son créateur (avec ses envies et ce qui lui manque), ou celle du jeu.
@@ -652,17 +570,7 @@ func _mise_en_scene() -> void:
 			{"quand": maintenant - 50 * 3600, "motif": "evenement:match:2026-10-25", "statut": "erreur", "jetons_entree": 0, "jetons_sortie": 0,
 				"actions": [], "refusees": [], "erreur": "429 trop de demandes ou crédit épuisé"},
 		]
-		fiche.acces = {"cree": maintenant - 4 * 86400, "vu": maintenant - 5 * 3600}
+		fiche.assistant = {"coupe": null, "dernier": maintenant - 5 * 3600}
 		brouillon.cle = ""
-	elif "--pensionnaire-essai=lien" in args:
-		lien = "https://alvxrjftenialifyktyz.supabase.co/functions/v1/doublures/mcp/k3v9x0qzr7m2b8t1c4w6n5y0p2h8j1sd"
-		fiche.humeur = {"consentement": false, "humeur": null, "expire": null}
-	elif "--pensionnaire-essai=cle" in args:
-		_avec_cle = true
-		brouillon.nom = "Léonce"
-		brouillon.personnalite = "autre"
-		_aide_cle = true
-		brouillon.caractere = "Tu as été marin à La Rochelle avant de revenir au village de ton enfance. Tu ne mises que sur le noir, la couleur du bateau que tu as perdu, et tu parles en proverbes."
-		brouillon.envies = "Retrouver de quoi racheter un bateau."
-		brouillon.modele = "claude-haiku-5-5"
+	else:
 		fiche.humeur = {"consentement": false, "humeur": null, "expire": null}

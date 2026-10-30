@@ -198,7 +198,7 @@ func _init() -> void:
 	var lyon := Node3D.new()
 	root.add_child(lyon)
 	var lyonnais := {"facadier-lyonnais@1": ["types", "type", 11], "mobilier-lyonnais@1": ["objets", "objet", 15],
-		"vegetation-lyonnaise@1": ["noms", "plante", 8], "quais-lyonnais@1": ["noms", "module", 12]}
+		"vegetation-lyonnaise@1": ["noms", "plante", 9], "quais-lyonnais@1": ["noms", "module", 12]}
 	for ref in lyonnais:
 		var sc := Bibliotheque.scene(ref, "decor")
 		check(sc != "" and ResourceLoader.exists(sc), "la bibliothèque a %s, un décor" % ref)
@@ -212,7 +212,8 @@ func _init() -> void:
 			d.set(lyonnais[ref][1], nom)
 			d.graine = 3
 			lyon.add_child(d)
-			var maillages := d.find_children("*", "MeshInstance3D", true, false)
+			# un maillage, plus au besoin son corps lointain (le niveau de détail au-delà de lod)
+			var maillages := d.find_children("*", "MeshInstance3D", true, false).filter(func(m): return not m.name.ends_with("Lointain"))
 			if d.get_meta(lyonnais[ref][1], "") != nom or maillages.size() != 1 or maillages[0].mesh.get_surface_count() > 3 or d.find_children("*", "CollisionShape3D", true, false).is_empty():
 				rates.append(nom)
 		check(noms.size() == lyonnais[ref][2] and rates.is_empty(), "%s : les %d se bâtissent, un maillage et un corps chacun %s" % [ref, noms.size(), str(rates)])
@@ -228,6 +229,76 @@ func _init() -> void:
 	var enseignes := l2.find_children("*", "Label3D", true, false).map(func(e): return e.text)
 	check(is_equal_approx(float(l2.get_meta("w")), 10.5) and float(l2.get_meta("hauteur")) > 4.2 + 3 * 3.3 and "CAFÉ DU GONE" in enseignes and float(l1.get_meta("w")) != float(l2.get_meta("w")),
 		"les options passent au façadier lyonnais (largeur, étages, enseigne du café), et deux graines font deux immeubles")
+	# le verdict n° 32 de Sathonay : l'option grain donne du grain aux pans de tuile, lisible de loin ; 0 par défaut
+	var l3: Node3D = paquet_lyon.instantiate()
+	l3.type = "classique"
+	l3.graine = 4
+	l3.options = {"w": 10.0, "grain": 1.0}
+	var l4: Node3D = paquet_lyon.instantiate()
+	l4.type = "classique"
+	l4.graine = 4
+	l4.options = {"w": 10.0}
+	lyon.add_child(l3)
+	lyon.add_child(l4)
+	var sommets_l3 := 0
+	var sommets_l4 := 0
+	var sombres := 0
+	for mi in l3.find_children("*", "MeshInstance3D", true, false):
+		for si in mi.mesh.get_surface_count():
+			var arr = mi.mesh.surface_get_arrays(si)
+			sommets_l3 += arr[Mesh.ARRAY_VERTEX].size()
+			for c in arr[Mesh.ARRAY_COLOR]:
+				if absf(c.r - 0.425) < 0.03 and absf(c.g - 0.225) < 0.03 and absf(c.b - 0.124) < 0.03:
+					sombres += 1
+	for mi in l4.find_children("*", "MeshInstance3D", true, false):
+		for si in mi.mesh.get_surface_count():
+			sommets_l4 += mi.mesh.surface_get_array_len(si)
+	check(sommets_l3 > sommets_l4 + 40 and sombres >= 12, "l'option grain du façadier lyonnais pose des plaques et des rangs sombres sur les pans de tuile (%d sommets de plus, %d sommets de rangs sombres), rien sans elle" % [sommets_l3 - sommets_l4, sombres])
+	# la façade Renaissance du Vieux-Lyon (option renaissance, demandée pour Saint-Paul) : pierre grise des
+	# encadrements, meneaux et accolades ; rien ne change sans l'option
+	var l5: Node3D = paquet_lyon.instantiate()
+	l5.type = "classique"
+	l5.graine = 6
+	l5.options = {"w": 10.0, "renaissance": true}
+	var l6: Node3D = paquet_lyon.instantiate()
+	l6.type = "classique"
+	l6.graine = 6
+	l6.options = {"w": 10.0}
+	lyon.add_child(l5)
+	lyon.add_child(l6)
+	var grise := 0
+	var grise_sans := 0
+	for mi in l5.find_children("*", "MeshInstance3D", true, false):
+		for si in mi.mesh.get_surface_count():
+			for c in mi.mesh.surface_get_arrays(si)[Mesh.ARRAY_COLOR]:
+				if absf(c.r - 0.663) < 0.02 and absf(c.g - 0.635) < 0.02 and absf(c.b - 0.580) < 0.02:
+					grise += 1
+	for mi in l6.find_children("*", "MeshInstance3D", true, false):
+		for si in mi.mesh.get_surface_count():
+			for c in mi.mesh.surface_get_arrays(si)[Mesh.ARRAY_COLOR]:
+				if absf(c.r - 0.663) < 0.02 and absf(c.g - 0.635) < 0.02 and absf(c.b - 0.580) < 0.02:
+					grise_sans += 1
+	check(grise > 500 and grise_sans == 0 and float(l5.get_meta("hauteur")) < float(l6.get_meta("hauteur")), "l'option renaissance du façadier lyonnais bâtit une façade du Vieux-Lyon en pierre grise, sous un toit plus bas (%d sommets gris, %d sans l'option)" % [grise, grise_sans])
+	# le niveau de détail (option lod, demandée par le chef de chantier de Lyon pour ses quartiers) : un corps
+	# Lointain qui prend le relais à la distance donnée ; sans l'option, rien (Guillaume n'en veut pas dans les
+	# cartes existantes)
+	var l7: Node3D = paquet_lyon.instantiate()
+	l7.type = "immeuble"
+	l7.graine = 3
+	l7.options = {"lod": 40.0}
+	lyon.add_child(l7)
+	var corps7: MeshInstance3D = l7.find_child("Corps", true, false)
+	var loin7: MeshInstance3D = l7.find_child("Lointain", true, false)
+	var loin6: Node = l6.find_child("Lointain", true, false)
+	check(loin6 == null and corps7 != null and loin7 != null and is_equal_approx(corps7.visibility_range_end, 40.0) and is_equal_approx(loin7.visibility_range_begin, 40.0) and loin7.mesh.surface_get_array_len(0) < 2000, "l'option lod du façadier lyonnais ajoute un corps Lointain qui prend le relais à 40 m (%d sommets), rien sans elle" % (loin7.mesh.surface_get_array_len(0) if loin7 else -1))
+	var l8: Node3D = paquet_lyon.instantiate()
+	l8.type = "immeuble"
+	l8.graine = 3
+	l8.options = {"lod": "loin"}
+	lyon.add_child(l8)
+	var corps8: MeshInstance3D = l8.find_child("Corps", true, false)
+	var loin8: MeshInstance3D = l8.find_child("Lointain", true, false)
+	check(corps8 != null and loin8 != null and corps8.visibility_range_end == 0.0 and corps8.has_meta("sans_lointain") and loin8.visibility_range_begin >= 100000.0 and loin8.has_meta("corps_lointain"), "lod « loin » du façadier lyonnais bâtit les deux corps sans bascule en jeu : le corps de près marqué sans_lointain, le corps lointain hors de vue")
 	var quai: Node3D = load(Bibliotheque.scene("quais-lyonnais@1", "decor")).instantiate()
 	quai.module = "escalier_haut"
 	lyon.add_child(quai)
@@ -259,6 +330,43 @@ func _init() -> void:
 				rates.append(nom)
 		check(noms.size() == bugistes[ref][2] and rates.is_empty(), "%s : les %d se bâtissent, un maillage et un corps chacun %s" % [ref, noms.size(), str(rates)])
 	var essences: Array = load(Bibliotheque.scene("vegetation-du-bugey@1", "decor")).instantiate().call("noms")
+	# la revue de Sathonay n° 4 : l'herbe en cartes (un contour en points), et des feuilles fines sur le buisson
+	var herbe: Node3D = load(Bibliotheque.scene("vegetation-lyonnaise@1", "decor")).instantiate()
+	herbe.plante = "herbe"
+	herbe.graine = 3
+	herbe.options = {"points": [[0, 0], [6, 0], [6, 4], [0, 4]]}
+	lyon.add_child(herbe)
+	var mi_herbe: MeshInstance3D = herbe.find_children("*", "MeshInstance3D", true, false)[0]
+	var sommets_herbe := 0
+	for si in mi_herbe.mesh.get_surface_count():
+		sommets_herbe += mi_herbe.mesh.surface_get_array_len(si)
+	check(herbe.get_meta("plante") == "herbe" and sommets_herbe > 24 * 45 * 12 * 0.8 and sommets_herbe < 2500 * 12 + 100, "l'herbe lyonnaise sème ses touffes selon l'aire de son contour (%d sommets pour 24 m²)" % sommets_herbe)
+	var buisson_fin: Node3D = load(Bibliotheque.scene("vegetation-lyonnaise@1", "decor")).instantiate()
+	buisson_fin.plante = "buisson"
+	buisson_fin.graine = 3
+	lyon.add_child(buisson_fin)
+	var mi_bf: MeshInstance3D = buisson_fin.find_children("*", "MeshInstance3D", true, false)[0]
+	check(mi_bf.mesh.surface_get_array_len(0) > 3 * 14 * 6, "le buisson lyonnais est couvert de feuilles fines, pas de facettes (%d sommets)" % mi_bf.mesh.surface_get_array_len(0))
+	# le verdict n° 29 de Sathonay : les fleurs demandées (fleurs) sont là, posées au-dessus des feuilles fines
+	var buisson_fleuri: Node3D = load(Bibliotheque.scene("vegetation-lyonnaise@1", "decor")).instantiate()
+	buisson_fleuri.plante = "buisson"
+	buisson_fleuri.graine = 3
+	buisson_fleuri.options = {"hauteur": 1.2, "fleurs": "e0605a"}
+	lyon.add_child(buisson_fleuri)
+	var mi_bfl: MeshInstance3D = buisson_fleuri.find_children("*", "MeshInstance3D", true, false)[0]
+	var n_fleurs := 0
+	var dessus := 0
+	for si in mi_bfl.mesh.get_surface_count():
+		var arr := mi_bfl.mesh.surface_get_arrays(si)
+		var cols: PackedColorArray = arr[Mesh.ARRAY_COLOR]
+		var pos: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+		for vi in cols.size():
+			var c: Color = cols[vi]
+			if absf(c.r - 0.878) < 0.12 and absf(c.g - 0.376) < 0.12 and absf(c.b - 0.353) < 0.12:
+				n_fleurs += 1
+				if pos[vi].y > 0.5:
+					dessus += 1
+	check(n_fleurs > 100 and dessus > n_fleurs / 2, "le buisson lyonnais fleurit quand on le lui demande, sur le dessus de ses masses (%d sommets de fleurs, %d en haut)" % [n_fleurs, dessus])
 	var lyonnaises: Array = load(Bibliotheque.scene("vegetation-lyonnaise@1", "decor")).instantiate().call("noms")
 	check(not ("tilleul" in essences or "bouleau" in essences or "cypres" in essences or "vigne" in essences or essences.any(func(e): return e in lyonnaises)),
 		"la végétation du Bugey ne redouble aucune essence des autres décors")
@@ -285,7 +393,7 @@ func _init() -> void:
 	var toulouse := Node3D.new()
 	root.add_child(toulouse)
 	var toulousains := {"facadier-toulousain@1": ["types", "type", 13], "sols-toulousains@1": ["noms", "module", 10],
-		"mobilier-toulousain@1": ["objets", "objet", 12], "arbres-d-ombriere@1": ["noms", "arbre", 4]}
+		"mobilier-toulousain@1": ["objets", "objet", 14], "arbres-d-ombriere@1": ["noms", "arbre", 4]}
 	for ref in toulousains:
 		var sc := Bibliotheque.scene(ref, "decor")
 		check(sc != "" and ResourceLoader.exists(sc), "la bibliothèque a %s, un décor" % ref)
@@ -303,6 +411,63 @@ func _init() -> void:
 			if d.get_meta(toulousains[ref][1], "") != nom or maillages.size() != 1 or maillages[0].mesh.get_surface_count() > 3 or d.find_children("*", "CollisionShape3D", true, false).is_empty():
 				rates.append(nom)
 		check(noms.size() == toulousains[ref][2] and rates.is_empty(), "%s : les %d se bâtissent, un maillage et un corps chacun %s" % [ref, noms.size(), str(rates)])
+	# les toits en tuile canal se lisent d'en haut (verdict de Saint-Georges v0.11) : les courants plus sombres entre
+	# les couvrants, les lignes d'ombre des rangs, l'ombre du faîtage, toutes présentes dans le maillage
+	var toiture: Node3D = load(Bibliotheque.scene("facadier-toulousain@1", "decor")).instantiate()
+	toiture.type = "moyenne"
+	toiture.graine = 5
+	toiture.options = {"toit": "deux_pans"}
+	toulouse.add_child(toiture)
+	var couleurs_toit := {}
+	var Fac: GDScript = load("res://bibliotheque/facadier-toulousain/1/facadier.gd")
+	var tableaux: Array = (toiture.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).mesh.surface_get_arrays(0)
+	for c in tableaux[Mesh.ARRAY_COLOR]:
+		couleurs_toit[(c as Color).to_html(false)] = true
+	var attendues: Array = [Fac.COURANT, Fac.OMBRE_TUILE, Fac.OMBRE_FAITE].map(func(c): return (c as Color).to_html(false))
+	check(attendues.all(func(h): return couleurs_toit.has(h)) and Fac.OMBRE_FAITE.get_luminance() < Fac.COURANT.get_luminance() and Fac.COURANT.get_luminance() < Fac.TUILE[0].get_luminance(),
+		"le toit toulousain porte ses courants sombres, ses lignes de rangs et l'ombre du faîtage")
+	# la terrasse prend des clients assis (option clients) : le maillage grossit d'autant
+	var sommets_terrasse := {}
+	for nb in [0, 5]:
+		var tt: Node3D = load(Bibliotheque.scene("mobilier-toulousain@1", "decor")).instantiate()
+		tt.objet = "terrasse"
+		tt.graine = 4
+		tt.options = {"tables": 3, "clients": nb}
+		toulouse.add_child(tt)
+		sommets_terrasse[nb] = (tt.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).mesh.surface_get_array_len(0)
+	check(sommets_terrasse[5] > sommets_terrasse[0] * 1.5, "la terrasse toulousaine assoit des clients quand on lui en demande (%s)" % str(sommets_terrasse))
+	var sommets_store := {}
+	for nb in [0, 4]:
+		var st_t: Node3D = load(Bibliotheque.scene("mobilier-toulousain@1", "decor")).instantiate()
+		st_t.objet = "store_terrasse"
+		st_t.graine = 4
+		st_t.options = {"clients": nb}
+		toulouse.add_child(st_t)
+		sommets_store[nb] = (st_t.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).mesh.surface_get_array_len(0)
+	check(sommets_store[4] > sommets_store[0] * 1.5, "le store de terrasse assoit aussi des clients (option clients, %s)" % str(sommets_store))
+	# le verdict v0.12 : le banc assoit des gens (option assis), le lampadaire prend deux branches (option branches),
+	# la borne de pierre existe, et le feuillage garde un plancher d'ombre (option jour, 1 par défaut)
+	var sommets_v12 := {}
+	for cas in [["banc", {"assis": 0}], ["banc", {"assis": 3}], ["lampadaire", {}], ["lampadaire", {"branches": 2}], ["borne", {}], ["bac_vegetal", {"jour": 0.4}]]:
+		var ob: Node3D = load(Bibliotheque.scene("mobilier-toulousain@1", "decor")).instantiate()
+		ob.objet = cas[0]
+		ob.graine = 7
+		ob.options = cas[1]
+		toulouse.add_child(ob)
+		var mi_ob: MeshInstance3D = ob.find_children("*", "MeshInstance3D", true, false)[0]
+		sommets_v12[str(cas)] = [mi_ob.mesh.surface_get_array_len(0), ob.get_meta("emprise"), float(mi_ob.get_instance_shader_parameter("jour"))]
+	var v12_banc0: Array = sommets_v12[str(["banc", {"assis": 0}])]
+	var v12_banc3: Array = sommets_v12[str(["banc", {"assis": 3}])]
+	var v12_lamp1: Array = sommets_v12[str(["lampadaire", {}])]
+	var v12_lamp2: Array = sommets_v12[str(["lampadaire", {"branches": 2}])]
+	var v12_borne: Array = sommets_v12[str(["borne", {}])]
+	var v12_bac: Array = sommets_v12[str(["bac_vegetal", {"jour": 0.4}])]
+	check(v12_banc3[0] > v12_banc0[0] * 1.5 and v12_banc0[1].x > 1.7, "le banc toulousain assoit des gens quand on lui en demande (%d → %d sommets)" % [v12_banc0[0], v12_banc3[0]])
+	check(v12_lamp2[0] > v12_lamp1[0] * 1.4 and v12_lamp2[1].x > 1.5 and v12_lamp1[1].x < 1.0, "le lampadaire toulousain prend deux branches et deux lanternes (option branches)")
+	check(v12_borne[1].x < 0.5 and v12_borne[0] > 20, "la borne chasse-roue de pierre se bâtit (emprise %s)" % str(v12_borne[1]))
+	var code_mob: String = (load("res://bibliotheque/mobilier-toulousain/1/feuillage.gdshader") as Shader).code
+	check(is_equal_approx(v12_bac[2], 0.4) and is_equal_approx(v12_banc0[2], 1.0) and "EMISSION" in code_mob and "instance uniform float jour" in code_mob,
+		"le feuillage du mobilier toulousain garde un plancher d'ombre (option jour, 1 par défaut)")
 	var manege: Node3D = load(Bibliotheque.scene("mobilier-toulousain@1", "decor")).instantiate()
 	manege.objet = "carrousel"
 	toulouse.add_child(manege)
@@ -313,10 +478,19 @@ func _init() -> void:
 	check(float(platane.get_meta("hauteur")) >= 16.0 and float(platane.get_meta("couronne")) >= 7.0, "le platane d'ombrière fait au moins 16 m et sa couronne 7 m de rayon")
 	var bac: Node3D = load(Bibliotheque.scene("mobilier-toulousain@1", "decor")).instantiate()
 	bac.objet = "bac_vegetal"
-	bac.options = {"forme": "polygone", "points": [[0, 0], [3.6, -0.4], [4.2, 1.6], [2.0, 2.6]], "plantation": "buis"}
+	bac.options = {"forme": "polygone", "points": [[0, 0], [3.6, -0.4], [4.2, 1.6], [2.0, 2.6]], "plantation": "buis", "couvertine": "c9a070"}
 	toulouse.add_child(bac)
 	var emprise_bac: Vector2 = bac.get_meta("emprise")
 	check(emprise_bac.x > 4.0 and emprise_bac.y > 2.9, "le bac végétal suit le polygone qu'on lui donne (%s)" % str(emprise_bac))
+	# un grand bac dense de 1 000 m² se sème selon son aire réelle, sous un plafond de touffes : il se bâtit vite
+	var grand_bac: Node3D = load(Bibliotheque.scene("mobilier-toulousain@1", "decor")).instantiate()
+	grand_bac.objet = "bac_vegetal"
+	grand_bac.options = {"forme": "polygone", "points": [[0, 0], [40, 0], [40, 25], [0, 25]], "plantation": "dense"}
+	var t_bac := Time.get_ticks_msec()
+	toulouse.add_child(grand_bac)
+	t_bac = Time.get_ticks_msec() - t_bac
+	check(grand_bac.find_children("*", "MeshInstance3D", true, false).size() == 1 and t_bac < 8000,
+		"un bac végétal dense de 1 000 m² se bâtit en %d ms (moins de 8 s)" % t_bac)
 	var marronnier: Node3D = load(Bibliotheque.scene("arbres-d-ombriere@1", "decor")).instantiate()
 	marronnier.arbre = "marronnier"
 	toulouse.add_child(marronnier)
@@ -325,6 +499,20 @@ func _init() -> void:
 	tuilee.options = {"tuile": "8a4a3a"}
 	toulouse.add_child(tuilee)
 	check(not tuilee.find_children("*", "MeshInstance3D", true, false).is_empty(), "le façadier lyonnais prend la teinte de tuile qu'on lui donne")
+	# la banderole de la course : taille_texte agrandit les lettres, et la toile avec elles
+	var hauteur_toile := func(opt: Dictionary) -> float:
+		var b: Node3D = load(Bibliotheque.scene("course-cycliste@1", "decor")).instantiate()
+		b.objet = "banderole"
+		b.options = opt
+		toulouse.add_child(b)
+		var lab: Label3D = b.find_children("*", "Label3D", true, false)[0]
+		return lab.pixel_size * 96.0 * 0.72
+	var petite: float = hauteur_toile.call({"largeur": 9.5, "texte": "GRAND PRIX DE LA LOUVE"})
+	var grande: float = hauteur_toile.call({"largeur": 9.5, "texte": "LOUVE", "taille_texte": 0.8})
+	var pleine: float = hauteur_toile.call({"largeur": 9.5, "texte": "LOUVE", "taille_texte": "ajuste"})
+	var bornee: float = hauteur_toile.call({"largeur": 9.5, "texte": "GRAND PRIX DE LA LOUVE", "taille_texte": 2.0})
+	check(petite < 0.5 and absf(grande - 0.8) < 0.03 and absf(pleine - 1.2) < 0.03 and bornee < 0.6,
+		"la banderole prend la taille de lettres demandée (%.2f, %.2f, « ajuste » %.2f m) et ne déborde jamais de sa toile (%.2f)" % [petite, grande, pleine, bornee])
 	var cafe_l: Node3D = paquet_lyon.instantiate()
 	cafe_l.type = "cafe"
 	cafe_l.options = {"avancee": 2.6, "toile": ["2f5a3a", "2f5a3a"], "enseigne": "CAFÉ SATHONAY"}
@@ -332,6 +520,51 @@ func _init() -> void:
 	var store_l: AABB = (cafe_l.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).get_aabb()
 	var lambrequin := cafe_l.find_children("*", "Label3D", true, false).filter(func(e): return e.text == "CAFÉ SATHONAY").size()
 	check(store_l.end.z > 2.6 and lambrequin == 2, "les stores bannes du café avancent de 2,6 m et l'enseigne est peinte sur le lambrequin (%.2f, %d)" % [store_l.end.z, lambrequin])
+	var sans_store: Node3D = paquet_lyon.instantiate()
+	sans_store.type = "cafe"
+	sans_store.options = {"avancee": 2.6, "store": false}
+	toulouse.add_child(sans_store)
+	var nu: AABB = (sans_store.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).get_aabb()
+	check(nu.end.z < 2.0, "le façadier lyonnais laisse la devanture sans store banne quand on le demande (%.2f)" % nu.end.z)
+	# l'option teinte des arbres d'ombrière : un hexa tire la palette, une liste de verts se mêle selon la graine
+	var verts_de := func(t: Node3D) -> Color:
+		var cols: PackedColorArray = (t.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).mesh.surface_get_arrays(1)[Mesh.ARRAY_COLOR]
+		var somme := Color(0, 0, 0, 0)
+		for c in cols:
+			somme += c
+		return somme / maxf(1, cols.size())
+	var teintes := []
+	for t in [null, "8ab04a", ["6e9440", "8ab04a", "4d6e33"]]:
+		var mt: Node3D = load(Bibliotheque.scene("arbres-d-ombriere@1", "decor")).instantiate()
+		mt.arbre = "marronnier"
+		if t != null:
+			mt.options = {"teinte": t}
+		toulouse.add_child(mt)
+		teintes.append(verts_de.call(mt))
+	check(not teintes[0].is_equal_approx(teintes[1]) and not teintes[0].is_equal_approx(teintes[2]), "l'arbre d'ombrière prend la teinte qu'on lui donne")
+	# le jour du ciel au cœur de la couronne est un paramètre d'instance (option jour), et le fût du platane est
+	# moins blanc (#B8AE98, verdict de Saint-Georges v0.7)
+	var clair: Node3D = load(Bibliotheque.scene("arbres-d-ombriere@1", "decor")).instantiate()
+	clair.options = {"jour": 1.1}
+	toulouse.add_child(clair)
+	var mi_clair: MeshInstance3D = clair.find_children("*", "MeshInstance3D", true, false)[0]
+	check(is_equal_approx(float(mi_clair.get_instance_shader_parameter("jour")), 1.1) and is_equal_approx(float(platane.find_children("*", "MeshInstance3D", true, false)[0].get_instance_shader_parameter("jour")), 0.6),
+		"l'arbre d'ombrière règle le jour de sa voûte par l'option jour (0,6 par défaut)")
+	check(str(platane.ECORCE["platane"]) == "b8ae98" and Color(platane.ECORCE["platane"]).get_luminance() < Color("c9bea0").get_luminance(), "le fût du platane est moins blanc qu'avant (#B8AE98)")
+	# l'ajour de l'ombre portée (verdict de Saint-Georges v0.10a) : un paramètre d'instance que le shader n'applique
+	# que dans la passe d'ombre du soleil (projection orthographique), 0 par défaut
+	var troue: Node3D = load(Bibliotheque.scene("arbres-d-ombriere@1", "decor")).instantiate()
+	troue.options = {"ajour": 0.65}
+	toulouse.add_child(troue)
+	var mi_troue: MeshInstance3D = troue.find_children("*", "MeshInstance3D", true, false)[0]
+	var code_feuillage: String = (mi_troue.mesh.surface_get_material(mi_troue.mesh.get_surface_count() - 1) as ShaderMaterial).shader.code
+	check(is_equal_approx(float(mi_troue.get_instance_shader_parameter("ajour")), 0.65) and is_equal_approx(float(mi_clair.get_instance_shader_parameter("ajour")), 0.0)
+		and "PROJECTION_MATRIX[3][3]" in code_feuillage and "ajour" in code_feuillage,
+		"l'arbre d'ombrière troue son ombre portée par l'option ajour, dans la seule passe d'ombre (0 par défaut)")
+	var teintes_plaques := {}
+	for hexa in platane.PLAQUES:
+		teintes_plaques[int(Color(hexa).h * 12.0)] = true
+	check(teintes_plaques.size() >= 2 and platane.PLAQUES.size() >= 6, "les plaques du platane mêlent crème, gris vert et ocre (%d teintes)" % platane.PLAQUES.size())
 	var plat: Node3D = paquet_lyon.instantiate()
 	plat.options = {"w": 10.0, "d": 11.0, "niveaux": 3}
 	toulouse.add_child(plat)

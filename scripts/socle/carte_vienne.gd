@@ -654,6 +654,12 @@ func _marquee(insee: String) -> bool:
 
 # --- Le geste ------------------------------------------------------------------------------------
 
+## La souris quitte la carte, ou passe sur un panneau posé dessus (la fiche) : plus rien n'est survolé.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_MOUSE_EXIT and interactive:
+		_survoler("")
+
+
 func _gui_input(event: InputEvent) -> void:
 	if not interactive:
 		return

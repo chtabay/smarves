@@ -1,0 +1,28 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://communes/lyon/lyon.gd" id="1"]
+
+[node name="Commune" type="Node3D"]
+script = ExtResource("1")
+
+[node name="Arrivee" type="Marker3D" parent="."]
+
+[node name="Vue1a_Passerelle" type="Marker3D" parent="."]
+
+[node name="Vue1b_Martiniere" type="Marker3D" parent="."]
+
+[node name="Vue1c_Rambaud" type="Marker3D" parent="."]
+
+[node name="Vue1d_Vitet" type="Marker3D" parent="."]
+
+[node name="Vue1e_Rue" type="Marker3D" parent="."]
+
+[node name="Vue2a_Place" type="Marker3D" parent="."]
+
+[node name="Vue2b_Lions" type="Marker3D" parent="."]
+
+[node name="Vue2c_Palier" type="Marker3D" parent="."]
+
+[node name="Vue3a_Belvedere" type="Marker3D" parent="."]
+
+[node name="Quartiers" type="Node3D" parent="."]

@@ -788,7 +788,8 @@ func _bark(delta: float) -> void:
 	if randf() < 0.35:
 		for l in LOCKS:
 			if Game.won < l.seuil:
-				v.say("Il paraît que %s ouvre à %s crédits gagnés. Ce n'est rien, pour un investisseur." % [l.name.substr(0, 1).to_lower() + l.name.substr(1), Game.fmt(l.seuil)])
+				# « Les Salons particuliers » : le verbe s'accorde.
+				v.say("Il paraît que %s %s à %s crédits gagnés. Ce n'est rien, pour un investisseur." % [l.name.substr(0, 1).to_lower() + l.name.substr(1), "ouvrent" if l.name.begins_with("Les ") else "ouvre", Game.fmt(l.seuil)])
 				return
 	v.say(Lines.line(v.speaker))
 

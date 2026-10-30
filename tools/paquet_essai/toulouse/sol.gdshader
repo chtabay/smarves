@@ -67,7 +67,7 @@ void fragment() {
 		// ±3 % par pavé, et des taches de 2 à 4 m à ±6 % (verdict du juge sur la v0.4) : pas plus de variation.
 		vec3 t = mix(vec3(1.0), mix(vec3(1.03, 0.995, 0.96), vec3(0.97, 0.96, 0.97), hash(cellule + 9.1)), 0.5);
 		float chine = bruit(p * 0.35) * 0.7 + bruit(p * 0.9 + 17.0) * 0.3;
-		col = base * mix(0.97, 1.03, h) * t * mix(0.94, 1.06, chine);
+		col = base * mix(0.93, 1.07, h) * t * mix(0.93, 1.07, chine);
 	}
 	if (filet > 0.5) {
 		col = base * mix(0.95, 1.03, h);

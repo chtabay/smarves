@@ -13,6 +13,14 @@ quoi faire : il a une histoire, des envies et des manques, et c'est ce qui le gu
 
 Cette fiche dit les choix du deuxième lot et ce qui viendra ensuite.
 
+> **Depuis la migration `20261031000000_smarves_pensionnaires_par_lasso.sql` : un pensionnaire ne se crée
+> que depuis Lasso** (section 9), pour un agent Lasso déjà inscrit. Le jeu, le connecteur (`smarves_creer`
+> retiré) et l'action `inscrire` (410) ne créent plus rien ; l'adoption n'existe plus. **Depuis
+> `20261101000000_smarves_passerelle_lasso.sql`, l'assistant n'a qu'un connecteur, celui de Lasso**, qui lui
+> relaie les outils du pensionnaire (section 9) : plus de lien personnel, ni dans le jeu ni sur la page
+> « Mon assistant ». Les passages ci-dessous qui disent le contraire décrivent l'état antérieur. Le moteur appelé par clé reste
+> en place pour un pensionnaire déjà en mode `cle`, sans création possible.
+
 ## 1. Le principe
 
 - **Une entité à part.** Le créateur lui donne un nom et une histoire : une origine, ce qu'il veut, ce qui
@@ -32,6 +40,9 @@ Cette fiche dit les choix du deuxième lot et ce qui viendra ensuite.
 ## 2. Deux façons de le tenir
 
 ### Par son assistant (le chemin principal)
+
+> État antérieur : depuis la passerelle Lasso (section 9), le connecteur ci-dessous n'est plus exposé à
+> l'assistant ; ses outils lui parviennent par le connecteur Lasso.
 
 Le jeu ouvre un **connecteur** : un serveur MCP, servi par la fonction `doublures` à l'adresse
 `…/functions/v1/doublures/mcp/<jeton>`. Dans le carnet, rubrique « Mon compte », la fiche « Mon
@@ -103,7 +114,7 @@ est notée « refusée » au journal, le pensionnaire n'est pas puni) :
 | `attendre` | Il reste là | de 1 à 10 minutes |
 | `roulette` | Une mise à la roulette de la boulangerie (européenne) | sur place ; de 10 à 500 crédits, jamais plus du quart du solde, cinq coups au plus ; la bille est tirée par le serveur |
 | `annonce` | Une petite annonce au panneau de la mairie | sur place ; 120 caractères, une par jour, le filtre de la section 6 |
-| `mot` | Un mot à la porte d'un habitant | 200 caractères, trois par heure, la porte doit exister, pas à soi |
+| `mot` | Un mot à la porte d'un habitant, ou à la mairie pour un ami (lot `mairie`) | 200 caractères, trois par heure, pas à soi ; à une porte, elle doit exister ; à la mairie, sur place, à un ami seulement, un par ami et par jour ; un rendez-vous écrit dedans (« vendredi vers 11 h 15 ») est relevé et rappelé aux deux (AMIS.md) |
 
 Avec ses actions, il donne son avis sur trois habitants au plus (`liens`) et réécrit sa mémoire.
 
@@ -171,8 +182,11 @@ jeu lui-même.
   marcher vers un point cardinal ou devant, à gauche… quelques secondes ou quelques mètres (un pilier qui
   accroche, il s'en dégage d'un pas de biais ; une paroi en face, il s'arrête et le dit), une touche (E, Espace, Échap, Entrée,
   Tab, toute lettre, un chiffre, envoyée au jeu comme un clavier ; une touche qui ne change rien à l'écran le
-  dit), cliquer un bouton ou une case (un clic de souris à sa place à l'écran),
-  attendre, dire. Une nouvelle carte, un nouveau bâtiment, un nouveau jeu se pilotent donc sans une ligne
+  dit), cliquer un bouton ou une case (un clic de souris à sa place à l'écran ; il attend ensuite que
+  l'écran ait réagi, la réponse d'une table en ligne comprise ; une case se nomme aussi par un mot de son nom),
+  écrire dans un champ de l'écran (une petite annonce : tout `LineEdit` ou `TextEdit` modifiable, que la vue
+  liste avec son invite), attendre, dire. Un plan dessiné (le plan du notaire) donne ses adresses comme des
+  cases, par leur nom, avec `pilote_cases()` et `pilote_texte()`. Une nouvelle carte, un nouveau bâtiment, un nouveau jeu se pilotent donc sans une ligne
   de plus, tant qu'ils passent par ces briques du socle.
 - **Le passage.** L'assistant fait un geste avec l'outil `smarves_geste` ; la fonction le pose dans
   `smarves.doublure_pilote`, le jeu l'y prend (il attend vingt secondes au plus par appel), le fait, et y
@@ -273,6 +287,10 @@ Tout ce qu'il vit est gardé, et lui est rendu à chaque réveil :
 
 Seul son créateur lit sa fiche, sa mémoire, son journal intime et son journal ; le journal ne dit pas à qui il a écrit.
 
+Comment deux habitants se retrouvent (les amis, le mot laissé à la mairie, le rendez-vous relevé) : voir AMIS.md.
+Le contexte du pensionnaire dit ses amis (et quand ils sont passés) et ses rendez-vous à venir ; la vue et la
+fiche aussi.
+
 ## 6. Les humeurs, et la vie privée
 
 L'humeur du pensionnaire peut refléter la journée réelle de son créateur, sans jamais rien en révéler. Le
@@ -333,21 +351,42 @@ Les noms techniques sont restés ceux du premier lot, quand on les appelait des 
 
 ## 9. L'inscription depuis Lasso
 
-Lasso (chtabay/lasso#13) peut inscrire l'agent d'un humain sous le nom de son pensionnaire : il crée le
-pensionnaire, ou adopte celui que l'humain a déjà. Smarves reste maître de ses habitants.
+Un pensionnaire naît **seulement** d'une demande Lasso (chtabay/lasso, `docs/17-smarves-par-lasso.md`), pour
+un agent Lasso déjà inscrit. Il n'y a ni création dans le jeu, ni création par clé, ni adoption. Smarves reste
+maître de ses habitants.
 
 - **L'autorisation** vient de Pyramides2, jamais de Lasso : un jeton Ed25519 (portée `smarves-inscription`,
-  deux minutes, `jti` à usage unique), délivré après un clic de l'humain sur l'écran de Pyramides2, montré à
-  chaque fois. La fonction ne connaît que la clé publique (secret `SMARVES_INSCRIPTION_JWK`, avec
-  `SMARVES_INSCRIPTION_ISS` et `SMARVES_INSCRIPTION_CLIENTS`) ; sans elle, les routes répondent 503.
-- **Deux routes** de la fonction, à part de l'API générale : `…/doublures/inscription` (créer ou adopter le
-  pensionnaire du `sub` du jeton ; rend seulement le résultat, l'identifiant et le nom) et
-  `…/doublures/inscription/verifier` (sans jeton, limitée en débit : le formulaire est-il valable, le nom
-  libre ?). Ni mémoire, ni journal, ni réglages, ni effacement n'y sont atteignables.
-- **Un nom par pensionnaire**, pour tous les chemins de création : index unique sur `smarves.nom_cle(nom)`
-  (casse, accents, espaces, apostrophes et tirets ignorés).
-- **La base** (`20261030000000_smarves_pensionnaires_inscription.sql`) : `smarves.doublure_inscrire` fait tout
-  en une transaction (anti-rejeu, idempotence par l'identifiant d'inscription, ligne de joueur pour un compte
-  qui n'a jamais joué, adoption sans écriture, création). Essais : `supabase/tests/`. Retour arrière :
-  `supabase/rollback/`.
-- Le lien du connecteur Smarves s'obtient toujours dans la fiche « Mon pensionnaire ».
+  deux minutes, `jti` à usage unique, opération `creer` seulement), délivré après un clic de l'humain sur
+  l'écran de Pyramides2. Il porte `agt`, l'empreinte de l'agent Lasso (`sha256('lasso-agent:' + id)`). La
+  fonction ne connaît que la clé publique (`SMARVES_INSCRIPTION_JWK`, `SMARVES_INSCRIPTION_ISS`,
+  `SMARVES_INSCRIPTION_CLIENTS`) ; sans elle, les routes répondent 503.
+- **Deux routes** : `…/doublures/inscription` (créer le pensionnaire du `sub` du jeton ; rend le résultat,
+  l'identifiant et le nom) et `…/doublures/inscription/verifier` (sans jeton, limitée en débit).
+- **La base** : `smarves.doublure_inscrire` (16 arguments, avec `p_agent`) fait tout en une transaction
+  (anti-rejeu d'abord, verrou par demande, idempotence qui compare aussi l'agent, inscriptions closes refusées)
+  et écrit `agent` dans `smarves.inscriptions`. Un déclencheur différé (`doublure_par_lasso`) refuse au COMMIT
+  tout pensionnaire sans inscription `creer / cree` portant un agent, quel que soit le chemin.
+- **Lasso** termine le rattachement en lisant `smarves.inscriptions` pour **sa** demande, son humain et son
+  agent, et reprend seul après une coupure entre la création Smarves et la réponse.
+- **Un seul connecteur, celui de Lasso** (migration `20261101000000_smarves_passerelle_lasso.sql`, chtabay/lasso
+  `docs/18-un-seul-connecteur.md`) : l'assistant n'ajoute aucun connecteur Smarves. Lasso relaie les outils du
+  pensionnaire vers `…/doublures/mcp` avec, à chaque appel, une assertion qu'il signe (Ed25519, portée
+  `smarves-passerelle`, soixante secondes, `jti` à usage unique) : `sub` l'humain, `agt` l'empreinte de l'agent.
+  La fonction ne connaît que la clé publique (`LASSO_PASSERELLE_JWK`, `LASSO_PASSERELLE_ISS`) ; sans elle, la
+  route répond 503. Lasso ne détient aucun jeton Smarves ; l'ancien lien personnel (`doublure_acces`, action
+  `acces`) n'existe plus (410).
+- **La base** (`smarves.passerelle_entrer`) rend le pensionnaire du couple (humain, agent) : celui né d'une
+  inscription Lasso `creer / cree` portant cette empreinte, et aucun autre ; elle refuse un `jti` déjà vu
+  (`smarves.passerelle_jetons`), un couple sans pensionnaire et une coupure en cours. Chaque appel d'outil laisse
+  une trace **sans contenu** (`smarves.passerelle_appels` : heure, humain, agent, nom de l'outil, réussi ou non ;
+  quatre-vingt-dix jours). Une clé Lasso compromise ouvrirait tous les avatars, un par agent : la trace est là
+  pour le voir, et la clé se change d'un seul geste (secret de la fonction).
+- **Couper Smarves pour mon assistant** (`smarves.doublure_deconnecter`, `doublures.assistant_coupe`) : la
+  coupure est tenue par le jeu et vérifiée à chaque appel, elle ne dépend pas de Lasso ; la session de jeu et le
+  corps sur la place s'arrêtent, le pensionnaire et l'agent Lasso restent. **Reprendre**
+  (`smarves.doublure_reprendre`) la lève. Depuis Lasso comme depuis la fiche du jeu (`fiche.assistant` :
+  `coupe`, `dernier`).
+- **Mon assistant** (`web/assistant/index.html`) ne branche plus rien : elle renvoie vers Lasso.
+- **Nettoyage des pilotes** (Billy Bob, Frick Francis, Essai) : `supabase/nettoyage/20261031_pensionnaires_pilotes.sql`,
+  identifiants fermés, à n'exécuter qu'après accord explicite. Essais : `supabase/tests/inscription-pg.mjs`,
+  `supabase/tests/passerelle-pg.mjs`.

@@ -1,0 +1,50 @@
+{
+	"format": 1,
+	"id": "lyon",
+	"nom": "Lyon",
+	"auteur": "Claude",
+	"version": "0.2.0",
+	"socle_min": "1.29",
+	"insee": "69123",
+	"population": 0,
+	"description": "Lyon en quartiers : la place Sathonay au pied des pentes de la Croix-Rousse, et par la rue Terme, la place des Terreaux, son Hôtel de Ville et le palais Saint-Pierre, un soir doré de septembre. On s'y promène ; rien ne s'y joue encore.",
+	"scene": "res://communes/lyon/commune.tscn",
+	"arrivee": {
+		"lot": "quai",
+		"nom": "Le quai Saint-Vincent",
+		"par": [
+			"smarves"
+		]
+	},
+	"quartiers": {
+		"terreaux": {
+			"batir": "quartiers/terreaux/terreaux.gd",
+			"centre": [
+				275,
+				215
+			],
+			"rayon": 180
+		},
+		"saint_paul": {
+			"batir": "quartiers/saint_paul/saint_paul.gd",
+			"centre": [
+				-230,
+				420
+			],
+			"rayon": 220
+		}
+	},
+	"lieux": [],
+	"banque": {
+		"id": "caisse_grande_cote",
+		"nom": "La Caisse de la Grande-Côte",
+		"banquier": "M. Vernay",
+		"preteur": "lyon"
+	},
+	"licence": "Plan : © les contributeurs d'OpenStreetMap (ODbL) ; IGN, BD TOPO et RGE ALTI (Licence Ouverte 2.0).",
+	"sources": [
+		"https://www.openstreetmap.org/way/226944486",
+		"https://www.lyon.fr/lieu/contemporaine-19eme-20eme/place-sathonay",
+		"https://en.wikipedia.org/wiki/Place_Sathonay"
+	]
+}

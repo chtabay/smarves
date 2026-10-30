@@ -6,12 +6,18 @@ extends SceneTree
 ##   --vue=facadier    les treize bâtisses, en rangée
 ##   --vue=detail      la même rangée vue en enfilade, pour lire le relief des façades
 ##   --vue=un          une seule bâtisse, de trois quarts (--nom=lafage)
-##   --vue=mobilier    les onze objets du mobilier (--nom=carrousel : un seul, de près)
+##   --vue=place       les pièces du verdict v0.12 : bornes en deux rangs, lampadaire à deux branches, bancs habités
+##   --vue=mobilier    les objets du mobilier (--nom=carrousel : un seul, de près)
 ##   --vue=sols        les dix modules de sol (--nom=fosse_arbre : un seul, de près)
 ##   --vue=arbres      les arbres d'ombrière sur le pavé, au soleil (--nom=platane : un seul, de près)
-##   --vue=saint_georges  la place Saint-Georges composée avec les quatre briques
+##   --vue=saint_georges  la place Saint-Georges composée avec les quatre briques (--nom=ajour=0.5 : l'ombre des
+##                     platanes trouée)
+##   --vue=toits       cinq bâtisses vues d'en haut, pour lire les rangs de tuiles canal et le faîtage
 ##   --vue=bacs        trois bacs végétaux : rectangle dense, L fleuri, polygone de buis
-##                     (--nom=bas : à hauteur d'homme, depuis une terrasse)
+##                     (--nom=ombre : de près et à l'ombre d'une dalle, pour mesurer le plancher d'ombre ;
+##                     --nom=ombre,jour=1.2 : avec l'option jour)
+##   --vue=ombre       l'ombre portée d'un platane seule, vue du ciel, pour mesurer la part du sol qu'elle couvre
+##                     (--nom=ajour=0.35,densite=0.8 : les options de l'arbre)
 ## Sans carte graphique : xvfb-run avec --rendering-driver opengl3.
 
 const FACADIER := "facadier-toulousain@1"
@@ -21,6 +27,8 @@ const SOLS := "sols-toulousains@1"
 const OMBRE := "arbres-d-ombriere@1"
 
 var monde: Node3D
+# l'ajour des platanes de la place (--nom=ajour=0.5 sur la vue saint_georges)
+var ajour_sg := 0.0
 
 
 func _init() -> void:
@@ -44,6 +52,16 @@ func _init() -> void:
 	cam.far = 1500
 	monde.add_child(cam)
 	match vue:
+		"terrasse":
+			# la terrasse et ses clients : quatre tables, six clients, les chaises vides tirées au hasard
+			_sol(Vector2(60, 40), Color("c9b28c"))
+			for i in 9:
+				for j in 4:
+					_pose(SOLS, "module", "brique_epi", Vector3(-16 + i * 4, 0, -6 + j * 4), i * 4 + j + 1, {})
+			_pose(MOBILIER, "objet", "terrasse", Vector3(0, 0, 0), 2, {"tables": 4, "clients": 6})
+			_pose(MOBILIER, "objet", "parasol", Vector3(-5.5, 0, 0.3), 3, {"clients": 2})
+			cam.fov = 40
+			cam.look_at_from_position(Vector3(2, 2.4, -7.5), Vector3(-0.5, 0.9, 0))
 		"facadier", "detail":
 			_sol(Vector2(240, 80), Color("c9b28c"))
 			var types: Array = load(Bibliotheque.scene(FACADIER, "decor")).instantiate().types()
@@ -67,15 +85,56 @@ func _init() -> void:
 			var w: float = m.get_meta("w")
 			var h: float = m.get_meta("hauteur")
 			cam.look_at_from_position(Vector3(w * 0.75, h * 0.55, w * 0.9 + h * 0.9), Vector3(0, h * 0.42, -3))
+		"toits":
+			# les toits vus d'en haut, comme du balcon de Saint-Georges : les rangs de tuiles canal et le faîtage
+			_sol(Vector2(120, 80), Color("c9b28c"))
+			var types: Array = load(Bibliotheque.scene(FACADIER, "decor")).instantiate().types()
+			var x := 0.0
+			var k := 0
+			for t in types.slice(0, 5):
+				var m := _pose(FACADIER, "type", t, Vector3(x, 0, 0), 4 + k, {})
+				x += float(m.get_meta("w")) + 0.3
+				k += 1
+			cam.fov = 40
+			cam.look_at_from_position(Vector3(x * 0.5 + 6, 26, 26), Vector3(x * 0.5 - 2, 9, -4))
 		"bacs":
 			_sol(Vector2(80, 80), Color("c9b28c"))
-			_pose(MOBILIER, "objet", "bac_vegetal", Vector3(-6.5, 0, 0), 1, {"longueur": 4.0, "largeur": 1.4, "plantation": "dense"})
-			_pose(MOBILIER, "objet", "bac_vegetal", Vector3(0, 0, 0), 2, {"forme": "L", "longueur": 4.0, "largeur": 1.2, "retour": 3.0, "plantation": "fleurie"})
-			_pose(MOBILIER, "objet", "bac_vegetal", Vector3(6.5, 0, 0), 3, {"forme": "polygone", "points": [[0, 0], [3.6, -0.4], [4.2, 1.6], [2.0, 2.6], [0.3, 1.8]], "plantation": "buis"})
+			var jour_bac := {}
+			if nom.begins_with("ombre,jour="):
+				jour_bac = {"jour": float(nom.trim_prefix("ombre,jour="))}
+			_pose(MOBILIER, "objet", "bac_vegetal", Vector3(-6.5, 0, 0), 1, {"longueur": 4.0, "largeur": 1.4, "plantation": "dense"}.merged(jour_bac))
+			_pose(MOBILIER, "objet", "bac_vegetal", Vector3(0, 0, 0), 2, {"forme": "L", "longueur": 4.0, "largeur": 1.2, "retour": 3.0, "plantation": "fleurie"}.merged(jour_bac))
+			_pose(MOBILIER, "objet", "bac_vegetal", Vector3(6.5, 0, 0), 3, {"forme": "polygone", "points": [[0, 0], [3.6, -0.4], [4.2, 1.6], [2.0, 2.6], [0.3, 1.8]], "plantation": "buis"}.merged(jour_bac))
 			for k in 3:
 				_etiquette(Vector3(-6.5 + k * 6.5, 0.3, 3.0), ["rectangle, dense", "L, fleurie", "polygone, buis"][k], 0.006)
 			cam.fov = 45
 			cam.look_at_from_position(Vector3(0, 7, 12), Vector3(0, 0.4, 0.3))
+			if nom.begins_with("ombre"):
+				# les bacs à l'ombre d'une dalle, de près : on mesure le plancher d'ombre du feuillage (verdict v0.12)
+				var dalle := MeshInstance3D.new()
+				var bm := BoxMesh.new()
+				bm.size = Vector3(40, 0.3, 40)
+				dalle.mesh = bm
+				dalle.position = Vector3(8, 9, -8)
+				monde.add_child(dalle)
+				cam.fov = 40
+				cam.look_at_from_position(Vector3(-4, 1.6, 4.5), Vector3(-5.5, 0.9, 0))
+		"place":
+			# les pièces du verdict v0.12 : deux rangs de bornes, le lampadaire à deux branches, deux bancs habités
+			_sol(Vector2(60, 40), Color("c9b28c"))
+			for i in 9:
+				for j in 4:
+					_pose(SOLS, "module", "brique_epi", Vector3(-16 + i * 4, 0, -6 + j * 4), i * 4 + j + 1, {})
+			for i in 7:
+				for rang in [-1.0, 1.0]:
+					_pose(MOBILIER, "objet", "borne", Vector3(-6 + i * 1.6, 0, rang * 1.2 + 3.0), i * 2 + int(rang > 0), {})
+			_pose(MOBILIER, "objet", "lampadaire", Vector3(-4.5, 0, -1.5), 2, {"branches": 2})
+			_pose(MOBILIER, "objet", "lampadaire", Vector3(5.5, 0, -1.5), 3, {})
+			_pose(MOBILIER, "objet", "banc", Vector3(-1.0, 0, -0.8), 4, {"assis": 3})
+			_pose(MOBILIER, "objet", "banc", Vector3(2.0, 0, -0.8), 5, {"assis": 1})
+			_pose(MOBILIER, "objet", "bac_vegetal", Vector3(-3, 0, -4.0), 6, {"longueur": 6.0, "largeur": 1.4, "plantation": "fleurie"})
+			cam.fov = 42
+			cam.look_at_from_position(Vector3(3.5, 2.2, 8.5), Vector3(-0.5, 1.0, -1.0))
 		"mobilier", "sols":
 			var id: String = MOBILIER if vue == "mobilier" else SOLS
 			var cle: String = "objet" if vue == "mobilier" else "module"
@@ -128,7 +187,22 @@ func _init() -> void:
 				cam.look_at_from_position(Vector3(0, 9, 64), Vector3(0, 8.5, 0))
 			else:
 				cam.look_at_from_position(Vector3(10, 4, 30), Vector3(0, 9, 0))
+		"ombre":
+			# le sol nu et l'ombre seule du platane (le maillage ne se dessine pas) : on compte les pixels sombres
+			_sol(Vector2(60, 60), Color("c9b28c"))
+			var opt := {}
+			for paire in nom.split(",", false):
+				var kv := paire.split("=")
+				opt[kv[0]] = float(kv[1]) if kv.size() > 1 else true
+			var arbre := _pose(OMBRE, "arbre", "platane", Vector3.ZERO, 3, opt)
+			for mi in arbre.find_children("*", "MeshInstance3D", true, false):
+				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+			# en perspective, comme les caméras du jeu : l'ajour ne joue que dans la passe d'ombre du soleil
+			cam.fov = 20
+			cam.look_at_from_position(Vector3(0, 125, 0), Vector3.ZERO, Vector3(0, 0, -1))
 		"saint_georges":
+			if nom.begins_with("ajour="):
+				ajour_sg = float(nom.trim_prefix("ajour="))
 			_saint_georges()
 			if nom == "bas":
 				cam.fov = 62
@@ -288,7 +362,7 @@ func _saint_georges() -> void:
 	var k := 0
 	for a in arbres:
 		var v: Vector2 = a
-		_pose(OMBRE, "arbre", "platane", Vector3(v.x, 0, v.y), 20 + k, {"hauteur": 16.0})
+		_pose(OMBRE, "arbre", "platane", Vector3(v.x, 0, v.y), 20 + k, {"hauteur": 16.0, "ajour": ajour_sg})
 		k += 1
 	# les terrasses du fond, sous les parasols
 	for t in [[-22.0, ["f0e3c4", "f0e3c4"]], [-15.0, ["8a2a2e", "8a2a2e"]], [17.0, ["f0e3c4", "f0e3c4"]], [24.0, ["8a2a2e", "8a2a2e"]]]:

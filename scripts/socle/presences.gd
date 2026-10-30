@@ -73,6 +73,12 @@ const DEPART := 3.0
 const BULLE := 10000.0
 ## La plus longue parole d'un pensionnaire, en caractères.
 const PAROLE_LONGUE := 400
+## Une rencontre (docs/AMIS.md) : rester de près à côté d'un autre habitant pendant RENCONTRE_S secondes en
+## tout, à moins de portee / RENCONTRE_PART (5 unités quand la portée est infinie). Comptée une fois par
+## présent et par scène, par le serveur (smarves_rencontrer, autoload Voisinage).
+const RENCONTRE_S := 8.0
+const RENCONTRE_PART := 12.0
+const RENCONTRE_PRES := 5.0
 
 ## La liste des présents a changé (arrivée, départ) : [{membre, nom, tenue}].
 signal presents_changes(presents: Array)
@@ -868,6 +874,7 @@ func _placer(m: String) -> void:
 		parti.emit(m, p.nom)
 		return
 	var d := _distance(p.points[-1][1])
+	_rencontre(m, p, d)
 	_portee_de(m, portee <= 0.0 or d <= portee or (p.a_portee and d <= portee * MARGE))
 	if not p.a_portee:
 		if is_instance_valid(p.noeud):
@@ -954,6 +961,21 @@ func _on_scene_quittee(scene: Node3D) -> void:
 		_quitter()
 		_scene = null
 		_joueur = null
+
+
+## Le temps passé de près à côté de m s'accumule ; à RENCONTRE_S, la rencontre part au serveur, une fois.
+func _rencontre(m: String, p: Dictionary, d: float) -> void:
+	if p.get("rencontre", false):
+		return
+	var avant := float(p.get("pres_t", _t))
+	p["pres_t"] = _t
+	var pres := RENCONTRE_PRES if portee <= 0.0 else portee / RENCONTRE_PART
+	if d > pres:
+		return
+	p["pres_s"] = float(p.get("pres_s", 0.0)) + minf(_t - avant, 1.0)
+	if float(p.pres_s) >= RENCONTRE_S:
+		p["rencontre"] = true
+		Voisinage.rencontrer(m.trim_prefix("p:"))
 
 
 func _quitter(oublier := true) -> void:

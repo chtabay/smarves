@@ -225,7 +225,7 @@ func _on_played(bet: int, payout: int) -> void:
 	# Les lieux qui ouvrent avec ce gain : leur tenancier fait signe, comme sur la place.
 	for p in Commune.smarves().lieux():
 		if p.seuil > 0 and before < p.seuil and Game.won >= p.seuil:
-			_note("%s vous fait signe : %s ouvre ce soir." % [p.host, p.name.substr(0, 1).to_lower() + p.name.substr(1)])
+			_note("%s vous fait signe : %s %s ce soir." % [p.host, p.name.substr(0, 1).to_lower() + p.name.substr(1), "ouvrent" if p.name.begins_with("Les ") else "ouvre"])
 	if shop == "cafe" and before < SEUIL_TABLEAU and Game.won >= SEUIL_TABLEAU and _ardoise == null:
 		_tableau_du_dimanche()
 		_note("Josiane accroche une ardoise au mur de l'est : le tableau du dimanche, le championnat de la Vienne.")

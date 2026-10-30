@@ -23,3 +23,8 @@ desktop.ini
 
 # Python
 __pycache__/
+
+# Les réponses de l'IGN et d'OpenStreetMap gardées par tools/bourg_reel.py, relief_ville.py et volumes_ville.py
+tools/cache/
+# Les scènes enregistrées des quartiers (tools/enregistrer_quartiers.gd) se refont au moment d'emballer le paquet.
+tools/paquet_essai/*/quartiers/*.scn

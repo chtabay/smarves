@@ -142,5 +142,38 @@ func _init() -> void:
 	pres.presents.erase("essai-voisin")
 	r = await P.geste({"geste": "cliquer", "quoi": "z1"})
 	check(not r.ok, "on ne clique pas une zone de loin")
+	# Un champ où l'on écrit (une petite annonce) : il se voit, et le texte s'y tape.
+	var calque := CanvasLayer.new()
+	root.add_child(calque)
+	var champ := LineEdit.new()
+	champ.placeholder_text = "Votre annonce"
+	champ.position = Vector2(100, 100)
+	champ.size = Vector2(300, 40)
+	calque.add_child(champ)
+	var soumis := [""]
+	champ.text_submitted.connect(func(t: String): soumis[0] = t)
+	await process_frame
+	v = P.vue()
+	check(v.get("champs", []).size() == 1 and v.champs[0].invite == "Votre annonce", "un champ à l'écran est dans la vue")
+	r = await P.geste({"geste": "ecrire", "quoi": "annonce", "texte": "Cherche partenaire de belote"})
+	check(r.ok and champ.text == "Cherche partenaire de belote", "écrire : le texte est dans le champ (%s)" % r.dit)
+	r = await P.geste({"geste": "touche", "touche": "Entrée"})
+	check(soumis[0] == "Cherche partenaire de belote", "Entrée l'envoie")
+	champ.queue_free()
+	# Le plan du notaire : chaque adresse se clique par son nom.
+	var plan: Control = load("res://scripts/carte_biens.gd").new()
+	plan.position = Vector2.ZERO
+	plan.size = Vector2(1024, 576)
+	calque.add_child(plan)
+	await process_frame
+	var choisi := [""]
+	plan.picked.connect(func(id: String): choisi[0] = id)
+	v = P.vue()
+	var adresses: Array = plan.pilote_cases().keys()
+	check(not adresses.is_empty() and v.get("cases", []).has(adresses[0]), "les adresses du plan sont des cases de la vue : %s" % ", ".join(adresses))
+	if not adresses.is_empty():
+		r = await P.geste({"geste": "cliquer", "quoi": str(adresses[0])})
+		check(choisi[0] != "", "un clic sur « %s » ouvre sa fiche (%s)" % [adresses[0], choisi[0]])
+	calque.queue_free()
 	print("%d échec(s)" % fails)
 	quit(1 if fails else 0)

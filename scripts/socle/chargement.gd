@@ -173,6 +173,11 @@ func _lacher() -> void:
 	_id = ""
 
 
+func _exit_tree() -> void:
+	# Le jeu se ferme : les niveaux de détail en calcul doivent finir avant que Godot ne s'arrête.
+	Lointain.finir()
+
+
 ## Chaque scène 3D qui arrive sous la racine (un lieu, une commune) reçoit, une fois bâtie, ses objets
 ## lointains simplifiés (Lointain) : primitives à la taille vue, niveaux de détail des gros maillages.
 ## Un outil qui mesure sans cela pose la méta « sans_lointain » sur Chargement ; une scène qui tient à

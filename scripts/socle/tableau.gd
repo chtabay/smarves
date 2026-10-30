@@ -4,6 +4,12 @@ extends CanvasLayer
 ## placements » à la craie de Lucien (le total gagné au jeu, qu'il « analyse »), les petites annonces des
 ## joueurs, les rendez-vous des parties à plusieurs, et qui est passé au village depuis hier. À la porte
 ## d'une maison possédée par d'autres joueurs : leurs noms, et un mot à glisser dans leur livre d'or.
+##
+## Smarves pose son panneau sur la place (scripts/village/village.gd). Dans une commune greffée, le socle le
+## pose lui-même, au point d'arrivée, à côté de l'habitant quand il débarque (docs/AMIS.md) : la commune n'a
+## rien à construire ni à republier. Pour le mettre ailleurs (devant sa vraie mairie), elle pose un Node3D
+## nommé « PanneauMairie » dans sa scène, et le socle y bâtit le sien ; une zone à elle portant la méta
+## interact « panneau » le remplace tout à fait.
 
 const OR := Color(0.96, 0.8, 0.45)
 const EAU := Color(0.35, 0.8, 0.75)
@@ -15,16 +21,18 @@ const LIEUX := {"place": "la place", "cafe": "le Café de la Place", "casino": "
 	"moulin": "le Moulin des Dames", "banque": "le Crédit Smarvois", "bois": "le bois de Saint-Pierre",
 	"passelourdin": "Passelourdin", "boutique": "la boutique"}
 const NOMS_LOTS := {"chambre_cafe": "La chambre au-dessus du café", "maison_place": "La maison de maître",
-	"maison_eglise": "La maison de la rue de l'Église"}
+	"maison_eglise": "La maison de la rue de l'Église", "mairie": "La mairie"}
 const JOURS := ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"]
 
 var _root: Control
 var _box: VBoxContainer
 ## « panneau », ou le lot d'une maison.
 var _mode := ""
-## Le joueur à qui l'on écrit, à la porte d'une maison.
+## Le joueur à qui l'on écrit, à la porte d'une maison ou, pour un ami, à la mairie.
 var _pour := {}
 var _note := ""
+## La note vient d'un mot à un ami (elle s'affiche alors dans « Vos amis », pas sous l'annonce).
+var _note_ami := false
 var _mouse_before := Input.MOUSE_MODE_VISIBLE
 var _paused_before := false
 
@@ -68,6 +76,8 @@ func _ready() -> void:
 	Voisinage.lu.connect(func():
 		if is_open():
 			_remplir())
+	get_tree().scene_changed.connect(_sur_scene)
+	_sur_scene()
 
 
 func is_open() -> bool:
@@ -97,6 +107,7 @@ func _ouvrir(mode: String) -> void:
 	_mode = mode
 	_pour = {}
 	_note = ""
+	_note_ami = false
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	get_tree().paused = true
 	_root.visible = true
@@ -124,7 +135,7 @@ func _remplir() -> void:
 # --- Le panneau de la mairie -------------------------------------------------------------------
 
 func _remplir_panneau() -> void:
-	_box.add_child(_mot("M A I R I E   D E   S M A R V E S", 13, Color(0.75, 0.68, 0.5)))
+	_box.add_child(_mot(_en_tete(), 13, Color(0.75, 0.68, 0.5)))
 	_box.add_child(_mot("Le panneau d'affichage", 34, Color.WHITE, Polices.titre()))
 	if Voisinage.etat == "hors_ligne":
 		_box.add_child(_mot("Hors ligne : le panneau se lira au retour du réseau.", 16, DOUX))
@@ -152,6 +163,12 @@ func _remplir_panneau() -> void:
 	for rv in Voisinage.prochains_rendez_vous():
 		gauche.add_child(_mot("%s, %s à %s" % [rv.quoi, _jour(rv.quand), _heure(rv.quand)], 17, CRAIE, null, true))
 	gauche.add_child(_mot("Dans %s. La table est partagée tous les soirs entre les joueurs connectés : à ces heures-là, on y trouve du monde." % Voisinage.RENDEZ_VOUS[0][4], 14, DOUX, null, true))
+	# Les rendez-vous relevés dans les mots échangés avec des amis (docs/AMIS.md).
+	for rv in Voisinage.rendez_vous().slice(0, 6):
+		var quand := int(rv.quand) + _decalage()
+		gauche.add_child(_mot("%s %s, %s à %s" % ["Vous avez proposé à" if rv.get("de_moi", false) else "Proposé par", rv.nom, _jour(quand), _heure(quand)], 16, OR, null, true))
+		gauche.add_child(_mot("« %s »" % rv.texte, 13, DOUX, null, true))
+	_remplir_amis(gauche)
 	# Les petites annonces.
 	droite.add_child(_titre_affiche("PETITES ANNONCES"))
 	var annonces := Voisinage.annonces()
@@ -163,7 +180,8 @@ func _remplir_panneau() -> void:
 	droite.add_child(_saisie("Votre annonce (une par jour)", 120, func(t):
 		var r: Dictionary = await Voisinage.annoncer(t)
 		_note = r.message
-		_remplir()))
+		_note_ami = false
+		_remplir(), not _note_ami))
 	droite.add_child(_filet())
 	droite.add_child(_titre_affiche("PASSÉS AU VILLAGE DEPUIS HIER"))
 	var passages := Voisinage.passages()
@@ -184,6 +202,44 @@ func _remplir_panneau() -> void:
 	for m in mots.slice(0, 8):
 		livre.add_child(_mot("« %s »" % m.texte, 16, CRAIE, null, true))
 		livre.add_child(_mot("%s, à %s, %s" % [m.nom, NOMS_LOTS.get(m.lot, "votre porte").to_lower(), _il_y_a(int(m.quand))], 13, DOUX))
+
+
+## Les amis du joueur, et le mot qu'on leur laisse à la mairie : un par ami et par jour, qui dit où et quand
+## (docs/AMIS.md). L'amitié se gagne en se croisant de près au village, deux jours différents.
+func _remplir_amis(colonne: VBoxContainer) -> void:
+	if Voisinage.donnees.get("moi") == null:
+		return
+	colonne.add_child(_filet())
+	colonne.add_child(_titre_affiche("VOS AMIS"))
+	var amis := Voisinage.amis()
+	if amis.is_empty():
+		colonne.add_child(_mot("Personne encore : on devient amis en se croisant de près au village, deux jours différents.", 15, DOUX, null, true))
+		return
+	for a in amis.slice(0, 8):
+		var l := HBoxContainer.new()
+		l.add_theme_constant_override("separation", 14)
+		l.add_child(_mot(a.nom, 18, CRAIE, Polices.gras()))
+		var vu = a.get("vu")
+		l.add_child(_mot(("passé %s" % _il_y_a(int(vu))) if vu != null else ("vu %s" % _il_y_a(int(a.dernier))), 14, DOUX))
+		var s := Control.new()
+		s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		l.add_child(s)
+		if Compte.connecte():
+			l.add_child(_bouton("Un mot à la mairie", Color(0, 0, 0, 0), EAU, EAU, func():
+				_pour = a
+				_note = ""
+				_remplir(), 15))
+		colonne.add_child(l)
+	if not _pour.is_empty():
+		colonne.add_child(_saisie("Un mot pour %s, en poste restante : où et quand ?" % _pour.nom, 200, func(t):
+			var r: Dictionary = await Voisinage.laisser_mot(str(_pour.id), "mairie", t)
+			_note = r.message
+			_note_ami = true
+			if r.ok:
+				_pour = {}
+			_remplir()))
+	elif _note != "" and _note_ami:
+		colonne.add_child(_mot(_note, 15, OR))
 
 
 # --- La porte d'une maison ---------------------------------------------------------------------
@@ -228,7 +284,7 @@ func _remplir_maison(lot: String) -> void:
 # --- Les pièces --------------------------------------------------------------------------------
 
 ## Une ligne à écrire et son bouton ; sans compte, une phrase qui dit pourquoi on ne peut pas.
-func _saisie(invite: String, longueur: int, envoyer: Callable) -> Control:
+func _saisie(invite: String, longueur: int, envoyer: Callable, note_ici := true) -> Control:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 6)
 	if not Compte.connecte():
@@ -246,9 +302,12 @@ func _saisie(invite: String, longueur: int, envoyer: Callable) -> Control:
 	var envoi := func():
 		if champ.text.strip_edges() != "":
 			envoyer.call(champ.text.strip_edges())
-	h.add_child(_bouton("Afficher" if _mode == "panneau" else "Glisser sous la porte", Color(0, 0, 0, 0), OR, OR, envoi, 15))
+	var verbe := "Glisser sous la porte"
+	if _mode == "panneau":
+		verbe = "Laisser à la mairie" if longueur == 200 else "Afficher"
+	h.add_child(_bouton(verbe, Color(0, 0, 0, 0), OR, OR, envoi, 15))
 	champ.text_submitted.connect(func(_t): envoi.call())
-	if _note != "":
+	if _note != "" and note_ici:
 		h.add_child(_mot(_note, 14, OR))
 	v.add_child(h)
 	return v
@@ -346,3 +405,146 @@ func _bouton(t: String, fond: Color, encre: Color, bord: Color, action: Callable
 		b.add_theme_color_override(c, encre)
 	b.pressed.connect(action)
 	return b
+
+
+# --- Le panneau posé par le socle dans une commune greffée ------------------------------------------
+
+## Le panneau se dresse à ce pas de l'habitant qui arrive, sur son côté, un peu devant lui.
+const PANNEAU_COTE := 2.2
+const PANNEAU_DEVANT := 1.2
+
+
+## « M A I R I E   D E   C H A U V I G N Y » : le nom de la commune où l'on est.
+func _en_tete() -> String:
+	var c: Commune = Communes.commune(Communes.actuelle())
+	var nom := str(c.data.get("nom", "")) if c != null else ""
+	if nom.strip_edges() == "":
+		nom = "Smarves"
+	var out := PackedStringArray()
+	for ch in ("MAIRIE DE " + nom.to_upper()):
+		out.append("  " if ch == " " else ch)
+	return " ".join(out)
+
+
+## À chaque scène : si c'est la scène principale d'une commune greffée et qu'elle n'a pas de panneau, on
+## en pose un près de l'habitant. Les intérieurs, les stades et Smarves gardent les leurs.
+func _sur_scene() -> void:
+	var tree := get_tree()
+	# La scène se bâtit dans son _ready et y pose l'habitant ; on lui laisse deux images.
+	await tree.process_frame
+	await tree.process_frame
+	var s := tree.current_scene
+	if s == null or not is_instance_valid(s) or not (s is Node3D):
+		return
+	var id: String = Communes.actuelle()
+	if id == Communes.ORIGINE:
+		return
+	var c: Commune = Communes.commune(id)
+	if c == null or str(c.data.get("scene", "")) != s.scene_file_path:
+		return
+	if _panneau_de(s) != null:
+		return
+	var j := _joueur(s)
+	if j == null:
+		return
+	_poser_panneau(s, j)
+
+
+## La zone du panneau déjà dans la scène (celle de la commune, ou la nôtre), ou null.
+func _panneau_de(s: Node) -> Area3D:
+	for a in s.find_children("*", "Area3D", true, false):
+		if str(a.get_meta("interact", "")) == "panneau":
+			return a
+	return null
+
+
+## Le corps qu'on dirige dans la scène (le groupe « player » de scripts/fp_player.gd).
+func _joueur(s: Node) -> CharacterBody3D:
+	for p in get_tree().get_nodes_in_group("player"):
+		if p is CharacterBody3D and s.is_ancestor_of(p):
+			return p
+	return null
+
+
+func _poser_panneau(s: Node3D, j: CharacterBody3D) -> void:
+	var root := Node3D.new()
+	root.name = "PanneauDuSocle"
+	var ancre := s.find_child("PanneauMairie", true, false)
+	if ancre is Node3D:
+		(ancre as Node3D).add_child(root)
+	else:
+		s.add_child(root)
+		# Sur le côté de l'habitant, un peu devant, au sol, la face tournée vers lui.
+		var devant := -j.global_basis.z
+		devant.y = 0.0
+		devant = devant.normalized() if devant.length() > 0.01 else Vector3.FORWARD
+		var cote := devant.cross(Vector3.UP)
+		var at := j.global_position + cote * PANNEAU_COTE + devant * PANNEAU_DEVANT
+		at.y = _sol(j, at)
+		root.global_position = at
+		var vers := j.global_position
+		vers.y = at.y
+		if vers.distance_to(at) > 0.01:
+			# look_at tourne le -Z vers la cible ; la face du panneau est son +Z.
+			root.look_at(vers, Vector3.UP)
+			root.rotate_object_local(Vector3.UP, PI)
+	var bois := StandardMaterial3D.new()
+	bois.albedo_color = Color(0.36, 0.22, 0.12)
+	var ardoise := StandardMaterial3D.new()
+	ardoise.albedo_color = Color(0.13, 0.19, 0.17)
+	for x in [-0.62, 0.62]:
+		_boite3d(Vector3(0.08, 1.9, 0.08), Vector3(x, 0.95, 0), bois, root)
+	_boite3d(Vector3(1.4, 0.95, 0.06), Vector3(0, 1.3, 0), bois, root)
+	_boite3d(Vector3(1.28, 0.83, 0.02), Vector3(0, 1.3, 0.035), ardoise, root)
+	_boite3d(Vector3(1.5, 0.08, 0.2), Vector3(0, 1.84, 0), bois, root)
+	var titre := Label3D.new()
+	titre.text = "AFFICHAGE"
+	titre.font = Polices.texte()
+	titre.font_size = 44
+	titre.pixel_size = 0.004
+	titre.modulate = CRAIE
+	titre.outline_size = 0
+	titre.position = Vector3(0, 1.6, 0.05)
+	root.add_child(titre)
+	var papier := StandardMaterial3D.new()
+	papier.albedo_color = Color(0.95, 0.92, 0.82)
+	for f in [[-0.35, 1.2, 0.0], [0.05, 1.28, 0.06], [0.4, 1.15, -0.04]]:
+		_boite3d(Vector3(0.28, 0.36, 0.005), Vector3(f[0], f[1], 0.05), papier, root).rotation.z = f[2]
+	var a := Area3D.new()
+	var cs := CollisionShape3D.new()
+	var b := BoxShape3D.new()
+	b.size = Vector3(1.6, 2.0, 1.0)
+	cs.shape = b
+	cs.position = Vector3(0, 1.0, 0.4)
+	a.add_child(cs)
+	a.set_meta("interact", "panneau")
+	a.set_meta("action", ouvrir_panneau)
+	a.set_meta("prompt", "E : lire le panneau d'affichage")
+	root.add_child(a)
+	# La scène de la commune reçoit l'interaction et ne connaît pas cette zone : on l'écoute nous-mêmes.
+	var vu := func(cible: Node):
+		if cible == a and not is_open():
+			ouvrir_panneau()
+	if j.has_signal("interact"):
+		j.interact.connect(vu)
+
+
+## Le sol sous un point : le premier corps en dessous, sinon la hauteur des pieds de l'habitant.
+func _sol(j: CharacterBody3D, at: Vector3) -> float:
+	var q := PhysicsRayQueryParameters3D.create(at + Vector3(0, 2.0, 0), at + Vector3(0, -6.0, 0))
+	q.exclude = [j.get_rid()]
+	var hit := j.get_world_3d().direct_space_state.intersect_ray(q)
+	if hit:
+		return float(hit.position.y)
+	return j.global_position.y - float(j.get("radius")) if "radius" in j else j.global_position.y
+
+
+func _boite3d(size: Vector3, pos: Vector3, mat: Material, parent: Node) -> MeshInstance3D:
+	var m := MeshInstance3D.new()
+	var b := BoxMesh.new()
+	b.size = size
+	m.mesh = b
+	m.material_override = mat
+	m.position = pos
+	parent.add_child(m)
+	return m

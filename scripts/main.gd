@@ -843,8 +843,33 @@ func _build_signposts() -> void:
 
 
 ## Part en promenade vers un des environs (ou revient sur la place avec « place »).
+## La musique suit l'endroit où l'on se tient : la ville sur la place et dans les rues, les environs sur
+## leurs trois socles (bois, moulin, rochers), qu'on y aille par les panneaux ou à pied. Regardé deux fois
+## par seconde ; derrière l'écran titre, c'est lui qui choisit (scripts/title.gd).
+var _musique_pas := 0.0
+
+
+func _musique_du_lieu(delta: float) -> void:
+	_musique_pas -= delta
+	if _musique_pas > 0.0 or has_meta("vitrine") or Sfx.ambience != "village":
+		return
+	_musique_pas = 0.5
+	var ou: Vector3 = player.global_position if player else camera._target_goal
+	Sfx.musique("environs" if lieu_des_environs(ou) != "" else "ville")
+
+
+## Le socle des environs où se trouve ce point (« bois », « moulin », « passelourdin »), ou "".
+static func lieu_des_environs(ou: Vector3) -> String:
+	for k in OUTSKIRTS.AREAS:
+		var c: Vector3 = OUTSKIRTS.AREAS[k].center
+		if absf(ou.x - c.x) < 11.3 and absf(ou.z - c.z) < 8.3:
+			return k
+	return ""
+
+
 func travel(where: String) -> void:
 	area = where
+	_musique_pas = 0.0
 	Voisinage.passer(where)
 	if where == "place":
 		camera.go_to(Vector3(0, 0.3, 0))
@@ -1146,6 +1171,7 @@ func _process(delta: float) -> void:
 	if fps and topdown and player:
 		camera._target_goal = player.global_position + Vector3(0, 0.3, 0)
 	_bark(delta)
+	_musique_du_lieu(delta)
 	_update_prompt()
 	for i in moving_cars.size():
 		var car := moving_cars[i]
@@ -1334,7 +1360,7 @@ func _capture_carte(quoi: String) -> void:
 		if quoi == "":
 			return
 		await get_tree().create_timer(1.3).timeout
-		# --carte=france:r75 regarde une région ; --carte=france:r75:33 y désigne un département.
+		# --carte=france:r75 regarde une région ; --carte=france:r75:33 y survole un département.
 		if quoi.begins_with("r"):
 			Carte.vers_region(quoi.get_slice(":", 0).trim_prefix("r"))
 			quoi = quoi.get_slice(":", 1) if ":" in quoi else ""
@@ -1349,7 +1375,11 @@ func _capture_carte(quoi: String) -> void:
 		if quoi == "":
 			return
 	var insee := quoi.get_slice("@", 0)
-	c.choix.emit(insee)
+	# Sur la France, un clic descendrait d'un cran : on survole le département pour montrer sa fiche.
+	if c.niveau == "france":
+		c._survoler(insee)
+	else:
+		c.choix.emit(insee)
 	if "@" in quoi:
 		c.cadrer(insee, float(quoi.get_slice("@", 1)), 0.5)
 

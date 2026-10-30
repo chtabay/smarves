@@ -9,16 +9,18 @@ extends Node3D
 const DOSSIER := "res://communes/toulouse/"
 const SAINT_GEORGES := preload(DOSSIER + "saint_georges.gd")
 const UNITE := 2.4
-const CRANS := [[9.0, -48.0, 34.0], [18.0, -51.0, 30.0], [32.0, -58.0, 30.0]]
+## Les crans de la caméra : [distance, plongée, champ]. On arrive au deuxième, au-dessus de l'habitant
+## (Guillaume, 30 octobre : le premier, sous les platanes, est trop bas pour jouer) ; la molette y descend.
+const CRANS := [[6.0, -28.0, 45.0], [9.0, -48.0, 34.0], [18.0, -51.0, 30.0], [32.0, -58.0, 30.0]]
 
 ## La lumière de 18 h en septembre (note : « Lumière et caméras ») : soleil d'ouest-sud-ouest, bas et doré.
-const SOLEIL := {"hauteur": 36.0, "vient_de": 250.0, "couleur": Color("ffd9a8")}
+const SOLEIL := {"hauteur": 36.0, "vient_de": 262.0, "couleur": Color("ffd9a8")}
 
 ## Les familles de la palette (note : « Palette et matières »).
 const BRIQUES := ["c8653f", "d2714a", "be5b38", "db8158", "c46a48"]
-const ENDUITS := ["ebcfc0", "f2e4cf", "e7c9b0", "efdcc4"]
+const ENDUITS := ["e2b48a", "d9a574", "ebc89f", "e6bc94"]
 const RUE := Color("dccdab")
-const PLACE := Color("d6a07a")
+const PLACE := Color("c4804e")
 const FILET := Color("efe7da")
 
 ## La place Saint-Georges, en unités : le tapis de brique d'une façade à l'autre, rue de bordure comprise
@@ -63,32 +65,36 @@ func _ciel() -> void:
 	var env := Environment.new()
 	var sky := Sky.new()
 	var sm := ProceduralSkyMaterial.new()
-	# Un bleu franc qui pâlit vers un horizon jaune, sans rose (CONCEPTION.md, « Les pièges »).
+	# Un bleu franc qui pâlit vers un horizon bleu-gris, sans rose (CONCEPTION.md, « Les pièges »).
 	sm.sky_top_color = Color("4f86c6")
-	sm.sky_horizon_color = Color("e9d9b0")
-	sm.ground_horizon_color = Color("b9a48a")
+	sm.sky_horizon_color = Color("9ec2de")
+	# le bleu dès quelques degrés au-dessus de l'horizon : la vue du balcon voyait un ciel gris (juge, v0.9)
+	sm.sky_curve = 0.06
+	sm.ground_horizon_color = Color("b0a492")
 	sm.ground_bottom_color = Color("5a4a3c")
 	sm.sun_angle_max = 20.0
 	sky.sky_material = sm
 	env.sky = sky
 	env.background_mode = Environment.BG_SKY
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 1.15
-	env.ambient_light_sky_contribution = 0.85
+	# une ombre colorée, pas noire : le bleu du ciel sur la brique, qui tempère l'orangé (juge, v0.11 puis v0.12)
+	env.ambient_light_color = Color("8fa6c8")
+	env.ambient_light_energy = 1.8
+	env.ambient_light_sky_contribution = 0.4
 	env.tonemap_mode = Environment.TONE_MAPPER_AGX
 	# Sans halo (Guillaume, 29 octobre : « les flash sont inutiles »).
 	env.glow_enabled = false
 	# L'étalonnage de l'image cible : plus saturé, un peu plus contrasté, chaud.
 	env.adjustment_enabled = true
-	env.adjustment_saturation = 1.18
+	env.adjustment_saturation = 1.12
 	env.adjustment_contrast = 1.06
 	env.adjustment_brightness = 1.03
 	# La brume dorée des lointains : au-delà des îlots qui ferment les rues, la ville se fond dans l'air du soir.
 	env.fog_enabled = true
 	env.fog_mode = Environment.FOG_MODE_DEPTH
 	env.fog_light_color = Color("e9d7b0")
-	env.fog_depth_begin = 22.0
-	env.fog_depth_end = 70.0
+	env.fog_depth_begin = 30.0
+	env.fog_depth_end = 110.0
 	env.fog_depth_curve = 1.6
 	env.fog_sky_affect = 0.0
 	var we := WorldEnvironment.new()
@@ -100,12 +106,28 @@ func _ciel() -> void:
 	soleil.light_color = SOLEIL.couleur
 	soleil.light_energy = 1.6
 	soleil.shadow_enabled = true
-	soleil.shadow_opacity = 0.85
+	# des ombres franches et denses sur un sol clair, pas une pénombre uniforme (juge, v0.9b)
+	soleil.shadow_opacity = 1.0
+	soleil.shadow_blur = 0.25
+	soleil.shadow_bias = 0.03
 	soleil.directional_shadow_max_distance = 48.0
 	add_child(soleil)
 	var h := deg_to_rad(SOLEIL.hauteur)
 	var a := deg_to_rad(SOLEIL.vient_de)
 	soleil.look_at_from_position(Vector3.ZERO, Vector3(-sin(a) * cos(h), -sin(h), cos(a) * cos(h)))
+	# Le bleu du ciel à l'opposé du soleil, sans ombre : il refroidit les faces que le soleil ne touche pas
+	# (juge, v0.13).
+	var appoint := DirectionalLight3D.new()
+	appoint.name = "Appoint"
+	appoint.light_color = Color("8fa6c8")
+	appoint.light_energy = 0.25
+	appoint.shadow_enabled = false
+	# pas de second disque dans le ciel : il y dessinait une tache sombre au zénith de la vue de départ (juge, v0.14)
+	appoint.sky_mode = DirectionalLight3D.SKY_MODE_LIGHT_ONLY
+	add_child(appoint)
+	var ha := deg_to_rad(30.0)
+	var aa := a + PI
+	appoint.look_at_from_position(Vector3.ZERO, Vector3(-sin(aa) * cos(ha), -sin(ha), cos(aa) * cos(ha)))
 
 
 # --- Le sol ---------------------------------------------------------------------------------------
@@ -228,9 +250,14 @@ func _horaire(poly: PackedVector2Array) -> PackedVector2Array:
 
 func teinte_mur(b: Dictionary) -> Color:
 	var g := int(b.i)
-	if b.mur == "brique" or b.mur == "pierre" and g % 3 == 0:
+	# la ville rose : deux îlots sur trois en brique, quel que soit le relevé (juge, v0.14 : le fond du balcon)
+	if _en_brique(b):
 		return Color(BRIQUES[g % BRIQUES.size()])
 	return Color(ENDUITS[g % ENDUITS.size()])
+
+
+func _en_brique(b: Dictionary) -> bool:
+	return b.mur == "brique" or int(b.i) % 3 != 0
 
 
 ## Les volumes : murs de brique ou d'enduit percés de fenêtres, toit de tuile canal plat vu d'en haut, fondus
@@ -291,7 +318,7 @@ func _ilots() -> void:
 
 ## Un bâtiment en volume : ses murs (UV en mètres le long du mur et en hauteur), son toit plat de tuiles.
 func volume(sm: SurfaceTool, stt: SurfaceTool, b: Dictionary, poly: PackedVector2Array, h: float, teinte: Color) -> void:
-	var brique := 1.0 if b.mur == "brique" or (b.mur == "pierre" and int(b.i) % 3 == 0) else 0.0
+	var brique := 1.0 if _en_brique(b) else 0.0
 	var hm := h * UNITE
 	var x := 0.0
 	for k in poly.size():
@@ -313,6 +340,20 @@ func volume(sm: SurfaceTool, stt: SurfaceTool, b: Dictionary, poly: PackedVector
 	if b.toit == "zinc":
 		toit = Color("8d939a")
 	toit = toit.lerp(Color("a4512e"), 0.35 * float(int(b.i) % 3) / 2.0)
+	# Le rang de tuiles de l'égout, en débord sur chaque mur : de loin, le toit se lit au-dessus de la façade.
+	for k in poly.size():
+		var a := poly[k]
+		var c := poly[(k + 1) % poly.size()]
+		var u := (c - a).normalized()
+		var d := Vector2(u.y, -u.x) * 0.22
+		var pts := [Vector3(a.x, h + 0.06, a.y), Vector3(c.x, h + 0.06, c.y), Vector3(c.x + d.x, h - 0.1, c.y + d.y), Vector3(a.x + d.x, h - 0.1, a.y + d.y)]
+		var l := a.distance_to(c) * UNITE
+		var uvs := [Vector2(0, 0), Vector2(l, 0), Vector2(l, 0.6), Vector2(0, 0.6)]
+		stt.set_normal(Vector3(d.x, 1.4, d.y).normalized())
+		for t in [0, 1, 2, 0, 2, 3]:
+			stt.set_color(toit)
+			stt.set_uv(uvs[t])
+			stt.add_vertex(pts[t])
 	stt.set_normal(Vector3.UP)
 	for k in Geometry2D.triangulate_polygon(poly):
 		stt.set_color(toit)
@@ -355,11 +396,36 @@ func _joueur() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	camera.target = player.global_position + Vector3(0, 0.3, 0)
 	camera.set("_target_goal", camera.target)
+	# la caméra derrière l'habitant, qui regarde la place comme lui
+	var devant: Vector3 = player.global_basis.z
+	camera.yaw = atan2(-devant.x, -devant.z)
+	camera.set("_yaw_goal", camera.yaw)
 	camera.use_notches(CRANS, 1)
+
+
+## La caméra de dessus suit l'habitant (Guillaume, 30 octobre : en marchant vers le haut de l'écran, il en
+## sortait, la vue restait fixe). En vue à pied (Vue, Tab), l'habitant n'a plus de caméra à suivre.
+func _process(_delta: float) -> void:
+	if player != null and player.follow_camera == camera:
+		camera.set("_target_goal", player.global_position + Vector3(0, 0.3, 0))
 
 
 ## Les portes de la place : les salles de jeu du manifeste, ouvertes par le socle (fermées, la porte dit le seuil).
 func _interagir(cible: Node) -> void:
 	var id := str(cible.get_meta("interact", ""))
-	if SAINT_GEORGES.PORTES.has(id):
-		SalleJeu.ouvrir("toulouse", id)
+	match id:
+		"taxi":
+			# la carte de toutes les communes, pas celle du car départemental : Toulouse est seule de son
+			# département, le car n'y dessert personne (Guillaume, 30 octobre)
+			Carte.ouvrir()
+		"notaire":
+			Etude.ouvrir("toulouse")
+		"chemiserie":
+			Commerce.ouvrir("toulouse", id)
+		"change":
+			ChargeCommune.ouvrir("toulouse", id)
+		"maison_violette", "maison_pomme":
+			Biens.enter("toulouse/" + id)
+		_:
+			if SAINT_GEORGES.PORTES.has(id):
+				SalleJeu.ouvrir("toulouse", id)

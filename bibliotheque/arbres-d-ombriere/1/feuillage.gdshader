@@ -8,6 +8,13 @@ render_mode cull_disabled, diffuse_burley, specular_disabled;
 uniform float souffle = .06;
 // la part de lumière qui traverse les feuilles à contre-jour, réglable arbre par arbre (option contre_jour)
 instance uniform float contre_jour = .15;
+// le jour du ciel au cœur de la couronne : une lueur propre aux feuilles, que l'ombre portée n'éteint pas, si bien que
+// le dessous et le cœur de la voûte restent lisibles (réglable arbre par arbre, option jour)
+instance uniform float jour = .6;
+// l'ajour de l'ombre portée : la part des cartes (par variante) qui ne laissent pas d'ombre au sol, pour que l'ombre
+// d'un platane se troue de soleil au lieu de couvrir tout le pavé (option ajour, 0 par défaut). La passe d'ombre du
+// soleil se reconnaît à sa projection orthographique ; les caméras du jeu sont en perspective.
+instance uniform float ajour = 0.;
 
 void vertex() {
  vec3 monde = (MODEL_MATRIX * vec4(VERTEX, 1.)).xyz;
@@ -50,6 +57,9 @@ vec2 marronnier(vec2 l, vec2 c, float ang, float taille) {
 
 void fragment() {
  float k = floor(UV.x);
+ if (ajour > 0. && PROJECTION_MATRIX[3][3] > .5 && (k + .5) / 64. < ajour) {
+  discard;
+ }
  float forme = floor(UV.y * .5);
  vec2 l = vec2(fract(UV.x), UV.y - forme * 2.);
  float dedans = 1.;
@@ -102,12 +112,13 @@ void fragment() {
  // le liseré sombre au bord de chaque feuille et les nervures plus claires : la dentelle se lit de près
  base *= mix(1., .8, smoothstep(-.1, 0., dedans));
  base = mix(base, base * 1.18, nervure * .5);
- // vue d'en dessous, la voûte s'assombrit de moitié : le dessous des feuilles est dans l'ombre de la couronne
+ // vue d'en dessous, la voûte s'assombrit un peu : le dessous des feuilles est dans l'ombre de la couronne
  vec3 vers_oeil = (INV_VIEW_MATRIX * vec4(VIEW, 0.)).xyz;
- base *= mix(1., .5, smoothstep(.05, -.45, vers_oeil.y));
+ base *= mix(1., .85, smoothstep(.05, -.45, vers_oeil.y));
  ALBEDO = base;
  ROUGHNESS = .9;
  BACKLIGHT = ALBEDO * contre_jour;
+ EMISSION = ALBEDO * jour;
 }
 
 // La lumière en aplats, à la manière des arbres de Zelda : trois tons nets (l'ombre, le mi-jour, le plein

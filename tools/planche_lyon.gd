@@ -8,6 +8,10 @@ extends SceneTree
 ##   --vue=mobilier    chaque objet du mobilier, avec son nom
 ##   --vue=vegetation  chaque plante, avec son nom
 ##   --vue=quais       les sols et les modules de quai
+##   --vue=renaissance une ruelle de façades Renaissance du Vieux-Lyon (--nom=pres : une façade de près)
+##   --vue=lointain  l'îlot et ses massifs vus de 55 m, pour le niveau de détail (--nom=lod=0 : l'avant ; lod=1 : le corps lointain de près)
+##   --vue=toits      un îlot de huit immeubles vu de 70 m, pour le grain des toits (--nom=grain=1 ; verdict n° 32)
+##   --vue=jardin      un coin de jardin : la nappe d'herbe, des buissons et un massif en feuilles fines, de près
 ##   --vue=place       une place lyonnaise : fontaine au lion, terrasses, quai, rivière, pont, colline
 ##   --vue=rue         la même place à hauteur d'œil
 ##   --vue=quai        le quai, la rivière et le pont, vus du parapet
@@ -57,11 +61,20 @@ func _init() -> void:
 					opt["chassis"] = 1 + rang.find(e) % 3
 					opt["souches"] = "grosses"
 					opt["pente"] = 29.0
+				if nom == "sathonay" and rang.find(e) % 2 == 0 and e[0] != "cafe":
+					# une boutique sur deux sans store banne (verdict de Sathonay)
+					opt["store"] = false
 				var m := _pose(FACADIER, "type", e[0], Vector3(x + 4.75, 0, 0), rang.find(e) + 3, opt)
 				if e[0] == "cafe":
 					_pose(MOBILIER, "objet", "terrasse", Vector3(x + 4.75, 0, 3.4), rang.find(e) + 1, {})
 				x += 9.9
-			if nom == "toits":
+			if nom == "sathonay":
+				# les marronniers du mail, de trois verts mêlés tirés par la graine
+				for i in 5:
+					_pose("arbres-d-ombriere@1", "arbre", "marronnier", Vector3(-18 + i * 9.0, 0, 12), i + 1, {"teinte": ["6e9440", "8ab04a", "4d6e33"]})
+				cam.fov = 50
+				cam.look_at_from_position(Vector3(2, 9, 34), Vector3(2, 6, 0))
+			elif nom == "toits":
 				cam.fov = 45
 				cam.look_at_from_position(Vector3(2, 34, 30), Vector3(2, 14, -4))
 			elif nom == "haut":
@@ -70,6 +83,69 @@ func _init() -> void:
 			else:
 				cam.fov = 55
 				cam.look_at_from_position(Vector3(-4, 1.65, 10.5), Vector3(3, 2.6, 1))
+		"toits":
+			# un îlot de huit immeubles vu comme la Vue1 de Sathonay (caméra à 70 m, tangage -48°), pour mesurer le grain
+			# des toits (--nom=grain=x, 0 par défaut ; verdict n° 32)
+			_sol(Vector2(120, 120), Color("b8a27a"))
+			var grain := 0.0
+			if nom.begins_with("grain="):
+				grain = float(nom.trim_prefix("grain="))
+			var types_toits := ["classique", "immeuble", "cafe", "hotel", "maison", "etroite", "traboule", "angle"]
+			var xs := [-24.0, -19.0]
+			for i in types_toits.size():
+				var rangee := i % 2
+				var opt := {"grain": grain, "w": 10.0 if types_toits[i] != "etroite" else 5.2}
+				var m := _pose(FACADIER, "type", types_toits[i], Vector3(xs[rangee], 0, -rangee * 26.0), i + 1, opt, 0.0 if rangee == 0 else PI)
+				m.position.x += float(m.get_meta("w")) * 0.5
+				xs[rangee] += float(m.get_meta("w")) + 0.4
+			cam.fov = 40
+			cam.look_at_from_position(Vector3(-6, 52.0, 46.8 - 13.0), Vector3(-6, 0, -13.0))
+		"renaissance":
+			# une ruelle du Vieux-Lyon : cinq façades Renaissance en rangée (option renaissance), à hauteur d'œil ;
+			# --nom=pres : une seule façade de près, pour lire les croisées et les accolades
+			_sol(Vector2(80, 60), Color("a39b93"), Vector3(0, -0.01, 8))
+			var rang := [["classique", {"vigne": false}], ["etroite", {}], ["maison", {}], ["traboule", {}], ["classique", {"rdc": "boutique", "toile": ["7a2a2a", "f3ead6"]}]]
+			var x := -22.0
+			for i in rang.size():
+				var opt: Dictionary = rang[i][1]
+				opt["renaissance"] = true
+				var m := _pose(FACADIER, "type", rang[i][0], Vector3(x, 0, 0), i + 11, opt)
+				var w: float = m.get_meta("w")
+				m.position.x += w * 0.5
+				x += w + 0.3
+			if nom == "pres":
+				cam.fov = 48
+				cam.look_at_from_position(Vector3(-14, 2.2, 9.0), Vector3(-11.5, 6.5, 0))
+			else:
+				cam.fov = 60
+				cam.look_at_from_position(Vector3(-24, 1.65, 12.0), Vector3(-2, 5.5, -1))
+		"lointain":
+			# le niveau de détail : le même îlot que la vue toits, deux massifs et deux buissons, vus de la rue à 55 m
+			# (--nom=lod=x : la distance de bascule passée à tout le monde ; 0 = jamais, pour l'avant ; 1 = le corps
+			# lointain vu de près, pour le vérifier ; 40 par défaut sur la planche, 0 dans la brique)
+			_sol(Vector2(160, 160), Color("b8a27a"))
+			var lod := 40.0
+			if nom.begins_with("lod="):
+				lod = float(nom.trim_prefix("lod="))
+			var types_l := ["classique", "immeuble", "cafe", "hotel", "maison", "etroite", "traboule", "angle"]
+			var xs := [-24.0, -19.0]
+			for i in types_l.size():
+				var rangee := i % 2
+				var opt := {"lod": lod, "w": 10.0 if types_l[i] != "etroite" else 5.2, "grain": 1.0}
+				if i == 4:
+					opt["renaissance"] = true
+				var m := _pose(FACADIER, "type", types_l[i], Vector3(xs[rangee], 0, -rangee * 26.0), i + 1, opt, 0.0 if rangee == 0 else PI)
+				m.position.x += float(m.get_meta("w")) * 0.5
+				xs[rangee] += float(m.get_meta("w")) + 0.4
+			_pose(VEGETATION, "plante", "massif", Vector3(-10, 0, 5), 2, {"longueur": 4.0, "lod": lod, "fleurs": "e0605a"})
+			_pose(VEGETATION, "plante", "massif", Vector3(6, 0, 5), 3, {"longueur": 4.0, "lod": lod})
+			_pose(VEGETATION, "plante", "buisson", Vector3(-2, 0, 6), 4, {"hauteur": 1.3, "lod": lod, "fleurs": "f4f0e6"})
+			_pose(VEGETATION, "plante", "buisson", Vector3(14, 0, 6), 5, {"hauteur": 1.1, "lod": lod})
+			cam.fov = 40
+			if lod > 0.0 and lod < 5.0:
+				cam.look_at_from_position(Vector3(-6, 6, 26), Vector3(-2, 7, 0))
+			else:
+				cam.look_at_from_position(Vector3(-4, 1.7, 60), Vector3(-2, 7, 0))
 		"facadier", "detail":
 			_sol(Vector2(140, 60), Color("b8a27a"))
 			var types: Array = load(Bibliotheque.scene(FACADIER, "decor")).instantiate().types()
@@ -86,6 +162,15 @@ func _init() -> void:
 			else:
 				cam.fov = 50
 				cam.look_at_from_position(Vector3(-64, 3.0, 11), Vector3(-40, 9, -1))
+		"jardin":
+			# un coin de jardin : la nappe d'herbe, deux buissons et un massif en feuilles fines, fleuris, de près (revue n° 4, verdict n° 29)
+			_sol(Vector2(60, 60), Color("b8a27a"))
+			_pose(VEGETATION, "plante", "herbe", Vector3(0, 0, 0), 1, {"points": [[-5, -3], [5, -3.5], [5.5, 3], [1, 3.5], [-4.5, 2.5]]})
+			_pose(VEGETATION, "plante", "buisson", Vector3(-2.5, 0, -1.5), 2, {"hauteur": 1.3, "fleurs": "e0605a"})
+			_pose(VEGETATION, "plante", "buisson", Vector3(3.0, 0, -1.8), 3, {"hauteur": 1.0, "fleurs": "f4f0e6"})
+			_pose(VEGETATION, "plante", "massif", Vector3(0.5, 0, 1.2), 4, {"longueur": 3.5, "fleurs": "d04a8a"})
+			cam.fov = 45
+			cam.look_at_from_position(Vector3(2.5, 1.9, 6.5), Vector3(0, 0.5, -0.5))
 		"mobilier", "vegetation", "quais":
 			var id: String = {"mobilier": MOBILIER, "vegetation": VEGETATION, "quais": QUAIS}[vue]
 			var cle: String = {"mobilier": "objet", "vegetation": "plante", "quais": "module"}[vue]
