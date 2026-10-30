@@ -1765,7 +1765,7 @@ func _place() -> void:
 		troncs.remove_at(proche)
 	for k in troncs.size():
 		var p: Vector2 = troncs[k]
-		var arbre := _pose(OMBRIERE, "arbre", "marronnier", Vector3(p.x, y, p.y), 400 + k, {"hauteur": graines.randf_range(12.0, 16.0), "vent": 0.4, "densite": graines.randf_range(0.75, 0.95), "contre_jour": 0.6, "jour": 0.6, "teinte": PALETTES_MARRONNIER[k % PALETTES_MARRONNIER.size()]})
+		var arbre := _pose(OMBRIERE, "arbre", "marronnier", Vector3(p.x, y, p.y), 400 + k, {"hauteur": graines.randf_range(12.0, 16.0), "vent": 0.4, "densite": graines.randf_range(0.75, 0.95), "contre_jour": 0.6, "jour": 0.6, "ajour": 0.55, "teinte": PALETTES_MARRONNIER[k % PALETTES_MARRONNIER.size()]})
 		# des couronnes resserrées d'un huitième, que le sable et leur ombre séparent comme sur la planche
 		arbre.scale = Vector3(0.88, 1.0, 0.88)
 	var massifs := 0
@@ -2000,6 +2000,8 @@ func _escalier() -> void:
 			# le chaperon étroit, de la pierre dorée du muret
 			_boite(e, Vector3(3.44, 0.07, 0.28), Vector3(xg, bas + h_mur + 0.485, za - 0.12), Color("#d4b781"))
 			_boite(e, Vector3(3.4, 0.6, 3.02), Vector3(xg, yy - 0.12, zc), Color("#5f7f35"))
+			# l'herbe de la planche, en touffes, sur le fond vert
+			_pose(VEGETATION, "plante", "herbe", Vector3(xg, yy + 0.18, zc), 860 + k * 2 + int(cote > 0.0), {"longueur": 3.3, "largeur": 2.9})
 			_boite(e, Vector3(0.22, 0.75, 3.02), Vector3(10.0 + cote * 1.6, yy - 0.08, zc), VILLEBOIS)
 			if k % 2 == 1:
 				_pose(VEGETATION, "plante", "massif" if k % 4 == 1 else "buisson", Vector3(xg + cote * 0.4, yy + 0.18, zc), 820 + k * 2 + int(cote > 0.0), {"fleurs": ["f4f0e6", "e0605a", "d04a8a", "f2c14e"][(k + int(cote > 0.0)) % 4], "longueur": 2.4}, PI * 0.5)
