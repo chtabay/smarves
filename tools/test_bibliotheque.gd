@@ -396,6 +396,10 @@ func _init() -> void:
 	check(is_equal_approx(float(mi_clair.get_instance_shader_parameter("jour")), 1.1) and is_equal_approx(float(platane.find_children("*", "MeshInstance3D", true, false)[0].get_instance_shader_parameter("jour")), 0.6),
 		"l'arbre d'ombrière règle le jour de sa voûte par l'option jour (0,6 par défaut)")
 	check(str(platane.ECORCE["platane"]) == "b8ae98" and Color(platane.ECORCE["platane"]).get_luminance() < Color("c9bea0").get_luminance(), "le fût du platane est moins blanc qu'avant (#B8AE98)")
+	var teintes_plaques := {}
+	for hexa in platane.PLAQUES:
+		teintes_plaques[int(Color(hexa).h * 12.0)] = true
+	check(teintes_plaques.size() >= 2 and platane.PLAQUES.size() >= 6, "les plaques du platane mêlent crème, gris vert et ocre (%d teintes)" % platane.PLAQUES.size())
 	var plat: Node3D = paquet_lyon.instantiate()
 	plat.options = {"w": 10.0, "d": 11.0, "niveaux": 3}
 	toulouse.add_child(plat)
