@@ -23,7 +23,7 @@ const FRAICHEUR := 60.0
 
 ## « » tant que rien n'est lu, puis « lecture », « ok » ou « hors_ligne ».
 var etat := ""
-## La dernière lecture : {moi, classement, annonces, maisons, passages, mots}.
+## La dernière lecture : {moi, classement, annonces, maisons, passages, mots, amis, rendez_vous}.
 var donnees := {}
 var _lu_a := -1000.0
 var _vitrine_envoyee := ""
@@ -101,12 +101,29 @@ func annoncer(texte: String) -> Dictionary:
 		"texte": "Une ligne de 120 caractères au plus, sans chevrons."})}
 
 
-## {ok, message} : un mot dans le livre d'or d'un autre joueur, à la porte d'un logement qu'il possède.
+## {ok, message} : un mot dans le livre d'or d'un autre joueur, à la porte d'un logement qu'il possède,
+## ou, pour un ami (lot « mairie »), en poste restante à la mairie : un par ami et par jour (docs/AMIS.md).
+## Un rendez-vous écrit dans le mot (« vendredi vers 11 h 15 ») est relevé par le serveur et rappelé aux deux.
 func laisser_mot(pour: String, lot: String, texte: String) -> Dictionary:
 	var r: Dictionary = await Compte.appeler("smarves_mot_laisser", {"p_pour": pour, "p_lot": lot, "p_texte": texte})
 	var ok: bool = r.code == 200 and r.corps is Dictionary and r.corps.get("ok", false)
-	return {"ok": ok, "message": "Votre mot est glissé sous la porte." if ok else _raison(r, {"heure": "Trois mots par heure : la boîte aux lettres déborde.",
-		"texte": "Un mot de 200 caractères au plus, sans chevrons.", "porte": "Ce joueur n'habite plus ici."})}
+	var message := "Votre mot est glissé sous la porte."
+	if ok and lot == "mairie":
+		message = "Votre mot l'attend à la mairie."
+		if r.corps.get("rdv") != null:
+			message += " Le rendez-vous est noté au panneau, pour vous deux."
+		lire(true)
+	return {"ok": ok, "message": message if ok else _raison(r, {"heure": "Trois mots par heure : la boîte aux lettres déborde.",
+		"texte": "Un mot de 200 caractères au plus, sans chevrons.", "porte": "Ce joueur n'habite plus ici.",
+		"ami": "Vous ne vous êtes pas encore assez vus au village pour un mot à la mairie.",
+		"jour": "Un mot par jour à chaque ami : le vôtre l'attend déjà à la mairie."})}
+
+
+## Le joueur vient de se tenir de près à côté d'un autre habitant (joueur ou pensionnaire) : le serveur le
+## compte, et deux habitants qui se sont croisés deux jours différents deviennent amis (docs/AMIS.md).
+func rencontrer(membre: String) -> void:
+	if Compte.connecte() and not _essai and membre != "":
+		Compte.appeler("smarves_rencontrer", {"p_autre": membre})
 
 
 func _raison(r: Dictionary, raisons: Dictionary) -> String:
@@ -125,6 +142,16 @@ func voisins(lot: String) -> Array:
 
 func mots() -> Array:
 	return donnees.get("mots", [])
+
+
+## Les amis du joueur : [{id, nom, jours (de rencontre), dernier (secondes Unix), vu (dernier passage, ou null)}].
+func amis() -> Array:
+	return donnees.get("amis", [])
+
+
+## Les rendez-vous relevés dans les mots échangés avec des amis, à venir : [{id, nom, de_moi, quand (secondes Unix), texte}].
+func rendez_vous() -> Array:
+	return donnees.get("rendez_vous", [])
 
 
 func classement() -> Array:
@@ -172,5 +199,9 @@ func _mise_en_scene() -> void:
 		"maisons": {"maison_place": [{"id": "p", "nom": "Paulette", "habite": true, "meubles": 9}, {"id": "b", "nom": "Bastien", "habite": false, "meubles": 2}],
 			"chambre_cafe": [{"id": "m", "nom": "Maëlle", "habite": true, "meubles": 3}]},
 		"passages": {"cafe": ["Paulette", "Bastien"], "casino": ["Paulette"], "bois": ["Maëlle"]},
-		"mots": [{"nom": "Paulette", "lot": "maison_place", "texte": "Jolie maison ! Les volets mériteraient un coup de peinture.", "quand": maintenant - 5400}]}
+		"mots": [{"nom": "Paulette", "lot": "maison_place", "texte": "Jolie maison ! Les volets mériteraient un coup de peinture.", "quand": maintenant - 5400, "rdv": null},
+			{"nom": "Bastien", "lot": "mairie", "texte": "Au café demain vers 11 h 15, on fait une table ?", "quand": maintenant - 7200, "rdv": maintenant + 86400}],
+		"amis": [{"id": "b", "nom": "Bastien", "jours": 3, "dernier": maintenant - 7200, "vu": maintenant - 3600},
+			{"id": "m", "nom": "Maëlle", "jours": 2, "dernier": maintenant - 4 * 86400, "vu": null}],
+		"rendez_vous": [{"id": "b", "nom": "Bastien", "de_moi": false, "quand": maintenant + 86400, "texte": "Au café demain vers 11 h 15, on fait une table ?"}]}
 	etat = "ok"

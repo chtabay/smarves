@@ -1,7 +1,7 @@
 # Se retrouver au village : les amis et le mot laissé
 
-Note de cadrage du 30 octobre 2026. Rien ici n'est codé : on fixe d'abord le sujet et ce qu'il doit
-respecter, on décidera ensuite de ce qu'on construit.
+Note de cadrage du 30 octobre 2026, puis construite le même jour (la section « Ce qui est construit », en bas).
+On a fixé d'abord le sujet et ce qu'il doit respecter, puis construit le minimum.
 
 ## Ce que le jeu veut
 
@@ -91,3 +91,22 @@ Pour mémoire, et pour mesurer que c'est petit :
 
 Tout tient dans le socle (la fonction `doublures` et `scripts/socle/`) et sert aussi aux joueurs humains.
 Aucune carte n'a rien à fournir.
+
+## Ce qui est construit (30 octobre 2026)
+
+- **La rencontre comptée** (`smarves.rencontres`, une ligne par paire et par jour). Le jeu la déclare quand le
+  joueur reste huit secondes à moins de cinq mètres d'un autre habitant, joueur ou pensionnaire
+  (`Presences`, `smarves_rencontrer`) ; le serveur la déclare pour un pensionnaire à chaque réveil, pour les
+  gens à côté de lui. Deux habitants sont **amis** quand ils se sont croisés **deux jours différents** dans les
+  quatre-vingt-dix derniers jours, ou se sont laissé des mots dans les deux sens (`smarves.amis`).
+- **Le mot à la mairie** : le mot à la porte accepte le lot `mairie` pour un ami, sur place, un par ami et par
+  jour (`smarves.mot_poser`, raisons `ami` et `jour`). Le même courrier se lit au panneau de chaque mairie,
+  dans le livre d'or ; jamais depuis chez soi.
+- **Le rendez-vous relevé** dans le texte du mot (un jour de la semaine, « demain », une heure comme « 11 h 15 »,
+  heure de Paris : `smarves.rendez_vous`), gardé dans `mots.rdv`, rappelé aux deux au panneau (section
+  RENDEZ-VOUS), dans la vue et la fiche du pensionnaire, pendant quatorze jours.
+- **Le panneau** a une section « Vos amis » (leur dernier passage, le bouton « Un mot à la mairie ») ; le
+  contexte du pensionnaire dit « Tes amis » et « Tes rendez-vous ».
+
+Pas de café comme porte pour l'instant (la mairie suffit, et elle est dans chaque commune), pas de liste à
+gérer, pas de messagerie.

@@ -21,16 +21,18 @@ const LIEUX := {"place": "la place", "cafe": "le Café de la Place", "casino": "
 	"moulin": "le Moulin des Dames", "banque": "le Crédit Smarvois", "bois": "le bois de Saint-Pierre",
 	"passelourdin": "Passelourdin", "boutique": "la boutique"}
 const NOMS_LOTS := {"chambre_cafe": "La chambre au-dessus du café", "maison_place": "La maison de maître",
-	"maison_eglise": "La maison de la rue de l'Église"}
+	"maison_eglise": "La maison de la rue de l'Église", "mairie": "La mairie"}
 const JOURS := ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"]
 
 var _root: Control
 var _box: VBoxContainer
 ## « panneau », ou le lot d'une maison.
 var _mode := ""
-## Le joueur à qui l'on écrit, à la porte d'une maison.
+## Le joueur à qui l'on écrit, à la porte d'une maison ou, pour un ami, à la mairie.
 var _pour := {}
 var _note := ""
+## La note vient d'un mot à un ami (elle s'affiche alors dans « Vos amis », pas sous l'annonce).
+var _note_ami := false
 var _mouse_before := Input.MOUSE_MODE_VISIBLE
 var _paused_before := false
 
@@ -105,6 +107,7 @@ func _ouvrir(mode: String) -> void:
 	_mode = mode
 	_pour = {}
 	_note = ""
+	_note_ami = false
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	get_tree().paused = true
 	_root.visible = true
@@ -160,6 +163,12 @@ func _remplir_panneau() -> void:
 	for rv in Voisinage.prochains_rendez_vous():
 		gauche.add_child(_mot("%s, %s à %s" % [rv.quoi, _jour(rv.quand), _heure(rv.quand)], 17, CRAIE, null, true))
 	gauche.add_child(_mot("Dans %s. La table est partagée tous les soirs entre les joueurs connectés : à ces heures-là, on y trouve du monde." % Voisinage.RENDEZ_VOUS[0][4], 14, DOUX, null, true))
+	# Les rendez-vous relevés dans les mots échangés avec des amis (docs/AMIS.md).
+	for rv in Voisinage.rendez_vous().slice(0, 6):
+		var quand := int(rv.quand) + _decalage()
+		gauche.add_child(_mot("%s %s, %s à %s" % ["Vous avez proposé à" if rv.get("de_moi", false) else "Proposé par", rv.nom, _jour(quand), _heure(quand)], 16, OR, null, true))
+		gauche.add_child(_mot("« %s »" % rv.texte, 13, DOUX, null, true))
+	_remplir_amis(gauche)
 	# Les petites annonces.
 	droite.add_child(_titre_affiche("PETITES ANNONCES"))
 	var annonces := Voisinage.annonces()
@@ -171,7 +180,8 @@ func _remplir_panneau() -> void:
 	droite.add_child(_saisie("Votre annonce (une par jour)", 120, func(t):
 		var r: Dictionary = await Voisinage.annoncer(t)
 		_note = r.message
-		_remplir()))
+		_note_ami = false
+		_remplir(), not _note_ami))
 	droite.add_child(_filet())
 	droite.add_child(_titre_affiche("PASSÉS AU VILLAGE DEPUIS HIER"))
 	var passages := Voisinage.passages()
@@ -192,6 +202,44 @@ func _remplir_panneau() -> void:
 	for m in mots.slice(0, 8):
 		livre.add_child(_mot("« %s »" % m.texte, 16, CRAIE, null, true))
 		livre.add_child(_mot("%s, à %s, %s" % [m.nom, NOMS_LOTS.get(m.lot, "votre porte").to_lower(), _il_y_a(int(m.quand))], 13, DOUX))
+
+
+## Les amis du joueur, et le mot qu'on leur laisse à la mairie : un par ami et par jour, qui dit où et quand
+## (docs/AMIS.md). L'amitié se gagne en se croisant de près au village, deux jours différents.
+func _remplir_amis(colonne: VBoxContainer) -> void:
+	if Voisinage.donnees.get("moi") == null:
+		return
+	colonne.add_child(_filet())
+	colonne.add_child(_titre_affiche("VOS AMIS"))
+	var amis := Voisinage.amis()
+	if amis.is_empty():
+		colonne.add_child(_mot("Personne encore : on devient amis en se croisant de près au village, deux jours différents.", 15, DOUX, null, true))
+		return
+	for a in amis.slice(0, 8):
+		var l := HBoxContainer.new()
+		l.add_theme_constant_override("separation", 14)
+		l.add_child(_mot(a.nom, 18, CRAIE, Polices.gras()))
+		var vu = a.get("vu")
+		l.add_child(_mot(("passé %s" % _il_y_a(int(vu))) if vu != null else ("vu %s" % _il_y_a(int(a.dernier))), 14, DOUX))
+		var s := Control.new()
+		s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		l.add_child(s)
+		if Compte.connecte():
+			l.add_child(_bouton("Un mot à la mairie", Color(0, 0, 0, 0), EAU, EAU, func():
+				_pour = a
+				_note = ""
+				_remplir(), 15))
+		colonne.add_child(l)
+	if not _pour.is_empty():
+		colonne.add_child(_saisie("Un mot pour %s, en poste restante : où et quand ?" % _pour.nom, 200, func(t):
+			var r: Dictionary = await Voisinage.laisser_mot(str(_pour.id), "mairie", t)
+			_note = r.message
+			_note_ami = true
+			if r.ok:
+				_pour = {}
+			_remplir()))
+	elif _note != "" and _note_ami:
+		colonne.add_child(_mot(_note, 15, OR))
 
 
 # --- La porte d'une maison ---------------------------------------------------------------------
@@ -236,7 +284,7 @@ func _remplir_maison(lot: String) -> void:
 # --- Les pièces --------------------------------------------------------------------------------
 
 ## Une ligne à écrire et son bouton ; sans compte, une phrase qui dit pourquoi on ne peut pas.
-func _saisie(invite: String, longueur: int, envoyer: Callable) -> Control:
+func _saisie(invite: String, longueur: int, envoyer: Callable, note_ici := true) -> Control:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 6)
 	if not Compte.connecte():
@@ -254,9 +302,12 @@ func _saisie(invite: String, longueur: int, envoyer: Callable) -> Control:
 	var envoi := func():
 		if champ.text.strip_edges() != "":
 			envoyer.call(champ.text.strip_edges())
-	h.add_child(_bouton("Afficher" if _mode == "panneau" else "Glisser sous la porte", Color(0, 0, 0, 0), OR, OR, envoi, 15))
+	var verbe := "Glisser sous la porte"
+	if _mode == "panneau":
+		verbe = "Laisser à la mairie" if longueur == 200 else "Afficher"
+	h.add_child(_bouton(verbe, Color(0, 0, 0, 0), OR, OR, envoi, 15))
 	champ.text_submitted.connect(func(_t): envoi.call())
-	if _note != "":
+	if _note != "" and note_ici:
 		h.add_child(_mot(_note, 14, OR))
 	v.add_child(h)
 	return v
