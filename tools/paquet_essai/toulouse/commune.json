@@ -3,11 +3,11 @@
 	"id": "toulouse",
 	"nom": "Toulouse",
 	"auteur": "Claude",
-	"version": "0.2.0",
-	"socle_min": "1.25",
+	"version": "0.3.2",
+	"socle_min": "1.27",
 	"insee": "31555",
 	"population": 514819,
-	"description": "La place Saint-Georges, son tapis de brique sous les platanes, ses terrasses et l'hôtel de Lafage, dans le plan réel du centre de Toulouse. Saint-Étienne et Wilson suivront.",
+	"description": "La place Saint-Georges, son tapis de brique sous les platanes, ses parterres, ses terrasses et l'hôtel de Lafage, dans le plan réel du centre de Toulouse ; l'étude du notaire, une chemiserie, une charge d'agent de change et la station de taxis de la rue de la Pomme. Saint-Étienne et Wilson suivront.",
 	"scene": "res://communes/toulouse/commune.tscn",
 	"arrivee": {
 		"lot": "place",
@@ -80,6 +80,390 @@
 				"« Au Cercle, on joue en silence et on perd avec élégance. »",
 				"« La violette, monsieur, c'est la fleur de la ville. Elle pousse mieux sur les tapis verts. »"
 			]
+		},
+		{
+			"type": "arret_car",
+			"id": "taxis",
+			"nom": "La station de taxis de la rue de la Pomme",
+			"noeud": "ArretDeCar",
+			"lot": "place",
+			"abri": "la borne des taxis"
+		},
+		{
+			"type": "commerce",
+			"id": "chemiserie",
+			"nom": "La Chemiserie Saint-Georges",
+			"noeud": "PorteChemiserie",
+			"lot": "chemiserie",
+			"genre": "tenue",
+			"tenancier": "M. Fabre",
+			"graine": 77,
+			"enseigne": "Chemiserie Saint-Georges",
+			"repliques": [
+				"« Une chemise de lin pour les soirs de septembre : la brique garde la chaleur jusqu'à minuit. »",
+				"« Le bleu violette, c'est la couleur de la ville. On le porte au Capitole comme au rugby. »"
+			],
+			"articles": [
+				{
+					"id": "chemise_lin",
+					"nom": "La chemise de lin écru",
+					"prix": 350,
+					"couleur": "#e9dfc8",
+					"phrase": "« Elle se froisse, c'est son charme. »"
+				},
+				{
+					"id": "veste_violette",
+					"nom": "La veste violette des capitouls",
+					"prix": 1400,
+					"standing": 2,
+					"couleur": "#5b3a7a",
+					"phrase": "« Coupée comme une robe de capitoul, en plus court. »"
+				},
+				{
+					"id": "costume_brique",
+					"nom": "Le costume rose brique",
+					"prix": 4200,
+					"standing": 3,
+					"seuil": 3000,
+					"couleur": "#b5603c",
+					"phrase": "« Assorti à la place. On ne vous perdra pas de vue. »"
+				}
+			]
+		},
+		{
+			"type": "charge",
+			"id": "change",
+			"nom": "La charge d'Estrade et Fils, agent de change",
+			"noeud": "PorteChange",
+			"lot": "change",
+			"agent": "M. Estrade",
+			"graine": 1923,
+			"enseigne": "Estrade & Fils",
+			"repliques": [
+				"« Le pastel a fait la fortune de cette ville. Aujourd'hui, on vend des avions ; le principe n'a pas changé. »",
+				"« Achetez au son du canon, vendez au son du clairon. Et prenez un café entre les deux. »"
+			]
 		}
-	]
+	],
+	"notaire": {
+		"nom": "Maître Escudier",
+		"etude": "L'étude de Maître Escudier",
+		"titre": "Étude de Maître Escudier, notaire à Toulouse",
+		"graine": 5531,
+		"lot": "notaire",
+		"repliques": [
+			"« La place Saint-Georges ne se vend presque jamais. Quand une adresse se libère, on la signe le jour même. »",
+			"« Brique foraine, poutres de chêne, vue sur les platanes : c'est cher, et c'est juste. »"
+		],
+		"registre": {
+			"quartiers": [
+				{
+					"id": "saint_georges",
+					"nom": "La place Saint-Georges",
+					"style": "plan",
+					"decor": [
+						{
+							"forme": "rect",
+							"rect": [
+								0,
+								0,
+								1000,
+								620
+							],
+							"teinte": "fond"
+						},
+						{
+							"forme": "rect",
+							"rect": [
+								230,
+								110,
+								560,
+								400
+							],
+							"teinte": "place"
+						},
+						{
+							"forme": "rect",
+							"rect": [
+								0,
+								330,
+								230,
+								52
+							],
+							"teinte": "route"
+						},
+						{
+							"forme": "rect",
+							"rect": [
+								250,
+								0,
+								60,
+								110
+							],
+							"teinte": "route"
+						},
+						{
+							"forme": "rect",
+							"rect": [
+								790,
+								250,
+								210,
+								52
+							],
+							"teinte": "route"
+						},
+						{
+							"forme": "rect",
+							"rect": [
+								560,
+								510,
+								60,
+								110
+							],
+							"teinte": "route"
+						},
+						{
+							"forme": "rect",
+							"rect": [
+								330,
+								170,
+								300,
+								40
+							],
+							"teinte": "jardin"
+						},
+						{
+							"forme": "rect",
+							"rect": [
+								330,
+								170,
+								40,
+								150
+							],
+							"teinte": "jardin"
+						},
+						{
+							"forme": "rect",
+							"rect": [
+								590,
+								170,
+								40,
+								150
+							],
+							"teinte": "jardin"
+						},
+						{
+							"forme": "rect",
+							"rect": [
+								300,
+								250,
+								40,
+								170
+							],
+							"teinte": "jardin"
+						},
+						{
+							"forme": "rect",
+							"rect": [
+								380,
+								380,
+								40,
+								110
+							],
+							"teinte": "jardin"
+						},
+						{
+							"forme": "rect",
+							"rect": [
+								560,
+								350,
+								170,
+								40
+							],
+							"teinte": "jardin"
+						},
+						{
+							"forme": "rect",
+							"rect": [
+								690,
+								280,
+								40,
+								110
+							],
+							"teinte": "jardin"
+						},
+						{
+							"forme": "rond",
+							"centre": [
+								480,
+								240
+							],
+							"rayon": 45,
+							"teinte": "cour"
+						}
+					],
+					"textes": [
+						{
+							"texte": "Place Saint-Georges",
+							"rect": [
+								400,
+								420,
+								260,
+								40
+							],
+							"taille": 24
+						},
+						{
+							"texte": "Rue de la Pomme",
+							"rect": [
+								10,
+								336,
+								210,
+								40
+							],
+							"taille": 18
+						},
+						{
+							"texte": "Rue Saint-Antoine-du-T",
+							"rect": [
+								120,
+								8,
+								300,
+								30
+							],
+							"taille": 16
+						},
+						{
+							"texte": "Rue Alexandre-Fourtanier",
+							"rect": [
+								790,
+								256,
+								210,
+								40
+							],
+							"taille": 15
+						},
+						{
+							"texte": "Rue Boulbonne",
+							"rect": [
+								630,
+								580,
+								200,
+								30
+							],
+							"taille": 16
+						}
+					]
+				}
+			],
+			"adresses": [
+				{
+					"id": "maison_violette",
+					"quartier": "saint_georges",
+					"rect": [
+						330,
+						20,
+						150,
+						80
+					],
+					"numero": 4,
+					"ligne": "4, place Saint-Georges",
+					"genre": "maison",
+					"nom": "L'appartement sur la place",
+					"prix": 14000,
+					"de": "La famille Castan",
+					"interieur": "maison_haute_v1",
+					"phrase": "« Trois fenêtres sur les platanes, et les cloches de Saint-Étienne le dimanche. »",
+					"lot": "maison_violette"
+				},
+				{
+					"id": "murs_terrasse_nord",
+					"quartier": "saint_georges",
+					"rect": [
+						500,
+						20,
+						150,
+						80
+					],
+					"numero": 8,
+					"ligne": "8, place Saint-Georges",
+					"genre": "murs",
+					"nom": "Les murs du café du nord",
+					"prix": 26000,
+					"de": "M. Peyrolles",
+					"phrase": "« La terrasse est au soleil du soir. C'est elle qui paie le loyer. »"
+				},
+				{
+					"id": "maison_pomme",
+					"quartier": "saint_georges",
+					"rect": [
+						20,
+						230,
+						180,
+						90
+					],
+					"numero": 12,
+					"ligne": "12, rue de la Pomme",
+					"genre": "maison",
+					"nom": "La maison de la rue de la Pomme",
+					"prix": 9500,
+					"de": "Mme Bonnefoy",
+					"interieur": "maison_v1",
+					"phrase": "« Étroite et haute, comme toutes ici. L'escalier est d'époque. »",
+					"lot": "maison_pomme"
+				},
+				{
+					"id": "murs_chemiserie",
+					"quartier": "saint_georges",
+					"rect": [
+						680,
+						520,
+						170,
+						90
+					],
+					"numero": 21,
+					"ligne": "21, place Saint-Georges",
+					"genre": "murs",
+					"nom": "Les murs de la chemiserie",
+					"prix": 18000,
+					"de": "M. Fabre",
+					"phrase": "« M. Fabre paie toujours le cinq du mois. »"
+				},
+				{
+					"id": "murs_change",
+					"quartier": "saint_georges",
+					"rect": [
+						250,
+						520,
+						170,
+						90
+					],
+					"numero": 27,
+					"ligne": "27, place Saint-Georges",
+					"genre": "murs",
+					"nom": "Les murs de la charge d'agent de change",
+					"prix": 32000,
+					"de": "La maison Estrade",
+					"phrase": "« Les coffres sont scellés dans la brique. Ils restent. »"
+				},
+				{
+					"id": "hotel_lafage",
+					"quartier": "saint_georges",
+					"rect": [
+						820,
+						100,
+						160,
+						140
+					],
+					"numero": 15,
+					"ligne": "15, place Saint-Georges",
+					"genre": "public",
+					"nom": "Une part de l'hôtel de Lafage",
+					"prix": 60000,
+					"de": "La Ville",
+					"phrase": "« Un hôtel de 1636, classé. On n'en vend que des parts, et la Ville les rachète rarement. »"
+				}
+			]
+		}
+	}
 }

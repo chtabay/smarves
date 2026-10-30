@@ -99,6 +99,37 @@ func _init() -> void:
 	var sol: float = s.hauteur(p.global_position.x, p.global_position.z)
 	check(absf(p.global_position.y - sol) < 0.3 and p.is_on_floor(), "l'habitant est posé sur la place (y %.2f, sol %.2f)" % [p.global_position.y, sol])
 
+	# Le panneau d'affichage de la mairie : le socle le pose au point d'arrivée, la commune n'a rien fait.
+	var tableau: Node = root.get_node("/root/Tableau")
+	var panneau: Node3D = s.find_child("PanneauDuSocle", true, false)
+	var loin: float = panneau.global_position.distance_to(p.global_position) if panneau else -1.0
+	check(panneau != null and loin > 1.0 and loin < 4.0, "le panneau d'affichage est posé près de l'arrivée (%.1f m)" % loin)
+	if panneau != null:
+		var zone: Area3D = null
+		for n in panneau.get_children():
+			if n is Area3D:
+				zone = n
+		check(zone != null and str(zone.get_meta("prompt", "")).begins_with("E :"), "avec sa zone où appuyer sur E")
+		p.interact.emit(zone)
+		await process_frame
+		check(tableau.is_open() and str(tableau._en_tete()).contains("A V A I L L E S"), "E l'ouvre, au nom de la commune")
+		tableau.fermer()
+		await process_frame
+		# Avec un voisinage (la mise en scène des captures) : les amis et le rendez-vous relevé dans un mot (docs/AMIS.md).
+		var voisinage: Node = root.get_node("/root/Voisinage")
+		voisinage._mise_en_scene()
+		p.interact.emit(zone)
+		await process_frame
+		var textes := _textes(tableau)
+		check(tableau.is_open() and textes.any(func(t): return t == "VOS AMIS") and textes.any(func(t): return t.begins_with("Bastien")),
+			"le panneau dit les amis du joueur")
+		check(textes.any(func(t): return t.begins_with("Proposé par Bastien, demain à")), "et le rendez-vous relevé dans le mot de Bastien")
+		check(textes.any(func(t): return t.begins_with("Bastien, à la mairie")), "le mot laissé à la mairie se lit au livre d'or")
+		tableau.fermer()
+		voisinage.donnees = {}
+		voisinage.etat = ""
+		await process_frame
+
 	# Il marche : vers l'église, par la rue.
 	var depart := p.global_position
 	p.auto_move = Vector3(0, 0, -1)
@@ -154,3 +185,12 @@ func _init() -> void:
 
 func _attendre(s: float) -> void:
 	await create_timer(s, true).timeout
+
+
+static func _textes(n: Node) -> Array:
+	var out := []
+	if n is Label:
+		out.append(str(n.text))
+	for c in n.get_children():
+		out.append_array(_textes(c))
+	return out

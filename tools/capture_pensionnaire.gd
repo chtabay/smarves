@@ -1,7 +1,7 @@
 extends SceneTree
 ## Captures de la fiche « Mon pensionnaire » du carnet, avec une fiche d'essai (rien ne part au serveur) :
 ## godot --path . -s tools/capture_pensionnaire.gd -- --capture-agenda --compte-essai=a_jour --pensionnaire-essai[=inscrit] --sortie=<fichier.png> [--base=600]
-## (sans « =inscrit », le formulaire de création ; avec, un pensionnaire qui a déjà joué.)
+## (sans « =inscrit », le renvoi vers Lasso où il se crée ; avec, un pensionnaire qui a déjà joué.)
 
 func _initialize() -> void:
 	_lancer.call_deferred()

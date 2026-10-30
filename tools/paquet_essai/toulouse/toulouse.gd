@@ -9,7 +9,9 @@ extends Node3D
 const DOSSIER := "res://communes/toulouse/"
 const SAINT_GEORGES := preload(DOSSIER + "saint_georges.gd")
 const UNITE := 2.4
-const CRANS := [[9.0, -48.0, 34.0], [18.0, -51.0, 30.0], [32.0, -58.0, 30.0]]
+## Les crans de la caméra : [distance, plongée, champ]. On arrive au deuxième, au-dessus de l'habitant
+## (Guillaume, 30 octobre : le premier, sous les platanes, est trop bas pour jouer) ; la molette y descend.
+const CRANS := [[6.0, -28.0, 45.0], [9.0, -48.0, 34.0], [18.0, -51.0, 30.0], [32.0, -58.0, 30.0]]
 
 ## La lumière de 18 h en septembre (note : « Lumière et caméras ») : soleil d'ouest-sud-ouest, bas et doré.
 const SOLEIL := {"hauteur": 36.0, "vient_de": 262.0, "couleur": Color("ffd9a8")}
@@ -394,11 +396,36 @@ func _joueur() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	camera.target = player.global_position + Vector3(0, 0.3, 0)
 	camera.set("_target_goal", camera.target)
+	# la caméra derrière l'habitant, qui regarde la place comme lui
+	var devant: Vector3 = player.global_basis.z
+	camera.yaw = atan2(-devant.x, -devant.z)
+	camera.set("_yaw_goal", camera.yaw)
 	camera.use_notches(CRANS, 1)
+
+
+## La caméra de dessus suit l'habitant (Guillaume, 30 octobre : en marchant vers le haut de l'écran, il en
+## sortait, la vue restait fixe). En vue à pied (Vue, Tab), l'habitant n'a plus de caméra à suivre.
+func _process(_delta: float) -> void:
+	if player != null and player.follow_camera == camera:
+		camera.set("_target_goal", player.global_position + Vector3(0, 0.3, 0))
 
 
 ## Les portes de la place : les salles de jeu du manifeste, ouvertes par le socle (fermées, la porte dit le seuil).
 func _interagir(cible: Node) -> void:
 	var id := str(cible.get_meta("interact", ""))
-	if SAINT_GEORGES.PORTES.has(id):
-		SalleJeu.ouvrir("toulouse", id)
+	match id:
+		"taxi":
+			# la carte de toutes les communes, pas celle du car départemental : Toulouse est seule de son
+			# département, le car n'y dessert personne (Guillaume, 30 octobre)
+			Carte.ouvrir()
+		"notaire":
+			Etude.ouvrir("toulouse")
+		"chemiserie":
+			Commerce.ouvrir("toulouse", id)
+		"change":
+			ChargeCommune.ouvrir("toulouse", id)
+		"maison_violette", "maison_pomme":
+			Biens.enter("toulouse/" + id)
+		_:
+			if SAINT_GEORGES.PORTES.has(id):
+				SalleJeu.ouvrir("toulouse", id)

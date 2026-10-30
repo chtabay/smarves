@@ -79,3 +79,10 @@ func _joueur() -> void:
 	camera.target = player.global_position + Vector3(0, 0.3, 0)
 	camera.set("_target_goal", camera.target)
 	camera.use_notches(CRANS, 1)
+
+
+## La caméra de dessus suit l'habitant (Guillaume, 30 octobre : en marchant vers le haut de l'écran, il en
+## sortait, la vue restait fixe). En vue à pied (Vue, Tab), l'habitant n'a plus de caméra à suivre.
+func _process(_delta: float) -> void:
+	if player != null and player.follow_camera == camera:
+		camera.set("_target_goal", player.global_position + Vector3(0, 0.3, 0))

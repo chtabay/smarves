@@ -1,7 +1,7 @@
 # Se retrouver au village : les amis et le mot laissé
 
-Note de cadrage du 30 octobre 2026. Rien ici n'est codé : on fixe d'abord le sujet et ce qu'il doit
-respecter, on décidera ensuite de ce qu'on construit.
+Note de cadrage du 30 octobre 2026, puis construite le même jour (la section « Ce qui est construit », en bas).
+On a fixé d'abord le sujet et ce qu'il doit respecter, puis construit le minimum.
 
 ## Ce que le jeu veut
 
@@ -50,6 +50,11 @@ Une boîte invite à écrire long et souvent, et devient vite un chat différé.
 
 - **court** (les 200 caractères du mot à la porte), **adressé** à un ami, **déposé sur place** (la mairie
   ou le café, en y allant) et **trouvé sur place** (en y repassant) ;
+- **le même courrier à chaque mairie**, comme une poste restante : un mot déposé à Smarves se relève aussi au
+  panneau de la mairie de Chauvigny ou de Lyon, parce qu'il suit la personne, pas le lieu. On garde le geste
+  d'aller à la mairie sans obliger à retraverser une commune pour un mot. Jamais depuis chez soi : c'est là
+  que le mot redeviendrait une boîte mail. La fiche du pensionnaire lui rappelle ce qu'il a déjà relevé,
+  comme un souvenir, pas comme une boîte à ouvrir ;
 - il dit surtout **où et quand** : « Au café vendredi vers 11 h 15, on fait une table ? » Un rendez-vous
   proposé dans un mot est relevé par le jeu et rappelé aux deux (dans la fiche du pensionnaire, dans la
   vue quand l'heure approche) ;
@@ -75,9 +80,33 @@ Pour mémoire, et pour mesurer que c'est petit :
 1. **La mairie et le café comme portes** : le mot à la porte accepte un ami comme destinataire, à ces
    deux adresses, en plus des maisons. Côté serveur, une règle de plus dans la vérification des actions ;
    côté jeu, le même geste qu'une annonce, sur place.
+   **Aucune commune n'a rien à refaire** : le panneau d'affichage est un autoload du socle (`Tableau`), que
+   seule la place de Smarves posait. **Fait le 30 octobre 2026** : le socle le pose lui-même dans chaque
+   commune greffée, au point d'arrivée, comme il pose déjà le stade ou la salle de jeu ; une commune qui le veut
+   devant sa vraie mairie pose un `Node3D` nommé `PanneauMairie` dans sa scène (docs/COMMUNE.md). Les paquets
+   existants le reçoivent au prochain jeu, sans être republiés.
 2. **L'amitié calculée** depuis les échanges déjà comptés, avec un seuil et une durée, lue par la fiche.
 3. **Le rendez-vous relevé** dans le mot (un jour, une heure, un lieu du village), rappelé dans la fiche
    et la vue des deux. Rien ne l'impose : on peut ne pas venir.
 
 Tout tient dans le socle (la fonction `doublures` et `scripts/socle/`) et sert aussi aux joueurs humains.
 Aucune carte n'a rien à fournir.
+
+## Ce qui est construit (30 octobre 2026)
+
+- **La rencontre comptée** (`smarves.rencontres`, une ligne par paire et par jour). Le jeu la déclare quand le
+  joueur reste huit secondes à moins de cinq mètres d'un autre habitant, joueur ou pensionnaire
+  (`Presences`, `smarves_rencontrer`) ; le serveur la déclare pour un pensionnaire à chaque réveil, pour les
+  gens à côté de lui. Deux habitants sont **amis** quand ils se sont croisés **deux jours différents** dans les
+  quatre-vingt-dix derniers jours, ou se sont laissé des mots dans les deux sens (`smarves.amis`).
+- **Le mot à la mairie** : le mot à la porte accepte le lot `mairie` pour un ami, sur place, un par ami et par
+  jour (`smarves.mot_poser`, raisons `ami` et `jour`). Le même courrier se lit au panneau de chaque mairie,
+  dans le livre d'or ; jamais depuis chez soi.
+- **Le rendez-vous relevé** dans le texte du mot (un jour de la semaine, « demain », une heure comme « 11 h 15 »,
+  heure de Paris : `smarves.rendez_vous`), gardé dans `mots.rdv`, rappelé aux deux au panneau (section
+  RENDEZ-VOUS), dans la vue et la fiche du pensionnaire, pendant quatorze jours.
+- **Le panneau** a une section « Vos amis » (leur dernier passage, le bouton « Un mot à la mairie ») ; le
+  contexte du pensionnaire dit « Tes amis » et « Tes rendez-vous ».
+
+Pas de café comme porte pour l'instant (la mairie suffit, et elle est dans chaque commune), pas de liste à
+gérer, pas de messagerie.

@@ -117,6 +117,7 @@ func _ready() -> void:
 	_parcours()
 	_quai_habite()
 	_fourviere()
+	_relief_de_pres()
 	_reperes()
 	_joueur()
 
@@ -302,7 +303,9 @@ func _ciel() -> void:
 	soleil.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 
 
-func _mat(c: Color, rugueux := 0.9, couleurs_sommets := false) -> StandardMaterial3D:
+## Les fabriques de matières (materiau, materiau_paves, materiau_sable, materiau_enrobe) et les constantes de
+## palette sont publiques : les quartiers de Lyon les reprennent, pour que leurs pavés et leurs enduits soient ceux-ci.
+func materiau(c: Color, rugueux := 0.9, couleurs_sommets := false) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
 	m.albedo_color = c
 	m.roughness = rugueux
@@ -351,11 +354,11 @@ func _terrain() -> void:
 	var mi := MeshInstance3D.new()
 	mi.name = "Sol"
 	mi.mesh = st.commit()
-	mi.material_override = _materiau_paves()
+	mi.material_override = materiau_paves()
 	ville.add_child(mi)
 	# le square de sable stabilisé et sa bordure de pierre, les trottoirs dallés au pied des façades
 	var sable := _boite(ville, Vector3(SQUARE.size.x, 0.1, SQUARE.size.y), Vector3(SQUARE.get_center().x, _niveau_place + 0.05, SQUARE.get_center().y), SABLE)
-	sable.material_override = _materiau_sable()
+	sable.material_override = materiau_sable()
 	_boite(ville, Vector3(SQUARE.size.x + 0.5, 0.16, SQUARE.size.y + 0.5), Vector3(SQUARE.get_center().x, _niveau_place + 0.0, SQUARE.get_center().y), VILLEBOIS)
 	for x in [PLACE.position.x + 1.4, PLACE.end.x - 1.4]:
 		_boite(ville, Vector3(2.8, 0.14, PLACE.size.y), Vector3(x, _niveau_place + 0.05, PLACE.get_center().y), DALLE)
@@ -400,6 +403,9 @@ const PASSERELLE := [Vector2(-166.0, 163.0), Vector2(-202.0, 226.5)]
 const QUAI_VUE := Vector2(-138.0, 177.0)
 ## Le regard de la Vue1a : tourné de 15° vers le quai pour le prendre en enfilade, et l'œil reculé d'un pas
 ## (1,5 m), pour que le parapet passe sous le quart bas du cadre.
+## au-delà, en mètres (la scène est en unités du jeu, d'où le / U), le relief des façades de la ville s'efface devant leur volume peint
+const RELIEF_PORTEE := 70.0
+var _modules_ville: Array[Node3D] = []
 const VUE1A_REGARD := Vector2(-0.989, 0.146)
 const VUE1A_OEIL := Vector2(-136.5, 175.3)
 
@@ -649,7 +655,7 @@ func _passerelle() -> void:
 	var mi := MeshInstance3D.new()
 	mi.name = "Passerelle"
 	mi.mesh = st.commit()
-	var mat := _mat(Color.WHITE, 0.7, true)
+	var mat := materiau(Color.WHITE, 0.7, true)
 	mat.vertex_color_is_srgb = true
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	mi.material_override = mat
@@ -660,7 +666,7 @@ func _passerelle() -> void:
 ## Les pavés lyonnais en rangs, joints sombres, sur les chaussées et la place ; le reste reste lisse.
 ## Le sable stabilisé du square : des nappes plus claires et plus foncées de 2 à 4 m, un grain de gravillons,
 ## l'usure plus claire au milieu des allées.
-func _materiau_sable() -> ShaderMaterial:
+func materiau_sable() -> ShaderMaterial:
 	var sh := Shader.new()
 	sh.code = """
 shader_type spatial;
@@ -695,7 +701,7 @@ void fragment() {
 	return m
 
 
-func _materiau_paves() -> ShaderMaterial:
+func materiau_paves() -> ShaderMaterial:
 	var sh := Shader.new()
 	sh.code = """
 shader_type spatial;
@@ -806,13 +812,13 @@ func _rues() -> void:
 	var mi := MeshInstance3D.new()
 	mi.name = "Chaussees"
 	mi.mesh = enrobe.commit()
-	mi.material_override = _materiau_enrobe()
+	mi.material_override = materiau_enrobe()
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	ville.add_child(mi)
 	var mp := MeshInstance3D.new()
 	mp.name = "Pietons"
 	mp.mesh = pietons.commit()
-	mp.material_override = _materiau_paves()
+	mp.material_override = materiau_paves()
 	mp.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	ville.add_child(mp)
 	# les bordures de granit gris clair, de part et d'autre de chaque chaussée, coupées aux carrefours
@@ -852,7 +858,7 @@ func _rues() -> void:
 	var mb := MeshInstance3D.new()
 	mb.name = "Bordures"
 	mb.mesh = bordures.commit()
-	var mat := _mat(Color.WHITE, 0.85, true)
+	var mat := materiau(Color.WHITE, 0.85, true)
 	mat.vertex_color_is_srgb = true
 	mb.material_override = mat
 	ville.add_child(mb)
@@ -869,7 +875,7 @@ func _rues() -> void:
 
 ## L'enrobé des rues des pentes : un gris chaud et sombre, des reprises plus claires ou plus noires, un grain
 ## fin de gravillons ; il tient à côté des pavés de la place sans les imiter.
-func _materiau_enrobe() -> ShaderMaterial:
+func materiau_enrobe() -> ShaderMaterial:
 	var sh := Shader.new()
 	sh.code = """
 shader_type spatial;
@@ -932,7 +938,7 @@ func _pignon(m: Node3D, x: float, corniche: float, enduit: Color, graine: int) -
 		st.add_vertex(q)
 	var tri := MeshInstance3D.new()
 	tri.mesh = st.commit()
-	tri.material_override = _mat(enduit.darkened(0.14))
+	tri.material_override = materiau(enduit.darkened(0.14))
 	tri.material_override.cull_mode = BaseMaterial3D.CULL_DISABLED
 	trace.add_child(tri)
 	# la réclame peinte, au-dessus de la trace : un fond crème passé, trois lignes de lettres délavées
@@ -967,6 +973,9 @@ func _batiments() -> void:
 	var toits := SurfaceTool.new()
 	toits.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var collisions := PackedVector3Array()
+	# les murs des volumes cachent au moteur tout ce qui est derrière eux (le socle a l'occlusion culling)
+	var occ_v := PackedVector3Array()
+	var occ_i := PackedInt32Array()
 	_grille_emprises()
 	for i in data.batiments.size():
 		var b: Dictionary = data.batiments[i]
@@ -981,6 +990,10 @@ func _batiments() -> void:
 			poly.append(Vector2(q[0], q[1]) * U)
 		var sol: float = b.sol * U - 0.5
 		var h: float = b.h * U + 0.5
+		if i == 745:
+			# l'immeuble à fenêtres carrées au haut de la montée, vu de la mairie : un étage de moins, il se range
+			# derrière elle au lieu de la dominer (verdicts 24 et 34)
+			h -= 3.3
 		var en_relief := _reliefs(i, b, poly)
 		if not en_relief.is_empty():
 			# le volume s'arrête à la corniche des façades posées devant lui, et son toit les coiffe
@@ -1020,6 +1033,9 @@ func _batiments() -> void:
 				# derrière les façades en relief, le mur recule : il ne se voit qu'au-dessus d'une corniche plus basse
 				for j in 4:
 					v[j] -= n * 0.25
+			var base := occ_v.size()
+			occ_v.append_array(PackedVector3Array([v[0], v[1], v[2], v[3]]))
+			occ_i.append_array(PackedInt32Array([base, base + 1, base + 2, base, base + 2, base + 3]))
 			for idx in ordre:
 				murs.set_color(c)
 				murs.set_normal(n)
@@ -1034,6 +1050,12 @@ func _batiments() -> void:
 	# les deux faces portent ombre : la vue d'ensemble attend l'ombre des façades ouest sur la rue, soleil bas
 	mm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_DOUBLE_SIDED
 	mm.mesh = murs.commit()
+	var ecrans := ArrayOccluder3D.new()
+	ecrans.set_arrays(occ_v, occ_i)
+	var occ := OccluderInstance3D.new()
+	occ.name = "Ecrans"
+	occ.occluder = ecrans
+	ville.add_child(occ)
 	mm.material_override = _materiau_murs()
 	ville.add_child(mm)
 	var mt := MeshInstance3D.new()
@@ -1088,7 +1110,7 @@ func _halle(b: Dictionary) -> void:
 	# le toit de zinc à faible pente et la lanterne vitrée
 	_boite(m, Vector3(L - 0.6, 0.5, P - 0.6), Vector3(0, 9.75, 0), Color("#8b9095"))
 	var lanterne := _boite(m, Vector3(L - 4.0, 1.4, P * 0.35), Vector3(0, 10.7, 0), Color("#9fb3b5"))
-	var mv := _mat(Color("#9fb3b5"), 0.15)
+	var mv := materiau(Color("#9fb3b5"), 0.15)
 	mv.metallic = 0.3
 	lanterne.material_override = mv
 	for k in int((L - 4.0) / 1.2):
@@ -1178,7 +1200,7 @@ func _halle(b: Dictionary) -> void:
 				_boite(f, Vector3(1.1, 0.8, 0.1), Vector3(x, 8.4, z - 0.15), vitre)
 	# l'inscription sur la rue, en lettres dorées sur la frise
 	var cartouche := _boite(m, Vector3(15.0, 1.0, 0.1), Vector3(0, 8.4, cote_rue * (P * 0.5 - 0.15)), Color("#4a5249"))
-	cartouche.material_override = _mat(Color("#4a5249"), 0.6)
+	cartouche.material_override = materiau(Color("#4a5249"), 0.6)
 	_boite(m, Vector3(15.4, 0.08, 0.14), Vector3(0, 8.92, cote_rue * (P * 0.5 - 0.15)), Color("#c9a24a"))
 	_boite(m, Vector3(15.4, 0.08, 0.14), Vector3(0, 7.88, cote_rue * (P * 0.5 - 0.15)), Color("#c9a24a"))
 	var mot := Label3D.new()
@@ -1243,7 +1265,7 @@ func _reliefs(i: int, b: Dictionary, poly: PackedVector2Array) -> Array:
 		for j in nb:
 			var q := a + u * w * (j + 0.5) + n * 0.02
 			var type: String = "etroite" if w < 6.5 else ["immeuble", "classique", "traboule", "immeuble", "classique"][(i * 5 + k * 3 + j) % 5]
-			var opt := {"w": w - 0.04, "d": 3.0, "niveaux": niveaux, "tuile": TUILES[(i + j) % TUILES.size()], "pente": 29.0, "chassis": 1 + (i + j) % 2, "souches": "grosses", "toile": TOILES[(i * 5 + k * 3 + j) % TOILES.size()], "store": (i + k + j) % 2 == 0}
+			var opt := {"w": w - 0.04, "d": 3.0, "niveaux": niveaux, "tuile": TUILES[(i + j) % TUILES.size()], "pente": 29.0, "grain": 1.0, "chassis": 1 + (i + j) % 2, "souches": "grosses", "toile": TOILES[(i * 5 + k * 3 + j) % TOILES.size()], "store": (i + k + j) % 2 == 0}
 			opt["enduit"] = (ENDUITS_PENTES if pentes else ENDUITS_PLACE)[(i + k + j) % 5]
 			if pentes:
 				opt["fleurs"] = false
@@ -1253,6 +1275,7 @@ func _reliefs(i: int, b: Dictionary, poly: PackedVector2Array) -> Array:
 				opt["balcons"] = true
 				opt["fleurs"] = true
 			var m: Node3D = load(Bibliotheque.scene(FACADIER, "decor")).instantiate()
+			_modules_ville.append(m)
 			m.type = type
 			m.graine = i * 31 + k * 7 + j
 			m.options = opt
@@ -1474,6 +1497,21 @@ func _toit(st: SurfaceTool, b: Dictionary, poly: PackedVector2Array, haut: float
 			st.add_vertex(Vector3(p.x, haut + rehausse, p.y))
 
 
+## Le relief des façades ne se lit que de près : au-delà de RELIEF_PORTEE, les modules du façadier s'effacent
+## en fondu et laissent voir le volume peint qui les attend derrière (fenêtres, enduit, toit), reculé de 25 cm.
+func _relief_de_pres() -> void:
+	for m in _modules_ville:
+		var pile: Array[Node] = [m]
+		while not pile.is_empty():
+			var n: Node = pile.pop_back()
+			pile.append_array(n.get_children())
+			if n is GeometryInstance3D:
+				var g := n as GeometryInstance3D
+				g.visibility_range_end = RELIEF_PORTEE / U
+				g.visibility_range_end_margin = 10.0 / U
+				g.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+
+
 ## Le shader des toits de la ville : la tuile canal du façadier, en rangs parallèles à l'égout, avec ses ondes
 ## et six nuances d'une tuile à l'autre. Les teintes des sommets sont en sRGB.
 func _materiau_toits() -> ShaderMaterial:
@@ -1543,18 +1581,19 @@ void fragment() {
 	if (etage < 0.5) {
 		fen = step(0.12, fx) * step(fx, 0.88) * step(0.02, fy) * step(fy, 0.7);
 	} else if (y < h - 1.3) {
-		fen = step(0.33, fx) * step(fx, 0.67) * step(0.18, fy) * step(fy, 0.9);
-		volet = (step(0.2, fx) * step(fx, 0.33) + step(0.67, fx) * step(fx, 0.8)) * step(0.18, fy) * step(fy, 0.9) * step(0.45, id);
+		fen = step(0.3, fx) * step(fx, 0.7) * step(0.18, fy) * step(fy, 0.9);
+		volet = (step(0.17, fx) * step(fx, 0.3) + step(0.7, fx) * step(fx, 0.83)) * step(0.18, fy) * step(fy, 0.9) * step(0.45, id);
 	}
 	float bandeau = step(rdc - 0.25, y) * step(y, rdc + 0.05) + step(h - 0.6, y);
 	// l'encadrement de pierre claire autour de chaque fenêtre d'étage, et la jardinière de géraniums
 	float cadre = 0.0;
 	float fleurs = 0.0;
 	if (etage > 0.5 && y < h - 1.3) {
-		cadre = step(0.29, fx) * step(fx, 0.71) * step(0.13, fy) * step(fy, 0.94) * (1.0 - fen);
-		fleurs = step(0.31, fx) * step(fx, 0.69) * step(0.18, fy) * step(fy, 0.27) * step(0.4, hash(vec2(bx, etage) + UV2.y + 7.0));
+		cadre = step(0.26, fx) * step(fx, 0.74) * step(0.13, fy) * step(fy, 0.94) * (1.0 - fen);
+		fleurs = step(0.28, fx) * step(fx, 0.72) * step(0.18, fy) * step(fy, 0.27) * step(0.4, hash(vec2(bx, etage) + UV2.y + 7.0));
 	}
-	vec3 verre = vec3(0.17, 0.2, 0.25) + vec3(0.1, 0.1, 0.08) * step(fy, 0.5);
+	// le verre des modules du façadier, bleu-gris pâle, pour que la relève ne se voie pas au fondu
+	vec3 verre = vec3(0.3, 0.37, 0.44) + vec3(0.06, 0.06, 0.05) * step(fy, 0.5);
 	vec3 col = c * (0.92 + 0.1 * hash(vec2(floor(y * 2.0), bx)));
 	col = mix(col, vec3(0.42, 0.5, 0.44) * (0.8 + 0.4 * hash(vec2(UV2.y, 3.0))), volet);
 	col = mix(col, c * 1.12, bandeau);
@@ -1563,7 +1602,8 @@ void fragment() {
 	col = mix(col, mix(vec3(0.78, 0.12, 0.14), vec3(0.24, 0.42, 0.18), step(0.23, fy)), fleurs);
 	// l'ombre de contact que le rendu n'a pas : sous l'égout et au pied du mur
 	col *= 1.0 - 0.35 * smoothstep(h - 0.6, h, y) - 0.3 * (1.0 - smoothstep(0.0, 0.4, y));
-	ALBEDO = col;
+	// au loin, le volume prend le relais des façades du façadier : même clarté d'enduit au soleil
+	ALBEDO = col * mix(1.0, 1.35, 1.0 - fen);
 	ROUGHNESS = mix(0.92, 0.25, fen);
 }
 """
@@ -1638,7 +1678,7 @@ func _heros_poser(i: int, b: Dictionary) -> void:
 		var x := -lu * 0.5 + w * (k + 0.5)
 		var p := front + u * x
 		var type := "classique"
-		var opt := {"w": w - 0.05, "d": lv, "niveaux": niveaux, "tuile": TUILES[(i + k) % TUILES.size()], "pente": 29.0, "chassis": 2, "souches": "grosses", "toile": TOILES[(i * 3 + k) % TOILES.size()], "store": (i + k) % 2 == 0}
+		var opt := {"w": w - 0.05, "d": lv, "niveaux": niveaux, "tuile": TUILES[(i + k) % TUILES.size()], "pente": 29.0, "grain": 1.0, "chassis": 2, "souches": "grosses", "toile": TOILES[(i * 3 + k) % TOILES.size()], "store": (i + k) % 2 == 0}
 		if est_mairie:
 			type = "hotel"
 			opt.merge({"enduit": "c6bca3", "persiennes": false, "fleurs": false, "niveaux": 3, "rdc": "pierre"}, true)
@@ -1700,7 +1740,7 @@ func _heros_poser(i: int, b: Dictionary) -> void:
 			var bm := BoxMesh.new()
 			bm.size = Vector3(w, m.position.y - bas + 0.4, lv)
 			socle.mesh = bm
-			socle.material_override = _mat(PIERRE_DOREE.darkened(0.15))
+			socle.material_override = materiau(PIERRE_DOREE.darkened(0.15))
 			socle.position = Vector3(p.x - v.x * lv * 0.5, bas + bm.size.y * 0.5 - 0.4, p.y - v.y * lv * 0.5)
 			socle.rotation.y = lacet
 			ville.add_child(socle)
@@ -1994,7 +2034,7 @@ func _escalier() -> void:
 				_segment(e, Vector3(x + bord, py, pz), Vector3(x + bord, py + 0.95, pz), 0.022, Color("#23262a"), 0.5)
 	# entre les deux volées, le jardin en terrasses de la montée : une allée de sable au milieu, de part et
 	# d'autre des planches de gazon tenues par une bordure de Villebois, des massifs fleuris au pied de chacune
-	var sable := _materiau_sable()
+	var sable := materiau_sable()
 	for k in 10:
 		var za := -50.0 - k * 3.0
 		var zc := za - 1.5
@@ -2043,7 +2083,7 @@ func _bronze(sombre: Color, patine: Color) -> ShaderMaterial:
 func _forme(parent: Node3D, mesh: Mesh, p: Vector3, c: Color, a := Vector3.ZERO, metal := 0.0) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
 	mi.mesh = mesh
-	var m := _mat(c, 0.38 if metal > 0.0 else 0.88)
+	var m := materiau(c, 0.38 if metal > 0.0 else 0.88)
 	m.metallic = metal
 	mi.material_override = m
 	mi.position = p
@@ -2194,7 +2234,7 @@ func _mairie(m: Node3D, w: float) -> void:
 			st.add_vertex(q)
 	var fronton := MeshInstance3D.new()
 	fronton.mesh = st.commit()
-	fronton.material_override = _mat(pierre)
+	fronton.material_override = materiau(pierre)
 	fronton.material_override.cull_mode = BaseMaterial3D.CULL_DISABLED
 	m.add_child(fronton)
 	var pente := atan2(haut, l * 0.5 + 0.2)
@@ -2308,7 +2348,7 @@ func _fontaine_lion(f: Node3D, _sens: float) -> void:
 	# le lion couché, face à la place, modelé à part (sculptures/sculpter.py)
 	_forme(l, _sculpture("lion"), Vector3.ZERO, bronze).material_override = _bronze(bronze, clair)
 	# le filet d'eau de la gueule à la vasque, en arc
-	var eau := _mat(Color("#cfe3e6"), 0.05)
+	var eau := materiau(Color("#cfe3e6"), 0.05)
 	eau.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	eau.albedo_color.a = 0.65
 	var avant := Vector3(0, 0.7, 0.9)
@@ -2326,7 +2366,7 @@ func _boite(parent: Node3D, taille: Vector3, p: Vector3, c: Color, inclinaison :
 	var bm := BoxMesh.new()
 	bm.size = taille
 	mi.mesh = bm
-	mi.material_override = _mat(c)
+	mi.material_override = materiau(c)
 	mi.position = p
 	mi.rotation.z = inclinaison
 	parent.add_child(mi)
@@ -2634,6 +2674,16 @@ func _quai_habite() -> void:
 		f.rotation.y = atan2(ma[1].x, ma[1].y)
 		groupe.add_child(f)
 		g += 1
+	# dans le champ du retour : un promeneur qui s'éloigne sur les dalles, à huit mètres et plus de l'œil
+	var retour: Array[Vector3] = []
+	var dos := -VUE1A_REGARD
+	for ecart in [9.0, 15.0, 22.0, 30.0]:
+		var qr: Vector2 = VUE1A_OEIL + dos * ecart + Vector2(-dos.y, dos.x) * ecart * 0.62
+		retour.append(Vector3(qr.x, maxf(hauteur(qr.x, qr.y), float(depart[2])), qr.y) / U)
+	var promeneur: Node3D = Atelier.figurant(g, "walk", "village", retour)
+	promeneur.position = retour[0]
+	groupe.add_child(promeneur)
+	g += 1
 	# les voitures de la rue du quai, garées contre la bordure côté platanes, quand une vraie chaussée y passe
 	var n := 0
 	var m := 1
@@ -2757,8 +2807,9 @@ void fragment() {
 	var touffe := SphereMesh.new()
 	touffe.radius = 1.0
 	touffe.height = 1.6
-	touffe.radial_segments = 8
-	touffe.rings = 4
+	# à deux cents mètres et plus, six côtés et trois rangs suffisent à la touffe
+	touffe.radial_segments = 6
+	touffe.rings = 3
 	bois.mesh = touffe
 	var touffes: Array = []
 	for k in 16000:
@@ -2887,7 +2938,7 @@ func _basilique(f: Node3D, sommet: Vector3) -> void:
 	var mi := MeshInstance3D.new()
 	mi.name = "Basilique"
 	mi.mesh = st.commit()
-	var mat := _mat(Color.WHITE, 0.85, true)
+	var mat := materiau(Color.WHITE, 0.85, true)
 	mat.vertex_color_is_srgb = true
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	mi.material_override = mat
@@ -2926,7 +2977,7 @@ func _tour_metallique(f: Node3D, pied: Vector3) -> void:
 	var mi := MeshInstance3D.new()
 	mi.name = "TourMetallique"
 	mi.mesh = st.commit()
-	var mat := _mat(Color.WHITE, 0.6, true)
+	var mat := materiau(Color.WHITE, 0.6, true)
 	mat.vertex_color_is_srgb = true
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	mi.material_override = mat
@@ -3002,3 +3053,10 @@ func _joueur() -> void:
 	camera.target = player.global_position + Vector3(0, 0.3, 0)
 	camera.set("_target_goal", camera.target)
 	camera.use_notches(CRANS, 1)
+
+
+## La caméra de dessus suit l'habitant (Guillaume, 30 octobre : en marchant vers le haut de l'écran, il en
+## sortait, la vue restait fixe). En vue à pied (Vue, Tab), l'habitant n'a plus de caméra à suivre.
+func _process(_delta: float) -> void:
+	if player != null and player.follow_camera == camera:
+		camera.set("_target_goal", player.global_position + Vector3(0, 0.3, 0))

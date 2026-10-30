@@ -14,6 +14,7 @@ const VIE := preload("res://communes/belley/places/vie_place.gd")
 const JARDINS := preload("res://communes/belley/places/jardins.gd")
 const ROUTES := preload("res://communes/belley/places/routes.gd")
 const BORDS := preload("res://communes/belley/places/bords_de_route.gd")
+const MOBYLETTE := preload("res://communes/belley/places/mobylette.gd")
 
 ## Les crans de la caméra de dessus : distance, tangage, champ, du plus près au plus loin (à taille d'homme).
 const CRANS := [[5.0, -38.0, 50.0], [9.0, -48.0, 50.0], [16.0, -58.0, 50.0]]
@@ -36,6 +37,8 @@ const REPERES := {
 var player: CharacterBody3D
 var camera: Camera3D
 var terrain: Node3D
+## L'invite en bas de l'écran (places/mobylette.gd), que l'interface tactile lit aussi.
+var _prompt: Label
 
 
 func _ready() -> void:
@@ -70,7 +73,15 @@ func _ready() -> void:
 			m.lod_bias = 0.35
 	_reperes()
 	_joueur()
+	add_child(MOBYLETTE.new(self))
 
+
+
+## La caméra de dessus suit l'habitant (et sa Mobylette, qui roule sous lui) : elle ne reçoit sa cible qu'à
+## l'arrivée et à chaque bascule de vue, sinon il sort de l'écran.
+func _process(_delta: float) -> void:
+	if player != null and player.follow_camera == camera:
+		camera.set("_target_goal", player.global_position + Vector3(0, 0.3, 0))
 
 ## La cathédrale, posée sur le point le plus haut de son parvis.
 func _cathedrale() -> void:

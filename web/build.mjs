@@ -4,7 +4,7 @@
 // commit-ci (commit.txt dans l'archive). Si main a déjà avancé, on s'arrête : le déploiement
 // suivant publiera la version plus récente, et celle en ligne reste en place.
 import { execSync } from 'node:child_process';
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 
 const REPO = 'https://github.com/chtabay/smarves';
 const ARCHIVE = `${REPO}/releases/download/derniere-version/Smarves-web.tar.gz`;
@@ -35,3 +35,5 @@ for (;;) {
   if (Date.now() > deadline) { console.error('La Release n’a pas porté ce commit à temps.'); process.exit(1); }
   await sleep(30000);
 }
+// La page où l'humain connecte son assistant à son pensionnaire (docs/PENSIONNAIRES.md) : servie à côté du jeu.
+cpSync('assistant', 'public/assistant', { recursive: true });
