@@ -10,6 +10,9 @@ const FENETRES := preload("res://communes/belley/atelier/fenetres.gd")
 const FACADIER := preload("res://bibliotheque/facadier-du-bugey/1/facadier.gd")
 const PLACE_CATHEDRALE := preload("res://communes/belley/places/place_cathedrale.gd")
 const REPEINDRE := preload("res://communes/belley/atelier/repeindre.gd")
+const VIE := preload("res://communes/belley/places/vie_place.gd")
+## D'où vient le soleil de Belley (belley.gd, SOLEIL.vient_de), pour les façades qui le prennent de face.
+const SOLEIL_VIENT_DE := 238.0
 const DOSSIER := "res://communes/belley/"
 const UNITE := 2.4
 
@@ -282,11 +285,29 @@ func _facadier(m: Dictionary, graine: int, rng: RandomNumberGenerator, leger := 
 	var opt := {"w": clampf(lu, 6.0, 14.0), "d": clampf(lv, 6.0, 12.0), "niveaux": niveaux, "couverture": couv, "fleurs": true, "mur": "moellons" if rng.randf() < 0.6 else "enduit"}
 	# Les enduits sourds de la note (sable, ocre pâle) : ceux de la brique sortent écrêtés à notre lumière.
 	opt["enduit"] = ["d2be98", "cdb894", "d8c6a2", "c9b08a"][graine % 4]
+	# Comme un peintre, plus sombre en pleine lumière (verdict n° 22) : la façade qui prend le soleil de face reçoit
+	# l'enduit le plus sourd, et celles de la rue des Barons, à l'arrivée sur la place, le plus sourd de tous.
+	var vers_soleil := Vector2(sin(deg_to_rad(SOLEIL_VIENT_DE)), -cos(deg_to_rad(SOLEIL_VIENT_DE)))
+	if v.dot(vers_soleil) > 0.75:
+		opt["enduit"] = "c9b08a"
+	if _pres_des_barons(c, lu, lv):
+		opt["enduit"] = "bfa47e"
+		opt["mur"] = "enduit"
 	if leger:
 		opt.merge({"fleurs": false, "mur": "enduit", "vigne": false, "balcon": false, "auvent": false, "lanterne": false}, true)
 	var n: Node3D = FACADIER.maison(noeud, Vector3(pied.x, y, pied.y), type, graine, opt)
 	n.rotation.y = atan2(v.x, v.y)
 	return true
+
+
+## La maison borde-t-elle la rue des Barons, à l'arrivée sur la place ?
+func _pres_des_barons(c: Vector2, lu: float, lv: float) -> bool:
+	var axe: Array = VIE.BARONS
+	for i in axe.size() - 1:
+		var q := Geometry2D.get_closest_point_to_segment(c, axe[i], axe[i + 1])
+		if q.distance_to(c) < maxf(lu, lv) * 0.5 + 6.0:
+			return true
+	return false
 
 
 ## Une lucarne : sa façade d'enduit et sa fenêtre, son petit toit à deux pans ; pied p (sur le pan), n vers dehors.

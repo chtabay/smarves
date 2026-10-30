@@ -17,7 +17,7 @@ const ROUTES := preload("res://communes/belley/places/routes.gd")
 const CRANS := [[5.0, -38.0, 50.0], [9.0, -48.0, 50.0], [16.0, -58.0, 50.0]]
 
 ## La lumière de la note : fin septembre vers 16 h, le soleil au sud-ouest, à 28°, crème chaud.
-const SOLEIL := {"hauteur": 28.0, "vient_de": 238.0, "couleur": Color("fff0dc"), "force": 0.45}
+const SOLEIL := {"hauteur": 28.0, "vient_de": 238.0, "couleur": Color("fff0dc"), "force": 0.65}
 
 ## Les trois scènes fortes et l'arrivée : [x, z, lacet en degrés (0 : regarde le nord, 90 : l'est)].
 const REPERES := {
@@ -75,18 +75,32 @@ func _ciel() -> void:
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.22
+	env.ambient_light_energy = 0.4
 	# Des ombres chaudes, comme sur la planche : une part de lumière ambiante crème, une part de ciel.
 	env.ambient_light_color = Color("e2dccf")
 	env.ambient_light_sky_contribution = 0.6
-	# Linéaire : en ACES (blanc 1,6), le rendu de compatibilité délave tout, mesuré (verdict n° 21). Les faces au
-	# soleil écrêtaient (#FFFFD0 sur un enduit #D2BE98) : mesuré sur une carte témoin, un
-	# soleil à 0,45 et un ambiant à 0,22 rendent l'enduit #E8CF98, sans écrêter.
+	# Linéaire : en ACES (blanc 1,6), le rendu de compatibilité délave tout, mesuré (verdict n° 21). Un soleil
+	# plus bas assombrissait la vue d'ensemble (verdict n° 22) : la lumière garde sa force, la saturation descend
+	# (c'est elle qui écrêtait le rouge) et les façades en plein soleil prennent un enduit plus sourd (ville.gd).
 	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
-	# L'étalonnage des planches : plus saturé, un peu plus contrasté (mesuré : le rendu de compatibilité l'honore).
+	# L'étalonnage des planches : un peu plus saturé, un peu plus contrasté (mesuré : le rendu de compatibilité l'honore).
 	env.adjustment_enabled = true
-	env.adjustment_saturation = 1.15
-	env.adjustment_contrast = 1.12
+	env.adjustment_saturation = 1.05
+	env.adjustment_contrast = 1.1
+	# Une courbe de tons qui relève les demi-teintes sans toucher aux blancs (gamma 0,88) : la médiane de la vue
+	# d'ensemble remonte vers celle de la planche (147) sans rallumer l'écrêtage des façades (verdict n° 22).
+	var courbe := Gradient.new()
+	courbe.interpolation_mode = Gradient.GRADIENT_INTERPOLATE_LINEAR
+	courbe.remove_point(1)
+	courbe.set_color(0, Color.BLACK)
+	for k in range(1, 17):
+		var x := k / 16.0
+		var y := pow(x, 0.88)
+		courbe.add_point(x, Color(y, y, y))
+	var lut := GradientTexture1D.new()
+	lut.gradient = courbe
+	lut.width = 256
+	env.adjustment_color_correction = lut
 	# La brume de distance : les crêtes à 15 km passent au bleu gris, sans disparaître.
 	env.fog_enabled = true
 	env.fog_mode = Environment.FOG_MODE_EXPONENTIAL
