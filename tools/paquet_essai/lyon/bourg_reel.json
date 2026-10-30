@@ -1,0 +1,13 @@
+{
+	"insee": "69123",
+	"nom": "Lyon",
+	"centre": [4.83025, 45.76925],
+	"cadre": [-480, -280, 380, 280],
+	"riviere": "La Saône",
+	"remarquables": [
+		{"id": "mairie", "nom": "La mairie du 1er arrondissement", "genre": "monument", "osm": "way/84647332"},
+		{"id": "blandan", "nom": "La statue du sergent Blandan", "genre": "monument", "osm": "node/1368894258"},
+		{"id": "amphitheatre", "nom": "La montée de l'Amphithéâtre", "genre": "ouvrage", "osm": "way/226944494"},
+		{"id": "place", "nom": "La place Sathonay", "genre": "lieu", "osm": "way/226944486"}
+	]
+}

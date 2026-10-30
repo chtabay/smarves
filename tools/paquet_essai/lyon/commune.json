@@ -1,0 +1,32 @@
+{
+	"format": 1,
+	"id": "lyon",
+	"nom": "Lyon",
+	"auteur": "Claude",
+	"version": "0.1.0",
+	"socle_min": "1.19",
+	"insee": "69123",
+	"population": 0,
+	"description": "La place Sathonay au pied des pentes de la Croix-Rousse, dans sa disposition réelle, de la Saône au jardin des Plantes, un soir doré de septembre. On s'y promène ; rien ne s'y joue encore.",
+	"scene": "res://communes/lyon/commune.tscn",
+	"arrivee": {
+		"lot": "quai",
+		"nom": "Le quai Saint-Vincent",
+		"par": [
+			"smarves"
+		]
+	},
+	"lieux": [],
+	"banque": {
+		"id": "caisse_grande_cote",
+		"nom": "La Caisse de la Grande-Côte",
+		"banquier": "M. Vernay",
+		"preteur": "lyon"
+	},
+	"licence": "Plan : © les contributeurs d'OpenStreetMap (ODbL) ; IGN, BD TOPO et RGE ALTI (Licence Ouverte 2.0).",
+	"sources": [
+		"https://www.openstreetmap.org/way/226944486",
+		"https://www.lyon.fr/lieu/contemporaine-19eme-20eme/place-sathonay",
+		"https://en.wikipedia.org/wiki/Place_Sathonay"
+	]
+}

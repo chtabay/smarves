@@ -24,10 +24,10 @@ const VERTS := {
 	"jeune_platane": ["78a43a", "659132", "547c2a", "446624", "34511f"],
 	"marronnier": ["a6c852", "8cb246", "73993b", "5e8433", "4b6e2b"],
 }
-const ECORCE := {"platane": "c9bea0", "micocoulier": "9a978a", "jeune_platane": "c9bea0", "marronnier": "5a4f46"}
+const ECORCE := {"platane": "b8ae98", "micocoulier": "9a978a", "jeune_platane": "b8ae98", "marronnier": "5a4f46"}
 ## La forme des feuilles dans le shader : 0 la feuille lobée du platane, 1 la feuille palmée du marronnier.
 const FORMES := {"platane": 0, "micocoulier": 0, "jeune_platane": 0, "marronnier": 1}
-const PLAQUES := ["b5b08e", "bfb596", "a9a888", "ddd3b8", "d0c4a4"]
+const PLAQUES := ["a9a487", "b3aa8e", "9e9c80", "c9c0a6", "bfb397"]
 
 ## L'arbre (voir ARBRES).
 @export var arbre := "platane"
@@ -36,7 +36,8 @@ const PLAQUES := ["b5b08e", "bfb596", "a9a888", "ddd3b8", "d0c4a4"]
 ## Les options, toutes facultatives : hauteur (en mètres), vent (0 à 1, l'amplitude du souffle), densite (0,5 à
 ## 1,5 : le nombre de touffes, 1 par défaut ; moins de touffes, plus de ciel), contre_jour (0 à 1 : la lumière qui
 ## traverse les feuilles, 0,15 par défaut), teinte (un hexa vers lequel tirer les verts, une liste de cinq hexas qui
-## remplace la palette, ou une liste de deux ou trois hexas dont la graine choisit un : des verts mêlés).
+## remplace la palette, ou une liste de deux ou trois hexas dont la graine choisit un : des verts mêlés), jour (0 à 1,5 :
+## le jour du ciel au cœur et sous la couronne, 0,6 par défaut ; plus haut, la voûte vue d'en bas s'éclaircit).
 @export var options := {}
 
 var fait := false
@@ -146,6 +147,7 @@ static func pousser(parent: Node3D, p: Vector3, nom: String, g: int, opt := {}) 
 	o.collisions.append([Transform3D(Basis(), p + Vector3(0, 1.5, 0)), Vector3(rt * 2.2, 3.0, rt * 2.2)])
 	var mi := o.construire(parent, nom.capitalize())
 	mi.set_instance_shader_parameter("contre_jour", float(opt.get("contre_jour", 0.15)))
+	mi.set_instance_shader_parameter("jour", float(opt.get("jour", 0.6)))
 	return {"arbre": nom, "graine": g, "hauteur": c.y - p.y + R.y, "couronne": R.x}
 
 

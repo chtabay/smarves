@@ -313,7 +313,7 @@ func _init() -> void:
 	check(float(platane.get_meta("hauteur")) >= 16.0 and float(platane.get_meta("couronne")) >= 7.0, "le platane d'ombrière fait au moins 16 m et sa couronne 7 m de rayon")
 	var bac: Node3D = load(Bibliotheque.scene("mobilier-toulousain@1", "decor")).instantiate()
 	bac.objet = "bac_vegetal"
-	bac.options = {"forme": "polygone", "points": [[0, 0], [3.6, -0.4], [4.2, 1.6], [2.0, 2.6]], "plantation": "buis"}
+	bac.options = {"forme": "polygone", "points": [[0, 0], [3.6, -0.4], [4.2, 1.6], [2.0, 2.6]], "plantation": "buis", "couvertine": "c9a070"}
 	toulouse.add_child(bac)
 	var emprise_bac: Vector2 = bac.get_meta("emprise")
 	check(emprise_bac.x > 4.0 and emprise_bac.y > 2.9, "le bac végétal suit le polygone qu'on lui donne (%s)" % str(emprise_bac))
@@ -334,6 +334,20 @@ func _init() -> void:
 	tuilee.options = {"tuile": "8a4a3a"}
 	toulouse.add_child(tuilee)
 	check(not tuilee.find_children("*", "MeshInstance3D", true, false).is_empty(), "le façadier lyonnais prend la teinte de tuile qu'on lui donne")
+	# la banderole de la course : taille_texte agrandit les lettres, et la toile avec elles
+	var hauteur_toile := func(opt: Dictionary) -> float:
+		var b: Node3D = load(Bibliotheque.scene("course-cycliste@1", "decor")).instantiate()
+		b.objet = "banderole"
+		b.options = opt
+		toulouse.add_child(b)
+		var lab: Label3D = b.find_children("*", "Label3D", true, false)[0]
+		return lab.pixel_size * 96.0 * 0.72
+	var petite: float = hauteur_toile.call({"largeur": 9.5, "texte": "GRAND PRIX DE LA LOUVE"})
+	var grande: float = hauteur_toile.call({"largeur": 9.5, "texte": "LOUVE", "taille_texte": 0.8})
+	var pleine: float = hauteur_toile.call({"largeur": 9.5, "texte": "LOUVE", "taille_texte": "ajuste"})
+	var bornee: float = hauteur_toile.call({"largeur": 9.5, "texte": "GRAND PRIX DE LA LOUVE", "taille_texte": 2.0})
+	check(petite < 0.5 and absf(grande - 0.8) < 0.03 and absf(pleine - 1.2) < 0.03 and bornee < 0.6,
+		"la banderole prend la taille de lettres demandée (%.2f, %.2f, « ajuste » %.2f m) et ne déborde jamais de sa toile (%.2f)" % [petite, grande, pleine, bornee])
 	var cafe_l: Node3D = paquet_lyon.instantiate()
 	cafe_l.type = "cafe"
 	cafe_l.options = {"avancee": 2.6, "toile": ["2f5a3a", "2f5a3a"], "enseigne": "CAFÉ SATHONAY"}
@@ -363,6 +377,15 @@ func _init() -> void:
 		toulouse.add_child(mt)
 		teintes.append(verts_de.call(mt))
 	check(not teintes[0].is_equal_approx(teintes[1]) and not teintes[0].is_equal_approx(teintes[2]), "l'arbre d'ombrière prend la teinte qu'on lui donne")
+	# le jour du ciel au cœur de la couronne est un paramètre d'instance (option jour), et le fût du platane est
+	# moins blanc (#B8AE98, verdict de Saint-Georges v0.7)
+	var clair: Node3D = load(Bibliotheque.scene("arbres-d-ombriere@1", "decor")).instantiate()
+	clair.options = {"jour": 1.1}
+	toulouse.add_child(clair)
+	var mi_clair: MeshInstance3D = clair.find_children("*", "MeshInstance3D", true, false)[0]
+	check(is_equal_approx(float(mi_clair.get_instance_shader_parameter("jour")), 1.1) and is_equal_approx(float(platane.find_children("*", "MeshInstance3D", true, false)[0].get_instance_shader_parameter("jour")), 0.6),
+		"l'arbre d'ombrière règle le jour de sa voûte par l'option jour (0,6 par défaut)")
+	check(str(platane.ECORCE["platane"]) == "b8ae98" and Color(platane.ECORCE["platane"]).get_luminance() < Color("c9bea0").get_luminance(), "le fût du platane est moins blanc qu'avant (#B8AE98)")
 	var plat: Node3D = paquet_lyon.instantiate()
 	plat.options = {"w": 10.0, "d": 11.0, "niveaux": 3}
 	toulouse.add_child(plat)
