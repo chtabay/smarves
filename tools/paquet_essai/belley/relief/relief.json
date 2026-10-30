@@ -1,0 +1,21 @@
+{
+ "format": 1,
+ "source": "RGE ALTI, IGN (Licence Ouverte 2.0)",
+ "origine": [
+  5.68615,
+  45.76076
+ ],
+ "cadre": [
+  -1600.0,
+  -2600.0,
+  8000.0,
+  2400.0
+ ],
+ "pas": 15.0,
+ "taille": [
+  641,
+  334
+ ],
+ "noir": 223,
+ "blanc": 602
+}

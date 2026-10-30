@@ -1,0 +1,14 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://communes/belley/belley.gd" id="1"]
+
+[node name="Belley" type="Node3D"]
+script = ExtResource("1")
+
+[node name="Arrivee" type="Marker3D" parent="."]
+
+[node name="Vue1_Cathedrale" type="Marker3D" parent="."]
+
+[node name="Vue2_Banc" type="Marker3D" parent="."]
+
+[node name="Vue3_Relais" type="Marker3D" parent="."]
