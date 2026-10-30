@@ -117,6 +117,7 @@ func _ready() -> void:
 	_parcours()
 	_quai_habite()
 	_fourviere()
+	_relief_de_pres()
 	_reperes()
 	_joueur()
 
@@ -400,6 +401,9 @@ const PASSERELLE := [Vector2(-166.0, 163.0), Vector2(-202.0, 226.5)]
 const QUAI_VUE := Vector2(-138.0, 177.0)
 ## Le regard de la Vue1a : tourné de 15° vers le quai pour le prendre en enfilade, et l'œil reculé d'un pas
 ## (1,5 m), pour que le parapet passe sous le quart bas du cadre.
+## au-delà, en mètres (la scène est en unités du jeu, d'où le / U), le relief des façades de la ville s'efface devant leur volume peint
+const RELIEF_PORTEE := 70.0
+var _modules_ville: Array[Node3D] = []
 const VUE1A_REGARD := Vector2(-0.989, 0.146)
 const VUE1A_OEIL := Vector2(-136.5, 175.3)
 
@@ -967,6 +971,9 @@ func _batiments() -> void:
 	var toits := SurfaceTool.new()
 	toits.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var collisions := PackedVector3Array()
+	# les murs des volumes cachent au moteur tout ce qui est derrière eux (le socle a l'occlusion culling)
+	var occ_v := PackedVector3Array()
+	var occ_i := PackedInt32Array()
 	_grille_emprises()
 	for i in data.batiments.size():
 		var b: Dictionary = data.batiments[i]
@@ -1024,6 +1031,9 @@ func _batiments() -> void:
 				# derrière les façades en relief, le mur recule : il ne se voit qu'au-dessus d'une corniche plus basse
 				for j in 4:
 					v[j] -= n * 0.25
+			var base := occ_v.size()
+			occ_v.append_array(PackedVector3Array([v[0], v[1], v[2], v[3]]))
+			occ_i.append_array(PackedInt32Array([base, base + 1, base + 2, base, base + 2, base + 3]))
 			for idx in ordre:
 				murs.set_color(c)
 				murs.set_normal(n)
@@ -1038,6 +1048,12 @@ func _batiments() -> void:
 	# les deux faces portent ombre : la vue d'ensemble attend l'ombre des façades ouest sur la rue, soleil bas
 	mm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_DOUBLE_SIDED
 	mm.mesh = murs.commit()
+	var ecrans := ArrayOccluder3D.new()
+	ecrans.set_arrays(occ_v, occ_i)
+	var occ := OccluderInstance3D.new()
+	occ.name = "Ecrans"
+	occ.occluder = ecrans
+	ville.add_child(occ)
 	mm.material_override = _materiau_murs()
 	ville.add_child(mm)
 	var mt := MeshInstance3D.new()
@@ -1257,6 +1273,7 @@ func _reliefs(i: int, b: Dictionary, poly: PackedVector2Array) -> Array:
 				opt["balcons"] = true
 				opt["fleurs"] = true
 			var m: Node3D = load(Bibliotheque.scene(FACADIER, "decor")).instantiate()
+			_modules_ville.append(m)
 			m.type = type
 			m.graine = i * 31 + k * 7 + j
 			m.options = opt
@@ -1476,6 +1493,21 @@ func _toit(st: SurfaceTool, b: Dictionary, poly: PackedVector2Array, haut: float
 			st.set_color(tuile.darkened(0.06) if b.toit != "plat" else Color("#a39a8c"))
 			st.set_normal(Vector3.UP)
 			st.add_vertex(Vector3(p.x, haut + rehausse, p.y))
+
+
+## Le relief des façades ne se lit que de près : au-delà de RELIEF_PORTEE, les modules du façadier s'effacent
+## en fondu et laissent voir le volume peint qui les attend derrière (fenêtres, enduit, toit), reculé de 25 cm.
+func _relief_de_pres() -> void:
+	for m in _modules_ville:
+		var pile: Array[Node] = [m]
+		while not pile.is_empty():
+			var n: Node = pile.pop_back()
+			pile.append_array(n.get_children())
+			if n is GeometryInstance3D:
+				var g := n as GeometryInstance3D
+				g.visibility_range_end = RELIEF_PORTEE / U
+				g.visibility_range_end_margin = 10.0 / U
+				g.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 
 
 ## Le shader des toits de la ville : la tuile canal du façadier, en rangs parallèles à l'égout, avec ses ondes
