@@ -441,6 +441,8 @@ const LEGER_SOMMETS := 2_000
 const LEGER_BOITE_MAX := 60.0
 ## La part des triangles qu'un maillage simplifié garde au moins (le niveau le plus grossier au-dessus).
 const LEGER_PART := 0.1
+## Au-dessus de ce nombre de sommets, un maillage qui ne se simplifie pas devient une boîte ; en dessous, il reste.
+const LEGER_GARDE := 20_000
 ## La teinte des boîtes dont la matière ne se lit pas (un shader) : un enduit moyen.
 const ENDUIT_BOITE := Color("#d2c2a0")
 
@@ -497,7 +499,9 @@ static func quartier(q: Node3D, des := QUARTIER_DES, leger := false) -> int:
 						par_matiere[mat_s].append([simple, s, t])
 					pris.append(mi)
 					continue
-				if boite_mi.get_longest_axis_size() * t.basis.get_scale().x <= LEGER_BOITE_MAX:
+				# Un maillage qui ne se simplifie pas (des quads disjoints, déjà au plus simple : les volumes d'un
+				# quartier) reste tel quel tant qu'il n'est pas énorme ; en boîte seulement au-delà.
+				if _sommets(mi.mesh) > LEGER_GARDE and boite_mi.get_longest_axis_size() * t.basis.get_scale().x <= LEGER_BOITE_MAX:
 					var box := BoxMesh.new()
 					box.size = boite_mi.size
 					var mat := _matiere_boite(_matiere_principale(mi))
