@@ -541,8 +541,32 @@ func _reliefs(i: int, b: Dictionary, poly: PackedVector2Array) -> Array:
 			m.position = Vector3(q.x, y, q.y)
 			m.rotation.y = atan2(n.x, n.y)
 			ville.add_child(m)
+			if j % 2 == 0:
+				_souches_cote_rue(m, w - 0.04, 3.0, Color(str(opt["enduit"])))
 			corniches.append(y + 4.2 + float(opt.niveaux) * 3.3)
 	return corniches
+
+
+## Deux grosses souches enduites sur le pan côté rue, comme sur la planche : celles du façadier
+## sont sur le pan arrière, que la vue d'ensemble ne montre pas. w et d : la largeur et la profondeur de l'immeuble.
+func _souches_cote_rue(m: Node3D, w: float, d: float, enduit: Color) -> void:
+	var faite: float = m.get_meta("hauteur", 0.0)
+	if faite <= 0.0 or w < 6.0:
+		return
+	# à 3,5 m de la façade au plus : sur les toits profonds, le faîte sort du cadre de la vue d'ensemble
+	var z := -minf(3.5, d * 0.5 - 1.0)
+	# du pan, pris assez bas pour qu'elle y soit fichée, jusqu'à 1,6 m au-dessus du faîte, comme à Lyon
+	var bas := faite - (d * 0.5 + z) * tan(deg_to_rad(40.0)) - 0.5
+	var haut := faite + 1.6
+	# et sur le pan arrière des immeubles profonds, qui est celui que la vue d'ensemble voit quand la façade
+	# regarde l'autre rue
+	var pans := [z, -d - z] if d > 8.0 else [z]
+	for zp in pans:
+		for x in [-0.27 * w, 0.31 * w]:
+			_boite(m, Vector3(1.3, haut - bas, 0.8), Vector3(x, (haut + bas) * 0.5, zp), enduit.darkened(0.1))
+			_boite(m, Vector3(1.5, 0.16, 1.0), Vector3(x, haut + 0.08, zp), Color("#b9ac92"))
+			for j in 3:
+				_boite(m, Vector3(0.18, 0.35, 0.18), Vector3(x - 0.4 + j * 0.4, haut + 0.33, zp), Color("#b5603c"))
 
 
 func _grille_emprises() -> void:
@@ -635,14 +659,17 @@ func _toit(st: SurfaceTool, b: Dictionary, poly: PackedVector2Array, haut: float
 			var q := E.lerp(F, t) + Vector3(v.x, 0, v.y) * (0.9 if (i + k) % 2 else -0.9)
 			_boite_st(st, q + Vector3(0, 0.6, 0), Vector3(1.3, 2.4, 0.8), rc[4], Color(ENDUITS_PLACE[(i + k) % ENDUITS_PLACE.size()]).darkened(0.08))
 			_boite_st(st, q + Vector3(0, 1.88, 0), Vector3(1.5, 0.16, 1.0), rc[4], Color("#b9ac92"))
-		# les lucarnes à mi-pente sur le pan côté rue : un petit corps enduit, sa fenêtre et son chapeau de tuile
+		# les lucarnes à mi-pente : un petit corps enduit, sa fenêtre et son chapeau de tuile
 		var nl := clampi(int(lu / 3.5), 1, 4)
 		for k in nl:
 			var t := (float(k) + 0.5) / nl
-			var pied := A.lerp(B, t).lerp(E.lerp(F, t), 0.45)
-			_boite_st(st, pied + Vector3(0, 0.45, 0), Vector3(1.0, 1.0, 0.9), rc[4], Color(ENDUITS_PLACE[(i + k) % ENDUITS_PLACE.size()]))
-			_boite_st(st, pied + Vector3(0, 0.45, 0) - Vector3(v.x, 0, v.y) * 0.46, Vector3(0.55, 0.6, 0.04), rc[4], Color("#3a4250"))
-			_boite_st(st, pied + Vector3(0, 1.02, 0), Vector3(1.2, 0.18, 1.1), rc[4], tuile.darkened(0.1))
+			# sur les deux pans : la vue d'ensemble voit l'un ou l'autre selon le côté de la rue
+			for pan in [[A.lerp(B, t), -1.0], [D.lerp(C, t), 1.0]]:
+				var pied: Vector3 = pan[0].lerp(E.lerp(F, t), 0.45)
+				var dehors := Vector3(v.x, 0, v.y) * float(pan[1])
+				_boite_st(st, pied + Vector3(0, 0.45, 0), Vector3(1.0, 1.0, 0.9), rc[4], Color(ENDUITS_PLACE[(i + k) % ENDUITS_PLACE.size()]))
+				_boite_st(st, pied + Vector3(0, 0.45, 0) + dehors * 0.46, Vector3(0.55, 0.6, 0.04), rc[4], Color("#3a4250"))
+				_boite_st(st, pied + Vector3(0, 1.02, 0), Vector3(1.2, 0.18, 1.1), rc[4], tuile.darkened(0.1))
 		return
 	var dessus := poly
 	var rehausse := 0.15
@@ -687,8 +714,20 @@ func _toit(st: SurfaceTool, b: Dictionary, poly: PackedVector2Array, haut: float
 			for q in dedans:
 				centre += q
 			centre /= dedans.size()
-			_boite_st(st, Vector3(centre.x, haut + monte + 0.6, centre.y), Vector3(1.3, 2.4, 0.8), 0.0, Color(ENDUITS_PLACE[i % ENDUITS_PLACE.size()]).darkened(0.08))
-			_boite_st(st, Vector3(centre.x, haut + monte + 1.88, centre.y), Vector3(1.5, 0.16, 1.0), 0.0, Color("#b9ac92"))
+			# une souche au milieu de chacun des trois plus longs bords du terrasson, là où la vue d'ensemble les voit
+			var bords := []
+			for k in dedans.size():
+				bords.append([dedans[k].distance_to(dedans[(k + 1) % dedans.size()]), k])
+			bords.sort_custom(func(x, y): return x[0] > y[0])
+			for j in mini(3, bords.size()):
+				if bords[j][0] < 4.0:
+					continue
+				var k: int = bords[j][1]
+				var q := (dedans[k] + dedans[(k + 1) % dedans.size()]) * 0.5
+				q = q.lerp(centre, 0.15)
+				var ang := (dedans[(k + 1) % dedans.size()] - dedans[k]).angle()
+				_boite_st(st, Vector3(q.x, haut + monte + 0.6, q.y), Vector3(1.3, 2.4, 0.8), ang, Color(ENDUITS_PLACE[(i + j) % ENDUITS_PLACE.size()]).darkened(0.08))
+				_boite_st(st, Vector3(q.x, haut + monte + 1.88, q.y), Vector3(1.5, 0.16, 1.0), ang, Color("#b9ac92"))
 	var tri := Geometry2D.triangulate_polygon(dessus)
 	for k in range(0, tri.size(), 3):
 		for j in [0, 2, 1]:
@@ -887,6 +926,8 @@ func _heros_poser(i: int, b: Dictionary) -> void:
 		m.position = Vector3(p.x, hauteur(p.x, p.y) - 0.05 if not est_mairie else sol, p.y)
 		m.rotation.y = lacet
 		ville.add_child(m)
+		if not est_mairie:
+			_souches_cote_rue(m, w - 0.05, lv, Color(str(opt["enduit"])))
 		# le socle de l'immeuble, jusqu'au point le plus bas de la pente
 		var bas := minf(hauteur(p.x - u.x * w * 0.5, p.y - u.y * w * 0.5), hauteur(p.x + u.x * w * 0.5, p.y + u.y * w * 0.5))
 		if m.position.y - bas > 0.3:
@@ -956,11 +997,19 @@ func _place() -> void:
 				libre = false
 		if libre:
 			troncs.append(p)
+	# la planche en a 14 : on retire les deux plus proches du centre du square et celui du coin sud-ouest, pour
+	# ouvrir les trouées sur les massifs et sur la statue
+	for coin in [sq.get_center(), sq.get_center(), Vector2(sq.position.x, sq.end.y)]:
+		var proche := 0
+		for k in troncs.size():
+			if troncs[k].distance_to(coin) < troncs[proche].distance_to(coin):
+				proche = k
+		troncs.remove_at(proche)
 	for k in troncs.size():
 		var p: Vector2 = troncs[k]
 		var arbre := _pose(OMBRIERE, "arbre", "marronnier", Vector3(p.x, y, p.y), 400 + k, {"hauteur": graines.randf_range(12.0, 16.0), "vent": 0.4, "densite": graines.randf_range(0.75, 0.95), "contre_jour": 0.6, "teinte": ["6e9440", "7a9c40", "5f7f3e"]})
-		# des couronnes resserrées d'un cinquième, que le sable et leur ombre séparent comme sur la planche
-		arbre.scale = Vector3(0.8, 1.0, 0.8)
+		# des couronnes resserrées d'un huitième, que le sable et leur ombre séparent comme sur la planche
+		arbre.scale = Vector3(0.88, 1.0, 0.88)
 	var massifs := 0
 	essais = 0
 	# deux allées de gravier clair le long du square, de part et d'autre de Blandan, comme sur la planche
