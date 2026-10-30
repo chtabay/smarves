@@ -219,6 +219,13 @@ static func ambiance(nom: String) -> void:
 	Sfx.set_ambience(nom)
 
 
+## La musique du lieu, par-dessus l'ambiance : un thème du socle (« ville », « titre », « environs »,
+## « grands_espaces », « salon ») ou le chemin res:// d'une boucle .ogg de la commune ; "" pour le
+## silence. Elle passe en fondu enchaîné (Sfx.musique).
+static func musique(nom: String) -> void:
+	Sfx.musique(nom)
+
+
 ## Une matière du jeu (atelier.json, « matieres ») : pavés, eau, tapis, damas, marbre, feutre…
 static func matiere(nom: String) -> ShaderMaterial:
 	var p := str(catalogue().matieres.get(nom, ""))
