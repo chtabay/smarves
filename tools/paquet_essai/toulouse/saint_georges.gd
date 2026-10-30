@@ -820,11 +820,17 @@ static func _mobilier_toulousain(t, racine: Node3D) -> void:
 		poser.call("grand_parasol", p + Vector2(0.2, 0.1), 0.0, g + 1, {"toile": creme if n_table % 3 != 1 else ["8a2a2e", "8a2a2e"]})
 		g += 2
 		n_table += 1
-	# La terrasse du sud-ouest, au premier plan de la vue de la cible, entre le bac du sud-ouest et la rue.
-	for p in [Vector2(2.5, 9.2), Vector2(3.1, 11.0), Vector2(3.7, 12.8)]:
-		poser.call("terrasse", p, -0.45, g, {"tables": 2})
-		poser.call("parasol", p + Vector2(0.15, 0.0), 0.0, g + 1, {"toile": creme})
-		g += 2
+	# La terrasse du sud-ouest, au premier plan de la vue de la cible, entre le bac du sud-ouest et la rue :
+	# deux rangs parallèles à la rue, une vingtaine de tables (verdict du juge sur la v0.7).
+	var rue_sw := (Vector2(4.4, 16.8) - Vector2(0.2, 7.6)).normalized()
+	var vers_place := Vector2(rue_sw.y, -rue_sw.x)
+	for rang in 2:
+		for i in 5:
+			var p: Vector2 = Vector2(0.2, 7.6) + rue_sw * (1.4 + i * 1.6) + vers_place * (1.4 + rang * 1.25)
+			poser.call("terrasse", p, -0.45, g, {"tables": 2})
+			if (i + rang) % 2 == 0:
+				poser.call("parasol", p + rue_sw * 0.15, 0.0, g + 1, {"toile": creme if i % 3 != 1 else ["8a2a2e", "8a2a2e"]})
+			g += 2
 	# Une file de potelets de fonte tous les 2,5 m le long de la rue du sud-ouest, côté place (la cible).
 	var rue := [Vector2(-4.6, 1.2), Vector2(0.2, 7.6), Vector2(4.4, 16.8)]
 	for k in rue.size() - 1:
