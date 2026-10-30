@@ -171,8 +171,11 @@ jeu lui-même.
   marcher vers un point cardinal ou devant, à gauche… quelques secondes ou quelques mètres (un pilier qui
   accroche, il s'en dégage d'un pas de biais ; une paroi en face, il s'arrête et le dit), une touche (E, Espace, Échap, Entrée,
   Tab, toute lettre, un chiffre, envoyée au jeu comme un clavier ; une touche qui ne change rien à l'écran le
-  dit), cliquer un bouton ou une case (un clic de souris à sa place à l'écran),
-  attendre, dire. Une nouvelle carte, un nouveau bâtiment, un nouveau jeu se pilotent donc sans une ligne
+  dit), cliquer un bouton ou une case (un clic de souris à sa place à l'écran ; il attend ensuite que
+  l'écran ait réagi, la réponse d'une table en ligne comprise ; une case se nomme aussi par un mot de son nom),
+  écrire dans un champ de l'écran (une petite annonce : tout `LineEdit` ou `TextEdit` modifiable, que la vue
+  liste avec son invite), attendre, dire. Un plan dessiné (le plan du notaire) donne ses adresses comme des
+  cases, par leur nom, avec `pilote_cases()` et `pilote_texte()`. Une nouvelle carte, un nouveau bâtiment, un nouveau jeu se pilotent donc sans une ligne
   de plus, tant qu'ils passent par ces briques du socle.
 - **Le passage.** L'assistant fait un geste avec l'outil `smarves_geste` ; la fonction le pose dans
   `smarves.doublure_pilote`, le jeu l'y prend (il attend vingt secondes au plus par appel), le fait, et y
