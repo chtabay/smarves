@@ -18,7 +18,7 @@ const SOLEIL := {"hauteur": 36.0, "vient_de": 262.0, "couleur": Color("ffd9a8")}
 const BRIQUES := ["c8653f", "d2714a", "be5b38", "db8158", "c46a48"]
 const ENDUITS := ["ebcfc0", "f2e4cf", "e7c9b0", "efdcc4"]
 const RUE := Color("dccdab")
-const PLACE := Color("c98a5e")
+const PLACE := Color("c4804e")
 const FILET := Color("efe7da")
 
 ## La place Saint-Georges, en unités : le tapis de brique d'une façade à l'autre, rue de bordure comprise
@@ -76,15 +76,15 @@ func _ciel() -> void:
 	env.background_mode = Environment.BG_SKY
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	# une ombre colorée, pas noire : le bleu du ciel sur la brique, qui tempère l'orangé (juge, v0.11 puis v0.12)
-	env.ambient_light_color = Color("9cacc8")
-	env.ambient_light_energy = 1.6
-	env.ambient_light_sky_contribution = 0.5
+	env.ambient_light_color = Color("8fa6c8")
+	env.ambient_light_energy = 1.8
+	env.ambient_light_sky_contribution = 0.4
 	env.tonemap_mode = Environment.TONE_MAPPER_AGX
 	# Sans halo (Guillaume, 29 octobre : « les flash sont inutiles »).
 	env.glow_enabled = false
 	# L'étalonnage de l'image cible : plus saturé, un peu plus contrasté, chaud.
 	env.adjustment_enabled = true
-	env.adjustment_saturation = 1.28
+	env.adjustment_saturation = 1.12
 	env.adjustment_contrast = 1.06
 	env.adjustment_brightness = 1.03
 	# La brume dorée des lointains : au-delà des îlots qui ferment les rues, la ville se fond dans l'air du soir.

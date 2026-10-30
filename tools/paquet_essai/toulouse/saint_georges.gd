@@ -782,7 +782,7 @@ static func _mobilier_toulousain(t, racine: Node3D) -> void:
 		var n := Node3D.new()
 		n.transform = Transform3D(Basis(Vector3.UP, lacet), Vector3(p.x, 0.0, p.y) * UNITE)
 		groupe.add_child(n)
-		if nom in ["banc", "corbeille", "etal"]:
+		if nom in ["corbeille", "etal"] or (nom == "banc" and not tou.OBJETS.has("banc")):
 			lyo.poser(n, Vector3.ZERO, nom, graine, opt)
 		elif nom == "fleurs" and bug != null:
 			bug.pousser(n, Vector3.ZERO, nom, graine, opt)
@@ -875,7 +875,7 @@ static func _mobilier_toulousain(t, racine: Node3D) -> void:
 		var l := a.distance_to(b)
 		var u := (b - a) / l
 		while s < l:
-			poser.call("lampadaire", a + u * s + Vector2(u.y, -u.x) * -1.2, 0.0, j, {"allume": false})
+			poser.call("lampadaire", a + u * s + Vector2(u.y, -u.x) * -1.2, 0.0, j, {"allume": false, "branches": 2})
 			j += 1
 			s += pas
 		s -= l
@@ -907,9 +907,16 @@ static func _mobilier_toulousain(t, racine: Node3D) -> void:
 	for p in [Vector2(-1.2, -16.6), Vector2(12.6, -16.6), Vector2(-3.6, -9.0), Vector2(-1.0, -1.4), Vector2(15.4, -14.6), Vector2(18.8, -0.6), Vector2(-0.4, -12.2), Vector2(10.4, -12.0)]:
 		poser.call("fleurs", p, 0.0, int(p.x * 7.0 + p.y))
 	# Les bancs au bord des terre-pleins, les bacs de bois fleuris, les corbeilles.
-	poser.call("banc", Vector2(6.8, -7.0), PI * 0.5, 1)
-	poser.call("banc", Vector2(7.0, -2.6), PI * 0.5, 2)
+	# deux voisins assis sur le banc de l'allée, un lecteur sur celui du sud (juge, v0.12 : la vie de la cible)
+	poser.call("banc", Vector2(6.8, -7.0), PI * 0.5, 1, {"assis": 2})
+	poser.call("banc", Vector2(7.0, -2.6), PI * 0.5, 2, {"assis": 1})
 	poser.call("banc", Vector2(13.0, 0.6), PI, 3)
+	# La double rangée de bornes de pierre le long de l'allée qui file vers Lafage : elles rythment le sol de la
+	# cible (juge, v0.12).
+	if tou.OBJETS.has("borne"):
+		for z in [-8.3, -4.7]:
+			for i in 6:
+				poser.call("borne", Vector2(8.6 + i * 1.3, z), 0.0, 700 + i + int(z))
 	for p in [Vector2(-1.2, -10.4), Vector2(-0.6, -1.2), Vector2(4.6, 10.4), Vector2(14.0, -13.4), Vector2(18.4, 1.0)]:
 		poser.call("bac_bois", p, 0.0, int(p.x * 10.0), {"longueur": 1.8})
 	poser.call("corbeille", Vector2(6.0, -10.0), 0.0, 1)
@@ -927,7 +934,7 @@ static func _vie(racine: Node3D) -> void:
 	racine.add_child(groupe)
 	var g := 31555
 	# Devant le café de courses : trois groupes qui parlent du match, tournés les uns vers les autres.
-	for centre in [Vector2(-1.6, -9.6), Vector2(1.2, -2.2), Vector2(1.8, -4.8)]:
+	for centre in [Vector2(-1.6, -9.6), Vector2(1.2, -2.2), Vector2(1.8, -4.8), Vector2(12.6, -7.6)]:
 		for k in 3:
 			var a: float = TAU * k / 3.0 + centre.x
 			var f: Node3D = Atelier.figurant(g, "idle")
@@ -953,6 +960,9 @@ static func _vie(racine: Node3D) -> void:
 		[Vector3(21.5, 0, 2.2), Vector3(20.0, 0, 1.0), Vector3(18.2, 0, -4.0), Vector3(15.6, 0, -4.3), Vector3(13.1, 0, -2.6), Vector3(12.3, 0, 1.0), Vector3(12.0, 0, 4.0), Vector3(3.4, 0, 6.5), Vector3(3.2, 0, 1.5), Vector3(0.6, 0, -1.5), Vector3(-1.5, 0, -2.4), Vector3(-4.0, 0, -2.1), Vector3(-14.0, 0, -2.0)],
 		[Vector3(14.0, 0, -11.5), Vector3(13.0, 0, -9.5), Vector3(6.0, 0, -8.8), Vector3(0.6, 0, -1.5), Vector3(3.2, 0, 1.5), Vector3(3.4, 0, 6.5), Vector3(9.0, 0, 5.4)],
 		[Vector3(-14.0, 0, -2.0), Vector3(-4.0, 0, -2.1), Vector3(-1.5, 0, -2.4), Vector3(0.6, 0, -1.5), Vector3(3.2, 0, 1.5), Vector3(3.4, 0, 6.5), Vector3(9.6, 0, 4.8)],
+		# l'allée entre les deux terre-pleins, vers Lafage : la vue de départ la voit en long (juge, v0.12)
+		[Vector3(4.5, 0, -6.0), Vector3(10.0, 0, -6.2), Vector3(16.0, 0, -6.8), Vector3(18.5, 0, -9.0)],
+		[Vector3(6.0, 0, -8.6), Vector3(12.0, 0, -6.0), Vector3(17.0, 0, -4.6)],
 	]
 	# chaque route parcourue dans les deux sens : un promeneur à l'aller, un autre au retour (verdict du juge
 	# sur la v0.8 : des passants)
@@ -968,7 +978,8 @@ static func _vie(racine: Node3D) -> void:
 			g += 1
 	# Des haltes : deux voisins devant les étals, deux au bord de la terrasse de Lafage, deux sur le trottoir
 	# de la grande terrasse du sud-ouest.
-	for paire in [[Vector2(12.2, 7.6), Vector2(12.7, 7.1)], [Vector2(10.6, -6.8), Vector2(11.1, -7.3)], [Vector2(0.9, 9.4), Vector2(1.3, 10.0)]]:
+	for paire in [[Vector2(12.2, 7.6), Vector2(12.7, 7.1)], [Vector2(10.6, -6.8), Vector2(11.1, -7.3)], [Vector2(0.9, 9.4), Vector2(1.3, 10.0)],
+			[Vector2(8.6, -5.6), Vector2(9.1, -6.1)], [Vector2(15.2, -5.2), Vector2(15.7, -5.7)], [Vector2(17.5, -7.5), Vector2(18.0, -7.0)]]:
 		for k in 2:
 			var p: Vector2 = paire[k]
 			var q: Vector2 = paire[1 - k]
