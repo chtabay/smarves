@@ -117,7 +117,19 @@ def mixer(piste, niveaux, salle, traitements=None):
         sec += b
         envoi += b * part
     # Rien sous 42 Hz : le grave ne fait que gonfler, surtout dans des haut-parleurs de téléphone.
-    return filtre(sec + reverberation(envoi, salle), haut=42.0, pente=3)
+    return arrondir(filtre(sec + reverberation(envoi, salle), haut=42.0, pente=3))
+
+
+def arrondir(x, coude=2500.0, plancher=-8.0, toit=11000.0):
+    """Ce qui rend l'oreille tranquille : l'aigu descend en pente douce à partir de `coude` Hz jusqu'à
+    `plancher` dB (une étagère, comme un vieil enregistrement ou une bande), et plus rien ne pique au-delà
+    de `toit` Hz. Le médium, où vivent les mélodies, n'est pas touché."""
+    n = x.shape[-1]
+    f = np.fft.rfftfreq(n, 1.0 / SR)
+    s = db(plancher)
+    g = s + (1.0 - s) / np.sqrt(1.0 + (f / coude) ** 2)
+    g /= np.sqrt(1.0 + (f / toit) ** 4)
+    return np.fft.irfft(np.fft.rfft(x, axis=-1) * g, n, axis=-1)
 
 
 def gain_maitre(mix, cible=-18.0):
@@ -127,9 +139,9 @@ def gain_maitre(mix, cible=-18.0):
 
 
 def maitre(mix, gain):
-    """Un peu de chaleur (saturation douce, qui tient aussi les crêtes), au même gain pour toutes les
-    couches d'un morceau."""
-    return np.tanh(mix * gain * 1.25) / 1.25
+    """Une saturation très douce, qui ne fait que tenir les crêtes (plus poussée, elle ajoute des
+    harmoniques qui durcissent l'aigu), au même gain pour toutes les couches d'un morceau."""
+    return np.tanh(mix * gain * 0.7) / 0.7
 
 
 # --- Les effets (circulaires : la boucle reste sans couture) -------------------------------------
@@ -170,9 +182,9 @@ def reverberation(x, salle):
     rep = np.zeros((2, m))
     for c in range(2):
         bruit = rng.normal(0.0, 1.0, m)
-        clair = filtre(bruit, bas=brillance)
-        sombre = filtre(bruit, bas=brillance * 0.25)
-        k = np.exp(-t / (duree * 0.35))
+        clair = filtre(bruit, bas=brillance * 0.6)
+        sombre = filtre(bruit, bas=brillance * 0.18)
+        k = np.exp(-t / (duree * 0.2))
         queue = (clair * k + sombre * (1.0 - k)) * np.exp(-6.9 * t / duree)
         queue *= np.minimum(np.maximum(t - predelai, 0.0) / 0.02, 1.0)
         rep[c] = queue
@@ -227,10 +239,10 @@ def rhodes(note, dur, vel=1.0):
     """Le piano électrique : deux opérateurs FM, la frappe plus brillante quand on joue fort."""
     t = np.arange(int((dur + 1.2) * SR)) / SR
     f = hz(note)
-    index = (0.6 + 1.6 * vel) * np.exp(-t * 5.0) + 0.25
+    index = (0.45 + 1.1 * vel) * np.exp(-t * 6.0) + 0.2
     corps = np.sin(2 * np.pi * f * t + np.sin(2 * np.pi * f * t) * index)
-    lame = np.sin(2 * np.pi * f * 7.0 * t) * np.exp(-t * 20.0) * 0.07 * vel
-    env = np.minimum(t / 0.003, 1.0) * np.exp(-t * 0.9) * np.clip(1.0 - (t - dur) / 0.25, 0.0, 1.0)
+    lame = np.sin(2 * np.pi * f * 7.0 * t) * np.exp(-t * 28.0) * 0.035 * vel
+    env = np.minimum(t / 0.005, 1.0) * np.exp(-t * 0.9) * np.clip(1.0 - (t - dur) / 0.25, 0.0, 1.0)
     return (corps + lame) * env * (0.4 + 0.6 * vel)
 
 
@@ -247,12 +259,12 @@ def cuivres(notes, dur, rng, vel=1.0):
     """Un coup de cuivres de synthé : des scies désaccordées dont le filtre claque puis se referme."""
     n = int((dur + 0.25) * SR)
     t = np.arange(n) / SR
-    b = 1.5 + 9.0 * np.minimum(t / 0.03, 1.0) * np.exp(-t * 7.0) + 2.5
+    b = 1.5 + 6.5 * np.minimum(t / 0.03, 1.0) * np.exp(-t * 7.0) + 2.0
     s = np.zeros(n)
     for note in notes:
         for d in (-0.08, 0.07):
             f = hz(note) * (1.0 + d / 100.0) * (1.0 + 0.004 * np.exp(-t * 30.0))
-            s += additif(f, n, b * vel, harm=16, poids=1.0)
+            s += additif(f, n, b * vel, harm=14, poids=1.15)
     env = enveloppe(n, 0.012, 0.12, 0.6, dur, 0.12)
     return s * env / len(notes)
 
@@ -307,13 +319,13 @@ def chant(notes, n_total, rng, timbre="synthe"):
     vit = 5.4 + 0.3 * np.sin(2 * np.pi * 0.21 * t)
     if timbre == "synthe":
         freq = freq * (1.0 + 0.0055 * vib * np.sin(2 * np.pi * np.cumsum(vit) / SR))
-        s = additif(freq, n, 2.0 + 5.0 * amp, harm=14, poids=1.0, impair=1.25)
+        s = additif(freq, n, 2.0 + 5.0 * amp, harm=12, poids=1.15, impair=1.15)
         s = s + 0.3 * additif(freq * 2.0 ** (0.07 / 12.0), n, 2.0 + 4.0 * amp, harm=10, poids=1.0)
     elif timbre == "harmonica":
         freq = freq * (1.0 + 0.004 * vib * np.sin(2 * np.pi * np.cumsum(vit) / SR))
         amp = amp * (1.0 + 0.18 * vib * np.sin(2 * np.pi * np.cumsum(vit) / SR))
-        s = additif(freq, n, 1.8 + 3.5 * amp, harm=12, poids=0.8, impair=1.6)
-        bruit = filtre(rng.normal(0, 1, n), bas=3500, haut=900)
+        s = additif(freq, n, 1.8 + 3.5 * amp, harm=10, poids=1.0, impair=1.35)
+        bruit = filtre(rng.normal(0, 1, n), bas=2800, haut=900)
         s = s + bruit * (0.05 * amp + 0.25 * souffle)
     elif timbre == "cor":
         # Le cor : rond quand il joue doux, cuivré quand il force (la brillance suit le souffle).
@@ -327,11 +339,11 @@ def chant(notes, n_total, rng, timbre="synthe"):
             ph = np.cumsum(v + 0.25 * np.sin(2 * np.pi * (0.17 + 0.05 * k) * t)) / SR
             fk = freq * (1.0 + d / 100.0) * (1.0 + 0.004 * vib * np.sin(2 * np.pi * ph + k))
             s += additif(fk, n, 3.0 + 3.0 * amp, harm=12, poids=1.05)
-        s = s / 3.0 + filtre(rng.normal(0, 1, n), bas=6000, haut=2000) * 0.03 * amp
+        s = s / 3.0 + filtre(rng.normal(0, 1, n), bas=4500, haut=1800) * 0.02 * amp
     else:  # sifflet
         freq = freq * (1.0 + 0.006 * vib * np.sin(2 * np.pi * np.cumsum(vit) / SR))
         s = additif(freq, n, 0.35, harm=3, poids=1.0)
-        bruit = filtre(rng.normal(0, 1, n), bas=6000, haut=2500)
+        bruit = filtre(rng.normal(0, 1, n), bas=4500, haut=2000)
         s = s + bruit * (0.06 * amp + 0.15 * souffle)
     return s * amp
 
@@ -394,8 +406,8 @@ def piano(note, dur, rng, vel=1.0):
             break
         poids = (1.0 / k ** (1.4 - 0.5 * vel)) * (0.6 if k % 7 == 0 else 1.0)
         s += np.sin(2 * np.pi * fk * t + rng.uniform(0, 6.28)) * poids * np.exp(-t * (0.6 + 0.35 * k) * (f0 / 440.0) ** 0.3)
-    marteau = filtre(rng.normal(0, 1, n), bas=3000 + 3000 * vel, haut=300) * np.exp(-t * 120.0) * 0.15
-    env = np.minimum(t / 0.002, 1.0) * np.clip(1.0 - (t - dur) / 0.4, 0.0, 1.0)
+    marteau = filtre(rng.normal(0, 1, n), bas=2000 + 2000 * vel, haut=300) * np.exp(-t * 120.0) * 0.1
+    env = np.minimum(t / 0.004, 1.0) * np.clip(1.0 - (t - dur) / 0.4, 0.0, 1.0)
     return (s + marteau) * env * vel
 
 
@@ -420,13 +432,13 @@ def souffle_cymbale(dur, rng, vel=1.0):
     n = int((dur + 1.5) * SR)
     t = np.arange(n) / SR
     env = np.minimum(t / dur, 1.0) ** 3 * np.exp(-np.maximum(t - dur, 0) * 2.5)
-    return filtre(rng.normal(0, 1, n), haut=3000, bas=12000) * env * vel
+    return filtre(rng.normal(0, 1, n), haut=2500, bas=7000) * env * vel
 
 
 def clavecin(note, dur, rng, vel=1.0):
     """Un clavecin : la corde pincée par un bec, très claire, et sa corde à l'octave (le quatre-pieds)."""
-    a = corde(note, dur, rng, vel, clair=1.0, perte=0.993, pince=0.06)
-    b = corde(note + 12, dur, rng, vel * 0.35, clair=1.0, perte=0.99, pince=0.08)
+    a = corde(note, dur, rng, vel, clair=0.7, perte=0.993, pince=0.1)
+    b = corde(note + 12, dur, rng, vel * 0.25, clair=0.6, perte=0.99, pince=0.12)
     m = min(len(a), len(b))
     return a[:m] + b[:m]
 
@@ -438,7 +450,7 @@ def grosse_caisse(rng, vel=1.0):
     t = np.arange(n) / SR
     f = 46.0 + 95.0 * np.exp(-t * 32.0)
     corps = np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-t * 7.5)
-    clic = filtre(rng.normal(0, 1, n), bas=4000) * np.exp(-t * 300.0) * 0.5
+    clic = filtre(rng.normal(0, 1, n), bas=1800) * np.exp(-t * 300.0) * 0.35
     return np.tanh((corps + clic) * 1.5) * vel
 
 
@@ -446,7 +458,7 @@ def caisse_claire(rng, vel=1.0):
     n = int(0.3 * SR)
     t = np.arange(n) / SR
     ton = (np.sin(2 * np.pi * 185 * t) + 0.5 * np.sin(2 * np.pi * 330 * t)) * np.exp(-t * 28.0)
-    timbre = filtre(rng.normal(0, 1, n), bas=9000, haut=1500) * np.exp(-t * 16.0)
+    timbre = filtre(rng.normal(0, 1, n), bas=5000, haut=1200) * np.exp(-t * 16.0)
     return (ton * 0.6 + timbre) * vel
 
 
@@ -456,8 +468,9 @@ def charleston(rng, ouvert=False, vel=1.0):
     s = np.zeros(n)
     for f in (205.3, 304.4, 369.6, 522.7, 540.0, 800.0):
         s += np.sign(np.sin(2 * np.pi * f * 1.9 * t + rng.uniform(0, 6.28)))
-    s = filtre(s + rng.normal(0, 0.6, n), haut=7000, bas=15000)
-    return s * np.exp(-t * (9.0 if ouvert else 70.0)) * vel
+    s = filtre(s + rng.normal(0, 0.6, n), haut=5000, bas=9000)
+    # Une attaque de 3 ms : la baguette effleure plutôt qu'elle ne claque.
+    return s * np.minimum(t / 0.003, 1.0) * np.exp(-t * (9.0 if ouvert else 60.0)) * vel
 
 
 def clap(rng, vel=1.0):
@@ -467,7 +480,7 @@ def clap(rng, vel=1.0):
     for d in (0.0, 0.009, 0.018):
         env += np.exp(-np.maximum(t - d, 0) * 120.0) * (t >= d)
     env += np.exp(-np.maximum(t - 0.026, 0) * 18.0) * (t >= 0.026) * 0.6
-    return filtre(rng.normal(0, 1, n), bas=5000, haut=900) * env * vel
+    return filtre(rng.normal(0, 1, n), bas=3200, haut=800) * env * vel
 
 
 def tom(note, rng, vel=1.0):
@@ -480,7 +493,7 @@ def tom(note, rng, vel=1.0):
 def shaker(rng, vel=1.0):
     n = int(0.09 * SR)
     t = np.arange(n) / SR
-    return filtre(rng.normal(0, 1, n), haut=4500, bas=11000) * np.minimum(t / 0.015, 1) * np.exp(-t * 45) * vel
+    return filtre(rng.normal(0, 1, n), haut=3500, bas=7500) * np.minimum(t / 0.02, 1) * np.exp(-t * 40) * vel
 
 
 def pas(rng, vel=1.0):
@@ -669,7 +682,7 @@ def arpege_guitare(p, bar, accord, motif, vel=1.0):
 def roulement_banjo(p, bar, haut, motif, vel=1.0):
     for beat, k in motif:
         note = haut[k]
-        p.add("banjo", corde(note, p.beat * 0.9, p.rng, vel * (0.9 if beat % 1 else 1.0), clair=0.9, perte=0.985, pince=0.08),
+        p.add("banjo", corde(note, p.beat * 0.9, p.rng, vel * (0.9 if beat % 1 else 1.0), clair=0.65, perte=0.985, pince=0.12),
               p.at(bar, beat), pan=0.35, jeu=0.006, force=0.1)
 
 
