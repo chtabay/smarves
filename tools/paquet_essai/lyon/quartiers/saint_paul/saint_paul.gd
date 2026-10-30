@@ -552,7 +552,23 @@ class Batisseur:
 			for et in [[5.62, 23.0, 3.6], [5.02, 29.0, 3.0]]:
 				var baie := boite(e, Vector3(1.4, et[2], 0.3), croisee + Vector3(cos(a) * et[0], et[1], sin(a) * et[0]), Color("#3a3530"))
 				baie.rotation.y = -a + PI * 0.5
+		# les corniches qui séparent les deux étages, et les colonnettes aux angles de l'octogone
+		for yc in [19.95, 26.6, 32.0]:
+			cyl(e, 5.95 if yc < 30.0 else 5.3, 5.95 if yc < 30.0 else 5.3, 0.35, croisee + Vector3(0, yc, 0), pierre.darkened(0.12), 8)
+		for k in 8:
+			var a := TAU * k / 8.0
+			cyl(e, 0.2, 0.2, 6.0, croisee + Vector3(cos(a) * 5.75, 23.2, sin(a) * 5.75), pierre.lightened(0.15), 6)
+			cyl(e, 0.18, 0.18, 5.0, croisee + Vector3(cos(a) * 5.15, 29.2, sin(a) * 5.15), pierre.lightened(0.15), 6)
 		cyl(e, 5.6, 0.6, 3.5, croisee + Vector3(0, 33.7, 0), toit, 8)
+		# le toit en cul-de-four de l'abside et ceux des bras du transept
+		cyl(e, 6.3, 0.4, 3.0, Vector3(-L * 0.5 + 4.0, 14.5, 0), toit, 16)
+		var tr := MeshInstance3D.new()
+		var tm := PrismMesh.new()
+		tm.size = Vector3(9.4, 2.6, W)
+		tr.mesh = tm
+		tr.material_override = mat(toit)
+		tr.position = Vector3(-12.0, 16.3, 0)
+		e.add_child(tr)
 		# le clocher à flèche, sur la façade
 		var cl := Vector3(L * 0.5 - 4.0, 0, -6.5)
 		boite(e, Vector3(7.0, 26.0, 7.0), cl + Vector3(0, 13.0, 0), pierre)
@@ -582,6 +598,24 @@ class Batisseur:
 			for k in 4:
 				boite(g, Vector3(0.2, 2.6, 1.4), Vector3(GARE[1] * 0.5 + 0.02, 2.4, s * (8.0 + k * 3.0)), Color("#3b4450"))
 				boite(g, Vector3(0.2, 2.0, 1.2), Vector3(GARE[1] * 0.5 + 0.02, 7.4, s * (8.0 + k * 3.0)), Color("#3b4450"))
+		# les bandeaux et la corniche de pierre, les pilastres, le fronton qui porte l'horloge, le toit d'ardoise
+		var fx: float = GARE[1] * 0.5
+		for yb in [5.2, 10.8]:
+			boite(g, Vector3(0.5, 0.4, GARE[2]), Vector3(fx + 0.15, yb, 0), pierre.lightened(0.08))
+		boite(g, Vector3(0.8, 0.6, 12.6), Vector3(fx - 0.2, 15.6, 0), pierre.lightened(0.1))
+		for k in 13:
+			var z: float = -GARE[2] * 0.5 + 0.8 + (GARE[2] - 1.6) * k / 12.0
+			if absf(z) > 6.5:
+				boite(g, Vector3(0.3, 10.6, 0.6), Vector3(fx + 0.1, 5.4, z), pierre.lightened(0.04))
+		var fronton := MeshInstance3D.new()
+		var fm := PrismMesh.new()
+		fm.size = Vector3(12.6, 2.4, 0.8)
+		fronton.mesh = fm
+		fronton.material_override = mat(pierre.lightened(0.06))
+		fronton.position = Vector3(fx - 0.2, 17.1, 0)
+		fronton.rotation.y = PI * 0.5
+		g.add_child(fronton)
+		boite(g, Vector3(GARE[1] - 8.0, 2.2, GARE[2] - 1.0), Vector3(-4.0, 14.0, 0), Color("#5d6268"))
 		solide(g, Vector3(GARE[1], 16.0, GARE[2]), Vector3(0, 8.0, 0))
 
 	## L'hôtel Bullioud : la façade sur la rue Juiverie percée d'un porche, la cour, et au fond la galerie de
