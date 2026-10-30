@@ -37,3 +37,5 @@ jobs:
         run: python3 tools/mcp/test_kit_communes.py
       - name: Vérifier la carte et les trajets
         run: ./godot --headless --path . -s tools/test_carte.gd
+      - name: Vérifier le coin des communes
+        run: ./godot --headless --path . -s tools/test_coin.gd
