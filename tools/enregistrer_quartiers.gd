@@ -3,6 +3,7 @@ extends SceneTree
 ## que le manifeste nomme (champ « quartiers ») est bâti par son script, puis rangé en scène .scn compressée
 ## là où le manifeste le dit. Le jeu lit ensuite ces scènes dans un fil au lieu de tout rebâtir.
 ##   godot --headless --path . -s tools/enregistrer_quartiers.gd -- <id> [--quartier=<nom>]
+## Depuis le socle 1.29, chaque quartier est aussi rangé en version lointaine (quartiers/<nom>_loin.scn).
 ## À relancer après chaque changement d'un script « batir » : la scène enregistrée garde ce qu'il a bâti.
 ## Le mode d'emploi est dans docs/COMMUNE.md, « Les quartiers enregistrés ».
 
@@ -53,5 +54,14 @@ func _init() -> void:
 			var o := FileAccess.get_file_as_bytes(q.scene).size()
 			print("%s : %d nœuds bâtis en %.1f s, %s (%.1f Mo)" % [nom, n.find_children("*", "", true, false).size() + 1,
 				bati / 1000.0, q.scene, o / 1048576.0])
+			# Sa version lointaine (socle 1.29) : les maillages fixes fondus par matière, pour la veille des sas.
+			var el := Quartiers.enregistrer_lointain(n, q.lointain)
+			if el == ERR_SKIP:
+				print("%s : rien à fondre pour une version lointaine" % nom)
+			elif el != OK:
+				printerr("%s : version lointaine impossible (%s)" % [nom, error_string(el)])
+				fautes += 1
+			else:
+				print("%s : version lointaine %s (%.2f Mo)" % [nom, q.lointain, FileAccess.get_file_as_bytes(q.lointain).size() / 1048576.0])
 		n.free()
 	quit(1 if fautes > 0 else 0)

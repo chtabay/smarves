@@ -122,7 +122,7 @@ Un dossier `communes/<id>/` avec au moins un manifeste `commune.json` et la scè
 | `structures` | non | les structures de la commune qui comptent pour les autres communes : gare, arrêt de car, terrain de football (section « Les structures ») ; vide par défaut |
 | `notaire` | non | le notaire de la commune et son registre : toutes les adresses à vendre et le plan de l'étude (section « Le notaire ») |
 | `carnet` | non | socle 1.3 : les compteurs que la commune tient au carnet du joueur, une liste de 24 au plus `{id, libelle, genre, rubrique}` (section « Le carnet du joueur ») ; vide par défaut |
-| `quartiers` | non | socle 1.21 : les quartiers enregistrés d'avance, par nom : `{batir, scene}`, le script qui bâtit le quartier et la scène où il est rangé, dans le dossier de la commune (section « Les quartiers enregistrés ») ; vide par défaut |
+| `quartiers` | non | socle 1.21 : les quartiers enregistrés d'avance, par nom : `{batir, scene}`, le script qui bâtit le quartier et la scène où il est rangé, dans le dossier de la commune (section « Les quartiers enregistrés ») ; vide par défaut. Socle 1.29 : `centre` ([x, z] en mètres), `rayon` (150 par défaut) et `lointain` (la version lointaine, `quartiers/<nom>_loin.scn` par défaut) pour la veille des sas d'une ville |
 | `presences` | non | socle 1.23 : les autres joueurs dans la commune, `{portee, echelle, zones}` : la portée à laquelle on se voit, la taille des silhouettes, et les zones qui découpent une grande scène en canaux (section « Les autres joueurs ») ; sans le champ, chaque scène est un lieu, à 60 unités de portée |
 | `page_carnet` | non | la page de la commune d'origine dans le carnet, un script du jeu (`res://scripts/carnet_smarves.gd`) ; lu pour la commune d'origine seulement, jamais dans un paquet |
 
@@ -634,6 +634,19 @@ Une commune bâtie par code se rebâtit à chaque ouverture, et l'attente grandi
 - dans la scène de la commune, `await Quartiers.poser(self, "<id>", "chateau")` pose le quartier et le rend. Le jeu lit les scènes enregistrées dans des fils dès qu'on entre dans la commune (`Chargement`), pendant que la scène se bâtit ; tant qu'un quartier n'est pas enregistré, `poser` le bâtit par son script : le même appel marche avant et après. Un quartier posé reçoit ses objets lointains (`Lointain`), et sa version lointaine s'il porte la méta `lointain`.
 
 Une scène enregistrée range tels quels les maillages et les images faits par code : l'outil dit la taille de chaque quartier, qui part dans le paquet. Le test est `tools/test_quartiers.gd`.
+
+**Une ville en quartiers : la veille des sas (socle 1.29, `"socle_min": "1.29"`).** Une grande ville (Lyon, Toulouse) ne tient pas entière dans le budget d'un lieu : un seul quartier est en détail à la fois, les autres se voient au loin en version lointaine, et l'on passe de l'un à l'autre par un **sas**, une rue étroite qui appartient aux deux. Le manifeste donne à chaque quartier son `centre` (`[x, z]`, en mètres dans le repère de la commune) et son `rayon` (150 m par défaut) :
+
+```json
+"quartiers": {
+  "sathonay": {"batir": "quartiers/sathonay/sathonay.gd", "centre": [0, 0], "rayon": 180},
+  "terreaux": {"batir": "quartiers/terreaux/terreaux.gd", "centre": [275, 215], "rayon": 180}
+}
+```
+
+- **La version lointaine** d'un quartier (`lointain`, par défaut `quartiers/<nom>_loin.scn`) est ses maillages fixes fondus par matière (`Lointain.quartier`), sans ce qui bouge ni ce qui porte `sans_lointain`. `tools/enregistrer_quartiers.gd` l'enregistre à côté de la scène du quartier ; `Quartiers.lointain_de` la pose seule, et, sans scène enregistrée, bâtit puis fond le quartier sur place (lent : pour l'auteur).
+- **Les sas** : un quartier pose à chacun de ses débouchés un nœud `Sas_<vers>` (`Node3D` ou `Marker3D`, méta `rayon`, 6 m par défaut), `vers` étant le nom du quartier d'en face. Les deux quartiers posent chacun le leur, aux deux bouts de la rue.
+- **La veille** : dans la scène de la commune, `Quartiers.veiller(self, "<id>", player, "sathonay")` pose le quartier de départ en détail et tous les autres au loin, puis suit le joueur (toutes les 0,4 s) : le quartier courant est celui dont il est le plus près du centre, dans son rayon ; quand il se tient dans un sas, le quartier d'en face se pose en détail (`pose(nom)`) ; quand il en sort de l'autre côté, le quartier quitté repasse au loin (`allege(nom)`). `veille.detailles` et `veille.lointains` disent ce qui est posé, `veille.verifier()` force un regard. Le paquet d'un quartier se mesure avec ce quartier en détail et ses voisins au loin (`tools/budget_lieu.gd`), et la couture se juge depuis chaque sas.
 
 ### La table partagée d'une commune (classe `Partage`, `scripts/socle/partage.gd`) — socle 1.21
 
