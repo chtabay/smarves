@@ -105,7 +105,7 @@ static func construire(t) -> void:
 	_fondre(racine, "Mobilier")
 	# la fonte perd les réglages d'instance des arbres : on rend le jour du cœur de la voûte au maillage fondu
 	# (verdict du juge sur la v0.8, la voûte vue d'en bas reste trop sombre).
-	_fondre(racine, "Platanes", {"jour": 1.0})
+	_fondre(racine, "Platanes", {"jour": 1.4})
 	_fondre(racine, "Bacs")
 
 
@@ -411,7 +411,7 @@ static func _platanes(t, racine: Node3D) -> void:
 			var porteur := Node3D.new()
 			porteur.transform = Transform3D(Basis(Vector3.UP, k * 1.7).scaled(Vector3.ONE / UNITE), Vector3(p.x, 0.015, p.y))
 			groupe.add_child(porteur)
-			ombriere.pousser(porteur, Vector3.ZERO, "platane", k, {"hauteur": 13.0 + (k % 4) * 0.4})
+			ombriere.pousser(porteur, Vector3.ZERO, "platane", k, {"hauteur": 15.0 + (k % 4) * 0.4})
 			if sol != null:
 				sol.poser(porteur, Vector3.ZERO, "fosse_arbre", k, {"largeur": 2.4})
 		elif Geometry2D.is_point_in_polygon(p, place):
@@ -430,7 +430,7 @@ static func _platanes(t, racine: Node3D) -> void:
 		porteur.transform = Transform3D(Basis(Vector3.UP, k * 2.3).scaled(Vector3.ONE / UNITE), Vector3(p.x, PELOUSE / UNITE, p.y))
 		groupe.add_child(porteur)
 		if ombriere != null:
-			ombriere.pousser(porteur, Vector3.ZERO, "platane", 700 + k, {"hauteur": 13.5 + (k % 3) * 0.5})
+			ombriere.pousser(porteur, Vector3.ZERO, "platane", 700 + k, {"hauteur": 15.5 + (k % 3) * 0.5})
 		else:
 			veg.pousser(porteur, Vector3.ZERO, "platane", 700 + k, {"hauteur": 19.0 + (k % 3) * 0.9})
 			_eclaircir(porteur, clair)
