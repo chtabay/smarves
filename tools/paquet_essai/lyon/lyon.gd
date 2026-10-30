@@ -32,6 +32,8 @@ const PALETTES_MARRONNIER := [["b9c84a", "8fb048", "7a9c40", "5f7f3e", "4a6634"]
 const TUILES := ["8f4a38", "86422f", "965040", "7e3f30", "92503f", "8a4836"]
 const PAVE := Color("#a39b93")
 ## Les voies sans voitures : elles restent pavées.
+## La halle de la Martinière : son emprise dans le relevé (le long bâtiment bas de la rue de la Martinière).
+const HALLE := 456
 const PIETONS := ["footway", "path", "steps", "pedestrian", "living_street", "cycleway"]
 const DALLE := Color("#b3a998")
 const SABLE := Color("#b48e62")
@@ -769,6 +771,8 @@ func _rues() -> void:
 	# les bordures de granit gris clair, de part et d'autre de chaque chaussée, coupées aux carrefours
 	var bordures := SurfaceTool.new()
 	bordures.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var dalles := SurfaceTool.new()
+	dalles.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for c in chaussees.size():
 		var a: Vector2 = chaussees[c][0]
 		var b: Vector2 = chaussees[c][1]
@@ -793,6 +797,10 @@ func _rues() -> void:
 						break
 				if not dans:
 					_boite_st(bordures, Vector3(q.x, hauteur(q.x, q.y) + 0.1, q.y), Vector3(long / nb + 0.02, 0.2, 0.26), ang, Color("#cfcac0"))
+					# le trottoir en dalles de granit, derrière la bordure, jusqu'aux façades
+					var tq: Vector2 = q + n * s * 1.63
+					if not PLACE.has_point(tq):
+						_boite_st(dalles, Vector3(tq.x, hauteur(tq.x, tq.y) + 0.04, tq.y), Vector3(long / nb + 0.02, 0.12, 3.0), ang, Color.WHITE)
 	var mb := MeshInstance3D.new()
 	mb.name = "Bordures"
 	mb.mesh = bordures.commit()
@@ -800,6 +808,12 @@ func _rues() -> void:
 	mat.vertex_color_is_srgb = true
 	mb.material_override = mat
 	ville.add_child(mb)
+	var md := MeshInstance3D.new()
+	md.name = "Trottoirs"
+	md.mesh = dalles.commit()
+	md.material_override = _materiau_dalles_quai()
+	md.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	ville.add_child(md)
 
 
 ## L'enrobé des rues des pentes : un gris chaud et sombre, des reprises plus claires ou plus noires, un grain
@@ -822,7 +836,7 @@ void fragment() {
 	vec2 p = monde.xz;
 	float reprise = bruit(p * 0.18) * 0.6 + bruit(p * 0.55) * 0.4;
 	float grain = hash(floor(p * 18.0));
-	vec3 c = pow(vec3(0.52, 0.5, 0.47), vec3(2.2));
+	vec3 c = pow(vec3(0.5, 0.5, 0.49), vec3(2.2));
 	c *= 0.82 + 0.3 * reprise + 0.12 * (grain - 0.5);
 	ALBEDO = c;
 	ROUGHNESS = 0.95;
@@ -863,6 +877,9 @@ func _batiments() -> void:
 		var b: Dictionary = data.batiments[i]
 		if _heros.has(i):
 			_heros_poser(i, b)
+			continue
+		if i == HALLE:
+			_halle(b)
 			continue
 		var poly := PackedVector2Array()
 		for q in b.p:
@@ -924,6 +941,110 @@ func _batiments() -> void:
 	forme.shape = cs
 	corps.add_child(forme)
 	ville.add_child(corps)
+
+
+## La halle de la Martinière (1838), pièce unique du parcours : un long vaisseau bas de pierre dorée, ses arcades
+## en plein cintre vitrées sur la rue, ses pilastres, sa corniche et son attique percé de petites baies, le toit de
+## zinc et sa lanterne vitrée qui court sur toute la longueur, l'inscription dorée sur la rue.
+func _halle(b: Dictionary) -> void:
+	var rc: Array = b.rect
+	var c := Vector2(rc[0], rc[1]) * U
+	var L: float = rc[2] * U
+	var P: float = rc[3] * U
+	var a: float = rc[4]
+	var sol: float = b.sol * U - 0.3
+	var h := maxf(b.h * U, 10.0)
+	var m := Node3D.new()
+	m.name = "HalleMartiniere"
+	m.position = Vector3(c.x, sol, c.y)
+	m.rotation.y = -a
+	ville.add_child(m)
+	var pierre := Color("#d8bf8c")
+	var claire := Color("#e6d2a6")
+	var vitre := Color("#3c4a4c")
+	var fer := Color("#3f4b46")
+	var app := _materiau_appareil(pierre)
+	var corps := _boite(m, Vector3(L, 7.0, P), Vector3(0, 3.5, 0), pierre)
+	corps.material_override = app
+	# le soubassement, la corniche et l'attique
+	_boite(m, Vector3(L + 0.3, 0.6, P + 0.3), Vector3(0, 0.3, 0), pierre.darkened(0.12))
+	_boite(m, Vector3(L + 0.7, 0.45, P + 0.7), Vector3(0, 7.15, 0), claire)
+	_boite(m, Vector3(L + 0.9, 0.18, P + 0.9), Vector3(0, 7.45, 0), claire.darkened(0.05))
+	var attique := _boite(m, Vector3(L - 0.4, 1.8, P - 0.4), Vector3(0, 8.4, 0), pierre)
+	attique.material_override = app
+	_boite(m, Vector3(L, 0.25, P), Vector3(0, 9.4, 0), claire)
+	# le toit de zinc à faible pente et la lanterne vitrée
+	_boite(m, Vector3(L - 0.6, 0.5, P - 0.6), Vector3(0, 9.75, 0), Color("#8b9095"))
+	var lanterne := _boite(m, Vector3(L - 4.0, 1.4, P * 0.35), Vector3(0, 10.7, 0), Color("#9fb3b5"))
+	var mv := _mat(Color("#9fb3b5"), 0.15)
+	mv.metallic = 0.3
+	lanterne.material_override = mv
+	for k in int((L - 4.0) / 1.2):
+		var x := -(L - 4.0) * 0.5 + 0.6 + k * 1.2
+		for s in [-1.0, 1.0]:
+			_boite(m, Vector3(0.08, 1.45, 0.08), Vector3(x, 10.7, s * P * 0.175), fer)
+	_boite(m, Vector3(L - 3.6, 0.2, P * 0.42), Vector3(0, 11.5, 0), Color("#7d8288"))
+	# les arcades sur les quatre côtés : pilastres, baies vitrées en plein cintre, clés et impostes
+	var travee := 4.2
+	for cote in [[L, P, 0.0], [L, P, PI], [P, L, PI * 0.5], [P, L, -PI * 0.5]]:
+		var longueur: float = cote[0]
+		var profond: float = cote[1]
+		var f := Node3D.new()
+		f.rotation.y = cote[2]
+		m.add_child(f)
+		var z := profond * 0.5
+		var nb := maxi(1, int(longueur / travee))
+		var pas := longueur / nb
+		for k in nb + 1:
+			var x := -longueur * 0.5 + k * pas
+			_boite(f, Vector3(0.75, 6.6, 0.3), Vector3(x, 3.3, z + 0.12), claire)
+			_boite(f, Vector3(0.95, 0.35, 0.4), Vector3(x, 6.6, z + 0.15), claire.darkened(0.04))
+		for k in nb:
+			var x := -longueur * 0.5 + (k + 0.5) * pas
+			var r := (pas - 0.75) * 0.5 - 0.25
+			var base := 4.4
+			# la baie : le rectangle vitré et son arc, les petits bois
+			_boite(f, Vector3(r * 2.0, base - 0.6, 0.12), Vector3(x, 0.6 + (base - 0.6) * 0.5, z + 0.02), vitre)
+			for j in 9:
+				var t := PI * j / 8.0
+				var q := Vector2(cos(t), sin(t)) * r * 0.5
+				_boite(f, Vector3(r * 0.36, maxf(0.2, sin(t) * r), 0.12), Vector3(x + cos(t) * r * 0.82, base + sin(t) * r * 0.5, z + 0.02), vitre)
+			for j in 11:
+				var t := PI * j / 10.0
+				var vs := _boite(f, Vector3(0.42, 0.24, 0.32), Vector3(x + cos(t) * (r + 0.12), base + sin(t) * (r + 0.12), z + 0.1), claire)
+				vs.rotation.z = t - PI * 0.5
+			_boite(f, Vector3(0.36, 0.5, 0.36), Vector3(x, base + r + 0.2, z + 0.16), claire.lightened(0.05))
+			_boite(f, Vector3(0.05, base - 0.6, 0.16), Vector3(x, 0.6 + (base - 0.6) * 0.5, z + 0.06), fer)
+			_boite(f, Vector3(r * 2.0, 0.05, 0.16), Vector3(x, 2.6, z + 0.06), fer)
+			# les petites baies carrées de l'attique, une par travée, sauf sous l'inscription
+			if absf(x) > 8.5 or longueur < 20.0:
+				_boite(f, Vector3(1.1, 0.8, 0.1), Vector3(x, 8.4, z - 0.15), vitre)
+	# l'inscription sur la rue, en lettres dorées sur la frise
+	var cote_rue := -1.0 if cos(-a) < 0.0 else 1.0
+	var cartouche := _boite(m, Vector3(15.0, 1.0, 0.1), Vector3(0, 8.4, cote_rue * (P * 0.5 - 0.15)), Color("#4a5249"))
+	cartouche.material_override = _mat(Color("#4a5249"), 0.6)
+	_boite(m, Vector3(15.4, 0.08, 0.14), Vector3(0, 8.92, cote_rue * (P * 0.5 - 0.15)), Color("#c9a24a"))
+	_boite(m, Vector3(15.4, 0.08, 0.14), Vector3(0, 7.88, cote_rue * (P * 0.5 - 0.15)), Color("#c9a24a"))
+	var mot := Label3D.new()
+	mot.text = "HALLE DE LA MARTINIÈRE"
+	mot.font_size = 96
+	mot.pixel_size = 0.0078
+	mot.double_sided = false
+	mot.modulate = Color("#e2bf63")
+	mot.outline_size = 0
+	mot.shaded = false
+	mot.position = Vector3(0, 8.35, cote_rue * (P * 0.5 + 0.08))
+	mot.rotation.y = 0.0 if cote_rue > 0.0 else PI
+	m.add_child(mot)
+	# on ne la traverse pas
+	var sb := StaticBody3D.new()
+	var cs := CollisionShape3D.new()
+	var bx := BoxShape3D.new()
+	bx.size = Vector3(L, 9.0, P)
+	cs.shape = bx
+	cs.position = Vector3(0, 4.5, 0)
+	sb.add_child(cs)
+	m.add_child(sb)
 
 
 var _emprises: Array = []
@@ -2043,6 +2164,13 @@ func _parcours() -> void:
 			f.rotation.y = atan2(-(pt[1] as Vector2).x, -(pt[1] as Vector2).y) * (1.0 if j == 0 else -1.0)
 			groupe.add_child(f)
 			g += 1
+	# un couple qui cause sur le trottoir de la Martinière, à quelques pas du point de vue
+	for q in [Vector2(-70.6, 118.2), Vector2(-70.4, 119.4)]:
+		var f: Node3D = Atelier.figurant(g, "idle")
+		f.position = Vector3(q.x, hauteur(q.x, q.y) + 0.1, q.y) / U
+		f.rotation.y = 0.0 if q.y < 118.8 else PI
+		groupe.add_child(f)
+		g += 1
 	# les voitures garées le long de la bordure droite, par paquets, et une qui roule au milieu
 	var d := 18.0
 	var n := 0
@@ -2360,7 +2488,8 @@ func _reperes() -> void:
 		"Arrivee": [Vector2(-157.0, 143.0), Vector2(-148.0, 40.0)],
 		# sur le quai Saint-Vincent, à huit mètres du parapet : la passerelle de trois quarts, la Saône et Fourvière en face
 		"Vue1a_Passerelle": [QUAI_VUE, Vector2(-300.0, 247.0)],
-		"Vue1b_Martiniere": [Vector2(-149.0, 114.0), Vector2(0.0, 116.0)],
+		# sur le trottoir sud, la halle de trois quarts de l'autre côté de la rue
+		"Vue1b_Martiniere": [Vector2(-76.0, 118.6), Vector2(-36.0, 101.0)],
 		"Vue1c_Rambaud": [Vector2(-30.0, 114.0), Vector2(68.0, 118.0)],
 		"Vue1d_Vitet": [Vector2(68.0, 116.0), Vector2(34.0, 57.0)],
 		"Vue1e_Rue": [Vector2(34.0, 57.0), Vector2(12.0, 40.0)],
