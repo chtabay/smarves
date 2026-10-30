@@ -1,5 +1,6 @@
-"""Les thèmes musicaux du socle, entièrement composés et synthétisés ici (aucun échantillon extérieur,
-donc aucun droit à suivre). Deux styles, deux familles de timbres :
+"""Les thèmes musicaux du socle, entièrement composés ici. Presque tous sont aussi synthétisés ici ;
+la filature est jouée par des instruments enregistrés d'une banque libre (FluidR3_GM, licence MIT,
+voir joue). Les styles et leurs timbres :
 
 - **La ville** (« ville ») : un jazz-funk de grande ville des années 1980, rythmé, qui avance. Boîte à
   rythmes à caisse claire réverbérée, basse au doigt avec ses claquées à l'octave, piano électrique
@@ -14,6 +15,8 @@ donc aucun droit à suivre). Deux styles, deux familles de timbres :
 - **Les grands espaces** (« grands_espaces ») : épique et ouvert. Quelques notes de piano dans le
   vide, puis les cordes se lèvent, le cor chante, et tout l'orchestre (timbales, cuivres, violons)
   reprend le thème plus haut avant de redescendre. Ré majeur, 72 à la noire, 107 s.
+- **La filature** (« filature ») : une city pop de détective, la nuit en ville, en la mineur à 116 ;
+  basse au doigt, piano électrique, guitare claire qui gratte, saxo alto, batterie.
 - **Les salons** (« salon ») : une sarabande baroque pour les salons huppés, en ré mineur, l'appui
   sur le deuxième temps ; clavecin et violoncelle, puis les violons ornés, les altos à la tierce.
 
@@ -26,7 +29,8 @@ réverbération de salle. Les niveaux de chaque instrument sont posés par leur 
 l'oreille, et la boucle reste sans couture : tout ce qui dépasse la fin, réverbération comprise,
 revient au début.
 
-    python3 tools/musiques.py               # écrit tous les thèmes dans assets/audio/musique/ (ffmpeg requis)
+    python3 tools/musiques.py               # écrit tous les thèmes dans assets/audio/musique/ (ffmpeg requis,
+                                            # et fluidsynth + fluid-soundfont-gm pour la filature)
     python3 tools/musiques.py titre         # un seul thème
     python3 tools/musiques.py ville --sortie=/tmp/essai/    # ailleurs, plus le mélange complet (ville.ogg)
 """
@@ -53,6 +57,55 @@ def db(x):
 
 def rms(x):
     return float(np.sqrt(np.mean(x ** 2)) + 1e-12)
+
+
+# --- Les instruments enregistrés ----------------------------------------------------------------
+# Une banque General MIDI libre (FluidR3_GM, licence MIT : apt install fluidsynth fluid-soundfont-gm),
+# jouée par FluidSynth piste par piste, sans réverbération ni chœur : la table de mixage et la salle
+# restent les nôtres, et la boucle reste sans couture.
+
+BANQUE = os.environ.get("SMARVES_SF2", "/usr/share/sounds/sf2/FluidR3_GM.sf2")
+BATTERIE = -1   # le programme qui désigne le canal 10, celui des percussions
+
+
+def _vlq(v):
+    out = [v & 0x7F]
+    v >>= 7
+    while v:
+        out.insert(0, (v & 0x7F) | 0x80)
+        v >>= 7
+    return bytes(out)
+
+
+def joue(notes, programme, volume=100):
+    """Rend (2, n) : des notes [(début s, durée s, note, force 0..1)] jouées par l'instrument General
+    MIDI `programme` (ou BATTERIE). Le temps MIDI est réglé pour qu'un tic vaille 1/960 s."""
+    canal = 9 if programme == BATTERIE else 0
+    evts = []
+    for d, l, note, force in notes:
+        v = int(np.clip(round(force * 127), 1, 127))
+        evts.append((int(round(max(0.0, d) * 960)), 1, bytes([0x90 | canal, int(note), v])))
+        evts.append((int(round((max(0.0, d) + max(l, 0.02)) * 960)), 0, bytes([0x80 | canal, int(note), 0])))
+    evts.sort(key=lambda e: (e[0], e[1]))
+    piste = bytearray(b"\x00\xff\x51\x03\x07\xa1\x20")          # 500 000 µs la noire
+    piste += b"\x00" + bytes([0xB0 | canal, 7, volume]) + b"\x00" + bytes([0xB0 | canal, 91, 0]) + b"\x00" + bytes([0xB0 | canal, 93, 0])
+    if canal != 9:
+        piste += b"\x00" + bytes([0xC0 | canal, programme])
+    t = 0
+    for tic, _, msg in evts:
+        piste += _vlq(tic - t) + msg
+        t = tic
+    piste += _vlq(int(SR * 0)) + b"\xff\x2f\x00"
+    midi = b"MThd" + (6).to_bytes(4, "big") + (0).to_bytes(2, "big") + (1).to_bytes(2, "big") + (480).to_bytes(2, "big")
+    midi += b"MTrk" + len(piste).to_bytes(4, "big") + bytes(piste)
+    with tempfile.TemporaryDirectory() as dossier:
+        mid, wav = os.path.join(dossier, "p.mid"), os.path.join(dossier, "p.wav")
+        open(mid, "wb").write(midi)
+        subprocess.run(["fluidsynth", "-ni", "-q", "-R", "0", "-C", "0", "-g", "0.6", "-r", str(SR), "-O", "s16",
+                        "-F", wav, BANQUE, mid], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        with wave.open(wav) as w:
+            x = np.frombuffer(w.readframes(w.getnframes()), "<i2").astype(float) / 32768.0
+    return x.reshape(-1, 2).T.copy()
 
 
 # --- La table de mixage -------------------------------------------------------------------------
@@ -1037,77 +1090,96 @@ FI_BASSE = [(0, 2, 0, 1.0), (2, 2, 12, 0.7), (4, 2, 0, 0.85), (6, 1, 0, 0.6), (7
 
 
 def filature():
-    """La filature : city pop de détective, la nuit, en la mineur, 32 mesures à 116. L'intro tient la
-    nappe et la basse ; le couplet pose la batterie et le synthé qui chante bas ; la montée grimpe ; le
-    refrain prend la grille qui retombe sur elle-même (fa, sol, mi, la) ; et il revient un ton plus haut
-    avant de redescendre au début."""
+    """La filature : city pop de détective, la nuit, en la mineur, 32 mesures à 116, jouée par des
+    instruments enregistrés (voir joue). L'intro tient la nappe, la basse et le piano électrique ; le
+    couplet pose la batterie, la guitare qui gratte en contretemps et le saxo qui chante bas ; la montée
+    grimpe ; le refrain prend la grille qui retombe sur elle-même (fa, sol, mi, la) ; et il revient un
+    ton plus haut avant de redescendre au début."""
     p = Piste(116.0, 32, graine=1987)
     rng = p.rng
+    pistes = {nom: [] for nom in ("basse", "ep", "guitare", "nappe", "cloche", "sax", "cordes", "batterie")}
+
+    def note(nom, bar, beat, dur, n, force, jeu=0.006, ecart=0.06):
+        d = p.at(bar, beat) + rng.normal(0.0, jeu)
+        pistes[nom].append((d, dur, n, float(np.clip(force * (1.0 + rng.normal(0.0, ecart)), 0.05, 1.0))))
+
     for bar in range(32):
         partie = 0 if bar < 4 else 1 if bar < 12 else 2 if bar < 16 else 3
         fin = bar in (3, 11, 15, 23, 31)
-        # La basse, qui pousse dès l'intro (en rondes) puis en croches.
+        nuance = (0.7, 0.8, 0.85, 0.95)[partie]
         for demi in range(2):
             accord, racine = FI_GRILLE[bar * 2 + demi]
+            # La basse au doigt : en blanches dans l'intro, puis en croches, l'octave qui rebondit.
             if partie == 0 and bar < 2:
-                if demi == 0:
-                    p.add("basse", basse_doigt(racine, p.bar * 0.95, 0.8), p.at(bar, 0), jeu=0.003)
-                continue
-            for s, l, iv, vel in FI_BASSE:
-                if fin and demi == 1 and s >= 4:
-                    break
-                p.add("basse", basse_doigt(racine + iv, l * p.beat / 2 * 0.9, vel), p.at(bar, demi * 2 + s / 4),
-                      jeu=0.003, force=0.05)
-            # La nappe : des cordes de synthé, tenues, qui changent avec l'accord.
-            p.add("nappe", cordes(accord, p.bar / 2 * 0.98, rng), p.at(bar, demi * 2), pan=0.0)
-            # Le piano électrique en contretemps, à partir du couplet.
+                note("basse", bar, demi * 2, p.beat * 1.9, racine, 0.75, 0.004)
+            else:
+                for s_, l, iv, vel in FI_BASSE:
+                    if fin and demi == 1 and s_ >= 4:
+                        break
+                    note("basse", bar, demi * 2 + s_ / 4, l * p.beat / 2 * 0.85, racine + iv, vel * nuance, 0.004)
+            # Le piano électrique : l'accord posé, puis repris en contretemps.
+            coups = [(0, 1.4, 0.6)] if partie == 0 else [(0.5, 0.4, 0.65), (1.5, 0.35, 0.55)] if demi == 0 else [(0.5, 0.4, 0.6), (1.25, 0.6, 0.5)]
+            for b, l, vel in coups:
+                for k, n in enumerate(accord):
+                    note("ep", bar, demi * 2 + b, l * p.beat, n, vel * nuance * (0.85 if k == 0 else 1.0), 0.008)
+            # La nappe de cordes de synthé, sauf au couplet, où elle laisse la place.
+            if partie != 1:
+                for n in accord[1:]:
+                    note("nappe", bar, demi * 2, p.beat * 1.95, n, 0.55 if partie != 3 else 0.7, 0.0, 0.0)
+            # La guitare claire : des accords étouffés sur le « et » de chaque temps, et un fantôme.
             if partie >= 1:
-                coups = [(1, 0.7), (3, 0.55)] if demi == 0 else [(1, 0.6), (2.5, 0.5)]
-                for b, vel in coups:
-                    for k, note in enumerate(accord):
-                        p.add("ep", rhodes(note, p.beat * 0.4, vel), p.at(bar, demi * 2 + b / 2) + k * 0.005,
-                              pan=-0.4 + 0.2 * k, jeu=0.005, force=0.08)
-        # La batterie : la grosse caisse sur le un et le trois (et le « et » du deux qui relance), la caisse
-        # coupée sur deux et quatre, le charleston en croches ; dans l'intro, la grosse caisse seule.
+                for b, vel in ((0.5, 0.6), (1.5, 0.7), (1.75, 0.35)):
+                    if fin and demi == 1 and b > 1:
+                        continue
+                    for k, n in enumerate(sorted(accord)[1:]):
+                        note("guitare", bar, demi * 2 + b + k * 0.012, p.beat * 0.18, n + 12, vel * nuance, 0.004)
+        # La batterie (canal 10) : grosse caisse, caisse claire sur 2 et 4, charleston en croches,
+        # maracas en doubles au refrain, crash et roulement de toms aux changements de partie.
         if bar >= 2:
-            kicks = [0, 2] if partie == 0 else ([0, 1.5, 2] if bar % 2 else [0, 2, 3.5])
+            kicks = [0, 2] if partie == 0 else ([0, 1.5, 2] if bar % 2 else [0, 2, 2.75])
             for b in kicks:
-                p.add("gc", grosse_caisse(rng, 0.95 if b in (0, 2) else 0.75), p.at(bar, b), jeu=0.002, force=0.04)
+                note("batterie", bar, b, 0.1, 36, (0.95 if b in (0, 2) else 0.75) * nuance, 0.003)
         if partie >= 1:
             for b in (1, 3):
                 if not (fin and b == 3):
-                    p.add("cc", caisse_porte(rng), p.at(bar, b), pan=0.05, jeu=0.002, force=0.04)
+                    note("batterie", bar, b, 0.1, 38, 0.9 * nuance, 0.003)
+            if bar % 2 == 1:
+                note("batterie", bar, 3.75, 0.1, 38, 0.3, 0.004)
             for k in range(8):
                 if fin and k >= 6:
                     break
-                p.add("hh", charleston(rng, k % 2 == 1 and bar % 4 == 3 and k == 7, 0.8 if k % 2 == 0 else 0.5),
-                      p.at(bar, k / 2), pan=0.3, jeu=0.003, force=0.1)
+                ouvert = k == 7 and bar % 4 == 3
+                note("batterie", bar, k / 2, 0.1, 46 if ouvert else 42, (0.75 if k % 2 == 0 else 0.5) * nuance, 0.004)
         if partie >= 2:
             for k in range(16):
-                p.add("shaker", shaker(rng, 0.6 if k % 2 else 0.9), p.at(bar, k / 4), pan=-0.35, jeu=0.003, force=0.15)
+                note("batterie", bar, k / 4, 0.05, 70, 0.55 if k % 2 else 0.4, 0.004)
+        if bar in (4, 16, 24):
+            note("batterie", bar, 0, 0.5, 49, 0.8, 0.002)
         if fin and bar > 3:
-            # Le roulement de toms qui ouvre la partie suivante.
-            for k, (b, note) in enumerate([(3, 52), (3.25, 49), (3.5, 45), (3.75, 41)]):
-                p.add("toms", tom(note, rng), p.at(bar, b), pan=0.4 - 0.25 * k, jeu=0.002, force=0.06)
-        # La cloche : un arpège qui monte dans l'intro et au refrain, une mesure sur deux.
+            for k, (b, n) in enumerate([(3, 50), (3.25, 48), (3.5, 45), (3.75, 43)]):
+                note("batterie", bar, b, 0.15, n, 0.75 + 0.05 * k, 0.003)
+        # La cloche du piano FM : un arpège qui monte, dans l'intro et au refrain.
         if partie in (0, 3) and bar % 2 == 0:
             accord, _ = FI_GRILLE[bar * 2]
-            for k, note in enumerate(accord + [accord[1] + 12]):
-                p.add("cloche", cloche(note + 12, p.beat * 0.5, 0.7), p.at(bar, k * 0.5), pan=0.4 - 0.15 * k, jeu=0.004, force=0.1)
-    # Le chant du synthé : le couplet, la montée, le refrain, puis le refrain un ton plus haut.
+            for k, n in enumerate(accord + [accord[1] + 12]):
+                note("cloche", bar, k * 0.5, p.beat * 0.6, n + 12, 0.55, 0.004)
+    # Le saxo alto chante : le couplet, la montée, le refrain, puis le refrain un ton plus haut ; les
+    # cordes le soutiennent à l'octave en dessous au refrain.
     refrain_fs = FI_REFRAIN + [[(0, 2, 70), (2, 1, 73), (3, 1, 76)]]
     refrain_ret = [[(b, l, n + 2) for b, l, n in m] for m in FI_REFRAIN] + [[(0, 2, 68), (2, 1, 71), (3, 1, 76)]]
     for depart, mesures in [(4, FI_COUPLET), (12, FI_MONTEE), (16, refrain_fs), (24, refrain_ret)]:
-        notes = phrase(p, mesures, depart, 0, 0.008)
-        p.add("synthe", chant(notes, 0, rng, "synthe"), p.at(depart, 0), pan=0.0)
-        if depart >= 16:
-            # Au refrain, le synthé est doublé à l'octave en dessous, et les violons le soutiennent.
-            p.add("synthe_oct", chant([(d, l, n - 12, f) for d, l, n, f in notes], 0, rng, "synthe"), p.at(depart, 0))
-            p.add("violons", chant([(d, l, n - 12, f * 0.8) for d, l, n, f in notes], 0, rng, "archet"), p.at(depart, 0), pan=-0.3)
-    niveaux = {"basse": (-16.0, 0.0), "nappe": (-27.0, 0.4), "ep": (-23.0, 0.2), "gc": (-17.0, 0.05),
-               "cc": (-20.0, 0.12), "hh": (-30.0, 0.08), "shaker": (-34.0, 0.1), "toms": (-25.0, 0.2),
-               "cloche": (-28.0, 0.45), "synthe": (-19.0, 0.3), "synthe_oct": (-28.0, 0.3), "violons": (-27.0, 0.4)}
-    mix = mixer(p, niveaux, (1.8, 5000.0, 0.025))
+        for d, l, n, f in phrase(p, mesures, depart, 0, 0.012):
+            debut = p.at(depart, 0) + d
+            pistes["sax"].append((debut, l, n, f * (0.75 if depart == 4 else 0.9)))
+            if depart >= 16:
+                pistes["cordes"].append((debut, l, n - 12, f * 0.6))
+    programmes = {"basse": 33, "ep": 4, "guitare": 27, "nappe": 50, "cloche": 5, "sax": 65, "cordes": 48,
+                  "batterie": BATTERIE}
+    for nom, notes in pistes.items():
+        p.stereo(nom, joue(notes, programmes[nom]), 0.0)
+    niveaux = {"basse": (-16.0, 0.0), "ep": (-22.0, 0.25), "guitare": (-26.0, 0.2), "nappe": (-27.0, 0.4),
+               "cloche": (-28.0, 0.45), "sax": (-18.0, 0.3), "cordes": (-28.0, 0.4), "batterie": (-16.0, 0.12)}
+    mix = mixer(p, niveaux, (1.8, 5000.0, 0.025), arrondi=(3000.0, -6.0, 12000.0))
     return {"filature": maitre(mix, gain_maitre(mix))}
 
 
