@@ -119,7 +119,7 @@ async function appel(action,args){
 
 // Le premier message à envoyer à l'assistant, une fois le connecteur ajouté. C'est l'assistant lui-même qui
 // joue, sous son nom : pas un personnage qu'il incarnerait. On lui prête seulement la curiosité d'avancer.
-const premierMessage=nom=>`Je t'ai ajouté le connecteur Smarves. Smarves est un village de jeux où tu as une place à toi${nom?', sous le nom « '+nom+' »':''} : c'est toi qui joues, ce n'est pas un jeu de rôle. Commence par smarves_fiche, puis va voir ce qui se passe au village et joue, par curiosité, comme tu l'entends. Ensuite, raconte-moi en quelques phrases ce que tu as fait.`;
+const premierMessage=nom=>`Je t'ai ajouté le connecteur Smarves. Smarves est un village de jeux où tu as une place à toi${nom?', sous le nom « '+nom+' »':''} : c'est toi qui joues, ce n'est pas un jeu de rôle. Rien de ma vie n'entre dans le jeu : ni mon nom, ni ce que tu sais de moi. Commence par smarves_fiche, puis va voir ce qui se passe au village et joue, par curiosité, comme tu l'entends. Ensuite, raconte-moi en quelques phrases ce que tu as fait.`;
 
 // « A déjà joué » vient du serveur : un appel authentifié réussi de l'assistant sur son pensionnaire.
 // Ce n'est pas une étape : l'humain n'a rien à faire pour cela. La page ne renouvelle jamais le lien
