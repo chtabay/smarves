@@ -58,6 +58,10 @@ func _ready() -> void:
 	RELAIS.new(hauteur).batir(self)
 	var rb: Array = REPERES["Vue2_Banc"]
 	BANC.new(hauteur).batir(self, rb[0], rb[1], rb[2])
+	# Les maisons du façadier sont posées sur le point bas de leur façade : quand la pente descend derrière ou à
+	# côté, elles restaient en l'air (28 sur 128, jusqu'à 1,4 m ; Guillaume, 30 octobre). Leur assise de pierre
+	# descend jusqu'au terrain (socle 1.30).
+	Assise.caler_tout(self, hauteur, Color("9d917b"))
 	# Le relais et le banc, à 7 et 4 km de la ville, ne se dessinent que de près : vus d'ailleurs, ils ne sont
 	# que quelques pixels, et comptaient en entier au budget du lieu (3 M de triangles pour 600 000).
 	_portee($RelaisDesLones, 1600.0)

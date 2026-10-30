@@ -10,7 +10,7 @@ const FORMAT := 1
 ## La version du socle, comparée au champ « socle_min » des manifestes. La monter ici, c'est aussi monter
 ## SOCLE dans le portail (Pyramides2, src/lib/communes/paquet.ts) et y recopier les règles nouvelles du
 ## manifeste (structures.ts) : sinon le portail refuse les paquets qui demandent ce socle.
-const SOCLE := "1.28"
+const SOCLE := "1.30"
 ## Les compteurs du carnet (champ « carnet ») : leurs genres et leurs bornes.
 const CARNET_GENRES := ["nombre", "credits", "texte", "case"]
 const CARNET_COMPTEURS_MAX := 24
