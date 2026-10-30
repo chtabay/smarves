@@ -105,7 +105,7 @@ static func construire(t) -> void:
 	_fondre(racine, "Mobilier")
 	# la fonte perd les réglages d'instance des arbres : on rend le jour du cœur de la voûte au maillage fondu
 	# (verdict du juge sur la v0.8, la voûte vue d'en bas reste trop sombre).
-	_fondre(racine, "Platanes", {"jour": 1.4})
+	_fondre(racine, "Platanes", {"jour": 1.4, "ajour": 0.75})
 	_fondre(racine, "Bacs")
 
 
