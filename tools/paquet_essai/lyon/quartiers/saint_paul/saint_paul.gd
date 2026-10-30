@@ -45,13 +45,22 @@ const LOGE := [Vector2(-180.0, 528.0), 22.0, 24.0, 0.0]
 const BULLIOUD_RUE := -229.5
 const BULLIOUD_COUR := Rect2(-252.0, 414.0, 14.0, 17.0)
 
+## Le café de courses (en face de la gare) et les traces du fil rouge au Change : le comptoir de la banque de la
+## commune, le prêteur sur gages, la boutique saisie (INTENTIONS.md, « Le fil rouge » ; jamais rue Juiverie).
+const CAFE := Vector2(-205.0, 357.0)
+const TRACES := {
+	"banque": Vector2(-140.0, 522.0),
+	"gages": Vector2(-142.0, 506.0),
+	"saisie": Vector2(-150.0, 548.0),
+}
+
 ## Les points de vue (œil, regard) et les sas.
 const REPERES := {
 	"Arrivee_SaintPaul": [Vector2(-196.0, 352.0), Vector2(-260.0, 356.0)],
 	"Vue1a_Passerelle": [Vector2(-186.0, 276.5), Vector2(-212.0, 297.0)],
 	# les coudes du parcours : le bas de la rue du Docteur-Augros, la place Saint-Paul, le bas de la rue Juiverie
 	"Vue1b_Augros": [Vector2(-213.5, 305.0), Vector2(-214.0, 330.0)],
-	"Vue1c_PlaceSaintPaul": [Vector2(-215.0, 345.0), Vector2(-232.0, 378.0)],
+	"Vue1c_PlaceSaintPaul": [Vector2(-213.0, 343.0), Vector2(-240.0, 370.0)],
 	"Vue2a_Juiverie": [Vector2(-231.5, 384.0), Vector2(-226.0, 440.0)],
 	# devant le porche de l'hôtel Bullioud, le regard dans la cour vers la galerie de Delorme
 	"Vue2b_Bullioud": [Vector2(-228.0, 422.5), Vector2(-260.0, 422.5)],
@@ -87,6 +96,9 @@ class Batisseur:
 	var modules: Array[Node3D] = []
 	var relief_pose := {}
 	var mats := {}
+	var facades: Array = []
+	var cafe_pose := false
+	var cafe_au: Array = []
 
 	func batir(r: Node3D) -> void:
 		racine = r
@@ -95,9 +107,9 @@ class Batisseur:
 		racine.set_meta("lointain", 150.0)
 		rng.seed = 69005
 		data = JSON.parse_string(FileAccess.get_file_as_string(DOSSIER + "bourg.json"))
-		murs_mat = commune.call("_materiau_murs") if commune.has_method("_materiau_murs") else mat(Color("#c98a62"))
-		toits_mat = commune.call("_materiau_toits") if commune.has_method("_materiau_toits") else mat(Color("#b0452a"))
-		paves_mat = commune.call("_materiau_paves") if commune.has_method("_materiau_paves") else mat(Color("#a39b93"))
+		murs_mat = commune.call("materiau_murs") if commune.has_method("materiau_murs") else mat(Color("#c98a62"))
+		toits_mat = commune.call("materiau_toits") if commune.has_method("materiau_toits") else mat(Color("#b0452a"))
+		paves_mat = commune.call("materiau_paves") if commune.has_method("materiau_paves") else mat(Color("#a39b93"))
 		_choisir()
 		_places()
 		_batiments()
@@ -410,11 +422,26 @@ class Batisseur:
 				var type: String = "etroite" if w < 6.5 else ["immeuble", "classique", "immeuble", "traboule", "classique", "immeuble"][r]
 				var quai := c.x > -140.0
 				var opt := {"w": w - 0.04, "d": 3.0, "niveaux": niveaux + (1 if quai else 0), "tuile": TUILES[(i + j) % TUILES.size()],
-					"pente": 22.0, "grain": 1.0, "souches": "grosses", "persiennes": quai, "balcons": false,
-					"fleurs": (i + j) % 3 == 0, "rdc": "boutique" if (i + k + j) % 3 != 0 else "pierre", "store": false}
-				opt["enduit"] = (ENDUITS_QUAI if quai else ENDUITS)[(i + k + j) % (ENDUITS_QUAI if quai else ENDUITS).size()]
+					"grain": 1.0, "souches": "grosses", "fleurs": (i + j) % 3 == 0, "store": false, "vigne": false}
+				if quai:
+					# le quai de Bondy : des immeubles classiques, plus pâles, à persiennes
+					opt.merge({"pente": 22.0, "persiennes": true, "balcons": false, "rdc": "boutique" if (i + k + j) % 2 == 0 else "pierre",
+						"enduit": ENDUITS_QUAI[(i + k + j) % ENDUITS_QUAI.size()]})
+				else:
+					# la ville Renaissance : la façade du Vieux-Lyon de la bibliothèque, enduit tiré par la graine
+					opt["renaissance"] = true
+					opt["rdc"] = ["boutique", "logis", "boutique", "arcades", "logis", "passage"][(i * 3 + k + j) % 6]
+					if type == "traboule":
+						type = "classique"
+				if not cafe_pose and q.distance_to(CAFE) < 9.0 and w > 6.0:
+					# le café de courses, en face de la gare : sa devanture verte, son store, son enseigne
+					cafe_pose = true
+					type = "cafe"
+					opt.merge({"enseigne": "LE DÉPART", "store": true, "toile": ["2f5a3a", "f3ead6"], "avancee": 2.2, "rdc": "cafe"}, true)
+					cafe_au = [q, n]
 				var m: Node3D = load(Bibliotheque.scene(FACADIER, "decor")).instantiate()
 				modules.append(m)
+				facades.append([q, n, w, m])
 				m.type = type
 				m.graine = i * 31 + k * 7 + j
 				m.options = opt
@@ -569,8 +596,8 @@ class Batisseur:
 		var haut := 17.4
 		# les deux ailes sur la rue, de part et d'autre du porche, et les ailes autour de la cour
 		var x_rue := BULLIOUD_RUE
-		for bloc in [Rect2(cour.end.x, 406.0, x_rue - cour.end.x, cour.position.y - 406.0 + 7.2),
-				Rect2(cour.end.x, cour.position.y + 9.8, x_rue - cour.end.x, cour.end.y - cour.position.y - 9.8 + 7.0),
+		for bloc in [Rect2(cour.end.x, 406.0, x_rue - 2.9 - cour.end.x, cour.position.y - 406.0 + 7.2),
+				Rect2(cour.end.x, cour.position.y + 9.8, x_rue - 2.9 - cour.end.x, cour.end.y - cour.position.y - 9.8 + 7.0),
 				Rect2(-268.0, 406.0, cour.position.x + 268.0, 32.0),
 				Rect2(cour.position.x, 406.0, cour.size.x, cour.position.y - 406.0),
 				Rect2(cour.position.x, cour.end.y, cour.size.x, 438.0 - cour.end.y)]:
@@ -578,6 +605,20 @@ class Batisseur:
 				continue
 			boite(b, Vector3(bloc.size.x, haut, bloc.size.y), Vector3(bloc.get_center().x, y + haut * 0.5, bloc.get_center().y), enduit)
 			solide(b, Vector3(bloc.size.x, haut, bloc.size.y), Vector3(bloc.get_center().x, y + haut * 0.5, bloc.get_center().y))
+		# la façade sur la rue : quatre travées Renaissance, deux de chaque côté du porche
+		for t in [[406.0, cour.position.y + 7.2], [cour.position.y + 9.8, 438.0]]:
+			var l: float = t[1] - t[0]
+			for k in 2:
+				var zc: float = t[0] + l * (k + 0.5) / 2.0
+				var m: Node3D = load(Bibliotheque.scene(FACADIER, "decor")).instantiate()
+				m.type = "classique"
+				m.graine = 8 + k * 3 + int(t[0])
+				m.options = {"w": l / 2.0 - 0.04, "d": 3.0, "niveaux": 3, "renaissance": true, "enduit": "c98a62" if k == 0 else "d4a074",
+					"rdc": "logis", "tuile": TUILES[k], "store": false, "fleurs": k == 1}
+				m.position = Vector3(x_rue + 0.02, h(x_rue + 1.0, zc) - 0.05, zc)
+				m.rotation.y = PI * 0.5
+				b.add_child(m)
+				modules.append(m)
 		# le passage du porche, de la rue à la cour, voûté
 		var z_porche := cour.position.y + 8.5
 		boite(b, Vector3(x_rue - cour.end.x, 0.6, 2.6), Vector3((x_rue + cour.end.x) * 0.5, y + 4.3, z_porche), PIERRE.darkened(0.2))
@@ -682,27 +723,131 @@ class Batisseur:
 
 	# --- La vie -------------------------------------------------------------------------------------
 
-	## Les habitants, à l'échelle du jeu : la maquette pose leurs places, les scènes leur donneront leur situation.
+	## Les habitants, à l'échelle du jeu, et la situation du jour : le train du soir à Saint-Paul, une noce qui
+	## sort de la Loge au Change ; la rue Juiverie presque vide.
 	func _vie() -> void:
 		var groupe := Node3D.new()
 		groupe.name = "Habitants"
 		groupe.scale = Vector3.ONE * U
 		groupe.set_meta("sans_lointain", true)
 		racine.add_child(groupe)
-		var g := 69005
+		# un compteur partagé : une fonction anonyme garde une copie de ses variables simples
+		var g := [69005]
+		var gens := func(p: Vector2, pose_: String, regard: Vector2, tenue := "village") -> void:
+			var f: Node3D = Atelier.figurant(g[0], pose_, tenue)
+			f.position = Vector3(p.x, h(p.x, p.y), p.y) / U
+			f.rotation.y = atan2(p.x - regard.x, p.y - regard.y)
+			groupe.add_child(f)
+			g[0] += 1
+		# la gare : des voyageurs devant la porte, un couple sous l'horloge, deux qui traversent avec leurs valises
+		var porte := Vector2(-247.0, 352.0)
+		for k in 5:
+			var a := 0.6 + k * 0.5
+			gens.call(porte + Vector2(cos(a) * (3.0 + k % 2), sin(a) * 4.0 - 2.0), "idle", porte + Vector2(12.0, 0.0))
+		gens.call(Vector2(-244.5, 348.5), "idle", Vector2(-244.5, 351.0))
+		gens.call(Vector2(-244.5, 350.0), "idle", Vector2(-244.5, 347.0))
+		# la terrasse du café de courses
+		if not cafe_au.is_empty():
+			var q: Vector2 = cafe_au[0]
+			var n: Vector2 = cafe_au[1]
+			var t := q + n * 3.0
+			pose(MOBILIER, "objet", "terrasse", sur(t.x, t.y), 31, {}, atan2(n.x, n.y))
+			gens.call(t + n.orthogonal() * 1.6, "sit", t)
+			gens.call(t - n.orthogonal() * 1.4 + n * 0.6, "sit", t)
+			# l'ardoise des cotes sous le store, des tickets froissés par terre
+			var ard := Label3D.new()
+			ard.text = "COTES DU JOUR\n3e  Bel Ami  8/1\n5e  Rose de Vaise  12/1"
+			ard.font_size = 30
+			ard.pixel_size = 0.005
+			ard.modulate = Color("#f2efe6")
+			ard.outline_size = 0
+			var fond := boite(racine, Vector3(1.1, 0.8, 0.04), Vector3(q.x + n.x * 0.12, h(q.x, q.y) + 1.5, q.y + n.y * 0.12), Color("#20241f"), atan2(n.x, n.y))
+			ard.position = Vector3(0, 0, 0.03)
+			fond.add_child(ard)
+			for k in 7:
+				var p := t + Vector2(rng.randf_range(-2.0, 2.0), rng.randf_range(-2.0, 2.0))
+				var tk := boite(racine, Vector3(0.09, 0.005, 0.06), Vector3(p.x, h(p.x, p.y) + 0.07, p.y), Color("#e8e2cf"), rng.randf() * TAU)
+				tk.rotation.x = rng.randf_range(-0.3, 0.3)
+		# la noce sur le parvis de la Loge : les mariés, les invités en demi-cercle, le photographe, le riz
+		var parvis := Vector2(LOGE[0].x + LOGE[1] * 0.5 + 3.0, LOGE[0].y)
+		gens.call(parvis + Vector2(-0.6, -0.5), "idle", parvis + Vector2(6.0, 0.0), "soiree")
+		gens.call(parvis + Vector2(-0.6, 0.5), "idle", parvis + Vector2(6.0, 0.0), "soiree")
+		for k in 9:
+			var a := -1.2 + k * 0.3
+			gens.call(parvis + Vector2(cos(a), sin(a)) * 5.0, "idle", parvis, "soiree")
+		gens.call(parvis + Vector2(7.5, 0.3), "idle", parvis)
+		var riz := MultiMeshInstance3D.new()
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		var qm := BoxMesh.new()
+		qm.size = Vector3(0.05, 0.01, 0.05)
+		mm.mesh = qm
+		mm.instance_count = 160
+		for k in 160:
+			var p := parvis + Vector2(rng.randf_range(-1.5, 4.5), rng.randf_range(-4.0, 4.0))
+			mm.set_instance_transform(k, Transform3D(Basis(Vector3.UP, rng.randf() * TAU), Vector3(p.x, h(p.x, p.y) + 0.07, p.y)))
+		riz.multimesh = mm
+		riz.material_override = mat(Color("#f4f0e6"))
+		racine.add_child(riz)
+		# les terrasses de l'est de la place, au soleil
+		for k in 2:
+			var p := Vector2(-141.5, 512.0 + k * 9.0)
+			pose(MOBILIER, "objet", "terrasse", sur(p.x, p.y), 40 + k, {}, -PI * 0.5)
+			gens.call(p + Vector2(0.0, 1.4), "sit", p)
+		# rue Juiverie : une seule passante, et un chat sur une marche
 		var routes := [
-			[Vector2(-201.0, 250.0), Vector2(-207.0, 290.0), Vector2(-212.0, 335.0)],
-			[Vector2(-226.0, 470.0), Vector2(-226.5, 420.0), Vector2(-225.5, 392.0)],
-			[Vector2(-150.0, 560.0), Vector2(-153.0, 530.0), Vector2(-160.0, 515.0)],
+			[Vector2(-214.0, 324.0), Vector2(-212.5, 300.0), Vector2(-196.0, 286.0)],
+			[Vector2(-223.5, 495.0), Vector2(-224.5, 456.0), Vector2(-227.0, 430.0)],
+			[Vector2(-150.0, 560.0), Vector2(-153.0, 535.0), Vector2(-158.0, 516.0)],
+			[Vector2(-232.0, 345.0), Vector2(-215.0, 350.0), Vector2(-206.0, 366.0)],
 		]
 		for r in routes:
 			var route: Array[Vector3] = []
 			for q in r:
 				route.append(Vector3(q.x, h(q.x, q.y), q.y) / U)
-			var f: Node3D = Atelier.figurant(g, "walk", "village", route)
+			var f: Node3D = Atelier.figurant(g[0], "walk", "village", route)
 			f.position = route[0]
 			groupe.add_child(f)
-			g += 1
+			g[0] += 1
+		_traces()
+
+	## Les traces du fil rouge sur les façades du Change : une plaque et une enseigne sur la façade la plus proche.
+	func _traces() -> void:
+		for cle in TRACES:
+			var cible: Vector2 = TRACES[cle]
+			var best: Array = []
+			var d := 1e9
+			for f in facades:
+				if f[0].distance_to(cible) < d:
+					d = f[0].distance_to(cible)
+					best = f
+			if best.is_empty() or d > 25.0:
+				continue
+			var m: Node3D = best[3]
+			var texte: String = {"banque": "CAISSE DE LA GRANDE-CÔTE\nCOMPTOIR DU CHANGE", "gages": "PRÊTS SUR GAGES\nACHAT · VENTE · DÉPÔT",
+				"saisie": "FERMÉ POUR CAUSE DE SAISIE"}[cle]
+			var fond := boite(m, Vector3(minf(best[2] - 1.0, 4.4), 0.7, 0.05), Vector3(0, 4.55, 0.12), Color("#1e2a24") if cle != "saisie" else Color("#efe9d8"))
+			var l := Label3D.new()
+			l.text = texte
+			l.font_size = 40
+			l.pixel_size = 0.0045
+			l.modulate = Color("#d9b65a") if cle != "saisie" else Color("#7a1f1a")
+			l.position = Vector3(0, 0, 0.03)
+			fond.add_child(l)
+			if cle == "gages":
+				# la vitrine : une montre, une alliance, des clés, un saxophone
+				for k in 4:
+					var o := boite(m, Vector3(0.12 + k * 0.05, 0.12, 0.05), Vector3(-0.8 + k * 0.55, 1.3, 0.18), [Color("#d9b65a"), Color("#e8d27a"), Color("#9aa0a6"), Color("#c89b3c")][k])
+					o.rotation.z = 0.3 * k
+			if cle == "saisie":
+				# l'enseigne repeinte au nom du créancier
+				var e := Label3D.new()
+				e.text = "MAISON VERNAY & FILS"
+				e.font_size = 48
+				e.pixel_size = 0.005
+				e.modulate = Color("#2a2a28")
+				e.position = Vector3(0, 3.7, 0.2)
+				m.add_child(e)
 
 	# --- Les repères et les sas ---------------------------------------------------------------------
 
