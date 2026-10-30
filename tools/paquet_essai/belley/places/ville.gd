@@ -19,8 +19,8 @@ const UNITE := 2.4
 ## Les enduits de la note, et ceux de la planche (crème, sable, ocre pâle).
 const ENDUITS := [Color("e4d7bd"), Color("d2be98"), Color("e8dcc2"), Color("ddc9a3"), Color("efe4cc"), Color("d9c7a5"), Color("e2cfa8")]
 const PIERRES := [Color("ddd3bc"), Color("cfc3a6"), Color("d8ccb0")]
-## Saturées de 13 % (verdict n° 24 : la saturation de la planche vient des albédos).
-const TUILES := [Color("c97849", 0.0), Color("bc693e", 0.0), Color("af5f38", 0.0), Color("d08957", 0.0), Color("c07245", 0.0), Color("a25838", 0.0)]
+## Désaturées de 8 % (verdict n° 26 : les rouges du rendu à 127 contre 87 sur la planche).
+const TUILES := [Color("bd7b55", 0.0), Color("b16c49", 0.0), Color("a46243", 0.0), Color("c58b62", 0.0), Color("b57550", 0.0), Color("985c42", 0.0)]
 const ARDOISE := Color("4b535c", 0.0)
 const ZINC := Color("8a9298", 0.4)
 const BRIQUE := Color("b5603e", 0.9)

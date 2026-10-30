@@ -102,8 +102,8 @@ void fragment() {
  base *= mix(1., .8, smoothstep(-.1, 0., dedans));
  base = mix(base, base * 1.18, nervure * .5);
  // Belley : le vert moyen et posé des tilleuls de la planche (#6E9440), pas le citron du contre-jour ; un peu
- // plus saturé depuis les verdicts n° 24 et 25.
- base = mix(vec3(dot(base, vec3(.3, .59, .11))), base, .95) * vec3(.86, .9, .8);
+ // moins jaune et plus sombre depuis le verdict n° 26 (médiane du rang au rendu #4C9A02, visée #6E9440).
+ base = mix(vec3(dot(base, vec3(.3, .59, .11))), base, .62) * vec3(.86, .9, .8) * vec3(.9, .86, .95);
  ALBEDO = base;
  ROUGHNESS = .9;
  BACKLIGHT = ALBEDO * .15;
