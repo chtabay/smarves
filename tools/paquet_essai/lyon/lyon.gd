@@ -50,9 +50,10 @@ const LIONS := [Vector2(3.6, -15.2), Vector2(17.4, -15.2)]
 const PLACE := Rect2(-14.0, -14.0, 47.0, 66.0)
 ## Le square planté, au milieu de la place, entre ses deux rues pavées.
 const SQUARE := Rect2(-2.5, -6.0, 25.5, 51.0)
-## Là où le joueur passe (le quai et la rue de la Martinière, la place, la rue Louis-Vitet, la montée) :
+## Là où le joueur passe (le quai et la rue de la Martinière, la place, les rues Rambaud et Louis-Vitet, la montée) :
 ## chaque façade tournée vers une rue y est un immeuble du façadier, en relief, jamais un mur peint.
-const RELIEF := [Rect2(-180.0, 92.0, 260.0, 45.0), Rect2(-62.0, -100.0, 145.0, 200.0), Rect2(-280.0, 137.0, 230.0, 35.0)]
+const RELIEF := [Rect2(-180.0, 92.0, 260.0, 45.0), Rect2(-62.0, -100.0, 145.0, 200.0), Rect2(-280.0, 137.0, 230.0, 35.0),
+		Rect2(-60.0, 40.0, 170.0, 140.0)]
 ## Fourvière, ramenée de 975 m à 730 m dans son vrai relèvement (sud-ouest), et la tour métallique.
 const FOURVIERE := Vector3(-560.0, 0.0, 470.0)
 const TOUR := Vector3(-545.0, 0.0, 330.0)
@@ -722,11 +723,13 @@ func _materiau_dalles_quai() -> ShaderMaterial:
 shader_type spatial;
 render_mode cull_disabled;
 varying vec3 monde;
+// le pas des dalles : celui du quai, en grandes dalles ; les trottoirs des rues le resserrent
+uniform float echelle = 2.4;
 void vertex() { monde = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 void fragment() {
 	// le monde est en unités du jeu : les dalles se comptent en mètres
-	vec2 q = monde.xz * 2.4 / vec2(0.6, 0.4);
+	vec2 q = monde.xz * echelle / vec2(0.6, 0.4);
 	q.x += floor(q.y) * 0.5;
 	vec2 f = fract(q);
 	float joint = smoothstep(0.0, 0.03, f.x) * smoothstep(1.0, 0.97, f.x) * smoothstep(0.0, 0.045, f.y) * smoothstep(1.0, 0.955, f.y);
@@ -850,7 +853,10 @@ func _rues() -> void:
 	var md := MeshInstance3D.new()
 	md.name = "Trottoirs"
 	md.mesh = dalles.commit()
-	md.material_override = _materiau_dalles_quai()
+	# les trottoirs des rues en dalles de 40 sur 27, plus serrées que celles du quai
+	var mtr: ShaderMaterial = _materiau_dalles_quai().duplicate()
+	mtr.set_shader_parameter("echelle", 3.6)
+	md.material_override = mtr
 	md.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	ville.add_child(md)
 
@@ -1457,6 +1463,8 @@ float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
 void fragment() {
 	// les teintes d'enduit sont en sRGB, comme celles du façadier
 	vec3 c = pow(COLOR.rgb, vec3(2.2));
+	// un mur peint n'est qu'un fond : moins saturé que le façadier, il ne tire pas l'œil en brun ou en orange
+	c = mix(c, vec3(dot(c, vec3(0.3, 0.59, 0.11))), 0.45) * 1.06;
 	float h = UV2.x;
 	float y = UV.y;
 	float bx = floor(UV.x);
@@ -1597,11 +1605,27 @@ func _heros_poser(i: int, b: Dictionary) -> void:
 		m.type = type
 		m.graine = i * 17 + k
 		m.options = opt
+		if est_mairie:
+			# le seuil au niveau de la rue devant la porte : le relevé la posait sous la chaussée qui monte
+			var devant := p + v * 2.2
+			sol = maxf(sol, hauteur(devant.x, devant.y) + 0.15)
 		m.position = Vector3(p.x, hauteur(p.x, p.y) - 0.05 if not est_mairie else sol, p.y)
 		m.rotation.y = lacet
 		ville.add_child(m)
 		if est_mairie:
 			_mairie(m, w - 0.05)
+			# le trottoir de pierre devant la mairie, au niveau du seuil, et sa bordure de granit : la chaussée
+			# ne monte plus jusqu'à la porte ; en six tronçons, chacun descendu jusqu'à la rue qui monte
+			for j in 6:
+				var qj := p + u * (-w * 0.5 + w * (j + 0.5) / 6.0)
+				var qt := qj + v * 0.95
+				var qb := qj + v * 1.95
+				var rue := hauteur(qb.x, qb.y)
+				var haut_t := maxf(sol - 0.12, rue + 0.14)
+				var dalle := _boite(ville, Vector3(w / 6.0 + 0.02, haut_t - rue + 0.3, 1.9), Vector3(qt.x, (haut_t + rue - 0.3) * 0.5, qt.y), Color("#b9b2a4"))
+				dalle.rotation.y = lacet
+				var bord := _boite(ville, Vector3(w / 6.0 + 0.02, haut_t - rue + 0.32, 0.28), Vector3(qb.x, (haut_t + rue - 0.3) * 0.5 + 0.01, qb.y), Color("#cfcac0"))
+				bord.rotation.y = lacet
 		else:
 			_souches_cote_rue(m, w - 0.05, lv, Color(str(opt["enduit"])))
 		# le socle de l'immeuble, jusqu'au point le plus bas de la pente
@@ -1889,6 +1913,21 @@ func _escalier() -> void:
 			var z := lerpf(-50.0, -80.0, float(k) / n)
 			var yy := lerpf(ya, yb, float(k + 1) / n)
 			_boite(e, Vector3(3.0, 0.4, 1.02), Vector3(x, yy - 0.2, z - 0.5), pierre)
+	# entre les deux volées, le jardin en terrasses de la montée : une allée de sable au milieu, de part et
+	# d'autre des planches de gazon tenues par une bordure de Villebois, des massifs fleuris au pied de chacune
+	var sable := _materiau_sable()
+	for k in 10:
+		var za := -50.0 - k * 3.0
+		var zc := za - 1.5
+		var yy := hauteur(10.0, zc)
+		var allee := _boite(e, Vector3(3.0, 0.5, 3.02), Vector3(10.0, yy - 0.17, zc), Color.WHITE)
+		allee.material_override = sable
+		for cote in [-1.0, 1.0]:
+			var xg: float = 10.0 + cote * 3.2
+			_boite(e, Vector3(3.4, 0.6, 3.02), Vector3(xg, yy - 0.12, zc), Color("#5f7f35"))
+			_boite(e, Vector3(0.22, 0.75, 3.02), Vector3(10.0 + cote * 1.6, yy - 0.08, zc), VILLEBOIS)
+			if k % 2 == 1:
+				_pose(VEGETATION, "plante", "massif" if k % 4 == 1 else "buisson", Vector3(xg + cote * 0.4, yy + 0.18, zc), 820 + k * 2 + int(cote > 0.0), {"fleurs": ["f4f0e6", "e0605a", "d04a8a", "f2c14e"][(k + int(cote > 0.0)) % 4], "longueur": 2.4}, PI * 0.5)
 
 
 # --- Les pièces uniques ---------------------------------------------------------------------------
@@ -2071,10 +2110,12 @@ func _mairie(m: Node3D, w: float) -> void:
 	for cote in [-1.0, 1.0]:
 		var r := _boite(m, Vector3(sqrt(pow(l * 0.5 + 0.2, 2) + haut * haut) + 0.3, 0.24, 1.3), Vector3(cote * (l * 0.25 + 0.1), b + haut * 0.5 + 0.1, 0.4), ombre)
 		r.rotation.z = -cote * pente
-	var cadran := _boite(m, Vector3(1.3, 1.3, 0.08), Vector3(0, b + haut * 0.42, 0.95), Color("#f2ecd8"))
-	cadran.rotation.z = PI * 0.25
-	_boite(m, Vector3(0.08, 0.5, 0.04), Vector3(0, b + haut * 0.42 + 0.2, 1.0), Color("#2a2a2a"))
-	_boite(m, Vector3(0.36, 0.08, 0.04), Vector3(0.16, b + haut * 0.42, 1.0), Color("#2a2a2a"))
+	# le cadran rond, blanc dans sa bague dorée, et ses deux aiguilles
+	var hc := b + haut * 0.42
+	_forme(m, _cyl(0.82, 0.82, 0.08, 32), Vector3(0, hc, 0.93), Color("#9c7f3c"), Vector3(PI * 0.5, 0, 0), 0.6)
+	_forme(m, _cyl(0.7, 0.7, 0.06, 32), Vector3(0, hc, 0.98), Color("#f6f2e6"), Vector3(PI * 0.5, 0, 0))
+	_boite(m, Vector3(0.07, 0.5, 0.03), Vector3(0, hc + 0.2, 1.03), Color("#2a2a2a"))
+	_boite(m, Vector3(0.36, 0.07, 0.03), Vector3(0.16, hc, 1.03), Color("#2a2a2a"))
 	# le balcon d'honneur sur consoles, et la porte cintrée sous lui
 	_boite(m, Vector3(l * 0.42, 0.18, 1.0), Vector3(0, rdc + 0.1, 0.9), pierre)
 	_boite(m, Vector3(l * 0.42, 0.85, 0.05), Vector3(0, rdc + 0.6, 1.38), Color("#24282a"))
@@ -2260,6 +2301,13 @@ func _parcours() -> void:
 			route.append(Vector3(q.x, hauteur(q.x, q.y), q.y) / U)
 		if k % 3 == 0:
 			route.reverse()
+		# pas de passant collé à l'objectif d'un point de vue : il mangerait le cadre
+		var trop_pres := false
+		for oeil in [Vector2(-76.0, 118.6), Vector2(-30.1, 117.0), Vector2(68.0, 116.0), Vector2(34.0, 57.0)]:
+			if (Vector2(route[0].x, route[0].z) * U).distance_to(oeil) < 6.0:
+				trop_pres = true
+		if trop_pres:
+			continue
 		var f: Node3D = Atelier.figurant(g, "walk", "village", route)
 		f.position = route[0]
 		groupe.add_child(f)
@@ -2356,6 +2404,67 @@ func _parcours() -> void:
 			ville.add_child(vo)
 			n += 1
 		d += alea.randf_range(5.2, 6.5) if alea.randf() < 0.8 else 14.0
+	# rues Rambaud et Louis-Vitet : une file de quatre voitures contre la bordure gauche, de 9 à 26 m devant le
+	# point de vue, et deux passants qui viennent vers nous, un sur chaque trottoir
+	for vue_r in [[Vector2(-30.0, 114.0), Vector2(68.0, 118.0)], [Vector2(68.0, 116.0), Vector2(34.0, 57.0)]]:
+		var o: Vector2 = vue_r[0]
+		var dir: Vector2 = (vue_r[1] - o).normalized()
+		for m in 8:
+			# 0 à 3 : les voitures ; 4 et 5 : les passants au loin ; 6 : un passant à 7 m sur le trottoir du point de
+			# vue ; 7 : le passage piéton à 38 m, sur Rambaud seulement
+			var cible_r := o + dir * (9.0 + m * 5.6)
+			if m == 6:
+				cible_r = o + dir * 7.0
+			elif m == 7:
+				cible_r = o + dir * 38.0
+			var pc := -1
+			var ec := 1e9
+			for c in _chaussees.size():
+				var e: float = Geometry2D.get_closest_point_to_segment(cible_r, _chaussees[c][0], _chaussees[c][1]).distance_to(cible_r)
+				if e < ec:
+					ec = e
+					pc = c
+			if pc < 0 or float(_chaussees[pc][2]) < 2.4 or ec > float(_chaussees[pc][2]) + 2.5:
+				continue
+			var sa: Vector2 = _chaussees[pc][0]
+			var sb: Vector2 = _chaussees[pc][1]
+			var t := (sb - sa).normalized()
+			if t.dot(dir) < 0.0:
+				t = -t
+			var pied := Geometry2D.get_closest_point_to_segment(cible_r, sa, sb)
+			var lw := float(_chaussees[pc][2])
+			if m < 4:
+				var q := pied + t.orthogonal() * (lw - 1.05)
+				var vo: Node3D = load(Bibliotheque.scene("voitures-des-annees-80@1", "decor")).instantiate()
+				vo.voiture = ["compacte", "citadine", "break", "berline"][(m + n) % 4]
+				vo.graine = 400 + n
+				vo.options = {"couleur": ["8d9196", "c8102e", "efe9dc", "2f5d3a", "d9b44a", "6b1d24"][(m * 2 + n) % 6]}
+				vo.position = Vector3(q.x, hauteur(q.x, q.y) + 0.06, q.y)
+				vo.rotation.y = atan2(t.x, t.y)
+				ville.add_child(vo)
+				n += 1
+			elif m == 7:
+				if vue_r[0].x > 0.0:
+					continue
+				var ang := atan2(t.x, t.y)
+				var nbb := int(floor((lw * 2.0 - 0.6) / 0.9))
+				for k in nbb:
+					var qz: Vector2 = pied + t.orthogonal() * (-lw + 0.6 + k * 0.9)
+					var bande := _boite(ville, Vector3(0.5, 0.02, 3.0), Vector3(qz.x, hauteur(qz.x, qz.y) + 0.03, qz.y), Color("#ece8de"))
+					bande.rotation.y = ang
+			else:
+				var cote_r := 1.0 if m == 4 else -1.0
+				var route: Array[Vector3] = []
+				for e in 4:
+					var qr: Vector2 = pied + t * (6.0 - e * 6.0) + t.orthogonal() * cote_r * (lw + 2.0)
+					if m == 6:
+						# il s'éloigne devant nous, sur notre trottoir
+						qr = pied + t * (e * 6.0) - t.orthogonal() * (lw + 1.6)
+					route.append(Vector3(qr.x, hauteur(qr.x, qr.y), qr.y) / U)
+				var fr: Node3D = Atelier.figurant(g, "walk", "village", route)
+				fr.position = route[0]
+				groupe.add_child(fr)
+				g += 1
 
 
 ## Le quai habité, autour du point de vue : des promeneurs sur les dalles, dans les deux sens, et quelques-uns
@@ -2743,7 +2852,8 @@ func _reperes() -> void:
 		"Vue1a_Passerelle": [VUE1A_OEIL, VUE1A_OEIL + VUE1A_REGARD * 160.0],
 		# sur le trottoir sud, la halle de trois quarts de l'autre côté de la rue
 		"Vue1b_Martiniere": [Vector2(-76.0, 118.6), Vector2(-36.0, 101.0)],
-		"Vue1c_Rambaud": [Vector2(-30.0, 114.0), Vector2(68.0, 118.0)],
+		# sur le trottoir sud, la chaussée sur la gauche et ses voitures garées en premier plan
+		"Vue1c_Rambaud": [Vector2(-30.1, 117.0), Vector2(68.0, 121.0)],
 		"Vue1d_Vitet": [Vector2(68.0, 116.0), Vector2(34.0, 57.0)],
 		"Vue1e_Rue": [Vector2(34.0, 57.0), Vector2(12.0, 40.0)],
 		"Vue2a_Place": [Vector2(12.0, 49.0), Vector2(10.0, -30.0)],
