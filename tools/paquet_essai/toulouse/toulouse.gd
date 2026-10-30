@@ -102,7 +102,10 @@ func _ciel() -> void:
 	soleil.light_color = SOLEIL.couleur
 	soleil.light_energy = 1.6
 	soleil.shadow_enabled = true
-	soleil.shadow_opacity = 0.85
+	# des ombres franches et denses sur un sol clair, pas une pénombre uniforme (juge, v0.9b)
+	soleil.shadow_opacity = 0.9
+	soleil.shadow_blur = 0.25
+	soleil.shadow_bias = 0.03
 	soleil.directional_shadow_max_distance = 48.0
 	add_child(soleil)
 	var h := deg_to_rad(SOLEIL.hauteur)

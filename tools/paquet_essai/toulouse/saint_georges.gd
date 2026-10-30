@@ -796,7 +796,7 @@ static func _mobilier_toulousain(t, racine: Node3D) -> void:
 	var g := 0
 	for x in [1.0, 3.6, 6.2, 8.8, 11.4]:
 		poser.call("grand_parasol", Vector2(x - 0.6, -13.4), 0.0, g, {"toile": creme})
-		poser.call("terrasse", Vector2(x - 1.2, -15.9), 0.0, g + 1, {"tables": 2})
+		poser.call("terrasse", Vector2(x - 1.2, -15.9), 0.0, g + 1, {"tables": 2, "clients": 2})
 		if g % 4 == 0:
 			poser.call("parasol", Vector2(x + 0.7, -11.6), 0.0, g + 2, {"toile": ["8a2a2e", "8a2a2e"]})
 		g += 3
@@ -810,7 +810,7 @@ static func _mobilier_toulousain(t, racine: Node3D) -> void:
 		poser.call("store_terrasse", p, PI * 0.5 + 0.2, g, {"toile": vert})
 		g += 1
 	for p in [Vector2(-0.3, -6.4), Vector2(0.3, -4.0)]:
-		poser.call("terrasse", p, PI * 0.5 + 0.2, g, {"tables": 2})
+		poser.call("terrasse", p, PI * 0.5 + 0.2, g, {"tables": 2, "clients": 2})
 		g += 1
 	poser.call("chevalet", Vector2(-0.6, -8.8), 1.2, g)
 	g += 1
@@ -818,7 +818,7 @@ static func _mobilier_toulousain(t, racine: Node3D) -> void:
 	# la vie de la place) : trois rangs de tables sous les grands parasols crème et bordeaux.
 	var n_table := 0
 	for p in [Vector2(-2.0, -8.7), Vector2(-0.2, -8.9), Vector2(1.6, -9.1), Vector2(-1.3, -7.1), Vector2(0.5, -7.3), Vector2(2.3, -7.5)]:
-		poser.call("terrasse", p, 0.1, g, {"tables": 3})
+		poser.call("terrasse", p, 0.1, g, {"tables": 3, "clients": 1 + n_table % 2})
 		poser.call("grand_parasol", p + Vector2(0.2, 0.1), 0.0, g + 1, {"toile": creme if n_table % 3 != 1 else ["8a2a2e", "8a2a2e"]})
 		g += 2
 		n_table += 1
@@ -852,7 +852,7 @@ static func _mobilier_toulousain(t, racine: Node3D) -> void:
 		return Vector2(lerpf(LAFAGE_NORD.x, LAFAGE_SUD.x, f) - recul, z)
 	var lacet := atan2(LAFAGE_SUD.x - LAFAGE_NORD.x, LAFAGE_SUD.y - LAFAGE_NORD.y) + PI * 0.5
 	for z in [-13.0, -10.2, -7.4, -4.6, -1.8]:
-		poser.call("terrasse", le_long.call(z, 1.0), lacet, g, {"tables": 3})
+		poser.call("terrasse", le_long.call(z, 1.0), lacet, g, {"tables": 3, "clients": 2})
 		g += 1
 	poser.call("parasol", le_long.call(-11.6, 1.1), 0.0, g, {"toile": creme})
 	poser.call("parasol", le_long.call(-3.2, 1.1), 0.0, g + 1, {"toile": creme})
@@ -954,13 +954,29 @@ static func _vie(racine: Node3D) -> void:
 		[Vector3(14.0, 0, -11.5), Vector3(13.0, 0, -9.5), Vector3(6.0, 0, -8.8), Vector3(0.6, 0, -1.5), Vector3(3.2, 0, 1.5), Vector3(3.4, 0, 6.5), Vector3(9.0, 0, 5.4)],
 		[Vector3(-14.0, 0, -2.0), Vector3(-4.0, 0, -2.1), Vector3(-1.5, 0, -2.4), Vector3(0.6, 0, -1.5), Vector3(3.2, 0, 1.5), Vector3(3.4, 0, 6.5), Vector3(9.6, 0, 4.8)],
 	]
+	# chaque route parcourue dans les deux sens : un promeneur à l'aller, un autre au retour (verdict du juge
+	# sur la v0.8 : des passants)
 	for k in routes.size():
-		var route: Array[Vector3] = []
-		route.assign(routes[k])
-		var f: Node3D = Atelier.figurant(g, "walk", "village", route)
-		f.position = route[0]
-		groupe.add_child(f)
-		g += 1
+		for sens in 2:
+			var route: Array[Vector3] = []
+			route.assign(routes[k])
+			if sens == 1:
+				route.reverse()
+			var f: Node3D = Atelier.figurant(g, "walk", "village", route)
+			f.position = route[0]
+			groupe.add_child(f)
+			g += 1
+	# Des haltes : deux voisins devant les étals, deux au bord de la terrasse de Lafage, deux sur le trottoir
+	# de la grande terrasse du sud-ouest.
+	for paire in [[Vector2(12.2, 7.6), Vector2(12.7, 7.1)], [Vector2(10.6, -6.8), Vector2(11.1, -7.3)], [Vector2(0.9, 9.4), Vector2(1.3, 10.0)]]:
+		for k in 2:
+			var p: Vector2 = paire[k]
+			var q: Vector2 = paire[1 - k]
+			var f: Node3D = Atelier.figurant(g, "idle")
+			f.position = Vector3(p.x, 0.0, p.y)
+			f.rotation.y = atan2(q.x - p.x, q.y - p.y)
+			groupe.add_child(f)
+			g += 1
 
 
 # --- La fonte des maillages -----------------------------------------------------------------------
