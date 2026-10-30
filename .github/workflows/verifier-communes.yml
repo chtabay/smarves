@@ -39,3 +39,5 @@ jobs:
         run: ./godot --headless --path . -s tools/test_carte.gd
       - name: Vérifier le coin des communes
         run: ./godot --headless --path . -s tools/test_coin.gd
+      - name: Vérifier la minimap des communes
+        run: ./godot --headless --path . -s tools/test_minimap.gd

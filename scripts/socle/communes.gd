@@ -17,6 +17,7 @@ signal etat_change(id: String)
 
 const GREFFES := "user://communes/"
 const COIN := preload("res://scripts/socle/coin.gd")
+const MINIMAP := preload("res://scripts/socle/minimap.gd")
 
 ## La commune d'origine du joueur : son banquier est le prêteur par défaut.
 const ORIGINE := "smarves"
@@ -48,6 +49,8 @@ var _seules := {}
 var dossier_greffes := GREFFES
 ## Le coin des communes greffées (scripts/socle/coin.gd) : où l'on est, le retour et la carte.
 var _retour: COIN
+## La minimap des communes greffées (scripts/socle/minimap.gd), posée avec le coin.
+var _minimap: MINIMAP
 ## La commune où l'on vient d'entrer (visiter), avant que sa scène ne remplace la précédente.
 var actuelle_apres := ""
 ## Les communes publiées que le joueur n'a pas encore vues dans son carnet (ids), et celles qu'il a
@@ -465,11 +468,14 @@ func _bouton_retour(visible: bool) -> void:
 	if _retour == null:
 		_retour = COIN.new(_rentrer, func(): Carte.ouvrir())
 		add_child(_retour)
+		_minimap = MINIMAP.new()
+		add_child(_minimap)
 	_retour.visible = visible
 	if visible:
 		_retour.poser(commune(actuelle_apres) if actuelle_apres != "" else null)
 	# Tant qu'on est dans une commune, un bouton qu'un paquet pose sans style prend celui du coin.
 	get_tree().root.theme = COIN.habit() if visible else null
+	_minimap.poser(visible)
 
 
 ## Le premier bouton du coin : rentrer à Smarves, en avion depuis une destination lointaine.
