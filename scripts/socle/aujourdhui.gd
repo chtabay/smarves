@@ -31,6 +31,14 @@ static func clubs(f: Node, avis: Node) -> Array:
 	return out
 
 
+## Les clubs de football de Mes clubs : ceux dont on tient une part, puis ceux qu'on suit en supporter.
+static func suivis(f: Node, avis: Node) -> Array:
+	var out: Array = clubs(f, avis)
+	var fans: Array = (avis.favoris("football") as Array).filter(func(c): return f.clubs.has(c) and not out.has(c))
+	fans.sort()
+	return out + fans
+
+
 static func _nom(f: Node, club: String) -> String:
 	return str((f.clubs.get(club, {}) as Dictionary).get("nom", club))
 
@@ -97,11 +105,52 @@ static func carte(f: Node, club: String) -> Dictionary:
 		"pts": int(moi.pts), "joues": int(moi.j), "ecart_tete": int(cl[0].pts) - int(moi.pts),
 		"ecart_relegation": int(moi.pts) - int(cl[sauve].pts) if sauve >= 1 and sauve < n else 0,
 		"forme": FootCourrier.forme(f, club), "objectif": FootCourrier.objectif(f, club), "confiance": FootCourrier.confiance(f, club),
-		"dirige": bool(f.peut_decider(club)), "direction": DIRIGER.phrase(f, club), "prochain": {}}
+		"dirige": bool(f.peut_decider(club)), "direction": DIRIGER.phrase(f, club), "prochain": {},
+		"ouvert": (f.actionnaires(club) as Array).is_empty(), "parts": (f.mes_obligations(club) as Array).size()}
 	var r: Dictionary = f.prochain_match(club)
 	if not r.is_empty():
 		var adv: String = r.ext if r.dom == club else r.dom
 		out.prochain = {"j": int(r.j), "quand": int(r.quand), "domicile": r.dom == club, "adv": adv, "nom_adv": _nom(f, adv), "rang_adv": int(rangs.get(adv, 0))}
+	return out
+
+
+## La tactique du prochain match d'un club de football, à lire par tous (demande de Guillaume du 31 octobre
+## 2026 : « je ne la vois pas dans mon carnet, pas plus en lecture qu'en écriture ») : {match (false entre deux
+## saisons), etat (« aucune » : l'adjoint aligne l'équipe type ; « commune » : tenue au serveur ; « locale » :
+## posée ici, pas encore envoyée), par (qui l'a posée, « » si on ne sait pas), formation, mentalite, pressing
+## (leurs noms lisibles), lignes ([[poste, [noms]]], du gardien à l'attaque), decide (on peut la régler),
+## qui (qui la règle : « vous », un nom, ou « » quand le bureau est ouvert à tous)}.
+static func tactique(f: Node, club: String) -> Dictionary:
+	var r: Dictionary = f.prochain_match(club)
+	var out := {"match": not r.is_empty(), "etat": "aucune", "par": "", "decide": bool(f.peut_decider(club)) and not r.is_empty(), "qui": ""}
+	var d: Dictionary = f.consigne({})
+	if not r.is_empty():
+		var c: Dictionary = f.consigne_de(int(r.s), int(r.j), club)
+		d = c.consigne
+		out.etat = str(c.etat)
+		out.par = str(c.par)
+	var dg: Dictionary = DIRIGER.dirigeant(f, club)
+	if not dg.is_empty():
+		out.qui = "vous" if bool(dg.get("moi", false)) else str(dg.get("nom", ""))
+	var formation := str(d.get("formation", "4-4-2"))
+	out.formation = formation
+	out.mentalite = str(FootMatch.MENTALITES.get(str(d.get("mentalite", "equilibree")), FootMatch.MENTALITES.equilibree).nom)
+	out.pressing = str(FootMatch.PRESSINGS.get(str(d.get("pressing", "normal")), FootMatch.PRESSINGS.normal).nom)
+	# Le onze : celui qui est posé, complété par l'équipe type de l'adjoint là où rien ne l'est.
+	var e: Dictionary = f.effectif(club, f.saison)
+	var voulu: Array = d.get("compo", [])
+	var onze: Array = FootMatch.compo_auto(e.keys(), e, formation, voulu.map(func(x): return str(x) if e.has(str(x)) else null)) if voulu.size() == 11 \
+		else FootMatch.compo_auto(e.keys(), e, formation)
+	var postes: Array = FootMatch.FORMATIONS.get(formation, FootMatch.FORMATIONS["4-4-2"])
+	var lignes: Array = []
+	for i in mini(onze.size(), postes.size()):
+		var id = onze[i]
+		var poste := str(postes[i][0])
+		var nom := "?" if id == null or not e.has(str(id)) else str(e[str(id)].get("nom", ""))
+		if lignes.is_empty() or str(lignes[-1][0]) != poste:
+			lignes.append([poste, []])
+		(lignes[-1][1] as Array).append(nom)
+	out.lignes = lignes
 	return out
 
 
@@ -117,6 +166,14 @@ static func clubs_basket(b: Node) -> Array:
 	var out: Array = b.clubs.keys().filter(func(c): return not (b.mes_obligations(c) as Array).is_empty())
 	out.sort()
 	return out
+
+
+## Les clubs de basket de Mes clubs : ceux dont on tient une part, puis ceux qu'on suit en supporter.
+static func suivis_basket(b: Node, avis: Node) -> Array:
+	var out: Array = clubs_basket(b)
+	var fans: Array = (avis.favoris("basket") as Array).filter(func(c): return b.clubs.has(c) and not out.has(c))
+	fans.sort()
+	return out + fans
 
 
 ## Le match d'un club de basket à une journée : {dom, adv (l'id de l'adversaire), score ([pour, contre], vide
@@ -166,6 +223,7 @@ static func carte_basket(b: Node, club: String) -> Dictionary:
 		"taille": n, "pts": int(moi.pts), "joues": int(moi.j), "ecart_tete": int(cl[0].pts) - int(moi.pts),
 		"ecart_relegation": int(moi.pts) - int(cl[sauve].pts) if sauve >= 1 and sauve < n else 0,
 		"forme": forme_basket(b, club), "objectif": {}, "confiance": {}, "dirige": bool(b.peut_decider(club)),
+		"ouvert": (b.actionnaires(club) as Array).is_empty(), "parts": (b.mes_obligations(club) as Array).size(),
 		"direction": DIRIGER.phrase(b, club), "prochain": {}, "consigne": ""}
 	var jj: int = b.journee_jouee()
 	if jj < int(b.JOURNEES) and int(b.maintenant()) < int(b.coup_envoi(b.saison, int(b.JOURNEES))):
