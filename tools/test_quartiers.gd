@@ -283,5 +283,21 @@ func _init() -> void:
 	check(v2.voulus() == ["bas"], "ville réduite : au-delà, le bas est courant et le château lâche")
 	reduite.free()
 	j2.free()
+
+	# Une racine de quartier réduite par le quartier lui-même ne s'enregistre pas : à la pose sous le parent
+	# réduit, elle le serait deux fois (Lyon 0.2.0, Saint-Paul à 1/U²).
+	var deux_fois := Node3D.new()
+	deux_fois.name = "deux_fois"
+	deux_fois.scale = Vector3.ONE / 2.4
+	root.add_child(deux_fois)
+	var boite := MeshInstance3D.new()
+	boite.mesh = BoxMesh.new()
+	deux_fois.add_child(boite)
+	DirAccess.remove_absolute(TMP + "quartiers/deux_fois.scn")
+	check(Quartiers.enregistrer(deux_fois, TMP + "quartiers/deux_fois.scn") == ERR_INVALID_DATA and not FileAccess.file_exists(TMP + "quartiers/deux_fois.scn"), "une racine de quartier réduite est refusée à l'enregistrement")
+	check(Quartiers.enregistrer_lointain(deux_fois, TMP + "quartiers/deux_fois_loin.scn") == ERR_INVALID_DATA, "sa version lointaine, qui reprend la transformation de la racine, aussi")
+	deux_fois.scale = Vector3.ONE
+	check(Quartiers.enregistrer(deux_fois, TMP + "quartiers/deux_fois.scn") == OK, "à l'échelle 1, la même racine s'enregistre")
+	deux_fois.free()
 	print("%d échec(s)" % fails)
 	quit(1 if fails > 0 else 0)
