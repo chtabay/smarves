@@ -1638,6 +1638,7 @@ func _build_hall() -> void:
 		cl.omni_range = 5.0
 		cl.position = Vector3(0, 2.6, 0)
 		cand.add_child(cl)
+	_panneau_de_l_etage()
 	# Sous les volées supérieures : deux passages vers les portes de la salle des jeux.
 	for s in [-1.0, 1.0]:
 		_label("Salle des jeux", Vector3(s * 5.3, 3.28, 6.13), 0.0, 32, Color(1.0, 0.86, 0.55))
@@ -2430,6 +2431,22 @@ func _build_upper() -> void:
 	_barrier("loggia", Vector3(7.0, UP, 2.0), 90.0, 2.2)
 	_barrier("loggia", Vector3(8.8, UP, 6.3), 0.0, 1.8)
 	_build_salons()
+
+
+## Au pied de l'escalier, côté ouest, un chevalet de laiton dit ce qu'il y a là-haut : rien de l'étage ne
+## se voit du hall, et le Cercle Philidor est tout au fond du Fumoir. Un joueur le lit en entrant ; un
+## pensionnaire aussi (pilote : les écrits en vue), et il sait alors quoi chercher.
+func _panneau_de_l_etage() -> void:
+	var p := _node(Vector3(-3.7, 0, 14.4))
+	for s in [-1.0, 1.0]:
+		var pied := _cyl(0.025, 1.5, Vector3(s * 0.48, 0.72, -0.08), gold, p)
+		pied.rotation_degrees.x = -8.0
+	_box(Vector3(1.16, 0.78, 0.04), Vector3(0, 1.32, 0), dark_wood, false, p)
+	_box(Vector3(1.22, 0.03, 0.06), Vector3(0, 1.73, 0), gold, false, p)
+	_box(Vector3(1.22, 0.03, 0.06), Vector3(0, 0.91, 0), gold, false, p)
+	_label("À l'étage", Vector3(0, 1.58, 0.03), 0.0, 30, Color(1.0, 0.85, 0.5), p)
+	_label("Galerie de la Verrière\nRestaurant Le Lustre · La Loggia\nBar du Fumoir\nCercle Philidor · Échecs, au fond du Fumoir",
+		Vector3(0, 1.27, 0.03), 0.0, 17, Color(0.98, 0.9, 0.72), p)
 
 
 ## La porte capitonnée du Cercle Philidor, au fond du Fumoir (mur ouest) : les tables d'échecs, une
