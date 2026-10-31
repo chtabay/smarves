@@ -78,6 +78,26 @@ func _lancer() -> void:
 	await process_frame
 	check(avis.suit("football", club) and _textes(carnet.get("_left")).contains("vous le suivez") and (carnet.get("_left").find_child("Suivre", true, false) as Button).text == "Ne plus suivre",
 		"« Suivre ce club » : on le suit, sans part")
+	# Ses nouvelles : les buteurs du match, le rendez-vous de la veille, le président qui change.
+	var courrier: GDScript = load("res://scripts/socle/foot_courrier.gd")
+	var m1: Dictionary = courrier.match_de(foot, club, 1, 1)
+	var buts: String = courrier.buts(foot, club, 1, 1, m1)
+	var score: Array = m1.score
+	check((int(score[0]) + int(score[1]) == 0 and buts == "") or (buts.contains("'") and (buts.begins_with("Buts : ") or buts.begins_with("En face : "))), "les buteurs d'un match joué : %s" % buts)
+	var t0 := t
+	t = foot.coup_envoi(1, 6) - 3 * 3600
+	check(avis.call("_veille", foot, club) and avis.liste.any(func(x): return str(x.id).begins_with("veille/1/6/" + club) and str(x.lien.vers) == "stade"), "la veille du match, le rendez-vous au stade")
+	t = t0
+	check(avis.call("_president", foot, club), "la première lecture note le président")
+	foot.forcer_porteurs("Lucien:5", club)
+	avis.call("_president", foot, club)
+	check(avis.liste.any(func(x): return str(x.titre).begins_with("Lucien dirige désormais")), "un nouveau président : la nouvelle arrive au supporter")
+	carnet.ouvrir_club(club)
+	await process_frame
+	var lf: Node = carnet.get("_left")
+	check(lf.find_child("Action_Statistiques", true, false) != null and lf.find_child("Action_Voir_bureau", true, false) != null and lf.find_child("Action_Entrainement", true, false) == null
+		and lf.find_child("Action_Mercato", true, false) == null, "le supporter a ses boutons : statistiques, voir le bureau, stade, notaire ; pas ceux du dirigeant")
+	foot.forcer_porteurs("", club)
 	carnet.ouvrir_club("tous")
 	await process_frame
 	check(carnet.pages_clubs().map(func(p): return p[0]) == [club, "tous", "comment", "calendrier"], "suivi, il reste dans Mes clubs")
