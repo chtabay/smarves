@@ -97,6 +97,15 @@ const REPERES := {
 	# du milieu de la place, la noce sur les marches de la Loge, le ciel au-dessus de sa balustrade
 	"Vue3b_Noce": [Vector2(-146.0, 525.0), Vector2(-168.0, 527.0)],
 }
+## Le chemin du joueur, d'un repère à l'autre dans l'ordre de la visite (du quai de Sathonay au sas de Saint-Jean) :
+## le relief des façades et les arbres entiers se gardent à moins de PRES (et de PRES_PLACE sur les places) de ce
+## chemin ; plus loin, le volume peint et le corps lointain de l'arbre, une fois pour toutes à la construction.
+const CHEMIN := ["Sas_sathonay", "Vue1b_Culee", "Vue1c_Quai", "Vue1d_Gerson", "Vue1d_Ruelle", "Vue1e_Augros",
+	"Vue1f_PlaceSaintPaul", "Arrivee_SaintPaul", "Vue2a_Juiverie", "Vue2b_Porche", "Vue2d_Juiverie", "Vue2e_Loge",
+	"Vue3a_Change", "Vue3b_Noce", "Sas_saint_jean"]
+const PRES := 35.0
+const PRES_PLACE := 50.0
+const PRES_ARBRE := 30.0
 ## Le regard levé de quelques degrés, pour prendre un peu de ciel au-dessus des rues étroites et de la cour.
 const TANGAGE := {"Vue1d_Gerson": 8.0, "Vue2a_Juiverie": 8.0, "Vue2c_Bullioud": 10.0, "Vue3b_Noce": 8.0}
 ## Les sas (socle 1.26, Quartiers.veiller) : un nœud au débouché, son rayon en mètres dans la méta « rayon ».
@@ -126,6 +135,8 @@ class Batisseur:
 	var cases := {}
 	var modules: Array[Node3D] = []
 	var relief_pose := {}
+	var vus := {}
+	var chemin := {}
 	var mats := {}
 	var facades: Array = []
 	var cafe_pose := false
@@ -505,6 +516,14 @@ class Batisseur:
 			var portee := 16.0 if (PLACE_CHANGE.has_point(milieu) or PLACE_SAINT_PAUL.has_point(milieu)) else 6.0
 			if dans_qui(milieu + n * 0.6, i) >= 0 or ouverture(milieu + n * 3.0) > portee:
 				continue
+			# une façade qu'on ne voit d'aucune rue du parcours garde le volume peint (choix fait une fois, ici)
+			if vus.is_empty():
+				_parcours()
+			if not _vue_de(vus, a, bb, n, RELIEF_PORTEE):
+				continue
+			# et une façade qu'on ne voit que de loin, d'une rue où l'on ne passe pas, aussi
+			if not _vue_de(chemin, a, bb, n, PRES_PLACE if portee > 6.0 else PRES):
+				continue
 			relief_pose[Vector2i(i, k)] = true
 			var nb := maxi(1, int(round(long / 8.0)))
 			var w := long / nb
@@ -551,6 +570,77 @@ class Batisseur:
 				racine.add_child(m)
 				corniches.append(y + 4.2 + float(opt.niveaux) * 3.3)
 		return corniches
+
+	## Les points d'où le joueur voit les façades : les rues et les places des zones en relief, tous les trois
+	## mètres, et l'œil de chaque repère ; rangés par cases de 20 m.
+	func _parcours() -> void:
+		var zones: Array = RELIEF + [PLACE_CHANGE, PLACE_SAINT_PAUL]
+		for sg in segments:
+			var long: float = sg[0].distance_to(sg[1])
+			for t in maxi(1, ceili(long / 3.0)) + 1:
+				var p: Vector2 = sg[0].lerp(sg[1], minf(t * 3.0 / maxf(long, 0.01), 1.0))
+				for z in zones:
+					if z.has_point(p) and dans_qui(p, -1) < 0:
+						_au_parcours(p)
+						break
+		for nom in REPERES:
+			_ranger(vus, REPERES[nom][0])
+		# le chemin de la visite, tous les trois mètres, hors des maisons
+		for j in CHEMIN.size() - 1:
+			var sa := _repere(CHEMIN[j])
+			var sb := _repere(CHEMIN[j + 1])
+			var long := sa.distance_to(sb)
+			for t in maxi(1, ceili(long / 3.0)) + 1:
+				var p := sa.lerp(sb, minf(t * 3.0 / maxf(long, 0.01), 1.0))
+				if dans_qui(p, -1) < 0:
+					_ranger(chemin, p)
+
+	func _repere(nom: String) -> Vector2:
+		return REPERES[nom][0] if REPERES.has(nom) else SAS[nom][0]
+
+	func _au_parcours(p: Vector2) -> void:
+		_ranger(vus, p)
+
+	func _ranger(ou: Dictionary, p: Vector2) -> void:
+		var k := Vector2i(floori(p.x / 20.0), floori(p.y / 20.0))
+		if not ou.has(k):
+			ou[k] = []
+		ou[k].append(p)
+
+	## Le point du chemin le plus proche de p (en mètres).
+	func _loin_du_chemin(p: Vector2) -> float:
+		if vus.is_empty():
+			_parcours()
+		var best := INF
+		var c := Vector2i(floori(p.x / 20.0), floori(p.y / 20.0))
+		for gx in range(c.x - 3, c.x + 4):
+			for gz in range(c.y - 3, c.y + 4):
+				for q in chemin.get(Vector2i(gx, gz), []):
+					best = minf(best, p.distance_to(q))
+		return best
+
+	## Une façade (le mur de a à bb, tourné vers n) se voit-elle d'un des points de pts, de face, à moins de
+	## portee, sans maison entre deux ? Trois points du mur.
+	func _vue_de(pts: Dictionary, a: Vector2, bb: Vector2, n: Vector2, portee: float) -> bool:
+		var c := Vector2i(floori((a.x + bb.x) * 0.5 / 20.0), floori((a.y + bb.y) * 0.5 / 20.0))
+		var r := ceili(portee / 20.0)
+		for t in [0.5, 0.12, 0.88]:
+			var q := a.lerp(bb, t) + n * 0.8
+			for gx in range(c.x - r, c.x + r + 1):
+				for gz in range(c.y - r, c.y + r + 1):
+					for p in pts.get(Vector2i(gx, gz), []):
+						var d: Vector2 = p - q
+						if d.dot(n) < 0.5 or d.length() > portee:
+							continue
+						var pas := maxi(1, ceili(d.length() / 1.5))
+						var libre := true
+						for s in range(1, pas):
+							if dans_qui(q + d * (float(s) / pas), -1) >= 0:
+								libre = false
+								break
+						if libre:
+							return true
+		return false
 
 	## Le toit du volume : deux pans de tuile canal à faible pente sur un plan rectangulaire, sinon un rampant
 	## sur le pourtour et un terrasson.
@@ -1149,11 +1239,23 @@ class Batisseur:
 			if not au_quartier(p) or p.x < -330.0:
 				continue
 			k += 1
-			pose(OMBRIERE, "arbre", "jeune_platane", sur(p.x, p.y), 700 + k, {"hauteur": rng.randf_range(9.0, 12.0), "vent": 0.3, "lod": "loin"})
+			var arbre := pose(OMBRIERE, "arbre", "jeune_platane", sur(p.x, p.y), 700 + k, {"hauteur": rng.randf_range(9.0, 12.0), "vent": 0.3, "lod": "loin"})
+			if _loin_du_chemin(p) > PRES_ARBRE:
+				_de_loin(arbre)
 		# deux platanes sur la place Saint-Paul : au soleil du soir, leurs ombres traversent la place vers le quai
 		for p in [Vector2(-208.0, 366.0), Vector2(-236.0, 344.0)]:
 			k += 1
 			pose(OMBRIERE, "arbre", "jeune_platane", sur(p.x, p.y), 700 + k, {"hauteur": 11.0, "vent": 0.3, "lod": "loin"})
+
+	## Un arbre qu'on ne voit que de loin (les platanes du quai, derrière les maisons) : son corps lointain, le fût et
+	## trois boules, à la place de l'arbre entier, une fois pour toutes ; rien ne bascule en marchant.
+	func _de_loin(arbre: Node3D) -> void:
+		for n in arbre.find_children("*", "GeometryInstance3D", true, false):
+			var g := n as GeometryInstance3D
+			if g.has_meta("corps_lointain"):
+				g.visibility_range_begin = 0.0
+			elif g.has_meta("sans_lointain"):
+				g.queue_free()
 
 	# --- La vie -------------------------------------------------------------------------------------
 
