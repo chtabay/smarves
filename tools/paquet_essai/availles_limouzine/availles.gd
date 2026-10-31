@@ -824,6 +824,8 @@ func _bande(sd: SurfaceTool, sb: SurfaceTool, ligne: PackedVector2Array, l: floa
 ## Un sol piéton d'une place : un polygone drapé trois centimètres au-dessus de l'enrobé, en béton
 ## sablé (ou en gravier), cerné d'un petit filet de ciment : pas de vrai trottoir, juste une marche.
 const PIETON_H := 0.08
+## Le dessus de l'enrobé des places, là où sont peints les marquages.
+const ROUTE_DESSUS := 0.056
 
 
 func _pieton(parent: Node3D, pz: Dictionary) -> void:
@@ -885,6 +887,14 @@ func _mobilier(parent: Node3D, m: Dictionary) -> void:
 	n.scale = Vector3.ONE * float(fiche[1])
 	n.rotation_degrees.y = float(m.get("rot", 0.0))
 	parent.add_child(n)
+	if str(m.m).begins_with("voiture"):
+		# Les roues des voitures KayKit descendent sous leur origine : on pose le bas des pneus sur
+		# l'enrobé (le niveau des marquages), sinon elles s'enfoncent.
+		var bas := 0.0
+		for mi in n.find_children("*", "MeshInstance3D", true, false):
+			var t: Transform3D = n.global_transform.affine_inverse() * (mi as MeshInstance3D).global_transform
+			bas = minf(bas, (t * (mi as MeshInstance3D).get_aabb()).position.y)
+		n.position.y = hauteur(p.x, p.y) + float(m.get("y", ROUTE_DESSUS)) - bas * n.scale.y
 	if bool(fiche[2]):
 		_solidifier(n)
 
