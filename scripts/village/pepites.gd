@@ -45,7 +45,7 @@ func _check() -> void:
 ## La livrée : la camionnette du Car Kit s'efface (sa boîte de collision reste) et le van des chasseurs
 ## prend sa place, à sa mesure, bâti par l'atelier des véhicules (scripts/socle/carrosserie.gd) : un
 ## fourgon moderne au long pare-brise couché dans le capot, gris anthracite métallisé pailleté qui tourne au
-## bleu acier en bord de forme, bas de caisse noir, vitres teintées, phares effilés, jantes argent,
+## bleu acier en bord de forme, bas de caisse noir, vitres teintées, phares effilés, jantes acier sombres,
 ## antenne de toit, et le médaillon blanc « Authentic Spirits · MMXX » sur les deux flancs arrière.
 func paint() -> void:
 	livree = true
@@ -106,8 +106,6 @@ func _build(c: Node3D) -> void:
 				[Vector3(x, 0.84, -0.66), Vector3(x, 0.84, -0.08), Vector3(x, 1.12, -0.08), Vector3(x, 1.12, -0.66)]]:
 			_quad(c, v, verre, 0.0, s < 0.0)
 			_cadre(c, v, Vector3(0.004 * s, 0, 0), noir, 0.012)
-		# Le filet chromé sous les vitres, de la portière au montant arrière.
-		_box(c, Vector3(0.01, 0.012, 1.5), Vector3(x + 0.004 * s, 0.825, 0.06), chrome)
 		# Les joints des portes, le rail de la porte coulissante, les poignées.
 		for z: float in [-0.04, -0.7]:
 			_box(c, Vector3(0.006, 0.5, 0.008), Vector3(x + 0.002 * s, 0.58, z), noir)
@@ -137,8 +135,8 @@ func _build(c: Node3D) -> void:
 		_box(c, Vector3(0.12, 0.03, 0.03), Vector3(0.5 * s, 0.27, 1.43), Carrosserie.feu(Color(1.0, 0.6, 0.2), 1.0))
 		# À l'arrière, les grands feux verticaux sur les montants.
 		_box(c, Vector3(0.08, 0.24, 0.03), Vector3(0.6 * s, 0.76, -1.405), Carrosserie.feu(Color(0.85, 0.04, 0.03), 0.7))
-	_box(c, Vector3(LARGE - 0.04, 0.16, 0.05), Vector3(0, 0.22, 1.415), noir)
-	_box(c, Vector3(LARGE - 0.04, 0.16, 0.05), Vector3(0, 0.22, -1.39), noir)
+	_box(c, Vector3(LARGE - 0.04, 0.16, 0.05), Vector3(0, 0.24, 1.415), laque)
+	_box(c, Vector3(LARGE - 0.04, 0.16, 0.05), Vector3(0, 0.24, -1.39), laque)
 	# L'arrière : deux battants à la lunette teintée, le jonc qui les sépare, la plaque.
 	var lunette := [Vector3(w - 0.22, 0.78, -1.405), Vector3(-w + 0.22, 0.78, -1.405), Vector3(-w + 0.22, 1.08, -1.405), Vector3(w - 0.22, 1.08, -1.405)]
 	_quad(c, lunette, verre)
@@ -257,7 +255,8 @@ func _rond(c: Node3D, at: Vector3, r: float, ep: float, mat: Material) -> void:
 ## Une roue tournée vers le flanc `s` : pneu, flanc blanc, enjoliveur chromé bombé.
 func _roue(c: Node3D, at: Vector3, s: float, chrome: Material) -> void:
 	var sombre := Carrosserie.mat(Color(0.03, 0.03, 0.035), 0.9)
-	var pieces := [[ROUE_R, 0.2, sombre, 0.0], [ROUE_R * 0.68, 0.012, chrome, 0.1], [ROUE_R * 0.56, 0.012, sombre, 0.104]]
+	var acier := Carrosserie.laque(Color(0.16, 0.17, 0.18), Color(0.4, 0.45, 0.55), 0.0)
+	var pieces := [[ROUE_R, 0.2, sombre, 0.0], [ROUE_R * 0.68, 0.012, acier, 0.1], [ROUE_R * 0.56, 0.012, sombre, 0.104]]
 	for piece: Array in pieces:
 		var m := CylinderMesh.new()
 		m.top_radius = piece[0]
@@ -273,7 +272,7 @@ func _roue(c: Node3D, at: Vector3, s: float, chrome: Material) -> void:
 		var bm := BoxMesh.new()
 		bm.size = Vector3(0.012, ROUE_R * 0.56, 0.035)
 		br.mesh = bm
-		br.material_override = chrome
+		br.material_override = acier
 		br.rotation_degrees.x = i * 72.0
 		br.position = at + Vector3(0.108 * s, 0, 0) + Basis(Vector3.RIGHT, deg_to_rad(i * 72.0)) * Vector3(0, ROUE_R * 0.28, 0)
 		c.add_child(br)
