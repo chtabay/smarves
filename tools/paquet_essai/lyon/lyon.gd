@@ -3438,7 +3438,10 @@ func _veiller_sathonay(delta: float) -> void:
 	if _loin_horloge < 0.4:
 		return
 	_loin_horloge = 0.0
-	var loin: bool = _veille_noeud.courant != "" and not _pres_dun_sas()
+	# « sathonay » est le départ de la veille, pas un quartier déclaré : la place reste entière tant que le joueur y
+	# est (le paquet 0.2.4 la montrait en imposteurs dès l'arrivée, sur la place même)
+	var courant: String = _veille_noeud.courant
+	var loin: bool = courant != "" and courant != "sathonay" and not _pres_dun_sas()
 	if loin == _sathonay_loin:
 		return
 	_sathonay_loin = loin
