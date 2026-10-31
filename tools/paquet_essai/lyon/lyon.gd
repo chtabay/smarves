@@ -145,6 +145,9 @@ func _ready() -> void:
 	_parcours()
 	_quai_habite()
 	_fourviere()
+	# les maisons du façadier sont posées sur un point de leur façade : sur la pente, le terrain descend sous elles
+	# plus bas que leur soubassement (100 sur 296, jusqu'à 6 m). Leur assise de pierre le rattrape (socle 1.30).
+	Assise.caler_tout(ville, hauteur, PIERRE_DOREE.darkened(0.15))
 	_relief_de_pres()
 	_reperes()
 	_joueur()
@@ -1046,6 +1049,9 @@ func _batiments() -> void:
 			poly.append(Vector2(q[0], q[1]) * U)
 		var sol: float = b.sol * U - 0.5
 		var h: float = b.h * U + 0.5
+		# le pied des murs sous le terrain dessiné (nivelé, creusé, interpolé), pas seulement sous le relevé ; le haut
+		# des murs et les fenêtres du shader ne bougent pas
+		var pied := minf(sol, Assise.sol(hauteur, poly).x - Assise.ENFOUI)
 		if i == 745:
 			# l'immeuble à fenêtres carrées au haut de la montée, vu de la mairie : un étage de moins, il se range
 			# derrière elle au lieu de la dominer (verdicts 24 et 34)
@@ -1063,9 +1069,9 @@ func _batiments() -> void:
 			var a := poly[k]
 			var bb := poly[(k + 1) % poly.size()]
 			var long := a.distance_to(bb)
-			var v := [Vector3(a.x, sol, a.y), Vector3(bb.x, sol, bb.y), Vector3(bb.x, sol + h, bb.y), Vector3(a.x, sol + h, a.y)]
+			var v := [Vector3(a.x, pied, a.y), Vector3(bb.x, pied, bb.y), Vector3(bb.x, sol + h, bb.y), Vector3(a.x, sol + h, a.y)]
 			var nb := maxf(1.0, round(long / baie))
-			var uv := [Vector2(0, 0), Vector2(nb, 0), Vector2(nb, h), Vector2(0, h)]
+			var uv := [Vector2(0, pied - sol), Vector2(nb, pied - sol), Vector2(nb, h), Vector2(0, h)]
 			var n := Vector3(bb.y - a.y, 0, -(bb.x - a.x)).normalized()
 			# le relevé ne tourne pas toujours dans le même sens : le mur regarde dehors, sinon il disparaît vu de la
 			# rue et laisse voir le dessous du toit, une dalle sombre qui semble basculée
@@ -1100,7 +1106,31 @@ func _batiments() -> void:
 				murs.add_vertex(v[idx])
 			if (Vector2(a.x, a.y) - CENTRE_PLACE).length() < 260.0:
 				collisions.append_array(PackedVector3Array([v[0], v[2], v[1], v[0], v[3], v[2]]))
-		_toit(toits, b, poly, sol + h, i)
+		# les pignons du toit taillé sur le plan : sur rue, ils prolongent la façade et ses fenêtres ; contre un
+		# voisin, ils prennent l'enduit ombré du mur mitoyen, aveugle (verdict 45)
+		for tri in _toit(toits, b, poly, sol + h, i):
+			var nt := Assise.normale(tri)
+			var milieu: Vector3 = (tri[0] + tri[1] + tri[2]) / 3.0
+			var m2 := Vector2(milieu.x, milieu.z)
+			var mitoyen := _dans_qui(m2 + Vector2(nt.x, nt.z) * 0.6, i) >= 0
+			# les travées du mur sous le pignon, pour que ses fenêtres tombent au-dessus de celles de la façade
+			var ka := 0
+			var dmin := INF
+			for k in poly.size():
+				var dk := Geometry2D.get_closest_point_to_segment(m2, poly[k], poly[(k + 1) % poly.size()]).distance_to(m2)
+				if dk < dmin:
+					dmin = dk
+					ka = k
+			var pa := poly[ka]
+			var pb := poly[(ka + 1) % poly.size()]
+			var nb := maxf(1.0, round(pa.distance_to(pb) / baie))
+			for p in tri:
+				var x := (Vector2(p.x, p.z) - pa).dot((pb - pa).normalized()) / pa.distance_to(pb) * nb
+				murs.set_color(c.darkened(0.25) if mitoyen else c)
+				murs.set_normal(nt)
+				murs.set_uv(Vector2(0.0 if mitoyen else x, p.y - sol))
+				murs.set_uv2(Vector2(1000.0, float(i % 97)))
+				murs.add_vertex(p)
 	var mm := MeshInstance3D.new()
 	mm.name = "Murs"
 	# les deux faces portent ombre : la vue d'ensemble attend l'ombre des façades ouest sur la rue, soleil bas
@@ -1439,12 +1469,29 @@ func _boite_st(st: SurfaceTool, c: Vector3, t: Vector3, ang: float, col: Color) 
 			st.add_vertex(c + b * coins[idx])
 
 
-func _toit(st: SurfaceTool, b: Dictionary, poly: PackedVector2Array, haut: float, i: int) -> void:
+## Rend les pignons à monter dans les murs (Assise.deux_pans), quand le toit se taille sur le plan réel.
+func _toit(st: SurfaceTool, b: Dictionary, poly: PackedVector2Array, haut: float, i: int) -> Array:
 	var tuile := Color(TUILES[i % TUILES.size()])
 	var rc: Array = b.rect
 	var pente: float = clampf(b.pente * U, 1.2, 3.2)
+	var pignons: Array = []
+	var taille := false
+	if b.rempli >= 0.85 and b.rempli < 0.95 and b.toit != "plat":
+		# un plan presque rectangulaire mais pas tout à fait : le toit se taille sur le plan réel depuis le haut des
+		# murs, et les pignons montent jusqu'à lui (sur le rectangle, il débordait dans le vide d'un côté)
+		var ax := Vector2(cos(rc[4]), sin(rc[4]))
+		var t := Assise.deux_pans(poly, haut, pente, Vector2(rc[0], rc[1]) * U, ax, rc[3] * U * 0.5, 0.3)
+		for tri in t.pans:
+			var n := Assise.normale(tri)
+			for p in tri:
+				st.set_color(tuile.darkened(0.15) if absf(n.y) < 0.2 else tuile)
+				st.set_normal(n)
+				st.add_vertex(p)
+		pignons = t.pignons
+		taille = true
 	if b.rempli >= 0.85 and b.toit != "plat":
-		# un toit à deux pans, en tuile canal à faible pente, le long du grand côté du rectangle
+		# un toit à deux pans, en tuile canal à faible pente, le long du grand côté du rectangle (taillé plus haut sur
+		# le plan réel, il garde ici ses souches et ses lucarnes)
 		var c := Vector2(rc[0], rc[1]) * U
 		var lu: float = rc[2] * U * 0.5 + 0.3
 		var lv: float = rc[3] * U * 0.5 + 0.3
@@ -1459,7 +1506,7 @@ func _toit(st: SurfaceTool, b: Dictionary, poly: PackedVector2Array, haut: float
 		var f1 := c + u * lu
 		var E := Vector3(f0.x, haut + pente, f0.y)
 		var F := Vector3(f1.x, haut + pente, f1.y)
-		for tri in [[A, F, B], [A, E, F], [D, C, F], [D, F, E], [A, D, E], [B, F, C]]:
+		for tri in ([] if taille else [[A, F, B], [A, E, F], [D, C, F], [D, F, E], [A, D, E], [B, F, C]]):
 			var n: Vector3 = (tri[2] - tri[0]).cross(tri[1] - tri[0]).normalized()
 			if n.y < 0.0:
 				tri = [tri[0], tri[2], tri[1]]
@@ -1473,6 +1520,10 @@ func _toit(st: SurfaceTool, b: Dictionary, poly: PackedVector2Array, haut: float
 		for k in nc:
 			var t := (float(k) + 0.5) / nc + (float(i % 5) - 2.0) * 0.04
 			var q := E.lerp(F, t) + Vector3(v.x, 0, v.y) * (0.9 if (i + k) % 2 else -0.9)
+			if taille and not Geometry2D.is_point_in_polygon(Vector2(q.x, q.z), poly):
+				continue
+			if taille:
+				q.y = _sur_le_pan(q, c, v, haut, pente, rc[3] * U * 0.5)
 			_boite_st(st, q + Vector3(0, 0.6, 0), Vector3(1.3, 2.4, 0.8), rc[4], Color(ENDUITS_PLACE[(i + k) % ENDUITS_PLACE.size()]).darkened(0.08))
 			_boite_st(st, q + Vector3(0, 1.88, 0), Vector3(1.5, 0.16, 1.0), rc[4], Color("#b9ac92"))
 		# les lucarnes à mi-pente : un petit corps enduit, sa fenêtre et son chapeau de tuile
@@ -1482,11 +1533,15 @@ func _toit(st: SurfaceTool, b: Dictionary, poly: PackedVector2Array, haut: float
 			# sur les deux pans : la vue d'ensemble voit l'un ou l'autre selon le côté de la rue
 			for pan in [[A.lerp(B, t), -1.0], [D.lerp(C, t), 1.0]]:
 				var pied: Vector3 = pan[0].lerp(E.lerp(F, t), 0.45)
+				if taille and not Geometry2D.is_point_in_polygon(Vector2(pied.x, pied.z), poly):
+					continue
+				if taille:
+					pied.y = _sur_le_pan(pied, c, v, haut, pente, rc[3] * U * 0.5)
 				var dehors := Vector3(v.x, 0, v.y) * float(pan[1])
 				_boite_st(st, pied + Vector3(0, 0.45, 0), Vector3(1.0, 1.0, 0.9), rc[4], Color(ENDUITS_PLACE[(i + k) % ENDUITS_PLACE.size()]))
 				_boite_st(st, pied + Vector3(0, 0.45, 0) + dehors * 0.46, Vector3(0.55, 0.6, 0.04), rc[4], Color("#3a4250"))
 				_boite_st(st, pied + Vector3(0, 1.02, 0), Vector3(1.2, 0.18, 1.1), rc[4], tuile.darkened(0.1))
-		return
+		return pignons
 	var dessus := poly
 	var rehausse := 0.15
 	if b.toit != "plat" and poly.size() >= 3:
@@ -1551,6 +1606,13 @@ func _toit(st: SurfaceTool, b: Dictionary, poly: PackedVector2Array, haut: float
 			st.set_color(tuile.darkened(0.06) if b.toit != "plat" else Color("#a39a8c"))
 			st.set_normal(Vector3.UP)
 			st.add_vertex(Vector3(p.x, haut + rehausse, p.y))
+	return []
+
+
+## La hauteur d'un toit taillé sur le plan réel (Assise.deux_pans) au-dessus de q : même faîtage et même pente que
+## le toit du rectangle, pour y poser souches et lucarnes (seulement si leur pied tombe dans le plan).
+func _sur_le_pan(q: Vector3, c: Vector2, v: Vector2, haut: float, pente: float, demi: float) -> float:
+	return haut + pente * (1.0 - absf((Vector2(q.x, q.z) - c).dot(v)) / demi)
 
 
 ## Le relief des façades ne se lit que de près : au-delà de RELIEF_PORTEE, les modules du façadier s'effacent
@@ -1789,17 +1851,6 @@ func _heros_poser(i: int, b: Dictionary) -> void:
 				bord.rotation.y = lacet
 		else:
 			_souches_cote_rue(m, w - 0.05, lv, Color(str(opt["enduit"])))
-		# le socle de l'immeuble, jusqu'au point le plus bas de la pente
-		var bas := minf(hauteur(p.x - u.x * w * 0.5, p.y - u.y * w * 0.5), hauteur(p.x + u.x * w * 0.5, p.y + u.y * w * 0.5))
-		if m.position.y - bas > 0.3:
-			var socle := MeshInstance3D.new()
-			var bm := BoxMesh.new()
-			bm.size = Vector3(w, m.position.y - bas + 0.4, lv)
-			socle.mesh = bm
-			socle.material_override = materiau(PIERRE_DOREE.darkened(0.15))
-			socle.position = Vector3(p.x - v.x * lv * 0.5, bas + bm.size.y * 0.5 - 0.4, p.y - v.y * lv * 0.5)
-			socle.rotation.y = lacet
-			ville.add_child(socle)
 
 
 # --- La place -------------------------------------------------------------------------------------
