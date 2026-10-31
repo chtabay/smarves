@@ -169,6 +169,19 @@ func _lancer() -> void:
 	avis.charger()
 	check(avis.liste.size() == n and avis.suivi.has("matchs"), "le courrier se relit de son fichier (%d avis)" % n)
 
+	# Le village est public : chaque joueur, ancien compris, en est prévenu une fois, au courrier (Lasso 013).
+	avis.effacer()
+	var MAIN: GDScript = load("res://scripts/main.gd")
+	check(MAIN.avis_village_public(), "l'avis « le village est public » arrive au courrier d'un joueur déjà installé")
+	var pub: Array = avis.liste.filter(func(x): return x.id == "village/public")
+	check(pub.size() == 1 and pub[0].importance == "forte" and str(pub[0].texte).contains("Le village est public")
+		and str(pub[0].texte).contains("bulles"), "il dit les images, les joueurs présents et leurs bulles, avec une fiche")
+	check(not MAIN.avis_village_public() and avis.liste.filter(func(x): return x.id == "village/public").size() == 1,
+		"il ne revient pas à la session suivante")
+	var src := FileAccess.get_file_as_string("res://scripts/main.gd")
+	check(src.contains("avis_village_public()") and src.find("avis_village_public()") < src.find("_arrivee()\n\n\n##"),
+		"il part à chaque ouverture de partie, avant l'arrivée")
+
 	avis.effacer()
 	foot.effacer()
 	paris.effacer()
