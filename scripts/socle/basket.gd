@@ -44,7 +44,7 @@ const RECETTE := 3000
 const OBLIGATIONS := [500, 1000, 1500, 2250, 3000, 4000, 5000, 6250, 7500]
 const TOTAL := 31000
 const RACHAT := 0.8
-## Qui dirige, la règle d'un club par division et l'intersaison (scripts/socle/diriger.gd).
+## Qui dirige, la règle d'un club à la fois et la relève du lundi (scripts/socle/diriger.gd).
 const DIRIGER := preload("res://scripts/socle/diriger.gd")
 
 ## Les clubs inscrits (un gymnase au registre) : id de la commune -> {nom, court, couleurs, commune, salle}.
@@ -72,6 +72,9 @@ var bureau := {"obligations": [], "encheres": [], "liberations": [], "consignes"
 var a_declarer := {}
 ## La direction de chaque club, tenue au serveur : club -> {par, moi, division}.
 var directions := {}
+## Les relèves annoncées (publiques) : [{club, par, moi, effet}] ; et ses changements de club : [{periode, club}].
+var releves := []
+var changements := []
 ## Les mises retenues sur les crédits, par lot « saison/journée/niveau/groupe/joueur ».
 var retenues := {}
 ## La dernière journée dont le dividende est versé, club -> {s, j} ; et tout ce qui a été versé.
@@ -743,8 +746,6 @@ func prendre(club: String, rang: int) -> Dictionary:
 		return {"ok": false, "raison": "club"}
 	if not porteur(club, rang).is_empty():
 		return {"ok": false, "raison": "prise"}
-	if not DIRIGER.en_intersaison(self):
-		return {"ok": false, "raison": "intersaison"}
 	if Game.credits < valeur(rang):
 		return {"ok": false, "raison": "credits"}
 	Game.credits -= valeur(rang)
@@ -884,7 +885,7 @@ func refus_bureau(club: String) -> String:
 	if not connecte():
 		return "compte"
 	if not peut_decider(club):
-		return "division" if DIRIGER.etat(self, club).ailleurs != "" else "parts"
+		return "ailleurs" if DIRIGER.etat(self, club).ailleurs != "" else "parts"
 	return ""
 
 
@@ -1014,13 +1015,17 @@ func lire() -> void:
 	await lire_directions()
 
 
-## Relit qui dirige chaque club (public), puis demande la direction des clubs où l'on y a droit : le plus
-## gros porteur qui ne dirige pas déjà un club de la même division (scripts/socle/diriger.gd).
+## Relit qui dirige chaque club et les relèves annoncées (public), puis prend la direction des clubs vacants
+## où l'on y a droit tout de suite : le plus gros porteur qui ne dirige pas déjà un club
+## (scripts/socle/diriger.gd). Le reste se demande pour la relève, d'un bouton.
 func lire_directions() -> void:
 	var r: Dictionary = await _appeler("smarves_directions", {"p_sport": "basket"})
 	if r.code != 200 or not (r.corps is Array):
 		return
 	appliquer_directions(r.corps)
+	var rel: Dictionary = await _appeler("smarves_direction_releves", {"p_sport": "basket"})
+	if rel.code == 200 and rel.corps is Dictionary:
+		appliquer_releves(rel.corps)
 	if not connecte():
 		return
 	for club in clubs:
@@ -1037,8 +1042,16 @@ func appliquer_directions(liste: Array) -> void:
 	change.emit()
 
 
-## Demande la direction d'un club au serveur ; `changer` quitte, à l'intersaison, le club de la même
-## division qu'on dirigeait. {ok} ou {ok: false, raison} « intersaison », « division », « parts », « compte ».
+## Les relèves lues au serveur : {releves: [{club, par, moi, effet}], changements: [{periode, club}]}.
+func appliquer_releves(corps: Dictionary) -> void:
+	releves = (corps.get("releves", []) as Array).filter(func(x): return x is Dictionary)
+	changements = (corps.get("changements", []) as Array).filter(func(x): return x is Dictionary)
+	change.emit()
+
+
+## Demande la direction d'un club au serveur ; `changer` quitte, à la relève, le club qu'on dirigeait.
+## {ok} (c'est fait), {ok, releve, effet} (déclaré pour la relève du lundi) ou {ok: false, raison}
+## « ailleurs », « saison », « parts », « compte », « reseau ».
 func prendre_direction(club: String, changer := false) -> Dictionary:
 	if not connecte():
 		return {"ok": false, "raison": "compte"}
@@ -1047,12 +1060,24 @@ func prendre_direction(club: String, changer := false) -> Dictionary:
 	if r.code != 200 or not (r.corps is Dictionary):
 		return {"ok": false, "raison": "reseau"}
 	if bool(r.corps.get("ok", false)):
-		if changer:
-			for c in directions.keys():
-				if c != club and bool(directions[c].moi) and DIRIGER.division(self, c) == DIRIGER.division(self, club):
-					directions.erase(c)
-		directions[club] = {"par": "vous", "moi": true, "division": DIRIGER.division(self, club)}
+		releves = releves.filter(func(x): return not bool(x.get("moi", false)))
+		if bool(r.corps.get("releve", false)):
+			releves.append({"club": club, "par": "vous", "moi": true, "effet": int(r.corps.get("effet", DIRIGER.prochaine_releve(self)))})
+		else:
+			directions[club] = {"par": "vous", "moi": true, "division": DIRIGER.division(self, club)}
 		change.emit()
+	return r.corps
+
+
+## Retire sa relève annoncée : {ok} ou {ok: false, raison} « compte », « reseau ».
+func renoncer_direction() -> Dictionary:
+	if not connecte():
+		return {"ok": false, "raison": "compte"}
+	var r: Dictionary = await _appeler("smarves_direction_renoncer", {"p_sport": "basket"})
+	if r.code != 200 or not (r.corps is Dictionary):
+		return {"ok": false, "raison": "reseau"}
+	releves = releves.filter(func(x): return not bool(x.get("moi", false)))
+	change.emit()
 	return r.corps
 
 
@@ -1254,4 +1279,6 @@ func effacer() -> void:
 	dividendes = {}
 	dividendes_total = 0
 	directions = {}
+	releves = []
+	changements = []
 	_oublier()
