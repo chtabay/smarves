@@ -6,7 +6,8 @@ extends Node
 ## Belley, qui compte en mètres, sont divisées par U.
 
 const U := 2.4
-## Le dessin du socle est à l'échelle des petits Smarvois : ×6,6 pour un homme de 1,7 m, puis en unités.
+## Le dessin du socle est à l'échelle des petits Smarvois : ×6,6 pour un homme de 1,7 m, puis en unités. Le ×1,3
+## du verdict Mobylette 40 de Belley a été essayé côte à côte avec l'habitant de Lyon : la machine le dépassait.
 const ECHELLE := 6.6 / U
 ## Au guidon, le pas de l'habitant fois ceci (comme à Belley).
 const ALLURE := 3.6
@@ -157,7 +158,8 @@ func _garer(at: Vector3, lacet: float) -> void:
 	mob.global_rotation = Vector3(0, lacet, 0)
 
 
-## Assis sur la selle, le bassin au-dessus de la partie brune (critter.gd baisse les hanches de « _seat »).
+## Assis sur la selle, le bassin au-dessus de la partie brune (critter.gd baisse les hanches de « _seat ») :
+## 15 cm plus en arrière qu'à Belley, où le verdict 40 le voyait assis sur le réservoir.
 func _poser_habitant() -> void:
 	if not monte or player.avatar == null:
 		return
@@ -165,4 +167,4 @@ func _poser_habitant() -> void:
 	player.avatar.pose = 2
 	var seat := float(player.avatar.get("_seat")) if player.avatar.get("_seat") != null else 0.09
 	var s: float = player.avatar.scale.y
-	player.avatar.position = Vector3(0, Biens.selle("mobylette") * ECHELLE - seat * s, 0.3 / U)
+	player.avatar.position = Vector3(0, Biens.selle("mobylette") * ECHELLE - seat * s, 0.45 / U)

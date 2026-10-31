@@ -229,6 +229,12 @@ func _poser(p: CharacterBody3D, r: Marker3D) -> void:
 	p.global_position = r.global_position + Vector3(0, 0.05, 0)
 	p.rotation.y = r.global_rotation.y
 	await create_timer(1.0, true).timeout
+	# posé d'un peu haut (un --point au-dessus du sol), l'habitant tombe encore : attendre qu'il touche
+	# le sol avant de juger, quatre secondes au plus
+	var t := 0.0
+	while not p.is_on_floor() and t < 4.0:
+		await physics_frame
+		t += 1.0 / Engine.physics_ticks_per_second
 
 
 ## La vue de dessus ou à pied, par la bascule du socle (la touche Tab du joueur).
