@@ -113,6 +113,15 @@ func _init() -> void:
 	check(loin > 1.0, "l'habitant marche (%.1f unités)" % loin)
 	check(p.is_on_floor(), "et reste au sol")
 
+	# Une Mobylette bleue attend l'habitant (la sienne, ou celle du socle, scripts/socle/mobylettes.gd), sauf
+	# quand la commune n'en veut pas (« mobylette » : false au manifeste, ou Casino Minuit).
+	var sans: bool = c.data.get("mobylette", true) == false or s.get("mobylette") == false or id in root.get_node("Mobylettes").SANS
+	var zones := s.find_children("*", "Area3D", true, false).filter(func(a): return str(a.get_meta("interact", "")) == "mobylette")
+	if sans:
+		check(zones.is_empty(), "pas de Mobylette, la commune n'en veut pas")
+	else:
+		check(not zones.is_empty(), "une Mobylette bleue est garée dans la commune (%d)" % zones.size())
+
 	# La vue de dessus le suit : la caméra vise l'habitant là où il est arrivé, pas son point de départ.
 	await create_timer(0.5, true).timeout
 	var vise: Vector3 = cam.get("_target_goal")
