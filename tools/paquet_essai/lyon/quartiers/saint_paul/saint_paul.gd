@@ -842,11 +842,11 @@ class Batisseur:
 			if not au_quartier(p) or p.x < -330.0:
 				continue
 			k += 1
-			pose(OMBRIERE, "arbre", "jeune_platane", sur(p.x, p.y), 700 + k, {"hauteur": rng.randf_range(9.0, 12.0), "vent": 0.3})
+			pose(OMBRIERE, "arbre", "jeune_platane", sur(p.x, p.y), 700 + k, {"hauteur": rng.randf_range(9.0, 12.0), "vent": 0.3, "lod": "loin"})
 		# deux platanes sur la place Saint-Paul : au soleil du soir, leurs ombres traversent la place vers le quai
 		for p in [Vector2(-208.0, 366.0), Vector2(-236.0, 344.0)]:
 			k += 1
-			pose(OMBRIERE, "arbre", "jeune_platane", sur(p.x, p.y), 700 + k, {"hauteur": 11.0, "vent": 0.3})
+			pose(OMBRIERE, "arbre", "jeune_platane", sur(p.x, p.y), 700 + k, {"hauteur": 11.0, "vent": 0.3, "lod": "loin"})
 
 	# --- La vie -------------------------------------------------------------------------------------
 
