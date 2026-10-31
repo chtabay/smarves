@@ -48,11 +48,13 @@ const RESERVES := {
 	# la rue Terme, ses deux rives, et tout ce qui est à l'est, au sud de la rue Sainte-Catherine
 	"terreaux": [[Vector2(104, 124), Vector2(480, 124), Vector2(480, 424), Vector2(104, 424)]],
 	# la rive droite de la Saône au sud de la rive (le quai Pierre-Scize, à l'est de x = -147, reste à Sathonay),
-	# et tout ce qui est au sud de z = 280
+	# et le cadre du quartier au sud de z = 280 : son relevé va de x -584 à -57 (le quai) et jusqu'à z 609.
+	# Pas plus : au-delà (Saint-Jean, la Presqu'île au sud des Terreaux), la ville en volumes ferme les rues ;
+	# une réserve jusqu'à z 3000 laissait une plaine vide au bout des rues de Saint-Paul (juge, maquette 3).
 	"saint_paul": [[Vector2(-900, 188), Vector2(-432, 188), Vector2(-351, 188), Vector2(-314, 186),
 			Vector2(-302, 187), Vector2(-250, 202), Vector2(-200, 227), Vector2(-147, 280),
 			Vector2(-900, 280)],
-		[Vector2(-2000, 280), Vector2(2000, 280), Vector2(2000, 3000), Vector2(-2000, 3000)]],
+		[Vector2(-620, 280), Vector2(-50, 280), Vector2(-50, 625), Vector2(-620, 625)]],
 }
 
 ## Le sol fin des quartiers hors du relevé : un quartier posé ne fait pas son sol (saint_paul.gd), le relevé de
@@ -385,7 +387,7 @@ func _ciel() -> void:
 	e.sky.sky_material = ciel
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	e.ambient_light_color = Color("#c8bda6")
-	e.ambient_light_energy = 0.55
+	e.ambient_light_energy = 0.70
 	e.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	e.tonemap_exposure = 0.74

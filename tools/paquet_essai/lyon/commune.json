@@ -3,7 +3,7 @@
 	"id": "lyon",
 	"nom": "Lyon",
 	"auteur": "Claude",
-	"version": "0.2.2",
+	"version": "0.2.3",
 	"socle_min": "1.30",
 	"insee": "69123",
 	"population": 0,
