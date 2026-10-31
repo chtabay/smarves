@@ -13,7 +13,7 @@ const SEUIL := 2000
 const ENSEIGNE := "AUTHENTIC SPIRITS"
 const FONDATION := "MMXX"
 const PLAQUE := "AS-020-VN"
-const ANTHRACITE := Color(0.25, 0.255, 0.27)
+const ANTHRACITE := Color(0.34, 0.36, 0.39)
 const BLANC := Color(0.9, 0.91, 0.92)
 const OR := Color(0.86, 0.68, 0.3)
 
@@ -77,10 +77,13 @@ const ROUE_R := 0.28
 
 func _build(c: Node3D) -> void:
 	var w := LARGE / 2.0
-	var laque := Carrosserie.laque(ANTHRACITE, Color(0.45, 0.55, 0.8), 0.22, Color(0.025, 0.025, 0.03), BAS)
+	var laque := Carrosserie.laque(ANTHRACITE, Color(0.45, 0.55, 0.8), 0.22, Color(0.12, 0.125, 0.135), BAS)
+	laque.set_shader_parameter("rugosite", 0.25)
 	laque.set_shader_parameter("paillette_teinte", Color(0.8, 0.85, 1.0))
 	var chrome := Carrosserie.chrome()
 	var verre := Carrosserie.verre()
+	verre.set_shader_parameter("vernis", 0.9)
+	verre.set_shader_parameter("teinte", Color(0.05, 0.055, 0.065))
 	var noir := Carrosserie.laque(Color(0.02, 0.02, 0.025), Color(0.2, 0.22, 0.3), 0.0)
 	noir.set_shader_parameter("vernis", 0.4)
 	# La caisse, de profil : passages de roue, nez court et bombé, capot plongeant prolongé par le
@@ -126,10 +129,10 @@ func _build(c: Node3D) -> void:
 	for s: float in [-1.0, 1.0]:
 		var phare := MeshInstance3D.new()
 		var pm := BoxMesh.new()
-		pm.size = Vector3(0.4, 0.075, 0.06)
+		pm.size = Vector3(0.3, 0.06, 0.04)
 		phare.mesh = pm
 		phare.material_override = Carrosserie.feu(Color(0.95, 0.97, 1.0), 1.4)
-		phare.position = Vector3(0.47 * s, 0.6, 1.355)
+		phare.position = Vector3(0.44 * s, 0.6, 1.33)
 		phare.rotation_degrees = Vector3(-30, -18 * s, 8 * s)
 		c.add_child(phare)
 		_box(c, Vector3(0.12, 0.03, 0.03), Vector3(0.5 * s, 0.27, 1.43), Carrosserie.feu(Color(1.0, 0.6, 0.2), 1.0))
@@ -149,11 +152,11 @@ func _build(c: Node3D) -> void:
 	var am := CylinderMesh.new()
 	am.top_radius = 0.005
 	am.bottom_radius = 0.012
-	am.height = 0.4
+	am.height = 0.15
 	ant.mesh = am
 	ant.material_override = noir
-	ant.position = Vector3(0.25, 1.38, 0.12)
-	ant.rotation_degrees.x = -55.0
+	ant.position = Vector3(0.0, 1.29, 0.2)
+	ant.rotation_degrees.x = -30.0
 	c.add_child(ant)
 
 
