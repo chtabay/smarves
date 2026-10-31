@@ -55,6 +55,15 @@ const RESERVES := {
 		[Vector2(-2000, 280), Vector2(2000, 280), Vector2(2000, 3000), Vector2(-2000, 3000)]],
 }
 
+## Le sol fin des quartiers hors du relevé : un quartier posé ne fait pas son sol (saint_paul.gd), le relevé de
+## Sathonay s'arrête à z = 279 m et le terrain lâche de la ville n'a ni grain ni collision. Dans ces cadres (en
+## mètres), lyon.gd pave et rend praticable chaque case du terrain lâche qui est hors de l'eau ; volumes.gd omet
+## les mêmes cases (sol_fin). Saint-Paul : son rayon de 220 m autour de (-230, 420), jusqu'au sas Saint-Jean.
+const SOL_QUARTIERS := {"saint_paul": Rect2(-480, 180, 480, 480)}
+## Le pas du sol fin, en mètres.
+const SOL_PAS := 5.0
+
+
 ## Les lieux de la scène, en mètres (x vers l'est, z vers le sud), relevés sur le plan réel.
 const CENTRE_PLACE := Vector2(10.0, 18.0)
 const BLANDAN := Vector2(10.6, 12.8)
@@ -139,6 +148,7 @@ func _ready() -> void:
 	# au-delà du cadre, la ville en volumes (quartiers/_ville, tenue par la maquette des quartiers)
 	if ResourceLoader.exists(DOSSIER + "quartiers/_ville/volumes.gd"):
 		load(DOSSIER + "quartiers/_ville/volumes.gd").call("batir", $Quartiers)
+		_sol_quartiers()
 	_place()
 	_escalier()
 	_arbres()
@@ -182,6 +192,85 @@ func _reserve(p: Vector2) -> bool:
 		if Geometry2D.is_point_in_polygon(p, poly):
 			return true
 	return false
+
+
+## Vrai si la case (en mètres) du terrain lâche de la ville se pave ici : dans le cadre d'un quartier présent
+## (SOL_QUARTIERS), pas entièrement dans le relevé, et ses quatre coins hors de l'eau. Appelé par volumes.gd.
+static func sol_fin(case: Rect2) -> bool:
+	var dedans := false
+	for nom in SOL_QUARTIERS:
+		if (SOL_QUARTIERS[nom] as Rect2).encloses(case) and ResourceLoader.exists(DOSSIER + "quartiers/%s/%s.gd" % [nom, nom]):
+			dedans = true
+			break
+	if not dedans:
+		return false
+	var relief: Script = load(DOSSIER + "quartiers/_ville/relief.gd")
+	if relief == null:
+		return false
+	for c in [case.position, case.position + Vector2(case.size.x, 0), case.position + Vector2(0, case.size.y), case.end]:
+		if float(relief.call("hauteur", c.x, c.y)) < 0.6:
+			return false
+	return true
+
+
+## Le sol fin (SOL_QUARTIERS) : sur les cases que sol_fin retient, une grille de SOL_PAS m sur hauteur(), la même
+## altitude que les pieds des immeubles du quartier, pavée comme la ville et praticable.
+func _sol_quartiers() -> void:
+	if _relief_ville == null:
+		return
+	var vol: Script = load(DOSSIER + "quartiers/_ville/volumes.gd")
+	var cadre: Array = _relief_ville.call("cadre")
+	if vol == null or cadre.is_empty():
+		return
+	var pas_case: float = vol.get("PAS_TERRAIN") if vol.get("PAS_TERRAIN") != null else 20.0
+	var releve := Rect2(_x0, _z0, (_nx - 1) * _pas, (_nz - 1) * _pas)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var faces := PackedVector3Array()
+	var n_sous := maxi(1, int(round(pas_case / SOL_PAS)))
+	var sp := pas_case / n_sous
+	var sommet := func(x: float, z: float) -> Vector3:
+		return Vector3(x, hauteur(x, z), z)
+	for nom in SOL_QUARTIERS:
+		var r: Rect2 = SOL_QUARTIERS[nom]
+		var i0 := int(floor((r.position.x - float(cadre[0])) / pas_case))
+		var i1 := int(ceil((r.end.x - float(cadre[0])) / pas_case))
+		var j0 := int(floor((r.position.y - float(cadre[1])) / pas_case))
+		var j1 := int(ceil((r.end.y - float(cadre[1])) / pas_case))
+		for j in range(j0, j1):
+			for i in range(i0, i1):
+				var case := Rect2(float(cadre[0]) + i * pas_case, float(cadre[1]) + j * pas_case, pas_case, pas_case)
+				if releve.encloses(case) or not sol_fin(case):
+					continue
+				for b in n_sous:
+					for a in n_sous:
+						var x := case.position.x + a * sp
+						var z := case.position.y + b * sp
+						if releve.encloses(Rect2(x, z, sp, sp)):
+							continue
+						var v: Array = [sommet.call(x, z), sommet.call(x + sp, z), sommet.call(x, z + sp), sommet.call(x + sp, z + sp)]
+						for k in [0, 1, 2, 1, 3, 2]:
+							var q: Vector3 = v[k]
+							var bruit := _rng.randf_range(-0.025, 0.025)
+							st.set_color(Color(PAVE.r + bruit, PAVE.g + bruit, PAVE.b + bruit))
+							st.set_uv(Vector2(q.x, q.z) / 4.0)
+							st.add_vertex(q)
+							faces.append(q)
+	if faces.is_empty():
+		return
+	st.generate_normals()
+	var mi := MeshInstance3D.new()
+	mi.name = "SolQuartiers"
+	mi.mesh = st.commit()
+	mi.material_override = materiau_paves()
+	ville.add_child(mi)
+	var corps := StaticBody3D.new()
+	var forme := CollisionShape3D.new()
+	var cs := ConcavePolygonShape3D.new()
+	cs.set_faces(faces)
+	forme.shape = cs
+	corps.add_child(forme)
+	mi.add_child(corps)
 
 
 ## La place est une terrasse plate : le seul replat d'un quartier en pente (le parti pris de la note).
