@@ -8,7 +8,6 @@ extends RefCounted
 
 const FACADES := preload("res://scripts/village/facades.gd")
 const ARBRE := "res://bibliotheque/arbres-de-place/1/arbre.tscn"
-const RIVES := "res://bibliotheque/arbres-des-rives/1/arbre.tscn"
 const OBJET := "res://bibliotheque/mobilier-de-place/1/objet.tscn"
 ## Les briques de la bibliothèque sont en mètres ; le bourg compte en unités de 2,4 m.
 const M := 1.0 / 2.4
@@ -16,6 +15,7 @@ const M := 1.0 / 2.4
 const GRANITE := Color(0.62, 0.57, 0.52)
 const CALCAIRE := Color(0.84, 0.8, 0.7)
 const FER := Color(0.13, 0.13, 0.14)
+const PORTEE := 90.0
 
 
 static func construire(c: Node3D) -> void:
@@ -23,10 +23,21 @@ static func construire(c: Node3D) -> void:
 	noeud.name = "Abords"
 	c.add_child(noeud)
 	var f = FACADES.new(noeud, Polices.texte(), 860150)
-	_place_eglise(c, f, noeud)
-	_lavoir(c, f, noeud)
-	_place_adrien_bernard(c, f, noeud)
-	f.commit(c._mats, c._mats.glass, "Abords")
+	# Chaque lieu a ses maillages, que la caméra écarte quand il est hors champ ; les arbres, les
+	# moellons et le petit mobilier s'effacent au-delà de PORTEE unités.
+	var lieux := [["Eglise", _place_eglise], ["Lavoir", _lavoir], ["AdrienBernard", _place_adrien_bernard]]
+	for l in lieux:
+		var sous := Node3D.new()
+		sous.name = l[0]
+		noeud.add_child(sous)
+		f.parent = sous
+		l[1].call(c, f, sous)
+		f.commit(c._mats, c._mats.glass, "Abords_" + l[0])
+		for g in sous.find_children("*", "GeometryInstance3D", true, false):
+			if not str(g.name).ends_with("_wall") and not str(g.name).ends_with("_roof"):
+				(g as GeometryInstance3D).visibility_range_end = PORTEE
+				(g as GeometryInstance3D).visibility_range_end_margin = 10.0
+				(g as GeometryInstance3D).visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 
 
 ## Un tilleul de la bibliothèque, taillé en tête de chat comme ceux des places du Poitou, pied en (x, z).
@@ -133,10 +144,10 @@ static func _puits(c: Node3D, f, p: Vector2, rot: float) -> void:
 
 # --- Le lavoir du Fond de la Ville ---------------------------------------------------------------
 ## Derrière la porte de la Rivière, au bout de la rue des Cavaliers, sur la rive de la Vienne, d'après
-## photos : le chemin pavé qui sort de l'arc, l'herbe de la rive, le quai de pierre où l'on descend à
-## l'eau par trois marches, les pierres à laver inclinées vers la rivière, un banc de pierre, un panier
-## de linge ; en face, sur l'autre rive, la culée de l'ancien pont ; deux saules pleureurs. Le repère du
-## lavoir : l'origine au bord de l'eau, +Z vers la rivière, +X vers l'amont (le nord-est).
+## photos : le chemin de gravier qui sort de l'arc, la pelouse de la rive et sa bordure de pierre basse au
+## bord de l'eau, les trois marches où l'on descend laver, les pierres à laver inclinées vers la rivière,
+## un banc de pierre ; deux saules pleureurs ; en face, sur l'autre rive, la culée de l'ancien pont. Le
+## repère du lavoir : l'origine au bord de l'eau, +Z vers la rivière, +X vers l'amont (le nord-est).
 
 const LAVOIR := Vector2(72.18, -9.38)
 const LAVOIR_N := Vector2(0.784, -0.62)
@@ -149,12 +160,14 @@ static func _lavoir(c: Node3D, f, parent: Node3D) -> void:
 	var xf := Transform3D(Basis(Vector3.UP, atan2(LAVOIR_N.x, LAVOIR_N.y)), Vector3(LAVOIR.x, y0, LAVOIR.y))
 	var pierre := Color(0.7, 0.64, 0.55)
 	var dalle := Color(0.74, 0.7, 0.62)
-	var bois := Color(0.42, 0.31, 0.21)
 	var lw := 4.4
 	var prof := 2.4
 	# Le quai : un massif de pierre posé sur la rive, son dessus de dalles, son parement côté eau.
 	f.batch.box("wall", xf, Vector3(0, -0.6, -prof / 2.0), Vector3(lw + 1.2, 1.2, prof), pierre)
-	f.batch.box("trim", xf, Vector3(0, 0.02, -prof / 2.0), Vector3(lw + 1.25, 0.05, prof + 0.05), dalle)
+	# Le dessus est une pelouse, cernée côté eau d'une bordure de pierre basse ; le chemin de gravier
+	# qui descend de la porte y arrive par l'arrière.
+	f.batch.box("trim", xf, Vector3(0, 0.02, -prof / 2.0 - 0.15), Vector3(lw + 1.25, 0.05, prof - 0.25), Color(0.42, 0.56, 0.27))
+	f.batch.box("trim", xf, Vector3(0, 0.05, -0.15), Vector3(lw + 1.25, 0.1, 0.3), dalle)
 	var REM = load("res://communes/availles_limouzine/remarquables.gd")
 	REM._moellons(f, xf, lw + 1.2, 0.0, pierre, -1.0)
 	# Les trois marches qui descendent dans l'eau, au milieu.
@@ -163,10 +176,6 @@ static func _lavoir(c: Node3D, f, parent: Node3D) -> void:
 	# Les pierres à laver, inclinées vers la rivière, de part et d'autre des marches.
 	for x in [-1.9, -1.2, 1.6, 2.2]:
 		f.batch.box_tilted("trim", xf, Vector3(x, 0.08, -0.15), Vector3(0.6, 0.08, 0.42), deg_to_rad(18.0), dalle.lightened(0.05))
-	# Le panier de linge et le battoir posés sur une pierre, d'un jour de lessive.
-	f.batch.cylinder("trim", xf, Vector3(-0.6, 0.04, -1.1), 0.26, 0.24, Color(0.64, 0.5, 0.3), 10)
-	f.batch.cylinder("trim", xf, Vector3(-0.6, 0.26, -1.1), 0.22, 0.06, Color(0.96, 0.96, 0.94), 10)
-	f.batch.box("trim", xf, Vector3(1.6, 0.16, -0.12), Vector3(0.1, 0.03, 0.3), bois.lightened(0.2))
 	# Le banc de pierre au fond du quai.
 	f.batch.box("trim", xf, Vector3(1.4, 0.2, -prof + 0.3), Vector3(1.1, 0.08, 0.36), dalle.darkened(0.05))
 	for x in [1.0, 1.8]:
@@ -176,15 +185,10 @@ static func _lavoir(c: Node3D, f, parent: Node3D) -> void:
 	f.batch.box("wall", cxf, Vector3(0, 0.75, 0), Vector3(3.0, 1.5, 2.4), pierre.darkened(0.1))
 	f.batch.box("trim", cxf, Vector3(0, 1.52, 0), Vector3(3.1, 0.06, 2.5), Color(0.38, 0.5, 0.28))
 	REM._moellons(f, cxf * Transform3D(Basis(Vector3.UP, PI), Vector3(0, 0, -1.2)), 3.0, 1.5, pierre.darkened(0.1))
-	# Deux saules sur la rive, de part et d'autre du lavoir.
-	for p in [[-6.2, -2.2, 4], [5.6, -2.0, 9]]:
+	# Deux saules pleureurs sur la rive, de part et d'autre du lavoir, les branches jusqu'à l'herbe.
+	for p in [[-6.2, -2.2], [5.6, -2.0]]:
 		var q: Vector3 = xf * Vector3(p[0], 0, p[1])
-		var a: Node3D = load(RIVES).instantiate()
-		a.arbre = "saule"
-		a.graine = p[2]
-		a.scale = Vector3.ONE * M
-		a.position = Vector3(q.x, c.sol(q.x, q.z) - 0.05, q.z)
-		parent.add_child(a)
+		_saule_pleureur(f, Vector3(q.x, c.sol(q.x, q.z) - 0.05, q.z))
 
 
 # --- La place Adrien-Bernard ---------------------------------------------------------------------
@@ -192,7 +196,7 @@ static func _lavoir(c: Node3D, f, parent: Node3D) -> void:
 ## terrasse en demi-lune de la fontaine, son bassin en demi-cercle adossé au mur qui longe la route,
 ## le bec de bronze dans le mur ; autour, les huit bancs de béton blanc relevés dans OSM, les massifs
 ## cernés de murets de moellons, les deux escaliers (cinq marches au nord-ouest, deux au sud), la
-## boîte à livres ; dix jeunes tilleuls en arc de cercle, deux au nord le long de la route. À l'est de
+## boîte à livres ; dix jeunes tilleuls en arc de cercle dans les pelouses, deux au nord le long de la route. À l'est de
 ## la route, la bande plantée de tilleuls, ses bancs, puis le parking devant les maisons. Le sol, le
 ## nivellement, les places et les voitures sont dans zones.json.
 
@@ -246,7 +250,7 @@ static func _place_adrien_bernard(c: Node3D, f, parent: Node3D) -> void:
 	# Les murets de moellons des massifs : l'arc extérieur et l'arc intérieur, ouverts aux escaliers.
 	for seg in [[-90.0, -68.0], [-56.0, 72.0]]:
 		for R in [5.2, 3.4]:
-			var hm := 0.28 if R > 4.0 else 0.16
+			var hm := 0.15 if R > 4.0 else 0.06
 			var a: float = seg[0]
 			while a < seg[1] - 0.1:
 				var b: float = minf(a + 8.0, seg[1])
@@ -292,10 +296,32 @@ static func _place_adrien_bernard(c: Node3D, f, parent: Node3D) -> void:
 	for p in ARBRES_AB:
 		tilleul(c, parent, p.x, p.y, g, 6.0 + float(g % 3) * 0.6)
 		g += 1
-	# Des massifs fleuris entre les arbres.
-	for k in 9:
-		var p := _ab(4.4, -72.0 + k * 17.0)
-		objet(c, parent, "massif", p.x, p.y, deg_to_rad(-72.0 + k * 17.0), k, {"longueur": 1.6})
 	# Les lampadaires de la place.
 	for q in [[-24.6, -23.2], [-23.9, -15.2], [-29.6, -24.8], [-19.0, -26.0]]:
 		objet(c, parent, "lampadaire", q[0], q[1], 0.0, 3)
+
+
+
+## Un saule pleureur : un tronc penché, une couronne en dôme, et le rideau des branches qui retombent
+## jusqu'au sol, en lanières vertes posées en cercle.
+static func _saule_pleureur(f, base: Vector3) -> void:
+	var xf := Transform3D(Basis(), base)
+	var ecorce := Color(0.4, 0.34, 0.27)
+	f.batch.cylinder("trim", xf, Vector3.ZERO, 0.16, 1.8, ecorce, 8)
+	f.batch.cylinder("trim", xf, Vector3(0.05, 1.7, 0), 0.11, 1.2, ecorce.darkened(0.1), 7)
+	var verts := [Color(0.5, 0.62, 0.3), Color(0.58, 0.68, 0.34), Color(0.44, 0.56, 0.26), Color(0.64, 0.72, 0.4)]
+	for k in 4:
+		f.batch.cylinder("trim", xf, Vector3(0, 2.6 + k * 0.25, 0), 1.9 - k * 0.45, 0.35, verts[k % 4], 10)
+	var n := 44
+	for i in n:
+		var a: float = TAU * i / n + f.rng.randf_range(-0.05, 0.05)
+		var r: float = f.rng.randf_range(1.55, 2.05)
+		var bas: float = f.rng.randf_range(0.25, 0.9)
+		var haut: float = f.rng.randf_range(2.7, 3.1)
+		var t := Transform3D(Basis(Vector3.UP, -a + PI / 2.0), Vector3(cos(a) * r, (haut + bas) / 2.0, sin(a) * r))
+		f.batch.box("trim", xf * t, Vector3.ZERO, Vector3(0.36, haut - bas, 0.04), verts[i % 4])
+	for i in 18:
+		var a := TAU * i / 18.0 + 0.1
+		var r: float = f.rng.randf_range(0.6, 1.2)
+		var t := Transform3D(Basis(Vector3.UP, -a + PI / 2.0), Vector3(cos(a) * r, 2.0, sin(a) * r))
+		f.batch.box("trim", xf * t, Vector3.ZERO, Vector3(0.4, 1.6, 0.04), verts[(i + 1) % 4])

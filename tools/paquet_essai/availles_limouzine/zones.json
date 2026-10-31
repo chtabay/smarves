@@ -850,8 +850,8 @@
 					]
 				},
 				{
-					"nom": "les massifs autour de la terrasse",
-					"sol": "terre",
+					"nom": "les pelouses autour de la terrasse",
+					"sol": "herbe",
 					"bord": false,
 					"p": [
 						[
@@ -961,8 +961,8 @@
 					]
 				},
 				{
-					"nom": "le massif du nord",
-					"sol": "terre",
+					"nom": "le pelouse du nord",
+					"sol": "herbe",
 					"bord": false,
 					"p": [
 						[

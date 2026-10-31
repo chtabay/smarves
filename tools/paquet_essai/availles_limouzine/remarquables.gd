@@ -185,7 +185,7 @@ static func _adrien_bernard(f, b: Dictionary, hauteur: Callable) -> void:
 	_socle(f, mxf, wm, dm, fa.socle, beige.darkened(0.3))
 	var logis: Dictionary = f.house(mxf, {
 		"w": wm, "d": dm, "floors": 2, "wall": beige, "shutter": blanc, "roof": ardoise, "roof_kind": "hip",
-		"lit": 0.25, "chimney": true, "door": "center", "back": false,
+		"lit": 0.0, "chimney": true, "door": "center", "back": false,
 	})
 	var hm: float = logis.h
 	_chaines(f, mxf * Transform3D(Basis(), Vector3(0, 0, 0.012)), wm + 0.02, hm, blanc)
@@ -210,7 +210,7 @@ static func _adrien_bernard(f, b: Dictionary, hauteur: Callable) -> void:
 	var pente := atan2(0.55, 2.5)
 	f.batch.box_tilted("roof", axf, Vector3(0, ha + 0.3, -1.15), Vector3(wa + 0.2, 0.06, 2.75), pente, ardoise)
 	f._door(axf, -nord * 0.2, Color(0.55, 0.5, 0.45), blanc, false)
-	f._window(axf, Vector3(nord * 0.45, 0.42, 0), Vector2(0.4, 0.55), blanc, blanc, 0.2)
+	f._window(axf, Vector3(nord * 0.45, 0.42, 0), Vector2(0.4, 0.55), blanc, blanc, 0.0)
 	for i in 7:
 		var vx: float = nord * (wa / 2.0 - 0.15) + f.rng.randf_range(-0.12, 0.12)
 		f.batch.box("trim", axf, Vector3(vx, 0.25 + i * 0.18, 0.025), Vector3(0.12 + f.rng.randf() * 0.14, 0.14 + f.rng.randf() * 0.1, 0.05), Color(0.26, 0.42, 0.2).lerp(Color(0.45, 0.52, 0.22), f.rng.randf()))
@@ -243,7 +243,7 @@ static func _maison_8(f, b: Dictionary, hauteur: Callable) -> void:
 	_socle(f, xf, w, d, fa.socle, creme.darkened(0.3))
 	f.house(xf, {
 		"w": w, "d": d, "floors": 2, "wall": creme, "shutter": bleu, "roof": Color(0.36, 0.39, 0.45), "roof_kind": "hip",
-		"lit": 0.3, "chimney": true, "door": "left" if _cote_vers(fa, Vector2(-17.6, -26.0)) < 0.0 else "right", "back": false,
+		"lit": 0.0, "chimney": true, "door": "left" if _cote_vers(fa, Vector2(-17.6, -26.0)) < 0.0 else "right", "back": false,
 	})
 
 
@@ -276,8 +276,8 @@ static func _maison_6(f, b: Dictionary, hauteur: Callable) -> void:
 			f._door(xf, x, Color(0.4, 0.36, 0.32), clair, false)
 			_applique(f, xf, Vector3(x - porte * 0.45, 1.25, 0))
 		else:
-			f._window(xf, Vector3(x, 0.42, 0), Vector2(0.48, 0.7), volet, clair, 0.3)
-		f._window(xf, Vector3(x, FLOOR_H + 0.32, 0), Vector2(0.48, 0.74), volet, clair, 0.3)
+			f._window(xf, Vector3(x, 0.42, 0), Vector2(0.48, 0.7), volet, clair, 0.0)
+		f._window(xf, Vector3(x, FLOOR_H + 0.32, 0), Vector2(0.48, 0.74), volet, clair, 0.0)
 	# Le brisis : quatre pans raides, de l'égout au bandeau de zinc.
 	var y0 := h + 0.1
 	var y1 := y0 + 0.95
@@ -299,7 +299,7 @@ static func _maison_6(f, b: Dictionary, hauteur: Callable) -> void:
 	for x in [-bw / 2.0 - 0.05, bw / 2.0 + 0.05]:
 		var lz := -0.12
 		f.batch.box("wall", xf, Vector3(x, y0 + 0.42, lz - 0.2), Vector3(0.56, 0.62, 0.4), clair)
-		f._glass(xf, Vector3(x, y0 + 0.4, lz + 0.005), Vector2(0.32, 0.42), 0, f.rng.randf() < 0.3, Color(1.0, 0.8, 0.5))
+		f._glass(xf, Vector3(x, y0 + 0.4, lz + 0.005), Vector2(0.32, 0.42), 0, false, Color(1.0, 0.8, 0.5))
 		var lxf := xf * Transform3D(Basis(Vector3.UP, PI / 2.0), Vector3(x, y0 + 0.73, lz - 0.2))
 		f.batch.quad("roof", lxf, [Vector3(-0.24, 0, -0.32), Vector3(-0.24, 0, 0.32), Vector3(0, 0.2, 0.32), Vector3(0, 0.2, -0.32)], Vector3(-0.6, 0.8, 0), ardoise)
 		f.batch.quad("roof", lxf, [Vector3(0.24, 0, 0.32), Vector3(0.24, 0, -0.32), Vector3(0, 0.2, -0.32), Vector3(0, 0.2, 0.32)], Vector3(0.6, 0.8, 0), ardoise)
@@ -351,7 +351,7 @@ static func _coop(f, b: Dictionary, hauteur: Callable) -> void:
 	for i in 3:
 		var x := (i - 1) * w / 3.0
 		f.batch.box("trim", xf, Vector3(x, gh + 0.55, 0.01), Vector3(0.66, 1.04, 0.03), blanc)
-		f._glass(xf, Vector3(x, gh + 0.55, 0.03), Vector2(0.54, 0.96), 0, f.rng.randf() < 0.3, Color(1.0, 0.8, 0.5))
+		f._glass(xf, Vector3(x, gh + 0.55, 0.03), Vector2(0.54, 0.96), 0, false, Color(1.0, 0.8, 0.5))
 	# La carotte du tabac, en drapeau à l'angle nord.
 	var cx := -sud * (w / 2.0 - 0.1)
 	f.batch.box("trim", xf, Vector3(cx, gh + 0.1, 0.25), Vector3(0.04, 0.04, 0.5), Color(0.15, 0.15, 0.16))
@@ -716,9 +716,10 @@ static func repere_riviere(hauteur: Callable) -> Transform3D:
 
 static func _porte_riviere(f, _b: Dictionary, hauteur: Callable) -> void:
 	var xf := repere_riviere(hauteur)
-	var pierre := Color(0.78, 0.7, 0.56)
-	var joint := Color(0.56, 0.49, 0.4)
-	var clair := Color(0.88, 0.82, 0.68)
+	# Des moellons bruns irréguliers, aux joints sombres, comme sur les photos de la rue et de la rive.
+	var pierre := Color(0.59, 0.51, 0.41)
+	var joint := Color(0.4, 0.34, 0.27)
+	var clair := Color(0.72, 0.63, 0.5)
 	var tuile := Color(0.6, 0.38, 0.29)
 	var blanc := Color(0.9, 0.9, 0.88)
 	var brique := Color(0.82, 0.45, 0.3)
@@ -729,8 +730,8 @@ static func _porte_riviere(f, _b: Dictionary, hauteur: Callable) -> void:
 	var ps := 1.0
 	var r := pw / 2.0
 	var bas := 0.9
-	# L'arc à peine brisé : deux arcs de rayon R, centrés de part et d'autre de l'axe, qui se croisent.
-	var R := pw * 0.6
+	# L'arc brisé : deux arcs de rayon R, centrés de part et d'autre de l'axe, qui se croisent.
+	var R := pw * 0.78
 	var phi := acos((R - r) / R)
 	var cle := ps + R * sin(phi)
 	var h := cle + 0.6
@@ -761,7 +762,7 @@ static func _porte_riviere(f, _b: Dictionary, hauteur: Callable) -> void:
 				f.batch.box("wall", xf, Vector3(c.x, (c.y + 0.2 + yb) / 2.0, 0), Vector3(l + 0.04, yb - c.y - 0.2, d), pierre)
 	for face in [1.0, -1.0]:
 		var fxf := xf * Transform3D(Basis(Vector3.UP, 0.0 if face > 0.0 else PI), Vector3(0, 0, face * d / 2.0))
-		_moellons(f, fxf, w, h, pierre, -bas + 0.1)
+		_moellons_bruns(f, fxf, w, h, pierre, -bas + 0.1)
 		# Les claveaux de l'arc, à peine plus clairs que le mur, les piédroits harpés.
 		for s in [-1.0, 1.0]:
 			for k in 6:
@@ -773,10 +774,9 @@ static func _porte_riviere(f, _b: Dictionary, hauteur: Callable) -> void:
 				f.batch.box("trim", fxf, Vector3(s * (r + 0.1 + (0.05 if k % 2 == 0 else 0.0)), y + 0.12, 0.02), Vector3(0.2 + (0.1 if k % 2 == 0 else 0.0), 0.22, 0.05), clair.lerp(pierre, 0.5))
 				y += 0.24
 				k += 1
-	# Côté rivière, une lanterne de fer de chaque côté de l'arc.
+	# Côté rivière, la lanterne de fer à gauche de l'arc, du côté du pigeonnier.
 	var rv := xf * Transform3D(Basis(Vector3.UP, PI), Vector3(0, 0, -d / 2.0))
-	for s in [-1.0, 1.0]:
-		_applique(f, rv, Vector3(s * 1.0, 1.7, 0))
+	_applique(f, rv, Vector3(-1.0, 1.7, 0))
 	# Côté ville, le lierre qui retombe du mur, à droite de l'arc.
 	var vl := xf * Transform3D(Basis(), Vector3(0, 0, d / 2.0))
 	for i in 26:
@@ -796,7 +796,7 @@ static func _porte_riviere(f, _b: Dictionary, hauteur: Callable) -> void:
 	f.batch.box("wall", txf, Vector3(0, (th - bas) / 2.0, 0), Vector3(tw, th + bas, tw), pierre)
 	for q in 4:
 		var qxf := txf * Transform3D(Basis(Vector3.UP, q * PI / 2.0), Vector3.ZERO) * Transform3D(Basis(), Vector3(0, 0, tw / 2.0))
-		_moellons(f, qxf, tw, th, pierre, -bas)
+		_moellons_bruns(f, qxf, tw, th, pierre.lightened(0.08), -bas)
 		for s in [-1.0, 1.0]:
 			var y := 0.0
 			var k := 0
@@ -831,6 +831,20 @@ static func _porte_riviere(f, _b: Dictionary, hauteur: Callable) -> void:
 	f.batch.box("trim", bxf, Vector3(-0.1, ah - 0.75, 0.01), Vector3(0.18, 0.26, 0.03), Color(0.1, 0.09, 0.08))
 	f.batch.box("trim", bxf, Vector3(-0.1, ah - 0.75, 0.02), Vector3(0.28, 0.36, 0.02), clair)
 	f._roof(axf * Transform3D(Basis(Vector3.UP, PI / 2.0), Vector3.ZERO) * Transform3D(Basis(), Vector3(0, 0, aw / 2.0)), 1.8, aw, ah, tuile, pierre, "hip")
+
+
+## Des moellons bruns et ocre, serrés, de tailles très diverses, sur un mur aux joints sombres.
+static func _moellons_bruns(f, xf: Transform3D, w: float, h: float, mur: Color, y0: float) -> void:
+	var bas: float = maxf(BASE_H, y0) + 0.04
+	var n := int(w * (h - bas) * 16.0)
+	for i in n:
+		var pw: float = f.rng.randf_range(0.09, 0.24)
+		var ph: float = f.rng.randf_range(0.06, 0.14)
+		var t: float = f.rng.randf()
+		var c := Color(0.62, 0.53, 0.42).lerp(Color(0.8, 0.7, 0.54), t)
+		if f.rng.randf() < 0.15:
+			c = Color(0.62, 0.45, 0.33)
+		f.batch.box("trim", xf, Vector3(f.rng.randf_range(-w / 2.0 + 0.12, w / 2.0 - 0.12), f.rng.randf_range(bas, h - 0.08), 0.01), Vector3(pw, ph, 0.02), c)
 
 
 ## Un toit en pavillon sur une tour carrée : pans raides jusqu'à un court faîtage, coyau retroussé à
