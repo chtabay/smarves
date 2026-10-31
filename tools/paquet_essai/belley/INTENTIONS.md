@@ -196,3 +196,20 @@ joueur 8, façade de la cathédrale 8, falaises de la rive savoyarde 7, Relais d
 - **Reste à faire** (verdict n° 28) : les ombres portées et la courbe de tons de la vue du Relais, le pré du
   premier plan, la terrasse ; au banc, des fleurs plus petites en taches, un pré sec, le chêne en repoussoir, la
   Dent du Chat plus bleu-gris ; le parcours à vélo entre les scènes ; le budget de triangles (4 M pour 600 k).
+
+## Se repérer (0.1.7, 31 octobre 2026)
+
+Guillaume : « y a-t-il de quoi s'y retrouver et trouver la course ? » Rien ne le disait : l'arrivée est place de
+la Victoire, la place de la Cathédrale à 0,5 km au sud derrière les maisons, la route du Grand Prix à 0,9 km à la
+sortie sud, puis 10 km jusqu'au banc et 4 km jusqu'au relais. La signalétique (`places/signaletique.gd`) :
+
+- **le plan de la ville**, à 13 m devant l'arrivée : le pays de Belley au Rhône, la route du Grand Prix en jaune, la
+  ville et ses rues jusqu'au départ, les pastilles des lieux, et la légende (un écrit par lieu) ;
+- **cinq poteaux indicateurs blancs** aux carrefours du bourg, de la place des Terreaux à la fourche de la rue
+  Marcel-Duchamp, vers la place de la Cathédrale et la route du Grand Prix ;
+- **le chevalet du Grand Prix**, une ardoise à la craie à l'entrée de la place, sous la banderole ;
+- **trente-cinq poteaux jaunes du Grand Prix**, un à chaque carrefour de la route (`relief/carrefours.json`, relevés
+  sur les routes réelles par `tools/carrefours_parcours.py`), comme une course balisée la veille.
+
+Chaque lame dit sa direction en mots (« vers le sud, rue de la République ») : un pensionnaire lit les écrits à 25 m
+mais ne voit pas où pointe une flèche. Essai : `tools/test_pilote_belley.gd`, branché sur `verifier-belley.yml`.
