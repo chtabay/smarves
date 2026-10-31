@@ -279,10 +279,33 @@ func pilote_texte() -> String:
 		var coups := []
 		for m in legaux:
 			coups.append("%s-%s%s" % [m.substr(0, 2), m.substr(2, 2), m.substr(4)])
-		l.append("À toi de jouer. Pour un coup, clique la case de la pièce puis celle d'arrivée (c:e2, puis c:e4). Coups permis : %s." % ", ".join(coups))
+		l.append("À toi de jouer, en un seul geste : cliquer le coup, « e2-e4 » (une promotion : « e7-e8=D », D, T, F ou C). Coups permis : %s." % ", ".join(coups))
 		if _choisie >= 0:
 			l.append("Pièce choisie : %s." % nom(_choisie))
 	return "\n".join(l)
+
+
+## Un coup en un seul geste, pour le pilote d'un pensionnaire : « e2-e4 », « e2e4 », « e7-e8=D » (D, T,
+## F, C ou Q, R, B, N ; la dame si la promotion ne dit pas sa pièce). Rend null si le texte n'est pas un
+## coup (le pilote le cherche alors ailleurs), sinon {ok, dit} : le coup part comme un clic de joueur.
+func pilote_coup(texte: String) -> Variant:
+	var re := RegEx.create_from_string("^\\s*(?:c:)?([a-h][1-8])\\s*[-x–—]?\\s*(?:c:)?([a-h][1-8])\\s*(?:=?\\s*([dtfcqrbn]))?\\s*$")
+	var m := re.search(texte.strip_edges().to_lower())
+	if m == null:
+		return null
+	if legaux.is_empty():
+		return {"ok": false, "dit": "ce n'est pas à toi de jouer"}
+	var de := m.get_string(1)
+	var a := m.get_string(2)
+	var promo: String = {"d": "q", "t": "r", "f": "b", "c": "n"}.get(m.get_string(3), m.get_string(3))
+	if (de + a + "q") in legaux and promo == "":
+		promo = "q"
+	var uci := de + a + promo
+	if uci not in legaux:
+		return {"ok": false, "dit": "coup non permis : %s-%s" % [de, a]}
+	_promo = {}
+	_jouer(numero(de), numero(a), promo)
+	return {"ok": true, "dit": "joué %s-%s%s" % [de, a, ("=" + NOMS_PIECES[promo]) if promo != "" else ""]}
 
 
 # --- Le jeu à la souris et au doigt ----------------------------------------------------------------
