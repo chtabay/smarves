@@ -702,7 +702,8 @@ class Batisseur:
 		boite(g, Vector3(6.0, 11.0, GARE[2]), Vector3(GARE[1] * 0.5 - 3.0, 5.5, 0), pierre)
 		boite(g, Vector3(7.0, 16.0, 12.0), Vector3(GARE[1] * 0.5 - 3.5, 8.0, 0), pierre.lightened(0.05))
 		# la grande baie cintrée sous l'horloge et le cadran, de 2,5 m
-		boite(g, Vector3(0.3, 6.5, 6.0), Vector3(GARE[1] * 0.5 + 0.02, 4.0, 0), Color("#3b4450"))
+		boite(g, Vector3(0.3, 6.5, 6.0), Vector3(GARE[1] * 0.5 + 0.02, 4.0, 0), Color("#6b6a64"))
+		croisee(g, Vector3(GARE[1] * 0.5 + 0.2, 4.0, 0), PI * 0.5, 5.4, 6.0, pierre)
 		var cadran := cyl(g, 1.25, 1.25, 0.2, Vector3(GARE[1] * 0.5 + 0.05, 12.6, 0), Color("#f2ecdc"), 24)
 		cadran.rotation.z = PI * 0.5
 		var cercle := cyl(g, 1.45, 1.45, 0.12, Vector3(GARE[1] * 0.5 + 0.01, 12.6, 0), Color("#3a3328"), 24)
@@ -717,8 +718,10 @@ class Batisseur:
 			boite(g, Vector3(0.05, 0.22, 0.07), Vector3(GARE[1] * 0.5 + 0.17, 12.6 + cos(a) * 1.05, -sin(a) * 1.05), Color("#1e1c1a")).rotation.x = -a
 		for s in [-1.0, 1.0]:
 			for k in 4:
-				boite(g, Vector3(0.2, 2.6, 1.4), Vector3(GARE[1] * 0.5 + 0.02, 2.4, s * (8.0 + k * 3.0)), Color("#3b4450"))
-				boite(g, Vector3(0.2, 2.0, 1.2), Vector3(GARE[1] * 0.5 + 0.02, 7.4, s * (8.0 + k * 3.0)), Color("#3b4450"))
+				boite(g, Vector3(0.2, 2.6, 1.4), Vector3(GARE[1] * 0.5 + 0.02, 2.4, s * (8.0 + k * 3.0)), Color("#6b6a64"))
+				boite(g, Vector3(0.2, 2.0, 1.2), Vector3(GARE[1] * 0.5 + 0.02, 7.4, s * (8.0 + k * 3.0)), Color("#6b6a64"))
+				croisee(g, Vector3(GARE[1] * 0.5 + 0.16, 2.4, s * (8.0 + k * 3.0)), PI * 0.5, 1.1, 2.3, pierre)
+				croisee(g, Vector3(GARE[1] * 0.5 + 0.16, 7.4, s * (8.0 + k * 3.0)), PI * 0.5, 0.9, 1.7, pierre)
 		# les bandeaux et la corniche de pierre, les pilastres, le fronton qui porte l'horloge, le toit d'ardoise
 		var fx: float = GARE[1] * 0.5
 		for yb in [5.2, 10.8]:
