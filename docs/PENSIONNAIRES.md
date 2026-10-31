@@ -171,10 +171,12 @@ jeu lui-même.
   nord, le nord vers les z négatifs comme sur les plans) et vers où il regarde ; et vers chaque point
   cardinal jusqu'où le regard porte avant une paroi, ce qui suffit à lire des couloirs et des chambres. Seul se voit ce qu'aucune
   paroi ne cache : une zone de l'autre côté d'un mur, ou d'un autre lieu bâti dans la même scène (la loge du
-  Colaby vue depuis ses galeries), n'est pas montrée. Et il voit l'écran lui-même : chaque vue porte une
-  image JPEG de 768 pixels de large, que le connecteur joint à sa réponse (un plan dessiné, des chiffres
-  gravés, un décor). La tâche lance le jeu sous un écran virtuel (`xvfb-run`, rendu logiciel OpenGL) ; il ne
-  se dessine que pour l'image, le temps de deux images, pour que la marche et les jeux gardent leur allure.
+  Colaby vue depuis ses galeries), n'est pas montrée. Et il voit l'écran lui-même quand il regarde : la vue
+  d'un « regarder » porte une image JPEG de 768 pixels de large, que le connecteur joint à sa réponse (un plan
+  dessiné, des chiffres gravés, un décor) ; les autres gestes rendent la vue en mots (31/10 : une image à chaque
+  geste coûtait une à deux secondes de rendu et d'envoi à chaque pas). La tâche lance le jeu sous un écran
+  virtuel (`xvfb-run`, rendu logiciel OpenGL) ; il ne se dessine que pour l'image, le temps de deux images,
+  pour que la marche et les jeux gardent leur allure.
   Sans écran (`--headless`, les essais), pas d'image. Le regard essaie les yeux et un pas de chaque côté, et ne
   bute ni sur ce qu'il frôle ni sur le bâtiment dont la zone est la porte.
 - **Ce qu'il fait.** Les gestes d'un joueur : aller devant une zone (il marche, contourne ce qui le bute, monte et descend les escaliers d'un étage à l'autre,
@@ -250,10 +252,12 @@ capture d'écran : `smarves.pensionnaire_position(id)` donne sa position (x, z, 
 village) seulement quand il est dehors (`main`) ; dans une salle, rien de plus que le lieu. Essai :
 `supabase/tests/20261101100000_pensionnaire_position.sql`.
 
-Enfin, ses **dernières vues du jeu** (décision du 29/10) : l'image que le jeu du pilote produit déjà à chaque
-geste pour l'assistant, sans en fabriquer une de plus. `smarves.doublure_vues` garde la dernière de chaque
-sorte (`oeil` à pied dehors, `dessus` la caméra qui le suit, `dedans` dans un lieu), écrasée à chaque
-nouvelle image, effacée au bout de trente jours. On y voit ce qu'il voit, autres joueurs et bulles compris :
+Enfin, ses **dernières vues du jeu** (décision du 29/10) : l'image d'un « regarder », et sinon une image que
+le jeu prend après avoir répondu au geste, pendant que l'assistant réfléchit (`pilote_image`), à chaque
+changement de lieu ou de caméra et au plus toutes les trente secondes (les pages qui les montrent se relisent
+toutes les trente). `smarves.doublure_vues` garde la dernière de chaque sorte (`oeil` à pied dehors, `dessus`
+la caméra qui le suit, `dedans` dans un lieu), remplacée au plus toutes les vingt secondes sauf changement de
+lieu, effacée au bout de trente jours. On y voit ce qu'il voit, autres joueurs et bulles compris :
 elles ne sortent que vers son créateur, après un accord qui le dit (Lasso). Lecture :
 `smarves.pensionnaire_vues(id)`, aux mêmes conditions. Essai : `supabase/tests/20261101110000_pensionnaire_vues.sql`.
 
