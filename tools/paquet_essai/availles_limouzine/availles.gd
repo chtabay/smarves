@@ -78,6 +78,8 @@ func _ready() -> void:
 	_zones_dessin()
 	_stade()
 	_batiments()
+	# Les abords des lieux retravaillés : place de l'Église, lavoir, place Adrien-Bernard (abords.gd).
+	load(DOSSIER + "abords.gd").construire(self)
 	_arbres()
 	_noms()
 	_joueur()
@@ -532,6 +534,24 @@ func _sols_materiaux() -> void:
 	sable.roughness = 1.0
 	sable.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_mats.sable = sable
+	# Le sable stabilisé des places de l'Église et Adrien-Bernard : un ocre rose, grenu, sans bordure.
+	var terre := StandardMaterial3D.new()
+	terre.albedo_color = Color(0.76, 0.62, 0.52)
+	terre.albedo_texture = _grain(0.5, Color(0.86, 0.8, 0.74))
+	terre.uv1_triplanar = true
+	terre.uv1_scale = Vector3(0.8, 0.8, 0.8)
+	terre.roughness = 1.0
+	terre.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_mats.terre = terre
+	# La pelouse des massifs et des rives : un vert d'herbe tondue, grenu.
+	var herbe := StandardMaterial3D.new()
+	herbe.albedo_color = Color(0.42, 0.56, 0.27)
+	herbe.albedo_texture = _grain(0.5, Color(0.8, 0.86, 0.72))
+	herbe.uv1_triplanar = true
+	herbe.uv1_scale = Vector3(0.8, 0.8, 0.8)
+	herbe.roughness = 1.0
+	herbe.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_mats.herbe = herbe
 	var marque := StandardMaterial3D.new()
 	marque.albedo_color = Color(0.86, 0.86, 0.8)
 	marque.roughness = 0.7
@@ -804,6 +824,8 @@ func _bande(sd: SurfaceTool, sb: SurfaceTool, ligne: PackedVector2Array, l: floa
 ## Un sol piéton d'une place : un polygone drapé trois centimètres au-dessus de l'enrobé, en béton
 ## sablé (ou en gravier), cerné d'un petit filet de ciment : pas de vrai trottoir, juste une marche.
 const PIETON_H := 0.08
+## Le dessus de l'enrobé des places, là où sont peints les marquages.
+const ROUTE_DESSUS := 0.056
 
 
 func _pieton(parent: Node3D, pz: Dictionary) -> void:
@@ -818,7 +840,7 @@ func _pieton(parent: Node3D, pz: Dictionary) -> void:
 	var mi := MeshInstance3D.new()
 	mi.name = "Pieton"
 	mi.mesh = st.commit()
-	mi.material_override = _mats.gravier if str(pz.get("sol", "sable")) == "gravier" else _mats.sable
+	mi.material_override = {"gravier": _mats.gravier, "terre": _mats.terre, "herbe": _mats.herbe}.get(str(pz.get("sol", "sable")), _mats.sable)
 	parent.add_child(mi)
 	if not bool(pz.get("bord", true)):
 		return
@@ -865,6 +887,14 @@ func _mobilier(parent: Node3D, m: Dictionary) -> void:
 	n.scale = Vector3.ONE * float(fiche[1])
 	n.rotation_degrees.y = float(m.get("rot", 0.0))
 	parent.add_child(n)
+	if str(m.m).begins_with("voiture"):
+		# Les roues des voitures KayKit descendent sous leur origine : on pose le bas des pneus sur
+		# l'enrobé (le niveau des marquages), sinon elles s'enfoncent.
+		var bas := 0.0
+		for mi in n.find_children("*", "MeshInstance3D", true, false):
+			var t: Transform3D = n.global_transform.affine_inverse() * (mi as MeshInstance3D).global_transform
+			bas = minf(bas, (t * (mi as MeshInstance3D).get_aabb()).position.y)
+		n.position.y = hauteur(p.x, p.y) + float(m.get("y", ROUTE_DESSUS)) - bas * n.scale.y
 	if bool(fiche[2]):
 		_solidifier(n)
 
@@ -1281,6 +1311,23 @@ func _interagir(cible: Node) -> void:
 
 # --- Les bâtiments ---------------------------------------------------------------------------------
 
+## La taille d'une tuile de maisons, et la distance au-delà de laquelle leurs détails s'effacent.
+const TUILE := 32.0
+const DETAIL := 55.0
+
+
+## Range les maisons d'une tuile dans leurs maillages, les détails à portée de vue seulement.
+func _lot_maisons(f, t: Vector2i) -> void:
+	var nom := "Maisons_%d_%d" % [t.x, t.y]
+	f.commit(_mats, _mats.glass, nom)
+	for suffixe in ["_trim", "_vitres"]:
+		var n := get_node_or_null(nom + suffixe) as GeometryInstance3D
+		if n != null:
+			n.visibility_range_end = DETAIL
+			n.visibility_range_end_margin = 8.0
+			n.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+
+
 func _batiments() -> void:
 	_materiaux()
 	# Les maisons du Poitou de Smarves (scripts/village/facades.gd) : calcaire, chaînes d'angle,
@@ -1298,8 +1345,22 @@ func _batiments() -> void:
 			var k := _batiment_en(Vector2(q[0], q[1]))
 			if k >= 0:
 				absorbes[k] = true
-	var lot := 0
+	# Les maisons sont rangées par tuiles de TUILE unités : un maillage par matériau et par tuile, que
+	# l'élagage par la caméra écarte en entier ; les encadrements, volets et chaînes (le lot « trim », le
+	# plus lourd) et les vitres s'effacent au-delà de DETAIL unités, où on ne les distingue plus.
+	var ordre: Array = []
 	for i in data.batiments.size():
+		ordre.append(i)
+	var tuile_de := func(i: int) -> Vector2i:
+		var r: Array = data.batiments[i].rect
+		return Vector2i(int(floor(float(r[0]) / TUILE)), int(floor(float(r[1]) / TUILE)))
+	ordre.sort_custom(func(a, b):
+		var ta: Vector2i = tuile_de.call(a)
+		var tb: Vector2i = tuile_de.call(b)
+		return ta.x < tb.x or (ta.x == tb.x and (ta.y < tb.y or (ta.y == tb.y and a < b))))
+	var tuile := Vector2i(1 << 20, 0)
+	var dans_tuile := 0
+	for i in ordre:
 		if absorbes.has(i):
 			continue
 		var b: Dictionary = data.batiments[i]
@@ -1322,13 +1383,14 @@ func _batiments() -> void:
 				_maison(fr, b, rem)
 			fr.commit(_mats, _mats.glass, "Remarquable_" + str(rem.id))
 			continue
+		var t: Vector2i = tuile_de.call(i)
+		if t != tuile and dans_tuile > 0:
+			_lot_maisons(f, tuile)
+			dans_tuile = 0
+		tuile = t
 		_maison(f, b, {})
-		lot += 1
-		if lot % 120 == 0:
-			# Un maillage par matériau pour cent vingt maisons : assez gros pour peu d'appels de dessin,
-			# assez petit pour que l'élagage par la caméra en écarte une partie.
-			f.commit(_mats, _mats.glass, "Maisons%d" % (lot / 120))
-	f.commit(_mats, _mats.glass, "Maisons")
+		dans_tuile += 1
+	_lot_maisons(f, tuile)
 	var c := ConcavePolygonShape3D.new()
 	c.backface_collision = true
 	c.set_faces(murs)
@@ -1569,7 +1631,9 @@ func _relatif(n: Node3D, racine: Node3D) -> Transform3D:
 func _noms() -> void:
 	for r in data.remarquables:
 		remarquables.append(r)
-		var majeur: bool = r.genre != "commerce"
+		if not bool(r.get("etiquette", true)):
+			continue  # Une maison voisine d'un lieu déjà nommé : nommée en bas de l'écran seulement.
+		var majeur: bool = not (r.genre in ["commerce", "maison"])
 		var at := Vector3(r.x, r.y, r.z)
 		if r.has("batiment"):
 			var b: Dictionary = data.batiments[int(r.batiment)]
