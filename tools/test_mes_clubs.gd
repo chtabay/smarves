@@ -78,6 +78,10 @@ func _lancer() -> void:
 	await process_frame
 	check(avis.suit("football", club) and _textes(carnet.get("_left")).contains("vous le suivez") and (carnet.get("_left").find_child("Suivre", true, false) as Button).text == "Ne plus suivre",
 		"« Suivre ce club » : on le suit, sans part")
+	var ardoise: Node = load("res://scripts/socle/foot_tableau.gd").new()
+	var q: Array = foot.place_de(club)
+	check(ardoise.call("division_suivie") == [q[0], q[1]] and (ardoise.call("clubs_suivis") as Array).has(club), "le tableau du café met à la craie la division du club suivi")
+	ardoise.free()
 	# Ses nouvelles : les buteurs du match, le rendez-vous de la veille, le président qui change.
 	var courrier: GDScript = load("res://scripts/socle/foot_courrier.gd")
 	var m1: Dictionary = courrier.match_de(foot, club, 1, 1)

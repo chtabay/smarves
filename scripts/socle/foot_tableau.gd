@@ -17,6 +17,8 @@ const MOIS := ["janvier", "février", "mars", "avril", "mai", "juin", "juillet",
 
 ## La division montrée : [niveau, groupe].
 var division: Array = []
+## La division choisie à l'ardoise (un de ses clubs suivis), [] : celle qu'on suit d'office.
+var division_choisie: Array = []
 ## La colonne de la fenêtre : le tableau, ou la feuille d'un match.
 var _colonne: VBoxContainer
 ## Sur un écran étroit, ce qui fait défiler la colonne.
@@ -120,13 +122,29 @@ func _large() -> float:
 ## Remplit la fenêtre d'après la pyramide du moment.
 func remplir(colonne: VBoxContainer) -> void:
 	_vider(colonne)
-	division = division_suivie()
+	division = division_choisie if not division_choisie.is_empty() else division_suivie()
 	var n: int = division[0]
 	var g: int = division[1]
 	var s: int = foot().saison
 	var joues: int = foot().journee_jouee()
 	colonne.add_child(_mot("Le tableau du dimanche", 30, OR, Polices.gras()))
 	colonne.add_child(_mot("Championnat de la Vienne  ·  saison %d  ·  %s" % [s, _periode(joues)], 17, DOUX))
+	# Vos clubs : un bouton par club suivi, qui met sa division à la craie.
+	var vos: Array = clubs_suivis().filter(func(c): return not (foot().place_de(str(c)) as Array).is_empty())
+	if vos.size() > 1 or (vos.size() == 1 and (foot().place_de(str(vos[0])) as Array).slice(0, 2) != division):
+		var ligne := HFlowContainer.new()
+		ligne.name = "VosClubs"
+		ligne.add_theme_constant_override("h_separation", 8)
+		ligne.add_child(_mot("Vos clubs :", 15, DOUX))
+		for c in vos:
+			var q: Array = foot().place_de(str(c))
+			var cle: Array = [q[0], q[1]]
+			var b := _bouton(str(foot().clubs[c].nom), func():
+				division_choisie = cle
+				remplir(colonne), 14)
+			b.disabled = cle == division
+			ligne.add_child(b)
+		colonne.add_child(ligne)
 	if not foot().locales.is_empty():
 		colonne.add_child(_mot("Vos consignes d'avant-match restent sur cet appareil tant que vous n'êtes pas connecté à votre compte Pyramides : le reste du village ne les voit pas.", 15, OR, null, true))
 	elif foot().consignes_etat == "hors_ligne":
@@ -171,8 +189,23 @@ func remplir(colonne: VBoxContainer) -> void:
 	bas.add_child(_bouton("Reposer la craie  (Échap)", func(): closed.emit()))
 
 
-## La division qu'on suit : celle du club de la commune d'origine (Smarves) s'il existe, sinon la Division 1.
+## Les clubs qu'on suit (parts, puis supporter ; demande de Guillaume du 31 octobre 2026 : « où le supporter
+## voit-il les résultats de son club ? partout »), [] hors du jeu.
+static func clubs_suivis() -> Array:
+	var racine := (Engine.get_main_loop() as SceneTree).root
+	var avis: Node = racine.get_node_or_null("Avis")
+	if avis == null or not avis.has_method("favoris"):
+		return []
+	return load("res://scripts/socle/aujourdhui.gd").suivis(foot(), avis)
+
+
+## La division qu'on suit : celle du premier club qu'on suit, sinon celle du club de la commune d'origine
+## (Smarves) s'il existe, sinon la Division 1.
 func division_suivie() -> Array:
+	for c in clubs_suivis():
+		var q: Array = foot().place_de(str(c))
+		if not q.is_empty():
+			return [q[0], q[1]]
 	var origine: Commune = communes().origine()
 	if origine:
 		var p: Array = foot().place_de(origine.id)
@@ -229,7 +262,7 @@ func _classement(s: int, n: int, g: int) -> GridContainer:
 	for i in lignes.size():
 		var l: Dictionary = lignes[i]
 		var club: Dictionary = foot().clubs[l.club]
-		var chez_nous: bool = origine != null and l.club == origine.id
+		var chez_nous: bool = (origine != null and l.club == origine.id) or clubs_suivis().has(l.club)
 		var encre := OR if chez_nous else CRAIE
 		var rangl := _mot("%d." % (i + 1), 16, encre)
 		rangl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
