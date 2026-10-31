@@ -78,6 +78,8 @@ func _ready() -> void:
 	_zones_dessin()
 	_stade()
 	_batiments()
+	# Les abords des lieux retravaillés : place de l'Église, lavoir, place Adrien-Bernard (abords.gd).
+	load(DOSSIER + "abords.gd").construire(self)
 	_arbres()
 	_noms()
 	_joueur()
@@ -532,6 +534,15 @@ func _sols_materiaux() -> void:
 	sable.roughness = 1.0
 	sable.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_mats.sable = sable
+	# Le sable stabilisé des places de l'Église et Adrien-Bernard : un ocre rose, grenu, sans bordure.
+	var terre := StandardMaterial3D.new()
+	terre.albedo_color = Color(0.76, 0.62, 0.52)
+	terre.albedo_texture = _grain(0.5, Color(0.86, 0.8, 0.74))
+	terre.uv1_triplanar = true
+	terre.uv1_scale = Vector3(0.8, 0.8, 0.8)
+	terre.roughness = 1.0
+	terre.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_mats.terre = terre
 	var marque := StandardMaterial3D.new()
 	marque.albedo_color = Color(0.86, 0.86, 0.8)
 	marque.roughness = 0.7
@@ -818,7 +829,7 @@ func _pieton(parent: Node3D, pz: Dictionary) -> void:
 	var mi := MeshInstance3D.new()
 	mi.name = "Pieton"
 	mi.mesh = st.commit()
-	mi.material_override = _mats.gravier if str(pz.get("sol", "sable")) == "gravier" else _mats.sable
+	mi.material_override = {"gravier": _mats.gravier, "terre": _mats.terre}.get(str(pz.get("sol", "sable")), _mats.sable)
 	parent.add_child(mi)
 	if not bool(pz.get("bord", true)):
 		return
@@ -1569,7 +1580,7 @@ func _relatif(n: Node3D, racine: Node3D) -> Transform3D:
 func _noms() -> void:
 	for r in data.remarquables:
 		remarquables.append(r)
-		var majeur: bool = r.genre != "commerce"
+		var majeur: bool = not (r.genre in ["commerce", "maison"])
 		var at := Vector3(r.x, r.y, r.z)
 		if r.has("batiment"):
 			var b: Dictionary = data.batiments[int(r.batiment)]
