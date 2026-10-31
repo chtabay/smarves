@@ -873,7 +873,10 @@ func _aller(vers: String) -> Dictionary:
 	if z is Dictionary:
 		return await _aller_a(j, z)
 	if not (z is Area3D):
-		return {"ok": false, "dit": "zone ou chose inconnue : %s (une zone z3, une chose o2, ou un mot de son nom)" % vers}
+		var piece := _piece(vers)
+		if not piece.is_empty():
+			return await _aller_piece(j, piece)
+		return {"ok": false, "dit": "zone ou chose inconnue : %s (une zone z3, une chose o2, un mot de son nom, ou une pièce du lieu)" % vers}
 	var zone: Area3D = z
 	if j.focus_target == zone:
 		return {"ok": true, "dit": "déjà devant"}
@@ -934,6 +937,73 @@ func _aller_a(j: CharacterBody3D, o: Dictionary) -> Dictionary:
 			var dessus := _a_plat(but - j.global_position).length() < maxf(j.radius * 2.0, 0.6)
 			return {"ok": true, "dit": ("arrivé, sur : " if dessus else "arrivé, tout près de : ") + str(o.nom)}
 	return {"ok": false, "dit": "pas trouvé de chemin jusque-là (encore %s m) : quelque chose barre le passage" % str(snappedf(_a_plat(but - j.global_position).length(), 0.5))}
+
+
+## Une pièce du lieu par son nom (« Salle des Ambassadeurs ») : les lieux qui nomment leurs pièces (ROOMS du
+## casino : [nom, x0, x1, z0, z1, étage]) ; {nom, centre, rect, etage}, ou {} si aucune ne répond.
+func _piece(vers: String) -> Dictionary:
+	var s := scene()
+	if s == null or not (s is Node3D):
+		return {}
+	var pieces = s.get("ROOMS")
+	if not (pieces is Array):
+		return {}
+	var cherche := _sans_articles(vers)
+	if cherche == "":
+		return {}
+	var haut := float(s.get("WALL_H")) if s.get("WALL_H") != null else 5.0
+	for r in pieces:
+		if not (r is Array) or r.size() < 5:
+			continue
+		var nom := str(r[0])
+		var n := _sans_articles(nom)
+		if n == cherche or n.contains(cherche) or cherche.contains(n):
+			var etage := int(r[5]) if r.size() > 5 else 0
+			var centre := (s as Node3D).to_global(Vector3((float(r[1]) + float(r[2])) / 2.0, haut * etage, (float(r[3]) + float(r[4])) / 2.0))
+			return {"nom": nom, "centre": centre, "rect": Rect2(float(r[1]), float(r[3]), float(r[2]) - float(r[1]), float(r[4]) - float(r[3])), "etage": etage}
+	return {}
+
+
+## Un nom sans ses articles ni sa casse (« La Salle des Ambassadeurs » -> « salle des ambassadeurs »).
+func _sans_articles(t: String) -> String:
+	var mots := []
+	for m in t.to_lower().strip_edges().replace("'", " ").replace("’", " ").split(" ", false):
+		if not m in ["le", "la", "les", "l", "au", "aux"]:
+			mots.append(m)
+	return " ".join(mots)
+
+
+## Vrai si le corps est dans la pièce (à son étage).
+func _dans_piece(j: CharacterBody3D, p: Dictionary) -> bool:
+	var s := scene() as Node3D
+	if s == null:
+		return false
+	var l := s.to_local(j.global_position)
+	return (p.rect as Rect2).has_point(Vector2(l.x, l.z)) and (1 if l.y > 3.0 else 0) == int(p.etage)
+
+
+## Jusque dans une pièce, par son nom : on marche vers son milieu et l'on s'arrête dès qu'on y est.
+func _aller_piece(j: CharacterBody3D, p: Dictionary) -> Dictionary:
+	if _dans_piece(j, p):
+		return {"ok": true, "dit": "déjà dans " + str(p.nom)}
+	var sc := scene()
+	var but: Vector3 = p.centre
+	var loin := _a_plat(but - j.global_position).length()
+	for essai in 3:
+		var chemin := _chemin(j, but, essai, 2.5)
+		var t0 := Time.get_ticks_msec() / 1000.0
+		var fin := await _suivre(j, null, but, chemin, t0, sc)
+		_arreter(j)
+		if fin == "le lieu a changé en chemin":
+			return {"ok": true, "dit": fin}
+		if not is_instance_valid(j):
+			return {"ok": false, "dit": "le lieu a changé en chemin"}
+		if _dans_piece(j, p):
+			return {"ok": true, "dit": "arrivé dans " + str(p.nom)}
+	var reste := _a_plat(but - j.global_position).length()
+	if reste < loin - 5.0:
+		return {"ok": false, "dit": "en route vers %s, encore environ %d m : refais « aller » pour continuer" % [str(p.nom), int(snappedf(reste, 5.0))]}
+	return {"ok": false, "dit": "pas trouvé de chemin jusqu'à %s : quelque chose barre le passage (un cordon : la salle n'est peut-être pas encore ouverte pour toi)" % str(p.nom)}
 
 
 ## Un long trajet se fait en plusieurs gestes, comme un joueur qui marche longtemps : s'il a bien
@@ -1009,7 +1079,9 @@ func _chemin(j: CharacterBody3D, but: Vector3, ecart := 0, portee := -1.0) -> Ar
 	var depart := j.global_position
 	# Une zone d'un autre étage : l'escalier peut être loin, on cherche plus large.
 	var etage := absf(but.y - depart.y) > ETAGE
-	var marge := (60.0 + 15.0 * ecart if etage else 6.0 + 4.0 * ecart)
+	# Aux essais suivants, bien plus large : le chemin fait parfois un grand détour (redescendre une butte
+	# pour contourner une carrière, Chauvigny), hors d'une bande de quelques mètres autour du trajet direct.
+	var marge := (60.0 + 15.0 * ecart if etage else 6.0 + 30.0 * ecart)
 	var pas: float = maxf(j.radius * 1.2, 0.12)
 	var lo := Vector2(minf(depart.x, but.x) - marge, minf(depart.z, but.z) - marge)
 	var hi := Vector2(maxf(depart.x, but.x) + marge, maxf(depart.z, but.z) + marge)
