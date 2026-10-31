@@ -13,6 +13,9 @@ var title := "Les paris"
 var subtitle := ""
 ## [nom, cote (gain pour 1 misé)]
 var runners: Array = []
+## Le trot du café, quand celui qui ouvre le panneau ne donne pas ses concurrents (la table « courses » d'une
+## salle de jeu) : les cotes font un livre juste (somme des 1/(cote+1) proche de 1), la marge reste celle d'en bas.
+const TROT := [["Quolibet du Clain", 2.0], ["Reine de Vienne", 3.0], ["Sultan d'Ormeau", 4.0], ["Tempête de Lussac", 7.0], ["Ulysse des Varennes", 9.0]]
 var verb := "gagne"
 var bet_index := 1
 var pick := -1
@@ -24,6 +27,11 @@ var _bet_label: Label
 
 
 func _ready() -> void:
+	if runners.size() < 2:
+		runners = TROT.duplicate(true)
+		if subtitle == "":
+			subtitle = "Le trot de l'après-midi, sur l'écran du café"
+		verb = "passe le poteau en tête"
 	custom_minimum_size = Vector2(760, 0)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 10)

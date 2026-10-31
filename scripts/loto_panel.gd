@@ -1,13 +1,14 @@
 extends PanelContainer
 ## Le grand loto de la salle François-Rabelais : on coche jusqu'à 5 numéros sur 30, M. Gaudin, le président du comité des fêtes,
-## en tire 10. Gains selon les numéros trouvés : 2 → mise rendue, 3 → 4 fois, 4 → 20 fois, 5 → 120 fois.
+## en tire 10. Gains selon les numéros trouvés : 2 → mise rendue, 3 → 2 fois, 4 → 6 fois, 5 → 50 fois.
+## Avec 5 numéros cochés, le loto rend 94,5 % des mises en moyenne (moins avec moins de numéros).
 
 signal played(bet: int, payout: int)
 signal closed
 
 const REGLES := preload("res://scripts/jeux/regles.gd")
 const BETS := [10, 50, 100, 500]
-const PAYS := {2: 1, 3: 4, 4: 20, 5: 120}
+const PAYS := {2: 1, 3: 2, 4: 6, 5: 50}
 
 var title := "Le grand loto"
 var bet_index := 0
@@ -30,7 +31,7 @@ func _ready() -> void:
 	t.add_theme_color_override("font_color", Color(0.96, 0.8, 0.45))
 	v.add_child(t)
 	var rule := Label.new()
-	rule.text = "Cochez jusqu'à 5 numéros  ·  2 trouvés : mise rendue  ·  3 : ×4  ·  4 : ×20  ·  5 : ×120"
+	rule.text = "Cochez jusqu'à 5 numéros  ·  2 trouvés : mise rendue  ·  3 : ×2  ·  4 : ×6  ·  5 : ×50"
 	rule.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	rule.add_theme_font_size_override("font_size", 14)
 	rule.add_theme_color_override("font_color", Color(0.72, 0.68, 0.62))
