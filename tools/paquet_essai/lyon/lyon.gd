@@ -174,6 +174,8 @@ func _ready() -> void:
 	_joueur()
 	_veille()
 	_imposteurs()
+	for k in MOBYLETTES.size():
+		add_child(MOBYLETTE.new(self, MOBYLETTES[k][0], MOBYLETTES[k][1], "Mobylette%d" % (k + 1)))
 
 
 # --- Le relief ------------------------------------------------------------------------------------
@@ -2359,6 +2361,10 @@ func _escalier() -> void:
 
 var _sculptures := {}
 const Sculpture := preload("res://communes/lyon/sculptures/sculpture.gd")
+const MOBYLETTE := preload("res://communes/lyon/places/mobylette.gd")
+## Les Mobylettes bleues garées dans la ville (places/mobylette.gd), en mètres (x, z) et cap : la première près de
+## l'arrivée (INF), puis au coin de la place, au débouché des Terreaux et sur la place Saint-Paul.
+const MOBYLETTES := [[Vector2.INF, 0.0], [Vector2(-10.0, 48.0), 1.2], [Vector2(118.0, 112.0), -0.6], [Vector2(-232.0, 345.0), 2.4]]
 
 
 ## Une sculpture modelée à part (sculptures/sculpter.py), lue une fois.
