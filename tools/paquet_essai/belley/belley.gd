@@ -15,6 +15,7 @@ const JARDINS := preload("res://communes/belley/places/jardins.gd")
 const ROUTES := preload("res://communes/belley/places/routes.gd")
 const BORDS := preload("res://communes/belley/places/bords_de_route.gd")
 const MOBYLETTE := preload("res://communes/belley/places/mobylette.gd")
+const SIGNALETIQUE := preload("res://communes/belley/places/signaletique.gd")
 
 ## Les crans de la caméra de dessus : distance, tangage, champ, du plus près au plus loin (à taille d'homme).
 const CRANS := [[5.0, -38.0, 50.0], [9.0, -48.0, 50.0], [16.0, -58.0, 50.0]]
@@ -56,6 +57,9 @@ func _ready() -> void:
 	ROUTES.new(hauteur).batir(self)
 	BORDS.new(hauteur).batir(self)
 	RELAIS.new(hauteur).batir(self)
+	# Le plan à l'arrivée, les poteaux du bourg et de la route du Grand Prix, le chevalet de la place : de quoi
+	# trouver la place de la Cathédrale, la course, le banc et le relais (places/signaletique.gd).
+	SIGNALETIQUE.new(hauteur).batir(self)
 	var rb: Array = REPERES["Vue2_Banc"]
 	BANC.new(hauteur).batir(self, rb[0], rb[1], rb[2])
 	# Les maisons du façadier sont posées sur le point bas de leur façade : quand la pente descend derrière ou à
