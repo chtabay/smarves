@@ -51,6 +51,9 @@ const BULLIOUD_RUE := -229.5
 ## la rangée ouest à l'heure du soleil (31° sur l'horizon)
 const JUIVERIE_EST := -221.5
 const JUIVERIE_OMBRE := 8.0
+## Vue1a : l'œil sur la passerelle, et le socle de la tour-lanterne (au-dessus du toit du transept), en mètres
+const LANTERNE_OEIL := Vector3(-186.0, 7.6, 198.0)
+const LANTERNE_VISEE := Vector3(-238.2, 27.0, 295.1)
 const BULLIOUD_COUR := Rect2(-252.0, 414.0, 14.0, 17.0)
 
 ## Le café de courses (en face de la gare) et les traces du fil rouge au Change : le comptoir de la banque de la
@@ -65,13 +68,15 @@ const TRACES := {
 ## Les points de vue (œil, regard) et les sas.
 const REPERES := {
 	"Arrivee_SaintPaul": [Vector2(-196.0, 352.0), Vector2(-260.0, 356.0)],
-	# au débouché de la passerelle, sur le quai : la tour-lanterne au-dessus des toits de droite, la rue qui monte
-	"Vue1a_Passerelle": [Vector2(-218.0, 232.0), Vector2(-226.0, 290.0)],
+	# sur la passerelle, à vingt mètres de la culée : la tour-lanterne détachée sur le ciel au-dessus des toits ;
+	# puis, au débouché sur le quai, la rue qui monte vers l'église
+	"Vue1a_Passerelle": [Vector2(-186.0, 198.0), Vector2(-238.0, 295.0)],
+	"Vue1b_Culee": [Vector2(-206.0, 234.0), Vector2(-226.0, 290.0)],
 	# les coudes du parcours : le quai, l'angle de la rue Saint-Paul, le bas de la rue du Docteur-Augros, la place
-	"Vue1b_Quai": [Vector2(-182.0, 264.0), Vector2(-150.0, 300.0)],
-	"Vue1c_Gerson": [Vector2(-186.0, 276.5), Vector2(-212.0, 297.0)],
-	"Vue1d_Augros": [Vector2(-213.5, 305.0), Vector2(-214.0, 330.0)],
-	"Vue1e_PlaceSaintPaul": [Vector2(-213.0, 343.0), Vector2(-240.0, 370.0)],
+	"Vue1c_Quai": [Vector2(-182.0, 264.0), Vector2(-150.0, 300.0)],
+	"Vue1d_Gerson": [Vector2(-186.0, 276.5), Vector2(-212.0, 297.0)],
+	"Vue1e_Augros": [Vector2(-213.5, 305.0), Vector2(-214.0, 330.0)],
+	"Vue1f_PlaceSaintPaul": [Vector2(-213.0, 343.0), Vector2(-240.0, 370.0)],
 	"Vue2a_Juiverie": [Vector2(-231.5, 384.0), Vector2(-227.0, 440.0)],
 	# devant le porche de l'hôtel Bullioud, le regard dans le passage voûté ; puis, passé le porche, dans la cour :
 	# les galeries des deux côtés, la galerie de Delorme au fond ; on ressort dans la rue par le même porche
@@ -338,7 +343,7 @@ class Batisseur:
 			for z in RELIEF:
 				if z.has_point(c0):
 					haut = minf(haut, 17.0)
-			haut = minf(haut, _plafond_juiverie(c0, emprises[i], sol))
+			haut = minf(haut, minf(_plafond_juiverie(c0, emprises[i], sol), _plafond_lanterne(emprises[i], sol)))
 			var en_relief := _reliefs(i, b, emprises[i])
 			if not en_relief.is_empty():
 				var hmax := 0.0
@@ -437,6 +442,23 @@ class Batisseur:
 			xe = maxf(xe, q.x)
 		return h(JUIVERIE_EST, c.y) + JUIVERIE_OMBRE + maxf(JUIVERIE_EST - xe, 0.0) * tan(deg_to_rad(31.0)) - sol
 
+	## Depuis la passerelle (Vue1a), la tour-lanterne doit se détacher sur le ciel à partir de son socle : une
+	## maison dans le couloir du regard ne monte pas, toit compris, au-dessus du rayon qui va de l'œil au socle.
+	func _plafond_lanterne(poly: PackedVector2Array, sol: float) -> float:
+		var oeil := Vector2(LANTERNE_OEIL.x, LANTERNE_OEIL.z)
+		var cible := Vector2(LANTERNE_VISEE.x, LANTERNE_VISEE.z)
+		var axe := cible - oeil
+		var long := axe.length()
+		axe /= long
+		var plus_bas := INF
+		for q in poly:
+			var t := (q - oeil).dot(axe)
+			if t < 0.0 or t > long - 8.0 or absf((q - oeil).dot(axe.orthogonal())) > 9.0:
+				continue
+			plus_bas = minf(plus_bas, lerpf(LANTERNE_OEIL.y, LANTERNE_VISEE.y, t / long))
+		# le toit monte encore de 3 m au plus au-dessus de la corniche
+		return plus_bas - 3.0 - sol
+
 	func _enduit(c: Vector2, i: int) -> String:
 		# le quai, plus classique et plus pâle ; la ville Renaissance, ocre rouge
 		if c.x > -140.0 or c.y < 250.0:
@@ -455,7 +477,7 @@ class Batisseur:
 			return []
 		# le Vieux-Lyon : quatre ou cinq niveaux, toits bas
 		var niveaux := clampi(int(round((minf(b.h * U, 22.0) - 4.2) / 3.3)), 2, 4)
-		var plafond: float = b.sol * U - 0.5 + _plafond_juiverie(c, poly, b.sol * U - 0.5)
+		var plafond: float = b.sol * U - 0.5 + minf(_plafond_juiverie(c, poly, b.sol * U - 0.5), _plafond_lanterne(poly, b.sol * U - 0.5))
 		var corniches := []
 		for k in poly.size():
 			var a := poly[k]
@@ -1074,6 +1096,9 @@ class Batisseur:
 			var m := Marker3D.new()
 			m.name = nom
 			var p := Vector3(a.x, h(a.x, a.y) + 0.1, a.y)
+			if nom == "Vue1a_Passerelle":
+				# sur le tablier de la passerelle (lyon.gd), au-dessus de la Saône : 5,9 m à cet endroit
+				p.y = maxf(p.y, 6.0)
 			var cible := Vector3(b.x, p.y, b.y)
 			m.transform = Transform3D(Basis.looking_at(cible - p, Vector3.UP), p)
 			racine.add_child(m)
