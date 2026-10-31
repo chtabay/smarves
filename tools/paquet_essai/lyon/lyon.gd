@@ -64,6 +64,12 @@ const RESERVES := {
 const SOL_QUARTIERS := {"saint_paul": Rect2(-480, 180, 480, 480)}
 ## Le pas du sol fin, en mètres.
 const SOL_PAS := 5.0
+## Les replats hors du relevé : sous l'emprise d'un édifice de quartier, le relief de la ville est mis à une seule
+## altitude, celle de hauteur() au point de référence, avec un raccord en pente douce sur REPLAT_MARGE m autour
+## (juge, Saint-Paul maquette 4 : la cour Bullioud sur un terrain qui montait de 2 m). En mètres : le rectangle de
+## l'emprise, puis le point de référence.
+const REPLATS := {"bullioud": [Rect2(-268.0, 406.0, 38.5, 32.0), Vector2(-231.5, 422.5)]}
+const REPLAT_MARGE := 16.0
 
 
 ## Les lieux de la scène, en mètres (x vers l'est, z vers le sud), relevés sur le plan réel.
@@ -168,8 +174,22 @@ func _ready() -> void:
 # --- Le relief ------------------------------------------------------------------------------------
 
 ## L'altitude du sol en (x, z), en mètres, sur les mêmes triangles que le terrain dessiné.
-## Hors du relevé, le relief de la ville s'il est là, sinon l'altitude du bord.
+## Hors du relevé, le relief de la ville s'il est là, sinon l'altitude du bord ; sous un replat (REPLATS), une
+## seule altitude, raccordée en douceur au terrain alentour.
 func hauteur(x: float, z: float) -> float:
+	var h := _hauteur_terrain(x, z)
+	for nom in REPLATS:
+		var emprise: Rect2 = REPLATS[nom][0]
+		# la distance au rectangle (0 dedans) : du point à son plus proche point de l'emprise
+		var d := Vector2(x, z).distance_to(Vector2(clampf(x, emprise.position.x, emprise.end.x), clampf(z, emprise.position.y, emprise.end.y)))
+		if d < REPLAT_MARGE:
+			var ref: Vector2 = REPLATS[nom][1]
+			h = lerpf(_hauteur_terrain(ref.x, ref.y), h, smoothstep(0.0, REPLAT_MARGE, d))
+	return h
+
+
+## Le relief tel qu'il est relevé ou tenu par la ville, sans les replats.
+func _hauteur_terrain(x: float, z: float) -> float:
 	if _relief_ville != null and (x < _x0 or z < _z0 or x > _x0 + (_nx - 1) * _pas or z > _z0 + (_nz - 1) * _pas):
 		return _relief_ville.call("hauteur", x, z)
 	var fx := clampf((x - _x0) / _pas, 0.0, _nx - 1.001)
