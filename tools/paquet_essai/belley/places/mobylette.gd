@@ -2,10 +2,10 @@ extends Node
 ## La Mobylette bleue, garée à l'arrivée : Belley fait 8 km d'est en ouest, à pied on n'en voit que la place.
 ## E (ou V) devant elle pour l'enfourcher, V pour en descendre ; elle reste où on l'a laissée. C'est la
 ## Mobylette du socle (Biens.build_vehicle), menée comme au village (scripts/village/conduite.gd), mais
-## à l'échelle d'un homme : roues de 60 cm, 1,15 m d'empattement.
+## à la taille de l'habitant : selle à 0,45 de sa hauteur, guidon à 0,57, longueur égale à sa taille.
 
-## Le dessin du socle est à l'échelle des petits Smarvois : ×6,6 pour un homme de 1,7 m (verdict n° 40).
-const ECHELLE := 6.6
+## Le dessin du socle est à l'échelle des petits Smarvois : ×5,1 pour l'habitant de Belley, mesuré de profil à côté de lui.
+const ECHELLE := 5.1
 ## Au guidon, le pas de l'habitant fois ceci : 3,2 × 3,6 ≈ 41 km/h, 75 en tenant Maj (la descente du Molard).
 const ALLURE := 3.6
 const RAYON := 0.32
@@ -148,4 +148,4 @@ func _poser_habitant() -> void:
 	player.avatar.pose = 2
 	var seat := float(player.avatar.get("_seat")) if player.avatar.get("_seat") != null else 0.09
 	var s: float = player.avatar.scale.y
-	player.avatar.position = Vector3(0, Biens.selle("mobylette") * ECHELLE - seat * s, 0.3)
+	player.avatar.position = Vector3(0, Biens.selle("mobylette") * ECHELLE - seat * s, 0.23)
