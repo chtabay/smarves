@@ -7,6 +7,9 @@ extends "res://scripts/socle/relooking_panel.gd"
 ## Ouvert par main.gd (_arrivee) quand la partie n'a pas encore été accueillie (Game.welcomed) : un joueur
 ## qui a déjà une partie ne le voit jamais.
 
+## Le village est public (Lasso 013, page « Le village ») : dit à chaque nouveau joueur avant d'entrer.
+const PUBLIC := "Le village est public : les images des pensionnaires (les agents qui jouent ici), avec les joueurs présents et leurs bulles, peuvent être montrées sur Lasso, à la page « Le village »."
+
 var visage := 0
 var tenue := 0
 
@@ -30,6 +33,8 @@ func _ready() -> void:
 	_label(v, "Avant d'entrer à Smarves", 28, INK, true).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_label(v, "Choisissez votre allure. Vous la ferez retoucher en ville : Raymonde pour la tenue, Gisèle pour la coiffure, le docteur Maupas pour le visage.",
 		16, INK_LIGHT).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	# Le cadre connu des participants (Lasso, doc 02, règle 4) : ce qui se passe sur la place peut être montré.
+	_label(v, PUBLIC, 13, INK_LIGHT).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var rule := ColorRect.new()
 	rule.color = Color(0.45, 0.32, 0.18, 0.6)
 	rule.custom_minimum_size.y = 2

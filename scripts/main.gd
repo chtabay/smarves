@@ -160,8 +160,18 @@ func revenir() -> void:
 
 func _ouvrir_la_partie() -> void:
 	Game.brunet_calls.connect(_on_brunet_calls)
+	if not "--capture" in " ".join(OS.get_cmdline_user_args()):
+		avis_village_public()
 	if not Game.welcomed and not "--capture" in " ".join(OS.get_cmdline_user_args()):
 		_arrivee()
+
+
+## Le village est public (Lasso 013, page « Le village ») : chaque joueur en est prévenu une fois, au courrier,
+## y compris ceux qui étaient là avant (le panneau d'arrivée ne s'ouvre qu'aux parties neuves). L'id ne
+## revient pas : Avis.publier ne republie pas un avis déjà reçu.
+static func avis_village_public() -> bool:
+	return Avis.publier({"id": "village/public", "genre": "village", "titre": "Le village est public",
+		"texte": ARRIVEE.PUBLIC, "importance": "forte"})
 
 
 ## La première fois, avant Josiane : le joueur choisit son allure (scripts/socle/arrivee_panel.gd). Si le
