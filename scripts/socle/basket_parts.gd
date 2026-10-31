@@ -2,6 +2,7 @@ extends "res://scripts/socle/basket_ecran.gd"
 ## Le tableau des parts du club de basket, à l'entrée du grand hall de la salle (et à la table du conseil,
 ## dans la pièce du président) : les neuf obligations du club, comme au football, de 500 à 7 500 crédits,
 ## chacune en un seul exemplaire. La plus grosse somme investie dirige le club (le mercato, la consigne) ;
+## on en prend toute l'année, et la direction change à la relève du lundi à midi (scripts/socle/diriger.gd) ;
 ## chaque journée jouée verse un dividende, la recette du match moins les salaires, au prorata de la
 ## valeur de l'obligation. On en prend une libre, on en rend une (reprise à 80 %). Les porteurs sont
 ## publics, comme le championnat ; il faut son compte Pyramides pour en prendre.
@@ -33,17 +34,14 @@ func remplir(col: VBoxContainer) -> void:
 	# Ce qui manque pour diriger, calculé plutôt que laissé au joueur.
 	_mot(col, DIRIGER.phrase(b, commune), TEXTE, 17).name = "PourDiriger"
 	var suffit: int = int(DIRIGER.etat(b, commune).suffit)
-	# Les parts ne se prennent qu'à l'intersaison (demande du 23 octobre au soir) : on dit quand.
-	var inter: bool = DIRIGER.en_intersaison(b)
-	var fenetre := ("Les parts se prennent à l'intersaison, %s : c'est maintenant." if inter else "Les parts se prennent à l'intersaison, %s. On les rend quand on veut.") % DIRIGER.phrase_intersaison(b)
-	# La phrase « pour diriger » dit déjà les dates : on n'y ajoute que le retour.
-	if DIRIGER.phrase(b, commune).contains(DIRIGER.phrase_intersaison(b)):
-		fenetre = "On rend les parts quand on veut ; on n'en prend qu'à l'intersaison."
-	_mot(col, fenetre, OR if inter else DOUX, 15).name = "Fenetre"
-	# On dirige déjà un club de la même division : à l'intersaison, on peut changer pour celui-ci.
-	if inter and str(DIRIGER.etat(b, commune).ailleurs) != "" and DIRIGER.peut_prendre(b, commune, true):
-		var ailleurs := str(b.fiche(str(DIRIGER.etat(b, commune).ailleurs)).get("nom", ""))
-		_bouton(col, "Diriger ce club à la place %s" % DIRIGER.de(ailleurs), func(): agir(await b.prendre_direction(commune, true)), "ChangerDeClub")
+	# Les parts se prennent toute l'année (demande du 31 octobre) ; la direction change à la relève.
+	_mot(col, "Les parts se prennent toute l'année, et se rendent quand on veut. La direction d'un club change à la relève, le lundi à midi.", DOUX, 15).name = "Fenetre"
+	var demande := DIRIGER.bouton_releve(b, commune)
+	if demande != "":
+		var changer: bool = bool(DIRIGER.relevable(b, commune).changer)
+		_bouton(col, demande, func(): agir(await b.prendre_direction(commune, changer)), "ChangerDeClub" if changer else "DemanderDirection")
+	elif int(DIRIGER.etat(b, commune).releve) > 0:
+		_bouton(col, "Renoncer à la relève", func(): agir(await b.renoncer_direction()), "Renoncer")
 	var facteur: float = b.recette_facteur(commune)
 	var benefice := maxf(0.0, b.RECETTE * facteur - b.masse_salariale(commune))
 	_mot(col, "À chaque journée jouée, le club partage sa recette (%s crédits, ×%.1f au classement d'aujourd'hui) moins ses salaires (%s) entre les obligations, au prorata de leur valeur. On en rend une à 80 %%." \
@@ -57,12 +55,10 @@ func remplir(col: VBoxContainer) -> void:
 		var p: Dictionary = b.porteur(commune, r)
 		if p.is_empty():
 			var bt := _bouton(h, "Prendre", func(): agir(b.prendre(commune, r)), "Prendre_%d" % r)
-			bt.disabled = Game.credits < b.valeur(r) or not inter
-			if r == suffit and inter:
+			bt.disabled = Game.credits < b.valeur(r)
+			if r == suffit:
 				_mot(h, "← pour diriger", OR, 15)
-			if not inter:
-				_mot(h, "à l'intersaison", DOUX, 14)
-			elif bt.disabled:
+			if bt.disabled:
 				_mot(h, DIRIGER.manque_credits(b.valeur(r)), DOUX, 14)
 		elif bool(p.moi):
 			_mot(h, "à vous", OR, 15)
@@ -80,6 +76,8 @@ func remplir(col: VBoxContainer) -> void:
 
 func agir(r: Dictionary) -> void:
 	_message = "" if r.get("ok", false) else pourquoi(str(r.get("raison", "")))
+	if r.get("releve", false):
+		_message = "C'est noté : vous prenez la direction à la relève, %s." % DIRIGER.date(int(r.get("effet", 0)))
 	rafraichir()
 
 

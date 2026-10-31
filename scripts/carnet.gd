@@ -15,7 +15,7 @@ extends CanvasLayer
 ##   fait (Avis.solder) ; tous le sont en quittant la boîte, ou d'un clic sur « Tout marquer comme lu » ;
 ## - « Mes clubs » : une page par club suivi (le classement du groupe, sa ligne soulignée, les quatorze
 ##   journées, l'effectif, les parts et la direction), puis « Le calendrier » des deux championnats, la
-##   journée, l'intersaison (où se prennent les parts), le mercato et le marché (scripts/socle/calendrier.gd) ;
+##   journée, l'intersaison, la relève des présidents, le mercato et le marché (scripts/socle/calendrier.gd) ;
 ## - « Mes biens » : les comptes (crédits, dettes par banque, biens, obligations, bourse, fortune nette), ce
 ##   qu'on tient village par village, les engagements en cours ; et le classeur des cartes possédées, un
 ##   sous-onglet par village, avec le topo complet des parts de club (scripts/carnet_cartes.gd) ;
@@ -948,7 +948,7 @@ func _fill_resume(t: int) -> void:
 	var clubs: Array = AUJOURDHUI.clubs(Football, Avis)
 	var paniers: Array = AUJOURDHUI.clubs_basket(Basket)
 	if clubs.is_empty() and paniers.is_empty():
-		_aide(_text(_right, "Aucun club suivi.", 15, PENCIL), "Une obligation de club se prend au registre du stade (football) ou au tableau des parts de la salle (basket), à l'intersaison ; elle rapporte un dividende chaque journée, et la plus grosse mise dirige.")
+		_aide(_text(_right, "Aucun club suivi.", 15, PENCIL), "Une obligation de club se prend au registre du stade (football) ou au tableau des parts de la salle (basket), toute l'année ; elle rapporte un dividende chaque journée, et la plus grosse mise dirige.")
 	for club in clubs:
 		var c: Dictionary = AUJOURDHUI.carte(Football, club)
 		if not c.is_empty():
@@ -977,7 +977,7 @@ func _une_chose(col: VBoxContainer, x: Dictionary, t: int) -> void:
 	var v := _cadre(col, RED_INK if urgent else OCRE)
 	var echeance := "à régler" if x.genre == "bourse" else "avant le coup d'envoi, %s" % AUJOURDHUI.dans(int(x.quand), t)
 	if x.genre == "diriger":
-		echeance = "l'intersaison ferme %s" % AUJOURDHUI.dans(int(x.quand), t)
+		echeance = "la relève, %s" % AUJOURDHUI.dans(int(x.quand), t)
 	elif x.genre == "mercato":
 		echeance = "le mercato ferme %s" % AUJOURDHUI.dans(int(x.quand), t)
 	_text(v, echeance, 13, RED_INK if urgent else OCRE, true)

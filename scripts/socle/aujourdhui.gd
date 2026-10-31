@@ -38,7 +38,7 @@ static func _nom(f: Node, club: String) -> String:
 ## Ce qui attend le joueur : [{genre, quand (l'échéance), titre, texte, avis (une décision de la semaine),
 ## lien (où mène le bouton), bouton}], le plus pressé d'abord. genre : « dilemme » (la décision de la semaine,
 ## pas encore tranchée), « compo » (la composition du prochain match n'est pas posée), « mercato » (ouvert, pas
-## de recrue), « diriger » (l'intersaison est ouverte et l'on ne dirige pas un club qu'on suit), « bourse »
+## de recrue), « diriger » (on peut demander la direction d'un club qu'on suit pour la relève du lundi), « bourse »
 ## (un appel de marge) ; au basket (b), « consigne », « enchere », « marche » et « diriger » (a_faire_basket).
 static func a_faire(f: Node, avis: Node, bourse: Node = null, b: Node = null) -> Array:
 	var out: Array = []
@@ -64,11 +64,9 @@ static func a_faire(f: Node, avis: Node, bourse: Node = null, b: Node = null) ->
 				out.append({"genre": "mercato", "quand": int(f.coup_envoi(f.saison, 1)), "titre": "%s : le mercato est ouvert, et pas encore de recrue" % _nom(f, club),
 					"texte": "Une recrue par club, jusqu'au premier coup d'envoi.", "lien": {"vers": "bureau", "club": club, "page": "recherche"},
 					"bouton": "Chercher une recrue"})
-		elif DIRIGER.en_intersaison(f):
-			var e: Dictionary = DIRIGER.etat(f, club)
-			if str(e.ailleurs) == "" and not bool(e.dirige):
-				out.append({"genre": "diriger", "quand": int(DIRIGER.intersaison(f)[1]), "titre": "%s : l'intersaison est ouverte, vous ne dirigez pas" % _nom(f, club),
-					"texte": DIRIGER.phrase(f, club), "lien": {"vers": "notaire", "sport": "football", "club": club}, "bouton": "Le notaire"})
+		elif bool(DIRIGER.relevable(f, club).ok):
+			out.append({"genre": "diriger", "quand": DIRIGER.prochaine_releve(f), "titre": "%s : vous pouvez en prendre la direction" % _nom(f, club),
+				"texte": DIRIGER.phrase(f, club), "lien": {"vers": "notaire", "sport": "football", "club": club}, "bouton": "Le notaire"})
 	if bourse != null:
 		for p in bourse.ouvertes():
 			if bourse.en_appel(p):
@@ -185,7 +183,7 @@ static func consigne_posee_basket(b: Node, club: String, s: int, j: int) -> bool
 
 ## Ce qui attend au basket : « consigne » (le match est dans moins de deux jours, la consigne n'est pas
 ## posée pour lui), « enchere » (une enchère dépassée, avant la clôture du jeudi), « marche » (le marché
-## ferme dans moins de deux jours, sans enchère de notre part), « diriger » (l'intersaison).
+## ferme dans moins de deux jours, sans enchère de notre part), « diriger » (la relève).
 static func a_faire_basket(b: Node) -> Array:
 	var out: Array = []
 	if b == null or b.niveaux.is_empty():
@@ -220,9 +218,7 @@ static func a_faire_basket(b: Node) -> Array:
 				if mes.is_empty() and int(b.cloture(s, j)) - t < 2 * 86400:
 					out.append({"genre": "marche", "quand": int(b.cloture(s, j)), "titre": "%s : le marché ferme jeudi à 22 h" % nom,
 						"texte": "Aucune enchère de votre part pour la journée %d. Les joueurs libres sont au marché du club." % j, "lien": marche, "bouton": "Le marché"})
-		elif DIRIGER.en_intersaison(b):
-			var e: Dictionary = DIRIGER.etat(b, club)
-			if str(e.ailleurs) == "" and not bool(e.dirige):
-				out.append({"genre": "diriger", "quand": int(DIRIGER.intersaison(b)[1]), "titre": "%s : l'intersaison est ouverte, vous ne dirigez pas" % nom,
-					"texte": DIRIGER.phrase(b, club), "lien": notaire, "bouton": "Le notaire"})
+		elif bool(DIRIGER.relevable(b, club).ok):
+			out.append({"genre": "diriger", "quand": DIRIGER.prochaine_releve(b), "titre": "%s : vous pouvez en prendre la direction" % nom,
+				"texte": DIRIGER.phrase(b, club), "lien": notaire, "bouton": "Le notaire"})
 	return out
