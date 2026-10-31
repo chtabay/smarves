@@ -46,3 +46,7 @@ jobs:
         run: ./godot --headless --path . -s tools/test_musique.gd
       - name: Vérifier l'assise des bâtiments sur le relief
         run: ./godot --headless --path . -s tools/test_assise.gd
+      - name: La Mobylette du socle dans chaque commune, au clavier et au doigt
+        run: |
+          ./godot --headless --path . -s tools/test_mobylette.gd
+          ./godot --headless --path . -s tools/test_mobylette.gd -- --tactile
