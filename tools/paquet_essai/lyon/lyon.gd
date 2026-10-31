@@ -147,7 +147,7 @@ func _ready() -> void:
 	_fourviere()
 	# les maisons du façadier sont posées sur un point de leur façade : sur la pente, le terrain descend sous elles
 	# plus bas que leur soubassement (100 sur 296, jusqu'à 6 m). Leur assise de pierre le rattrape (socle 1.30).
-	Assise.caler_tout(ville, hauteur, PIERRE_DOREE.darkened(0.15))
+	Assise.caler_tout(ville, hauteur, Color("#82745e"))
 	_relief_de_pres()
 	_reperes()
 	_joueur()
