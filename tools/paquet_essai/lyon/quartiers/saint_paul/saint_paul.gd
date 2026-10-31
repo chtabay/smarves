@@ -73,10 +73,12 @@ const REPERES := {
 	"Vue1d_Augros": [Vector2(-213.5, 305.0), Vector2(-214.0, 330.0)],
 	"Vue1e_PlaceSaintPaul": [Vector2(-213.0, 343.0), Vector2(-240.0, 370.0)],
 	"Vue2a_Juiverie": [Vector2(-231.5, 384.0), Vector2(-227.0, 440.0)],
-	# devant le porche de l'hôtel Bullioud, le regard dans la cour vers la galerie de Delorme
-	"Vue2b_Bullioud": [Vector2(-228.6, 422.5), Vector2(-260.0, 422.5)],
-	"Vue2c_Juiverie": [Vector2(-224.5, 458.0), Vector2(-223.0, 500.0)],
-	"Vue2d_Loge": [Vector2(-222.5, 512.5), Vector2(-160.0, 513.0)],
+	# devant le porche de l'hôtel Bullioud, le regard dans le passage voûté ; puis, passé le porche, dans la cour :
+	# les galeries des deux côtés, la galerie de Delorme au fond ; on ressort dans la rue par le même porche
+	"Vue2b_Porche": [Vector2(-228.6, 422.5), Vector2(-260.0, 422.5)],
+	"Vue2c_Bullioud": [Vector2(-238.5, 422.8), Vector2(-260.0, 421.0)],
+	"Vue2d_Juiverie": [Vector2(-226.0, 423.5), Vector2(-223.0, 500.0)],
+	"Vue2e_Loge": [Vector2(-222.5, 512.5), Vector2(-160.0, 513.0)],
 	"Vue3a_Change": [Vector2(-150.0, 516.0), Vector2(-157.0, 585.0)],
 }
 ## Les sas (socle 1.26, Quartiers.veiller) : un nœud au débouché, son rayon en mètres dans la méta « rayon ».
@@ -702,7 +704,10 @@ class Batisseur:
 		b.name = "HotelBullioud"
 		racine.add_child(b)
 		var enduit := Color("#c98a62")
-		var haut := 17.4
+		# la pierre dorée du Vieux-Lyon pour les ailes de la cour ; trois niveaux sous un toit bas, comme la
+		# rangée ouest de la rue Juiverie, pour laisser le soir allumer la façade d'en face
+		var doree := Color("#cdb48a")
+		var haut := 14.0
 		# les deux ailes sur la rue, de part et d'autre du porche, et les ailes autour de la cour
 		var x_rue := BULLIOUD_RUE
 		for bloc in [Rect2(cour.end.x, 412.0, x_rue - 2.9 - cour.end.x, cour.position.y - 412.0 + 7.2),
@@ -712,8 +717,10 @@ class Batisseur:
 				Rect2(cour.position.x, cour.end.y, cour.size.x, 438.0 - cour.end.y)]:
 			if bloc.size.x <= 0.1 or bloc.size.y <= 0.1:
 				continue
-			boite(b, Vector3(bloc.size.x, haut, bloc.size.y), Vector3(bloc.get_center().x, y + haut * 0.5, bloc.get_center().y), enduit)
-			solide(b, Vector3(bloc.size.x, haut, bloc.size.y), Vector3(bloc.get_center().x, y + haut * 0.5, bloc.get_center().y))
+			# le corps du fond, derrière la galerie de Delorme, plus bas : le ciel au-dessus de la cour
+			var hb := 10.6 if bloc.position.x < cour.position.x - 0.1 else haut
+			boite(b, Vector3(bloc.size.x, hb, bloc.size.y), Vector3(bloc.get_center().x, y + hb * 0.5, bloc.get_center().y), doree)
+			solide(b, Vector3(bloc.size.x, hb, bloc.size.y), Vector3(bloc.get_center().x, y + hb * 0.5, bloc.get_center().y))
 		# la façade sur la rue : quatre travées Renaissance, deux de chaque côté du porche ; au nord de z = 412, la
 		# rue s'élargit devant la maison voisine, qui recule
 		for t in [[412.0, cour.position.y + 7.2], [cour.position.y + 9.8, 438.0]]:
@@ -732,7 +739,7 @@ class Batisseur:
 		# le passage du porche, de la rue à la cour, voûté
 		var z_porche := cour.position.y + 8.5
 		boite(b, Vector3(x_rue - cour.end.x, 0.6, 2.6), Vector3((x_rue + cour.end.x) * 0.5, y + 4.3, z_porche), PIERRE.darkened(0.2))
-		boite(b, Vector3(x_rue - cour.end.x, haut - 4.6, 2.6), Vector3((x_rue + cour.end.x) * 0.5, y + 4.6 + (haut - 4.6) * 0.5, z_porche), enduit)
+		boite(b, Vector3(x_rue - cour.end.x, haut - 4.6, 2.6), Vector3((x_rue + cour.end.x) * 0.5, y + 4.6 + (haut - 4.6) * 0.5, z_porche), doree)
 		# la galerie de Delorme, au fond de la cour, contre l'aile ouest : deux arcades à l'étage, sur deux trompes
 		var gx := cour.position.x + 1.4
 		var gz0 := cour.position.y + 3.0
@@ -749,8 +756,51 @@ class Batisseur:
 		for z in [gz0, gz1]:
 			var t := cyl(gal, 1.6, 0.1, 2.4, Vector3(gx, y + 4.6, z), pierre.darkened(0.06), 10)
 			t.rotation.x = PI
-		# la tour d'escalier dans l'angle de la cour
-		cyl(b, 1.9, 1.9, haut + 2.0, Vector3(cour.end.x - 2.0, y + (haut + 2.0) * 0.5, cour.end.y - 2.0), enduit.darkened(0.05), 8)
+		# les galeries sur colonnes, au nord et au sud de la cour : trois niveaux, des arcades basses au
+		# rez-de-chaussée, des balustres aux étages, les portes des logis au fond
+		var sombre := Color("#2f2a25")
+		var x0 := cour.position.x + 3.0
+		for cote in [[cour.position.y, 1.0, cour.end.x], [cour.end.y, -1.0, cour.end.x - 4.2]]:
+			var zf: float = cote[0]
+			var sens: float = cote[1]
+			var x1: float = cote[2]
+			var prof := 2.0
+			var zb := zf + sens * prof
+			var travees := maxi(2, int(round((x1 - x0) / 2.6)))
+			var pas := (x1 - x0) / travees
+			for niv in 3:
+				var y0 := y + (0.0 if niv == 0 else 4.2 + 3.3 * (niv - 1))
+				var hn := 4.2 if niv == 0 else 3.3
+				# le plancher, son bandeau mouluré, et la balustrade aux étages
+				boite(b, Vector3(x1 - x0, 0.3, prof), Vector3((x0 + x1) * 0.5, y0 + hn - 0.15, zf + sens * prof * 0.5), doree.lightened(0.06))
+				boite(b, Vector3(x1 - x0, 0.18, 0.1), Vector3((x0 + x1) * 0.5, y0 + hn - 0.35, zb + sens * 0.04), doree.darkened(0.12))
+				if niv > 0:
+					boite(b, Vector3(x1 - x0, 0.12, 0.2), Vector3((x0 + x1) * 0.5, y0 + 0.95, zb - sens * 0.05), doree.lightened(0.1))
+					for k in int((x1 - x0) / 0.35):
+						cyl(b, 0.06, 0.06, 0.8, Vector3(x0 + 0.2 + k * 0.35, y0 + 0.45, zb - sens * 0.05), doree.lightened(0.04), 6)
+				for k in travees + 1:
+					var xc := x0 + pas * k
+					var hc := hn - 0.5
+					cyl(b, 0.2 if niv == 0 else 0.16, 0.17 if niv == 0 else 0.14, hc, Vector3(xc, y0 + hc * 0.5, zb - sens * 0.12), doree.lightened(0.12), 10)
+					boite(b, Vector3(0.5, 0.18, 0.5), Vector3(xc, y0 + hc + 0.09, zb - sens * 0.12), doree.lightened(0.08))
+				for k in travees:
+					var xc := x0 + pas * (k + 0.5)
+					# l'arc de chaque travée, en anse de panier, sous le plancher
+					var arc := cyl(b, pas * 0.5 - 0.15, pas * 0.5 - 0.15, 0.12, Vector3(xc, y0 + hn - 0.55, zb - sens * 0.1), doree.darkened(0.06), 14)
+					arc.rotation.x = PI * 0.5
+					arc.scale = Vector3(1.0, 1.0, 0.45)
+					# la porte du logis au fond de la galerie
+					boite(b, Vector3(1.0, hn - 1.4, 0.08), Vector3(xc, y0 + (hn - 1.4) * 0.5, zf + sens * 0.05), sombre)
+		# la tour d'escalier à vis dans l'angle de la cour : ses fenêtres rampantes suivent la vis
+		var tour := Vector3(cour.end.x - 2.0, y, cour.end.y - 2.0)
+		cyl(b, 1.9, 1.9, haut + 2.0, tour + Vector3(0, (haut + 2.0) * 0.5, 0), doree.darkened(0.04), 8)
+		cyl(b, 2.2, 0.2, 2.6, tour + Vector3(0, haut + 3.3, 0), Color("#7d7a72"), 8)
+		boite(b, Vector3(1.0, 2.6, 0.12), tour + Vector3(-1.85, 1.3, 0), sombre, PI * 0.5)
+		for k in 9:
+			var a := PI * 0.75 + k * 0.7
+			var f := boite(b, Vector3(0.55, 1.1, 0.1), tour + Vector3(cos(a) * 1.9, 2.6 + k * 1.25, sin(a) * 1.9), sombre)
+			f.rotation.y = -a + PI * 0.5
+			f.rotation.z = 0.35
 
 	## La Loge du Change : cinq arcades au rez-de-chaussée, l'étage de Soufflot à colonnes, la balustrade et les
 	## deux cadrans ; elle regarde l'est, la place.
