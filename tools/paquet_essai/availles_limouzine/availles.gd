@@ -1621,6 +1621,8 @@ func _relatif(n: Node3D, racine: Node3D) -> Transform3D:
 func _noms() -> void:
 	for r in data.remarquables:
 		remarquables.append(r)
+		if not bool(r.get("etiquette", true)):
+			continue  # Une maison voisine d'un lieu déjà nommé : nommée en bas de l'écran seulement.
 		var majeur: bool = not (r.genre in ["commerce", "maison"])
 		var at := Vector3(r.x, r.y, r.z)
 		if r.has("batiment"):

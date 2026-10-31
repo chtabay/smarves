@@ -165,9 +165,9 @@ static func _cote_vers(fa: Dictionary, p: Vector2) -> float:
 
 # --- Le 10 place Adrien-Bernard ---------------------------------------------------------------------
 ## D'après la vue de la rue : une maison bourgeoise à l'enduit beige et aux chaînes d'angle harpées de
-## pierre blanche, deux niveaux de trois travées, les volets blancs, des corniches sur les fenêtres de
-## l'étage, un toit d'ardoise à quatre pans, sa cheminée et son épi ; au nord, la dépendance basse sous
-## son appentis d'ardoise, avec sa porte ; puis la palissade blanche entre ses piliers de pierre, le mur
+## pierre blanche, deux niveaux de deux travées sans porte sur la place, les volets blancs fermés, des
+## corniches sur les fenêtres de l'étage, un toit d'ardoise à quatre pans, sa cheminée et son épi ; au
+## nord, la dépendance basse sous son appentis d'ardoise, avec la porte d'entrée ; puis la palissade blanche entre ses piliers de pierre, le mur
 ## bas du jardin et le lampadaire du trottoir. La façade regarde la place, à l'ouest.
 static func _adrien_bernard(f, b: Dictionary, hauteur: Callable) -> void:
 	var fa := _facade(b, Vector2(-20.0, -22.5), hauteur)
@@ -177,25 +177,34 @@ static func _adrien_bernard(f, b: Dictionary, hauteur: Callable) -> void:
 	var beige := Color(0.87, 0.8, 0.68)
 	var blanc := Color(0.95, 0.95, 0.93)
 	var ardoise := Color(0.34, 0.37, 0.43)
-	var wm := 3.4
+	var wm := 2.9
 	var dm := 3.4
 	var wa := w - wm
-	# Le corps de logis, au sud, accolé au 8.
+	# Le corps de logis, au sud, accolé au 8 : deux travées, sans porte sur la place (on entre par la
+	# dépendance), les volets blancs fermés comme sur la photo.
 	var mxf := xf * Transform3D(Basis(), Vector3(-nord * (w / 2.0 - wm / 2.0), 0, 0))
 	_socle(f, mxf, wm, dm, fa.socle, beige.darkened(0.3))
-	var logis: Dictionary = f.house(mxf, {
-		"w": wm, "d": dm, "floors": 2, "wall": beige, "shutter": blanc, "roof": ardoise, "roof_kind": "hip",
-		"lit": 0.0, "chimney": true, "door": "center", "back": false,
-	})
-	var hm: float = logis.h
+	# Dessiné à la main : la maison générique perce l'étage en travées régulières, or ici les deux
+	# fenêtres du haut sont presque collées.
+	var hm := 2.75
+	f.batch.box("wall", mxf, Vector3(0, hm / 2.0, -dm / 2.0), Vector3(wm, hm, dm), beige)
+	f.batch.box("trim", mxf, Vector3(0, BASE_H / 2.0, -dm / 2.0), Vector3(wm + 0.05, BASE_H, dm + 0.05), beige.darkened(0.25))
+	f.batch.box("trim", mxf, Vector3(0, hm + 0.05, -dm / 2.0), Vector3(wm + 0.14, 0.1, dm + 0.14), beige.lightened(0.12))
+	f._roof(mxf, wm, dm, hm, ardoise, beige, "hip")
+	var ctop := hm + dm * 0.5 * tan(deg_to_rad(28.0)) + 0.35
+	f.batch.box("wall", mxf, Vector3(-(wm / 2.0 - 0.45), ctop - 0.45, -dm * 0.45), Vector3(0.34, 0.9, 0.3), beige.darkened(0.05))
 	_chaines(f, mxf * Transform3D(Basis(), Vector3(0, 0, 0.012)), wm + 0.02, hm, blanc)
-	# Les corniches au-dessus des fenêtres de l'étage, une clé au milieu.
-	var bay_w := (wm - 0.2) / 3.0
-	for i in 3:
+	# En bas, deux fenêtres sur leurs travées ; à l'étage, deux fenêtres presque collées au milieu,
+	# sous une seule corniche, comme sur la photo.
+	var bay_w := (wm - 0.2) / 2.0
+	for i in 2:
 		var x := -wm / 2.0 + 0.1 + bay_w * (i + 0.5)
-		f.batch.box("trim", mxf, Vector3(x, 2.5, 0.05), Vector3(0.74, 0.06, 0.1), blanc)
-		f.batch.box("trim", mxf, Vector3(x, 2.44, 0.04), Vector3(0.62, 0.06, 0.06), blanc.darkened(0.04))
+		f._window(mxf, Vector3(x, 0.42, 0), Vector2(0.48, 0.7), blanc, beige.lightened(0.12), 0.0, true)
+	for x in [-0.29, 0.29]:
+		f._window(mxf, Vector3(x, 1.62, 0), Vector2(0.48, 0.74), blanc, beige.lightened(0.12), 0.0, true)
 		f.batch.box("trim", mxf, Vector3(x, 2.4, 0.05), Vector3(0.1, 0.12, 0.06), blanc)
+	f.batch.box("trim", mxf, Vector3(0, 2.5, 0.05), Vector3(1.4, 0.06, 0.1), blanc)
+	f.batch.box("trim", mxf, Vector3(0, 2.44, 0.04), Vector3(1.28, 0.06, 0.06), blanc.darkened(0.04))
 	# L'épi de faîtage, au sommet de la pyramide d'ardoise.
 	var top := hm + 0.1 + (dm / 2.0 + 0.16) * tan(deg_to_rad(28.0))
 	f.batch.box("trim", mxf, Vector3(0, top + 0.22, -dm / 2.0), Vector3(0.05, 0.44, 0.05), Color(0.2, 0.2, 0.22))
@@ -209,8 +218,7 @@ static func _adrien_bernard(f, b: Dictionary, hauteur: Callable) -> void:
 	f.batch.box("wall", axf, Vector3(0, ha + 0.25, -2.0), Vector3(wa, 0.5, 0.8), beige.lightened(0.04))
 	var pente := atan2(0.55, 2.5)
 	f.batch.box_tilted("roof", axf, Vector3(0, ha + 0.3, -1.15), Vector3(wa + 0.2, 0.06, 2.75), pente, ardoise)
-	f._door(axf, -nord * 0.2, Color(0.55, 0.5, 0.45), blanc, false)
-	f._window(axf, Vector3(nord * 0.45, 0.42, 0), Vector2(0.4, 0.55), blanc, blanc, 0.0)
+	f._door(axf, -nord * 0.15, Color(0.55, 0.5, 0.45), blanc, false)
 	for i in 7:
 		var vx: float = nord * (wa / 2.0 - 0.15) + f.rng.randf_range(-0.12, 0.12)
 		f.batch.box("trim", axf, Vector3(vx, 0.25 + i * 0.18, 0.025), Vector3(0.12 + f.rng.randf() * 0.14, 0.14 + f.rng.randf() * 0.1, 0.05), Color(0.26, 0.42, 0.2).lerp(Color(0.45, 0.52, 0.22), f.rng.randf()))
@@ -231,20 +239,36 @@ static func _adrien_bernard(f, b: Dictionary, hauteur: Callable) -> void:
 
 
 # --- Le 8 place Adrien-Bernard ----------------------------------------------------------------------
-## Une maison plus simple, à l'enduit crème, deux niveaux, les volets et la porte vitrée peints en bleu,
-## un toit d'ardoise à quatre pans. Elle tient entre le 10 au nord et le 6 au sud.
+## Une maison plus basse que le 10, à l'enduit crème et aux chaînes claires : en bas une fenêtre, la
+## porte vitrée bleue entre ses volets, une fenêtre ; à l'étage deux fenêtres ; les volets bleus, un
+## toit d'ardoise à quatre pans. Elle tient entre le 10 au nord et le 6 au sud.
 static func _maison_8(f, b: Dictionary, hauteur: Callable) -> void:
 	var fa := _facade(b, Vector2(-20.0, -18.6), hauteur)
 	var xf: Transform3D = fa.xf
 	var w: float = clampf(fa.w, 2.6, 3.2)
-	var creme := Color(0.9, 0.86, 0.77)
-	var bleu := Color(0.36, 0.56, 0.74)
 	var d: float = clampf(fa.d, 2.6, 3.4)
+	var creme := Color(0.88, 0.85, 0.78)
+	var clair := Color(0.95, 0.94, 0.9)
+	var bleu := Color(0.42, 0.62, 0.8)
+	var ardoise := Color(0.36, 0.39, 0.45)
+	# Plus bas que le 10 : un rez-de-chaussée et un étage bas, l'égout un mètre sous le sien.
+	var g := 1.15
+	var h := g + 1.1
 	_socle(f, xf, w, d, fa.socle, creme.darkened(0.3))
-	f.house(xf, {
-		"w": w, "d": d, "floors": 2, "wall": creme, "shutter": bleu, "roof": Color(0.36, 0.39, 0.45), "roof_kind": "hip",
-		"lit": 0.0, "chimney": true, "door": "left" if _cote_vers(fa, Vector2(-17.6, -26.0)) < 0.0 else "right", "back": false,
-	})
+	f.batch.box("wall", xf, Vector3(0, h / 2.0, -d / 2.0), Vector3(w, h, d), creme)
+	f.batch.box("trim", xf, Vector3(0, BASE_H / 2.0, -d / 2.0), Vector3(w + 0.05, BASE_H, d + 0.05), creme.darkened(0.25))
+	f.batch.box("trim", xf, Vector3(0, h + 0.05, -d / 2.0), Vector3(w + 0.14, 0.1, d + 0.14), clair)
+	_chaines(f, xf, w, h, clair)
+	# En bas : une fenêtre, la porte vitrée bleue et ses volets, une fenêtre ; à l'étage, deux fenêtres.
+	for x in [-w / 3.0, w / 3.0]:
+		f._window(xf, Vector3(x, 0.32, 0), Vector2(0.46, 0.66), bleu, clair, 0.0)
+	f._window(xf, Vector3(0, 0.12, 0), Vector2(0.44, 0.92), bleu, clair, 0.0)
+	f.batch.box("trim", xf, Vector3(0, 0.58, 0.035), Vector3(0.42, 0.9, 0.02), bleu)
+	f._glass(xf, Vector3(0, 0.68, 0.05), Vector2(0.3, 0.5), 0, false, Color.WHITE)
+	f.batch.box("trim", xf, Vector3(0, 0.06, 0.14), Vector3(0.6, 0.08, 0.24), clair.darkened(0.08))
+	for x in [-w / 4.0, w / 4.0]:
+		f._window(xf, Vector3(x, g + 0.18, 0), Vector2(0.44, 0.66), bleu, clair, 0.0)
+	f._roof(xf, w, d, h, ardoise, creme, "hip")
 
 
 # --- Le 6 place Adrien-Bernard ----------------------------------------------------------------------
@@ -717,8 +741,8 @@ static func repere_riviere(hauteur: Callable) -> Transform3D:
 static func _porte_riviere(f, _b: Dictionary, hauteur: Callable) -> void:
 	var xf := repere_riviere(hauteur)
 	# Des moellons bruns irréguliers, aux joints sombres, comme sur les photos de la rue et de la rive.
-	var pierre := Color(0.59, 0.51, 0.41)
-	var joint := Color(0.4, 0.34, 0.27)
+	var pierre := Color(0.47, 0.4, 0.32)
+	var joint := Color(0.38, 0.32, 0.25)
 	var clair := Color(0.72, 0.63, 0.5)
 	var tuile := Color(0.6, 0.38, 0.29)
 	var blanc := Color(0.9, 0.9, 0.88)
@@ -777,15 +801,14 @@ static func _porte_riviere(f, _b: Dictionary, hauteur: Callable) -> void:
 	# Côté rivière, la lanterne de fer à gauche de l'arc, du côté du pigeonnier.
 	var rv := xf * Transform3D(Basis(Vector3.UP, PI), Vector3(0, 0, -d / 2.0))
 	_applique(f, rv, Vector3(-1.0, 1.7, 0))
-	# Côté ville, le lierre qui retombe du mur, à droite de l'arc.
+	# Côté ville, la nappe de lierre qui retombe du mur, à droite de l'arc, et ses feuilles en bordure.
 	var vl := xf * Transform3D(Basis(), Vector3(0, 0, d / 2.0))
-	for i in 26:
-		var x: float = f.rng.randf_range(0.75, w / 2.0 - 0.05)
-		var y: float = f.rng.randf_range(maxf(0.3, h - 1.6 + (x - 0.75) * 0.6), h)
-		f.batch.box("trim", vl, Vector3(x, y, 0.04 + f.rng.randf() * 0.04), Vector3(0.18 + f.rng.randf() * 0.2, 0.14 + f.rng.randf() * 0.16, 0.06), lierre.lerp(Color(0.5, 0.66, 0.26), f.rng.randf()))
-	# Les rainures de la herse, dans les piédroits ; le pavé du passage.
-	for s in [-1.0, 1.0]:
-		f.batch.box("trim", xf, Vector3(s * (r - 0.01), ps / 2.0, 0.1), Vector3(0.04, ps + 0.1, 0.09), Color(0.12, 0.11, 0.1))
+	f.batch.box("trim", vl, Vector3((0.8 + w / 2.0) / 2.0, h - 0.55, 0.03), Vector3(w / 2.0 - 0.8, 1.1, 0.04), lierre)
+	f.batch.box("trim", vl, Vector3(w / 2.0 - 0.18, h - 1.3, 0.03), Vector3(0.36, 0.5, 0.04), lierre.darkened(0.05))
+	for i in 14:
+		var x: float = f.rng.randf_range(0.8, w / 2.0 - 0.05)
+		f.batch.box("trim", vl, Vector3(x, h - 1.1 - f.rng.randf() * 0.4, 0.06), Vector3(0.16 + f.rng.randf() * 0.14, 0.12 + f.rng.randf() * 0.1, 0.03), lierre.lerp(Color(0.5, 0.66, 0.26), f.rng.randf()))
+	# Le pavé du passage.
 	f.batch.box("trim", xf, Vector3(0, -0.04, 0), Vector3(pw, 0.1, d + 0.4), joint.darkened(0.15))
 	# Le pigeonnier, à droite de la porte vu de la rue : une tour carrée de moellons, un peu en retrait,
 	# son toit de tuiles en pavillon, retroussé, à deux épis ; côté rue la porte haute aux planches
@@ -796,7 +819,7 @@ static func _porte_riviere(f, _b: Dictionary, hauteur: Callable) -> void:
 	f.batch.box("wall", txf, Vector3(0, (th - bas) / 2.0, 0), Vector3(tw, th + bas, tw), pierre)
 	for q in 4:
 		var qxf := txf * Transform3D(Basis(Vector3.UP, q * PI / 2.0), Vector3.ZERO) * Transform3D(Basis(), Vector3(0, 0, tw / 2.0))
-		_moellons_bruns(f, qxf, tw, th, pierre.lightened(0.08), -bas)
+		_moellons_bruns(f, qxf, tw, th, pierre, -bas)
 		for s in [-1.0, 1.0]:
 			var y := 0.0
 			var k := 0
@@ -836,9 +859,9 @@ static func _porte_riviere(f, _b: Dictionary, hauteur: Callable) -> void:
 ## Des moellons bruns et ocre, serrés, de tailles très diverses, sur un mur aux joints sombres.
 static func _moellons_bruns(f, xf: Transform3D, w: float, h: float, mur: Color, y0: float) -> void:
 	var bas: float = maxf(BASE_H, y0) + 0.04
-	var n := int(w * (h - bas) * 16.0)
+	var n := int(w * (h - bas) * 26.0)
 	for i in n:
-		var pw: float = f.rng.randf_range(0.09, 0.24)
+		var pw: float = f.rng.randf_range(0.1, 0.26)
 		var ph: float = f.rng.randf_range(0.06, 0.14)
 		var t: float = f.rng.randf()
 		var c := Color(0.62, 0.53, 0.42).lerp(Color(0.8, 0.7, 0.54), t)

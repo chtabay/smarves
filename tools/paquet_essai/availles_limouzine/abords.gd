@@ -303,25 +303,23 @@ static func _place_adrien_bernard(c: Node3D, f, parent: Node3D) -> void:
 
 
 ## Un saule pleureur : un tronc penché, une couronne en dôme, et le rideau des branches qui retombent
-## jusqu'au sol, en lanières vertes posées en cercle.
+## jusqu'à un mètre du sol, en huit cartes courbées posées en cercle, d'un vert-gris.
 static func _saule_pleureur(f, base: Vector3) -> void:
 	var xf := Transform3D(Basis(), base)
 	var ecorce := Color(0.4, 0.34, 0.27)
+	var vert := Color(0.47, 0.59, 0.35)
 	f.batch.cylinder("trim", xf, Vector3.ZERO, 0.16, 1.8, ecorce, 8)
-	f.batch.cylinder("trim", xf, Vector3(0.05, 1.7, 0), 0.11, 1.2, ecorce.darkened(0.1), 7)
-	var verts := [Color(0.5, 0.62, 0.3), Color(0.58, 0.68, 0.34), Color(0.44, 0.56, 0.26), Color(0.64, 0.72, 0.4)]
-	for k in 4:
-		f.batch.cylinder("trim", xf, Vector3(0, 2.6 + k * 0.25, 0), 1.9 - k * 0.45, 0.35, verts[k % 4], 10)
-	var n := 44
-	for i in n:
-		var a: float = TAU * i / n + f.rng.randf_range(-0.05, 0.05)
-		var r: float = f.rng.randf_range(1.55, 2.05)
-		var bas: float = f.rng.randf_range(0.25, 0.9)
-		var haut: float = f.rng.randf_range(2.7, 3.1)
-		var t := Transform3D(Basis(Vector3.UP, -a + PI / 2.0), Vector3(cos(a) * r, (haut + bas) / 2.0, sin(a) * r))
-		f.batch.box("trim", xf * t, Vector3.ZERO, Vector3(0.36, haut - bas, 0.04), verts[i % 4])
-	for i in 18:
-		var a := TAU * i / 18.0 + 0.1
-		var r: float = f.rng.randf_range(0.6, 1.2)
-		var t := Transform3D(Basis(Vector3.UP, -a + PI / 2.0), Vector3(cos(a) * r, 2.0, sin(a) * r))
-		f.batch.box("trim", xf * t, Vector3.ZERO, Vector3(0.4, 1.6, 0.04), verts[(i + 1) % 4])
+	f.batch.cylinder("trim", xf, Vector3(0.05, 1.7, 0), 0.11, 1.0, ecorce.darkened(0.1), 7)
+	# Le dôme : des anneaux de plus en plus étroits.
+	for k in 5:
+		f.batch.cylinder("trim", xf, Vector3(0, 2.55 + k * 0.2, 0), 2.0 - k * 0.38, 0.22, vert.lerp(vert.lightened(0.15), k / 4.0), 12)
+	# Le rideau : huit cartes, chacune trois pans qui suivent le cercle, de l'égout du dôme à 0,45.
+	var R := 1.95
+	var bas := 0.45
+	var haut := 2.6
+	for c in 8:
+		var a0 := TAU * c / 8.0 + 0.1
+		for k in 3:
+			var a := a0 + (k - 1) * 0.24
+			var t := Transform3D(Basis(Vector3.UP, -a + PI / 2.0), Vector3(cos(a) * R, (haut + bas) / 2.0, sin(a) * R))
+			f.batch.box("trim", xf * t, Vector3.ZERO, Vector3(2.0 * R * sin(0.12) + 0.03, haut - bas, 0.03), vert.darkened(0.04 * float((c + k) % 3)))
