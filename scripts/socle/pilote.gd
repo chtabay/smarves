@@ -17,7 +17,8 @@ extends Node
 ## - ce qui l'entoure : vers chaque point cardinal, jusqu'où l'on peut marcher avant une paroi ;
 ## - où il est (sa position, en mètres vers l'est et vers le nord) et vers où il regarde. Le nord est
 ##   vers les z négatifs, comme partout dans le jeu (et sur les plans dessinés, le nord en haut).
-## - l'écran lui-même, en image, quand le jeu se dessine (la tâche le lance sous un écran virtuel).
+## - l'écran lui-même, en image, quand il regarde et que le jeu se dessine (la tâche le lance sous un écran
+##   virtuel) ; les autres gestes rendent la vue en mots.
 ## Ne se voit que ce qu'aucun mur ne cache : une zone de l'autre côté d'une paroi n'est pas montrée.
 ##
 ## Ce qu'il fait (geste) :
@@ -753,16 +754,23 @@ func geste(g: Dictionary) -> Dictionary:
 		_:
 			r = {"ok": false, "dit": "geste inconnu"}
 	r["vue"] = vue()
-	# Ce qu'il a sous les yeux, en image, quand le jeu se dessine (un plan, des chiffres gravés).
-	var img := await image()
-	if img != "":
-		r["image"] = img
-		# De quelle vue il s'agit : à pied (« oeil ») ou la caméra de dessus qui le suit (« dessus »).
-		r["image_vue"] = image_vue()
+	# Ce qu'il a sous les yeux, en image, quand il regarde (un plan, des chiffres gravés). Pas à chaque geste :
+	# le rendu logiciel d'une image et son envoi retardaient chaque pas d'une ou deux secondes.
+	if quoi == "regarder":
+		r.merge(await image_et_camera())
 	if not entendu.is_empty():
 		r["entendu"] = entendu.duplicate()
 		entendu.clear()
 	return r
+
+
+## {image, image_vue} : l'écran en JPEG et la caméra qui l'a fait ; vide sans rendu (--headless, les essais).
+func image_et_camera() -> Dictionary:
+	var img := await image()
+	if img == "":
+		return {}
+	# De quelle vue il s'agit : à pied (« oeil ») ou la caméra de dessus qui le suit (« dessus »).
+	return {"image": img, "image_vue": image_vue()}
 
 
 ## L'écran en JPEG (base64), large de IMAGE_LARGE pixels ; « » sans rendu (--headless, les essais).
