@@ -23,6 +23,7 @@ signal obligations
 
 ## Le marché, pour ses fonctions sans état (la valeur d'un joueur, le cran d'une compétence).
 const MERCATO := preload("res://scripts/socle/mercato/mercato.gd")
+const DIRIGER := preload("res://scripts/socle/diriger.gd")
 const PAGES := [["accueil", "Accueil"], ["effectif", "Effectif"], ["tactique", "Tactique"], ["adversaire", "Adversaire"],
 	["entrainement", "Entraînement"], ["agenda", "Agenda"], ["championnat", "Championnat"], ["recherche", "Recherche de joueurs"],
 	["offres", "Offres en cours"]]
@@ -49,6 +50,8 @@ const TRIS_EFFECTIF := {"poste": "Poste", "nom": "Nom", "age": "Âge", "note": "
 
 var club := ""
 var page := "accueil"
+## La tactique se lit sans se régler : on ne dirige pas le club (ou la saison n'est pas tirée).
+var _lecture := false
 var onglet_championnat := "classement"
 var tri_effectif := "poste"
 ## La fiche d'un joueur du cru ouverte dans l'effectif (son id), ou "".
@@ -930,7 +933,19 @@ func _tactique(col: VBoxContainer) -> void:
 	if compo.is_empty():
 		_charger_compo()
 	var decide: bool = f.peut_decider(club) and not r.is_empty()
+	# Qui ne dirige pas lit la tactique posée sans pouvoir la changer (demande de Guillaume du 31 octobre
+	# 2026) : les listes et le terrain ne bougent plus, et un bandeau dit qui la règle.
+	_lecture = not decide
 	var etroit := _etroit()
+	if _lecture and not r.is_empty():
+		var dg: Dictionary = DIRIGER.dirigeant(f, club)
+		var pose: Dictionary = f.consigne_de(r.s, r.j, club)
+		var de := "l'équipe type de l'adjoint" if str(pose.etat) == "aucune" else ("la tactique posée par %s" % str(pose.par) if str(pose.par) != "" else "la tactique posée")
+		var qui := str(dg.get("nom", "")) if not dg.is_empty() else ""
+		var bandeau := _mot("Lecture seule : voici %s pour dimanche. %s Pour diriger, il faut avoir mis le plus dans le club, chez le notaire (la règle : carnet, Mes clubs, « Comment ça marche »)." % [
+			de, ("%s dirige le club : lui seul la change." % qui) if qui != "" else "Seul celui qui dirige le club la change."], 14, DOUX, null, true)
+		bandeau.name = "Lecture"
+		col.add_child(bandeau)
 	# En haut : la formation, la mentalité, le pressing, et les deux boutons.
 	var haut := HFlowContainer.new()
 	haut.add_theme_constant_override("h_separation", 10)
@@ -951,6 +966,7 @@ func _tactique(col: VBoxContainer) -> void:
 		_equipe_type()
 		_dessiner(), 14)
 	b1.name = "EquipeType"
+	b1.disabled = _lecture
 	haut.add_child(b1)
 	var b2 := _bouton("Valider la composition", func(): valider(), 14)
 	b2.name = "Valider"
@@ -1002,7 +1018,7 @@ func _tactique(col: VBoxContainer) -> void:
 	if r.is_empty():
 		etat = "La saison qui vient n'est pas encore tirée : la composition attend le calendrier."
 	elif not f.peut_decider(club):
-		etat = "Seul celui qui dirige le club compose l'équipe. Maître Garnier cède les obligations du club à l'étude."
+		etat = ""
 	elif _message != "":
 		etat = _message
 	else:
@@ -1026,6 +1042,7 @@ func _liste(nom: String, libelles: Array, choisi: int, action: Callable) -> Opti
 		o.add_item(str(x))
 	o.select(clampi(choisi, 0, libelles.size() - 1))
 	o.item_selected.connect(func(i): action.call(i))
+	o.disabled = _lecture
 	return o
 
 
@@ -1112,7 +1129,8 @@ func _banc() -> Control:
 ## Le poste choisi : qui l'occupe, et sa consigne individuelle.
 func _panneau_case(col: VBoxContainer) -> void:
 	if case_choisie < 0 or case_choisie >= 100:
-		var aide := _mot("Choisissez un poste sur le terrain, puis le joueur qui le prend dans la liste (ou l'inverse). Le chiffre est la note du joueur à ce poste.", 14, DOUX, null, true)
+		var aide := _mot("Touchez un poste du terrain pour voir son joueur. Le chiffre est la note du joueur à ce poste." if _lecture \
+			else "Choisissez un poste sur le terrain, puis le joueur qui le prend dans la liste (ou l'inverse). Le chiffre est la note du joueur à ce poste.", 14, DOUX, null, true)
 		aide.custom_minimum_size.x = _largeur_liste
 		col.add_child(aide)
 		return
@@ -1184,6 +1202,12 @@ func _liste_joueurs(liste: VBoxContainer) -> void:
 
 ## Un clic sur un poste : avec un joueur choisi, il y va ; sinon le poste est choisi (ou ne l'est plus).
 func _cliquer_case(i: int) -> void:
+	if _lecture:
+		# En lecture, un poste se regarde (son joueur, sa consigne) sans changer de main.
+		case_choisie = -1 if case_choisie == i or i >= 100 else i
+		joueur_choisi = ""
+		_dessiner()
+		return
 	if joueur_choisi != "":
 		placer(joueur_choisi, i)
 		joueur_choisi = ""
@@ -1194,6 +1218,8 @@ func _cliquer_case(i: int) -> void:
 
 
 func _cliquer_joueur(id: String) -> void:
+	if _lecture:
+		return
 	if case_choisie >= 0:
 		placer(id, case_choisie)
 		joueur_choisi = ""

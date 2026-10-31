@@ -102,6 +102,23 @@ func _lancer() -> void:
 	b.call("_dessiner")
 	await process_frame
 	check((b.get("compo") as Dictionary).mentalite == compo.mentalite, "la tactique relue garde la consigne posée")
+	check(b.find_child("Lecture", true, false) == null and not (b.find_child("Mentalite", true, false) as OptionButton).disabled, "qui dirige règle la tactique, sans bandeau")
+	# Un autre a mis davantage : la tactique se lit, ne se change plus.
+	foot.forcer_porteurs("vous:1,Lucien:5", club)
+	b.set("compo", {})
+	b.call("aller", "tactique")
+	await process_frame
+	var lecture: Label = b.find_child("Lecture", true, false)
+	check(lecture != null and lecture.text.begins_with("Lecture seule") and lecture.text.contains("Lucien dirige le club"), "sans la direction, un bandeau : lecture seule, et qui dirige")
+	check((b.find_child("Mentalite", true, false) as OptionButton).disabled and (b.find_child("Valider", true, false) as Button).disabled and (b.find_child("EquipeType", true, false) as Button).disabled,
+		"les listes, l'équipe type et la validation ne répondent plus")
+	var avant: Array = ((b.get("compo") as Dictionary).onze as Array).duplicate()
+	b.call("_cliquer_case", 0)
+	b.call("_cliquer_joueur", str(avant[1]))
+	check((b.get("compo") as Dictionary).onze == avant and (b.get("compo") as Dictionary).mentalite == compo.mentalite, "le terrain se regarde sans bouger, la consigne posée reste lisible")
+	var tac: Dictionary = load("res://scripts/socle/aujourdhui.gd").tactique(foot, club)
+	check(not bool(tac.decide) and tac.qui == "Lucien" and tac.etat != "aucune" and (tac.lignes as Array).size() == 4, "le résumé du carnet : la tactique posée, Lucien la règle, quatre lignes")
+	foot.forcer_porteurs("vous:2", club)
 
 	b.set("onglet_championnat", "buteurs")
 	b.call("aller", "championnat")

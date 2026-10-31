@@ -363,6 +363,10 @@ func verifier() -> void:
 			bouge = _compo(f, club) or bouge
 			bouge = _dilemme(f, club) or bouge
 			bouge = _suite(f, club) or bouge
+		# Les clubs suivis en supporter, sans part : les résultats seulement.
+		for club in favoris("football"):
+			if f.clubs.has(club) and not _clubs_suivis(f).has(club):
+				bouge = _matchs(f, club) or bouge
 		bouge = _porteurs(f) or bouge
 		bouge = _periode(f) or bouge
 	solder()
@@ -381,7 +385,7 @@ func _basket() -> bool:
 	var s: int = b.saison
 	var jj: int = b.journee_jouee()
 	var bouge := false
-	for club in aujourdhui.clubs_basket(b):
+	for club in aujourdhui.suivis_basket(b, self):
 		var cle := "%d/%d" % [s, jj]
 		if str(vus.get(club, "")) == cle:
 			continue
@@ -405,6 +409,37 @@ func _basket() -> bool:
 	if bouge:
 		suivi["basket"] = vus
 	return bouge
+
+
+# ---------------------------------------------------------------- les clubs suivis en supporter
+
+## Les clubs qu'on suit sans y tenir de part (demande de Guillaume du 31 octobre 2026 : « s'informer en
+## tant que fan »), par sport (« football », « basket ») : leur page reste dans Mes clubs, leurs résultats
+## arrivent au courrier. Gardés ici, avec ce que le courrier a déjà vu : suivi.favoris = {sport: [clubs]}.
+func favoris(sport: String) -> Array:
+	var f: Dictionary = suivi.get("favoris", {}) if suivi.get("favoris", {}) is Dictionary else {}
+	var l = f.get(sport, [])
+	return (l as Array).map(func(c): return str(c)) if l is Array else []
+
+
+func suit(sport: String, club: String) -> bool:
+	return favoris(sport).has(club)
+
+
+## Suit un club en supporter (oui), ou cesse de le suivre.
+func suivre(sport: String, club: String, oui := true) -> void:
+	if club == "" or suit(sport, club) == oui:
+		return
+	var f: Dictionary = suivi.get("favoris", {}) if suivi.get("favoris", {}) is Dictionary else {}
+	var l := favoris(sport)
+	if oui:
+		l.append(club)
+	else:
+		l.erase(club)
+	f[sport] = l
+	suivi["favoris"] = f
+	sauver()
+	change.emit()
 
 
 ## Les clubs dont on tient au moins une part.

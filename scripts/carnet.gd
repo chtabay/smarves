@@ -572,8 +572,8 @@ func _fill_bandeau() -> void:
 ## nom_adv}, ou {}.
 func prochain_match() -> Dictionary:
 	var out := {}
-	var cartes: Array = AUJOURDHUI.clubs(Football, Avis).map(func(c): return AUJOURDHUI.carte(Football, c))
-	cartes += AUJOURDHUI.clubs_basket(Basket).map(func(c): return AUJOURDHUI.carte_basket(Basket, c))
+	var cartes: Array = AUJOURDHUI.suivis(Football, Avis).map(func(c): return AUJOURDHUI.carte(Football, c))
+	cartes += AUJOURDHUI.suivis_basket(Basket, Avis).map(func(c): return AUJOURDHUI.carte_basket(Basket, c))
 	for c in cartes:
 		if c.is_empty() or (c.prochain as Dictionary).is_empty():
 			continue
@@ -945,10 +945,11 @@ func _fill_boite() -> void:
 ## Le résumé du jour, à droite de la boîte : les clubs suivis, puis les prochains rendez-vous.
 func _fill_resume(t: int) -> void:
 	_title(_right, "Mes clubs")
-	var clubs: Array = AUJOURDHUI.clubs(Football, Avis)
-	var paniers: Array = AUJOURDHUI.clubs_basket(Basket)
+	var clubs: Array = AUJOURDHUI.suivis(Football, Avis)
+	var paniers: Array = AUJOURDHUI.suivis_basket(Basket, Avis)
 	if clubs.is_empty() and paniers.is_empty():
-		_aide(_text(_right, "Aucun club suivi.", 15, PENCIL), "Une obligation de club se prend au registre du stade (football) ou au tableau des parts de la salle (basket), toute l'année ; elle rapporte un dividende chaque journée, et la plus grosse mise dirige.")
+		_aide(_text(_right, "Aucun club suivi.", 15, PENCIL), "Dans Mes clubs, « Tous les clubs » : un club se suit en supporter, sans rien payer. Une part se prend chez le notaire, toute l'année ; elle rapporte un dividende chaque journée, et la plus grosse mise dirige.")
+		_link(_right, "Tous les clubs", func(): ouvrir_club("tous"), true, "classement").name = "Vers_tous"
 	for club in clubs:
 		var c: Dictionary = AUJOURDHUI.carte(Football, club)
 		if not c.is_empty():
@@ -1089,9 +1090,9 @@ func _une_carte(col: VBoxContainer, c: Dictionary, t: int) -> void:
 	nom.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	nom.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	# Qui dirige : un ✓ si c'est vous, sinon le mot de la direction dans le (i).
-	var qui := _text(tete, "✓ vous dirigez" if c.dirige else "", 13, VERT, true)
+	var qui := _text(tete, "✓ vous dirigez" if _dirige_vraiment(c) else "", 13, VERT, true)
 	qui.autowrap_mode = TextServer.AUTOWRAP_OFF
-	if not c.dirige:
+	if not _dirige_vraiment(c):
 		qui.queue_free()
 		tete.add_child(AIDE.creer(str(c.direction)))
 	# Une rangée de chiffres : la division, le rang, les points, la forme.
@@ -1387,10 +1388,50 @@ func _fill_succes(page: VBoxContainer) -> void:
 
 ## Les pages de « Mes clubs » : [[clé, nom]], un club suivi par page, puis le calendrier.
 func pages_clubs() -> Array:
-	var out: Array = AUJOURDHUI.clubs(Football, Avis).map(func(c): return [c, _nom_club(c)])
-	out += AUJOURDHUI.clubs_basket(Basket).map(func(c): return ["basket:" + c, "%s (basket)" % Basket.fiche(c).nom])
+	var out: Array = AUJOURDHUI.suivis(Football, Avis).map(func(c): return [c, _nom_club(c)])
+	out += AUJOURDHUI.suivis_basket(Basket, Avis).map(func(c): return ["basket:" + c, "%s (basket)" % Basket.fiche(c).nom])
+	# Un club qu'on regarde sans le suivre (ouvert depuis « Tous les clubs ») : sa page, le temps de la lire.
+	if _club_vu not in ["", "tous", "comment", "calendrier"] and not out.any(func(p): return p[0] == _club_vu):
+		if _club_vu.begins_with("basket:") and Basket.clubs.has(_club_vu.trim_prefix("basket:")):
+			out.append([_club_vu, "%s (basket)" % Basket.fiche(_club_vu.trim_prefix("basket:")).nom])
+		elif Football.clubs.has(_club_vu):
+			out.append([_club_vu, _nom_club(_club_vu)])
+	out.append(["tous", "Tous les clubs"])
+	out.append(["comment", "Comment ça marche"])
 	out.append(["calendrier", "Le calendrier"])
 	return out
+
+
+## On dirige vraiment ce club : on y tient des parts et l'on en tient la direction (un club où personne n'a
+## de part est ouvert à tous : on y décide, sans le diriger).
+static func _dirige_vraiment(c: Dictionary) -> bool:
+	return bool(c.get("dirige", false)) and not bool(c.get("ouvert", false))
+
+
+## Sous le bandeau d'un club : qui le dirige, en clair, et ce qu'on y est (dirigeant, porteur, supporter).
+static func _sous_titre_role(c: Dictionary, fan: bool) -> String:
+	if _dirige_vraiment(c):
+		return "vous dirigez"
+	if int(c.get("parts", 0)) > 0:
+		return "vous y tenez %d part%s" % [int(c.parts), "s" if int(c.parts) > 1 else ""]
+	var role := "vous le suivez" if fan else "vous ne le suivez pas"
+	return role + ("  ·  personne ne le dirige" if bool(c.get("ouvert", false)) else "")
+
+
+## Le bouton « Suivre ce club » (en supporter, sans part) ou « Ne plus suivre » ; rien pour un club où
+## l'on tient une part : on le suit d'office.
+func _bouton_suivre(parent: Control, sport: String, club: String, parts: int) -> void:
+	if parts > 0:
+		return
+	var fan: bool = Avis.suit(sport, club)
+	var b := _link(parent, "Ne plus suivre" if fan else "Suivre ce club", func():
+		Avis.suivre(sport, club, not fan)
+		_club_vu = ("basket:" if sport == "basket" else "") + club
+		_refresh(), true, "aller" if fan else "choix")
+	b.name = "Suivre"
+	b.tooltip_text = "Il quitte Mes clubs." if fan else "En supporter, sans rien payer : sa page reste dans Mes clubs, ses résultats arrivent dans vos messages."
+	if not fan:
+		_principal(b)
 
 
 func _fill_clubs() -> void:
@@ -1400,6 +1441,12 @@ func _fill_clubs() -> void:
 	# Les pages (un club, le calendrier) sont sous « Mes clubs », dans la barre.
 	if _club_vu == "calendrier":
 		_fill_calendrier()
+		return
+	if _club_vu == "tous":
+		_fill_tous_les_clubs()
+		return
+	if _club_vu == "comment":
+		_fill_comment()
 		return
 	if _club_vu.begins_with("basket:"):
 		_fill_un_club_basket(_club_vu.trim_prefix("basket:"))
@@ -1445,7 +1492,8 @@ func _fill_un_club(club: String) -> void:
 		_text(_left, "Ce club n'est plus dans la pyramide.", 16, PENCIL)
 		return
 	var t: int = Agenda.maintenant()
-	_tete_club("football", club, str(c.nom), "%s, saison %d%s" % [c.division, int(Football.saison), "  ·  vous dirigez" if c.dirige else ""])
+	var fan: bool = Avis.suit("football", club)
+	_tete_club("football", club, str(c.nom), "%s, saison %d  ·  %s" % [c.division, int(Football.saison), _sous_titre_role(c, fan)])
 	var place: Array = Football.place_de(club)
 	var cl: Array = Football.classement(Football.saison, place[0], place[1])
 	var sauve: int = cl.size() - int(Football.DESCENDENT)
@@ -1460,6 +1508,8 @@ func _fill_un_club(club: String) -> void:
 		{"picto": "lieu", "mot": "Stade", "lien": {"vers": "stade", "club": club}, "nom": "Stade", "aide": "Aller au stade du club."},
 		{"picto": "registre", "mot": "Le notaire", "lien": {"vers": "notaire", "sport": "football", "club": club}, "nom": "Notaire", "aide": "Acheter ou rendre des parts, chez le notaire, par téléphone."},
 	])
+	_bouton_suivre(_left, "football", club, int(c.parts))
+	_tactique_club(club)
 	_aide(_rubrique(_left, "Classement"), "Le premier monte, les %d derniers descendent." % int(Football.DESCENDENT))
 	var g := _grille(_left, "Classement", ["", "Club", "J", "Diff.", "Pts"])
 	for i in cl.size():
@@ -1500,6 +1550,109 @@ func _fill_un_club(club: String) -> void:
 	_parts(_right, miennes.size(), Football.investi(club), Football.actionnaires(club), str(c.direction))
 
 
+## La tactique du prochain match, sur la page du club, lisible par tous : la formation, la mentalité, le
+## pressing, le onze ligne par ligne, qui l'a posée ; « Régler la tactique » pour qui dirige, « Voir le
+## terrain » pour les autres (le bureau s'ouvre alors en lecture).
+func _tactique_club(club: String) -> void:
+	var x: Dictionary = AUJOURDHUI.tactique(Football, club)
+	_aide(_rubrique(_left, "Tactique du prochain match"), "Celui qui dirige le club la règle avant le coup d'envoi du dimanche, 15 h : la formation, la mentalité, le pressing et le onze. Sans consigne, l'adjoint aligne l'équipe type en 4-4-2, mentalité équilibrée. Tout le monde peut la lire ; seul le dirigeant la change.")
+	var v := _cadre(_left, ACCENT if bool(x.decide) else PENCIL, "Tactique_club")
+	if not bool(x.match):
+		_text(v, "Entre deux saisons : la tactique attend le calendrier.", 14, PENCIL)
+	else:
+		var pressing := "pressing normal" if str(x.pressing) == "Normal" else str(x.pressing).to_lower()
+		var resume := _text(v, "%s  ·  mentalité %s  ·  %s" % [x.formation, str(x.mentalite).to_lower(), pressing], 16, INK, true)
+		resume.name = "Resume_tactique"
+		var noms := {"G": "Gardien", "D": "Défense", "M": "Milieu", "A": "Attaque"}
+		for l in x.lignes:
+			_row(v, str(noms.get(str(l[0]), str(l[0]))), ", ".join(l[1]), INK_LIGHT)
+		var etat := ""
+		match str(x.etat):
+			"aucune":
+				etat = "Rien de posé : l'adjoint aligne l'équipe type."
+			"locale":
+				etat = "Posée ici, partira au championnat dès la connexion."
+			_:
+				etat = "Posée par %s." % (str(x.par) if str(x.par) != "" else "le dirigeant")
+		var qui := ""
+		if str(x.qui) == "":
+			qui = "Personne ne dirige le club : chacun peut la régler."
+		elif str(x.qui) == "vous":
+			qui = "C'est vous qui la réglez, jusqu'au coup d'envoi."
+		else:
+			qui = "%s dirige le club et la règle." % str(x.qui)
+		var l := _text(v, "%s %s" % [etat, qui], 13, PENCIL)
+		l.name = "Etat_tactique"
+	_gap(v, 2)
+	var b := _link(v, "Régler la tactique" if bool(x.decide) else "Voir le terrain", func(): gerer("football", club, "tactique"), true, "tactique")
+	b.name = "Regler_tactique" if bool(x.decide) else "Voir_tactique"
+	if bool(x.decide):
+		_principal(b)
+	_gap(_left, 4)
+
+
+## « Tous les clubs » : chaque championnat, division par division, chaque club en une ligne (son rang, ses
+## points, ce qu'on y est) ; un clic ouvre sa page, où l'on peut le suivre en supporter.
+func _fill_tous_les_clubs() -> void:
+	for x in [[_left, Football, "football", "Le football"], [_right, Basket, "basket", "Le basket"]]:
+		var page: VBoxContainer = x[0]
+		var m: Node = x[1]
+		var sport: String = x[2]
+		_title(page, x[3])
+		if m.niveaux.is_empty():
+			_text(page, "Le championnat n'a pas encore commencé.", 15, PENCIL)
+			continue
+		for n in m.niveaux.size():
+			for g in (m.niveaux[n] as Array).size():
+				var cl: Array = m.classement(m.saison, n, g)
+				var lignes: Array = cl.filter(func(l): return m.clubs.has(str(l.club)))
+				if lignes.is_empty():
+					continue
+				_rubrique(page, m.nom_division(n, g))
+				for i in cl.size():
+					var club := str(cl[i].club)
+					if not m.clubs.has(club):
+						continue
+					var nom: String = _nom_club(club) if sport == "football" else str(Basket.fiche(club).nom)
+					var role := ""
+					if not (m.mes_obligations(club) as Array).is_empty():
+						role = "  ·  vos parts"
+					elif Avis.suit(sport, club):
+						role = "  ·  suivi"
+					var b := _link(page, "%d. %s  (%d pts)%s" % [i + 1, nom, int(cl[i].pts), role], func(): ouvrir_club(("basket:" if sport == "basket" else "") + club), true, "")
+					b.name = "Club_" + sport + "_" + club
+		_gap(page, 4)
+		_text(page, "Un clic ouvre la page du club : sa tactique, ses journées, son effectif, et « Suivre ce club ».", 13, PENCIL)
+
+
+## « Comment ça marche » : les clubs de sport en une page, pour le supporter, le porteur de parts et le
+## dirigeant. Les chiffres viennent des moteurs, pour rester justes.
+func _fill_comment() -> void:
+	var prix: Array = Football.OBLIGATIONS
+	_title(_left, "Comment marchent les clubs")
+	var sections := [
+		["Suivre un club", "Tout le monde peut suivre un club, sans rien payer : « Tous les clubs », puis « Suivre ce club ». Sa page reste dans Mes clubs (classement, journées, effectif, tactique du prochain match) et ses résultats arrivent dans vos messages."],
+		["Les parts", "Chaque club a neuf parts, de %s à %s crédits, chacune en un seul exemplaire. Elles s'achètent et se rendent toute l'année chez le notaire (bouton « Le notaire » de la page du club). Chaque journée jouée, une part verse un dividende : la n° 1 rapporte %d crédits, la n° 9 en rapporte %d, un peu plus en haut du classement, un peu moins en bas. Rendue, l'étude la reprend à %d %% de son prix." % [Game.fmt(int(prix[0])), Game.fmt(int(prix[-1])), int(Football.dividende_de(1)), int(Football.dividende_de(prix.size())), int(round(Football.RACHAT * 100))]],
+		["Qui dirige", "Celui qui a mis le plus dans un club le dirige, un club à la fois par sport. Prendre la main sur un club qu'un autre dirige prend effet à la relève, le lundi à midi ; une direction libre se prend tout de suite. On change de club une fois pendant la saison, une fois à l'intersaison. Un club où personne n'a de part est ouvert à tous."],
+	]
+	for x in sections:
+		_rubrique(_left, x[0])
+		_text(_left, x[1], 15, INK_LIGHT)
+		_gap(_left, 4)
+	_title(_right, "Ce que fait le dirigeant")
+	var droite := [
+		["La tactique (football)", "Avant le coup d'envoi du dimanche, 15 h : formation, mentalité, pressing, le onze et le banc, au bureau du club (« Régler la tactique » sur sa page). Sans consigne, l'adjoint aligne l'équipe type en 4-4-2, mentalité équilibrée. Tout le monde la lit sur la page du club."],
+		["L'entraînement et le mercato", "Le programme de la semaine, puis les recrues pendant le mercato, entre deux saisons. La décision de la semaine arrive dans les messages après chaque match."],
+		["Le basket", "Le bureau du président : la consigne du match (titulaires ou rotation) et le marché des joueurs libres, aux enchères jusqu'au jeudi 22 h."],
+		["Où tout se trouve", "Le carnet (C) : Messages pour ce qui attend, Mes clubs pour chaque club suivi. Le bureau s'ouvre par-dessus le carnet, où que l'on soit ; le stade et la salle sont au village."],
+	]
+	for x in droite:
+		_rubrique(_right, x[0])
+		_text(_right, x[1], 15, INK_LIGHT)
+		_gap(_right, 4)
+	_link(_right, "Tous les clubs", func(): ouvrir_club("tous"), true, "classement").name = "Vers_tous"
+
+
 ## La page d'un club de basket suivi : la même ordonnance ; le bureau du président s'ouvre ici même.
 func _fill_un_club_basket(club: String) -> void:
 	var c: Dictionary = AUJOURDHUI.carte_basket(Basket, club)
@@ -1508,7 +1661,7 @@ func _fill_un_club_basket(club: String) -> void:
 		return
 	var t: int = Agenda.maintenant()
 	var s: int = Basket.saison
-	_tete_club("basket", club, str(c.nom), "Basket, %s, saison %d%s" % [c.division, s, "  ·  vous dirigez" if c.dirige else ""])
+	_tete_club("basket", club, str(c.nom), "Basket, %s, saison %d  ·  %s" % [c.division, s, _sous_titre_role(c, Avis.suit("basket", club))])
 	var ici: Array = Basket.place_de(club)
 	var cl: Array = Basket.classement(s, ici[0], ici[1])
 	var sauve: int = cl.size() - int(Basket.DESCENDENT)
@@ -1524,6 +1677,7 @@ func _fill_un_club_basket(club: String) -> void:
 		{"picto": "lieu", "mot": "Salle", "lien": {"vers": "salle", "club": club}, "nom": "Salle", "aide": "Aller à la salle du club."},
 		{"picto": "registre", "mot": "Le notaire", "lien": {"vers": "notaire", "sport": "basket", "club": club}, "nom": "Notaire", "aide": "Acheter ou rendre des parts, chez le notaire, par téléphone."},
 	])
+	_bouton_suivre(_left, "basket", club, int(c.parts))
 	_aide(_rubrique(_left, "Classement"), "Deux points la victoire, un la défaite. Le premier monte, les %d derniers descendent." % int(Basket.DESCENDENT))
 	var g := _grille(_left, "Classement", ["", "Club", "V-D", "Diff.", "Pts"])
 	for i in cl.size():
