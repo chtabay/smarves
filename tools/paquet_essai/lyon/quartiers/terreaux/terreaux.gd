@@ -40,6 +40,10 @@ const FRONTS_TERME := [136, 137, 148, 238]
 ## Dans la rue d'Algérie, du bas de la rue Terme au débouché : les côtés qui regardent la rue (verdict 4, les pans
 ## aveugles des vues 1 et 1b), en maisons de rue comme ceux de la rue Terme.
 const FRONTS_ALGERIE := [64, 85, 179, 181]
+## Les fronts qu'aucun repère ni aucune rue praticable ne voit de près (à plus de 20 m de la place et des rues
+## Terme et d'Algérie) : ils prennent une fois pour toutes le corps simple du façadier, quelques centaines de
+## triangles au lieu de 20 000 et plus, sans bascule en marchant. Le 38 est à 22 m de la place, 32 m de la rue.
+const FRONTS_SIMPLES := [38]
 
 const ENDUITS := ["e2c28a", "d8a888", "ebdab8", "e6c08e", "dcb48c", "efdcb6", "d9b27e"]
 const ENDUITS_RUE := ["dccaa6", "d6c09a", "e2d0ac", "cfb894", "e0caa0"]
@@ -517,6 +521,12 @@ static func _front(q: Dictionary, groupe: Node3D, i: int, a: Vector2, e: Vector2
 	f.rotation.y = atan2(n.x, n.y)
 	f.name = "Front%d_%d" % [i, rang] if terme else "Front%d" % i
 	groupe.add_child(f)
+	if i in FRONTS_SIMPLES:
+		var corps := f.find_child("Corps", true, false)
+		var simple: GeometryInstance3D = f.find_child("Lointain", true, false)
+		if corps != null and simple != null:
+			corps.free()
+			simple.visibility_range_begin = 0.0
 	if type == "cafe" and not terme:
 		# la terrasse du café, sur la dalle de la place, chaque table sous son parasol aux couleurs du store
 		var toile := mat(Color(opt["toile"][0]), 0.9)
