@@ -37,6 +37,9 @@ const FRONTS_PLACE := [22, 38, 64, 150, 151, 152, 154, 235, 236, 85, 178, 179]
 ## Dans la rue Terme : le café « Au Tiercé » (148), la traboule (137), et les fronts 136 et 238, découpés en
 ## façades de quatre à six travées (le corps lointain du façadier, "lod": "loin", ne coûte plus au loin).
 const FRONTS_TERME := [136, 137, 148, 238]
+## Dans la rue d'Algérie, du bas de la rue Terme au débouché : les côtés qui regardent la rue (verdict 4, les pans
+## aveugles des vues 1 et 1b), en maisons de rue comme ceux de la rue Terme.
+const FRONTS_ALGERIE := [64, 85, 179, 181]
 
 const ENDUITS := ["e2c28a", "d8a888", "ebdab8", "e6c08e", "dcb48c", "efdcb6", "d9b27e"]
 const ENDUITS_RUE := ["dccaa6", "d6c09a", "e2d0ac", "cfb894", "e0caa0"]
@@ -296,7 +299,7 @@ static func _volumes(q: Dictionary) -> void:
 		for p in poly:
 			bas = minf(bas, hauteur(q, p.x, p.y))
 		var h: float = b.h * U
-		if i in FRONTS_PLACE or i in FRONTS_TERME:
+		if i in FRONTS_PLACE or i in FRONTS_TERME or i in FRONTS_ALGERIE:
 			var n := clampi(roundi((h - 4.2 - 2.0) / 3.3), 4, 6)
 			h = 4.2 + 3.3 * n
 			q.corniches[i] = n
@@ -442,6 +445,36 @@ static func _fronts(q: Dictionary) -> void:
 			_front(q, groupe, i, a, e, n, l, terme, 0 if terme else cafes)
 			if not terme:
 				cafes += 1
+	# les côtés de la rue d'Algérie : ceux qui la regardent, à moins de 10 m de son axe
+	for i in FRONTS_ALGERIE:
+		var b: Dictionary = bats[i]
+		var poly := PackedVector2Array()
+		for p in b.p:
+			poly.append(Vector2(p[0], p[1]) * U)
+		var c := _centre(b)
+		for k in poly.size():
+			var a := poly[k]
+			var e := poly[(k + 1) % poly.size()]
+			var l := a.distance_to(e)
+			if l < 4.0:
+				continue
+			var m := (a + e) * 0.5
+			var t := (e - a) / l
+			var n := Vector2(-t.y, t.x)
+			if n.dot(m - c) < 0.0:
+				n = -n
+			var proche := m
+			var dmin := INF
+			for j in range(4, RUE_TERME.size() - 1):
+				var pp := Geometry2D.get_closest_point_to_segment(m, RUE_TERME[j], RUE_TERME[j + 1])
+				if m.distance_to(pp) < dmin:
+					dmin = m.distance_to(pp)
+					proche = pp
+			if dmin > 10.0 or n.dot((proche - m).normalized()) < 0.75:
+				continue
+			var parts := int(ceil(l / 12.0))
+			for j in parts:
+				_front(q, groupe, i, a.lerp(e, float(j) / parts), a.lerp(e, float(j + 1) / parts), n, l / parts, true, j + 3)
 
 
 static func _front(q: Dictionary, groupe: Node3D, i: int, a: Vector2, e: Vector2, n: Vector2, l: float, terme: bool, rang: int) -> void:
@@ -571,9 +604,9 @@ static func _place(q: Dictionary) -> void:
 	var grilles := MultiMesh.new()
 	grilles.transform_format = MultiMesh.TRANSFORM_3D
 	var g := CylinderMesh.new()
-	g.top_radius = 0.32
-	g.bottom_radius = 0.32
-	g.height = 0.02
+	g.top_radius = 0.18
+	g.bottom_radius = 0.18
+	g.height = 0.004
 	g.radial_segments = 12
 	grilles.mesh = g
 	var poses: Array = []
@@ -591,7 +624,7 @@ static func _place(q: Dictionary) -> void:
 		var p: Vector2 = poses[k]
 		var hj: float = 1.0 + q.rng.randf() * 1.0
 		jets.set_instance_transform(k, Transform3D(Basis().scaled(Vector3(1, hj, 1)), Vector3(p.x, sol_place(q, p.x, p.y) + hj * 0.5, p.y)))
-		grilles.set_instance_transform(k, Transform3D(Basis(), Vector3(p.x, sol_place(q, p.x, p.y) + 0.01, p.y)))
+		grilles.set_instance_transform(k, Transform3D(Basis(), Vector3(p.x, sol_place(q, p.x, p.y) + 0.003, p.y)))
 	var mj := MultiMeshInstance3D.new()
 	mj.name = "Jets"
 	mj.multimesh = jets
@@ -652,12 +685,12 @@ static func _place(q: Dictionary) -> void:
 	var mp := MultiMeshInstance3D.new()
 	mp.name = "Piliers"
 	mp.multimesh = piliers
-	mp.material_override = mat(Color("#8f8b82"), 0.6)
+	mp.material_override = mat(PIERRE_PALAIS, 0.8)
 	place.add_child(mp)
 	var mb := MultiMeshInstance3D.new()
 	mb.name = "BasesEtChapiteaux"
 	mb.multimesh = bouts
-	mb.material_override = mat(Color("#77746e"), 0.6)
+	mb.material_override = mat(PIERRE_PALAIS.darkened(0.12), 0.8)
 	place.add_child(mb)
 	var cp := StaticBody3D.new()
 	for k in 14:
@@ -719,8 +752,8 @@ static func _blo(t: Vector3) -> BoxMesh:
 
 
 ## Le sol du sas : un seul pavé, celui des rues de la ville, de la limite du quartier au bord de la place,
-## d'une façade à l'autre, posé sur la chaussée et les trottoirs de la commune. Il monte de 3 à 20 cm sur ses
-## huit premiers mètres au milieu de la rue, pour que le pas ne bute pas sur la couture.
+## d'une façade à l'autre, posé sur la chaussée et les trottoirs de la commune. Il monte de 10 à 28 cm sur ses
+## six premiers mètres au milieu de la rue, pour que le pas ne bute pas sur la couture.
 static func _rues(q: Dictionary) -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -741,12 +774,12 @@ static func _rues(q: Dictionary) -> void:
 		var l := 7.0 if pts[i].y < 184.0 else 4.5
 		if i > 0:
 			depart += pts[i].distance_to(pts[i - 1])
-		# la chaussée de la commune monte de 3 à 22 cm ; ses trottoirs et leurs bordures restent dessous
-		var dy := lerpf(0.03, 0.22, clampf(depart / 8.0, 0.0, 1.0))
+		# la chaussée de la commune monte de 10 à 28 cm ; ses trottoirs, leurs bordures et leurs dalles restent dessous
+		var dy := lerpf(0.1, 0.28, clampf(depart / 6.0, 0.0, 1.0))
 		var cote := []
 		for e in [-l, -3.2, 3.2, l]:
 			var p: Vector2 = pts[i] + n * e
-			cote.append(Vector3(p.x, hauteur(q, p.x, p.y) + (dy if absf(e) < 3.5 else 0.22), p.y))
+			cote.append(Vector3(p.x, hauteur(q, p.x, p.y) + (dy if absf(e) < 3.5 else 0.28), p.y))
 		bords.append(cote)
 	var coll := PackedVector3Array()
 	for i in bords.size() - 1:
@@ -1114,8 +1147,8 @@ static func _cloitre(q: Dictionary) -> void:
 		var r: Rect2 = carre
 		var cc := r.get_center()
 		_forme(c, _blo(Vector3(r.size.x, 0.08, r.size.y)), Vector3(cc.x, 0.04, cc.y), pelouse)
-		for bord in [[Vector3(r.size.x, 0.45, 0.45), Vector3(cc.x, 0.22, r.position.y)], [Vector3(r.size.x, 0.45, 0.45), Vector3(cc.x, 0.22, r.end.y)],
-				[Vector3(0.45, 0.45, r.size.y), Vector3(r.position.x, 0.22, cc.y)], [Vector3(0.45, 0.45, r.size.y), Vector3(r.end.x, 0.22, cc.y)]]:
+		for bord in [[Vector3(r.size.x, 0.38, 0.35), Vector3(cc.x, 0.19, r.position.y)], [Vector3(r.size.x, 0.38, 0.35), Vector3(cc.x, 0.19, r.end.y)],
+				[Vector3(0.35, 0.38, r.size.y), Vector3(r.position.x, 0.19, cc.y)], [Vector3(0.35, 0.38, r.size.y), Vector3(r.end.x, 0.19, cc.y)]]:
 			_forme(c, _blo(bord[0]), bord[1], buis)
 	# le bassin rond : la margelle à hauteur de banc, la vasque haute et son jet, qu'on voit par-dessus les massifs
 	_forme(c, _cyl(2.9, 3.0, 0.7), ctr + Vector3(0, 0.35, 0), mat(VILLEBOIS))
@@ -1194,10 +1227,13 @@ static func _cloitre(q: Dictionary) -> void:
 		var a := TAU * (k + 0.5) / 4.0
 		var sp := ctr + Vector3(cos(a) * 9.0, 0, sin(a) * 9.0)
 		_forme(c, _blo(Vector3(1.2, 1.6, 1.2)), sp + Vector3(0, 0.8, 0), mat(VILLEBOIS))
-		_forme(c, _cap(0.38, 1.9), sp + Vector3(0, 2.6, 0), marbre)
-		_forme(c, _bou(0.24), sp + Vector3(0, 3.75, 0), marbre)
+		# une figure drapée de 1,8 m : le corps, les épaules, le cou et la tête
+		_forme(c, _cyl(0.24, 0.36, 1.35, 12), sp + Vector3(0, 2.28, 0), marbre)
+		_forme(c, _blo(Vector3(0.62, 0.22, 0.3)), sp + Vector3(0, 3.02, 0), marbre)
+		_forme(c, _cyl(0.07, 0.08, 0.14, 8), sp + Vector3(0, 3.19, 0), marbre)
+		_forme(c, _bou(0.13), sp + Vector3(0, 3.36, 0), marbre)
 	# les bancs, tournés vers le bassin, et les massifs
-	var bancs := [[Vector2(-20, 83.0), PI * 0.5], [Vector2(24, 79.0), -PI * 0.5], [Vector2(3, 70), 0.0], [Vector2(3, 92), PI], [Vector2(-18, 72), PI * 0.25], [Vector2(24, 90), -PI * 0.75]]
+	var bancs := [[Vector2(-20, 83.0), PI * 0.5], [Vector2(24, 79.0), -PI * 0.5], [Vector2(6.6, 70), -PI * 0.5], [Vector2(-0.6, 92), PI * 0.5], [Vector2(-18, 72), PI * 0.25], [Vector2(24, 90), -PI * 0.75]]
 	for k in bancs.size():
 		var bp2: Vector2 = bancs[k][0]
 		_poser(q, MOBILIER, "objet", "banc", Vector3(bp2.x, 0.0, bp2.y), 600 + k, {}, bancs[k][1], c)
@@ -1373,16 +1409,17 @@ static func _reperes(q: Dictionary) -> void:
 		"Vue2a_Salle": [monde(-35.0, 26.0), Vector2(305.0, 176.0)],
 		# les coudes de la promenade : devant le porche, puis dans la galerie nord du cloître
 		"Vue2b_Porche": [monde(PORCHE, 31.0), monde(PORCHE, 60.0)],
-		"Vue2c_Galerie": [cl.call(Vector2(PORCHE, 60.0)), cl.call(Vector2(-6.0, 80.5))],
-		# sur l'allée est-ouest, le bassin au croisement et le dôme du beffroi par-dessus l'aile est
-		"Vue3_Cloitre": [cl.call(Vector2(-6.0, 80.5)), cl.call(Vector2(36.0, 79.0))],
+		"Vue2c_Galerie": [cl.call(Vector2(PORCHE, 60.0)), cl.call(Vector2(-14.0, 90.0))],
+		"Vue2d_Pelouse": [cl.call(Vector2(-14.0, 90.0)), cl.call(Vector2(3.0, 99.0))],
+		# au bout de l'allée nord-sud, sous l'arcade sud : le bassin au centre, les quatre pelouses autour
+		"Vue3_Cloitre": [cl.call(Vector2(3.0, 99.0)), cl.call(Vector2(3.0, 60.0))],
 		"Arrivee_Terreaux": [Vector2(321.0, 236.0), Vector2(290.0, 205.0)],
 	}
 	for nom in reperes:
 		var a: Vector2 = reperes[nom][0]
 		var b: Vector2 = reperes[nom][1]
 		var y := hauteur(q, a.x, a.y) + 0.05
-		if nom == "Vue2c_Galerie" or nom == "Vue3_Cloitre":
+		if nom in ["Vue2c_Galerie", "Vue2d_Pelouse", "Vue3_Cloitre"]:
 			y = palais.position.y
 		var m := Marker3D.new()
 		m.name = nom
