@@ -100,6 +100,26 @@ func _init() -> void:
 				xs[rangee] += float(m.get_meta("w")) + 0.4
 			cam.fov = 40
 			cam.look_at_from_position(Vector3(-6, 52.0, 46.8 - 13.0), Vector3(-6, 0, -13.0))
+		"cote":
+			# le côté fenêtré (verdict n° 47 de Sathonay) : une maison de cinq niveaux vue de trois quarts, son côté -X
+			# vers la caméra ; --nom=sans pour l'avant (le côté aveugle), --nom=face pour le côté droit devant
+			_sol(Vector2(120, 120), Color("b8a27a"))
+			var opt_c := {"niveaux": 5, "w": 9.0, "d": 12.0, "enduit": "creme"}
+			if nom != "sans":
+				opt_c["cote_fenetre"] = "-x"
+			if nom == "arriere":
+				# l'arrière d'un hôtel de 25 m qui domine une place (la maison de la terrasse de Sathonay)
+				_pose(FACADIER, "type", "hotel", Vector3(0, 0, 0), 4, {"niveaux": 5, "w": 25.0, "d": 15.6, "enduit": "creme", "cote_fenetre": "-z"})
+			else:
+				_pose(FACADIER, "type", "maison", Vector3(0, 0, 0), 4, opt_c)
+				_pose(FACADIER, "type", "classique", Vector3(9.4 + 5.0, 0, 0), 5, {"niveaux": 4, "w": 10.0})
+			cam.fov = 40
+			if nom == "arriere":
+				cam.look_at_from_position(Vector3(-22, 9, -48), Vector3(-2, 10, -14))
+			elif nom == "face":
+				cam.look_at_from_position(Vector3(-34, 10, -6), Vector3(-4.5, 10, -6))
+			else:
+				cam.look_at_from_position(Vector3(-30, 8, 28), Vector3(-2, 10, -4))
 		"renaissance":
 			# une ruelle du Vieux-Lyon : cinq façades Renaissance en rangée (option renaissance), à hauteur d'œil ;
 			# --nom=pres : une seule façade de près, pour lire les croisées et les accolades
