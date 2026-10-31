@@ -991,8 +991,11 @@ func _rues() -> void:
 			var n := (b - a).orthogonal().normalized() * l
 			var pa := [a - n, a + n, b + n, b - n]
 			var v := []
+			# les chemins sous le dessus des trottoirs (+0,10) : ceux qui aboutissent à une rue la traversaient en
+			# bande de petits pavés par-dessus les dalles (verdict du paquet 0.2.2, au pied de la passerelle)
+			var dessus := 0.06 if st == enrobe else 0.02
 			for p in pa:
-				v.append(Vector3(p.x, hauteur(p.x, p.y) + 0.06, p.y))
+				v.append(Vector3(p.x, hauteur(p.x, p.y) + dessus, p.y))
 			for idx in [0, 1, 2, 0, 2, 3]:
 				st.set_color(Color("#86827c") if st == enrobe else Color("#b3ab9d"))
 				st.set_normal(Vector3.UP)
@@ -1053,6 +1056,49 @@ func _rues() -> void:
 					var tq: Vector2 = q + n * s * 1.63
 					if not PLACE.has_point(tq):
 						_boite_st(dalles, Vector3(tq.x, hauteur(tq.x, tq.y) + 0.04, tq.y), Vector3(long / nb + 0.02, 0.12, 3.0), ang, Color.WHITE)
+	# aux coudes d'une rue, les trottoirs des deux tronçons s'arrêtaient chacun à son bout : côté extérieur, un coin
+	# de sol restait entre eux. Une dalle sur la bissectrice le referme.
+	var bouts := {}
+	for c in chaussees.size():
+		for k in 2:
+			var cle := Vector2i((chaussees[c][k] as Vector2).round())
+			if not bouts.has(cle):
+				bouts[cle] = []
+			bouts[cle].append([c, k])
+	for cle in bouts:
+		var ici: Array = bouts[cle]
+		if ici.size() != 2:
+			continue
+		# deux tronçons seulement à ce bout : un coude, pas un carrefour. a → b → e, dans le sens de la marche
+		var c1: Array = chaussees[ici[0][0]]
+		var c2: Array = chaussees[ici[1][0]]
+		var b: Vector2 = c1[ici[0][1]]
+		var a: Vector2 = c1[1 - ici[0][1]]
+		var e: Vector2 = c2[1 - ici[1][1]]
+		var c := ici[0][0] as int
+		var c_suivant := ici[1][0] as int
+		var t1 := (b - a).normalized()
+		var t2 := (e - b).normalized()
+		var tour := absf(t1.angle_to(t2))
+		if tour < deg_to_rad(0.3) or tour > deg_to_rad(80.0):
+			continue
+		var l: float = minf(chaussees[c][2], chaussees[c_suivant][2])
+		var tb := (t1 + t2).normalized()
+		var nb := tb.orthogonal()
+		for s in [-1.0, 1.0]:
+			var q: Vector2 = b + nb * s * (l + 0.12 + 1.63) / cos(tour * 0.5)
+			if PLACE.has_point(q):
+				continue
+			var sur_une_rue := false
+			for o in cases.get(Vector2i(floori(q.x / 20.0), floori(q.y / 20.0)), []):
+				var sg: Array = chaussees[o]
+				if Geometry2D.get_closest_point_to_segment(q, sg[0], sg[1]).distance_to(q) < sg[2] + 0.1:
+					sur_une_rue = true
+					break
+			if sur_une_rue:
+				continue
+			var long := 2.0 * (l + 3.2) * tan(tour * 0.5) + 0.6
+			_boite_st(dalles, Vector3(q.x, hauteur(q.x, q.y) + 0.04, q.y), Vector3(long, 0.12, 3.0), atan2(tb.y, tb.x), Color.WHITE)
 	var mb := MeshInstance3D.new()
 	mb.name = "Bordures"
 	mb.mesh = bordures.commit()
@@ -3392,7 +3438,10 @@ func _veiller_sathonay(delta: float) -> void:
 	if _loin_horloge < 0.4:
 		return
 	_loin_horloge = 0.0
-	var loin: bool = _veille_noeud.courant != "" and not _pres_dun_sas()
+	# « sathonay » est le départ de la veille, pas un quartier déclaré : la place reste entière tant que le joueur y
+	# est (le paquet 0.2.4 la montrait en imposteurs dès l'arrivée, sur la place même)
+	var courant: String = _veille_noeud.courant
+	var loin: bool = courant != "" and courant != "sathonay" and not _pres_dun_sas()
 	if loin == _sathonay_loin:
 		return
 	_sathonay_loin = loin
