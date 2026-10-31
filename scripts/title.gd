@@ -108,6 +108,13 @@ func _build_ui() -> void:
 		btn.add_theme_color_override("font_color", Color(1.0, 0.85, 0.5))
 		btn.pressed.connect(b[1])
 		row.add_child(btn)
+	var credit := Label.new()
+	credit.text = Sfx.CREDIT_MUSIQUE
+	credit.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	credit.add_theme_font_override("font", serif)
+	credit.add_theme_font_size_override("font_size", 13)
+	credit.add_theme_color_override("font_color", Color(0.6, 0.56, 0.52))
+	v.add_child(credit)
 	_maybe_capture()
 
 
