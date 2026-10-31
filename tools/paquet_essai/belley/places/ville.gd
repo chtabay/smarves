@@ -48,6 +48,9 @@ const FACADIERS := 75.0
 const FACADIERS_ENDUITS := 150.0
 ## En deçà, les maisons du façadier ont leurs moellons et leurs fleurs.
 const FACADIERS_DETAILLES := 45.0
+## En deçà de ce remplissage (l'aire du plan sur celle du rectangle qui le serre), le toit se taille sur le plan
+## réel (Assise.deux_pans) et non plus sur le rectangle.
+const REMPLI_PLAN := 0.92
 
 ## Les numéros des bâtiments (dans bourg.json) qu'une scène bâtit elle-même.
 var passer := {2219: true}
@@ -209,6 +212,13 @@ func maison(o: RefCounted, m: Dictionary, graine: int) -> void:
 		_terrasse(o, poly, egout, toit if genre == OUTILS.PEINT else ZINC)
 		return
 	montee = minf(montee, 7.0)
+	# Un plan qui ne remplit pas son rectangle (un L, un biais, une maison accolée) : le toit se taille sur le plan
+	# réel depuis le haut des murs, et les pignons montent jusqu'à lui. Sur le rectangle, il débordait dans le vide
+	# d'un côté et laissait le mur nu de l'autre (Guillaume, 30 octobre : « les toits vs les murs »).
+	if float(m.rempli) < REMPLI_PLAN:
+		var nb_corps := ceili(lx / 12.0) if (lx > 18.0 or lz > 11.0) and dist < 900.0 else 1
+		_toit_sur_plan(o, poly, egout, montee, centre, ux, lx, lz, nb_corps, debord, toit, genre, col, graine, rng)
+		return
 	var p3 := func(v: Vector2, y: float) -> Vector3: return Vector3(v.x, y, v.y)
 	var A := centre - ux * dx - uz * dz
 	var B := centre + ux * dx - uz * dz
@@ -288,6 +298,46 @@ func maison(o: RefCounted, m: Dictionary, graine: int) -> void:
 		for q in pots:
 			var px: Vector2 = pc + ux * ((q - (pots - 1) * 0.5) * 0.3)
 			o.cylindre(Transform3D(Basis(), Vector3(px.x, yc + 1.34, px.y)), 0.11, 0.09, 0.42, 6, POT, OUTILS.PEINT)
+
+
+## Le toit à deux pans d'un plan quelconque (Assise.deux_pans) : le faîtage le long du grand côté du rectangle, les
+## pans taillés sur le plan réel et prolongés du débord, les pignons de l'enduit de la maison, une souche sur le
+## faîtage si elle tombe dans le plan. Un grand plan se coupe en corps de 10 à 14 m le long du faîtage, chacun un
+## peu plus haut ou plus bas et de sa tuile, comme sur le rectangle (verdicts n° 19 à 25).
+func _toit_sur_plan(o: RefCounted, poly: PackedVector2Array, egout: float, montee: float, centre: Vector2, ux: Vector2, lx: float, lz: float, corps: int, debord: float, toit: Color, genre: int, col: Color, graine: int, rng: RandomNumberGenerator) -> void:
+	var uz := ux.orthogonal()
+	var demi := maxf(lz * 0.5, 0.5)
+	var l1 := lx / corps
+	for k in corps:
+		var morceaux := [poly]
+		var mk := montee
+		var tk := toit
+		if corps > 1:
+			# la tranche k du plan, entre deux coupes perpendiculaires au faîtage
+			var x0 := -lx * 0.5 + k * l1 - (1000.0 if k == 0 else 0.0)
+			var x1 := -lx * 0.5 + (k + 1) * l1 + (1000.0 if k == corps - 1 else 0.0)
+			var tranche := PackedVector2Array([centre + ux * x0 - uz * 1000.0, centre + ux * x1 - uz * 1000.0, centre + ux * x1 + uz * 1000.0, centre + ux * x0 + uz * 1000.0])
+			morceaux = Geometry2D.intersect_polygons(poly, tranche)
+			mk = minf(montee, 4.5) * (0.85 + 0.3 * float((k * 7 + graine) % 3) / 2.0)
+			if genre == OUTILS.TUILE:
+				tk = TUILES[(rng.randi() + k) % TUILES.size()]
+		var pente := sqrt(1.0 + pow(mk / demi, 2.0))
+		for morceau in morceaux:
+			var t := Assise.deux_pans(morceau, egout, mk, centre, ux, demi, debord)
+			for tr in t.pans:
+				var uv := []
+				for p: Vector3 in tr:
+					var q := Vector2(p.x, p.z) - centre
+					uv.append(Vector2(q.dot(ux), absf(q.dot(uz)) * pente))
+				o.tri(tr[0], tr[1], tr[2], Assise.normale(tr), tk, genre, uv)
+			for tr in t.pignons:
+				o.tri(tr[0], tr[1], tr[2], Assise.normale(tr), col, OUTILS.PEINT)
+	var s := rng.randf_range(-0.3, 0.3) * lx
+	var pc := centre + ux * s
+	if Geometry2D.is_point_in_polygon(pc, poly):
+		var yc := egout + (montee if corps == 1 else minf(montee, 4.5) * 0.85)
+		o.pave(Vector3(pc.x, yc - 1.0, pc.y), Vector3(0.8, 2.2, 0.55), col, ux.angle(), false, OUTILS.PEINT)
+		o.pave(Vector3(pc.x, yc + 1.2, pc.y), Vector3(0.92, 0.14, 0.67), Color("d8cfbe", 0.9), ux.angle(), false, OUTILS.PEINT)
 
 
 ## La maison du façadier du Bugey sur le rectangle du plan, sa façade du côté de la rue (le champ face du bourg).

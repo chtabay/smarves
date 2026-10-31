@@ -494,6 +494,26 @@ func _init() -> void:
 	var marronnier: Node3D = load(Bibliotheque.scene("arbres-d-ombriere@1", "decor")).instantiate()
 	marronnier.arbre = "marronnier"
 	toulouse.add_child(marronnier)
+	# lod « loin » (chef de chantier de Lyon, pour la version légère de Saint-Paul) : les deux corps sans bascule, le
+	# corps Lointain de quelques centaines de sommets en surface dure ; rien sans l'option (voir le test générique)
+	var loin_ok := true
+	var poids_loin := []
+	for essence in ["platane", "micocoulier", "jeune_platane", "marronnier"]:
+		var al: Node3D = load(Bibliotheque.scene("arbres-d-ombriere@1", "decor")).instantiate()
+		al.arbre = essence
+		al.graine = 3
+		al.options = {"lod": "loin"}
+		toulouse.add_child(al)
+		var pres: MeshInstance3D = al.find_child(essence.capitalize(), false, false)
+		var loin_mi: MeshInstance3D = al.find_child(essence.capitalize() + "Lointain", false, false)
+		if pres == null or loin_mi == null or not pres.has_meta("sans_lointain") or pres.visibility_range_end != 0.0 or loin_mi.visibility_range_begin < 100000.0 or not loin_mi.has_meta("corps_lointain") or loin_mi.mesh.get_surface_count() != 1:
+			loin_ok = false
+			continue
+		var nv: int = loin_mi.mesh.surface_get_array_len(0)
+		poids_loin.append(nv)
+		if nv > 1000:
+			loin_ok = false
+	check(loin_ok and poids_loin.size() == 4, "lod « loin » des arbres d'ombrière : les quatre essences gardent leur arbre marqué sans_lointain et portent un corps Lointain dur de moins de 1 000 sommets %s" % str(poids_loin))
 	check(float(marronnier.get_meta("hauteur")) >= 12.0 and float(marronnier.get_meta("hauteur")) <= 18.0, "le marronnier (demandé par la carte de Lyon) fait de 12 à 18 m (%.1f)" % float(marronnier.get_meta("hauteur")))
 	var tuilee: Node3D = paquet_lyon.instantiate()
 	tuilee.options = {"tuile": "8a4a3a"}
