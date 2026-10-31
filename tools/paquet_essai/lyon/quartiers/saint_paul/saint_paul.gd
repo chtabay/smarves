@@ -26,7 +26,7 @@ const TUILES := ["8f4a38", "86422f", "965040", "7e3f30", "92503f", "8a4836"]
 const PIERRE := Color("#a9a294")
 const PIERRE_DOREE := Color("#c9a66b")
 const VILLEBOIS := Color("#c7c3b6")
-const DALLE := Color("#b3a998")
+const DALLE := Color("#d8cbb4")
 const BOIS := Color("#5e4b3c")
 const FER := Color("#2a2a28")
 
@@ -329,10 +329,8 @@ class Batisseur:
 		var mi := MeshInstance3D.new()
 		mi.name = "Places"
 		mi.mesh = st.commit()
-		var m := StandardMaterial3D.new()
-		m.vertex_color_use_as_albedo = true
-		m.roughness = 0.9
-		mi.material_override = m
+		# le pavé de la commune, dans une teinte plus claire : un seul sol sur la place, la zone claire en plus
+		mi.material_override = paves_mat
 		racine.add_child(mi)
 
 	# --- Le bâti ordinaire --------------------------------------------------------------------------
@@ -1066,7 +1064,9 @@ class Batisseur:
 			boite(l, Vector3(1.0, 0.45, 1.2), Vector3(fx + 0.55, 13.2, z), claire)
 		for k in 5:
 			var z := -Wz * 0.5 + pas * (k + 0.5)
-			boite(l, Vector3(0.3, 3.6, 1.7), Vector3(fx - 0.05, 10.3, z), Color("#2e3238"))
+			# la haute fenêtre de l'étage, vitrée à croisée comme les portes des arcades, sur un fond de voûte clair
+			boite(l, Vector3(0.3, 3.6, 1.7), Vector3(fx - 0.05, 10.3, z), Color("#7a6a55"))
+			croisee(l, Vector3(fx + 0.12, 10.3, z), PI * 0.5, 1.4, 3.3, pierre)
 			boite(l, Vector3(0.35, 0.25, 2.3), Vector3(fx + 0.15, 8.4, z), claire)
 			var fr := MeshInstance3D.new()
 			var fpm := PrismMesh.new()
