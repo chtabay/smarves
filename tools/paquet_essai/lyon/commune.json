@@ -4,7 +4,7 @@
 	"nom": "Lyon",
 	"auteur": "Claude",
 	"version": "0.2.0",
-	"socle_min": "1.29",
+	"socle_min": "1.30",
 	"insee": "69123",
 	"population": 0,
 	"description": "Lyon en quartiers : la place Sathonay au pied des pentes de la Croix-Rousse, et par la rue Terme, la place des Terreaux, son Hôtel de Ville et le palais Saint-Pierre, un soir doré de septembre. On s'y promène ; rien ne s'y joue encore.",
