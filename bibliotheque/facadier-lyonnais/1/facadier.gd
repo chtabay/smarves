@@ -125,7 +125,7 @@ static func maison(parent: Node3D, p: Vector3, type: String, graine: int, opt :=
 	# mitoyen ; verdict n° 47 de Sathonay) : le même module que la façade, bandeaux aux mêmes hauteurs, sans porte
 	var cotes := _cotes_fenetres(opt, type)
 	for cote in cotes:
-		_facade(o, _repere_cote(cote, w, d), d, niveaux, "cote", type, style, n)
+		_facade(o, _repere_cote(cote, w, d), w if cote == "-z" else d, niveaux, "cote", type, style, n)
 	if opt.get("vigne", r.randf() < 0.3):
 		_vigne(o, w, H, r)
 	var faite := H
@@ -191,30 +191,43 @@ static func maison(parent: Node3D, p: Vector3, type: String, graine: int, opt :=
 
 ## Le corps lointain d'un immeuble, quelques centaines de sommets : le corps enduit, le toit sans ses rangs de
 ## tuiles (mais avec son grain), la génoise en deux boîtes, les souches, et les façades peintes à plat.
-## Les côtés à fenêtrer, d'après l'option cote_fenetre : « +x », « -x » ou « deux » (vrai vaut « deux ») ; rien par
+## Les faces à fenêtrer, d'après l'option cote_fenetre : « +x », « -x », « -z » (ou « arriere »), « deux » (les
+## deux côtés ; vrai vaut « deux »), « tous » (les deux côtés et l'arrière), ou une liste de ces noms ; rien par
 ## défaut. L'immeuble d'angle a déjà sa façade vers +X.
 static func _cotes_fenetres(opt: Dictionary, type: String) -> Array:
 	var v = opt.get("cote_fenetre", "")
 	var cotes := []
-	if v is bool:
-		cotes = [-1.0, 1.0] if v else []
-	else:
-		match str(v):
-			"+x":
-				cotes = [1.0]
-			"-x":
-				cotes = [-1.0]
+	var noms: Array = v if v is Array else [v]
+	for nom in noms:
+		if nom is bool:
+			if nom:
+				cotes.append_array(["-x", "+x"])
+			continue
+		match str(nom):
+			"+x", "-x", "-z":
+				cotes.append(str(nom))
+			"arriere":
+				cotes.append("-z")
 			"deux", "2":
-				cotes = [-1.0, 1.0]
+				cotes.append_array(["-x", "+x"])
+			"tous":
+				cotes.append_array(["-x", "+x", "-z"])
 	if type == "angle":
-		cotes.erase(1.0)
-	return cotes
+		cotes.erase("+x")
+	var uniques := []
+	for c in cotes:
+		if not c in uniques:
+			uniques.append(c)
+	return uniques
 
 
-## Le repère d'une façade de côté : x le long du côté, z vers l'extérieur (±X), l'origine au milieu du côté.
-static func _repere_cote(cote: float, w: float, d: float) -> Transform3D:
-	var b := Basis(Vector3(0, 0, -cote), Vector3(0, 1, 0), Vector3(cote, 0, 0))
-	return Transform3D(b, Vector3(cote * w * 0.5, 0, -d * 0.5))
+## Le repère d'une face à fenêtrer : x le long de la face, z vers l'extérieur, l'origine au milieu de la face.
+static func _repere_cote(cote: String, w: float, d: float) -> Transform3D:
+	if cote == "-z":
+		return Transform3D(Basis(Vector3(-1, 0, 0), Vector3(0, 1, 0), Vector3(0, 0, -1)), Vector3(0, 0, -d))
+	var sx := 1.0 if cote == "+x" else -1.0
+	var b := Basis(Vector3(0, 0, -sx), Vector3(0, 1, 0), Vector3(sx, 0, 0))
+	return Transform3D(b, Vector3(sx * w * 0.5, 0, -d * 0.5))
 
 
 static func _corps_lointain(o: Outils, w: float, d: float, H: float, faite: float, type: String, rdc: String, niveaux: int, s: Dictionary, toit: String, opt: Dictionary, souches: Array, sw: float, sh: float, sd: float) -> void:
@@ -225,7 +238,7 @@ static func _corps_lointain(o: Outils, w: float, d: float, H: float, faite: floa
 		var b := Basis(Vector3(0, 0, -1), Vector3(0, 1, 0), Vector3(1, 0, 0))
 		_facade_lointaine(o, Transform3D(b, Vector3(w * 0.5, 0, -d * 0.5)), d, niveaux, "boutique", "angle", s)
 	for cote in _cotes_fenetres(opt, type):
-		_facade_lointaine(o, _repere_cote(cote, w, d), d, niveaux, "cote", type, s)
+		_facade_lointaine(o, _repere_cote(cote, w, d), w if cote == "-z" else d, niveaux, "cote", type, s)
 	if toit == "mansarde":
 		_mansarde(o, w, d, H, o.rng)
 	else:
