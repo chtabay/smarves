@@ -1815,7 +1815,7 @@ func _heros_poser(i: int, b: Dictionary) -> void:
 		var opt := {"w": w - 0.05, "d": lv, "niveaux": niveaux, "tuile": TUILES[(i + k) % TUILES.size()], "pente": 29.0, "grain": 1.0, "chassis": 2, "souches": "grosses", "toile": TOILES[(i * 3 + k) % TOILES.size()], "store": (i + k) % 2 == 0}
 		if est_mairie:
 			type = "hotel"
-			opt.merge({"enduit": "c6bca3", "persiennes": false, "fleurs": false, "niveaux": 3, "rdc": "pierre"}, true)
+			opt.merge({"enduit": "c6bca3", "persiennes": false, "fleurs": false, "niveaux": 3, "rdc": "pierre", "cote_fenetre": "arriere"}, true)
 		else:
 			var pentes := p.y < -45.0
 			var r := (i * 13 + k * 7) % 10
