@@ -74,7 +74,7 @@ const REPERES := {
 	"Vue1b_Culee": [Vector2(-206.0, 234.0), Vector2(-226.0, 290.0)],
 	# les coudes du parcours : le quai, l'angle de la rue Saint-Paul, le bas de la rue du Docteur-Augros, la place
 	"Vue1c_Quai": [Vector2(-182.0, 264.0), Vector2(-150.0, 300.0)],
-	"Vue1d_Gerson": [Vector2(-186.0, 276.5), Vector2(-212.0, 297.0)],
+	"Vue1d_Gerson": [Vector2(-186.0, 276.5), Vector2(-198.0, 318.0)],
 	"Vue1e_Augros": [Vector2(-213.5, 305.0), Vector2(-214.0, 330.0)],
 	"Vue1f_PlaceSaintPaul": [Vector2(-213.0, 343.0), Vector2(-240.0, 370.0)],
 	"Vue2a_Juiverie": [Vector2(-231.5, 384.0), Vector2(-227.0, 440.0)],
@@ -681,7 +681,8 @@ class Batisseur:
 		var c: Vector2 = GARE[0]
 		var y := h(c.x + 17.0, c.y) - 0.2
 		var g := _monument("GareSaintPaul", c, GARE[3], y)
-		var pierre := Color("#d2c3a2")
+		# éclaircie d'un ton : au soleil du soir, la façade est à contre-jour depuis la place et doit rester lisible
+		var pierre := Color("#e2d6ba")
 		# la halle derrière, plus basse et plus sombre, adossée à la colline
 		boite(g, Vector3(GARE[1] - 6.0, 13.0, GARE[2]), Vector3(-3.0, 6.5, 0), Color("#b9a98c"))
 		boite(g, Vector3(6.0, 11.0, GARE[2]), Vector3(GARE[1] * 0.5 - 3.0, 5.5, 0), pierre)
@@ -1009,10 +1010,12 @@ class Batisseur:
 		for k in 6:
 			var cote := -1.0 if k % 2 == 0 else 1.0
 			var rang := k / 2
-			gens.call(marche + Vector2(0.5 * (rang % 2), cote * (1.6 + rang * 1.3)), "idle", marche + Vector2(8.0, 0.0), "soiree")
+			# serrés autour des mariés, un rang plus bas à chaque pas de côté : une grappe, pas une file
+			gens.call(marche + Vector2(0.7 * rang + 0.3, cote * (1.0 + rang * 0.6)), "idle", marche + Vector2(8.0, 0.0), "soiree")
 		for k in 7:
-			var a := -1.1 + k * 0.37 + rng.randf_range(-0.1, 0.1)
-			gens.call(marche + Vector2(cos(a) * (4.5 + (k % 3) * 0.9), sin(a) * (5.0 + (k % 2))), "idle", marche, "soiree")
+			# les amis en arc serré au pied des marches, de dos pour qui arrive de la place
+			var a := -0.6 + k * 0.2 + rng.randf_range(-0.06, 0.06)
+			gens.call(marche + Vector2(cos(a) * (3.4 + (k % 3) * 0.7), sin(a) * (3.6 + (k % 2) * 0.6)), "idle", marche, "soiree")
 		gens.call(marche + Vector2(9.0, 0.4), "idle", marche)
 		var riz := MultiMeshInstance3D.new()
 		var mm := MultiMesh.new()
@@ -1022,8 +1025,10 @@ class Batisseur:
 		mm.mesh = qm
 		mm.instance_count = 160
 		for k in 160:
-			var p := parvis + Vector2(rng.randf_range(-2.0, 3.0), rng.randf_range(-3.5, 3.5))
-			mm.set_instance_transform(k, Transform3D(Basis(Vector3.UP, rng.randf() * TAU), Vector3(p.x, h(p.x, p.y) + 0.07, p.y)))
+			var p := parvis + Vector2(rng.randf_range(-3.0, 2.0), rng.randf_range(-2.5, 2.5))
+			# un tiers au sol, le reste en l'air, lancé au-dessus des mariés
+			var vol := 0.07 if k % 3 == 0 else rng.randf_range(0.8, 3.2)
+			mm.set_instance_transform(k, Transform3D(Basis(Vector3.UP, rng.randf() * TAU).rotated(Vector3.RIGHT, rng.randf() * TAU), Vector3(p.x, h(p.x, p.y) + vol, p.y)))
 		riz.multimesh = mm
 		riz.material_override = mat(Color("#f4f0e6"))
 		racine.add_child(riz)
