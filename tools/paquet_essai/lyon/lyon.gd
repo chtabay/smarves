@@ -964,6 +964,21 @@ func _pres_rive(p: Vector2, d: float) -> bool:
 	return false
 
 
+## Le point est-il sur la chaussée d'un autre tronçon que c, à « marge » près (la grille de 20 m de _rues) ?
+## Sans les voisins, les tronçons qui touchent un bout de c (la suite de la même rue, à un coude) ne comptent pas.
+func _sur_autre_chaussee(q: Vector2, c: int, cases: Dictionary, voisins := true, marge := 0.1) -> bool:
+	var sc: Array = _chaussees[c]
+	for o in cases.get(Vector2i(floori(q.x / 20.0), floori(q.y / 20.0)), []):
+		if o == c:
+			continue
+		var sg: Array = _chaussees[o]
+		if not voisins and (sg[0].distance_to(sc[0]) < 0.5 or sg[0].distance_to(sc[1]) < 0.5 or sg[1].distance_to(sc[0]) < 0.5 or sg[1].distance_to(sc[1]) < 0.5):
+			continue
+		if Geometry2D.get_closest_point_to_segment(q, sg[0], sg[1]).distance_to(q) < sg[2] + marge:
+			return true
+	return false
+
+
 func _rues() -> void:
 	var enrobe := SurfaceTool.new()
 	enrobe.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -991,17 +1006,40 @@ func _rues() -> void:
 			if st == pietons and (_pres_rive(a, 8.0) or _pres_rive(b, 8.0) or _pres_rive((a + b) * 0.5, 8.0)):
 				continue
 			var n := (b - a).orthogonal().normalized() * l
-			var pa := [a - n, a + n, b + n, b - n]
-			var v := []
 			# les chemins sous le dessus des trottoirs (+0,10) : ceux qui aboutissent à une rue la traversaient en
 			# bande de petits pavés par-dessus les dalles (verdict du paquet 0.2.2, au pied de la passerelle)
 			var dessus := 0.06 if st == enrobe else 0.02
-			for p in pa:
-				v.append(Vector3(p.x, hauteur(p.x, p.y) + dessus, p.y))
-			for idx in [0, 1, 2, 0, 2, 3]:
-				st.set_color(Color("#86827c") if st == enrobe else Color("#b3ab9d"))
-				st.set_normal(Vector3.UP)
-				st.add_vertex(v[idx])
+			# par pas de 2 m, pour suivre la pente : d'un bout à l'autre en ligne droite, le sol d'une rue en
+			# pente (la rue Terme) perçait la chaussée en échardes (verdict du paquet 0.2.7)
+			var pas := maxi(1, ceili(a.distance_to(b) / 2.0))
+			for m in pas:
+				var a2: Vector2 = a.lerp(b, float(m) / pas)
+				var b2: Vector2 = a.lerp(b, float(m + 1) / pas)
+				var pa := [a2 - n, a2 + n, b2 + n, b2 - n]
+				var v := []
+				for p in pa:
+					v.append(Vector3(p.x, hauteur(p.x, p.y) + dessus, p.y))
+				for idx in [0, 1, 2, 0, 2, 3]:
+					st.set_color(Color("#86827c") if st == enrobe else Color("#b3ab9d"))
+					st.set_normal(Vector3.UP)
+					st.add_vertex(v[idx])
+			# les bouts de chaussée arrondis : aux coudes et aux carrefours, deux rectangles qui se croisent
+			# laissaient un coin de sol entre eux (verdict du paquet 0.2.7, carrefour Martinière / Terme)
+			if st == enrobe:
+				for o in [a, b]:
+					if PLACE.has_point(o):
+						continue
+					var h0 := hauteur(o.x, o.y) + dessus - 0.005
+					for m in 12:
+						var u0 := Vector2.from_angle(TAU * m / 12.0) * l
+						var u1 := Vector2.from_angle(TAU * (m + 1) / 12.0) * l
+						var w0 := Vector3(o.x, h0, o.y)
+						var w1 := Vector3(o.x + u1.x, hauteur(o.x + u1.x, o.y + u1.y) + dessus - 0.005, o.y + u1.y)
+						var w2 := Vector3(o.x + u0.x, hauteur(o.x + u0.x, o.y + u0.y) + dessus - 0.005, o.y + u0.y)
+						for w in [w0, w1, w2, w0, w2, w1]:
+							st.set_color(Color("#86827c"))
+							st.set_normal(Vector3.UP)
+							st.add_vertex(w)
 			if st == enrobe and a.distance_to(CENTRE_PLACE) < 320.0:
 				chaussees.append([a, b, l])
 				var bo := Rect2(a, Vector2.ZERO).expand(b).grow(l + 1.0)
@@ -1043,21 +1081,22 @@ func _rues() -> void:
 				var q: Vector2 = a + t * long * (j + 0.5) / nb + n * s * (l + 0.12)
 				if PLACE.has_point(q):
 					continue
-				var dans := false
-				for o in cases.get(Vector2i(floori(q.x / 20.0), floori(q.y / 20.0)), []):
-					if o == c:
-						continue
-					var sg: Array = chaussees[o]
-					if Geometry2D.get_closest_point_to_segment(q, sg[0], sg[1]).distance_to(q) < sg[2] + 0.1:
-						dans = true
-						break
-				if not dans:
-					# granit gris comme le parapet du quai, 13 cm de vue au-dessus de la chaussée
-					_boite_st(bordures, Vector3(q.x, hauteur(q.x, q.y) + 0.09, q.y), Vector3(long / nb + 0.02, 0.2, 0.2), ang, Color("#8e8f94"))
-					# le trottoir en dalles de granit, derrière la bordure, jusqu'aux façades
-					var tq: Vector2 = q + n * s * 1.63
-					if not PLACE.has_point(tq):
-						_boite_st(dalles, Vector3(tq.x, hauteur(tq.x, tq.y) + 0.04, tq.y), Vector3(long / nb + 0.02, 0.12, 3.0), ang, Color.WHITE)
+				# aux carrefours, une bordure dont un bout mordait sur une autre chaussée la traversait, et une dalle
+				# posée sur une autre rue la couvrait (verdict du paquet 0.2.7, carrefour Martinière / Terme)
+				var demi := t * (long / nb + 0.02) * 0.5
+				if _sur_autre_chaussee(q, c, cases) or _sur_autre_chaussee(q - demi, c, cases, false) or _sur_autre_chaussee(q + demi, c, cases, false):
+					continue
+				# granit gris comme le parapet du quai, 13 cm de vue au-dessus de la chaussée
+				_boite_st(bordures, Vector3(q.x, hauteur(q.x, q.y) + 0.09, q.y), Vector3(long / nb + 0.02, 0.2, 0.2), ang, Color("#8e8f94"))
+				# le trottoir en dalles de granit, derrière la bordure, jusqu'aux façades
+				var tq: Vector2 = q + n * s * 1.63
+				if PLACE.has_point(tq) or _sur_autre_chaussee(tq, c, cases, false) or _sur_autre_chaussee(tq + n * s * 1.4, c, cases, false):
+					continue
+				_boite_st(dalles, Vector3(tq.x, hauteur(tq.x, tq.y) + 0.04, tq.y), Vector3(long / nb + 0.02, 0.12, 3.0), ang, Color.WHITE)
+				# entre deux rues proches (un îlot de carrefour), un second rang de dalles referme le sol resté nu
+				var tq2: Vector2 = tq + n * s * 3.0
+				if not PLACE.has_point(tq2) and _sur_autre_chaussee(tq2, c, cases, false, 4.5) and not _sur_autre_chaussee(tq2, c, cases, true, 1.6):
+					_boite_st(dalles, Vector3(tq2.x, hauteur(tq2.x, tq2.y) + 0.04, tq2.y), Vector3(long / nb + 0.02, 0.12, 3.0), ang, Color.WHITE)
 	# aux coudes d'une rue, les trottoirs des deux tronçons s'arrêtaient chacun à son bout : côté extérieur, un coin
 	# de sol restait entre eux. Une dalle sur la bissectrice le referme.
 	var bouts := {}
