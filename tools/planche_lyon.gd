@@ -141,6 +141,8 @@ func _init() -> void:
 			_pose(VEGETATION, "plante", "massif", Vector3(6, 0, 5), 3, {"longueur": 4.0, "lod": lod})
 			_pose(VEGETATION, "plante", "buisson", Vector3(-2, 0, 6), 4, {"hauteur": 1.3, "lod": lod, "fleurs": "f4f0e6"})
 			_pose(VEGETATION, "plante", "buisson", Vector3(14, 0, 6), 5, {"hauteur": 1.1, "lod": lod})
+			_pose("arbres-d-ombriere@1", "arbre", "jeune_platane", Vector3(-16, 0, 9), 2, {"lod": lod})
+			_pose("arbres-d-ombriere@1", "arbre", "marronnier", Vector3(22, 0, 9), 3, {"lod": lod})
 			cam.fov = 40
 			if lod > 0.0 and lod < 5.0:
 				cam.look_at_from_position(Vector3(-6, 6, 26), Vector3(-2, 7, 0))
