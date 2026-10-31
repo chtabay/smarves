@@ -80,11 +80,13 @@ const REPERES := {
 	"Vue1b_Culee": [Vector2(-206.0, 234.0), Vector2(-226.0, 290.0)],
 	# les coudes du parcours : le quai, l'angle de la rue Saint-Paul, le bas de la rue du Docteur-Augros, la place
 	"Vue1c_Quai": [Vector2(-182.0, 264.0), Vector2(-150.0, 300.0)],
-	"Vue1d_Gerson": [Vector2(-186.0, 276.5), Vector2(-198.0, 318.0)],
+	# place Gerson : reculé sur la place pour prendre le ciel au-dessus de l'entrée de la rue ; puis à l'entrée
+	"Vue1d_Gerson": [Vector2(-182.9, 265.6), Vector2(-198.0, 318.0)],
+	"Vue1d_Ruelle": [Vector2(-186.0, 276.5), Vector2(-198.0, 318.0)],
 	"Vue1e_Augros": [Vector2(-213.5, 305.0), Vector2(-214.0, 330.0)],
 	"Vue1f_PlaceSaintPaul": [Vector2(-213.0, 343.0), Vector2(-240.0, 370.0)],
-	# tourné de 20° vers la rangée est, au soleil
-	"Vue2a_Juiverie": [Vector2(-231.5, 384.0), Vector2(-208.2, 434.9)],
+	# tourné de 20° vers la rangée est, au soleil, et avancé de deux pas au-delà de la devanture du coin
+	"Vue2a_Juiverie": [Vector2(-231.4, 386.7), Vector2(-208.1, 437.6)],
 	# devant le porche de l'hôtel Bullioud, le regard dans le passage voûté ; puis, passé le porche, dans la cour :
 	# les galeries des deux côtés, la galerie de Delorme au fond ; on ressort dans la rue par le même porche
 	"Vue2b_Porche": [Vector2(-228.6, 422.5), Vector2(-260.0, 422.5)],
@@ -92,9 +94,11 @@ const REPERES := {
 	"Vue2d_Juiverie": [Vector2(-226.0, 423.5), Vector2(-223.0, 500.0)],
 	"Vue2e_Loge": [Vector2(-222.5, 512.5), Vector2(-160.0, 513.0)],
 	"Vue3a_Change": [Vector2(-150.0, 516.0), Vector2(-157.0, 585.0)],
+	# du milieu de la place, la noce sur les marches de la Loge, le ciel au-dessus de sa balustrade
+	"Vue3b_Noce": [Vector2(-146.0, 525.0), Vector2(-168.0, 527.0)],
 }
 ## Le regard levé de quelques degrés, pour prendre un peu de ciel au-dessus des rues étroites et de la cour.
-const TANGAGE := {"Vue1d_Gerson": 6.0, "Vue2a_Juiverie": 8.0, "Vue2c_Bullioud": 10.0}
+const TANGAGE := {"Vue1d_Gerson": 8.0, "Vue2a_Juiverie": 8.0, "Vue2c_Bullioud": 10.0, "Vue3b_Noce": 8.0}
 ## Les sas (socle 1.26, Quartiers.veiller) : un nœud au débouché, son rayon en mètres dans la méta « rayon ».
 const SAS := {
 	"Sas_sathonay": [Vector2(-199.0, 236.0), 6.0],
@@ -528,7 +532,7 @@ class Batisseur:
 					opt["renaissance"] = true
 					opt["rdc"] = ["boutique", "logis", "boutique", "arcades", "logis", "passage"][(i * 3 + k + j) % 6]
 					# place Gerson, au premier plan de la vue : pas de grande arcade ni devanture aveugle, des logis à croisées
-					if opt.rdc in ["arcades", "boutique"] and q.distance_to(REPERES["Vue1d_Gerson"][0]) < 14.0:
+					if opt.rdc in ["arcades", "boutique"] and q.distance_to(Vector2(-186.0, 276.5)) < 14.0:
 						opt["rdc"] = "logis"
 					if type == "traboule":
 						type = "classique"
@@ -765,28 +769,27 @@ class Batisseur:
 			var corps := boite(b, Vector3(bloc.size.x, hb, bloc.size.y), Vector3(bloc.get_center().x, y + hb * 0.5, bloc.get_center().y), doree)
 			corps.material_override = pierre_cour
 			solide(b, Vector3(bloc.size.x, hb, bloc.size.y), Vector3(bloc.get_center().x, y + hb * 0.5, bloc.get_center().y))
-		# le pavé de la cour et du passage, posé sur le terrain (la commune n'y a que de l'herbe) : une peau sans
-		# épaisseur ni collision, qui suit la pente mètre par mètre
+		# le pavé de la cour, une dalle à une seule altitude, une marche au-dessus du passage du porche, qui reste au
+		# niveau de la rue ; la commune nivelle le terrain sous l'emprise de l'hôtel
+		var marche := 0.17
 		var sol := SurfaceTool.new()
 		sol.begin(Mesh.PRIMITIVE_TRIANGLES)
-		for zone in [cour, Rect2(cour.end.x - 0.1, cour.position.y + 7.2, x_rue + 0.4 - cour.end.x, 2.6)]:
-			var nx := ceili(zone.size.x)
-			var nz := ceili(zone.size.y)
-			for i in nx:
-				for j in nz:
-					var coins: Array = []
-					for d in [Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)]:
-						var q: Vector2 = zone.position + Vector2(minf((i + d.x) / nx * zone.size.x, zone.size.x), minf((j + d.y) / nz * zone.size.y, zone.size.y))
-						coins.append(Vector3(q.x, maxf(h(q.x, q.y), y - 0.3) + 0.1, q.y))
-					for t in [0, 2, 1, 0, 3, 2]:
-						sol.set_normal(Vector3.UP)
-						sol.set_color(Color("#b5aa9a"))
-						sol.add_vertex(coins[t])
+		var zone_passage := Rect2(cour.end.x, cour.position.y + 7.2, x_rue + 0.4 - cour.end.x, 2.6)
+		for z in [[cour, y + marche], [zone_passage, y + 0.03]]:
+			var r: Rect2 = z[0]
+			var coins := [Vector3(r.position.x, z[1], r.position.y), Vector3(r.end.x, z[1], r.position.y),
+				Vector3(r.end.x, z[1], r.end.y), Vector3(r.position.x, z[1], r.end.y)]
+			for t in [0, 2, 1, 0, 3, 2]:
+				sol.set_normal(Vector3.UP)
+				sol.set_color(Color("#b5aa9a"))
+				sol.add_vertex(coins[t])
 		var pave := MeshInstance3D.new()
 		pave.name = "PaveCour"
 		pave.mesh = sol.commit()
 		pave.material_override = paves_mat
 		b.add_child(pave)
+		solide(b, Vector3(cour.size.x, 0.3, cour.size.y), Vector3(cour.get_center().x, y + marche - 0.15, cour.get_center().y))
+		boite(b, Vector3(0.3, marche + 0.02, 2.6), Vector3(cour.end.x - 0.15, y + marche * 0.5, cour.position.y + 8.5), PIERRE_DOREE.lightened(0.15))
 		# la façade sur la rue : quatre travées Renaissance, deux de chaque côté du porche ; au nord de z = 412, la
 		# rue s'élargit devant la maison voisine, qui recule
 		for t in [[412.0, cour.position.y + 7.2], [cour.position.y + 9.8, 438.0]]:
@@ -807,7 +810,7 @@ class Batisseur:
 		var z_porche := cour.position.y + 8.5
 		var x_mi := (x_rue + cour.end.x) * 0.5
 		var lg := x_rue + 0.3 - cour.end.x
-		var enduit_porche := appareil(Color("#dcc7a2"))
+		var enduit_porche := appareil(Color("#ab9470"))
 		for s in [-1.0, 1.0]:
 			var mur := boite(b, Vector3(lg, 4.0, 0.04), Vector3(x_mi + 0.15, y + 2.0, z_porche + s * 1.27), doree)
 			mur.material_override = enduit_porche
@@ -996,8 +999,8 @@ class Batisseur:
 				boite(parent, Vector3(0.03, 0.5, 0.03), p + Vector3(sx * 0.14, -0.87, sz * 0.14), fer)
 		var lampe := OmniLight3D.new()
 		lampe.light_color = Color("#ffcf8a")
-		lampe.light_energy = 1.2
-		lampe.omni_range = 7.0
+		lampe.light_energy = 0.8
+		lampe.omni_range = 3.5
 		lampe.shadow_enabled = false
 		lampe.position = p + Vector3(0, -0.9, 0)
 		parent.add_child(lampe)
