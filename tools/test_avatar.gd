@@ -134,6 +134,7 @@ func _init() -> void:
 	arr.queue_free()
 	var main_src := FileAccess.get_file_as_string("res://scripts/main.gd")
 	check(main_src.contains("if not Game.welcomed") and main_src.contains("_arrivee()"), "l'arrivée ne s'ouvre qu'à une partie pas encore accueillie")
+	check(AP.PUBLIC.contains("Le village est public") and AP.PUBLIC.contains("bulles") and AP.PUBLIC.contains("Lasso"), "l'arrivée dit que le village est public et où ses images peuvent paraître")
 	B.avatar = {}
 	G.credits = 100000
 

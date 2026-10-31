@@ -17,8 +17,11 @@ extends Node
 ## - ce qui l'entoure : vers chaque point cardinal, jusqu'où l'on peut marcher avant une paroi ;
 ## - où il est (sa position, en mètres vers l'est et vers le nord) et vers où il regarde. Le nord est
 ##   vers les z négatifs, comme partout dans le jeu (et sur les plans dessinés, le nord en haut).
-## - l'écran lui-même, en image, quand le jeu se dessine (la tâche le lance sous un écran virtuel).
+## - l'écran lui-même, en image, quand il regarde et que le jeu se dessine (la tâche le lance sous un écran
+##   virtuel) ; les autres gestes rendent la vue en mots.
 ## Ne se voit que ce qu'aucun mur ne cache : une zone de l'autre côté d'une paroi n'est pas montrée.
+## Assis à une table qui se résume elle-même (pilote_resume : l'échiquier du Cercle), la vue n'est que
+## ce résumé et les boutons de la table.
 ##
 ## Ce qu'il fait (geste) :
 ## - aller : marcher jusqu'à être devant une zone ou une chose vue, comme on le ferait aux flèches ;
@@ -26,6 +29,7 @@ extends Node
 ##   devant, à gauche…), en se dégageant d'un pilier qui accroche comme un joueur qui tâtonne ;
 ## - touche : une touche du clavier (E, Espace, Échap, Entrée, Tab, une lettre, un chiffre) ;
 ## - cliquer : un bouton, une case du tapis ou du plateau, par un clic de souris à sa place à l'écran ;
+##   ou un coup entier sur un plateau qui le sait (pilote_coup : « e2-e4 » sur l'échiquier), en un geste ;
 ## - attendre : laisser passer quelques secondes (une bille qui roule, une donne) ;
 ## - dire : une phrase en bulle (la partie réseau la porte au village).
 ##
@@ -77,6 +81,8 @@ const POSE := 1.2
 const POSE_CALME := 1.0
 const POSE_RIEN := 2.5
 const POSE_MAX := 6.0
+## Un coup joué sur un plateau : le temps qu'on attend au plus la réponse de l'adversaire.
+const REPONSE_COUP := 10.0
 ## Les champs où l'on écrit (une petite annonce), et la longueur d'un texte écrit d'un coup.
 const CHAMPS_MAX := 10
 const ECRIT_LONG := 400
@@ -156,6 +162,15 @@ func vue() -> Dictionary:
 	var s := scene()
 	var v := {"lieu": _nom_du_lieu(s), "credits": Game.credits, "gagne": Game.won}
 	var j := joueur()
+	# Une table qui se résume elle-même (l'échiquier du Cercle, pilote_resume()) : pendant qu'on y est
+	# assis, la vue n'est que ce résumé et les boutons de la table. Les cases restent cliquables (repères).
+	var seul := _panneau_seul()
+	if seul != null:
+		v["assis"] = true
+		_cases()
+		v["boutons"] = _boutons(seul)
+		v["textes"] = [str(seul.pilote_resume()).strip_edges()]
+		return v
 	if j:
 		v["devant"] = _invite_de(j.focus_target) if j.focus_target and not j.frozen else ""
 		v["assis"] = j.frozen
@@ -551,13 +566,25 @@ func _racines() -> Array:
 	return out
 
 
-func _boutons() -> Array:
+## Le panneau à l'écran qui se résume lui-même (pilote_resume()), ou null.
+func _panneau_seul() -> Control:
+	for r in _racines():
+		for n in r.find_children("*", "Control", true, false):
+			if n.has_method("pilote_resume") and (n as Control).is_visible_in_tree():
+				return n
+	return null
+
+
+## Les boutons à l'écran ; seulement ceux d'un panneau (dans), s'il est donné.
+func _boutons(dans: Node = null) -> Array:
 	var out := []
 	var ecran := get_viewport().get_visible_rect()
 	for r in _racines():
 		for b in r.find_children("*", "BaseButton", true, false):
 			var bt := b as BaseButton
 			if not bt.is_visible_in_tree() or bt.disabled or not ecran.intersects(bt.get_global_rect()):
+				continue
+			if dans != null and not dans.is_ancestor_of(bt):
 				continue
 			var t := _texte_du_bouton(bt)
 			if t == "":
@@ -753,14 +780,23 @@ func geste(g: Dictionary) -> Dictionary:
 		_:
 			r = {"ok": false, "dit": "geste inconnu"}
 	r["vue"] = vue()
-	# Ce qu'il a sous les yeux, en image, quand le jeu se dessine (un plan, des chiffres gravés).
-	var img := await image()
-	if img != "":
-		r["image"] = img
+	# Ce qu'il a sous les yeux, en image, quand il regarde (un plan, des chiffres gravés). Pas à chaque geste :
+	# le rendu logiciel d'une image et son envoi retardaient chaque pas d'une ou deux secondes.
+	if quoi == "regarder":
+		r.merge(await image_et_camera())
 	if not entendu.is_empty():
 		r["entendu"] = entendu.duplicate()
 		entendu.clear()
 	return r
+
+
+## {image, image_vue} : l'écran en JPEG et la caméra qui l'a fait ; vide sans rendu (--headless, les essais).
+func image_et_camera() -> Dictionary:
+	var img := await image()
+	if img == "":
+		return {}
+	# De quelle vue il s'agit : à pied (« oeil ») ou la caméra de dessus qui le suit (« dessus »).
+	return {"image": img, "image_vue": image_vue()}
 
 
 ## L'écran en JPEG (base64), large de IMAGE_LARGE pixels ; « » sans rendu (--headless, les essais).
@@ -778,6 +814,14 @@ func image() -> String:
 	if img.get_width() > IMAGE_LARGE:
 		img.resize(IMAGE_LARGE, int(round(IMAGE_LARGE * img.get_height() / float(img.get_width()))), Image.INTERPOLATE_BILINEAR)
 	return Marshalls.raw_to_base64(img.save_jpg_to_buffer(IMAGE_QUALITE))
+
+
+## La caméra qui a fait l'image : « dessus » quand la caméra de maquette le suit, « oeil » à pied.
+func image_vue() -> String:
+	var j := joueur()
+	if j != null and "follow_camera" in j and j.get("follow_camera") != null:
+		return "dessus"
+	return "oeil"
 
 
 func _attendre(s: float) -> void:
@@ -829,7 +873,10 @@ func _aller(vers: String) -> Dictionary:
 	if z is Dictionary:
 		return await _aller_a(j, z)
 	if not (z is Area3D):
-		return {"ok": false, "dit": "zone ou chose inconnue : %s (une zone z3, une chose o2, ou un mot de son nom)" % vers}
+		var piece := _piece(vers)
+		if not piece.is_empty():
+			return await _aller_piece(j, piece)
+		return {"ok": false, "dit": "zone ou chose inconnue : %s (une zone z3, une chose o2, un mot de son nom, ou une pièce du lieu)" % vers}
 	var zone: Area3D = z
 	if j.focus_target == zone:
 		return {"ok": true, "dit": "déjà devant"}
@@ -890,6 +937,73 @@ func _aller_a(j: CharacterBody3D, o: Dictionary) -> Dictionary:
 			var dessus := _a_plat(but - j.global_position).length() < maxf(j.radius * 2.0, 0.6)
 			return {"ok": true, "dit": ("arrivé, sur : " if dessus else "arrivé, tout près de : ") + str(o.nom)}
 	return {"ok": false, "dit": "pas trouvé de chemin jusque-là (encore %s m) : quelque chose barre le passage" % str(snappedf(_a_plat(but - j.global_position).length(), 0.5))}
+
+
+## Une pièce du lieu par son nom (« Salle des Ambassadeurs ») : les lieux qui nomment leurs pièces (ROOMS du
+## casino : [nom, x0, x1, z0, z1, étage]) ; {nom, centre, rect, etage}, ou {} si aucune ne répond.
+func _piece(vers: String) -> Dictionary:
+	var s := scene()
+	if s == null or not (s is Node3D):
+		return {}
+	var pieces = s.get("ROOMS")
+	if not (pieces is Array):
+		return {}
+	var cherche := _sans_articles(vers)
+	if cherche == "":
+		return {}
+	var haut := float(s.get("WALL_H")) if s.get("WALL_H") != null else 5.0
+	for r in pieces:
+		if not (r is Array) or r.size() < 5:
+			continue
+		var nom := str(r[0])
+		var n := _sans_articles(nom)
+		if n == cherche or n.contains(cherche) or cherche.contains(n):
+			var etage := int(r[5]) if r.size() > 5 else 0
+			var centre := (s as Node3D).to_global(Vector3((float(r[1]) + float(r[2])) / 2.0, haut * etage, (float(r[3]) + float(r[4])) / 2.0))
+			return {"nom": nom, "centre": centre, "rect": Rect2(float(r[1]), float(r[3]), float(r[2]) - float(r[1]), float(r[4]) - float(r[3])), "etage": etage}
+	return {}
+
+
+## Un nom sans ses articles ni sa casse (« La Salle des Ambassadeurs » -> « salle des ambassadeurs »).
+func _sans_articles(t: String) -> String:
+	var mots := []
+	for m in t.to_lower().strip_edges().replace("'", " ").replace("’", " ").split(" ", false):
+		if not m in ["le", "la", "les", "l", "au", "aux"]:
+			mots.append(m)
+	return " ".join(mots)
+
+
+## Vrai si le corps est dans la pièce (à son étage).
+func _dans_piece(j: CharacterBody3D, p: Dictionary) -> bool:
+	var s := scene() as Node3D
+	if s == null:
+		return false
+	var l := s.to_local(j.global_position)
+	return (p.rect as Rect2).has_point(Vector2(l.x, l.z)) and (1 if l.y > 3.0 else 0) == int(p.etage)
+
+
+## Jusque dans une pièce, par son nom : on marche vers son milieu et l'on s'arrête dès qu'on y est.
+func _aller_piece(j: CharacterBody3D, p: Dictionary) -> Dictionary:
+	if _dans_piece(j, p):
+		return {"ok": true, "dit": "déjà dans " + str(p.nom)}
+	var sc := scene()
+	var but: Vector3 = p.centre
+	var loin := _a_plat(but - j.global_position).length()
+	for essai in 3:
+		var chemin := _chemin(j, but, essai, 2.5)
+		var t0 := Time.get_ticks_msec() / 1000.0
+		var fin := await _suivre(j, null, but, chemin, t0, sc)
+		_arreter(j)
+		if fin == "le lieu a changé en chemin":
+			return {"ok": true, "dit": fin}
+		if not is_instance_valid(j):
+			return {"ok": false, "dit": "le lieu a changé en chemin"}
+		if _dans_piece(j, p):
+			return {"ok": true, "dit": "arrivé dans " + str(p.nom)}
+	var reste := _a_plat(but - j.global_position).length()
+	if reste < loin - 5.0:
+		return {"ok": false, "dit": "en route vers %s, encore environ %d m : refais « aller » pour continuer" % [str(p.nom), int(snappedf(reste, 5.0))]}
+	return {"ok": false, "dit": "pas trouvé de chemin jusqu'à %s : quelque chose barre le passage (un cordon : la salle n'est peut-être pas encore ouverte pour toi)" % str(p.nom)}
 
 
 ## Un long trajet se fait en plusieurs gestes, comme un joueur qui marche longtemps : s'il a bien
@@ -965,7 +1079,9 @@ func _chemin(j: CharacterBody3D, but: Vector3, ecart := 0, portee := -1.0) -> Ar
 	var depart := j.global_position
 	# Une zone d'un autre étage : l'escalier peut être loin, on cherche plus large.
 	var etage := absf(but.y - depart.y) > ETAGE
-	var marge := (60.0 + 15.0 * ecart if etage else 6.0 + 4.0 * ecart)
+	# Aux essais suivants, bien plus large : le chemin fait parfois un grand détour (redescendre une butte
+	# pour contourner une carrière, Chauvigny), hors d'une bande de quelques mètres autour du trajet direct.
+	var marge := (60.0 + 15.0 * ecart if etage else 6.0 + 30.0 * ecart)
 	var pas: float = maxf(j.radius * 1.2, 0.12)
 	var lo := Vector2(minf(depart.x, but.x) - marge, minf(depart.z, but.z) - marge)
 	var hi := Vector2(maxf(depart.x, but.x) + marge, maxf(depart.z, but.z) + marge)
@@ -1290,6 +1406,22 @@ func _empreinte() -> String:
 
 
 func _cliquer(quoi: String) -> Dictionary:
+	# Un coup sur un plateau, en un seul geste (« e2-e4 ») : le plateau le reconnaît et le joue.
+	for c in _plateaux():
+		if c.has_method("pilote_coup"):
+			var avant_coup := _empreinte()
+			var fait = c.pilote_coup(quoi)
+			if fait is Dictionary:
+				if fait.get("ok", false):
+					# La réponse de l'adversaire vient avec (un robot répond tout de suite) : on l'attend
+					# un peu, pour qu'un coup ne coûte qu'un geste.
+					var seul := _panneau_seul()
+					var t0 := Time.get_ticks_msec()
+					while seul != null and seul.has_method("pilote_en_attente") and seul.pilote_en_attente() \
+							and Time.get_ticks_msec() - t0 < REPONSE_COUP * 1000.0:
+						await _attendre(0.25)
+					await _poser(avant_coup)
+				return fait
 	var r = _repere(quoi)
 	if r == null:
 		return {"ok": false, "dit": "rien de tel à l'écran : %s" % quoi}

@@ -51,6 +51,8 @@ ENTREES = [
     "scripts/socle/charge.gd", "scenes/charge.tscn",
     # La course cycliste (socle 1.28) : le programme, le direct dans la scène de la commune, et son test.
     "scripts/socle/course_panel.gd", "scripts/socle/peloton.gd", "tools/test_cyclisme.gd",
+    # L'assise des bâtiments sur un relief réel (socle 1.30) : la classe, sa mesure sur une commune, son test.
+    "scripts/socle/assise.gd", "tools/mesure_assise.gd", "tools/test_assise.gd",
     "scenes/stade.tscn", "communes/vienne.json", "communes/france.json",
     "tools/kit/commune.gd", "tools/kit/commune.tscn", "tools/kit/commune.json",
     "tools/test_commune.gd", "tools/parcours_commune.gd", "tools/emballer_commune.gd", "tools/test_atelier.gd", "tools/test_salle_jeu.gd",

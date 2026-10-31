@@ -1,5 +1,7 @@
-"""Les thèmes musicaux du socle, entièrement composés et synthétisés ici (aucun échantillon extérieur,
-donc aucun droit à suivre). Deux styles, deux familles de timbres :
+"""Des thèmes musicaux composés ici. Le jeu ne les joue plus : il a pris des morceaux libres de Kevin
+MacLeod (assets/LICENCES.md). L'outil reste pour des essais et des thèmes à venir. Presque tous
+sont synthétisés ici ; la filature est jouée par des instruments enregistrés d'une banque libre (FluidR3_GM, licence MIT,
+voir joue). Les styles et leurs timbres :
 
 - **La ville** (« ville ») : un jazz-funk de grande ville des années 1980, rythmé, qui avance. Boîte à
   rythmes à caisse claire réverbérée, basse au doigt avec ses claquées à l'octave, piano électrique
@@ -14,6 +16,8 @@ donc aucun droit à suivre). Deux styles, deux familles de timbres :
 - **Les grands espaces** (« grands_espaces ») : épique et ouvert. Quelques notes de piano dans le
   vide, puis les cordes se lèvent, le cor chante, et tout l'orchestre (timbales, cuivres, violons)
   reprend le thème plus haut avant de redescendre. Ré majeur, 72 à la noire, 107 s.
+- **La filature** (« filature ») : une city pop de détective, la nuit en ville, en la mineur à 116 ;
+  basse au doigt, piano électrique, guitare claire qui gratte, saxo alto, batterie.
 - **Les salons** (« salon ») : une sarabande baroque pour les salons huppés, en ré mineur, l'appui
   sur le deuxième temps ; clavecin et violoncelle, puis les violons ornés, les altos à la tierce.
 
@@ -26,8 +30,9 @@ réverbération de salle. Les niveaux de chaque instrument sont posés par leur 
 l'oreille, et la boucle reste sans couture : tout ce qui dépasse la fin, réverbération comprise,
 revient au début.
 
-    python3 tools/musiques.py               # écrit tous les thèmes dans assets/audio/musique/ (ffmpeg requis)
-    python3 tools/musiques.py titre         # un seul thème
+    python3 tools/musiques.py --sortie=/tmp/essai/   # tous les thèmes (ffmpeg requis, et fluidsynth +
+                                                     # fluid-soundfont-gm pour la filature)
+    python3 tools/musiques.py titre --sortie=/tmp/essai/     # un seul thème
     python3 tools/musiques.py ville --sortie=/tmp/essai/    # ailleurs, plus le mélange complet (ville.ogg)
 """
 
@@ -53,6 +58,55 @@ def db(x):
 
 def rms(x):
     return float(np.sqrt(np.mean(x ** 2)) + 1e-12)
+
+
+# --- Les instruments enregistrés ----------------------------------------------------------------
+# Une banque General MIDI libre (FluidR3_GM, licence MIT : apt install fluidsynth fluid-soundfont-gm),
+# jouée par FluidSynth piste par piste, sans réverbération ni chœur : la table de mixage et la salle
+# restent les nôtres, et la boucle reste sans couture.
+
+BANQUE = os.environ.get("SMARVES_SF2", "/usr/share/sounds/sf2/FluidR3_GM.sf2")
+BATTERIE = -1   # le programme qui désigne le canal 10, celui des percussions
+
+
+def _vlq(v):
+    out = [v & 0x7F]
+    v >>= 7
+    while v:
+        out.insert(0, (v & 0x7F) | 0x80)
+        v >>= 7
+    return bytes(out)
+
+
+def joue(notes, programme, volume=100):
+    """Rend (2, n) : des notes [(début s, durée s, note, force 0..1)] jouées par l'instrument General
+    MIDI `programme` (ou BATTERIE). Le temps MIDI est réglé pour qu'un tic vaille 1/960 s."""
+    canal = 9 if programme == BATTERIE else 0
+    evts = []
+    for d, l, note, force in notes:
+        v = int(np.clip(round(force * 127), 1, 127))
+        evts.append((int(round(max(0.0, d) * 960)), 1, bytes([0x90 | canal, int(note), v])))
+        evts.append((int(round((max(0.0, d) + max(l, 0.02)) * 960)), 0, bytes([0x80 | canal, int(note), 0])))
+    evts.sort(key=lambda e: (e[0], e[1]))
+    piste = bytearray(b"\x00\xff\x51\x03\x07\xa1\x20")          # 500 000 µs la noire
+    piste += b"\x00" + bytes([0xB0 | canal, 7, volume]) + b"\x00" + bytes([0xB0 | canal, 91, 0]) + b"\x00" + bytes([0xB0 | canal, 93, 0])
+    if canal != 9:
+        piste += b"\x00" + bytes([0xC0 | canal, programme])
+    t = 0
+    for tic, _, msg in evts:
+        piste += _vlq(tic - t) + msg
+        t = tic
+    piste += _vlq(int(SR * 0)) + b"\xff\x2f\x00"
+    midi = b"MThd" + (6).to_bytes(4, "big") + (0).to_bytes(2, "big") + (1).to_bytes(2, "big") + (480).to_bytes(2, "big")
+    midi += b"MTrk" + len(piste).to_bytes(4, "big") + bytes(piste)
+    with tempfile.TemporaryDirectory() as dossier:
+        mid, wav = os.path.join(dossier, "p.mid"), os.path.join(dossier, "p.wav")
+        open(mid, "wb").write(midi)
+        subprocess.run(["fluidsynth", "-ni", "-q", "-R", "0", "-C", "0", "-g", "0.6", "-r", str(SR), "-O", "s16",
+                        "-F", wav, BANQUE, mid], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        with wave.open(wav) as w:
+            x = np.frombuffer(w.readframes(w.getnframes()), "<i2").astype(float) / 32768.0
+    return x.reshape(-1, 2).T.copy()
 
 
 # --- La table de mixage -------------------------------------------------------------------------
@@ -102,7 +156,7 @@ class Piste:
             np.add.at(self.bus[nom][c], idx, sig[c] * gain)
 
 
-def mixer(piste, niveaux, salle, traitements=None):
+def mixer(piste, niveaux, salle, traitements=None, arrondi=(2500.0, -8.0, 11000.0)):
     """Le mélange d'une piste : chaque bus ramené à son niveau (dB RMS mesuré sur la boucle, comme une
     table qu'on règle au vumètre), traité s'il le faut, puis envoyé à sec et dans la réverbération."""
     sec = np.zeros((2, piste.n))
@@ -117,7 +171,19 @@ def mixer(piste, niveaux, salle, traitements=None):
         sec += b
         envoi += b * part
     # Rien sous 42 Hz : le grave ne fait que gonfler, surtout dans des haut-parleurs de téléphone.
-    return filtre(sec + reverberation(envoi, salle), haut=42.0, pente=3)
+    return arrondir(filtre(sec + reverberation(envoi, salle), haut=42.0, pente=3), *arrondi)
+
+
+def arrondir(x, coude=2500.0, plancher=-8.0, toit=11000.0):
+    """Ce qui rend l'oreille tranquille : l'aigu descend en pente douce à partir de `coude` Hz jusqu'à
+    `plancher` dB (une étagère, comme un vieil enregistrement ou une bande), et plus rien ne pique au-delà
+    de `toit` Hz. Le médium, où vivent les mélodies, n'est pas touché."""
+    n = x.shape[-1]
+    f = np.fft.rfftfreq(n, 1.0 / SR)
+    s = db(plancher)
+    g = s + (1.0 - s) / np.sqrt(1.0 + (f / coude) ** 2)
+    g /= np.sqrt(1.0 + (f / toit) ** 4)
+    return np.fft.irfft(np.fft.rfft(x, axis=-1) * g, n, axis=-1)
 
 
 def gain_maitre(mix, cible=-18.0):
@@ -127,9 +193,9 @@ def gain_maitre(mix, cible=-18.0):
 
 
 def maitre(mix, gain):
-    """Un peu de chaleur (saturation douce, qui tient aussi les crêtes), au même gain pour toutes les
-    couches d'un morceau."""
-    return np.tanh(mix * gain * 1.25) / 1.25
+    """Une saturation très douce, qui ne fait que tenir les crêtes (plus poussée, elle ajoute des
+    harmoniques qui durcissent l'aigu), au même gain pour toutes les couches d'un morceau."""
+    return np.tanh(mix * gain * 0.7) / 0.7
 
 
 # --- Les effets (circulaires : la boucle reste sans couture) -------------------------------------
@@ -170,9 +236,9 @@ def reverberation(x, salle):
     rep = np.zeros((2, m))
     for c in range(2):
         bruit = rng.normal(0.0, 1.0, m)
-        clair = filtre(bruit, bas=brillance)
-        sombre = filtre(bruit, bas=brillance * 0.25)
-        k = np.exp(-t / (duree * 0.35))
+        clair = filtre(bruit, bas=brillance * 0.6)
+        sombre = filtre(bruit, bas=brillance * 0.18)
+        k = np.exp(-t / (duree * 0.2))
         queue = (clair * k + sombre * (1.0 - k)) * np.exp(-6.9 * t / duree)
         queue *= np.minimum(np.maximum(t - predelai, 0.0) / 0.02, 1.0)
         rep[c] = queue
@@ -227,10 +293,10 @@ def rhodes(note, dur, vel=1.0):
     """Le piano électrique : deux opérateurs FM, la frappe plus brillante quand on joue fort."""
     t = np.arange(int((dur + 1.2) * SR)) / SR
     f = hz(note)
-    index = (0.6 + 1.6 * vel) * np.exp(-t * 5.0) + 0.25
+    index = (0.45 + 1.1 * vel) * np.exp(-t * 6.0) + 0.2
     corps = np.sin(2 * np.pi * f * t + np.sin(2 * np.pi * f * t) * index)
-    lame = np.sin(2 * np.pi * f * 7.0 * t) * np.exp(-t * 20.0) * 0.07 * vel
-    env = np.minimum(t / 0.003, 1.0) * np.exp(-t * 0.9) * np.clip(1.0 - (t - dur) / 0.25, 0.0, 1.0)
+    lame = np.sin(2 * np.pi * f * 7.0 * t) * np.exp(-t * 28.0) * 0.035 * vel
+    env = np.minimum(t / 0.005, 1.0) * np.exp(-t * 0.9) * np.clip(1.0 - (t - dur) / 0.25, 0.0, 1.0)
     return (corps + lame) * env * (0.4 + 0.6 * vel)
 
 
@@ -247,12 +313,12 @@ def cuivres(notes, dur, rng, vel=1.0):
     """Un coup de cuivres de synthé : des scies désaccordées dont le filtre claque puis se referme."""
     n = int((dur + 0.25) * SR)
     t = np.arange(n) / SR
-    b = 1.5 + 9.0 * np.minimum(t / 0.03, 1.0) * np.exp(-t * 7.0) + 2.5
+    b = 1.5 + 6.5 * np.minimum(t / 0.03, 1.0) * np.exp(-t * 7.0) + 2.0
     s = np.zeros(n)
     for note in notes:
         for d in (-0.08, 0.07):
             f = hz(note) * (1.0 + d / 100.0) * (1.0 + 0.004 * np.exp(-t * 30.0))
-            s += additif(f, n, b * vel, harm=16, poids=1.0)
+            s += additif(f, n, b * vel, harm=14, poids=1.15)
     env = enveloppe(n, 0.012, 0.12, 0.6, dur, 0.12)
     return s * env / len(notes)
 
@@ -307,13 +373,13 @@ def chant(notes, n_total, rng, timbre="synthe"):
     vit = 5.4 + 0.3 * np.sin(2 * np.pi * 0.21 * t)
     if timbre == "synthe":
         freq = freq * (1.0 + 0.0055 * vib * np.sin(2 * np.pi * np.cumsum(vit) / SR))
-        s = additif(freq, n, 2.0 + 5.0 * amp, harm=14, poids=1.0, impair=1.25)
+        s = additif(freq, n, 2.0 + 5.0 * amp, harm=12, poids=1.15, impair=1.15)
         s = s + 0.3 * additif(freq * 2.0 ** (0.07 / 12.0), n, 2.0 + 4.0 * amp, harm=10, poids=1.0)
     elif timbre == "harmonica":
         freq = freq * (1.0 + 0.004 * vib * np.sin(2 * np.pi * np.cumsum(vit) / SR))
         amp = amp * (1.0 + 0.18 * vib * np.sin(2 * np.pi * np.cumsum(vit) / SR))
-        s = additif(freq, n, 1.8 + 3.5 * amp, harm=12, poids=0.8, impair=1.6)
-        bruit = filtre(rng.normal(0, 1, n), bas=3500, haut=900)
+        s = additif(freq, n, 1.8 + 3.5 * amp, harm=10, poids=1.0, impair=1.35)
+        bruit = filtre(rng.normal(0, 1, n), bas=2800, haut=900)
         s = s + bruit * (0.05 * amp + 0.25 * souffle)
     elif timbre == "cor":
         # Le cor : rond quand il joue doux, cuivré quand il force (la brillance suit le souffle).
@@ -326,12 +392,12 @@ def chant(notes, n_total, rng, timbre="synthe"):
         for k, (d, v) in enumerate([(-0.06, 5.1), (0.0, 5.6), (0.07, 6.0)]):
             ph = np.cumsum(v + 0.25 * np.sin(2 * np.pi * (0.17 + 0.05 * k) * t)) / SR
             fk = freq * (1.0 + d / 100.0) * (1.0 + 0.004 * vib * np.sin(2 * np.pi * ph + k))
-            s += additif(fk, n, 3.0 + 3.0 * amp, harm=12, poids=1.05)
-        s = s / 3.0 + filtre(rng.normal(0, 1, n), bas=6000, haut=2000) * 0.03 * amp
+            s += additif(fk, n, 2.5 + 2.5 * amp, harm=12, poids=1.1)
+        s = s / 3.0 + filtre(rng.normal(0, 1, n), bas=4500, haut=1800) * 0.02 * amp
     else:  # sifflet
         freq = freq * (1.0 + 0.006 * vib * np.sin(2 * np.pi * np.cumsum(vit) / SR))
         s = additif(freq, n, 0.35, harm=3, poids=1.0)
-        bruit = filtre(rng.normal(0, 1, n), bas=6000, haut=2500)
+        bruit = filtre(rng.normal(0, 1, n), bas=4500, haut=2000)
         s = s + bruit * (0.06 * amp + 0.15 * souffle)
     return s * amp
 
@@ -394,8 +460,8 @@ def piano(note, dur, rng, vel=1.0):
             break
         poids = (1.0 / k ** (1.4 - 0.5 * vel)) * (0.6 if k % 7 == 0 else 1.0)
         s += np.sin(2 * np.pi * fk * t + rng.uniform(0, 6.28)) * poids * np.exp(-t * (0.6 + 0.35 * k) * (f0 / 440.0) ** 0.3)
-    marteau = filtre(rng.normal(0, 1, n), bas=3000 + 3000 * vel, haut=300) * np.exp(-t * 120.0) * 0.15
-    env = np.minimum(t / 0.002, 1.0) * np.clip(1.0 - (t - dur) / 0.4, 0.0, 1.0)
+    marteau = filtre(rng.normal(0, 1, n), bas=2000 + 2000 * vel, haut=300) * np.exp(-t * 120.0) * 0.1
+    env = np.minimum(t / 0.004, 1.0) * np.clip(1.0 - (t - dur) / 0.4, 0.0, 1.0)
     return (s + marteau) * env * vel
 
 
@@ -420,13 +486,13 @@ def souffle_cymbale(dur, rng, vel=1.0):
     n = int((dur + 1.5) * SR)
     t = np.arange(n) / SR
     env = np.minimum(t / dur, 1.0) ** 3 * np.exp(-np.maximum(t - dur, 0) * 2.5)
-    return filtre(rng.normal(0, 1, n), haut=3000, bas=12000) * env * vel
+    return filtre(rng.normal(0, 1, n), haut=2500, bas=7000) * env * vel
 
 
 def clavecin(note, dur, rng, vel=1.0):
     """Un clavecin : la corde pincée par un bec, très claire, et sa corde à l'octave (le quatre-pieds)."""
-    a = corde(note, dur, rng, vel, clair=1.0, perte=0.993, pince=0.06)
-    b = corde(note + 12, dur, rng, vel * 0.35, clair=1.0, perte=0.99, pince=0.08)
+    a = corde(note, dur, rng, vel, clair=0.7, perte=0.993, pince=0.1)
+    b = corde(note + 12, dur, rng, vel * 0.25, clair=0.6, perte=0.99, pince=0.12)
     m = min(len(a), len(b))
     return a[:m] + b[:m]
 
@@ -438,7 +504,7 @@ def grosse_caisse(rng, vel=1.0):
     t = np.arange(n) / SR
     f = 46.0 + 95.0 * np.exp(-t * 32.0)
     corps = np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-t * 7.5)
-    clic = filtre(rng.normal(0, 1, n), bas=4000) * np.exp(-t * 300.0) * 0.5
+    clic = filtre(rng.normal(0, 1, n), bas=1800) * np.exp(-t * 300.0) * 0.35
     return np.tanh((corps + clic) * 1.5) * vel
 
 
@@ -446,7 +512,7 @@ def caisse_claire(rng, vel=1.0):
     n = int(0.3 * SR)
     t = np.arange(n) / SR
     ton = (np.sin(2 * np.pi * 185 * t) + 0.5 * np.sin(2 * np.pi * 330 * t)) * np.exp(-t * 28.0)
-    timbre = filtre(rng.normal(0, 1, n), bas=9000, haut=1500) * np.exp(-t * 16.0)
+    timbre = filtre(rng.normal(0, 1, n), bas=5000, haut=1200) * np.exp(-t * 16.0)
     return (ton * 0.6 + timbre) * vel
 
 
@@ -456,8 +522,9 @@ def charleston(rng, ouvert=False, vel=1.0):
     s = np.zeros(n)
     for f in (205.3, 304.4, 369.6, 522.7, 540.0, 800.0):
         s += np.sign(np.sin(2 * np.pi * f * 1.9 * t + rng.uniform(0, 6.28)))
-    s = filtre(s + rng.normal(0, 0.6, n), haut=7000, bas=15000)
-    return s * np.exp(-t * (9.0 if ouvert else 70.0)) * vel
+    s = filtre(s + rng.normal(0, 0.6, n), haut=5000, bas=9000)
+    # Une attaque de 3 ms : la baguette effleure plutôt qu'elle ne claque.
+    return s * np.minimum(t / 0.003, 1.0) * np.exp(-t * (9.0 if ouvert else 60.0)) * vel
 
 
 def clap(rng, vel=1.0):
@@ -467,7 +534,7 @@ def clap(rng, vel=1.0):
     for d in (0.0, 0.009, 0.018):
         env += np.exp(-np.maximum(t - d, 0) * 120.0) * (t >= d)
     env += np.exp(-np.maximum(t - 0.026, 0) * 18.0) * (t >= 0.026) * 0.6
-    return filtre(rng.normal(0, 1, n), bas=5000, haut=900) * env * vel
+    return filtre(rng.normal(0, 1, n), bas=3200, haut=800) * env * vel
 
 
 def tom(note, rng, vel=1.0):
@@ -480,7 +547,7 @@ def tom(note, rng, vel=1.0):
 def shaker(rng, vel=1.0):
     n = int(0.09 * SR)
     t = np.arange(n) / SR
-    return filtre(rng.normal(0, 1, n), haut=4500, bas=11000) * np.minimum(t / 0.015, 1) * np.exp(-t * 45) * vel
+    return filtre(rng.normal(0, 1, n), haut=3500, bas=7500) * np.minimum(t / 0.02, 1) * np.exp(-t * 40) * vel
 
 
 def pas(rng, vel=1.0):
@@ -669,7 +736,7 @@ def arpege_guitare(p, bar, accord, motif, vel=1.0):
 def roulement_banjo(p, bar, haut, motif, vel=1.0):
     for beat, k in motif:
         note = haut[k]
-        p.add("banjo", corde(note, p.beat * 0.9, p.rng, vel * (0.9 if beat % 1 else 1.0), clair=0.9, perte=0.985, pince=0.08),
+        p.add("banjo", corde(note, p.beat * 0.9, p.rng, vel * (0.9 if beat % 1 else 1.0), clair=0.65, perte=0.985, pince=0.12),
               p.at(bar, beat), pan=0.35, jeu=0.006, force=0.1)
 
 
@@ -866,12 +933,12 @@ def grands_espaces():
         if partie == 1:
             # Le piano en arpèges lents sous le cor.
             for k, beat in enumerate((0, 1, 2, 3)):
-                p.add("piano", piano(accord[1 + k % 4] + 12, p.beat * 1.8, p.rng, 0.45), p.at(bar, beat + 0.5), pan=0.2, jeu=0.015, force=0.1)
+                p.add("piano", piano(accord[1 + k % 4], p.beat * 1.8, p.rng, 0.45), p.at(bar, beat + 0.5), pan=0.2, jeu=0.015, force=0.1)
         # Les cordes : une nappe qui se lève dans la deuxième partie, pleine dans la troisième.
         if partie in (1, 2) or (partie == 3 and m < 2):
             vel = 0.55 if partie == 1 else 1.0
             for k, note in enumerate(accord[1:]):
-                notes = [(0.0, p.bar * 0.98, note + (12 if partie == 2 else 0), vel)]
+                notes = [(0.0, p.bar * 0.98, note, vel)]
                 p.add("cordes", chant(notes, 0, p.rng, "archet"), p.at(bar, 0), pan=-0.4 + 0.25 * k, jeu=0.01)
             p.add("violoncelles", chant([(0.0, p.bar * 0.98, accord[0] if accord[0] < 48 else accord[0] - 12, vel)], 0, p.rng, "archet"),
                   p.at(bar, 0), pan=0.3)
@@ -886,12 +953,14 @@ def grands_espaces():
             p.add("cymbale", souffle_cymbale(p.bar, p.rng), p.at(bar, 0))
             p.add("timbales", timbale(45, p.rng, 0.9, roulement=p.bar * 0.95), p.at(bar, 0))
     p.add("cor", chant(phrase(p, COR, 8), 0, p.rng, "cor"), p.at(8, 0), pan=0.1)
+    # Le sommet : cor et violons à l'unisson, dans le médium. Une octave plus haut, les violons sifflaient.
     p.add("cor", chant(phrase(p, SOMMET, 16, -12), 0, p.rng, "cor"), p.at(16, 0), pan=0.1)
-    p.add("violons", chant(phrase(p, SOMMET, 16, 0, 0.008), 0, p.rng, "archet"), p.at(16, 0), pan=-0.15)
+    p.add("violons", chant(phrase(p, SOMMET, 16, -12, 0.008), 0, p.rng, "archet"), p.at(16, 0), pan=-0.15)
     niveaux = {"piano": (-19.0, 0.5), "air": (-35.0, 0.7), "cordes": (-21.0, 0.5), "violoncelles": (-24.0, 0.45),
                "cuivres": (-23.0, 0.5), "timbales": (-22.0, 0.45), "cymbale": (-30.0, 0.6),
                "cor": (-19.0, 0.5), "violons": (-19.0, 0.5)}
-    mix = mixer(p, niveaux, (3.2, 6000.0, 0.04))
+    # Une grande salle mais sombre, et l'aigu plus tôt couché que dans les autres thèmes.
+    mix = mixer(p, niveaux, (3.2, 3500.0, 0.04), arrondi=(1600.0, -13.0, 7500.0))
     return {"grands_espaces": maitre(mix, gain_maitre(mix))}
 
 
@@ -952,9 +1021,171 @@ def salon():
     return {"salon": maitre(mix, gain_maitre(mix))}
 
 
-THEMES = {"ville": ville, "titre": titre, "environs": environs, "grands_espaces": grands_espaces, "salon": salon}
-# Ce que le jeu emporte : le mélange complet de la ville ne sert qu'à l'écoute.
-DANS_LE_JEU = {"ville_fond", "ville_cuivres", "ville_chant", "titre", "environs", "grands_espaces", "salon"}
+# --- La filature : de la city pop de détective, la nuit en ville ----------------------------------
+
+def caisse_porte(rng, vel=1.0):
+    """La caisse claire des années 80 : une grosse réverbération coupée net par une porte de bruit."""
+    n = int(0.3 * SR)
+    t = np.arange(n) / SR
+    ton = (np.sin(2 * np.pi * 182 * t) + 0.4 * np.sin(2 * np.pi * 310 * t)) * np.exp(-t * 22.0)
+    bruit = filtre(rng.normal(0, 1, n), bas=3800, haut=350) * np.exp(-t * 7.0)
+    porte = np.clip((0.2 - t) / 0.025, 0.0, 1.0)
+    return (ton * 0.7 + bruit) * porte * vel
+
+
+def cloche(note, dur, vel=1.0):
+    """Une cloche de synthé FM, ronde : un modulateur au triple qui s'éteint vite."""
+    t = np.arange(int((dur + 1.5) * SR)) / SR
+    f = hz(note)
+    index = (0.8 + 0.8 * vel) * np.exp(-t * 9.0)
+    s = np.sin(2 * np.pi * f * t + np.sin(2 * np.pi * f * 3.0 * t) * index)
+    env = np.minimum(t / 0.004, 1.0) * np.exp(-t * 2.2) * np.clip(1.0 - (t - dur) / 0.4, 0.0, 1.0)
+    return s * env * vel
+
+
+# Les accords (sans fondamentale, elle est à la basse) et leur basse.
+FI_AM9 = ([55, 59, 60, 64], 45)
+FI_FMAJ9 = ([57, 60, 64, 67], 41)
+FI_G6 = ([55, 59, 62, 64], 43)
+FI_DM9 = ([53, 57, 60, 64], 38)
+FI_E7SUS = ([52, 57, 59, 62], 40)
+FI_E7 = ([56, 59, 62, 67], 40)
+FI_EM9 = ([55, 59, 62, 66], 40)
+FI_AM7 = ([55, 60, 64, 67], 45)
+FI_G9 = ([53, 57, 59, 64], 43)
+FI_CMAJ7 = ([52, 55, 59, 62], 48)
+FI_FS7 = ([54, 58, 61, 64], 42)
+
+
+def _plus(accord, k):
+    return ([n + k for n in accord[0]], accord[1] + k)
+
+
+# Une grille par demi-mesure : l'intro (4), le couplet (8), la montée (4), le refrain (8), le refrain
+# un ton plus haut (8), dont la dernière mesure ramène au la mineur du début.
+_REF = [FI_FMAJ9, FI_FMAJ9, FI_G9, FI_G9, FI_EM9, FI_EM9, FI_AM7, FI_AM7,
+        FI_DM9, FI_DM9, FI_G9, FI_G9, FI_CMAJ7, FI_CMAJ7]
+FI_GRILLE = ([FI_AM9, FI_AM9, FI_FMAJ9, FI_FMAJ9, FI_DM9, FI_DM9, FI_E7SUS, FI_E7]
+             + [FI_AM9] * 4 + [FI_FMAJ9, FI_FMAJ9, FI_G6, FI_G6] + [FI_AM9] * 4 + [FI_DM9, FI_DM9, FI_E7SUS, FI_E7]
+             + [FI_FMAJ9, FI_FMAJ9, FI_G6, FI_G6, FI_EM9, FI_AM7, FI_DM9, FI_E7]
+             + _REF + [FI_FS7, FI_FS7]
+             + [_plus(a, 2) for a in _REF] + [FI_E7SUS, FI_E7])
+FI_COUPLET = [
+    [(0.5, .5, 69), (1, 1, 72), (2, .5, 71), (2.5, 1.5, 69)], [(0, 1, 67), (1, .5, 69), (1.5, 2.5, 64)],
+    [(0.5, .5, 65), (1, 1, 69), (2, .5, 72), (2.5, 1, 74), (3.5, .5, 72)], [(0, 2, 71), (2, .5, 67), (2.5, 1.5, 69)],
+    [(0.5, .5, 69), (1, 1, 72), (2, .5, 74), (2.5, 1.5, 76)], [(0, 1, 74), (1, .5, 72), (1.5, 2.5, 71)],
+    [(0, 1.5, 69), (1.5, .5, 72), (2, 1, 74), (3, 1, 77)], [(0, 2.5, 76), (2.5, .5, 74), (3, 1, 71)],
+]
+FI_MONTEE = [
+    [(0, .5, 72), (.5, .5, 74), (1, 1, 76), (2, 2, 77)], [(0, .5, 74), (.5, .5, 76), (1, 1, 77), (2, 2, 79)],
+    [(0, 1, 79), (1, 1, 76), (2, 1, 81), (3, 1, 79)], [(0, 2, 77), (2, 1, 76), (3, 1, 80)],
+]
+FI_REFRAIN = [
+    [(0, 1.5, 81), (1.5, .5, 79), (2, 2, 77)], [(0, .5, 79), (.5, 1, 77), (1.5, .5, 76), (2, 2, 74)],
+    [(0, 1.5, 79), (1.5, .5, 76), (2, 1, 74), (3, 1, 71)], [(0, 3, 72), (3, .5, 74), (3.5, .5, 76)],
+    [(0, 1.5, 77), (1.5, .5, 76), (2, 1, 74), (3, 1, 72)], [(0, .5, 74), (.5, 1.5, 71), (2, 1, 74), (3, 1, 77)],
+    [(0, 2, 76), (2, .5, 74), (2.5, 1.5, 71)],
+]
+# Les basses de synthé en croches : la fondamentale, l'octave qui rebondit, et une double qui pousse.
+FI_BASSE = [(0, 2, 0, 1.0), (2, 2, 12, 0.7), (4, 2, 0, 0.85), (6, 1, 0, 0.6), (7, 1, 12, 0.7)]
+
+
+def filature():
+    """La filature : city pop de détective, la nuit, en la mineur, 32 mesures à 116, jouée par des
+    instruments enregistrés (voir joue). L'intro tient la nappe, la basse et le piano électrique ; le
+    couplet pose la batterie, la guitare qui gratte en contretemps et le saxo qui chante bas ; la montée
+    grimpe ; le refrain prend la grille qui retombe sur elle-même (fa, sol, mi, la) ; et il revient un
+    ton plus haut avant de redescendre au début."""
+    p = Piste(116.0, 32, graine=1987)
+    rng = p.rng
+    pistes = {nom: [] for nom in ("basse", "ep", "guitare", "nappe", "cloche", "sax", "cordes", "batterie")}
+
+    def note(nom, bar, beat, dur, n, force, jeu=0.006, ecart=0.06):
+        d = p.at(bar, beat) + rng.normal(0.0, jeu)
+        pistes[nom].append((d, dur, n, float(np.clip(force * (1.0 + rng.normal(0.0, ecart)), 0.05, 1.0))))
+
+    for bar in range(32):
+        partie = 0 if bar < 4 else 1 if bar < 12 else 2 if bar < 16 else 3
+        fin = bar in (3, 11, 15, 23, 31)
+        nuance = (0.7, 0.8, 0.85, 0.95)[partie]
+        for demi in range(2):
+            accord, racine = FI_GRILLE[bar * 2 + demi]
+            # La basse au doigt : en blanches dans l'intro, puis en croches, l'octave qui rebondit.
+            if partie == 0 and bar < 2:
+                note("basse", bar, demi * 2, p.beat * 1.9, racine, 0.75, 0.004)
+            else:
+                for s_, l, iv, vel in FI_BASSE:
+                    if fin and demi == 1 and s_ >= 4:
+                        break
+                    note("basse", bar, demi * 2 + s_ / 4, l * p.beat / 2 * 0.85, racine + iv, vel * nuance, 0.004)
+            # Le piano électrique : l'accord posé, puis repris en contretemps.
+            coups = [(0, 1.4, 0.6)] if partie == 0 else [(0.5, 0.4, 0.65), (1.5, 0.35, 0.55)] if demi == 0 else [(0.5, 0.4, 0.6), (1.25, 0.6, 0.5)]
+            for b, l, vel in coups:
+                for k, n in enumerate(accord):
+                    note("ep", bar, demi * 2 + b, l * p.beat, n, vel * nuance * (0.85 if k == 0 else 1.0), 0.008)
+            # La nappe de cordes de synthé, sauf au couplet, où elle laisse la place.
+            if partie != 1:
+                for n in accord[1:]:
+                    note("nappe", bar, demi * 2, p.beat * 1.95, n, 0.55 if partie != 3 else 0.7, 0.0, 0.0)
+            # La guitare claire : des accords étouffés sur le « et » de chaque temps, et un fantôme.
+            if partie >= 1:
+                for b, vel in ((0.5, 0.6), (1.5, 0.7), (1.75, 0.35)):
+                    if fin and demi == 1 and b > 1:
+                        continue
+                    for k, n in enumerate(sorted(accord)[1:]):
+                        note("guitare", bar, demi * 2 + b + k * 0.012, p.beat * 0.18, n + 12, vel * nuance, 0.004)
+        # La batterie (canal 10) : grosse caisse, caisse claire sur 2 et 4, charleston en croches,
+        # maracas en doubles au refrain, crash et roulement de toms aux changements de partie.
+        if bar >= 2:
+            kicks = [0, 2] if partie == 0 else ([0, 1.5, 2] if bar % 2 else [0, 2, 2.75])
+            for b in kicks:
+                note("batterie", bar, b, 0.1, 36, (0.95 if b in (0, 2) else 0.75) * nuance, 0.003)
+        if partie >= 1:
+            for b in (1, 3):
+                if not (fin and b == 3):
+                    note("batterie", bar, b, 0.1, 38, 0.9 * nuance, 0.003)
+            if bar % 2 == 1:
+                note("batterie", bar, 3.75, 0.1, 38, 0.3, 0.004)
+            for k in range(8):
+                if fin and k >= 6:
+                    break
+                ouvert = k == 7 and bar % 4 == 3
+                note("batterie", bar, k / 2, 0.1, 46 if ouvert else 42, (0.75 if k % 2 == 0 else 0.5) * nuance, 0.004)
+        if partie >= 2:
+            for k in range(16):
+                note("batterie", bar, k / 4, 0.05, 70, 0.55 if k % 2 else 0.4, 0.004)
+        if bar in (4, 16, 24):
+            note("batterie", bar, 0, 0.5, 49, 0.8, 0.002)
+        if fin and bar > 3:
+            for k, (b, n) in enumerate([(3, 50), (3.25, 48), (3.5, 45), (3.75, 43)]):
+                note("batterie", bar, b, 0.15, n, 0.75 + 0.05 * k, 0.003)
+        # La cloche du piano FM : un arpège qui monte, dans l'intro et au refrain.
+        if partie in (0, 3) and bar % 2 == 0:
+            accord, _ = FI_GRILLE[bar * 2]
+            for k, n in enumerate(accord + [accord[1] + 12]):
+                note("cloche", bar, k * 0.5, p.beat * 0.6, n + 12, 0.55, 0.004)
+    # Le saxo alto chante : le couplet, la montée, le refrain, puis le refrain un ton plus haut ; les
+    # cordes le soutiennent à l'octave en dessous au refrain.
+    refrain_fs = FI_REFRAIN + [[(0, 2, 70), (2, 1, 73), (3, 1, 76)]]
+    refrain_ret = [[(b, l, n + 2) for b, l, n in m] for m in FI_REFRAIN] + [[(0, 2, 68), (2, 1, 71), (3, 1, 76)]]
+    for depart, mesures in [(4, FI_COUPLET), (12, FI_MONTEE), (16, refrain_fs), (24, refrain_ret)]:
+        for d, l, n, f in phrase(p, mesures, depart, 0, 0.012):
+            debut = p.at(depart, 0) + d
+            pistes["sax"].append((debut, l, n, f * (0.75 if depart == 4 else 0.9)))
+            if depart >= 16:
+                pistes["cordes"].append((debut, l, n - 12, f * 0.6))
+    programmes = {"basse": 33, "ep": 4, "guitare": 27, "nappe": 50, "cloche": 5, "sax": 65, "cordes": 48,
+                  "batterie": BATTERIE}
+    for nom, notes in pistes.items():
+        p.stereo(nom, joue(notes, programmes[nom]), 0.0)
+    niveaux = {"basse": (-16.0, 0.0), "ep": (-22.0, 0.25), "guitare": (-26.0, 0.2), "nappe": (-27.0, 0.4),
+               "cloche": (-28.0, 0.45), "sax": (-18.0, 0.3), "cordes": (-28.0, 0.4), "batterie": (-16.0, 0.12)}
+    mix = mixer(p, niveaux, (1.8, 5000.0, 0.025), arrondi=(3000.0, -6.0, 12000.0))
+    return {"filature": maitre(mix, gain_maitre(mix))}
+
+
+THEMES = {"ville": ville, "titre": titre, "environs": environs, "grands_espaces": grands_espaces, "salon": salon,
+          "filature": filature}
 
 
 def ecrire(nom, mix, sortie):
@@ -974,15 +1205,14 @@ def ecrire(nom, mix, sortie):
 def main():
     noms = [a for a in sys.argv[1:] if not a.startswith("--")] or list(THEMES)
     dossier = next((a.split("=", 1)[1] for a in sys.argv[1:] if a.startswith("--sortie=")), "")
-    dans_le_jeu = not dossier
-    dossier = dossier or os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "assets", "audio", "musique"))
+    if not dossier:
+        # Le jeu joue des morceaux libres (assets/LICENCES.md) : nos thèmes ne remplacent plus les siens.
+        sys.exit("précisez --sortie=dossier/ (assets/audio/musique/ est aux morceaux du jeu)")
     os.makedirs(dossier, exist_ok=True)
     for nom in noms:
         if nom not in THEMES:
             sys.exit("thème inconnu : %s (thèmes : %s)" % (nom, ", ".join(THEMES)))
         for fichier, mix in THEMES[nom]().items():
-            if dans_le_jeu and fichier not in DANS_LE_JEU:
-                continue
             ecrire(fichier, mix, os.path.join(dossier, fichier + ".ogg"))
 
 

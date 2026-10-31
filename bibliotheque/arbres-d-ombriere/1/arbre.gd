@@ -39,7 +39,10 @@ const PLAQUES := ["e4dabe", "d8ccaa", "9aa58b", "8b977e", "c9a66c", "b8925a"]
 ## traverse les feuilles, 0,15 par défaut), teinte (un hexa vers lequel tirer les verts, une liste de cinq hexas qui
 ## remplace la palette, ou une liste de deux ou trois hexas dont la graine choisit un : des verts mêlés), jour (0 à 1,5 :
 ## le jour du ciel au cœur et sous la couronne, 0,6 par défaut ; plus haut, la voûte vue d'en bas s'éclaircit), ajour
-## (0 à 1 : la part des cartes de feuillage qui ne portent pas d'ombre au sol, 0 par défaut ; l'ombre se troue de soleil).
+## (0 à 1 : la part des cartes de feuillage qui ne portent pas d'ombre au sol, 0 par défaut ; l'ombre se troue de soleil),
+## lod (0 par défaut, soit aucun niveau de détail ; une distance en mètres, ou « loin » pour les quartiers de Lyon : un
+## corps Lointain de quelques centaines de sommets, le tronc et trois boules de couronne à la teinte de l'essence,
+## tenu hors de vue en marchant et pris par la version légère du quartier à la place du corps de près).
 @export var options := {}
 
 var fait := false
@@ -157,7 +160,44 @@ static func pousser(parent: Node3D, p: Vector3, nom: String, g: int, opt := {}) 
 	mi.set_instance_shader_parameter("contre_jour", float(opt.get("contre_jour", 0.15)))
 	mi.set_instance_shader_parameter("jour", float(opt.get("jour", 0.6)))
 	mi.set_instance_shader_parameter("ajour", clampf(float(opt.get("ajour", 0.0)), 0.0, 1.0))
+	# le niveau de détail, sur demande (0 par défaut : Guillaume ne veut pas de bascule en marchant). Un nombre : au-delà
+	# de lod, le corps lointain remplace l'arbre. « loin » (les quartiers de Lyon, chef de chantier) : les deux corps
+	# sans bascule en jeu, le corps lointain hors de vue (visibility_range_begin 100 000, méta corps_lointain) et
+	# l'arbre marqué sans_lointain, pour que la version légère du quartier (Quartiers.fondre) prenne le corps
+	# lointain et ignore l'arbre entier, dont les cartes de feuilles ne se simplifient pas.
+	var loin := str(opt.get("lod", "")) == "loin"
+	var lod := 0.0 if loin else maxf(float(opt.get("lod", 0.0)), 0.0)
+	if lod > 0.0 or loin:
+		var o2 := Outils.new(g * 7919 + ARBRES.find(nom) * 31 + 3)
+		_corps_lointain(o2, p, fut, rt, c, R, ec, verts)
+		var ml := o2.construire(parent, nom.capitalize() + "Lointain")
+		ml.set_meta("corps_lointain", true)
+		if loin:
+			mi.set_meta("sans_lointain", true)
+			ml.visibility_range_begin = 100000.0
+		else:
+			mi.visibility_range_end = lod
+			mi.visibility_range_end_margin = 4.0
+			ml.visibility_range_begin = lod
+			ml.visibility_range_begin_margin = 4.0
 	return {"arbre": nom, "graine": g, "hauteur": c.y - p.y + R.y, "couronne": R.x}
+
+
+## Le corps lointain d'un arbre : le fût et trois boules pleines de couronne (le dôme, et deux bosses décalées qui
+## cassent la rondeur), en surface dure colorée par sommet, sans feuilles ni shader. Quelques centaines de sommets.
+static func _corps_lointain(o: Outils, p: Vector3, fut: float, rt: float, c: Vector3, R: Vector3, ec: Color, verts: Array) -> void:
+	var r := o.rng
+	o.branche(p + Vector3(0, -0.3, 0), p + Vector3(0, fut + R.y * 0.3, 0), rt * 1.15, rt * 0.7, ec, 6)
+	# la masse : le ton d'ombre de la palette, plus saturé, parce que le shader des feuilles rend l'arbre entier
+	# bien plus sombre et plus vert que ses hexas (mesuré sur la planche lointain : luminance 96 pour le marronnier,
+	# 54 pour le jeune platane, contre 168 et 130 avec le ton moyen tel quel) ; la boule éclaircit elle-même le dessus
+	var ton := (verts[3] as Color).lerp(verts[4], 0.5)
+	var masse := Color(ton.r * 0.66, ton.g * 0.94, ton.b * 0.5)
+	o.boule(c, Vector3(R.x * 0.92, R.y * 0.88, R.z * 0.92), masse, 0.1, Outils.DUR, 0.0, 1.0)
+	for i in 2:
+		var a := r.randf() * TAU
+		var q := c + Vector3(cos(a) * R.x * 0.38, R.y * r.randf_range(0.05, 0.25), sin(a) * R.z * 0.38)
+		o.boule(q, Vector3(R.x * 0.58, R.y * 0.55, R.z * 0.58), masse.lightened(r.randf_range(0.0, 0.06)), 0.12, Outils.DUR, 0.0, 1.0)
 
 
 ## Une branche de a dans la direction d, longue de l, de rayon ra ; elle se partage en deux ou trois jusqu'au

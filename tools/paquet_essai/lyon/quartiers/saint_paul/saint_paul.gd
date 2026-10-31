@@ -45,8 +45,19 @@ const PLACE_SAINT_PAUL := Rect2(-252.0, 330.0, 60.0, 50.0)
 const EGLISE := [Vector2(-247.0, 287.0), 54.0, 30.0, 2.4]
 const GARE := [Vector2(-266.0, 352.0), 34.0, 36.0, 0.0]
 const LOGE := [Vector2(-180.0, 528.0), 22.0, 24.0, 0.0]
+## Les marches du parvis de la Loge, de la façade vers la place : [début, fin] en x depuis son centre ; leur
+## hauteur, chacune ; la noce s'y étage.
+const MARCHES_LOGE := [Vector2(11.0, 12.8), Vector2(12.8, 13.5), Vector2(13.5, 14.2)]
+const MARCHE_LOGE := 0.17
 ## L'hôtel Bullioud : la façade sur la rue Juiverie, la cour, la galerie de Philibert Delorme au fond.
 const BULLIOUD_RUE := -229.5
+## rue Juiverie : l'alignement des façades est, et la hauteur sur elles en dessous de laquelle tombe l'ombre de
+## la rangée ouest à l'heure du soleil (31° sur l'horizon)
+const JUIVERIE_EST := -221.5
+const JUIVERIE_OMBRE := 8.0
+## Vue1a : l'œil sur la passerelle, et le socle de la tour-lanterne (au-dessus du toit du transept), en mètres
+const LANTERNE_OEIL := Vector3(-186.0, 7.6, 198.0)
+const LANTERNE_VISEE := Vector3(-238.2, 27.0, 295.1)
 const BULLIOUD_COUR := Rect2(-252.0, 414.0, 14.0, 17.0)
 
 ## Le café de courses (en face de la gare) et les traces du fil rouge au Change : le comptoir de la banque de la
@@ -61,20 +72,29 @@ const TRACES := {
 ## Les points de vue (œil, regard) et les sas.
 const REPERES := {
 	"Arrivee_SaintPaul": [Vector2(-196.0, 352.0), Vector2(-260.0, 356.0)],
-	# au débouché de la passerelle, sur le quai : la tour-lanterne au-dessus des toits de droite, la rue qui monte
-	"Vue1a_Passerelle": [Vector2(-218.0, 232.0), Vector2(-226.0, 290.0)],
+	# sur la passerelle, à vingt mètres de la culée : la tour-lanterne détachée sur le ciel au-dessus des toits ;
+	# puis, au débouché sur le quai, la rue qui monte vers l'église
+	# (le regard tourné vers l'amont de la Saône : la plaine au bord de la commune sort du cadre, la tour reste
+	# à gauche du centre)
+	"Vue1a_Passerelle": [Vector2(-186.0, 198.0), Vector2(-270.3, 268.7)],
+	"Vue1b_Culee": [Vector2(-206.0, 234.0), Vector2(-226.0, 290.0)],
 	# les coudes du parcours : le quai, l'angle de la rue Saint-Paul, le bas de la rue du Docteur-Augros, la place
-	"Vue1b_Quai": [Vector2(-182.0, 264.0), Vector2(-150.0, 300.0)],
-	"Vue1c_Gerson": [Vector2(-186.0, 276.5), Vector2(-212.0, 297.0)],
-	"Vue1d_Augros": [Vector2(-213.5, 305.0), Vector2(-214.0, 330.0)],
-	"Vue1e_PlaceSaintPaul": [Vector2(-213.0, 343.0), Vector2(-240.0, 370.0)],
-	"Vue2a_Juiverie": [Vector2(-231.5, 384.0), Vector2(-227.0, 440.0)],
-	# devant le porche de l'hôtel Bullioud, le regard dans la cour vers la galerie de Delorme
-	"Vue2b_Bullioud": [Vector2(-228.6, 422.5), Vector2(-260.0, 422.5)],
-	"Vue2c_Juiverie": [Vector2(-224.5, 458.0), Vector2(-223.0, 500.0)],
-	"Vue2d_Loge": [Vector2(-222.5, 512.5), Vector2(-160.0, 513.0)],
+	"Vue1c_Quai": [Vector2(-182.0, 264.0), Vector2(-150.0, 300.0)],
+	"Vue1d_Gerson": [Vector2(-186.0, 276.5), Vector2(-198.0, 318.0)],
+	"Vue1e_Augros": [Vector2(-213.5, 305.0), Vector2(-214.0, 330.0)],
+	"Vue1f_PlaceSaintPaul": [Vector2(-213.0, 343.0), Vector2(-240.0, 370.0)],
+	# tourné de 20° vers la rangée est, au soleil
+	"Vue2a_Juiverie": [Vector2(-231.5, 384.0), Vector2(-208.2, 434.9)],
+	# devant le porche de l'hôtel Bullioud, le regard dans le passage voûté ; puis, passé le porche, dans la cour :
+	# les galeries des deux côtés, la galerie de Delorme au fond ; on ressort dans la rue par le même porche
+	"Vue2b_Porche": [Vector2(-228.6, 422.5), Vector2(-260.0, 422.5)],
+	"Vue2c_Bullioud": [Vector2(-238.5, 422.8), Vector2(-260.0, 421.0)],
+	"Vue2d_Juiverie": [Vector2(-226.0, 423.5), Vector2(-223.0, 500.0)],
+	"Vue2e_Loge": [Vector2(-222.5, 512.5), Vector2(-160.0, 513.0)],
 	"Vue3a_Change": [Vector2(-150.0, 516.0), Vector2(-157.0, 585.0)],
 }
+## Le regard levé de quelques degrés, pour prendre un peu de ciel au-dessus des rues étroites et de la cour.
+const TANGAGE := {"Vue1d_Gerson": 6.0, "Vue2a_Juiverie": 8.0, "Vue2c_Bullioud": 10.0}
 ## Les sas (socle 1.26, Quartiers.veiller) : un nœud au débouché, son rayon en mètres dans la méta « rayon ».
 const SAS := {
 	"Sas_sathonay": [Vector2(-199.0, 236.0), 6.0],
@@ -115,7 +135,14 @@ class Batisseur:
 			commune = commune.get_parent()
 		if commune == null:
 			commune = r.get_parent()
-		racine.scale = Vector3.ONE / U
+		# le quartier compte en unités du jeu (1/U du mètre) au total : sous $Quartiers de lyon.gd, déjà réduit à
+		# 1/U, il ne se réduit pas une seconde fois (sinon il flotte au-dessus du quai, tiré vers l'origine)
+		var deja := 1.0
+		var a := r.get_parent()
+		while a is Node3D:
+			deja *= (a as Node3D).scale.x
+			a = a.get_parent()
+		racine.scale = Vector3.ONE / (U * deja)
 		racine.set_meta("lointain", 150.0)
 		rng.seed = 69005
 		data = JSON.parse_string(FileAccess.get_file_as_string(DOSSIER + "bourg.json"))
@@ -325,6 +352,7 @@ class Batisseur:
 			for z in RELIEF:
 				if z.has_point(c0):
 					haut = minf(haut, 17.0)
+			haut = minf(haut, minf(_plafond_juiverie(c0, emprises[i], sol), _plafond_lanterne(emprises[i], sol)))
 			var en_relief := _reliefs(i, b, emprises[i])
 			if not en_relief.is_empty():
 				var hmax := 0.0
@@ -341,41 +369,48 @@ class Batisseur:
 			var col := Color(_enduit(c, i))
 			var baie := 3.1 + float((i * 37) % 7) * 0.1
 			for k in poly.size():
-				var a := poly[k]
-				var bb := poly[(k + 1) % poly.size()]
-				var long := a.distance_to(bb)
-				var v := [Vector3(a.x, sol, a.y), Vector3(bb.x, sol, bb.y), Vector3(bb.x, sol + haut, bb.y), Vector3(a.x, sol + haut, a.y)]
+				var pa := poly[k]
+				var pb := poly[(k + 1) % poly.size()]
+				var long := pa.distance_to(pb)
 				var nb := maxf(1.0, round(long / baie))
-				var uv := [Vector2(0, 0), Vector2(nb, 0), Vector2(nb, haut), Vector2(0, haut)]
-				var n := Vector3(bb.y - a.y, 0, -(bb.x - a.x)).normalized()
+				var n := Vector3(pb.y - pa.y, 0, -(pb.x - pa.x)).normalized()
 				var ordre := [0, 2, 1, 0, 3, 2]
-				if Geometry2D.is_point_in_polygon((a + bb) * 0.5 + Vector2(n.x, n.z) * 0.3, poly):
+				if Geometry2D.is_point_in_polygon((pa + pb) * 0.5 + Vector2(n.x, n.z) * 0.3, poly):
 					n = -n
 					ordre = [0, 1, 2, 0, 2, 3]
-				# un mur mitoyen ne se voit qu'au-dessus du voisin
-				var voisin := dans_qui((a + bb) * 0.5 + Vector2(n.x, n.z) * 0.6, i)
-				if voisin >= 0:
-					var bv: Dictionary = data.batiments[voisin]
-					var haut_voisin: float = bv.sol * U - 0.5 + hauts[voisin] if hauts.has(voisin) else bv.sol * U + minf(bv.h * U, 22.0)
-					if sol + haut - haut_voisin < 1.0:
-						continue
-					for j in 2:
-						v[j].y = haut_voisin
-					uv[0].y = haut_voisin - sol
-					uv[1].y = haut_voisin - sol
-				if relief_pose.has(Vector2i(i, k)):
-					for j in 4:
-						v[j] -= n * 0.25
-				var base := occ_v.size()
-				occ_v.append_array(PackedVector3Array([v[0], v[1], v[2], v[3]]))
-				occ_i.append_array(PackedInt32Array([base, base + 1, base + 2, base, base + 2, base + 3]))
-				for idx in ordre:
-					murs.set_color(col)
-					murs.set_normal(n)
-					murs.set_uv(uv[idx])
-					murs.set_uv2(Vector2(haut, float(i % 97)))
-					murs.add_vertex(v[idx])
-				collisions.append_array(PackedVector3Array([v[0], v[2], v[1], v[0], v[3], v[2]]))
+				# le mur par pans de deux mètres : un voisin ne couvre souvent qu'une partie de l'arête, et un mur
+				# mitoyen ne se voit qu'au-dessus du voisin
+				var pans := maxi(1, ceili(long / 2.0))
+				for m in pans:
+					var t0 := float(m) / pans
+					var t1 := float(m + 1) / pans
+					var a := pa.lerp(pb, t0)
+					var bb := pa.lerp(pb, t1)
+					var v := [Vector3(a.x, sol, a.y), Vector3(bb.x, sol, bb.y), Vector3(bb.x, sol + haut, bb.y), Vector3(a.x, sol + haut, a.y)]
+					var uv := [Vector2(nb * t0, 0), Vector2(nb * t1, 0), Vector2(nb * t1, haut), Vector2(nb * t0, haut)]
+					var voisin := dans_qui((a + bb) * 0.5 + Vector2(n.x, n.z) * 0.6, i)
+					if voisin >= 0:
+						var bv: Dictionary = data.batiments[voisin]
+						var haut_voisin: float = bv.sol * U - 0.5 + hauts[voisin] if hauts.has(voisin) else bv.sol * U + minf(bv.h * U, 22.0)
+						if sol + haut - haut_voisin < 1.0:
+							continue
+						for j in 2:
+							v[j].y = haut_voisin
+						uv[0].y = haut_voisin - sol
+						uv[1].y = haut_voisin - sol
+					if relief_pose.has(Vector2i(i, k)):
+						for j in 4:
+							v[j] -= n * 0.25
+					var base := occ_v.size()
+					occ_v.append_array(PackedVector3Array([v[0], v[1], v[2], v[3]]))
+					occ_i.append_array(PackedInt32Array([base, base + 1, base + 2, base, base + 2, base + 3]))
+					for idx in ordre:
+						murs.set_color(col)
+						murs.set_normal(n)
+						murs.set_uv(uv[idx])
+						murs.set_uv2(Vector2(haut, float(i % 97)))
+						murs.add_vertex(v[idx])
+					collisions.append_array(PackedVector3Array([v[0], v[2], v[1], v[0], v[3], v[2]]))
 			_toit(toits, b, poly, sol + haut, i)
 		var mm := MeshInstance3D.new()
 		mm.name = "Murs"
@@ -405,6 +440,34 @@ class Batisseur:
 		corps.add_child(forme)
 		racine.add_child(corps)
 
+	## Rue Juiverie, la rangée ouest : la hauteur (au-dessus de son sol) que le soleil du soir laisse passer pour
+	## n'allumer que le haut des façades d'en face, au-dessus de JUIVERIE_OMBRE (« le soir tombe par le haut ») ;
+	## les maisons montées sur la pente de Fourvière, plus loin, ont d'autant plus de hauteur.
+	func _plafond_juiverie(c: Vector2, poly: PackedVector2Array, sol: float) -> float:
+		if c.x > -229.0 or c.y < 376.0 or c.y > 515.0:
+			return INF
+		var xe := -INF
+		for q in poly:
+			xe = maxf(xe, q.x)
+		return h(JUIVERIE_EST, c.y) + JUIVERIE_OMBRE + maxf(JUIVERIE_EST - xe, 0.0) * tan(deg_to_rad(31.0)) - sol
+
+	## Depuis la passerelle (Vue1a), la tour-lanterne doit se détacher sur le ciel à partir de son socle : une
+	## maison dans le couloir du regard ne monte pas, toit compris, au-dessus du rayon qui va de l'œil au socle.
+	func _plafond_lanterne(poly: PackedVector2Array, sol: float) -> float:
+		var oeil := Vector2(LANTERNE_OEIL.x, LANTERNE_OEIL.z)
+		var cible := Vector2(LANTERNE_VISEE.x, LANTERNE_VISEE.z)
+		var axe := cible - oeil
+		var long := axe.length()
+		axe /= long
+		var plus_bas := INF
+		for q in poly:
+			var t := (q - oeil).dot(axe)
+			if t < 0.0 or t > long - 8.0 or absf((q - oeil).dot(axe.orthogonal())) > 9.0:
+				continue
+			plus_bas = minf(plus_bas, lerpf(LANTERNE_OEIL.y, LANTERNE_VISEE.y, t / long))
+		# le toit monte encore de 3 m au plus au-dessus de la corniche
+		return plus_bas - 3.0 - sol
+
 	func _enduit(c: Vector2, i: int) -> String:
 		# le quai, plus classique et plus pâle ; la ville Renaissance, ocre rouge
 		if c.x > -140.0 or c.y < 250.0:
@@ -423,10 +486,7 @@ class Batisseur:
 			return []
 		# le Vieux-Lyon : quatre ou cinq niveaux, toits bas
 		var niveaux := clampi(int(round((minf(b.h * U, 22.0) - 4.2) / 3.3)), 2, 4)
-		# rue Juiverie, la rangée ouest un niveau plus bas que l'autre : le soleil du soir passe par-dessus et
-		# n'allume que le haut des façades d'en face (« le soir tombe par le haut »)
-		if c.x < -229.0 and c.y > 376.0 and c.y < 515.0 and c.x > -252.0:
-			niveaux = maxi(2, niveaux - 1)
+		var plafond: float = b.sol * U - 0.5 + minf(_plafond_juiverie(c, poly, b.sol * U - 0.5), _plafond_lanterne(poly, b.sol * U - 0.5))
 		var corniches := []
 		for k in poly.size():
 			var a := poly[k]
@@ -451,7 +511,13 @@ class Batisseur:
 				var r := (i * 5 + k * 3 + j) % 6
 				var type: String = "etroite" if w < 6.5 else ["immeuble", "classique", "immeuble", "traboule", "classique", "immeuble"][r]
 				var quai := c.x > -140.0 and c.y < 495.0
-				var opt := {"w": w - 0.04, "d": 3.0, "niveaux": niveaux + (1 if quai else 0), "tuile": TUILES[(i + j) % TUILES.size()],
+				var y := h(q.x, q.y) - 0.05
+				var nf := niveaux
+				if plafond < INF:
+					nf = mini(niveaux, floori((plafond - y - 4.2) / 3.3))
+					if nf < 1:
+						continue
+				var opt := {"w": w - 0.04, "d": 3.0, "niveaux": nf + (1 if quai else 0), "tuile": TUILES[(i + j) % TUILES.size()],
 					"grain": 1.0, "souches": "grosses", "fleurs": (i + j) % 3 == 0, "store": false, "vigne": false, "lod": "loin"}
 				if quai:
 					# le quai de Bondy : des immeubles classiques, plus pâles, à persiennes
@@ -461,6 +527,9 @@ class Batisseur:
 					# la ville Renaissance : la façade du Vieux-Lyon de la bibliothèque, enduit tiré par la graine
 					opt["renaissance"] = true
 					opt["rdc"] = ["boutique", "logis", "boutique", "arcades", "logis", "passage"][(i * 3 + k + j) % 6]
+					# place Gerson, au premier plan de la vue : pas de grande arcade ni devanture aveugle, des logis à croisées
+					if opt.rdc in ["arcades", "boutique"] and q.distance_to(REPERES["Vue1d_Gerson"][0]) < 14.0:
+						opt["rdc"] = "logis"
 					if type == "traboule":
 						type = "classique"
 				if not cafe_pose and q.distance_to(CAFE) < 9.0 and w > 6.0:
@@ -475,7 +544,6 @@ class Batisseur:
 				m.type = type
 				m.graine = i * 31 + k * 7 + j
 				m.options = opt
-				var y := h(q.x, q.y) - 0.05
 				m.position = Vector3(q.x, y, q.y)
 				m.rotation.y = atan2(n.x, n.y)
 				racine.add_child(m)
@@ -625,7 +693,8 @@ class Batisseur:
 		var c: Vector2 = GARE[0]
 		var y := h(c.x + 17.0, c.y) - 0.2
 		var g := _monument("GareSaintPaul", c, GARE[3], y)
-		var pierre := Color("#d2c3a2")
+		# éclaircie d'un ton : au soleil du soir, la façade est à contre-jour depuis la place et doit rester lisible
+		var pierre := Color("#e2d6ba")
 		# la halle derrière, plus basse et plus sombre, adossée à la colline
 		boite(g, Vector3(GARE[1] - 6.0, 13.0, GARE[2]), Vector3(-3.0, 6.5, 0), Color("#b9a98c"))
 		boite(g, Vector3(6.0, 11.0, GARE[2]), Vector3(GARE[1] * 0.5 - 3.0, 5.5, 0), pierre)
@@ -676,8 +745,11 @@ class Batisseur:
 		var b := Node3D.new()
 		b.name = "HotelBullioud"
 		racine.add_child(b)
-		var enduit := Color("#c98a62")
-		var haut := 17.4
+		# la pierre dorée du Vieux-Lyon pour les ailes de la cour, appareillée (assises claires, joints plus
+		# sombres) ; trois niveaux sous un toit bas, comme la rangée ouest de la rue Juiverie
+		var doree := Color("#cdb48a")
+		var pierre_cour := appareil(doree)
+		var haut := 14.0
 		# les deux ailes sur la rue, de part et d'autre du porche, et les ailes autour de la cour
 		var x_rue := BULLIOUD_RUE
 		for bloc in [Rect2(cour.end.x, 412.0, x_rue - 2.9 - cour.end.x, cour.position.y - 412.0 + 7.2),
@@ -687,8 +759,34 @@ class Batisseur:
 				Rect2(cour.position.x, cour.end.y, cour.size.x, 438.0 - cour.end.y)]:
 			if bloc.size.x <= 0.1 or bloc.size.y <= 0.1:
 				continue
-			boite(b, Vector3(bloc.size.x, haut, bloc.size.y), Vector3(bloc.get_center().x, y + haut * 0.5, bloc.get_center().y), enduit)
-			solide(b, Vector3(bloc.size.x, haut, bloc.size.y), Vector3(bloc.get_center().x, y + haut * 0.5, bloc.get_center().y))
+			# le corps du fond, derrière la galerie de Delorme, juste au-dessus de sa corniche : le ciel au-dessus
+			# de la cour, vu de l'entrée
+			var hb := 10.0 if bloc.position.x < cour.position.x - 0.1 else haut
+			var corps := boite(b, Vector3(bloc.size.x, hb, bloc.size.y), Vector3(bloc.get_center().x, y + hb * 0.5, bloc.get_center().y), doree)
+			corps.material_override = pierre_cour
+			solide(b, Vector3(bloc.size.x, hb, bloc.size.y), Vector3(bloc.get_center().x, y + hb * 0.5, bloc.get_center().y))
+		# le pavé de la cour et du passage, posé sur le terrain (la commune n'y a que de l'herbe) : une peau sans
+		# épaisseur ni collision, qui suit la pente mètre par mètre
+		var sol := SurfaceTool.new()
+		sol.begin(Mesh.PRIMITIVE_TRIANGLES)
+		for zone in [cour, Rect2(cour.end.x - 0.1, cour.position.y + 7.2, x_rue + 0.4 - cour.end.x, 2.6)]:
+			var nx := ceili(zone.size.x)
+			var nz := ceili(zone.size.y)
+			for i in nx:
+				for j in nz:
+					var coins: Array = []
+					for d in [Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)]:
+						var q: Vector2 = zone.position + Vector2(minf((i + d.x) / nx * zone.size.x, zone.size.x), minf((j + d.y) / nz * zone.size.y, zone.size.y))
+						coins.append(Vector3(q.x, maxf(h(q.x, q.y), y - 0.3) + 0.1, q.y))
+					for t in [0, 2, 1, 0, 3, 2]:
+						sol.set_normal(Vector3.UP)
+						sol.set_color(Color("#b5aa9a"))
+						sol.add_vertex(coins[t])
+		var pave := MeshInstance3D.new()
+		pave.name = "PaveCour"
+		pave.mesh = sol.commit()
+		pave.material_override = paves_mat
+		b.add_child(pave)
 		# la façade sur la rue : quatre travées Renaissance, deux de chaque côté du porche ; au nord de z = 412, la
 		# rue s'élargit devant la maison voisine, qui recule
 		for t in [[412.0, cour.position.y + 7.2], [cour.position.y + 9.8, 438.0]]:
@@ -704,28 +802,216 @@ class Batisseur:
 				m.rotation.y = PI * 0.5
 				b.add_child(m)
 				modules.append(m)
-		# le passage du porche, de la rue à la cour, voûté
+		# le passage du porche, de la rue à la cour : les murs enduits à joints (ils cachent les flancs crépis des
+		# maisons de la rue), le plafond clair sur deux arcs doubleaux, une lanterne au milieu
 		var z_porche := cour.position.y + 8.5
-		boite(b, Vector3(x_rue - cour.end.x, 0.6, 2.6), Vector3((x_rue + cour.end.x) * 0.5, y + 4.3, z_porche), PIERRE.darkened(0.2))
-		boite(b, Vector3(x_rue - cour.end.x, haut - 4.6, 2.6), Vector3((x_rue + cour.end.x) * 0.5, y + 4.6 + (haut - 4.6) * 0.5, z_porche), enduit)
-		# la galerie de Delorme, au fond de la cour, contre l'aile ouest : deux arcades à l'étage, sur deux trompes
+		var x_mi := (x_rue + cour.end.x) * 0.5
+		var lg := x_rue + 0.3 - cour.end.x
+		var enduit_porche := appareil(Color("#dcc7a2"))
+		for s in [-1.0, 1.0]:
+			var mur := boite(b, Vector3(lg, 4.0, 0.04), Vector3(x_mi + 0.15, y + 2.0, z_porche + s * 1.27), doree)
+			mur.material_override = enduit_porche
+			boite(b, Vector3(lg, 0.35, 0.08), Vector3(x_mi + 0.15, y + 0.17, z_porche + s * 1.25), doree.darkened(0.25))
+		boite(b, Vector3(lg, 0.6, 2.6), Vector3(x_mi + 0.15, y + 4.3, z_porche), Color("#e2d3b4"))
+		for xd in [cour.end.x + 0.3, x_mi, x_rue - 0.2]:
+			boite(b, Vector3(0.4, 0.3, 2.56), Vector3(xd, y + 3.85, z_porche), doree.lightened(0.05))
+		boite(b, Vector3(x_rue - cour.end.x, haut - 4.6, 2.6), Vector3(x_mi, y + 4.6 + (haut - 4.6) * 0.5, z_porche), doree).material_override = pierre_cour
+		_lanterne(b, Vector3(x_mi, y + 4.0, z_porche))
+		# la galerie de Delorme, au fond de la cour, contre l'aile ouest : deux arcades vitrées à l'étage, sur
+		# deux trompes nervurées qui partent de l'angle
 		var gx := cour.position.x + 1.4
 		var gz0 := cour.position.y + 3.0
 		var gz1 := cour.end.y - 3.0
 		var gal := Node3D.new()
 		gal.name = "GalerieDelorme"
 		b.add_child(gal)
-		var pierre := Color("#cbbd9c")
-		boite(gal, Vector3(2.8, 3.6, gz1 - gz0), Vector3(gx, y + 7.6, (gz0 + gz1) * 0.5), pierre)
+		var pierre := Color("#dacdae")
+		boite(gal, Vector3(2.8, 3.6, gz1 - gz0), Vector3(gx, y + 7.6, (gz0 + gz1) * 0.5), pierre).material_override = appareil(pierre)
 		for k in 2:
 			var zc := lerpf(gz0, gz1, (k + 0.5) / 2.0)
-			boite(gal, Vector3(0.2, 2.4, 2.6), Vector3(gx + 1.41, y + 7.4, zc), Color("#2f2a25"))
+			croisee(gal, Vector3(gx + 1.41, y + 7.5, zc), PI * 0.5, 2.0, 2.3, pierre)
 		boite(gal, Vector3(3.2, 0.5, gz1 - gz0 + 0.4), Vector3(gx, y + 9.6, (gz0 + gz1) * 0.5), pierre.lightened(0.08))
-		for z in [gz0, gz1]:
-			var t := cyl(gal, 1.6, 0.1, 2.4, Vector3(gx, y + 4.6, z), pierre.darkened(0.06), 10)
-			t.rotation.x = PI
-		# la tour d'escalier dans l'angle de la cour
-		cyl(b, 1.9, 1.9, haut + 2.0, Vector3(cour.end.x - 2.0, y + (haut + 2.0) * 0.5, cour.end.y - 2.0), enduit.darkened(0.05), 8)
+		boite(gal, Vector3(3.0, 0.2, gz1 - gz0 + 0.2), Vector3(gx + 0.05, y + 5.85, (gz0 + gz1) * 0.5), pierre.lightened(0.05))
+		for z in [gz0 + 1.6, gz1 - 1.6]:
+			_trompe(gal, Vector3(cour.position.x, y + 3.2, z), 2.6, 2.8, 1.6, pierre)
+		# le rez-de-chaussée du fond, sous la galerie : une porte et deux croisées
+		var x_fond := cour.position.x + 0.02
+		var zm := (gz0 + gz1) * 0.5
+		_porte(b, Vector3(x_fond, y, zm), PI * 0.5, 1.4, 2.7, doree)
+		for s in [-1.0, 1.0]:
+			croisee(b, Vector3(x_fond, y + 2.0, zm + s * 2.4), PI * 0.5, 1.0, 1.5, doree)
+		# l'aile sur la rue, côté cour : une croisée par étage de part et d'autre du porche
+		var x_est := cour.end.x - 0.02
+		for zc in [cour.position.y + 4.6, cour.position.y + 11.45]:
+			croisee(b, Vector3(x_est, y + 2.0, zc), -PI * 0.5, 1.0, 1.5, doree)
+			for niv in 2:
+				croisee(b, Vector3(x_est, y + 5.7 + 3.3 * niv, zc), -PI * 0.5, 1.1, 1.9, doree)
+		# les galeries sur colonnes, au nord et au sud de la cour : trois niveaux, des arcades basses au
+		# rez-de-chaussée, des balustres aux étages ; au fond, le mur dans l'ombre propre de la galerie, les
+		# portes des logis en bas, une croisée par travée aux étages
+		var x0 := cour.position.x + 3.0
+		for cote in [[cour.position.y, 1.0, cour.end.x], [cour.end.y, -1.0, cour.end.x - 4.2]]:
+			var zf: float = cote[0]
+			var sens: float = cote[1]
+			var x1: float = cote[2]
+			var prof := 2.0
+			var zb := zf + sens * prof
+			var lacet := 0.0 if sens > 0.0 else PI
+			var travees := maxi(2, int(round((x1 - x0) / 2.6)))
+			var pas := (x1 - x0) / travees
+			for niv in 3:
+				var y0 := y + (0.0 if niv == 0 else 4.2 + 3.3 * (niv - 1))
+				var hn := 4.2 if niv == 0 else 3.3
+				# le plancher, son bandeau mouluré, et la balustrade aux étages
+				boite(b, Vector3(x1 - x0, 0.3, prof), Vector3((x0 + x1) * 0.5, y0 + hn - 0.15, zf + sens * prof * 0.5), doree.darkened(0.08))
+				boite(b, Vector3(x1 - x0, 0.18, 0.1), Vector3((x0 + x1) * 0.5, y0 + hn - 0.35, zb + sens * 0.04), doree.lightened(0.1))
+				boite(b, Vector3(x1 - x0, hn - 0.3, 0.02), Vector3((x0 + x1) * 0.5, y0 + (hn - 0.3) * 0.5, zf + sens * 0.01), doree.darkened(0.22))
+				if niv > 0:
+					boite(b, Vector3(x1 - x0, 0.12, 0.2), Vector3((x0 + x1) * 0.5, y0 + 0.95, zb - sens * 0.05), doree.lightened(0.1))
+					for k in int((x1 - x0) / 0.35):
+						cyl(b, 0.06, 0.06, 0.8, Vector3(x0 + 0.2 + k * 0.35, y0 + 0.45, zb - sens * 0.05), doree.lightened(0.04), 6)
+				for k in travees + 1:
+					var xc := x0 + pas * k
+					var hc := hn - 0.5
+					cyl(b, 0.2 if niv == 0 else 0.16, 0.17 if niv == 0 else 0.14, hc, Vector3(xc, y0 + hc * 0.5, zb - sens * 0.12), doree.lightened(0.12), 10)
+					boite(b, Vector3(0.5, 0.18, 0.5), Vector3(xc, y0 + hc + 0.09, zb - sens * 0.12), doree.lightened(0.08))
+				for k in travees:
+					var xc := x0 + pas * (k + 0.5)
+					# l'arc de chaque travée, en anse de panier, sous le plancher
+					var arc := cyl(b, pas * 0.5 - 0.15, pas * 0.5 - 0.15, 0.12, Vector3(xc, y0 + hn - 0.55, zb - sens * 0.1), doree.darkened(0.06), 14)
+					arc.rotation.x = PI * 0.5
+					arc.scale = Vector3(1.0, 1.0, 0.45)
+					if niv == 0:
+						_porte(b, Vector3(xc, y0, zf + sens * 0.03), lacet, 1.0, 2.6, doree)
+					else:
+						croisee(b, Vector3(xc, y0 + 1.55, zf + sens * 0.03), lacet, 1.0, 1.7, doree)
+		# la tour d'escalier à vis dans l'angle de la cour : ses fenêtres rampantes suivent la vis
+		var tour := Vector3(cour.end.x - 2.0, y, cour.end.y - 2.0)
+		cyl(b, 1.9, 1.9, haut + 2.0, tour + Vector3(0, (haut + 2.0) * 0.5, 0), doree).material_override = pierre_cour
+		cyl(b, 2.2, 0.2, 2.6, tour + Vector3(0, haut + 3.3, 0), Color("#7d7a72"), 8)
+		_porte(b, tour + Vector3(-1.9, 0, 0), -PI * 0.5, 1.0, 2.6, doree)
+		for k in 9:
+			var a := PI * 0.75 + k * 0.7
+			var f := croisee(b, tour + Vector3(cos(a) * 1.92, 2.8 + k * 1.25, sin(a) * 1.92), PI * 0.5 - a, 0.5, 1.0, doree)
+			f.rotation.z = 0.3
+
+	## La pierre appareillée : des assises de 40 cm, des pierres de 80 cm décalées d'un rang à l'autre, chacune
+	## d'une teinte un peu à elle, les joints à 0,85 ; en projection triplanaire et en mètres, pour qu'un mur de
+	## n'importe quelle taille garde ses assises.
+	func appareil(c: Color) -> StandardMaterial3D:
+		var k := "appareil" + c.to_html()
+		if not mats.has(k):
+			var r := RandomNumberGenerator.new()
+			r.seed = 1564
+			var tons: Array = []
+			for i in 4:
+				tons.append(1.0 + r.randf_range(-0.06, 0.03))
+			var img := Image.create(128, 64, false, Image.FORMAT_RGB8)
+			for py in 64:
+				var rang := py / 32
+				for px in 128:
+					var xx := (px + rang * 32) % 128
+					var v: float = tons[rang * 2 + xx / 64]
+					if py % 32 >= 30 or xx % 64 >= 62:
+						v = 0.85
+					v *= 1.0 + r.randf_range(-0.02, 0.02)
+					img.set_pixel(px, py, Color(v, v, v))
+			img.generate_mipmaps()
+			var m := StandardMaterial3D.new()
+			m.albedo_color = c
+			m.albedo_texture = ImageTexture.create_from_image(img)
+			m.roughness = 0.9
+			m.uv1_triplanar = true
+			m.uv1_scale = Vector3(1.0 / 1.6, 1.0 / 0.8, 1.0 / 1.6)
+			mats[k] = m
+		return mats[k]
+
+	## Une croisée de la Renaissance lyonnaise, posée sur un mur en `p` (son centre), tournée de `lacet` (vers +z
+	## à 0) : le chambranle de pierre claire, l'appui, le meneau et la traverse en croix, quatre jours vitrés
+	## qui prennent le ciel.
+	func croisee(parent: Node3D, p: Vector3, lacet: float, l: float, ht: float, pierre: Color) -> Node3D:
+		var n := Node3D.new()
+		n.position = p
+		n.rotation.y = lacet
+		parent.add_child(n)
+		var claire := pierre.lightened(0.2)
+		var vitre := boite(n, Vector3(l, ht, 0.04), Vector3.ZERO, Color("#93a6b2"))
+		vitre.material_override = mat(Color("#93a6b2"), 0.25)
+		for s in [-1.0, 1.0]:
+			boite(n, Vector3(0.16, ht + 0.32, 0.14), Vector3(s * (l * 0.5 + 0.08), 0, 0), claire)
+			boite(n, Vector3(l + 0.32, 0.16, 0.14), Vector3(0, s * (ht * 0.5 + 0.08), 0), claire)
+		boite(n, Vector3(l + 0.5, 0.1, 0.24), Vector3(0, -ht * 0.5 - 0.2, 0.06), claire)
+		boite(n, Vector3(0.1, ht, 0.1), Vector3(0, 0, 0.02), claire)
+		boite(n, Vector3(l, 0.1, 0.1), Vector3(0, ht * 0.14, 0.02), claire)
+		return n
+
+	## Une porte de logis : le vantail de bois sous un linteau, dans un chambranle de pierre ; `p` au pied.
+	func _porte(parent: Node3D, p: Vector3, lacet: float, l: float, ht: float, pierre: Color) -> void:
+		var n := Node3D.new()
+		n.position = p
+		n.rotation.y = lacet
+		parent.add_child(n)
+		var claire := pierre.lightened(0.2)
+		boite(n, Vector3(l, ht, 0.06), Vector3(0, ht * 0.5, 0), Color("#6a4a32"))
+		boite(n, Vector3(0.05, ht - 0.2, 0.08), Vector3(0, ht * 0.5 - 0.1, 0.01), Color("#4e3624"))
+		for s in [-1.0, 1.0]:
+			boite(n, Vector3(0.2, ht + 0.25, 0.16), Vector3(s * (l * 0.5 + 0.1), (ht + 0.25) * 0.5, 0), claire)
+		boite(n, Vector3(l + 0.6, 0.3, 0.2), Vector3(0, ht + 0.25, 0.02), claire)
+
+	## La trompe : un demi-cône de pierre dont la pointe part de l'angle, sous la galerie, avec ses nervures en
+	## éventail et un cul-de-lampe à son départ. `p` est la pointe, sur le mur (face vers +x) ; `ht` sa hauteur,
+	## `saillie` jusqu'où elle porte depuis le mur, `demi` sa demi-largeur le long du mur.
+	func _trompe(parent: Node3D, p: Vector3, ht: float, saillie: float, demi: float, pierre: Color) -> void:
+		var coque := cyl(parent, 0.04, 1.0, ht, p + Vector3(0, ht * 0.5, 0), pierre.darkened(0.12), 16)
+		coque.scale = Vector3(saillie, 1.0, demi)
+		var claire := pierre.lightened(0.12)
+		for i in 7:
+			var a := -PI * 0.5 + PI * i / 6.0
+			var bout := p + Vector3(cos(a) * saillie, ht, sin(a) * demi)
+			var d := bout - p
+			var nerf := boite(parent, Vector3(0.1, 0.1, d.length()), p + d * 0.5, claire)
+			nerf.basis = Basis.looking_at(d, Vector3.UP if absf(d.normalized().y) < 0.99 else Vector3.RIGHT)
+		# le bandeau qui borde la coque en haut, et le départ dans l'angle
+		var rive := cyl(parent, 1.0, 1.0, 0.18, p + Vector3(0, ht - 0.09, 0), claire, 16)
+		rive.scale = Vector3(saillie + 0.08, 1.0, demi + 0.08)
+		cyl(parent, 0.05, 0.32, 0.6, p + Vector3(0.12, -0.3, 0), claire, 8)
+		boite(parent, Vector3(0.3, 0.2, 0.7), p + Vector3(0.1, -0.68, 0), claire)
+
+	## La lanterne pendue au plafond du porche (`p` : le point d'attache) : la tige, la cage de fer, la flamme
+	## qui éclaire le passage.
+	func _lanterne(parent: Node3D, p: Vector3) -> void:
+		var fer := Color("#2b2a28")
+		cyl(parent, 0.015, 0.015, 0.6, p + Vector3(0, -0.3, 0), fer, 4)
+		boite(parent, Vector3(0.34, 0.06, 0.34), p + Vector3(0, -0.62, 0), fer)
+		boite(parent, Vector3(0.3, 0.06, 0.3), p + Vector3(0, -1.12, 0), fer)
+		var verre := boite(parent, Vector3(0.24, 0.44, 0.24), p + Vector3(0, -0.87, 0), Color("#ffd89a"))
+		var m := StandardMaterial3D.new()
+		m.albedo_color = Color("#ffd89a")
+		m.emission_enabled = true
+		m.emission = Color("#ffc46e")
+		m.emission_energy_multiplier = 2.0
+		verre.material_override = m
+		for sx in [-1.0, 1.0]:
+			for sz in [-1.0, 1.0]:
+				boite(parent, Vector3(0.03, 0.5, 0.03), p + Vector3(sx * 0.14, -0.87, sz * 0.14), fer)
+		var lampe := OmniLight3D.new()
+		lampe.light_color = Color("#ffcf8a")
+		lampe.light_energy = 1.2
+		lampe.omni_range = 7.0
+		lampe.shadow_enabled = false
+		lampe.position = p + Vector3(0, -0.9, 0)
+		parent.add_child(lampe)
+
+	## Le sol sous un habitant : le pavé, ou la marche du parvis de la Loge s'il s'y tient.
+	func _sol_loge(p: Vector2) -> float:
+		var c: Vector2 = LOGE[0]
+		var dx := p.x - c.x
+		var y0 := h(c.x + 12.0, c.y) - 0.1
+		for k in 3:
+			var m: Vector2 = MARCHES_LOGE[k]
+			if dx >= m.x and dx < m.y and absf(p.y - c.y) < (float(LOGE[2]) - 2.0 + k * 0.6) * 0.5:
+				return maxf(h(p.x, p.y), y0 + 0.1 + MARCHE_LOGE * (3 - k))
+		return h(p.x, p.y)
 
 	## La Loge du Change : cinq arcades au rez-de-chaussée, l'étage de Soufflot à colonnes, la balustrade et les
 	## deux cadrans ; elle regarde l'est, la place.
@@ -750,10 +1036,21 @@ class Batisseur:
 		for k in 5:
 			var z := -Wz * 0.5 + pas * (k + 0.5)
 			var ouv := pas - 1.4
-			# l'arc est peint en retrait des piles : le vide sombre devant, l'archivolte claire qui le borde
-			boite(l, Vector3(0.08, 4.0, ouv), Vector3(fx + 0.05, 2.0, z), sombre)
-			var arc := cyl(l, ouv * 0.5, ouv * 0.5, 0.08, Vector3(fx + 0.05, 4.0, z), sombre, 16)
+			# l'arc en retrait des piles : le fond sous la voûte, que le soir éclaire encore, une porte vitrée à
+			# croisée sous une imposte en éventail, l'archivolte claire qui le borde ; une lanterne sous l'arc du milieu
+			var fond := Color("#7a6a55")
+			boite(l, Vector3(0.08, 4.0, ouv), Vector3(fx + 0.05, 2.0, z), fond)
+			var arc := cyl(l, ouv * 0.5, ouv * 0.5, 0.08, Vector3(fx + 0.05, 4.0, z), Color("#93a6b2"), 16)
 			arc.rotation.z = PI * 0.5
+			arc.material_override = mat(Color("#93a6b2"), 0.25)
+			for r in 5:
+				var a := PI * (r + 1) / 6.0
+				var rayon := boite(l, Vector3(0.06, ouv * 0.5, 0.06), Vector3(fx + 0.1, 4.0 + sin(a) * ouv * 0.25, z + cos(a) * ouv * 0.25), claire)
+				rayon.rotation.x = PI * 0.5 - a
+			boite(l, Vector3(0.1, 0.14, ouv), Vector3(fx + 0.1, 4.0, z), claire)
+			croisee(l, Vector3(fx + 0.1, 2.0, z), PI * 0.5, ouv - 0.9, 3.4, pierre)
+			if k == 2:
+				_lanterne(l, Vector3(fx + 0.45, 4.0 + ouv * 0.5 - 0.2, z))
 			var archivolte := cyl(l, ouv * 0.5 + 0.3, ouv * 0.5 + 0.3, 0.06, Vector3(fx + 0.02, 4.0, z), claire, 16)
 			archivolte.rotation.z = PI * 0.5
 			boite(l, Vector3(0.5, 0.7, 0.5), Vector3(fx + 0.3, 4.0 + ouv * 0.5 + 0.1, z), claire.lightened(0.05))
@@ -793,9 +1090,13 @@ class Batisseur:
 		for s in [-1.0, 1.0]:
 			var cad := cyl(l, 0.7, 0.7, 0.12, Vector3(fx + 0.62, 14.0, s * pas * 1.5), Color("#efe6cf"), 20)
 			cad.rotation.z = PI * 0.5
-		# les marches du parvis
+		# les marches du parvis : le palier sous les arcades, où les mariés se tiennent, et deux degrés vers la place
 		for k in 3:
-			boite(l, Vector3(1.2 - 0.0, 0.18, Wz - 2.0 + k * 0.5), Vector3(fx + 0.6 + k * 0.4, 0.09 - k * 0.18 + 0.36, 0), VILLEBOIS)
+			var m: Vector2 = MARCHES_LOGE[k]
+			var dy := 0.1 + MARCHE_LOGE * (3 - k)
+			boite(l, Vector3(m.y - m.x, dy, Wz - 2.0 + k * 0.6), Vector3((m.x + m.y) * 0.5, dy * 0.5, 0), VILLEBOIS)
+			boite(l, Vector3(0.06, 0.04, Wz - 2.0 + k * 0.6), Vector3(m.y - 0.03, dy - 0.02, 0), VILLEBOIS.lightened(0.08))
+			solide(l, Vector3(m.y - m.x, dy, Wz - 2.0 + k * 0.6), Vector3((m.x + m.y) * 0.5, dy * 0.5, 0))
 		solide(l, Vector3(Lx, 15.0, Wz), Vector3(0, 7.5, 0))
 
 	# --- Le quai, les arbres ------------------------------------------------------------------------
@@ -842,11 +1143,11 @@ class Batisseur:
 			if not au_quartier(p) or p.x < -330.0:
 				continue
 			k += 1
-			pose(OMBRIERE, "arbre", "jeune_platane", sur(p.x, p.y), 700 + k, {"hauteur": rng.randf_range(9.0, 12.0), "vent": 0.3})
+			pose(OMBRIERE, "arbre", "jeune_platane", sur(p.x, p.y), 700 + k, {"hauteur": rng.randf_range(9.0, 12.0), "vent": 0.3, "lod": "loin"})
 		# deux platanes sur la place Saint-Paul : au soleil du soir, leurs ombres traversent la place vers le quai
 		for p in [Vector2(-208.0, 366.0), Vector2(-236.0, 344.0)]:
 			k += 1
-			pose(OMBRIERE, "arbre", "jeune_platane", sur(p.x, p.y), 700 + k, {"hauteur": 11.0, "vent": 0.3})
+			pose(OMBRIERE, "arbre", "jeune_platane", sur(p.x, p.y), 700 + k, {"hauteur": 11.0, "vent": 0.3, "lod": "loin"})
 
 	# --- La vie -------------------------------------------------------------------------------------
 
@@ -862,7 +1163,7 @@ class Batisseur:
 		var g := [69005]
 		var gens := func(p: Vector2, pose_: String, regard: Vector2, tenue := "village") -> void:
 			var f: Node3D = Atelier.figurant(g[0], pose_, tenue)
-			f.position = Vector3(p.x, h(p.x, p.y), p.y) / U
+			f.position = Vector3(p.x, _sol_loge(p), p.y) / U
 			f.rotation.y = atan2(p.x - regard.x, p.y - regard.y)
 			groupe.add_child(f)
 			g[0] += 1
@@ -905,10 +1206,12 @@ class Batisseur:
 		for k in 6:
 			var cote := -1.0 if k % 2 == 0 else 1.0
 			var rang := k / 2
-			gens.call(marche + Vector2(0.5 * (rang % 2), cote * (1.6 + rang * 1.3)), "idle", marche + Vector2(8.0, 0.0), "soiree")
+			# serrés autour des mariés, un rang plus bas à chaque pas de côté : une grappe, pas une file
+			gens.call(marche + Vector2(0.7 * rang + 0.3, cote * (1.0 + rang * 0.6)), "idle", marche + Vector2(8.0, 0.0), "soiree")
 		for k in 7:
-			var a := -1.1 + k * 0.37 + rng.randf_range(-0.1, 0.1)
-			gens.call(marche + Vector2(cos(a) * (4.5 + (k % 3) * 0.9), sin(a) * (5.0 + (k % 2))), "idle", marche, "soiree")
+			# les amis en arc serré au pied des marches, de dos pour qui arrive de la place
+			var a := -0.6 + k * 0.2 + rng.randf_range(-0.06, 0.06)
+			gens.call(marche + Vector2(cos(a) * (3.4 + (k % 3) * 0.7), sin(a) * (3.6 + (k % 2) * 0.6)), "idle", marche, "soiree")
 		gens.call(marche + Vector2(9.0, 0.4), "idle", marche)
 		var riz := MultiMeshInstance3D.new()
 		var mm := MultiMesh.new()
@@ -918,8 +1221,10 @@ class Batisseur:
 		mm.mesh = qm
 		mm.instance_count = 160
 		for k in 160:
-			var p := parvis + Vector2(rng.randf_range(-2.0, 3.0), rng.randf_range(-3.5, 3.5))
-			mm.set_instance_transform(k, Transform3D(Basis(Vector3.UP, rng.randf() * TAU), Vector3(p.x, h(p.x, p.y) + 0.07, p.y)))
+			var p := parvis + Vector2(rng.randf_range(-3.0, 2.0), rng.randf_range(-2.5, 2.5))
+			# un tiers au sol, le reste en l'air, lancé au-dessus des mariés
+			var vol := 0.07 if k % 3 == 0 else rng.randf_range(0.8, 3.2)
+			mm.set_instance_transform(k, Transform3D(Basis(Vector3.UP, rng.randf() * TAU).rotated(Vector3.RIGHT, rng.randf() * TAU), Vector3(p.x, _sol_loge(p) + vol, p.y)))
 		riz.multimesh = mm
 		riz.material_override = mat(Color("#f4f0e6"))
 		racine.add_child(riz)
@@ -992,7 +1297,10 @@ class Batisseur:
 			var m := Marker3D.new()
 			m.name = nom
 			var p := Vector3(a.x, h(a.x, a.y) + 0.1, a.y)
-			var cible := Vector3(b.x, p.y, b.y)
+			if nom == "Vue1a_Passerelle":
+				# sur le tablier de la passerelle (lyon.gd), au-dessus de la Saône : 5,9 m à cet endroit
+				p.y = maxf(p.y, 6.0)
+			var cible := Vector3(b.x, p.y + tan(deg_to_rad(TANGAGE.get(nom, 0.0))) * a.distance_to(b), b.y)
 			m.transform = Transform3D(Basis.looking_at(cible - p, Vector3.UP), p)
 			racine.add_child(m)
 		for nom in SAS:

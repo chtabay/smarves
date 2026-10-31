@@ -70,6 +70,9 @@ func _init() -> void:
 		for i in IMAGES:
 			await process_frame
 		var bati := Time.get_ticks_msec() - t0
+		# L'échelle cumulée de la racine : celle de son parent, et rien de plus (Quartiers.enregistrer refuse
+		# une racine réduite par le quartier lui-même).
+		print("%s : racine à l'échelle %.4f, %.4f dans la scène" % [nom, n.scale.x, n.global_transform.basis.get_scale().x])
 		var e := Quartiers.enregistrer(n, q.scene)
 		if e != OK:
 			printerr("%s : enregistrement impossible (%s)" % [nom, error_string(e)])
