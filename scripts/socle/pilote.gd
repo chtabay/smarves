@@ -112,6 +112,9 @@ var _dits := 0
 ## secondes, et l'assistant réfléchit souvent plus longtemps entre deux gestes.
 var entendu: Array = []
 const ENTENDU_MAX := 12
+## Jusqu'où il entend une parole (en mètres, l'unité des scènes que le pilote parcourt), qu'on le voie ou non
+## d'ici : demande de Guillaume du 31 octobre (les pensionnaires se perdaient au-delà de quelques mètres).
+const ENTENDRE := 50.0
 
 
 func _ready() -> void:
@@ -133,11 +136,23 @@ func _ready() -> void:
 func _on_etat_change(membre: String, e: Dictionary) -> void:
 	var pr: Node = get_node_or_null("/root/Presences")
 	var p: Dictionary = pr.presents.get(membre, {}) if pr else {}
-	if p.is_empty() or not p.get("a_portee", false) or not (e.get("dit") is String) or str(e.dit) == "":
+	if p.is_empty() or not (e.get("dit") is String) or str(e.dit) == "":
+		return
+	if not p.get("a_portee", false) and not _a_portee_de_voix(p):
 		return
 	entendu.append({"nom": str(p.get("nom", "")), "dit": str(e.dit).left(400)})
 	if entendu.size() > ENTENDU_MAX:
 		entendu.pop_front()
+
+
+## Vrai si ce présent (de la même zone ou du même salon) parle à ENTENDRE mètres au plus.
+func _a_portee_de_voix(p: Dictionary) -> bool:
+	var j := joueur()
+	var pts = p.get("points", [])
+	if j == null or not (pts is Array) or pts.is_empty():
+		return false
+	var pos = pts[-1][1]
+	return pos is Vector3 and _a_plat((pos as Vector3) - j.global_position).length() <= ENTENDRE
 
 
 # --- Ce que voit le joueur ------------------------------------------------------------------------
