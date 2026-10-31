@@ -26,7 +26,7 @@ const TUILES := ["8f4a38", "86422f", "965040", "7e3f30", "92503f", "8a4836"]
 const PIERRE := Color("#a9a294")
 const PIERRE_DOREE := Color("#c9a66b")
 const VILLEBOIS := Color("#c7c3b6")
-const DALLE := Color("#b3a998")
+const DALLE := Color("#d8cbb4")
 const BOIS := Color("#5e4b3c")
 const FER := Color("#2a2a28")
 
@@ -329,10 +329,8 @@ class Batisseur:
 		var mi := MeshInstance3D.new()
 		mi.name = "Places"
 		mi.mesh = st.commit()
-		var m := StandardMaterial3D.new()
-		m.vertex_color_use_as_albedo = true
-		m.roughness = 0.9
-		mi.material_override = m
+		# le pavé de la commune, dans une teinte plus claire : un seul sol sur la place, la zone claire en plus
+		mi.material_override = paves_mat
 		racine.add_child(mi)
 
 	# --- Le bâti ordinaire --------------------------------------------------------------------------
@@ -704,7 +702,8 @@ class Batisseur:
 		boite(g, Vector3(6.0, 11.0, GARE[2]), Vector3(GARE[1] * 0.5 - 3.0, 5.5, 0), pierre)
 		boite(g, Vector3(7.0, 16.0, 12.0), Vector3(GARE[1] * 0.5 - 3.5, 8.0, 0), pierre.lightened(0.05))
 		# la grande baie cintrée sous l'horloge et le cadran, de 2,5 m
-		boite(g, Vector3(0.3, 6.5, 6.0), Vector3(GARE[1] * 0.5 + 0.02, 4.0, 0), Color("#3b4450"))
+		boite(g, Vector3(0.3, 6.5, 6.0), Vector3(GARE[1] * 0.5 + 0.02, 4.0, 0), Color("#6b6a64"))
+		croisee(g, Vector3(GARE[1] * 0.5 + 0.2, 4.0, 0), PI * 0.5, 5.4, 6.0, pierre)
 		var cadran := cyl(g, 1.25, 1.25, 0.2, Vector3(GARE[1] * 0.5 + 0.05, 12.6, 0), Color("#f2ecdc"), 24)
 		cadran.rotation.z = PI * 0.5
 		var cercle := cyl(g, 1.45, 1.45, 0.12, Vector3(GARE[1] * 0.5 + 0.01, 12.6, 0), Color("#3a3328"), 24)
@@ -719,8 +718,10 @@ class Batisseur:
 			boite(g, Vector3(0.05, 0.22, 0.07), Vector3(GARE[1] * 0.5 + 0.17, 12.6 + cos(a) * 1.05, -sin(a) * 1.05), Color("#1e1c1a")).rotation.x = -a
 		for s in [-1.0, 1.0]:
 			for k in 4:
-				boite(g, Vector3(0.2, 2.6, 1.4), Vector3(GARE[1] * 0.5 + 0.02, 2.4, s * (8.0 + k * 3.0)), Color("#3b4450"))
-				boite(g, Vector3(0.2, 2.0, 1.2), Vector3(GARE[1] * 0.5 + 0.02, 7.4, s * (8.0 + k * 3.0)), Color("#3b4450"))
+				boite(g, Vector3(0.2, 2.6, 1.4), Vector3(GARE[1] * 0.5 + 0.02, 2.4, s * (8.0 + k * 3.0)), Color("#6b6a64"))
+				boite(g, Vector3(0.2, 2.0, 1.2), Vector3(GARE[1] * 0.5 + 0.02, 7.4, s * (8.0 + k * 3.0)), Color("#6b6a64"))
+				croisee(g, Vector3(GARE[1] * 0.5 + 0.16, 2.4, s * (8.0 + k * 3.0)), PI * 0.5, 1.1, 2.3, pierre)
+				croisee(g, Vector3(GARE[1] * 0.5 + 0.16, 7.4, s * (8.0 + k * 3.0)), PI * 0.5, 0.9, 1.7, pierre)
 		# les bandeaux et la corniche de pierre, les pilastres, le fronton qui porte l'horloge, le toit d'ardoise
 		var fx: float = GARE[1] * 0.5
 		for yb in [5.2, 10.8]:
@@ -1066,7 +1067,9 @@ class Batisseur:
 			boite(l, Vector3(1.0, 0.45, 1.2), Vector3(fx + 0.55, 13.2, z), claire)
 		for k in 5:
 			var z := -Wz * 0.5 + pas * (k + 0.5)
-			boite(l, Vector3(0.3, 3.6, 1.7), Vector3(fx - 0.05, 10.3, z), Color("#2e3238"))
+			# la haute fenêtre de l'étage, vitrée à croisée comme les portes des arcades, sur un fond de voûte clair
+			boite(l, Vector3(0.3, 3.6, 1.7), Vector3(fx - 0.05, 10.3, z), Color("#7a6a55"))
+			croisee(l, Vector3(fx + 0.12, 10.3, z), PI * 0.5, 1.4, 3.3, pierre)
 			boite(l, Vector3(0.35, 0.25, 2.3), Vector3(fx + 0.15, 8.4, z), claire)
 			var fr := MeshInstance3D.new()
 			var fpm := PrismMesh.new()
