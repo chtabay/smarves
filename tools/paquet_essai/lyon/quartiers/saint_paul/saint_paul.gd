@@ -346,41 +346,48 @@ class Batisseur:
 			var col := Color(_enduit(c, i))
 			var baie := 3.1 + float((i * 37) % 7) * 0.1
 			for k in poly.size():
-				var a := poly[k]
-				var bb := poly[(k + 1) % poly.size()]
-				var long := a.distance_to(bb)
-				var v := [Vector3(a.x, sol, a.y), Vector3(bb.x, sol, bb.y), Vector3(bb.x, sol + haut, bb.y), Vector3(a.x, sol + haut, a.y)]
+				var pa := poly[k]
+				var pb := poly[(k + 1) % poly.size()]
+				var long := pa.distance_to(pb)
 				var nb := maxf(1.0, round(long / baie))
-				var uv := [Vector2(0, 0), Vector2(nb, 0), Vector2(nb, haut), Vector2(0, haut)]
-				var n := Vector3(bb.y - a.y, 0, -(bb.x - a.x)).normalized()
+				var n := Vector3(pb.y - pa.y, 0, -(pb.x - pa.x)).normalized()
 				var ordre := [0, 2, 1, 0, 3, 2]
-				if Geometry2D.is_point_in_polygon((a + bb) * 0.5 + Vector2(n.x, n.z) * 0.3, poly):
+				if Geometry2D.is_point_in_polygon((pa + pb) * 0.5 + Vector2(n.x, n.z) * 0.3, poly):
 					n = -n
 					ordre = [0, 1, 2, 0, 2, 3]
-				# un mur mitoyen ne se voit qu'au-dessus du voisin
-				var voisin := dans_qui((a + bb) * 0.5 + Vector2(n.x, n.z) * 0.6, i)
-				if voisin >= 0:
-					var bv: Dictionary = data.batiments[voisin]
-					var haut_voisin: float = bv.sol * U - 0.5 + hauts[voisin] if hauts.has(voisin) else bv.sol * U + minf(bv.h * U, 22.0)
-					if sol + haut - haut_voisin < 1.0:
-						continue
-					for j in 2:
-						v[j].y = haut_voisin
-					uv[0].y = haut_voisin - sol
-					uv[1].y = haut_voisin - sol
-				if relief_pose.has(Vector2i(i, k)):
-					for j in 4:
-						v[j] -= n * 0.25
-				var base := occ_v.size()
-				occ_v.append_array(PackedVector3Array([v[0], v[1], v[2], v[3]]))
-				occ_i.append_array(PackedInt32Array([base, base + 1, base + 2, base, base + 2, base + 3]))
-				for idx in ordre:
-					murs.set_color(col)
-					murs.set_normal(n)
-					murs.set_uv(uv[idx])
-					murs.set_uv2(Vector2(haut, float(i % 97)))
-					murs.add_vertex(v[idx])
-				collisions.append_array(PackedVector3Array([v[0], v[2], v[1], v[0], v[3], v[2]]))
+				# le mur par pans de deux mètres : un voisin ne couvre souvent qu'une partie de l'arête, et un mur
+				# mitoyen ne se voit qu'au-dessus du voisin
+				var pans := maxi(1, ceili(long / 2.0))
+				for m in pans:
+					var t0 := float(m) / pans
+					var t1 := float(m + 1) / pans
+					var a := pa.lerp(pb, t0)
+					var bb := pa.lerp(pb, t1)
+					var v := [Vector3(a.x, sol, a.y), Vector3(bb.x, sol, bb.y), Vector3(bb.x, sol + haut, bb.y), Vector3(a.x, sol + haut, a.y)]
+					var uv := [Vector2(nb * t0, 0), Vector2(nb * t1, 0), Vector2(nb * t1, haut), Vector2(nb * t0, haut)]
+					var voisin := dans_qui((a + bb) * 0.5 + Vector2(n.x, n.z) * 0.6, i)
+					if voisin >= 0:
+						var bv: Dictionary = data.batiments[voisin]
+						var haut_voisin: float = bv.sol * U - 0.5 + hauts[voisin] if hauts.has(voisin) else bv.sol * U + minf(bv.h * U, 22.0)
+						if sol + haut - haut_voisin < 1.0:
+							continue
+						for j in 2:
+							v[j].y = haut_voisin
+						uv[0].y = haut_voisin - sol
+						uv[1].y = haut_voisin - sol
+					if relief_pose.has(Vector2i(i, k)):
+						for j in 4:
+							v[j] -= n * 0.25
+					var base := occ_v.size()
+					occ_v.append_array(PackedVector3Array([v[0], v[1], v[2], v[3]]))
+					occ_i.append_array(PackedInt32Array([base, base + 1, base + 2, base, base + 2, base + 3]))
+					for idx in ordre:
+						murs.set_color(col)
+						murs.set_normal(n)
+						murs.set_uv(uv[idx])
+						murs.set_uv2(Vector2(haut, float(i % 97)))
+						murs.add_vertex(v[idx])
+					collisions.append_array(PackedVector3Array([v[0], v[2], v[1], v[0], v[3], v[2]]))
 			_toit(toits, b, poly, sol + haut, i)
 		var mm := MeshInstance3D.new()
 		mm.name = "Murs"
