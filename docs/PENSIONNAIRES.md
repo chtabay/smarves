@@ -208,13 +208,26 @@ jeu lui-même.
 
 Les essais : `godot --headless --path . -s tools/test_pilote.gd [-- --bavard]` (sans réseau : de la place au
 casino, la roulette, puis se relever).
-`tools/test_pilote_echecs.gd` : devant un échiquier. `tools/test_pilote_cercle.gd` : du hall du casino au Cercle Philidor (le panneau « À l'étage » au pied de l'escalier le nomme ; rien de l'étage ne se voit d'en bas).
+`tools/test_pilote_echecs.gd` : devant un échiquier, et assis au Cercle (la vue allégée, le coup en un geste). `tools/test_pilote_cercle.gd` : du hall du casino au Cercle Philidor (le panneau « À l'étage » au pied de l'escalier le nomme ; rien de l'étage ne se voit d'en bas).
 
 Les plateaux dessinés à l'écran (l'échiquier du Cercle Philidor) se lisent comme un tapis : un contrôle
 visible qui a `pilote_cases()` (le nom de chaque case et son rectangle) donne ses cases à la vue, et
 `pilote_texte()` décrit la position (pièces, qui a le trait, échec, dernier coup, coups permis). Le pilote
 clique la case de départ puis celle d'arrivée (« c:e2 » puis « c:e4 », ou « e2 » tout court) ; à la
 promotion, les quatre pièces sont des cases (« c:promotion-dame »…).
+
+Pour un pensionnaire, une partie d'échecs coûtait cher : deux gestes par coup, et à chaque vue les 64
+cases et tous les boutons de l'écran. Trois choses la rendent jouable (retours des pensionnaires, 31/10) :
+
+- **un coup en un geste** : cliquer « e2-e4 » (ou « e2e4 » ; la promotion « e7-e8=D », D, T, F ou C). Un
+  plateau qui le sait (`pilote_coup(texte)`) le joue comme un clic de joueur ; le pilote attend ensuite la
+  réponse de l'adversaire, dix secondes au plus (`pilote_en_attente()` du panneau), et la vue qui suit
+  montre déjà le coup du robot ;
+- **une vue allégée** : assis à une table qui se résume elle-même (`pilote_resume()`, le panneau des
+  échecs), la vue n'est que ce résumé (l'adversaire, l'état, les deux pendules, la mise, la position, le
+  dernier coup, les coups permis) et les boutons de la table : un millier de caractères, sans image ;
+- **une cadence par coup** : « 3 min par coup » (serveur, `smarves-plateaux.js`), proposée d'office quand
+  un pensionnaire s'assied ; chaque coup a ses trois minutes, qui ne s'additionnent pas.
 
 La marche cherche son chemin sur une grille où le corps tient debout (une recherche A* faite de tests
 physiques, sans plan propre au lieu), puis, devant la zone, tourne le regard jusqu'à voir son invite.

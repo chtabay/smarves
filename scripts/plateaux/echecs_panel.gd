@@ -454,6 +454,53 @@ func _rendre_gestes(phase: String, pt) -> void:
 	_gestes.add_child(lever)
 
 
+## Ce que voit le pilote d'un pensionnaire assis à cette table, au lieu de tout l'écran (scripts/socle/
+## pilote.gd) : la table et l'adversaire, l'état, les deux pendules, la mise, puis la position avec le
+## dernier coup et les coups permis. Quelques lignes, au lieu des 64 cases et des boutons du village.
+func pilote_resume() -> String:
+	var l := []
+	var adv := ""
+	var places: Array = vue.get("places", [])
+	for k in places.size():
+		if k != int(vue.get("moi", -1)) and places[k] is Dictionary:
+			adv = str(places[k].nom)
+	var r = vue.get("table", {}).get("robot")
+	if r is Dictionary and str(r.get("force", "")) != "":
+		adv += " (%s)" % str(r.force)
+	l.append("%s, %s." % [title if title != "" else "Échecs", ("contre " + adv) if adv != "" else "en attente d'un adversaire"])
+	if _etat.text != "":
+		l.append(_etat.text)
+	var pt = vue.get("partie")
+	var reg: Dictionary = vue.get("reglage", {})
+	var cad := str(reg.get("cadence", ""))
+	var cad_nom := str(reg.get("cadences", {}).get(cad, cad))
+	if pt is Dictionary:
+		var mine := _ma_couleur()
+		var autre := "noirs" if mine == "blancs" else "blancs"
+		var court := str(pt.pendule.get("court", ""))
+		l.append("Pendules (%s) : toi %s%s, ton adversaire %s%s." % [cad_nom, _mmss(_bas), " (elle court)" if court == mine else "", _mmss(_haut), " (elle court)" if court == autre else ""])
+		if int(pt.get("mise", 0)) > 0:
+			l.append("Mise : %s crédits." % Game.fmt(int(pt.mise)))
+		l.append(echiquier.pilote_texte())
+	elif str(vue.get("phase", "")) == "reglage":
+		l.append("Cadence : %s. Mise : %s." % [cad_nom, "pour l'honneur" if int(reg.get("mise", 0)) == 0 else Game.fmt(int(reg.mise)) + " crédits"])
+	return "\n".join(l)
+
+
+## Vrai tant que le coup du pensionnaire attend sa réponse : la demande au serveur, la pause du robot,
+## ou, en partie, le trait à l'adversaire. Le pilote attend là-dessus (un peu) avant de rendre sa vue.
+func pilote_en_attente() -> bool:
+	if _busy or _attente_robot:
+		return true
+	var pt = vue.get("partie")
+	return str(vue.get("phase", "")) == "partie" and pt is Dictionary and str(pt.get("trait", "")) != _ma_couleur()
+
+
+## Le temps affiché sur une pendule, tel qu'il court.
+func _mmss(c: Dictionary) -> String:
+	return c.temps.text if c.has("temps") else "?"
+
+
 func _jouer(uci: String) -> void:
 	_appeler("plateau.jouer", {"coup": uci})
 
