@@ -1180,6 +1180,20 @@ class Batisseur:
 			gens.call(porte + Vector2(cos(a) * (3.0 + k % 2), sin(a) * 4.0 - 2.0), "idle", porte + Vector2(12.0, 0.0))
 		gens.call(Vector2(-244.5, 348.5), "idle", Vector2(-244.5, 351.0))
 		gens.call(Vector2(-244.5, 350.0), "idle", Vector2(-244.5, 347.0))
+		# la place, entre le quai et la gare : deux qui bavardent au milieu, une mère et sa fille qui vont au train,
+		# un homme qui en revient vers le quai
+		gens.call(Vector2(-214.0, 357.5), "idle", Vector2(-215.2, 356.6))
+		gens.call(Vector2(-215.2, 356.6), "idle", Vector2(-214.0, 357.5))
+		var marcheurs := [[Vector2(-203.0, 348.5), Vector2(-240.0, 351.0)], [Vector2(-203.8, 349.6), Vector2(-240.8, 352.1)],
+			[Vector2(-236.0, 360.0), Vector2(-199.0, 356.0)]]
+		for m in marcheurs:
+			var route: Array[Vector3] = []
+			for q: Vector2 in m:
+				route.append(Vector3(q.x, _sol_loge(q), q.y) / U)
+			var f: Node3D = Atelier.figurant(g[0], "walk", "village", route)
+			f.position = route[0]
+			groupe.add_child(f)
+			g[0] += 1
 		# la terrasse du café de courses
 		if not cafe_au.is_empty():
 			var q: Vector2 = cafe_au[0]
