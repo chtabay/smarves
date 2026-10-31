@@ -47,6 +47,10 @@ const GARE := [Vector2(-266.0, 352.0), 34.0, 36.0, 0.0]
 const LOGE := [Vector2(-180.0, 528.0), 22.0, 24.0, 0.0]
 ## L'hôtel Bullioud : la façade sur la rue Juiverie, la cour, la galerie de Philibert Delorme au fond.
 const BULLIOUD_RUE := -229.5
+## rue Juiverie : l'alignement des façades est, et la hauteur sur elles en dessous de laquelle tombe l'ombre de
+## la rangée ouest à l'heure du soleil (31° sur l'horizon)
+const JUIVERIE_EST := -221.5
+const JUIVERIE_OMBRE := 8.0
 const BULLIOUD_COUR := Rect2(-252.0, 414.0, 14.0, 17.0)
 
 ## Le café de courses (en face de la gare) et les traces du fil rouge au Change : le comptoir de la banque de la
@@ -325,6 +329,7 @@ class Batisseur:
 			for z in RELIEF:
 				if z.has_point(c0):
 					haut = minf(haut, 17.0)
+			haut = minf(haut, _plafond_juiverie(c0, emprises[i], sol))
 			var en_relief := _reliefs(i, b, emprises[i])
 			if not en_relief.is_empty():
 				var hmax := 0.0
@@ -405,6 +410,17 @@ class Batisseur:
 		corps.add_child(forme)
 		racine.add_child(corps)
 
+	## Rue Juiverie, la rangée ouest : la hauteur (au-dessus de son sol) que le soleil du soir laisse passer pour
+	## n'allumer que le haut des façades d'en face, au-dessus de JUIVERIE_OMBRE (« le soir tombe par le haut ») ;
+	## les maisons montées sur la pente de Fourvière, plus loin, ont d'autant plus de hauteur.
+	func _plafond_juiverie(c: Vector2, poly: PackedVector2Array, sol: float) -> float:
+		if c.x > -229.0 or c.y < 376.0 or c.y > 515.0:
+			return INF
+		var xe := -INF
+		for q in poly:
+			xe = maxf(xe, q.x)
+		return h(JUIVERIE_EST, c.y) + JUIVERIE_OMBRE + maxf(JUIVERIE_EST - xe, 0.0) * tan(deg_to_rad(31.0)) - sol
+
 	func _enduit(c: Vector2, i: int) -> String:
 		# le quai, plus classique et plus pâle ; la ville Renaissance, ocre rouge
 		if c.x > -140.0 or c.y < 250.0:
@@ -423,10 +439,7 @@ class Batisseur:
 			return []
 		# le Vieux-Lyon : quatre ou cinq niveaux, toits bas
 		var niveaux := clampi(int(round((minf(b.h * U, 22.0) - 4.2) / 3.3)), 2, 4)
-		# rue Juiverie, la rangée ouest un niveau plus bas que l'autre : le soleil du soir passe par-dessus et
-		# n'allume que le haut des façades d'en face (« le soir tombe par le haut »)
-		if c.x < -229.0 and c.y > 376.0 and c.y < 515.0 and c.x > -252.0:
-			niveaux = maxi(2, niveaux - 1)
+		var plafond: float = b.sol * U - 0.5 + _plafond_juiverie(c, poly, b.sol * U - 0.5)
 		var corniches := []
 		for k in poly.size():
 			var a := poly[k]
@@ -451,7 +464,13 @@ class Batisseur:
 				var r := (i * 5 + k * 3 + j) % 6
 				var type: String = "etroite" if w < 6.5 else ["immeuble", "classique", "immeuble", "traboule", "classique", "immeuble"][r]
 				var quai := c.x > -140.0 and c.y < 495.0
-				var opt := {"w": w - 0.04, "d": 3.0, "niveaux": niveaux + (1 if quai else 0), "tuile": TUILES[(i + j) % TUILES.size()],
+				var y := h(q.x, q.y) - 0.05
+				var nf := niveaux
+				if plafond < INF:
+					nf = mini(niveaux, floori((plafond - y - 4.2) / 3.3))
+					if nf < 1:
+						continue
+				var opt := {"w": w - 0.04, "d": 3.0, "niveaux": nf + (1 if quai else 0), "tuile": TUILES[(i + j) % TUILES.size()],
 					"grain": 1.0, "souches": "grosses", "fleurs": (i + j) % 3 == 0, "store": false, "vigne": false, "lod": "loin"}
 				if quai:
 					# le quai de Bondy : des immeubles classiques, plus pâles, à persiennes
@@ -475,7 +494,6 @@ class Batisseur:
 				m.type = type
 				m.graine = i * 31 + k * 7 + j
 				m.options = opt
-				var y := h(q.x, q.y) - 0.05
 				m.position = Vector3(q.x, y, q.y)
 				m.rotation.y = atan2(n.x, n.y)
 				racine.add_child(m)
