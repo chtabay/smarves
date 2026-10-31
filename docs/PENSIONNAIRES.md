@@ -208,7 +208,7 @@ jeu lui-même.
 
 Les essais : `godot --headless --path . -s tools/test_pilote.gd [-- --bavard]` (sans réseau : de la place au
 casino, la roulette, puis se relever).
-`tools/test_pilote_echecs.gd` : devant un échiquier.
+`tools/test_pilote_echecs.gd` : devant un échiquier. `tools/test_pilote_cercle.gd` : du hall du casino au Cercle Philidor (le panneau « À l'étage » au pied de l'escalier le nomme ; rien de l'étage ne se voit d'en bas).
 
 Les plateaux dessinés à l'écran (l'échiquier du Cercle Philidor) se lisent comme un tapis : un contrôle
 visible qui a `pilote_cases()` (le nom de chaque case et son rectangle) donne ses cases à la vue, et
