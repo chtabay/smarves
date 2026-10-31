@@ -291,6 +291,50 @@ func _init() -> void:
 	var loin7: MeshInstance3D = l7.find_child("Lointain", true, false)
 	var loin6: Node = l6.find_child("Lointain", true, false)
 	check(loin6 == null and corps7 != null and loin7 != null and is_equal_approx(corps7.visibility_range_end, 40.0) and is_equal_approx(loin7.visibility_range_begin, 40.0) and loin7.mesh.surface_get_array_len(0) < 2000, "l'option lod du façadier lyonnais ajoute un corps Lointain qui prend le relais à 40 m (%d sommets), rien sans elle" % (loin7.mesh.surface_get_array_len(0) if loin7 else -1))
+	# le côté fenêtré (option cote_fenetre, verdict n° 47 de Sathonay) : des vitres au-delà de ±w/2, aucune sans l'option
+	var compte_vitres := func(noeud: Node3D, demi_w: float) -> int:
+		var nv := 0
+		for mi in noeud.find_children("*", "MeshInstance3D", true, false):
+			for si in mi.mesh.get_surface_count():
+				var arrs: Array = mi.mesh.surface_get_arrays(si)
+				var cols: PackedColorArray = arrs[Mesh.ARRAY_COLOR]
+				var pos: PackedVector3Array = arrs[Mesh.ARRAY_VERTEX]
+				for k in pos.size():
+					if absf(pos[k].x) > demi_w + 0.005 and cols[k].is_equal_approx(Color("4a5f78")):
+						nv += 1
+		return nv
+	var c1: Node3D = paquet_lyon.instantiate()
+	c1.type = "maison"
+	c1.graine = 4
+	c1.options = {"niveaux": 5, "w": 9.0, "d": 12.0, "cote_fenetre": "deux"}
+	var c2: Node3D = paquet_lyon.instantiate()
+	c2.type = "maison"
+	c2.graine = 4
+	c2.options = {"niveaux": 5, "w": 9.0, "d": 12.0}
+	lyon.add_child(c1)
+	lyon.add_child(c2)
+	var vitres_avec: int = compte_vitres.call(c1, 4.5)
+	var vitres_sans: int = compte_vitres.call(c2, 4.5)
+	check(vitres_avec >= 2 * 6 * 5 * 4 and vitres_sans == 0, "cote_fenetre « deux » fenêtre les deux côtés d'une maison de cinq niveaux au module de la façade (%d sommets de vitre sur les côtés, %d sans l'option)" % [vitres_avec, vitres_sans])
+	var c3: Node3D = paquet_lyon.instantiate()
+	c3.type = "hotel"
+	c3.graine = 4
+	c3.options = {"niveaux": 5, "w": 25.0, "d": 15.0, "cote_fenetre": "-z"}
+	lyon.add_child(c3)
+	var vitres_arriere := 0
+	var vitres_cotes3 := 0
+	for mi in c3.find_children("*", "MeshInstance3D", true, false):
+		for si in mi.mesh.get_surface_count():
+			var arrs3: Array = mi.mesh.surface_get_arrays(si)
+			var cols3: PackedColorArray = arrs3[Mesh.ARRAY_COLOR]
+			var pos3: PackedVector3Array = arrs3[Mesh.ARRAY_VERTEX]
+			for k in pos3.size():
+				if cols3[k].is_equal_approx(Color("4a5f78")):
+					if pos3[k].z < -15.0 - 0.005:
+						vitres_arriere += 1
+					elif absf(pos3[k].x) > 12.5 + 0.005:
+						vitres_cotes3 += 1
+	check(vitres_arriere >= 6 * 6 * 4 and vitres_cotes3 == 0, "cote_fenetre « -z » fenêtre l'arrière d'un hôtel de 25 m (%d sommets de vitre derrière, %d sur les côtés)" % [vitres_arriere, vitres_cotes3])
 	var l8: Node3D = paquet_lyon.instantiate()
 	l8.type = "immeuble"
 	l8.graine = 3

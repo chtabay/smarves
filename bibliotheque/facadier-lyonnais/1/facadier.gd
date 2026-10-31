@@ -121,6 +121,11 @@ static func maison(parent: Node3D, p: Vector3, type: String, graine: int, opt :=
 		var b := Basis(Vector3(0, 0, -1), Vector3(0, 1, 0), Vector3(1, 0, 0))
 		_facade(o, Transform3D(b, Vector3(w * 0.5, 0, -d * 0.5)), d, niveaux, "boutique", "angle", style, n)
 		o.boite(Transform3D(Basis(Vector3.UP, PI * 0.25), Vector3(w * 0.5 - 0.35, H * 0.5, -0.35)), Vector3(1.4, H, 0.3), PIERRE)
+	# les côtés fenêtrés (option cote_fenetre : un mur qui donne sur un espace public est une façade, pas un
+	# mitoyen ; verdict n° 47 de Sathonay) : le même module que la façade, bandeaux aux mêmes hauteurs, sans porte
+	var cotes := _cotes_fenetres(opt, type)
+	for cote in cotes:
+		_facade(o, _repere_cote(cote, w, d), w if cote == "-z" else d, niveaux, "cote", type, style, n)
 	if opt.get("vigne", r.randf() < 0.3):
 		_vigne(o, w, H, r)
 	var faite := H
@@ -186,6 +191,45 @@ static func maison(parent: Node3D, p: Vector3, type: String, graine: int, opt :=
 
 ## Le corps lointain d'un immeuble, quelques centaines de sommets : le corps enduit, le toit sans ses rangs de
 ## tuiles (mais avec son grain), la génoise en deux boîtes, les souches, et les façades peintes à plat.
+## Les faces à fenêtrer, d'après l'option cote_fenetre : « +x », « -x », « -z » (ou « arriere »), « deux » (les
+## deux côtés ; vrai vaut « deux »), « tous » (les deux côtés et l'arrière), ou une liste de ces noms ; rien par
+## défaut. L'immeuble d'angle a déjà sa façade vers +X.
+static func _cotes_fenetres(opt: Dictionary, type: String) -> Array:
+	var v = opt.get("cote_fenetre", "")
+	var cotes := []
+	var noms: Array = v if v is Array else [v]
+	for nom in noms:
+		if nom is bool:
+			if nom:
+				cotes.append_array(["-x", "+x"])
+			continue
+		match str(nom):
+			"+x", "-x", "-z":
+				cotes.append(str(nom))
+			"arriere":
+				cotes.append("-z")
+			"deux", "2":
+				cotes.append_array(["-x", "+x"])
+			"tous":
+				cotes.append_array(["-x", "+x", "-z"])
+	if type == "angle":
+		cotes.erase("+x")
+	var uniques := []
+	for c in cotes:
+		if not c in uniques:
+			uniques.append(c)
+	return uniques
+
+
+## Le repère d'une face à fenêtrer : x le long de la face, z vers l'extérieur, l'origine au milieu de la face.
+static func _repere_cote(cote: String, w: float, d: float) -> Transform3D:
+	if cote == "-z":
+		return Transform3D(Basis(Vector3(-1, 0, 0), Vector3(0, 1, 0), Vector3(0, 0, -1)), Vector3(0, 0, -d))
+	var sx := 1.0 if cote == "+x" else -1.0
+	var b := Basis(Vector3(0, 0, -sx), Vector3(0, 1, 0), Vector3(sx, 0, 0))
+	return Transform3D(b, Vector3(sx * w * 0.5, 0, -d * 0.5))
+
+
 static func _corps_lointain(o: Outils, w: float, d: float, H: float, faite: float, type: String, rdc: String, niveaux: int, s: Dictionary, toit: String, opt: Dictionary, souches: Array, sw: float, sh: float, sd: float) -> void:
 	var enduit: Color = s.enduit
 	o.boite(Transform3D(Basis(), Vector3(0, H * 0.5, -d * 0.5)), Vector3(w, H, d), [enduit.darkened(0.06), enduit.darkened(0.06), enduit, enduit, enduit, enduit.darkened(0.1)])
@@ -193,6 +237,8 @@ static func _corps_lointain(o: Outils, w: float, d: float, H: float, faite: floa
 	if type == "angle":
 		var b := Basis(Vector3(0, 0, -1), Vector3(0, 1, 0), Vector3(1, 0, 0))
 		_facade_lointaine(o, Transform3D(b, Vector3(w * 0.5, 0, -d * 0.5)), d, niveaux, "boutique", "angle", s)
+	for cote in _cotes_fenetres(opt, type):
+		_facade_lointaine(o, _repere_cote(cote, w, d), w if cote == "-z" else d, niveaux, "cote", type, s)
 	if toit == "mansarde":
 		_mansarde(o, w, d, H, o.rng)
 	else:
@@ -230,6 +276,13 @@ static func _facade_lointaine(o: Outils, t: Transform3D, w: float, niveaux: int,
 				var x := -w * 0.5 + pas * (i + 0.5)
 				var milieu := rdc == "passage" and i == n / 2
 				plat.call(x - (pas - 0.7) * 0.5, 0.0, x + (pas - 0.7) * 0.5, 3.6 if milieu else 3.3, 0.13, SOMBRE if milieu else s.bois)
+		"cote":
+			var nfc := clampi(int(round((w - 1.2) / 2.1)), 1, 6)
+			var pasc := (w - 1.4) / nfc
+			for i in nfc:
+				var x := -w * 0.5 + 0.7 + pasc * (i + 0.5)
+				plat.call(x - 0.66, 0.9, x + 0.66, 3.26, 0.13, pierre)
+				plat.call(x - 0.5, 1.0, x + 0.5, 3.1, 0.14, VERRE.darkened(0.2))
 		_:
 			plat.call(-0.8, 0.0, 0.8, 3.0, 0.13, s.bois.darkened(0.1))
 	# les bandeaux et la corniche
@@ -283,7 +336,14 @@ static func _facade(o: Outils, t: Transform3D, w: float, niveaux: int, rdc: Stri
 		y += 0.55
 	o.boite(t * Transform3D(Basis(), Vector3(0, 0.25, 0.14)), Vector3(w + 0.04, 0.5, 0.2), PIERRE_SOMBRE)
 	var porte := Vector3(0, 0, 0.3)
+	# les travées : des fenêtres hautes à encadrement de pierre, garde-corps de fonte, persiennes
+	var nf := clampi(int(round((w - 1.2) / 2.1)), 1, 6)
+	var pas := (w - 1.4) / nf
 	match rdc:
+		"cote":
+			# un côté fenêtré : au rez-de-chaussée, les fenêtres du même module, sans porte
+			for i in nf:
+				_fenetre(o, t, Vector3(-w * 0.5 + 0.7 + pas * (i + 0.5), 1.0, 0.12), 1.0, 2.1, s, true, false)
 		"arcades":
 			porte = _arcades(o, t, w, s, false)
 		"passage":
@@ -314,13 +374,10 @@ static func _facade(o: Outils, t: Transform3D, w: float, niveaux: int, rdc: Stri
 				o.boite(t * Transform3D(Basis(), Vector3(cote * (w * 0.5 - large * 0.5 + 0.02), yy + 0.21, 0.07)), Vector3(large, 0.38, 0.14), PIERRE)
 				yy += 0.44
 				k += 1
-	# les travées : des fenêtres hautes à encadrement de pierre, garde-corps de fonte, persiennes
-	var nf := clampi(int(round((w - 1.2) / 2.1)), 1, 6)
-	var pas := (w - 1.4) / nf
 	for e in niveaux:
 		var y0 := RDC + e * ETAGE + 0.55
 		var haute := 2.1 if e < 2 else (1.9 if e < niveaux - 1 else 1.7)
-		var filant: bool = s.balcons and (e == 1 or (e == niveaux - 1 and niveaux >= 4)) and nf >= 2
+		var filant: bool = s.balcons and (e == 1 or (e == niveaux - 1 and niveaux >= 4)) and nf >= 2 and rdc != "cote"
 		if filant:
 			_balcon_filant(o, t, Vector3(0, y0, 0), w - 0.9, s)
 		for i in nf:

@@ -147,7 +147,7 @@ func _ready() -> void:
 	_fourviere()
 	# les maisons du façadier sont posées sur un point de leur façade : sur la pente, le terrain descend sous elles
 	# plus bas que leur soubassement (100 sur 296, jusqu'à 6 m). Leur assise de pierre le rattrape (socle 1.30).
-	Assise.caler_tout(ville, hauteur, PIERRE_DOREE.darkened(0.15))
+	Assise.caler_tout(ville, hauteur, Color("#82745e"))
 	_relief_de_pres()
 	_reperes()
 	_joueur()
@@ -1799,7 +1799,7 @@ func _heros_poser(i: int, b: Dictionary) -> void:
 		var opt := {"w": w - 0.05, "d": lv, "niveaux": niveaux, "tuile": TUILES[(i + k) % TUILES.size()], "pente": 29.0, "grain": 1.0, "chassis": 2, "souches": "grosses", "toile": TOILES[(i * 3 + k) % TOILES.size()], "store": (i + k) % 2 == 0}
 		if est_mairie:
 			type = "hotel"
-			opt.merge({"enduit": "c6bca3", "persiennes": false, "fleurs": false, "niveaux": 3, "rdc": "pierre"}, true)
+			opt.merge({"enduit": "c6bca3", "persiennes": false, "fleurs": false, "niveaux": 3, "rdc": "pierre", "cote_fenetre": "arriere"}, true)
 		else:
 			var pentes := p.y < -45.0
 			var r := (i * 13 + k * 7) % 10
