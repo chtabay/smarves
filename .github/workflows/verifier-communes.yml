@@ -5,6 +5,7 @@ on:
     paths:
       - 'communes/**'
       - 'scripts/**'
+      - 'shaders/**'
       - 'tools/**'
       - 'docs/COMMUNE.md'
       - 'assets/audio/**'
@@ -50,3 +51,5 @@ jobs:
         run: |
           ./godot --headless --path . -s tools/test_mobylette.gd
           ./godot --headless --path . -s tools/test_mobylette.gd -- --tactile
+      - name: Le van des chasseurs de pépites et l'atelier des véhicules
+        run: ./godot --headless --path . -s tools/test_van.gd

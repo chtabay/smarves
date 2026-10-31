@@ -85,7 +85,7 @@ const SPEAKERS := {
 		"Une pépite, c'est un fût d'une seule année, mis en bouteille brut de fût, sans rien ajouter ni filtrer. Rien n'est truqué, tout prend du temps.",
 		"Ma carte ? Chaque croix est une ferme : un alambic du Bas-Armagnac, un verger du Domfrontais, une poire Williams d'Alsace.",
 		"On m'a dit que Smarves était le village où l'on gagne le plus. Moi, je cherche celui où l'on distille le mieux. C'est rarement le même.",
-		"Quand je suis en ville, le van dort sur la placette de la rue du Clain. Noir, lettres dorées. Le toit sert de grenier.",
+		"Quand je suis en ville, le van dort sur la placette de la rue du Clain. Gris anthracite, le médaillon de la maison sur le flanc. Le coffre sert de grenier.",
 		"Je connais une fable : le Van et la Roulette. La morale tient en une ligne : la chance tourne en rond, la patience fait du chemin.",
 	]},
 	"habitant": {"name": "un habitant", "lines": [
