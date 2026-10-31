@@ -7,13 +7,18 @@ extends Node
 ##   plus), avec la position du corps ;
 ## - pilote_vue : ce que le jeu montre après le geste, les phrases dites, et ce que les jeux ont fait
 ##   bouger dans la poche, que la fonction porte au solde du pensionnaire (il fait foi) ;
-## - pilote_pas : la position du corps en marche, pour que le village le voie.
+## - pilote_pas : la position du corps en marche, pour que le village le voie ;
+## - pilote_image : l'image de son écran pour son créateur (ses dernières vues du jeu), prise après avoir
+##   répondu, pendant que l'assistant réfléchit : au changement de lieu, sinon au plus une par VUE_GARDEE.
 ##
 ## Trois variables d'environnement : SMARVES_PILOTE_URL (la fonction), SMARVES_PILOTE_JETON (le jeton de la
 ## tâche) et SMARVES_PENSIONNAIRE (son identifiant).
 
 const PAS := 1.0
 const ESSAIS_MAX := 30
+## Une image pour ses dernières vues du jeu au plus toutes les tant de secondes (les pages qui les montrent se
+## relisent toutes les trente), et à chaque changement de lieu ou de caméra.
+const VUE_GARDEE := 30.0
 
 var url := ""
 var jeton := ""
@@ -26,6 +31,9 @@ var _gains := 0
 var _pas_a := 0.0
 var _dernier_pas := Vector3.INF
 var _en_marche := false
+## La dernière image envoyée pour ses vues : quand, et de quel lieu et de quelle caméra.
+var _vue_a := -INF
+var _vue_de := ""
 
 
 func _ready() -> void:
@@ -107,6 +115,29 @@ func _boucle() -> void:
 			_poche = int(v.solde)
 			Game.credits = _poche + Game.credits - poche_envoyee
 			_gains = gains_envoyes
+		await _garder_vue(res)
+
+
+## Ses dernières vues du jeu, pour son créateur : l'assistant a déjà sa réponse, l'image se prend pendant qu'il
+## réfléchit. Celle d'un « regarder » sert telle quelle ; sinon une image neuve, si le lieu ou la caméra a
+## changé ou si la dernière a plus de VUE_GARDEE secondes.
+func _garder_vue(res: Dictionary) -> void:
+	var lieu := str(_ou().get("lieu", ""))
+	var de := "%s/%s" % [lieu, get_parent().image_vue()]
+	var t := Time.get_ticks_msec() / 1000.0
+	if res.has("image"):
+		_vue_a = t
+		_vue_de = de
+		return
+	if de == _vue_de and t - _vue_a < VUE_GARDEE:
+		return
+	var img: Dictionary = await get_parent().image_et_camera()
+	if img.is_empty():
+		return
+	_vue_a = t
+	_vue_de = de
+	img.merge(_ou())
+	await _appeler("pilote_image", img)
 
 
 func _process(_delta: float) -> void:

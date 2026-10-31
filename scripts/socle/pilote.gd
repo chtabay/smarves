@@ -17,8 +17,11 @@ extends Node
 ## - ce qui l'entoure : vers chaque point cardinal, jusqu'où l'on peut marcher avant une paroi ;
 ## - où il est (sa position, en mètres vers l'est et vers le nord) et vers où il regarde. Le nord est
 ##   vers les z négatifs, comme partout dans le jeu (et sur les plans dessinés, le nord en haut).
-## - l'écran lui-même, en image, quand le jeu se dessine (la tâche le lance sous un écran virtuel).
+## - l'écran lui-même, en image, quand il regarde et que le jeu se dessine (la tâche le lance sous un écran
+##   virtuel) ; les autres gestes rendent la vue en mots.
 ## Ne se voit que ce qu'aucun mur ne cache : une zone de l'autre côté d'une paroi n'est pas montrée.
+## Assis à une table qui se résume elle-même (pilote_resume : l'échiquier du Cercle), la vue n'est que
+## ce résumé et les boutons de la table.
 ##
 ## Ce qu'il fait (geste) :
 ## - aller : marcher jusqu'à être devant une zone ou une chose vue, comme on le ferait aux flèches ;
@@ -26,6 +29,7 @@ extends Node
 ##   devant, à gauche…), en se dégageant d'un pilier qui accroche comme un joueur qui tâtonne ;
 ## - touche : une touche du clavier (E, Espace, Échap, Entrée, Tab, une lettre, un chiffre) ;
 ## - cliquer : un bouton, une case du tapis ou du plateau, par un clic de souris à sa place à l'écran ;
+##   ou un coup entier sur un plateau qui le sait (pilote_coup : « e2-e4 » sur l'échiquier), en un geste ;
 ## - attendre : laisser passer quelques secondes (une bille qui roule, une donne) ;
 ## - dire : une phrase en bulle (la partie réseau la porte au village).
 ##
@@ -77,6 +81,8 @@ const POSE := 1.2
 const POSE_CALME := 1.0
 const POSE_RIEN := 2.5
 const POSE_MAX := 6.0
+## Un coup joué sur un plateau : le temps qu'on attend au plus la réponse de l'adversaire.
+const REPONSE_COUP := 10.0
 ## Les champs où l'on écrit (une petite annonce), et la longueur d'un texte écrit d'un coup.
 const CHAMPS_MAX := 10
 const ECRIT_LONG := 400
@@ -156,6 +162,15 @@ func vue() -> Dictionary:
 	var s := scene()
 	var v := {"lieu": _nom_du_lieu(s), "credits": Game.credits, "gagne": Game.won}
 	var j := joueur()
+	# Une table qui se résume elle-même (l'échiquier du Cercle, pilote_resume()) : pendant qu'on y est
+	# assis, la vue n'est que ce résumé et les boutons de la table. Les cases restent cliquables (repères).
+	var seul := _panneau_seul()
+	if seul != null:
+		v["assis"] = true
+		_cases()
+		v["boutons"] = _boutons(seul)
+		v["textes"] = [str(seul.pilote_resume()).strip_edges()]
+		return v
 	if j:
 		v["devant"] = _invite_de(j.focus_target) if j.focus_target and not j.frozen else ""
 		v["assis"] = j.frozen
@@ -551,13 +566,25 @@ func _racines() -> Array:
 	return out
 
 
-func _boutons() -> Array:
+## Le panneau à l'écran qui se résume lui-même (pilote_resume()), ou null.
+func _panneau_seul() -> Control:
+	for r in _racines():
+		for n in r.find_children("*", "Control", true, false):
+			if n.has_method("pilote_resume") and (n as Control).is_visible_in_tree():
+				return n
+	return null
+
+
+## Les boutons à l'écran ; seulement ceux d'un panneau (dans), s'il est donné.
+func _boutons(dans: Node = null) -> Array:
 	var out := []
 	var ecran := get_viewport().get_visible_rect()
 	for r in _racines():
 		for b in r.find_children("*", "BaseButton", true, false):
 			var bt := b as BaseButton
 			if not bt.is_visible_in_tree() or bt.disabled or not ecran.intersects(bt.get_global_rect()):
+				continue
+			if dans != null and not dans.is_ancestor_of(bt):
 				continue
 			var t := _texte_du_bouton(bt)
 			if t == "":
@@ -753,16 +780,23 @@ func geste(g: Dictionary) -> Dictionary:
 		_:
 			r = {"ok": false, "dit": "geste inconnu"}
 	r["vue"] = vue()
-	# Ce qu'il a sous les yeux, en image, quand le jeu se dessine (un plan, des chiffres gravés).
-	var img := await image()
-	if img != "":
-		r["image"] = img
-		# De quelle vue il s'agit : à pied (« oeil ») ou la caméra de dessus qui le suit (« dessus »).
-		r["image_vue"] = image_vue()
+	# Ce qu'il a sous les yeux, en image, quand il regarde (un plan, des chiffres gravés). Pas à chaque geste :
+	# le rendu logiciel d'une image et son envoi retardaient chaque pas d'une ou deux secondes.
+	if quoi == "regarder":
+		r.merge(await image_et_camera())
 	if not entendu.is_empty():
 		r["entendu"] = entendu.duplicate()
 		entendu.clear()
 	return r
+
+
+## {image, image_vue} : l'écran en JPEG et la caméra qui l'a fait ; vide sans rendu (--headless, les essais).
+func image_et_camera() -> Dictionary:
+	var img := await image()
+	if img == "":
+		return {}
+	# De quelle vue il s'agit : à pied (« oeil ») ou la caméra de dessus qui le suit (« dessus »).
+	return {"image": img, "image_vue": image_vue()}
 
 
 ## L'écran en JPEG (base64), large de IMAGE_LARGE pixels ; « » sans rendu (--headless, les essais).
@@ -1300,6 +1334,22 @@ func _empreinte() -> String:
 
 
 func _cliquer(quoi: String) -> Dictionary:
+	# Un coup sur un plateau, en un seul geste (« e2-e4 ») : le plateau le reconnaît et le joue.
+	for c in _plateaux():
+		if c.has_method("pilote_coup"):
+			var avant_coup := _empreinte()
+			var fait = c.pilote_coup(quoi)
+			if fait is Dictionary:
+				if fait.get("ok", false):
+					# La réponse de l'adversaire vient avec (un robot répond tout de suite) : on l'attend
+					# un peu, pour qu'un coup ne coûte qu'un geste.
+					var seul := _panneau_seul()
+					var t0 := Time.get_ticks_msec()
+					while seul != null and seul.has_method("pilote_en_attente") and seul.pilote_en_attente() \
+							and Time.get_ticks_msec() - t0 < REPONSE_COUP * 1000.0:
+						await _attendre(0.25)
+					await _poser(avant_coup)
+				return fait
 	var r = _repere(quoi)
 	if r == null:
 		return {"ok": false, "dit": "rien de tel à l'écran : %s" % quoi}
