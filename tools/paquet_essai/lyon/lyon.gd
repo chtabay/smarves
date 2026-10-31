@@ -715,6 +715,22 @@ func _passerelle() -> void:
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	mi.material_override = mat
 	ville.add_child(mi)
+	# on marche dessus : le platelage seul porte l'habitant, et deux murs invisibles à la place des garde-corps
+	# le retiennent (les barreaux et les câbles ne sont pas des obstacles)
+	var marche := SurfaceTool.new()
+	marche.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in n:
+		var p0: Vector3 = tablier.call(float(i) / n)
+		var p1: Vector3 = tablier.call(float(i + 1) / n)
+		_poutre_st(marche, p0, p1, largeur, 0.08, planches)
+		for s in [-1.0, 1.0]:
+			var o: Vector3 = Vector3(cote.x, 0, cote.y) * s * (largeur * 0.5 + 0.06)
+			_poutre_st(marche, p0 + o + Vector3(0, 0.6, 0), p1 + o + Vector3(0, 0.6, 0), 0.08, 1.2, fer)
+	var corps := StaticBody3D.new()
+	var forme := CollisionShape3D.new()
+	forme.shape = marche.commit().create_trimesh_shape()
+	corps.add_child(forme)
+	mi.add_child(corps)
 
 
 ## Les rues en rubans posés sur le relief : la chaussée d'enrobé, les rues piétonnes et les montées pavées.
