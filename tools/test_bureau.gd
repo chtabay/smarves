@@ -79,9 +79,18 @@ func _lancer() -> void:
 	em = b.find_child("Mercato", true, false)
 	check(b.get("page") == "recherche" and em != null and em.get("page") == "fiche" and em.get("integre"), "un joueur acheté s'ouvre dans la fiche du marché, emboîtée")
 
+	# L'accueil : à faire avant le coup d'envoi, et l'en-tête dit ce qui presse.
+	b.call("aller", "accueil")
+	await process_frame
+	var faire: Array = b.call("a_faire")
+	check(faire.size() >= 2 and not faire[0].fait and faire[0].cle == "composition" and b.find_child("AFaire", true, false) != null and b.find_child("AFaire_composition", true, false) != null,
+		"l'accueil liste ce qui reste à faire : la composition d'abord")
+	var st: String = (b.get("_sous_titre") as Label).text
+	check(st.contains("  ·  dans ") and st.ends_with("composition à poser"), "l'en-tête : le compte à rebours et « composition à poser » (%s)" % st)
 	b.call("aller", "tactique")
 	await process_frame
 	var compo: Dictionary = b.get("compo")
+	check(not bool(b.get("modifie")) and b.find_child("NonValidee", true, false) == null, "chargée, la tactique n'est pas « modifiée »")
 	check(compo.onze.size() == 11 and compo.banc.size() == 7, "la tactique part de l'équipe type : onze et sept remplaçants")
 	check(b.find_child("Terrain", true, false) != null and b.find_child("Case_10", true, false) != null, "le terrain montre les onze postes")
 	var a = compo.onze[1]
@@ -94,7 +103,11 @@ func _lancer() -> void:
 	check(compo.onze[0] == remplacant and compo.banc.has(sortant), "un remplaçant posé sur un poste envoie le titulaire au banc")
 	compo.ordres[str(compo.onze[5])] = "offensif"
 	compo.mentalite = "offensive" if FootMatch.MENTALITES.has("offensive") else compo.mentalite
+	b.call("_dessiner")
+	await process_frame
+	check(bool(b.get("modifie")) and b.find_child("NonValidee", true, false) != null, "changée, elle le dit : « Modifiée, pas encore validée »")
 	b.call("valider")
+	check(not bool(b.get("modifie")), "validée, l'avertissement s'en va")
 	var r: Dictionary = foot.prochain_match(club)
 	var d: Dictionary = foot.consigne_de(r.s, r.j, club)
 	check(d.etat != "aucune" and d.consigne.mentalite == compo.mentalite, "la composition part au championnat (Football.decider)")
@@ -102,6 +115,7 @@ func _lancer() -> void:
 	b.call("_dessiner")
 	await process_frame
 	check((b.get("compo") as Dictionary).mentalite == compo.mentalite, "la tactique relue garde la consigne posée")
+	check(((b.call("a_faire") as Array)[0] as Dictionary).fait and (b.get("_sous_titre") as Label).text.ends_with("composition posée ✓"), "posée : cochée à l'accueil, « composition posée ✓ » en tête")
 	check(b.find_child("Lecture", true, false) == null and not (b.find_child("Mentalite", true, false) as OptionButton).disabled, "qui dirige règle la tactique, sans bandeau")
 	# Un autre a mis davantage : la tactique se lit, ne se change plus.
 	foot.forcer_porteurs("vous:1,Lucien:5", club)

@@ -363,10 +363,14 @@ func verifier() -> void:
 			bouge = _compo(f, club) or bouge
 			bouge = _dilemme(f, club) or bouge
 			bouge = _suite(f, club) or bouge
-		# Les clubs suivis en supporter, sans part : les résultats seulement.
+		# Les clubs suivis en supporter, sans part : les résultats, le président, le rendez-vous du dimanche.
 		for club in favoris("football"):
 			if f.clubs.has(club) and not _clubs_suivis(f).has(club):
 				bouge = _matchs(f, club) or bouge
+				bouge = _veille(f, club) or bouge
+		for club in _clubs_suivis(f) + favoris("football"):
+			if f.clubs.has(club):
+				bouge = _president(f, club) or bouge
 		bouge = _porteurs(f) or bouge
 		bouge = _periode(f) or bouge
 	solder()
@@ -481,9 +485,10 @@ func _matchs(f: Node, club: String) -> bool:
 			for r in cl.size():
 				if cl[r].club == club:
 					rang = " %s du groupe après la journée." % _rang(r + 1)
+		var buts := FootCourrier.buts(f, club, s, k, m)
 		publier({"id": "match/%d/%d/%s" % [s, k, club], "quand": int(f.coup_envoi(s, k)) + 2 * 3600, "genre": "match",
 			"titre": "%s : %s %d-%d %s %s" % [_nom(f, club), str(i.mot).to_lower(), i.pour, i.contre, "contre" if i.domicile else "chez", _nom(f, str(i.adv))],
-			"texte": "Journée %d.%s" % [k, rang], "lien": {"vers": "bureau", "club": club, "page": "championnat"}})
+			"texte": "Journée %d.%s%s" % [k, rang, (" " + buts) if buts != "" else ""], "lien": {"vers": "bureau", "club": club, "page": "championnat"}})
 	vus[club] = cle
 	suivi["matchs"] = vus
 	return true
@@ -491,6 +496,41 @@ func _matchs(f: Node, club: String) -> bool:
 
 static func _rang(r: int) -> String:
 	return "1er" if r == 1 else "%de" % r
+
+
+## Le supporter : la veille du match de son club, le rendez-vous, et le stade où il se joue.
+func _veille(f: Node, club: String) -> bool:
+	var r: Dictionary = f.prochain_match(club)
+	if r.is_empty():
+		return false
+	var quand: int = int(f.coup_envoi(r.s, r.j))
+	var reste: int = quand - int(f.maintenant())
+	if reste <= 0 or reste > 86400:
+		return false
+	return publier({"id": "veille/%d/%d/%s" % [r.s, r.j, club], "genre": "rappel",
+		"titre": "%s : %s – %s, %s à %s" % [_nom(f, club), _nom(f, str(r.dom)), _nom(f, str(r.ext)), Agenda.jour_relatif(quand, int(f.maintenant())), Agenda.heure(quand)],
+		"texte": "Le match se joue au stade de %s ; on le suit en tribune, ou le résultat arrive ici." % _nom(f, str(r.dom)),
+		"lien": {"vers": "stade", "club": str(r.dom)}})
+
+
+## Un club suivi change de président (un autre joueur que soi) : la nouvelle va à tous ceux qui le suivent.
+## La première lecture note le président sans rien annoncer.
+func _president(f: Node, club: String) -> bool:
+	var dg: Dictionary = preload("res://scripts/socle/diriger.gd").dirigeant(f, club)
+	var nom := "" if dg.is_empty() else ("vous" if bool(dg.get("moi", false)) else str(dg.get("nom", "")))
+	var vus: Dictionary = suivi.get("presidents", {})
+	if vus.has(club) and str(vus[club]) == nom:
+		return false
+	var avant: bool = vus.has(club)
+	var etait := str(vus.get(club, ""))
+	vus[club] = nom
+	suivi["presidents"] = vus
+	# Perdre sa propre direction a déjà son avis (_porteurs) : on n'en ajoute pas un second.
+	if avant and nom != "" and nom != "vous" and etait != "vous":
+		publier({"id": "president/%s/%s/%d/%d" % [club, nom, f.saison, f.journee_jouee()], "genre": "direction",
+			"titre": "%s dirige désormais %s" % [nom, _nom(f, club)],
+			"texte": "La tactique, l'entraînement et le marché du club sont à lui.", "lien": {"vers": "carnet", "onglet": "clubs"}})
+	return true
 
 
 ## La veille du match, la composition d'un club qu'on dirige n'est pas posée.

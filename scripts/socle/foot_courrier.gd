@@ -21,6 +21,28 @@ static func match_de(f: Node, club: String, s: int, j: int) -> Dictionary:
 	return {}
 
 
+## Les buts d'un match joué, de notre côté puis du leur : « Buts : Solère 23', Vidalenc 67'. En face : Ollivier
+## 50'. » ; « » pour un 0-0 ou un match pas joué (demande de Guillaume du 31 octobre 2026 : le supporter veut
+## savoir qui a marqué).
+static func buts(f: Node, club: String, s: int, j: int, m: Dictionary) -> String:
+	if m.is_empty() or (m.get("score", []) as Array).is_empty():
+		return ""
+	var etat: Dictionary = f.rencontre(s, j, m.dom, m.ext)
+	var nous: int = 0 if m.dom == club else 1
+	var cotes := [[], []]
+	for b in etat.get("buts", []):
+		var c: String = m.dom if int(b.equipe) == 0 else m.ext
+		var joueur: Dictionary = f.effectif(c, s, j).get(str(b.buteur), {})
+		var nom := str(joueur.get("nom", "?"))
+		cotes[0 if int(b.equipe) == nous else 1].append("%s %s%s" % [nom, str(b.get("minute", "")), " (pen.)" if bool(b.get("penalty", false)) else ""])
+	var out := ""
+	if not (cotes[0] as Array).is_empty():
+		out = "Buts : %s." % ", ".join(cotes[0])
+	if not (cotes[1] as Array).is_empty():
+		out += ("" if out == "" else " ") + "En face : %s." % ", ".join(cotes[1])
+	return out
+
+
 ## « Victoire 2-1 », « Nul 0-0 », « Défaite 1-3 », le score de notre côté d'abord.
 static func issue(m: Dictionary, club: String) -> Dictionary:
 	var nous: int = 0 if m.dom == club else 1

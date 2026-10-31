@@ -1500,14 +1500,21 @@ func _fill_un_club(club: String) -> void:
 	_tuiles_club(c, sauve)
 	_prochain_club(c, t)
 	var bureau := func(p: String) -> Dictionary: return {"vers": "bureau", "club": club, "page": p}
-	_actions(_left, [
-		{"picto": "gerer", "mot": "Gérer", "lien": bureau.call(""), "nom": "Gerer", "principal": true, "aide": "Le bureau du club : l'accueil, le courrier, la direction."},
-		{"picto": "tactique", "mot": "Tactique", "lien": bureau.call("tactique"), "nom": "Tactique", "aide": "La composition et les consignes du prochain match."},
-		{"picto": "entrainement", "mot": "Entraînement", "lien": bureau.call("entrainement"), "nom": "Entrainement", "aide": "Le programme de la semaine."},
-		{"picto": "mercato", "mot": "Mercato", "lien": bureau.call("recherche"), "nom": "Mercato", "aide": "Chercher des joueurs, suivre les offres."},
-		{"picto": "lieu", "mot": "Stade", "lien": {"vers": "stade", "club": club}, "nom": "Stade", "aide": "Aller au stade du club."},
-		{"picto": "registre", "mot": "Le notaire", "lien": {"vers": "notaire", "sport": "football", "club": club}, "nom": "Notaire", "aide": "Acheter ou rendre des parts, chez le notaire, par téléphone."},
-	])
+	var notaire := {"picto": "registre", "mot": "Le notaire", "lien": {"vers": "notaire", "sport": "football", "club": club}, "nom": "Notaire", "aide": "Acheter ou rendre des parts, chez le notaire, par téléphone."}
+	var stade := {"picto": "lieu", "mot": "Stade", "lien": {"vers": "stade", "club": club}, "nom": "Stade", "aide": "Aller au stade du club."}
+	if bool(c.dirige):
+		_actions(_left, [
+			{"picto": "gerer", "mot": "Gérer", "lien": bureau.call(""), "nom": "Gerer", "principal": true, "aide": "Le bureau du club : l'accueil, le courrier, la direction."},
+			{"picto": "tactique", "mot": "Tactique", "lien": bureau.call("tactique"), "nom": "Tactique", "aide": "La composition et les consignes du prochain match."},
+			{"picto": "entrainement", "mot": "Entraînement", "lien": bureau.call("entrainement"), "nom": "Entrainement", "aide": "Le programme de la semaine."},
+			{"picto": "mercato", "mot": "Marché", "lien": bureau.call("recherche"), "nom": "Mercato", "aide": "Chercher des joueurs, suivre les offres : le marché tourne chaque semaine."},
+			stade, notaire])
+	else:
+		# Qui ne dirige pas (porteur de parts ou supporter) : de quoi suivre le club, pas de quoi le gérer.
+		_actions(_left, [
+			{"picto": "classement", "mot": "Statistiques", "lien": bureau.call("championnat"), "nom": "Statistiques", "aide": "Le classement, les buteurs, les passeurs, les clean sheets."},
+			{"picto": "gerer", "mot": "Voir le bureau", "lien": bureau.call(""), "nom": "Voir_bureau", "aide": "Le bureau du club, en lecture : seul celui qui dirige y décide."},
+			stade, notaire])
 	_bouton_suivre(_left, "football", club, int(c.parts))
 	_tactique_club(club)
 	_aide(_rubrique(_left, "Classement"), "Le premier monte, les %d derniers descendent." % int(Football.DESCENDENT))
