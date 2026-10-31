@@ -121,7 +121,14 @@ class Batisseur:
 			commune = commune.get_parent()
 		if commune == null:
 			commune = r.get_parent()
-		racine.scale = Vector3.ONE / U
+		# le quartier compte en unités du jeu (1/U du mètre) au total : sous $Quartiers de lyon.gd, déjà réduit à
+		# 1/U, il ne se réduit pas une seconde fois (sinon il flotte au-dessus du quai, tiré vers l'origine)
+		var deja := 1.0
+		var a := r.get_parent()
+		while a is Node3D:
+			deja *= (a as Node3D).scale.x
+			a = a.get_parent()
+		racine.scale = Vector3.ONE / (U * deja)
 		racine.set_meta("lointain", 150.0)
 		rng.seed = 69005
 		data = JSON.parse_string(FileAccess.get_file_as_string(DOSSIER + "bourg.json"))
