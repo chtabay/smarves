@@ -31,7 +31,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 350
     steps:
+      # Le dernier état de la branche principale, pas celui du lancement : la tâche suivante attend en
+      # file jusqu'à six heures, et prenait le code du moment où elle avait été lancée (le 31 octobre, la
+      # tâche ouverte à 8 h, heure de Paris, jouait le code de 3 h). Un correctif du pilote fusionné en
+      # cours de tâche n'entre qu'à la suivante : pour l'avoir tout de suite, annuler la tâche en cours.
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.repository.default_branch }}
 
       - name: Ouvrir la tâche
         id: ouvrir

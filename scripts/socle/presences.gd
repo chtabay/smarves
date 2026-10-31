@@ -66,7 +66,9 @@ const MESSAGE_MAX := 1024
 const MESSAGES_PAR_SECONDE := 10.0
 ## Dans un salon : la cadence, et le petit état libre porté avec chaque position (en JSON).
 const CADENCE_SALON := 10
-const ETAT_MAX := 256
+## Assez pour une parole de pensionnaire entière (PAROLE_LONGUE caractères, accents compris) : à 256 octets,
+## une longue bulle ne partait pas du tout, sans que personne le sache.
+const ETAT_MAX := 2048
 ## Un joueur parti reste visible à sa dernière place, puis s'éclipse.
 const DEPART := 3.0
 ## La bulle d'un pensionnaire reste dix secondes.
