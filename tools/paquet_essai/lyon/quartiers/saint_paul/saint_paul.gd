@@ -1036,10 +1036,21 @@ class Batisseur:
 		for k in 5:
 			var z := -Wz * 0.5 + pas * (k + 0.5)
 			var ouv := pas - 1.4
-			# l'arc est peint en retrait des piles : le vide sombre devant, l'archivolte claire qui le borde
-			boite(l, Vector3(0.08, 4.0, ouv), Vector3(fx + 0.05, 2.0, z), sombre)
-			var arc := cyl(l, ouv * 0.5, ouv * 0.5, 0.08, Vector3(fx + 0.05, 4.0, z), sombre, 16)
+			# l'arc en retrait des piles : le fond sous la voûte, que le soir éclaire encore, une porte vitrée à
+			# croisée sous une imposte en éventail, l'archivolte claire qui le borde ; une lanterne sous l'arc du milieu
+			var fond := Color("#7a6a55")
+			boite(l, Vector3(0.08, 4.0, ouv), Vector3(fx + 0.05, 2.0, z), fond)
+			var arc := cyl(l, ouv * 0.5, ouv * 0.5, 0.08, Vector3(fx + 0.05, 4.0, z), Color("#93a6b2"), 16)
 			arc.rotation.z = PI * 0.5
+			arc.material_override = mat(Color("#93a6b2"), 0.25)
+			for r in 5:
+				var a := PI * (r + 1) / 6.0
+				var rayon := boite(l, Vector3(0.06, ouv * 0.5, 0.06), Vector3(fx + 0.1, 4.0 + sin(a) * ouv * 0.25, z + cos(a) * ouv * 0.25), claire)
+				rayon.rotation.x = PI * 0.5 - a
+			boite(l, Vector3(0.1, 0.14, ouv), Vector3(fx + 0.1, 4.0, z), claire)
+			croisee(l, Vector3(fx + 0.1, 2.0, z), PI * 0.5, ouv - 0.9, 3.4, pierre)
+			if k == 2:
+				_lanterne(l, Vector3(fx + 0.45, 4.0 + ouv * 0.5 - 0.2, z))
 			var archivolte := cyl(l, ouv * 0.5 + 0.3, ouv * 0.5 + 0.3, 0.06, Vector3(fx + 0.02, 4.0, z), claire, 16)
 			archivolte.rotation.z = PI * 0.5
 			boite(l, Vector3(0.5, 0.7, 0.5), Vector3(fx + 0.3, 4.0 + ouv * 0.5 + 0.1, z), claire.lightened(0.05))
