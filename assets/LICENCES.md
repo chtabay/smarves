@@ -16,6 +16,17 @@ Les assets de ce dossier sont sous licence CC0 (domaine public), sauf les police
 - `audio/ui` : Kenney, UI Audio (sélection) — https://kenney.nl/assets/ui-audio
 - `audio/jingles` : Kenney, Music Jingles (sélection) — https://kenney.nl/assets/music-jingles
 
+## Musique (`audio/musique/`)
+
+Elle n'est pas en CC0 : ce sont des morceaux de Kevin MacLeod (incompetech.com), sous licence Creative Commons Attribution 4.0 (http://creativecommons.org/licenses/by/4.0/). Le crédit est affiché sur l'écran titre (`Sfx.CREDIT_MUSIQUE`). Réencodés en Ogg Vorbis, sans autre modification.
+
+- `ville.ogg` : « Funky Chunk »
+- `titre.ogg` : « Fireflies and Stardust »
+- `environs.ogg` : « Cattails »
+- `grands_espaces.ogg` : « Americana »
+- `salon.ogg` : « Sinfonia Number 5 » (d'après J. S. Bach)
+- `filature.ogg` : « Night on the Docks - Sax »
+
 ## Polices (`polices/`)
 
 Elles ne sont pas en CC0 ; leurs licences libres sont jointes dans le dossier.
@@ -24,4 +35,4 @@ Elles ne sont pas en CC0 ; leurs licences libres sont jointes dans le dossier.
 - `Symboles-DejaVuSans.ttf` : extrait de DejaVu Sans (flèches, formes géométriques, symboles divers : cartes, dés, étoiles), licence Bitstream Vera et domaine public (`polices/LICENCE-DejaVu.txt`) — https://dejavu-fonts.github.io/
 - `texte.tres`, `gras.tres`, `titre.tres` : les trois graisses du jeu, chacune avec l'extrait de DejaVu en secours (`scripts/polices.gd`).
 
-Fait maison, dans le code : les façades des rues du bourg (`scripts/village/`), les tuiles et les vitres (`shaders/roof_tiles.gdshader`, `shaders/window_glow.gdshader`), les habitants (`scripts/critter.gd`), la façade du casino, l'intérieur du casino, les zèbres, les matériaux (`shaders/`) et les ambiances sonores (`scripts/sfx.gd`).
+Fait maison, dans le code : les façades des rues du bourg (`scripts/village/`), les tuiles et les vitres (`shaders/roof_tiles.gdshader`, `shaders/window_glow.gdshader`), les habitants (`scripts/critter.gd`), la façade du casino, l'intérieur du casino, les zèbres, les matériaux (`shaders/`) et les ambiances sonores (`scripts/sfx.gd`). Les thèmes composés par `tools/musiques.py` ne sont plus dans le jeu ; l'outil reste, et écrit dans un dossier à part.

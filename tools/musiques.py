@@ -1,5 +1,6 @@
-"""Les thèmes musicaux du socle, entièrement composés ici. Presque tous sont aussi synthétisés ici ;
-la filature est jouée par des instruments enregistrés d'une banque libre (FluidR3_GM, licence MIT,
+"""Des thèmes musicaux composés ici. Le jeu ne les joue plus : il a pris des morceaux libres de Kevin
+MacLeod (assets/LICENCES.md). L'outil reste pour des essais et des thèmes à venir. Presque tous
+sont synthétisés ici ; la filature est jouée par des instruments enregistrés d'une banque libre (FluidR3_GM, licence MIT,
 voir joue). Les styles et leurs timbres :
 
 - **La ville** (« ville ») : un jazz-funk de grande ville des années 1980, rythmé, qui avance. Boîte à
@@ -29,9 +30,9 @@ réverbération de salle. Les niveaux de chaque instrument sont posés par leur 
 l'oreille, et la boucle reste sans couture : tout ce qui dépasse la fin, réverbération comprise,
 revient au début.
 
-    python3 tools/musiques.py               # écrit tous les thèmes dans assets/audio/musique/ (ffmpeg requis,
-                                            # et fluidsynth + fluid-soundfont-gm pour la filature)
-    python3 tools/musiques.py titre         # un seul thème
+    python3 tools/musiques.py --sortie=/tmp/essai/   # tous les thèmes (ffmpeg requis, et fluidsynth +
+                                                     # fluid-soundfont-gm pour la filature)
+    python3 tools/musiques.py titre --sortie=/tmp/essai/     # un seul thème
     python3 tools/musiques.py ville --sortie=/tmp/essai/    # ailleurs, plus le mélange complet (ville.ogg)
 """
 
@@ -1185,8 +1186,6 @@ def filature():
 
 THEMES = {"ville": ville, "titre": titre, "environs": environs, "grands_espaces": grands_espaces, "salon": salon,
           "filature": filature}
-# Ce que le jeu emporte : le mélange complet de la ville ne sert qu'à l'écoute.
-DANS_LE_JEU = {"ville_fond", "ville_cuivres", "ville_chant", "titre", "environs", "grands_espaces", "salon", "filature"}
 
 
 def ecrire(nom, mix, sortie):
@@ -1206,15 +1205,14 @@ def ecrire(nom, mix, sortie):
 def main():
     noms = [a for a in sys.argv[1:] if not a.startswith("--")] or list(THEMES)
     dossier = next((a.split("=", 1)[1] for a in sys.argv[1:] if a.startswith("--sortie=")), "")
-    dans_le_jeu = not dossier
-    dossier = dossier or os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "assets", "audio", "musique"))
+    if not dossier:
+        # Le jeu joue des morceaux libres (assets/LICENCES.md) : nos thèmes ne remplacent plus les siens.
+        sys.exit("précisez --sortie=dossier/ (assets/audio/musique/ est aux morceaux du jeu)")
     os.makedirs(dossier, exist_ok=True)
     for nom in noms:
         if nom not in THEMES:
             sys.exit("thème inconnu : %s (thèmes : %s)" % (nom, ", ".join(THEMES)))
         for fichier, mix in THEMES[nom]().items():
-            if dans_le_jeu and fichier not in DANS_LE_JEU:
-                continue
             ecrire(fichier, mix, os.path.join(dossier, fichier + ".ogg"))
 
 
