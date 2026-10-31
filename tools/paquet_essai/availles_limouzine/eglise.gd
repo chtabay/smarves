@@ -143,6 +143,21 @@ static func contrefort(f, fxf: Transform3D, x: float, l: float, p: float, h: flo
 	f.batch.box("trim", fxf, Vector3(x, h * 0.45, p + 0.02), Vector3(l + 0.04, 0.06, 0.06), pierre.darkened(0.1))
 
 
+## Un contrefort à deux ressauts : le pied épais jusqu'à h1, puis un étage moins saillant jusqu'à h2,
+## un glacis au haut de chacun, et les assises de pierre marquées par des joints.
+static func contrefort_etage(f, fxf: Transform3D, l: float, p: float, h1: float, h2: float, bas: float, pierre: Color) -> void:
+	f.batch.box("wall", fxf, Vector3(0, (h1 - bas) / 2.0, p / 2.0), Vector3(l, h1 + bas, p), pierre)
+	f.batch.box_tilted("trim", fxf, Vector3(0, h1 + 0.1, p * 0.72), Vector3(l + 0.04, 0.08, p * 0.62), deg_to_rad(40.0), pierre.darkened(0.12))
+	var p2 := p * 0.55
+	f.batch.box("wall", fxf, Vector3(0, (h1 + h2) / 2.0, p2 / 2.0), Vector3(l * 0.9, h2 - h1, p2), pierre.lightened(0.03))
+	f.batch.box_tilted("trim", fxf, Vector3(0, h2 + p2 * 0.3, p2 * 0.45), Vector3(l * 0.9 + 0.04, 0.08, p2 * 1.2), deg_to_rad(40.0), pierre.darkened(0.12))
+	var y := -bas + 0.3
+	while y < h2 - 0.1:
+		var pp := p if y < h1 else p2
+		f.batch.box("trim", fxf, Vector3(0, y, pp + 0.005), Vector3(l * (1.0 if y < h1 else 0.9) + 0.01, 0.025, 0.02), pierre.darkened(0.2))
+		y += 0.32
+
+
 # --- La nef --------------------------------------------------------------------------------------
 
 static func _nef(f, xf: Transform3D, hauteur: Callable) -> void:
@@ -342,6 +357,33 @@ static func _bras(f, xf: Transform3D, vol: Array, cote: float, hauteur: Callable
 	var faite := h + 0.1 + demi * tan(deg_to_rad(28.0))
 	f.batch.cylinder("trim", fxf * Transform3D(Basis(Vector3.RIGHT, PI / 2.0), Vector3(0, (h + faite) / 2.0 + 0.05, 0.03)), Vector3.ZERO, 0.17, 0.04, pierre, 10)
 	f.batch.cylinder("trim", fxf * Transform3D(Basis(Vector3.RIGHT, PI / 2.0), Vector3(0, (h + faite) / 2.0 + 0.05, 0.05)), Vector3.ZERO, 0.1, 0.04, VITRAIL, 10)
+	_face_est(f, xf, vol, bas, true)
+
+
+## La face est d'un volume enduit (bras, sacristie), qu'on voit depuis le bas du chevet : le
+## soubassement de granite, l'enduit usé où percent des moellons, la corniche sous l'égout et, pour
+## les bras, une baie étroite.
+static func _face_est(f, xf: Transform3D, vol: Array, bas: float, baie_haute: bool) -> void:
+	var w: float = vol[3] - vol[2]
+	var h: float = vol[4]
+	var exf := xf * Transform3D(Basis(Vector3.UP, PI), Vector3((vol[2] + vol[3]) / 2.0, 0, -vol[1]))
+	var demi := w / 2.0
+	assises(f, exf, -demi, demi, -bas, 0.3)
+	f.batch.box("trim", exf, Vector3(0, 0.33, 0.03), Vector3(w, 0.06, 0.05), GRANITE.darkened(0.1))
+	moellons(f, exf, -demi, demi, 0.4, h, 3.0)
+	f.batch.box("trim", exf, Vector3(0, h - 0.04, 0.03), Vector3(w, 0.08, 0.07), ENDUIT.darkened(0.2))
+	for s in [-1.0, 1.0]:
+		var y := 0.36
+		var k := 0
+		while y < h - 0.1:
+			var lw := 0.28 if k % 2 == 0 else 0.16
+			f.batch.box("trim", exf, Vector3(s * (demi - lw / 2.0 + 0.01), y + 0.11, 0.015), Vector3(lw, 0.2, 0.035), Color(0.84, 0.78, 0.66))
+			y += 0.23
+			k += 1
+	if baie_haute:
+		baie(f, exf, 0.0, h * 0.45, 0.26, 0.8, CALCAIRE.lightened(0.05))
+	else:
+		baie(f, exf, 0.3, 0.55, 0.24, 0.5, CALCAIRE.lightened(0.05))
 
 
 # --- Le chœur et son chevet plat ------------------------------------------------------------------
@@ -371,9 +413,25 @@ static func _choeur(f, xf: Transform3D, hauteur: Callable) -> void:
 	f.batch.box("trim", exf, Vector3(0, h + 0.8, 0.02), Vector3(0.14, 0.2, 0.02), Color(0.1, 0.1, 0.1))
 	# Le soupirail de la crypte, en plein cintre, dans les assises.
 	baie(f, exf, -0.55, -bas + 0.55, 0.3, 0.45, CALCAIRE)
-	# Les contreforts d'angle, en granite appareillé, coiffés de leur glacis.
+	# Le mur du chevet, au-dessus des assises : des moellons de granite jusque dans le pignon, sous
+	# les rampants une rive de pierre qui porte le bord du toit, la croix au sommet.
+	var pente := tan(deg_to_rad(28.0))
+	moellons(f, exf, -demi, demi, socle + 0.07, h, 9.0)
+	moellons(f, exf, -demi, demi, h, h + demi * pente, 9.0, pente)
+	var rive := Color(0.6, 0.5, 0.42)
+	var lr := sqrt(demi * demi + pow(demi * pente, 2.0)) + 0.22
 	for s in [-1.0, 1.0]:
-		contrefort(f, exf, s * (demi - 0.3), 0.6, 0.85, h * 0.62, bas, Color(0.6, 0.5, 0.42))
+		var a := atan(pente)
+		f.batch.box("trim", exf * Transform3D(Basis(Vector3.BACK, -s * a), Vector3(s * demi / 2.0, h + demi * pente / 2.0 + 0.1, 0.06)), Vector3.ZERO, Vector3(lr, 0.16, 0.2), rive)
+		f.batch.box("trim", exf, Vector3(s * (demi + 0.02), h + 0.02, 0.06), Vector3(0.3, 0.16, 0.22), rive)
+	var sommet := h + demi * pente + 0.2
+	f.batch.box("trim", exf, Vector3(0, sommet + 0.25, 0.06), Vector3(0.07, 0.5, 0.07), rive.darkened(0.1))
+	f.batch.box("trim", exf, Vector3(0, sommet + 0.36, 0.06), Vector3(0.26, 0.07, 0.07), rive.darkened(0.1))
+	# Les contreforts d'angle, à deux ressauts, en granite appareillé, posés de biais à chaque coin
+	# comme sur la photo, chaque étage coiffé de son glacis.
+	for s in [-1.0, 1.0]:
+		var cxf2 := exf * Transform3D(Basis(Vector3.UP, s * PI / 4.0), Vector3(s * demi, 0, 0))
+		contrefort_etage(f, cxf2, 0.5, 0.75, h * 0.32, h * 0.7, bas, rive)
 	# Les longs murs du chœur : une haute baie gothique de chaque côté, au-dessus du toit des bras.
 	for cote in [1.0, -1.0]:
 		var fxf: Transform3D = xf * Transform3D(Basis(Vector3.UP, cote * PI / 2.0), Vector3(v[3] if cote > 0.0 else v[2], 0, -(v[0] + v[1]) / 2.0))
@@ -381,6 +439,7 @@ static func _choeur(f, xf: Transform3D, hauteur: Callable) -> void:
 		if cote < 0.0:
 			# Au nord, la sacristie couvre le bas du mur.
 			continue
+		moellons(f, fxf, -w / 2.0, w / 2.0, socle + 0.05, h, 7.0)
 		_lancette(f, fxf, _x_face(w / 2.0 - 1.1, cote), 1.2, 0.45, 1.5)
 		contrefort(f, fxf, _x_face(w / 2.0 - 2.2, cote), 0.45, 0.5, h * 0.6, bas, Color(0.6, 0.5, 0.42))
 
@@ -452,5 +511,6 @@ static func _sacristie(f, xf: Transform3D, hauteur: Callable) -> void:
 	f._roof(sxf, w, d, h, TUILE, ENDUIT, "hip")
 	var fxf := xf * Transform3D(Basis(Vector3.UP, -PI / 2.0), Vector3(v[2], 0, -(v[0] + v[1]) / 2.0))
 	assises(f, fxf, -w / 2.0, w / 2.0, -bas, 0.25)
+	_face_est(f, xf, v, bas, false)
 	var REM = load("res://communes/availles_limouzine/remarquables.gd")
 	REM._fenetre(f, fxf, Vector3(0.4, 0.45, 0), Vector2(0.4, 0.6), Color(0.86, 0.8, 0.68), false, false, Color(1.0, 0.8, 0.5))

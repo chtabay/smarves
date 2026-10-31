@@ -780,13 +780,13 @@ static func _porte_riviere(f, _b: Dictionary, hauteur: Callable) -> void:
 		for k in n:
 			var q: Array = arc.call(s, k, n, R + 0.12)
 			var a: float = q[1]
-			f.batch.box("wall", xf * Transform3D(Basis(Vector3.BACK, a - PI / 2.0), q[0]), Vector3.ZERO, Vector3(l + 0.03, 0.24, d), joint.darkened(0.3))
+			f.batch.box("wall", xf * Transform3D(Basis(Vector3.BACK, a - PI / 2.0), q[0]), Vector3.ZERO, Vector3(l + 0.03, 0.24, d), pierre.darkened(0.18))
 			var c: Vector3 = arc.call(s, k, n, R)[0]
 			if c.y + 0.2 < yb:
 				f.batch.box("wall", xf, Vector3(c.x, (c.y + 0.2 + yb) / 2.0, 0), Vector3(l + 0.04, yb - c.y - 0.2, d), pierre)
 	for face in [1.0, -1.0]:
 		var fxf := xf * Transform3D(Basis(Vector3.UP, 0.0 if face > 0.0 else PI), Vector3(0, 0, face * d / 2.0))
-		_moellons_bruns(f, fxf, w, h, pierre, -bas + 0.1)
+		_moellons_bruns(f, fxf, w, h, pierre, -bas + 0.1, [r, ps, R])
 		# Les claveaux de l'arc, à peine plus clairs que le mur, les piédroits harpés.
 		for s in [-1.0, 1.0]:
 			for k in 6:
@@ -857,7 +857,9 @@ static func _porte_riviere(f, _b: Dictionary, hauteur: Callable) -> void:
 
 
 ## Des moellons bruns et ocre, serrés, de tailles très diverses, sur un mur aux joints sombres.
-static func _moellons_bruns(f, xf: Transform3D, w: float, h: float, mur: Color, y0: float) -> void:
+## `trou` = [r, ps, R] : l'arc brisé de demi-largeur r, aux naissances à ps, de rayon R, qu'on laisse
+## vide (sinon les pierres flottent dans le passage).
+static func _moellons_bruns(f, xf: Transform3D, w: float, h: float, mur: Color, y0: float, trou: Array = []) -> void:
 	var bas: float = maxf(BASE_H, y0) + 0.04
 	var n := int(w * (h - bas) * 26.0)
 	for i in n:
@@ -867,7 +869,20 @@ static func _moellons_bruns(f, xf: Transform3D, w: float, h: float, mur: Color, 
 		var c := Color(0.62, 0.53, 0.42).lerp(Color(0.8, 0.7, 0.54), t)
 		if f.rng.randf() < 0.15:
 			c = Color(0.62, 0.45, 0.33)
-		f.batch.box("trim", xf, Vector3(f.rng.randf_range(-w / 2.0 + 0.12, w / 2.0 - 0.12), f.rng.randf_range(bas, h - 0.08), 0.01), Vector3(pw, ph, 0.02), c)
+		var x: float = f.rng.randf_range(-w / 2.0 + 0.12, w / 2.0 - 0.12)
+		var y: float = f.rng.randf_range(bas, h - 0.08)
+		if not trou.is_empty():
+			var tr: float = trou[0]
+			var tp: float = trou[1]
+			var tR: float = trou[2] + 0.16
+			var ax := absf(x)
+			if ax < tr + pw / 2.0 + 0.04:
+				if y < tp + ph / 2.0:
+					continue
+				var dx: float = ax + pw / 2.0 - (tr - trou[2])
+				if dx * dx + pow(y + ph / 2.0 - tp, 2.0) < tR * tR:
+					continue
+		f.batch.box("trim", xf, Vector3(x, y, 0.01), Vector3(pw, ph, 0.02), c)
 
 
 ## Un toit en pavillon sur une tour carrée : pans raides jusqu'à un court faîtage, coyau retroussé à

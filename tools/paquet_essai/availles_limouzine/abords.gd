@@ -308,18 +308,62 @@ static func _saule_pleureur(f, base: Vector3) -> void:
 	var xf := Transform3D(Basis(), base)
 	var ecorce := Color(0.4, 0.34, 0.27)
 	var vert := Color(0.47, 0.59, 0.35)
-	f.batch.cylinder("trim", xf, Vector3.ZERO, 0.16, 1.8, ecorce, 8)
-	f.batch.cylinder("trim", xf, Vector3(0.05, 1.7, 0), 0.11, 1.0, ecorce.darkened(0.1), 7)
-	# Le dôme : des anneaux de plus en plus étroits.
-	for k in 5:
-		f.batch.cylinder("trim", xf, Vector3(0, 2.55 + k * 0.2, 0), 2.0 - k * 0.38, 0.22, vert.lerp(vert.lightened(0.15), k / 4.0), 12)
-	# Le rideau : huit cartes, chacune trois pans qui suivent le cercle, de l'égout du dôme à 0,45.
-	var R := 1.95
-	var bas := 0.45
-	var haut := 2.6
-	for c in 8:
-		var a0 := TAU * c / 8.0 + 0.1
-		for k in 3:
-			var a := a0 + (k - 1) * 0.24
-			var t := Transform3D(Basis(Vector3.UP, -a + PI / 2.0), Vector3(cos(a) * R, (haut + bas) / 2.0, sin(a) * R))
-			f.batch.box("trim", xf * t, Vector3.ZERO, Vector3(2.0 * R * sin(0.12) + 0.03, haut - bas, 0.03), vert.darkened(0.04 * float((c + k) % 3)))
+	# Le tronc, penché, et quatre maîtresses branches qui partent en arc sous la couronne.
+	f.batch.cylinder("trim", xf, Vector3.ZERO, 0.17, 1.7, ecorce, 8)
+	for b in 4:
+		var ab := TAU * b / 4.0 + 0.4
+		var bxf := xf * Transform3D(Basis(Vector3.UP, -ab), Vector3(0, 1.55, 0))
+		f.batch.box_tilted("trim", bxf, Vector3(0, 0.45, -0.5), Vector3(0.12, 0.1, 1.3), 0.6, ecorce.darkened(0.1))
+	# La couronne : un dôme aplati, large en haut, d'anneaux de facettes.
+	var R := 2.0
+	var y0 := 2.35
+	var hd := 1.15
+	var n := 14
+	var anneaux := 4
+	for k in anneaux:
+		var p0 := PI / 2.0 * k / anneaux
+		var p1 := PI / 2.0 * (k + 1) / anneaux
+		var r0 := R * cos(p0)
+		var r1 := R * cos(p1)
+		var h0 := y0 + hd * sin(p0)
+		var h1 := y0 + hd * sin(p1)
+		var c := vert.lerp(vert.lightened(0.18), float(k) / anneaux)
+		for s in n:
+			var a0 := TAU * s / n
+			var a1 := TAU * (s + 1) / n
+			var am := (a0 + a1) / 2.0
+			var pm := (p0 + p1) / 2.0
+			var nn := Vector3(cos(am) * cos(pm), sin(pm), sin(am) * cos(pm))
+			f.batch.quad("trim", xf, [Vector3(cos(a0) * r0, h0, sin(a0) * r0), Vector3(cos(a1) * r0, h0, sin(a1) * r0),
+				Vector3(cos(a1) * r1, h1, sin(a1) * r1), Vector3(cos(a0) * r1, h1, sin(a0) * r1)], nn, c)
+	# Le dessous de la couronne, sombre, pour qu'on ne voie pas le ciel au travers.
+	for s in n:
+		var a0 := TAU * s / n
+		var a1 := TAU * (s + 1) / n
+		f.batch.tri("trim", xf, Vector3(0, y0 + 0.1, 0), Vector3(cos(a0) * R, y0, sin(a0) * R), Vector3(cos(a1) * R, y0, sin(a1) * R), Vector3.DOWN, vert.darkened(0.45))
+	# Les rameaux qui retombent : dix-huit lanières courbes, sorties du bord du dôme, qui bombent un
+	# peu vers l'extérieur puis descendent jusqu'à un mètre du sol ; des jours entre elles.
+	var m := 18
+	for s in m:
+		var a: float = TAU * s / m + f.rng.randf_range(-0.08, 0.08)
+		var bas: float = f.rng.randf_range(0.42, 0.8)
+		var larg: float = f.rng.randf_range(0.42, 0.62)
+		var dir := Vector3(cos(a), 0, sin(a))
+		var cote: Vector3 = Vector3(-sin(a), 0, cos(a)) * larg / 2.0
+		var pts: Array[Vector3] = []
+		var seg := 4
+		for k in seg + 1:
+			var t := float(k) / seg
+			var r := R * 0.92 + 0.32 * sin(t * PI * 0.8)
+			pts.append(dir * r + Vector3(0, lerpf(y0 + 0.15, bas, t), 0))
+		var c: Color = vert.darkened(f.rng.randf_range(0.0, 0.16))
+		for k in seg:
+			var up := pts[k]
+			var dn := pts[k + 1]
+			var w := 1.0 - 0.35 * float(k + 1) / seg
+			var q := [up - cote * (1.0 - 0.35 * float(k) / seg), up + cote * (1.0 - 0.35 * float(k) / seg), dn + cote * w, dn - cote * w]
+			var nrm := (dn - up).cross(cote).normalized()
+			if nrm.dot(dir) < 0.0:
+				nrm = -nrm
+			f.batch.quad("trim", xf, q, nrm, c)
+			f.batch.quad("trim", xf, q, -nrm, c.darkened(0.2))
