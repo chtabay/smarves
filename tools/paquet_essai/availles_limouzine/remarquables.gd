@@ -738,7 +738,7 @@ static func repere_riviere(hauteur: Callable) -> Transform3D:
 	return Transform3D(Basis(Vector3.UP, atan2(n.x, n.y)), Vector3(RIVIERE_C.x, hauteur.call(RIVIERE_C.x, RIVIERE_C.y) - 0.02, RIVIERE_C.y))
 
 
-static func _porte_riviere(f, _b: Dictionary, hauteur: Callable) -> void:
+static func _porte_riviere(f, b: Dictionary, hauteur: Callable) -> void:
 	var xf := repere_riviere(hauteur)
 	# Des moellons bruns irréguliers, aux joints sombres, comme sur les photos de la rue et de la rive.
 	var pierre := Color(0.47, 0.4, 0.32)
@@ -769,7 +769,7 @@ static func _porte_riviere(f, _b: Dictionary, hauteur: Callable) -> void:
 	for s in [-1.0, 1.0]:
 		var lp := w / 2.0 - pw / 2.0
 		f.batch.box("wall", xf, Vector3(s * (pw / 2.0 + lp / 2.0), (yb - bas) / 2.0, 0), Vector3(lp, yb + bas, d), pierre)
-	f.batch.box("wall", xf, Vector3(0, (yb + h) / 2.0, 0), Vector3(w, h - yb, d), pierre)
+	f.batch.box("wall", xf, Vector3(0, (yb + h) / 2.0, 0), Vector3(w, h - yb, d), pierre, false)
 	f.batch.box("trim", xf, Vector3(0, h + 0.03, 0), Vector3(w + 0.04, 0.08, d + 0.04), joint)
 	for i in 9:
 		f.batch.box("trim", xf, Vector3(-w / 2.0 + 0.15 + i * 0.29 + f.rng.randf_range(-0.05, 0.05), h + 0.1 + f.rng.randf() * 0.06, f.rng.randf_range(-0.4, 0.4)), Vector3(0.3 + f.rng.randf() * 0.2, 0.14 + f.rng.randf() * 0.12, 0.4 + f.rng.randf() * 0.3), lierre.lerp(Color(0.5, 0.48, 0.3), f.rng.randf() * 0.5))
@@ -780,10 +780,10 @@ static func _porte_riviere(f, _b: Dictionary, hauteur: Callable) -> void:
 		for k in n:
 			var q: Array = arc.call(s, k, n, R + 0.12)
 			var a: float = q[1]
-			f.batch.box("wall", xf * Transform3D(Basis(Vector3.BACK, a - PI / 2.0), q[0]), Vector3.ZERO, Vector3(l + 0.03, 0.24, d), pierre.darkened(0.18))
+			f.batch.box("trim", xf * Transform3D(Basis(Vector3.BACK, a - PI / 2.0), q[0]), Vector3.ZERO, Vector3(l + 0.03, 0.24, d), Color(0.95, 0.9, 0.8), false)
 			var c: Vector3 = arc.call(s, k, n, R)[0]
 			if c.y + 0.2 < yb:
-				f.batch.box("wall", xf, Vector3(c.x, (c.y + 0.2 + yb) / 2.0, 0), Vector3(l + 0.04, yb - c.y - 0.2, d), pierre)
+				f.batch.box("wall", xf, Vector3(c.x, (c.y + 0.2 + yb) / 2.0, 0), Vector3(l + 0.04, yb - c.y - 0.2, d), Color(0.82, 0.76, 0.64), false)
 	for face in [1.0, -1.0]:
 		var fxf := xf * Transform3D(Basis(Vector3.UP, 0.0 if face > 0.0 else PI), Vector3(0, 0, face * d / 2.0))
 		_moellons_bruns(f, fxf, w, h, pierre, -bas + 0.1, [r, ps, R])
@@ -801,13 +801,38 @@ static func _porte_riviere(f, _b: Dictionary, hauteur: Callable) -> void:
 	# Côté rivière, la lanterne de fer à gauche de l'arc, du côté du pigeonnier.
 	var rv := xf * Transform3D(Basis(Vector3.UP, PI), Vector3(0, 0, -d / 2.0))
 	_applique(f, rv, Vector3(-1.0, 1.7, 0))
-	# Côté ville, la nappe de lierre qui retombe du mur, à droite de l'arc, et ses feuilles en bordure.
+	# Côté ville, le lierre qui retombe du mur, à droite de l'arc : un fond sombre dentelé et des
+	# dizaines de petites feuilles par-dessus, de plus en plus rares vers le bas.
 	var vl := xf * Transform3D(Basis(), Vector3(0, 0, d / 2.0))
-	f.batch.box("trim", vl, Vector3((0.8 + w / 2.0) / 2.0, h - 0.55, 0.03), Vector3(w / 2.0 - 0.8, 1.1, 0.04), lierre)
-	f.batch.box("trim", vl, Vector3(w / 2.0 - 0.18, h - 1.3, 0.03), Vector3(0.36, 0.5, 0.04), lierre.darkened(0.05))
-	for i in 14:
-		var x: float = f.rng.randf_range(0.8, w / 2.0 - 0.05)
-		f.batch.box("trim", vl, Vector3(x, h - 1.1 - f.rng.randf() * 0.4, 0.06), Vector3(0.16 + f.rng.randf() * 0.14, 0.12 + f.rng.randf() * 0.1, 0.03), lierre.lerp(Color(0.5, 0.66, 0.26), f.rng.randf()))
+	for i in 7:
+		var lx: float = 0.85 + i * (w / 2.0 - 0.9) / 6.0
+		var lh: float = f.rng.randf_range(0.5, 1.3)
+		f.batch.box("trim", vl, Vector3(lx, h - lh / 2.0, 0.025), Vector3((w / 2.0 - 0.8) / 6.0 + 0.04, lh, 0.02), lierre.darkened(0.35))
+	for i in 140:
+		var x: float = f.rng.randf_range(0.8, w / 2.0 - 0.03)
+		var y: float = h - pow(f.rng.randf(), 1.6) * 1.4
+		var t: float = f.rng.randf_range(0.06, 0.11)
+		f.batch.box("trim", vl * Transform3D(Basis(Vector3.BACK, f.rng.randf_range(-0.8, 0.8)), Vector3(x, y, 0.04 + f.rng.randf() * 0.03)), Vector3.ZERO, Vector3(t, t * 0.8, 0.015), lierre.lerp(Color(0.5, 0.66, 0.26), f.rng.randf()).darkened(f.rng.randf() * 0.2))
+	# Les joues du passage, sous la voûte : de la pierre de taille claire (sinon un trou noir à l'ombre).
+	for s2 in [-1.0, 1.0]:
+		var jxf := xf * Transform3D(Basis(Vector3.UP, -s2 * PI / 2.0), Vector3(s2 * pw / 2.0, 0, 0))
+		var y := 0.0
+		var k := 0
+		# Un fond clair, puis les pierres en quinconce par-dessus.
+		f.batch.box("trim", jxf, Vector3(0, (ps + 0.35) / 2.0, 0.006), Vector3(d, ps + 0.35, 0.012), Color(0.82, 0.76, 0.64))
+		while y < ps + 0.3:
+			var z := -d / 2.0
+			var premier := true
+			while z < d / 2.0 - 0.02:
+				var lz: float = minf(f.rng.randf_range(0.35, 0.55) * (0.5 if premier and k % 2 == 1 else 1.0), d / 2.0 - z)
+				premier = false
+				f.batch.box("trim", jxf, Vector3(z + lz / 2.0, y + 0.12, 0.018), Vector3(lz - 0.02, 0.22, 0.02), Color(0.96, 0.9, 0.78).lerp(clair, f.rng.randf_range(0.0, 0.3)))
+				z += lz
+			y += 0.24
+			k += 1
+	# Le logis de la porte reste une maison du bourg : ses murs se couvrent des mêmes moellons, sauf
+	# là où passent la porte et le pigeonnier.
+	_moellons_logis(f, b, xf, w, d, pierre)
 	# Le pavé du passage.
 	f.batch.box("trim", xf, Vector3(0, -0.04, 0), Vector3(pw, 0.1, d + 0.4), joint.darkened(0.15))
 	# Le pigeonnier, à droite de la porte vu de la rue : une tour carrée de moellons, un peu en retrait,
@@ -836,10 +861,11 @@ static func _porte_riviere(f, _b: Dictionary, hauteur: Callable) -> void:
 		f.batch.box("trim", tv, Vector3(s * 0.48, th - 0.72, 0.02), Vector3(0.5, 0.28, 0.04), brique)
 		for i in 3:
 			f.batch.box("trim", tv, Vector3(s * 0.48 + (i - 1) * 0.15, th - 0.72, 0.035), Vector3(0.06, 0.16, 0.03), Color(0.12, 0.08, 0.06))
-	f.batch.box("trim", tv, Vector3(0, 2.0, 0.02), Vector3(0.52, 0.86, 0.04), clair)
-	f.batch.box("trim", tv, Vector3(0, 1.97, 0.035), Vector3(0.4, 0.78, 0.03), blanc)
+	# (en avant du mur du logis, qui affleure la tour de ce côté)
+	f.batch.box("trim", tv, Vector3(0, 2.0, 0.08), Vector3(0.52, 0.86, 0.04), clair)
+	f.batch.box("trim", tv, Vector3(0, 1.97, 0.095), Vector3(0.4, 0.78, 0.03), blanc)
 	for i in 4:
-		f.batch.box("trim", tv, Vector3(-0.1 + i * 0.07, 2.27, 0.05), Vector3(0.02, 0.14, 0.02), Color(0.15, 0.14, 0.13))
+		f.batch.box("trim", tv, Vector3(-0.1 + i * 0.07, 2.27, 0.11), Vector3(0.02, 0.14, 0.02), Color(0.15, 0.14, 0.13))
 	var rxf := txf * Transform3D(Basis(Vector3.UP, PI), Vector3(0, 0, -tw / 2.0))
 	f.batch.box("trim", rxf, Vector3(-0.2, th - 0.8, 0.02), Vector3(0.18, 0.24, 0.03), Color(0.1, 0.09, 0.08))
 	f.batch.box("trim", rxf, Vector3(-0.2, th - 0.8, 0.01), Vector3(0.28, 0.34, 0.02), clair)
@@ -854,6 +880,56 @@ static func _porte_riviere(f, _b: Dictionary, hauteur: Callable) -> void:
 	f.batch.box("trim", bxf, Vector3(-0.1, ah - 0.75, 0.01), Vector3(0.18, 0.26, 0.03), Color(0.1, 0.09, 0.08))
 	f.batch.box("trim", bxf, Vector3(-0.1, ah - 0.75, 0.02), Vector3(0.28, 0.36, 0.02), clair)
 	f._roof(axf * Transform3D(Basis(Vector3.UP, PI / 2.0), Vector3.ZERO) * Transform3D(Basis(), Vector3(0, 0, aw / 2.0)), 1.8, aw, ah, tuile, pierre, "hip")
+
+
+## Les moellons sur les murs de l'emprise du logis, dessinés comme ceux d'une maison du bourg en L :
+## hauteur des étages, base à b.sol. On saute la porte et le pigeonnier, qui ont les leurs.
+static func _moellons_logis(f, b: Dictionary, pxf: Transform3D, w: float, d: float, pierre: Color) -> void:
+	var etages := clampi(int(round((float(b.h) - 0.15) / 1.3)), 1, 4)
+	var h := etages * 1.3 + 0.15
+	var poly: Array = b.p
+	var aire := 0.0
+	for k in poly.size():
+		aire += poly[k][0] * poly[(k + 1) % poly.size()][1] - poly[(k + 1) % poly.size()][0] * poly[k][1]
+	var sens := 1.0 if aire > 0.0 else -1.0
+	var inv := pxf.affine_inverse()
+	for k in poly.size():
+		var a := Vector2(poly[k][0], poly[k][1])
+		var e := Vector2(poly[(k + 1) % poly.size()][0], poly[(k + 1) % poly.size()][1])
+		var l := a.distance_to(e)
+		if l < 0.4:
+			continue
+		var dir := (e - a) / l
+		var n := Vector2(dir.y, -dir.x) * sens
+		var m := (a + e) / 2.0
+		var mxf := Transform3D(Basis(Vector3.UP, atan2(n.x, n.y)), Vector3(m.x, float(b.sol), m.y))
+		# Le fond de joints sombres, par morceaux, hors du passage de la porte.
+		var np := maxi(1, int(ceil(l / 0.5)))
+		var lp := l / np
+		for j in np:
+			var xc := -l / 2.0 + lp * (j + 0.5)
+			var qc: Vector3 = inv * (mxf * Vector3(xc, h / 2.0, 0.0))
+			if absf(qc.x) < w / 2.0 + 0.1 and absf(qc.z) < d / 2.0 + 0.3:
+				continue
+			f.batch.box("trim", mxf, Vector3(xc, (BASE_H + h) / 2.0, 0.004), Vector3(lp + 0.005, h - BASE_H, 0.008), pierre)
+		var cnt := int(l * h * 30.0)
+		for i in cnt:
+			var x: float = f.rng.randf_range(-l / 2.0 + 0.1, l / 2.0 - 0.1)
+			var y: float = f.rng.randf_range(BASE_H + 0.04, h - 0.1)
+			var q: Vector3 = inv * (mxf * Vector3(x, y, 0.0))
+			# La porte et son mur, le pigeonnier et l'aile basse, dans le repère de la porte.
+			if absf(q.x) < w / 2.0 + 0.1 and absf(q.z) < d / 2.0 + 0.3:
+				continue
+			# La porte haute du pigeonnier.
+			if absf(q.x - (w / 2.0 + 0.55)) < 0.36 and q.y > 1.5 and q.y < 2.5 and q.z > 0.0:
+				continue
+			var c := Color(0.62, 0.53, 0.42).lerp(Color(0.8, 0.7, 0.54), f.rng.randf())
+			if f.rng.randf() < 0.15:
+				c = Color(0.62, 0.45, 0.33)
+			# Un simple carré tourné vers dehors : quatre mille pierres en boîtes coûteraient trop cher.
+			var sx: float = f.rng.randf_range(0.05, 0.13)
+			var sy: float = f.rng.randf_range(0.03, 0.07)
+			f.batch.quad("trim", mxf, [Vector3(x - sx, y - sy, 0.014), Vector3(x + sx, y - sy, 0.014), Vector3(x + sx, y + sy, 0.014), Vector3(x - sx, y + sy, 0.014)], Vector3.BACK, c)
 
 
 ## Des moellons bruns et ocre, serrés, de tailles très diverses, sur un mur aux joints sombres.

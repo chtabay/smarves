@@ -186,7 +186,7 @@ static func _lavoir(c: Node3D, f, parent: Node3D) -> void:
 	f.batch.box("trim", cxf, Vector3(0, 1.52, 0), Vector3(3.1, 0.06, 2.5), Color(0.38, 0.5, 0.28))
 	REM._moellons(f, cxf * Transform3D(Basis(Vector3.UP, PI), Vector3(0, 0, -1.2)), 3.0, 1.5, pierre.darkened(0.1))
 	# Deux saules pleureurs sur la rive, de part et d'autre du lavoir, les branches jusqu'à l'herbe.
-	for p in [[-6.2, -2.2], [5.6, -2.0]]:
+	for p in [[-4.2, -0.7], [5.6, -2.0]]:
 		var q: Vector3 = xf * Vector3(p[0], 0, p[1])
 		_saule_pleureur(f, Vector3(q.x, c.sol(q.x, q.z) - 0.05, q.z))
 

@@ -151,6 +151,8 @@ static func contrefort_etage(f, fxf: Transform3D, l: float, p: float, h1: float,
 	var p2 := p * 0.55
 	f.batch.box("wall", fxf, Vector3(0, (h1 + h2) / 2.0, p2 / 2.0), Vector3(l * 0.9, h2 - h1, p2), pierre.lightened(0.03))
 	f.batch.box_tilted("trim", fxf, Vector3(0, h2 + p2 * 0.3, p2 * 0.45), Vector3(l * 0.9 + 0.04, 0.08, p2 * 1.2), deg_to_rad(40.0), pierre.darkened(0.12))
+	moellons(f, fxf * Transform3D(Basis(), Vector3(0, 0, p)), -l / 2.0, l / 2.0, -bas, h1, 14.0)
+	moellons(f, fxf * Transform3D(Basis(), Vector3(0, 0, p2)), -l * 0.45, l * 0.45, h1 + 0.15, h2, 14.0)
 	var y := -bas + 0.3
 	while y < h2 - 0.1:
 		var pp := p if y < h1 else p2
