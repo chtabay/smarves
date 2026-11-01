@@ -732,6 +732,27 @@ func _init() -> void:
 	check(haut_s.end.y > 2.4, "la suiveuse porte ses vélos sur la galerie (%.2f m)" % haut_s.end.y)
 	garage.queue_free()
 
+	# Les taxis (taxis@1) : les deux livrées se bâtissent à leur longueur, avec leur lumineux, leur corps, le nom de
+	# la commune et la plaque demandée ; le jaune porte son damier.
+	var station := Node3D.new()
+	root.add_child(station)
+	var paquet_t: PackedScene = load(Bibliotheque.scene("taxis@1", "decor"))
+	var livrees_t: Array = paquet_t.instantiate().call("noms")
+	var rates_t := []
+	for livree in livrees_t:
+		var t: Node3D = paquet_t.instantiate()
+		t.livree = livree
+		t.options = {"commune": "Belley", "plaque": "TX-001-BY"}
+		station.add_child(t)
+		var textes := []
+		for lb in t.find_children("*", "Label3D", true, false):
+			textes.append((lb as Label3D).text)
+		var lt := float(t.get_meta("longueur", 0.0))
+		if t.get_meta("livree", "") != livree or t.find_child("Lumineux", true, false) == null or t.find_children("*", "CollisionShape3D", true, false).is_empty() or lt < 4.0 or lt > 5.0 or not "TAXI · BELLEY" in textes or not "TX-001-BY" in textes:
+			rates_t.append(livree)
+	check(livrees_t == ["bleu-nuit", "jaune"] and rates_t.is_empty(), "taxis@1 : les %d livrées se bâtissent, lumineux, corps, commune et plaque %s" % [livrees_t.size(), str(rates_t)])
+	station.queue_free()
+
 	# Les intérieurs (socle 1.22) : chaque salle de jeu et chaque étude tient le contrat de son genre.
 	check("bar-des-sports@1" in Bibliotheque.references("salle_jeu") and "etude-de-notaire@1" in Bibliotheque.references("etude"),
 		"la bibliothèque a le bar des sports et l'étude de notaire")

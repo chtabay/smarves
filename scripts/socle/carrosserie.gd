@@ -233,10 +233,12 @@ static func jonc(parent: Node3D, a: Vector3, b: Vector3, r: float, mat: Material
 static func plaque(parent: Node3D, coins: Array, mat: Material, vers: Vector3, decol := 0.0) -> MeshInstance3D:
 	var a: Vector3 = coins[0]
 	var nrm := ((coins[1] as Vector3) - a).cross((coins[3] as Vector3) - a).normalized()
-	var ordre := [0, 1, 2, 0, 2, 3]
+	# Godot tient pour faces avant celles qui tournent dans le sens horaire vues de devant : autour de nrm,
+	# 0-1-2 tourne dans le sens trigonométrique, on le prend donc à rebours.
+	var ordre := [0, 2, 1, 0, 3, 2]
 	if nrm.dot(vers) < 0.0:
 		nrm = -nrm
-		ordre = [0, 2, 1, 0, 3, 2]
+		ordre = [0, 1, 2, 0, 2, 3]
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for i: int in ordre:

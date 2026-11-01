@@ -381,6 +381,20 @@
 					"socle": "1.25"
 				}
 			}
+		},
+		"taxis": {
+			"genre": "decor",
+			"nom": "Les taxis",
+			"description": "La berline taxi de l'atelier des véhicules, laquée, joncs chromés, jantes argent, projecteurs en lames et le lumineux blanc « TAXI » à la française sur le pavillon. Deux livrées : bleu nuit qui chatoie (le taxi de Smarves) et jaune d'or au damier noir et blanc sous les glaces. Le nom de la commune sur les portières arrière, la plaque au choix.",
+			"auteur": "Smarves · d'après une inspiration de Guillaume",
+			"licence": "celle du jeu",
+			"versions": {
+				"1": {
+					"scene": "res://bibliotheque/taxis/1/taxi.tscn",
+					"apercu": "res://bibliotheque/taxis/1/apercu.png",
+					"socle": "1.31"
+				}
+			}
 		}
 	}
 }

@@ -2,7 +2,7 @@ extends SceneTree
 ## Le taxi qui passe sur la grand-rue de Smarves (Main.moving_cars[0]), arrêté pour la photo sur la placette
 ## de la rue du Clain (la grand-rue est trop étroite pour y reculer), à la lumière du jeu :
 ## xvfb-run godot --path . --rendering-driver opengl3 -s tools/capture_taxi.gd -- --sortie=dossier/
-## Six vues à la même lumière que le jeu ; l'interface est masquée.
+## Six vues à la même lumière que le jeu ; l'interface est masquée. --livree=jaune : dans la livrée jaune.
 
 const VUES := {
 	"1-trois-quarts-avant": [Vector3(1.6, 1.0, 2.4), Vector3(0.0, 0.3, 0.2)],
@@ -16,9 +16,12 @@ const VUES := {
 
 func _init() -> void:
 	var sortie := "user://"
+	var livree := ""
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--sortie="):
 			sortie = a.trim_prefix("--sortie=")
+		elif a.begins_with("--livree="):
+			livree = a.trim_prefix("--livree=")
 	await process_frame
 	var game: Node = root.get_node("Game")
 	game.saving_enabled = false
@@ -32,6 +35,12 @@ func _init() -> void:
 	cars.remove_at(0)
 	car.position = Vector3(-50.5, car.position.y + 0.06, 11.0)
 	car.rotation.y = 0.0
+	# --livree=jaune : la même berline, rebâtie dans une autre livrée (Taxi.LIVREES).
+	if livree != "":
+		var caisse: Node3D = car.find_child("Taxi", true, false)
+		for k in caisse.get_children():
+			k.free()
+		Taxi.batir(caisse, "Smarves", Polices.texte(), livree)
 	for c in root.find_children("*", "CanvasLayer", true, false):
 		(c as CanvasLayer).visible = false
 	var cam := Camera3D.new()
