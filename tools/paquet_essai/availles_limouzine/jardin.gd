@@ -123,8 +123,8 @@ static func _sol(c: Node3D, f) -> void:
 				var df = _dist_ligne(m, fond)
 				if df < 4.4:
 					# Sous les arbres : l'herbe rare, la litière de feuilles et la mousse.
-					var litiere = Color(0.3, 0.27, 0.16).lerp(Color(0.24, 0.3, 0.14), f.rng.randf())
-					col = col.lerp(litiere, clampf((1.0 - df / 4.4) * 1.6, 0.0, 0.97))
+					var litiere = Color(0.5, 0.37, 0.2).lerp(Color(0.42, 0.33, 0.18), f.rng.randf())
+					col = col.lerp(litiere, clampf((1.0 - df / 4.4) * 2.2, 0.0, 1.0))
 				var da = _dist_ligne(m, ALLEE)
 				if da < 0.42:
 					col = Color(0.62, 0.66, 0.36).lerp(Color(0.72, 0.66, 0.42), f.rng.randf() * 0.6)
@@ -153,18 +153,16 @@ static func _terrasse(c: Node3D, f, parent: Node3D) -> void:
 	var xf = Transform3D(Basis(Vector3.UP, atan2(n.x, n.y)), Vector3(TERRASSE_O.x, 0, TERRASSE_O.y))
 	# Le plateau de gravier, le mur de soutènement de pierre et ses grosses pierres de couronnement.
 	var ep = y - bas + 0.3
-	f.batch.box("wall", xf, Vector3(0, y - ep / 2.0, TERRASSE_P / 2.0 - 0.3), Vector3(TERRASSE_L, ep, TERRASSE_P + 0.6), PIERRE)
+	f.batch.box("wall", xf, Vector3(0, y - ep / 2.0, TERRASSE_P / 2.0 - 0.3), Vector3(TERRASSE_L, ep, TERRASSE_P + 0.6), Color(0.66, 0.54, 0.34))
 	f.batch.box("trim", xf, Vector3(0, y + 0.005, TERRASSE_P / 2.0 - 0.3), Vector3(TERRASSE_L - 0.1, 0.02, TERRASSE_P + 0.5), Color(0.72, 0.68, 0.6))
-	for i in 60:
-		f.batch.box("trim", xf, Vector3(f.rng.randf_range(-TERRASSE_L / 2.0 + 0.1, TERRASSE_L / 2.0 - 0.1), y + 0.02, f.rng.randf_range(-0.2, TERRASSE_P - 0.1)), Vector3(0.05, 0.015, 0.05), Color(0.6, 0.58, 0.54).lerp(Color(0.85, 0.82, 0.76), f.rng.randf()))
 	var x = -TERRASSE_L / 2.0
 	while x < TERRASSE_L / 2.0 - 0.05:
 		var l: float = minf(f.rng.randf_range(0.45, 0.75), TERRASSE_L / 2.0 - x)
-		var col = Color(0.66, 0.62, 0.52).lerp(Color(0.56, 0.6, 0.42), f.rng.randf() * 0.4)
-		f.batch.box("trim", xf, Vector3(x + l / 2.0, y + 0.06, TERRASSE_P + 0.02), Vector3(l - 0.03, 0.14, 0.32), col)
+		var col = Color(0.72, 0.6, 0.4).lerp(Color(0.62, 0.56, 0.36), f.rng.randf() * 0.5)
+		f.batch.box("trim", xf, Vector3(x + l / 2.0, y + 0.085, TERRASSE_P + 0.02), Vector3(l - 0.03, 0.19, 0.3), col)
 		x += l
 	for s in [-1.0, 1.0]:
-		f.batch.box("trim", xf, Vector3(s * (TERRASSE_L / 2.0 + 0.02), y + 0.06, TERRASSE_P / 2.0), Vector3(0.3, 0.14, TERRASSE_P), Color(0.64, 0.6, 0.5))
+		f.batch.box("trim", xf, Vector3(s * (TERRASSE_L / 2.0 + 0.02), y + 0.085, TERRASSE_P / 2.0), Vector3(0.3, 0.19, TERRASSE_P), Color(0.7, 0.58, 0.38))
 	# Les moellons du mur, côté jardin.
 	var fxf = xf * Transform3D(Basis(), Vector3(0, 0, TERRASSE_P + 0.181))
 	for i in int(TERRASSE_L * ep * 18.0):
@@ -172,7 +170,7 @@ static func _terrasse(c: Node3D, f, parent: Node3D) -> void:
 		var py: float = f.rng.randf_range(bas - 0.2, y - 0.05)
 		var sx: float = f.rng.randf_range(0.06, 0.14)
 		var sy: float = f.rng.randf_range(0.04, 0.08)
-		f.batch.quad("trim", fxf, [Vector3(px - sx, py - sy, 0), Vector3(px + sx, py - sy, 0), Vector3(px + sx, py + sy, 0), Vector3(px - sx, py + sy, 0)], Vector3.BACK, Color(0.7, 0.62, 0.5).lerp(Color(0.52, 0.46, 0.38), f.rng.randf()))
+		f.batch.quad("trim", fxf, [Vector3(px - sx, py - sy, 0), Vector3(px + sx, py - sy, 0), Vector3(px + sx, py + sy, 0), Vector3(px - sx, py + sy, 0)], Vector3.BACK, Color(0.74, 0.6, 0.4).lerp(Color(0.56, 0.44, 0.28), f.rng.randf()))
 	# L'escalier qui descend au jardin, au bout est, vers l'allée.
 	var nb = maxi(2, int(ceil((y - bas) / 0.12)))
 	for k in nb:
@@ -399,7 +397,7 @@ static func _portillon(c: Node3D, f) -> void:
 ## portillon.
 static func _sous_bois(c: Node3D, f, parent: Node3D) -> void:
 	for a in [[BUGEY, "chene", Vector2(-16.6, -32.4), 14, 14.0], [PLACE, "if", Vector2(-18.0, -29.6), 5, 6.5],
-			[BUGEY, "charme", Vector2(-11.8, -36.6), 3, 10.0], [BUGEY, "haie", Vector2(-17.6, -30.4), 2, 2.2]]:
+			[BUGEY, "charme", Vector2(-11.8, -36.6), 3, 10.0]]:
 		_plante(c, parent, a[0], a[1], a[2], a[3], {"hauteur": a[4]})
 	var n = 0
 	var essais = 0
@@ -453,11 +451,12 @@ static func fougere(c: Node3D, f, p: Vector2) -> void:
 		f.batch.box_tilted("trim", xf, Vector3(0, 0.2, l * 0.85), Vector3(0.08, 0.012, l * 0.45), 0.35, col.darkened(0.08))
 
 
-## Une nappe de lierre au sol : des feuilles sombres posées à plat.
+## Des feuilles mortes au sol, brun-ocre, et quelques pousses de lierre.
 static func _lierre_sol(c: Node3D, f, p: Vector2) -> void:
-	for i in 8:
+	for i in 14:
 		var q = p + Vector2(f.rng.randf_range(-0.35, 0.35), f.rng.randf_range(-0.35, 0.35))
-		f.batch.box("trim", Transform3D(Basis(Vector3.UP, f.rng.randf() * TAU), Vector3(q.x, c.sol(q.x, q.y) + 0.045, q.y)), Vector3.ZERO, Vector3(0.12, 0.02, 0.1), Color(0.12, 0.26, 0.1).lerp(Color(0.2, 0.34, 0.14), f.rng.randf()))
+		var brun = Color(0.55, 0.4, 0.2).lerp(Color(0.66, 0.5, 0.26), f.rng.randf())
+		f.batch.box("trim", Transform3D(Basis(Vector3.UP, f.rng.randf() * TAU), Vector3(q.x, c.sol(q.x, q.y) + 0.04, q.y)), Vector3.ZERO, Vector3(0.05, 0.012, 0.035), brun if i % 3 else Color(0.18, 0.3, 0.12))
 
 
 # --- Les arbres -----------------------------------------------------------------------------------
@@ -537,7 +536,7 @@ static func boule(f, centre: Vector3, r: Vector3, col: Color, n := 8, m := 4) ->
 			var pm = (p0 + p1) / 2.0
 			var nn = Vector3(cos(am) * cos(pm), sin(pm), sin(am) * cos(pm))
 			var t = float(j) / m
-			f.batch.quad("trim", Transform3D.IDENTITY, pts, nn, col.darkened(0.12 * (1.0 - t)).lightened(0.06 * t))
+			f.batch.quad("trim", Transform3D.IDENTITY, pts, nn, col.lightened(0.14 * (1.0 - t)).lightened(0.04 * t))
 
 
 ## Le séquoia : un tronc roux qui s'évase au pied, une flèche étroite de touffes vert sombre.
@@ -589,8 +588,8 @@ static func cedre_bleu(c: Node3D, f, p: Vector2, h: float, rayon: float) -> void
 			var cc = xf * Vector3(cos(a) * d, yy + f.rng.randf_range(-0.4, 0.4), sin(a) * d)
 			var rr: float = r * f.rng.randf_range(0.4, 0.58)
 			# La nappe : un disque plat, son dessous plus sombre, son bord qui retombe.
-			disque(f, Transform3D(Basis(Vector3.UP, a), cc), rr, h * 0.018, col, col.darkened(0.25), 9)
-			disque(f, Transform3D(Basis(Vector3.UP, a + 0.3), cc - Vector3(0, h * 0.018, 0)), rr * 1.1, h * 0.015, col.darkened(0.08), col.darkened(0.3), 9)
+			disque(f, Transform3D(Basis(Vector3.UP, a), cc), rr, h * 0.018, col, col.lightened(0.04), 9)
+			disque(f, Transform3D(Basis(Vector3.UP, a + 0.3), cc - Vector3(0, h * 0.018, 0)), rr * 1.1, h * 0.015, col.darkened(0.08), col.lightened(0.02), 9)
 			disque(f, Transform3D(Basis(Vector3.UP, a), cc + Vector3(0, h * 0.018, 0)), rr * 0.65, h * 0.015, col.lightened(0.06), col, 8)
 	boule(f, xf * Vector3(0, h, 0), Vector3(rayon * 0.2, h * 0.06, rayon * 0.2), bleu.lightened(0.1), 6, 3)
 
@@ -600,11 +599,11 @@ static func hetre_pourpre(c: Node3D, f, p: Vector2, h: float) -> void:
 	var y: float = c.sol(p.x, p.y)
 	var xf = Transform3D(Basis(), Vector3(p.x, y - 0.05, p.y))
 	f.batch.cylinder("trim", xf, Vector3.ZERO, 0.22, h * 0.5, Color(0.5, 0.48, 0.45), 8)
-	var pourpre = Color(0.36, 0.17, 0.2)
+	var pourpre = Color(0.5, 0.25, 0.27)
 	for i in 9:
 		var a: float = TAU * i / 9.0
 		var d: float = f.rng.randf_range(0.6, 1.5)
-		boule(f, xf * Vector3(cos(a) * d, h * f.rng.randf_range(0.55, 0.85), sin(a) * d), Vector3(1.3, 1.1, 1.3), pourpre.lerp(Color(0.5, 0.24, 0.26), f.rng.randf() * 0.5), 7, 4)
+		boule(f, xf * Vector3(cos(a) * d, h * f.rng.randf_range(0.55, 0.85), sin(a) * d), Vector3(1.3, 1.1, 1.3), pourpre.lerp(Color(0.62, 0.32, 0.32), f.rng.randf() * 0.5), 7, 4)
 	boule(f, xf * Vector3(0, h * 0.9, 0), Vector3(1.4, 1.1, 1.4), pourpre.lightened(0.05), 7, 4)
 
 
