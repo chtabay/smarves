@@ -929,11 +929,41 @@ static func _porte_riviere(f, b: Dictionary, hauteur: Callable) -> void:
 	for face in [1.0, -1.0]:
 		var fxf := xf * Transform3D(Basis(Vector3.UP, 0.0 if face > 0.0 else PI), Vector3(0, 0, face * d / 2.0))
 		_moellons_bruns(f, fxf, w, h, pierre, -bas + 0.1, [r, ps, R])
-		# Les claveaux de l'arc, à peine plus clairs que le mur, les piédroits harpés.
+		# Les claveaux de l'arc : un anneau continu de pierres taillées, joint contre joint sur un fond
+		# de mortier, l'extrados harpé (une pierre longue, une courte), à peine plus clairs que le mur.
+		var nc := 6
+		var ji := 0.012
+		f.batch.quad("trim", fxf, [Vector3(-0.06, cle - 0.03, 0.035), Vector3(0.06, cle - 0.03, 0.035), Vector3(0.06, cle + 0.3, 0.035), Vector3(-0.06, cle + 0.3, 0.035)], Vector3.BACK, joint)
 		for s in [-1.0, 1.0]:
-			for k in 6:
-				var q: Array = arc.call(s, k, 6, R + 0.13)
-				f.batch.box("trim", fxf * Transform3D(Basis(Vector3.BACK, float(q[1]) - PI / 2.0), q[0] + Vector3(0, 0, 0.02)), Vector3.ZERO, Vector3(0.22, 0.28, 0.05), clair.lerp(pierre, 0.4 + 0.3 * float(k % 2)))
+			var cx: float = s * (r - R)
+			var ang := func(t: float) -> float:
+				return phi * t if s > 0.0 else PI - phi * t
+			var pt := func(a: float, ray: float, z: float) -> Vector3:
+				return Vector3(cx + ray * cos(a), ps + ray * sin(a), z)
+			var a0: float = ang.call(0.0)
+			var a1: float = ang.call(1.0)
+			for j in 8:
+				var b0: float = lerpf(a0, a1, j / 8.0)
+				var b1: float = lerpf(a0, a1, (j + 1) / 8.0)
+				f.batch.quad("trim", fxf, [pt.call(b0, R - 0.02, 0.035), pt.call(b1, R - 0.02, 0.035), pt.call(b1, R + 0.285, 0.035), pt.call(b0, R + 0.285, 0.035)], Vector3.BACK, joint)
+			for k in nc:
+				var e: float = ji / (R + 0.15)
+				var c0: float = ang.call(float(k) / nc)
+				var c1: float = ang.call(float(k + 1) / nc)
+				var sg := signf(c1 - c0)
+				c0 += sg * e
+				c1 -= sg * e
+				var ext: float = R + (0.34 if k % 2 == 0 else 0.27)
+				var col: Color = clair.lerp(pierre, 0.35 + 0.3 * f.rng.randf())
+				var p := [pt.call(c0, R, 0.045), pt.call(c1, R, 0.045), pt.call(c1, ext, 0.045), pt.call(c0, ext, 0.045)]
+				if k == nc - 1:
+					# Les deux derniers claveaux se rejoignent sur le joint vertical de la clé.
+					var xa: float = s * ji
+					p[1] = Vector3(xa, ps + sqrt(R * R - (xa - cx) * (xa - cx)), 0.045)
+					p[2] = Vector3(xa, ps + sqrt(ext * ext - (xa - cx) * (xa - cx)), 0.045)
+				f.batch.quad("trim", fxf, p, Vector3.BACK, col)
+				# La tranche de l'extrados, pour que la pierre ait de l'épaisseur vue de biais.
+				f.batch.quad("trim", fxf, [p[3], p[2], p[2] - Vector3(0, 0, 0.01), p[3] - Vector3(0, 0, 0.01)], Vector3(cos((c0 + c1) / 2.0), sin((c0 + c1) / 2.0), 0), col.darkened(0.2))
 			var y := -0.2
 			var k := 0
 			while y < ps:
