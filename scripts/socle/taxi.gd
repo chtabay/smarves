@@ -3,6 +3,8 @@ class_name Taxi
 ## et filante, bleu nuit laqué qui tourne au violet et à l'or en bord de forme, joncs chromés sous les
 ## vitres, jantes argent, feux effilés, et sur le toit le lumineux blanc « TAXI » à la française, avec ses
 ## petites lampes de tarif. Sur les portières arrière, le nom de la commune en lettres d'argent.
+## Deux livrées (LIVREES) : « bleu-nuit », celle du bourg, et « jaune », jaune d'or laqué au damier noir et
+## blanc sous les glaces, lettres noires. La brique taxis@1 de la bibliothèque les offre aux communes.
 ##
 ## `Taxi.habiller(modele, commune)` efface l'habit du modèle de kit (sa collision, ses lumières et son
 ## mouvement restent) et pose la berline à sa taille. Premier client : le taxi qui passe sur la grand-rue
@@ -13,25 +15,39 @@ const LARGE := 1.84
 const ROUE_Z := 1.42
 const ROUE_R := 0.33
 const BLEU_NUIT := Color(0.11, 0.21, 0.64)
+const JAUNE := Color(1.0, 0.8, 0.1)
 const PLAQUE := "TX-086-SM"
+const LIVREES := ["bleu-nuit", "jaune"]
 const ARRONDI := 0.1
 const ARGENT := Color(0.86, 0.87, 0.9)
 
 
-static func habiller(modele: Node3D, commune := "", police: Font = null) -> Node3D:
+static func habiller(modele: Node3D, commune := "", police: Font = null, livree := "bleu-nuit") -> Node3D:
 	var c := Carrosserie.habiller(modele, LONG)
 	c.name = "Taxi"
-	batir(c, commune, police)
+	batir(c, commune, police, livree)
 	return c
 
 
-static func batir(c: Node3D, commune := "", police: Font = null) -> void:
+## Bâtit le taxi sous c, roues au sol en y = 0, l'avant vers +Z, long de LONG. `plaque` vide : celle de la livrée.
+static func batir(c: Node3D, commune := "", police: Font = null, livree := "bleu-nuit", plaque := "") -> void:
 	var w := LARGE / 2.0
-	var laque := Carrosserie.laque(BLEU_NUIT, Color(0.62, 0.45, 0.85), 0.45, Color(0.03, 0.03, 0.04), 0.3)
-	# Une laque claire et très vernie : les lampes de la placette et la rue courent sur les flancs.
-	laque.set_shader_parameter("rugosite", 0.14)
-	laque.set_shader_parameter("vernis", 2.4)
-	laque.set_shader_parameter("chatoiement", 0.6)
+	var jaune := livree == "jaune"
+	if plaque == "":
+		plaque = "TX-512-JN" if jaune else PLAQUE
+	var laque: ShaderMaterial
+	if jaune:
+		# Un jaune d'or plein, qui se dore en bord de forme, sur un bas de caisse noir.
+		laque = Carrosserie.laque(JAUNE, Color(1.0, 0.62, 0.18), 0.25, Color(0.03, 0.03, 0.04), 0.3)
+		laque.set_shader_parameter("rugosite", 0.16)
+		laque.set_shader_parameter("vernis", 1.6)
+		laque.set_shader_parameter("chatoiement", 0.3)
+	else:
+		laque = Carrosserie.laque(BLEU_NUIT, Color(0.62, 0.45, 0.85), 0.45, Color(0.03, 0.03, 0.04), 0.3)
+		# Une laque claire et très vernie : les lampes de la placette et la rue courent sur les flancs.
+		laque.set_shader_parameter("rugosite", 0.14)
+		laque.set_shader_parameter("vernis", 2.4)
+		laque.set_shader_parameter("chatoiement", 0.6)
 	var chrome := Carrosserie.chrome()
 	var verre := Carrosserie.verre()
 	verre.set_shader_parameter("vernis", 1.0)
@@ -56,7 +72,7 @@ static func batir(c: Node3D, commune := "", police: Font = null) -> void:
 	var lu := [Vector3(-w + 0.3, 1.0, -1.52), Vector3(w - 0.3, 1.0, -1.52), Vector3(w - 0.32, 1.345, -0.5), Vector3(-w + 0.32, 1.345, -0.5)]
 	Carrosserie.plaque(c, lu, verre, Vector3(0, 1, -1), 0.008)
 	for s: float in [-1.0, 1.0]:
-		var x := (w + 0.003) * s
+		var x := (w + 0.01) * s
 		# Les glaces suivent le flanc rentré de l'arrondi : rien ne dépasse du pavillon ni des montants.
 		var avant := [Vector3(x, 0.96, -0.05), Vector3(x, 0.96, 0.9), Vector3(x, 1.24, 0.38), Vector3(x, 1.27, -0.05)]
 		var arriere := [Vector3(x, 0.96, -1.3), Vector3(x, 0.96, -0.15), Vector3(x, 1.27, -0.15), Vector3(x, 1.27, -0.42)]
@@ -83,9 +99,12 @@ static func batir(c: Node3D, commune := "", police: Font = null) -> void:
 		Carrosserie.boite(phare, Vector3(0.5, 0.08, 0.016), Vector3.ZERO, noir)
 		Carrosserie.boite(phare, Vector3(0.44, 0.04, 0.012), Vector3(0.0, 0.0, 0.006), Carrosserie.feu(Color(0.92, 0.95, 1.0), 1.0))
 		Carrosserie.boite(c, Vector3(0.22, 0.014, 0.012), Vector3(0.62 * s, 0.4, 2.31), Carrosserie.feu(Color(0.95, 0.97, 1.0), 1.3))
-		# Les plaques de la commune sur les portières arrière, en lettres d'argent.
+		# Le jaune porte son damier noir et blanc sous les glaces, de la lunette au pare-brise.
+		if jaune:
+			_damier(c, x + 0.006 * s, s, 0.85, -1.3, 0.9, 0.035)
+		# Le nom de la commune sur les portières arrière, en lettres d'argent (noires sur le jaune).
 		if commune != "":
-			Carrosserie.inscription(c, "TAXI · " + commune.to_upper(), Vector3(x + 0.006 * s, 0.66, -0.75), 90.0 if s > 0.0 else -90.0, 0.075, ARGENT, police)
+			Carrosserie.inscription(c, "TAXI · " + commune.to_upper(), Vector3(x + 0.006 * s, 0.66, -0.75), 90.0 if s > 0.0 else -90.0, 0.075, Color(0.04, 0.04, 0.05) if jaune else ARGENT, police)
 	# La calandre : basse et large, cerclée de chrome, à lames ; la plaque sous elle.
 	var gr := [Vector3(-0.5, 0.36, 2.32), Vector3(0.5, 0.36, 2.32), Vector3(0.44, 0.55, 2.28), Vector3(-0.44, 0.55, 2.28)]
 	Carrosserie.plaque(c, gr, mat_noir, Vector3(0, 0, 1), 0.012)
@@ -93,12 +112,12 @@ static func batir(c: Node3D, commune := "", police: Font = null) -> void:
 	for i in 3:
 		Carrosserie.boite(c, Vector3(0.86, 0.01, 0.012), Vector3(0, 0.41 + i * 0.05, 2.325 - i * 0.012), chrome)
 	Carrosserie.boite(c, Vector3(LARGE - 0.2, 0.1, 0.04), Vector3(0, 0.25, 2.24), mat_noir)
-	_plaque(c, Vector3(0, 0.29, 2.3), 0.0, Color(0.95, 0.95, 0.93), police)
+	_plaque(c, Vector3(0, 0.29, 2.3), 0.0, Color(0.95, 0.95, 0.93), plaque, police)
 	# L'arrière : le bandeau rouge des feux d'un bord à l'autre de la malle, la plaque.
-	Carrosserie.boite(c, Vector3(LARGE - 0.3, 0.06, 0.02), Vector3(0, 0.8, -2.25), Carrosserie.feu(Color(0.85, 0.05, 0.04), 0.8))
+	Carrosserie.boite(c, Vector3(LARGE - 0.3, 0.06, 0.02), Vector3(0, 0.8, -2.305), Carrosserie.feu(Color(0.85, 0.05, 0.04), 0.8))
 	for s: float in [-1.0, 1.0]:
-		Carrosserie.boite(c, Vector3(0.3, 0.12, 0.02), Vector3(0.68 * s, 0.76, -2.23), Carrosserie.feu(Color(0.85, 0.05, 0.04), 0.9))
-	_plaque(c, Vector3(0, 0.55, -2.31), 180.0, Color(0.96, 0.8, 0.18), police)
+		Carrosserie.boite(c, Vector3(0.3, 0.12, 0.02), Vector3(0.68 * s, 0.76, -2.315), Carrosserie.feu(Color(0.85, 0.05, 0.04), 0.9))
+	_plaque(c, Vector3(0, 0.55, -2.31), 180.0, Color(0.95, 0.95, 0.93) if jaune else Color(0.96, 0.8, 0.18), plaque, police)
 	Carrosserie.boite(c, Vector3(LARGE - 0.2, 0.12, 0.04), Vector3(0, 0.27, -2.25), mat_noir)
 	# Sur le pavillon, le lumineux « TAXI » : blanc éclairé, lettres noires devant et derrière,
 	# les quatre petites lampes de tarif sur sa face avant.
@@ -115,13 +134,38 @@ static func batir(c: Node3D, commune := "", police: Font = null) -> void:
 
 
 ## Une plaque d'immatriculation : fond `fond`, numéro noir, tournée de `lacet` degrés.
-static func _plaque(c: Node3D, at: Vector3, lacet: float, fond: Color, police: Font) -> void:
+static func _plaque(c: Node3D, at: Vector3, lacet: float, fond: Color, numero: String, police: Font) -> void:
 	var n := Node3D.new()
 	n.position = at
 	n.rotation_degrees.y = lacet
 	c.add_child(n)
 	Carrosserie.boite(n, Vector3(0.52, 0.11, 0.012), Vector3.ZERO, Carrosserie.mat(fond, 0.5))
-	Carrosserie.inscription(n, PLAQUE, Vector3(0, 0, 0.008), 0.0, 0.075, Color(0.03, 0.03, 0.035), police)
+	Carrosserie.inscription(n, numero, Vector3(0, 0, 0.008), 0.0, 0.075, Color(0.03, 0.03, 0.035), police)
+
+
+## Le damier du flanc `s` : deux rangs de carreaux de `cote`, de z0 à z1, le bas en y ; un ruban blanc et ses
+## carreaux noirs en un seul maillage.
+static func _damier(c: Node3D, x: float, s: float, y: float, z0: float, z1: float, cote: float) -> void:
+	Carrosserie.boite(c, Vector3(0.006, cote * 2.0, z1 - z0), Vector3(x, y + cote, (z0 + z1) / 2.0), Carrosserie.mat(Color(0.95, 0.95, 0.92), 0.4))
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var xx := x + 0.009 * s
+	var n := int((z1 - z0) / cote)
+	for rang in 2:
+		for i in n:
+			if (i + rang) % 2 == 1:
+				continue
+			var a := z0 + i * cote
+			var b := a + cote
+			var y0 := y + rang * cote
+			var y1 := y0 + cote
+			var q := [Vector3(xx, y0, a), Vector3(xx, y0, b), Vector3(xx, y1, b), Vector3(xx, y1, a)]
+			# Les faces tournent dans le sens horaire vues de leur côté : le flanc +x et le flanc -x s'opposent.
+			var ordre := [0, 1, 2, 0, 2, 3] if s > 0.0 else [0, 2, 1, 0, 3, 2]
+			for k: int in ordre:
+				st.set_normal(Vector3(s, 0, 0))
+				st.add_vertex(q[k])
+	Carrosserie.piece(c, st.commit(), Carrosserie.mat(Color(0.02, 0.02, 0.025), 0.4))
 
 
 static func _mi(mesh: Mesh, mat: Material) -> MeshInstance3D:
