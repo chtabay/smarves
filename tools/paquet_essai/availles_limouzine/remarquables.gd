@@ -42,6 +42,9 @@ static func construire(id: String, f, b: Dictionary, hauteur: Callable) -> bool:
 		"coop":
 			_coop(f, b, hauteur)
 			return true
+		"coop_gaz":
+			_coop_gaz(f, b, hauteur)
+			return true
 		"pharmacie":
 			_pharmacie(f, b, hauteur)
 			return true
@@ -252,16 +255,20 @@ static func _adrien_bernard(f, b: Dictionary, hauteur: Callable) -> void:
 		var a1: float = mi - 0.012 if v == 0 else g1
 		var lv := a1 - a0
 		# Les deux traverses, côté jardin.
-		for ty in [0.15, 0.4]:
+		for ty in [0.15, 0.46]:
 			f.batch.box("trim", xf, Vector3(x0 + nord * (a0 + lv / 2.0), ty, 0.07), Vector3(lv, 0.05, 0.03), latte.darkened(0.06))
 		var n := int(lv / 0.062)
 		for i in n:
 			var lx := a0 + (i + 0.5) * lv / n
 			var c := latte.darkened(0.03 * (i % 2))
-			f.batch.box("trim", xf, Vector3(x0 + nord * lx, 0.29, 0.1), Vector3(0.042, 0.46, 0.022), c)
+			f.batch.box("trim", xf, Vector3(x0 + nord * lx, 0.32, 0.1), Vector3(0.042, 0.52, 0.022), c)
 		# Le loquet noir au milieu.
 		if v == 0:
 			f.batch.box("trim", xf, Vector3(x0 + nord * (a1 - 0.03), 0.3, 0.115), Vector3(0.05, 0.03, 0.01), Color(0.12, 0.12, 0.12))
+	# Le trottoir de dalles devant le portail, comme devant la dépendance, et sa bordure peinte en jaune.
+	var trottoir := Color(0.74, 0.72, 0.67)
+	f.batch.box("trim", xf, Vector3(x0 + nord * 1.2, 0.02, 0.62), Vector3(2.9, 0.16, 0.9), trottoir)
+	f.batch.box("trim", xf, Vector3(x0 + nord * 1.2, 0.03, 1.09), Vector3(2.9, 0.16, 0.06), Color(0.9, 0.78, 0.22))
 	# Le mur du jardin qui suit, jusqu'à l'angle nord-ouest et son portillon, est dans jardin.gd.
 	# Le lampadaire du trottoir devant le mur est déjà posé par l'éclairage public du bourg.
 
@@ -452,6 +459,71 @@ static func _coop(f, b: Dictionary, hauteur: Callable) -> void:
 	var cxf := xf * Transform3D(Basis(Vector3.UP, PI / 2.0), Vector3(cx, gh - 0.22, 0.42))
 	f.batch.box("trim", cxf * Transform3D(Basis(Vector3.BACK, PI / 4.0), Vector3.ZERO), Vector3.ZERO, Vector3(0.36, 0.36, 0.06), rouge)
 	_lettres(f, cxf, Vector3(0, 0, 0.04), "TABAC", 32, 0.0035, blanc, 0.36)
+
+
+## Au sud de la Coop, face à elle sur la place, d'après la vue de la rue : le pignon d'enduit gris sous
+## son toit de tuiles brunes, les chaînes d'angle de pierre ocre ; le rez-de-chaussée enduit de blanc,
+## à gauche la porte basculante blanche sous son lambrequin rouge, au milieu une seconde porte blanche,
+## à droite les cages grillagées des bouteilles de gaz avec leurs panneaux Butagaz et Antargaz ; à
+## l'étage une seule fenêtre à encadrement de pierre, son volet roulant bleu-gris baissé.
+static func _coop_gaz(f, b: Dictionary, hauteur: Callable) -> void:
+	var fa := _facade(b, Vector2(-15.0, -12.5), hauteur)
+	var xf: Transform3D = fa.xf
+	var w: float = clampf(fa.w, 4.0, 6.0)
+	var d: float = clampf(fa.d, 3.0, 4.2)
+	var gris := Color(0.62, 0.61, 0.57)
+	var blanc := Color(0.93, 0.93, 0.91)
+	var ocre := Color(0.74, 0.6, 0.38)
+	var rouge := Color(0.78, 0.12, 0.14)
+	var tuile := Color(0.44, 0.34, 0.3)
+	var gh := 1.3
+	var hm := 2.6
+	_socle(f, xf, w, d, fa.socle, gris.darkened(0.3))
+	f.batch.box("wall", xf, Vector3(0, gh / 2.0, -d / 2.0), Vector3(w, gh, d), blanc)
+	f.batch.box("wall", xf, Vector3(0, gh + (hm + 0.1 - gh) / 2.0, -d / 2.0), Vector3(w, hm + 0.1 - gh, d), gris)
+	f.batch.box("trim", xf, Vector3(0, BASE_H / 2.0, -d / 2.0), Vector3(w + 0.05, BASE_H, d + 0.05), blanc.darkened(0.25))
+	f.batch.box("trim", xf, Vector3(0, gh, 0.02), Vector3(w, 0.05, 0.05), blanc.darkened(0.08))
+	# Le toit à deux pans, le pignon tourné vers la place.
+	var rxf := xf * Transform3D(Basis(Vector3.UP, PI / 2.0), Vector3(w / 2.0, 0, -d / 2.0))
+	f._roof(rxf, d, w, hm, tuile, gris, "gable")
+	_chaines(f, xf * Transform3D(Basis(), Vector3(0, 0, 0.012)), w + 0.02, hm, ocre)
+	# À gauche, la porte basculante sous le lambrequin rouge ; au milieu, la seconde porte.
+	for porte in [[-w * 0.3, 0.8], [-w * 0.02, 0.95]]:
+		var px: float = porte[0]
+		var pw: float = porte[1]
+		f.batch.box("trim", xf, Vector3(px, 0.52, 0.015), Vector3(pw, 0.96, 0.03), Color(0.97, 0.97, 0.96))
+		for i in 6:
+			f.batch.box("trim", xf, Vector3(px, 0.14 + i * 0.15, 0.033), Vector3(pw - 0.04, 0.012, 0.008), Color(0.84, 0.84, 0.83))
+	f.batch.box("trim", xf, Vector3(-w * 0.3, 1.12, 0.07), Vector3(1.0, 0.1, 0.14), rouge)
+	# À droite, les cages des bouteilles de gaz, posées devant le mur.
+	var cage := Color(0.24, 0.26, 0.29)
+	var teintes := [Color(0.22, 0.5, 0.3), Color(0.2, 0.36, 0.62), Color(0.78, 0.2, 0.15), Color(0.86, 0.5, 0.15)]
+	var c0 := w * 0.12
+	var lc := 0.5
+	for k in 3:
+		var cx := c0 + lc * (k + 0.5)
+		for y in [0.0, 0.62]:
+			f.batch.box("trim", xf, Vector3(cx, y + 0.02, 0.22), Vector3(lc, 0.03, 0.36), cage)
+		for sx in [-1.0, 1.0]:
+			for sz in [0.05, 0.39]:
+				f.batch.box("trim", xf, Vector3(cx + sx * lc / 2.0, 0.32, sz), Vector3(0.025, 0.64, 0.025), cage)
+		for i in 9:
+			f.batch.box("trim", xf, Vector3(cx - lc / 2.0 + (i + 0.5) * lc / 9.0, 0.32, 0.4), Vector3(0.008, 0.6, 0.008), cage)
+		for etage in [0.04, 0.33]:
+			for j in 3:
+				for r in 2:
+					var t: Color = teintes[(k * 2 + j + r) % 4] if k < 2 else teintes[2 + (j + r) % 2]
+					f.batch.cylinder("trim", xf, Vector3(cx - lc / 3.0 + j * lc / 3.0, etage, 0.13 + r * 0.17), 0.06, 0.24, t, 8)
+	# Les panneaux des deux marques, au-dessus des cages.
+	f.batch.box("trim", xf, Vector3(c0 + lc * 0.9, 0.78, 0.03), Vector3(0.62, 0.12, 0.02), Color(0.95, 0.95, 0.95))
+	f.batch.box("trim", xf, Vector3(c0 + lc * 0.9, 0.78, 0.042), Vector3(0.58, 0.04, 0.01), Color(0.2, 0.36, 0.7))
+	f.batch.box("trim", xf, Vector3(c0 + lc * 2.3, 0.8, 0.03), Vector3(0.5, 0.12, 0.02), rouge)
+	# À l'étage, la fenêtre à encadrement de pierre, son volet roulant baissé.
+	var fx := w * 0.14
+	f.batch.box("trim", xf, Vector3(fx, gh + 0.62, 0.015), Vector3(0.66, 0.86, 0.03), ocre.lightened(0.08))
+	f.batch.box("trim", xf, Vector3(fx, gh + 0.62, 0.03), Vector3(0.48, 0.7, 0.02), Color(0.62, 0.7, 0.8))
+	for i in 8:
+		f.batch.box("trim", xf, Vector3(fx, gh + 0.31 + i * 0.088, 0.042), Vector3(0.46, 0.008, 0.006), Color(0.5, 0.58, 0.68))
 
 
 # --- La pharmacie -----------------------------------------------------------------------------------
