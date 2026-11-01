@@ -336,7 +336,7 @@ static func _plante(c: Node3D, parent: Node3D, scene: String, nom: String, p: Ve
 
 static func _arbres(c: Node3D, f, parent: Node3D) -> void:
 	# Les trois grands : le séquoia au fond, le cèdre bleu à droite, le second cèdre à gauche.
-	sequoia(c, f, Vector2(-1.6, -40.6), 12.5)
+	sequoia(c, f, Vector2(-1.6, -40.6), 14.0)
 	cedre_bleu(c, f, Vector2(-3.8, -29.9), 6.0, 2.6)
 	cedre_bleu(c, f, Vector2(-8.4, -35.0), 5.0, 1.6)
 	# L'épicéa sombre à gauche, et un second plus loin le long de la ruelle.
