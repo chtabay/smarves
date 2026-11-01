@@ -651,7 +651,7 @@ func _routes() -> void:
 				var milieu := clampf(somme / nb, -float(r.ld[k]) + 0.15, float(r.lg[k]) - 0.15)
 				cg.append(milieu + 0.065)
 				cd.append(-milieu + 0.065)
-			_ruban(sts[m], r.p, 0.13, t[2] + 0.03, Color(0.68, 0.67, 0.64), cg, cd)
+			_ruban(sts[m], r.p, 0.13, t[2] + 0.07, Color(0.68, 0.67, 0.64), cg, cd)
 	for m in sts:
 		var st: SurfaceTool = sts[m]
 		st.generate_normals()
