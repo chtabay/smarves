@@ -555,6 +555,19 @@ func _sols_materiaux() -> void:
 	herbe.roughness = 1.0
 	herbe.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_mats.herbe = herbe
+	# Le pavé des rues du vieux bourg : un granit gris beige, pommelé de pierres plus sombres et plus
+	# claires, pour qu'on ne le prenne pas pour un enrobé lissé.
+	var pave := StandardMaterial3D.new()
+	pave.albedo_color = Color(0.66, 0.63, 0.58)
+	var grain_pave := _grain(0.09, Color(0.4, 0.38, 0.35))
+	(grain_pave.noise as FastNoiseLite).fractal_octaves = 3
+	pave.albedo_texture = grain_pave
+	pave.uv1_triplanar = true
+	pave.uv1_scale = Vector3(1.3, 1.3, 1.3)
+	pave.roughness = 0.9
+	pave.vertex_color_use_as_albedo = true
+	pave.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_mats.pave = pave
 	var marque := StandardMaterial3D.new()
 	marque.albedo_color = Color(0.86, 0.86, 0.8)
 	marque.roughness = 0.7
@@ -617,16 +630,33 @@ func _routes() -> void:
 			_pont(r)
 			continue
 		var t: Array = REVETEMENTS.get(r.k, REVETEMENTS.residential)
-		if not sts.has(t[0]):
+		var m: String = "pave" if r.get("vieille", false) else t[0]
+		if not sts.has(m):
 			var st := SurfaceTool.new()
 			st.begin(Mesh.PRIMITIVE_TRIANGLES)
-			sts[t[0]] = st
-		_ruban(sts[t[0]], r.p, r.l, t[2], Color(t[1], t[1], t[1]), r.get("lg", PackedFloat32Array()), r.get("ld", PackedFloat32Array()))
+			sts[m] = st
+		_ruban(sts[m], r.p, r.l, t[2], Color(t[1], t[1], t[1]) if m != "pave" else Color(1, 1, 1), r.get("lg", PackedFloat32Array()), r.get("ld", PackedFloat32Array()))
+		if m == "pave":
+			# Le caniveau au milieu de la chaussée : une rigole de pierres plus sombres, de 30 cm.
+			# Il suit le milieu de la chaussée, lissé sur quelques mètres pour rester droit.
+			var cg := PackedFloat32Array()
+			var cd := PackedFloat32Array()
+			var nk: int = r.lg.size()
+			for k in nk:
+				var somme := 0.0
+				var nb := 0
+				for j in range(maxi(0, k - 5), mini(nk, k + 6)):
+					somme += (float(r.lg[j]) - float(r.ld[j])) / 2.0
+					nb += 1
+				var milieu := clampf(somme / nb, -float(r.ld[k]) + 0.15, float(r.lg[k]) - 0.15)
+				cg.append(milieu + 0.065)
+				cd.append(-milieu + 0.065)
+			_ruban(sts[m], r.p, 0.13, t[2] + 0.03, Color(0.68, 0.67, 0.64), cg, cd)
 	for m in sts:
 		var st: SurfaceTool = sts[m]
 		st.generate_normals()
 		var mi := MeshInstance3D.new()
-		mi.name = "Rues" if m == "bitume" else "Chemins"
+		mi.name = {"bitume": "Rues", "pave": "Paves"}.get(m, "Chemins")
 		mi.mesh = st.commit()
 		mi.material_override = _mats[m]
 		add_child(mi)
@@ -1025,6 +1055,11 @@ func _trottoirs() -> void:
 					larg[k] = 0.0
 					continue
 				var w := clampf(ecart, 0.14, 1.4)
+				# Pas de trottoir plaqué sur un talus.
+				var pt_in: Vector2 = p + perp * demi
+				var pt_out: Vector2 = p + perp * (demi + w)
+				if absf(hauteur(pt_out.x, pt_out.y) - hauteur(pt_in.x, pt_in.y)) > TALUS:
+					w = 0.0
 				# Pas de trottoir dans l'emprise d'une autre voie (un carrefour, une impasse qui débouche),
 				# ni dans une zone travaillée à la main.
 				var c: Vector2 = p + perp * (demi + w / 2.0)
@@ -1388,6 +1423,8 @@ func _bati_en(p: Vector2, sauf := -1, voutes := true) -> int:
 const CALE_PAS := 0.1
 const CALE_MARGE := 0.03
 const RUE_MIN := 1.3
+## La différence de hauteur entre l'axe et le bord au-delà de laquelle la chaussée s'arrête au pied du talus.
+const TALUS := 0.22
 func _caler_rues() -> void:
 	# Le passage de la porte de la Rivière : le pavé de la rue des Cavaliers continue sous la voûte,
 	# dans l'axe de l'arc, jusqu'au quai du lavoir.
@@ -1450,6 +1487,18 @@ func _caler_rues() -> void:
 				hi = maxf(hi, b - CALE_MARGE)
 			if a > -ext + CALE_PAS / 2.0:
 				lo = minf(lo, a + CALE_MARGE)
+			# Un talus au bord, sans maison (la place de l'Église, nivelée, au-dessus de sa rue) : la
+			# chaussée ne grimpe pas dessus, elle s'arrête au pied et laisse l'herbe.
+			var y0 := hauteur(ligne[k].x, ligne[k].y)
+			var raide := false
+			while b >= ext - CALE_PAS / 2.0 and hi > 0.5 and absf(hauteur(ligne[k].x + perp.x * hi, ligne[k].y + perp.y * hi) - y0) > TALUS:
+				hi -= CALE_PAS
+				raide = true
+			while a <= -ext + CALE_PAS / 2.0 and lo < -0.5 and absf(hauteur(ligne[k].x + perp.x * lo, ligne[k].y + perp.y * lo) - y0) > TALUS:
+				lo += CALE_PAS
+				raide = true
+			if raide:
+				touche += 1
 			lg.append(hi)
 			ld.append(-lo)
 		# Seules les rues du vieux bourg, resserrées par les maisons sur une bonne part de leur longueur,
@@ -1745,6 +1794,23 @@ func _dist_rue(p: Vector2) -> float:
 	return best
 
 
+## La distance à la rue droit devant un mur, le long de sa normale : la rue que la façade regarde,
+## pas celle qui passe en biais près d'un angle. Sans rue devant, la distance à la plus proche, comptée
+## double.
+func _rue_devant(m: Vector2, n: Vector2) -> float:
+	if _segs.is_empty():
+		_dist_rue(m)
+	var t := 0.2
+	while t <= 6.0:
+		var q := m + n * t
+		var c := Vector2i(int(floor(q.x / GRILLE)), int(floor(q.y / GRILLE)))
+		for sg in _segs.get(c, []):
+			if q.distance_to(Geometry2D.get_closest_point_to_segment(q, sg[0], sg[1])) <= sg[2]:
+				return t
+		t += 0.2
+	return 6.0 + 2.0 * maxf(0.0, _dist_rue(m + n * 0.3))
+
+
 ## Une maison posée exactement sur son emprise de l'IGN, comme dans la rue : ses murs suivent le
 ## pourtour, ceux qui touchent une autre maison sont aveugles (mitoyens), la façade, celle des murs
 ## libres qui regarde la rue la plus proche, porte la porte et les travées de fenêtres ; les autres
@@ -1790,7 +1856,7 @@ func _maison_emprise(f, b: Dictionary, i: int) -> void:
 			if _bati_en(a.lerp(d, t) + n * 0.3, i) >= 0:
 				contre += 1
 		mitoyen.append(contre >= 2)
-		rue.append(_dist_rue(m + n * 0.3))
+		rue.append(_rue_devant(m, n))
 	var fa := -1
 	for k in nb:
 		if ls[k] >= 0.9 and not mitoyen[k] and (fa < 0 or rue[k] < rue[fa]):
@@ -1845,7 +1911,7 @@ func _maison_emprise(f, b: Dictionary, i: int) -> void:
 				elif annexe:
 					continue
 				elif k == fa or f.rng.randf() < 0.7:
-					f._window(exf, Vector3(x, y, 0), Vector2(0.48, 0.7 if e == 0 else 0.74), volets, lumiere, lit)
+					_fenetre(f, exf, Vector3(x, y, 0), Vector2(0.48, 0.7 if e == 0 else 0.74), volets, lumiere, lit)
 	var eave := haut + 0.1
 	if nb == 4 and _convexe(poly):
 		# Deux pans : les égouts sur la paire de côtés opposés la plus longue, les pignons sur l'autre.
@@ -1862,6 +1928,31 @@ func _maison_emprise(f, b: Dictionary, i: int) -> void:
 			f.batch.box("trim", cxf, Vector3(0, 0.57, 0), Vector3(0.42, 0.07, 0.38), lumiere)
 	else:
 		_toit_croupes(f, poly, ns, eave, toit)
+
+
+## Une fenêtre du vieux bourg : celle des maisons de Smarves (facades.gd, _window), avec une
+## jardinière à l'échelle d'une rue étroite, un bac de 80 cm sur 20 qui ne déborde pas sur la chaussée.
+func _fenetre(f, xf: Transform3D, at: Vector3, size: Vector2, shutter: Color, light: Color, lit: float) -> void:
+	var c := at + Vector3(0, size.y / 2.0, 0)
+	f.batch.box("trim", xf, c + Vector3(0, -size.y / 2.0 - 0.03, 0.03), Vector3(size.x + 0.12, 0.05, 0.07), light)
+	f.batch.box("trim", xf, c + Vector3(0, size.y / 2.0 + 0.05, 0.02), Vector3(size.x + 0.16, 0.1, 0.05), light)
+	for sd in [-1.0, 1.0]:
+		f.batch.box("trim", xf, c + Vector3(sd * (size.x / 2.0 + 0.035), 0, 0.02), Vector3(0.07, size.y, 0.05), light)
+	if f.rng.randf() < 0.18:
+		f.batch.box("trim", xf, c + Vector3(0, 0, 0.012), Vector3(size.x, size.y, 0.03), shutter)
+		for yy in [-0.3, 0.0, 0.3]:
+			f.batch.box("trim", xf, c + Vector3(0, yy * size.y, 0.03), Vector3(size.x * 0.96, 0.03, 0.01), shutter.darkened(0.2))
+		return
+	for sd in [-1.0, 1.0]:
+		f.batch.box("trim", xf, c + Vector3(sd * (size.x * 0.75 + 0.08), 0, 0.02), Vector3(size.x / 2.0, size.y, 0.025), shutter)
+		for yy in [-0.3, 0.3]:
+			f.batch.box("trim", xf, c + Vector3(sd * (size.x * 0.75 + 0.08), yy * size.y, 0.035), Vector3(size.x / 2.0 - 0.02, 0.025, 0.01), shutter.darkened(0.2))
+	f._glass(xf, c + Vector3(0, 0, 0.006), size, 0, f.rng.randf() < lit, Color(1.0, 0.72, 0.38).lerp(Color(1.0, 0.85, 0.6), f.rng.randf()))
+	if at.y > 0.5 and f.rng.randf() < 0.25:
+		# La jardinière, à l'étage seulement : 0,33 × 0,08 × 0,08 unité, posée sur l'appui.
+		f.batch.box("trim", xf, c + Vector3(0, -size.y / 2.0 + 0.01, 0.07), Vector3(0.33, 0.08, 0.08), Color(0.55, 0.32, 0.2))
+		for i in 3:
+			f.batch.box("trim", xf, c + Vector3((i - 1) * 0.1, -size.y / 2.0 + 0.07, 0.07), Vector3(0.07, 0.05, 0.06), [Color(0.95, 0.2, 0.25), Color(0.98, 0.45, 0.55), Color(0.3, 0.55, 0.25)][i])
 
 
 func _convexe(poly: PackedVector2Array) -> bool:
@@ -2239,6 +2330,10 @@ func _process(_delta: float) -> void:
 func _capturer() -> void:
 	for k in 90:
 		await get_tree().process_frame
+	# La photo du bourg seul : sans le titre, l'aide ni les invites du jeu.
+	for n in get_tree().root.find_children("*", "CanvasLayer", true, false):
+		(n as CanvasLayer).visible = false
+	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(_capture)
 	get_tree().quit()
