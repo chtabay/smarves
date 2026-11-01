@@ -232,20 +232,38 @@ static func _adrien_bernard(f, b: Dictionary, hauteur: Callable) -> void:
 	for i in 7:
 		var vx: float = nord * (wa / 2.0 - 0.15) + f.rng.randf_range(-0.12, 0.12)
 		f.batch.box("trim", axf, Vector3(vx, 0.25 + i * 0.18, 0.025), Vector3(0.12 + f.rng.randf() * 0.14, 0.14 + f.rng.randf() * 0.1, 0.05), Color(0.26, 0.42, 0.2).lerp(Color(0.45, 0.52, 0.22), f.rng.randf()))
-	# La palissade blanche entre ses piliers de pierre, puis le mur bas du jardin.
+	# Le portail d'entrée du jardin, d'après les photos de la rue : deux vantaux de lattes blanches
+	# jointives à dessus plat, sur deux traverses, entre deux piliers de pierre coiffés, sur toute la
+	# largeur entre la dépendance et le mur bas du jardin.
 	var x0 := nord * (w / 2.0 + 0.05)
 	var pilier := Color(0.86, 0.84, 0.78)
-	for p in 3:
-		var px: float = x0 + nord * (0.15 + p * 1.1)
-		f.batch.box("wall", xf, Vector3(px, 0.45, 0.1), Vector3(0.3, 0.9, 0.3), pilier)
-		f.batch.box("trim", xf, Vector3(px, 0.93, 0.1), Vector3(0.36, 0.07, 0.36), pilier.lightened(0.1))
-		if p < 2:
-			f.batch.box("wall", xf, Vector3(px + nord * 0.55, 0.12, 0.1), Vector3(0.8, 0.24, 0.24), pilier.darkened(0.08))
-			for i in 7:
-				f.batch.box("trim", xf, Vector3(px + nord * (0.22 + i * 0.11), 0.48, 0.1), Vector3(0.05, 0.5, 0.03), blanc)
-			f.batch.box("trim", xf, Vector3(px + nord * 0.55, 0.62, 0.1), Vector3(0.8, 0.04, 0.03), blanc)
+	var latte := Color(0.93, 0.93, 0.91)
+	var hp := 0.7
+	for px in [x0 + nord * 0.17, x0 + nord * 2.35]:
+		f.batch.box("wall", xf, Vector3(px, hp / 2.0 - 0.1, 0.1), Vector3(0.34, hp + 0.2, 0.34), pilier)
+		f.batch.box("trim", xf, Vector3(px, hp + 0.03, 0.1), Vector3(0.42, 0.07, 0.42), pilier.lightened(0.1))
+		f.batch.box("trim", xf, Vector3(px, hp + 0.09, 0.1), Vector3(0.3, 0.05, 0.3), pilier.darkened(0.05))
+	var g0 := 0.36
+	var g1 := 2.16
+	var mi := (g0 + g1) / 2.0
+	f.batch.box("wall", xf, Vector3(x0 + nord * mi, 0.02, 0.1), Vector3(g1 - g0 + 0.1, 0.08, 0.26), pilier.darkened(0.12))
+	for v in 2:
+		var a0: float = g0 if v == 0 else mi + 0.012
+		var a1: float = mi - 0.012 if v == 0 else g1
+		var lv := a1 - a0
+		# Les deux traverses, côté jardin.
+		for ty in [0.15, 0.4]:
+			f.batch.box("trim", xf, Vector3(x0 + nord * (a0 + lv / 2.0), ty, 0.07), Vector3(lv, 0.05, 0.03), latte.darkened(0.06))
+		var n := int(lv / 0.062)
+		for i in n:
+			var lx := a0 + (i + 0.5) * lv / n
+			var c := latte.darkened(0.03 * (i % 2))
+			f.batch.box("trim", xf, Vector3(x0 + nord * lx, 0.29, 0.1), Vector3(0.042, 0.46, 0.022), c)
+		# Le loquet noir au milieu.
+		if v == 0:
+			f.batch.box("trim", xf, Vector3(x0 + nord * (a1 - 0.03), 0.3, 0.115), Vector3(0.05, 0.03, 0.01), Color(0.12, 0.12, 0.12))
 	# Le mur du jardin qui suit, jusqu'à l'angle nord-ouest et son portillon, est dans jardin.gd.
-	_lampadaire(f, xf, Vector3(x0 + nord * 1.0, 0, 0.9))
+	# Le lampadaire du trottoir devant le mur est déjà posé par l'éclairage public du bourg.
 
 
 ## L'aile arrière du 10, sur le jardin : celle qui porte la terrasse. Le même enduit beige, les mêmes
