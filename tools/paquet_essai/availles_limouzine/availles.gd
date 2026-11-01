@@ -1894,6 +1894,13 @@ func _maison_emprise(f, b: Dictionary, i: int) -> void:
 	var h: float = etages * f.FLOOR_H + 0.15
 	var haut := y_face + h
 	var porte: int = f.rng.randi() % 3
+	# Les maisons à pans de bois de la rue des Cavaliers, d'après les photos du 20.
+	var colombages := false
+	for q in COLOMBAGES:
+		if Geometry2D.is_point_in_polygon(Vector2(q[0], q[1]), poly):
+			colombages = true
+	if colombages:
+		volets = Color(0.42, 0.44, 0.45)
 	for k in nb:
 		var a := poly[k]
 		var d := poly[(k + 1) % nb]
@@ -1923,6 +1930,13 @@ func _maison_emprise(f, b: Dictionary, i: int) -> void:
 				if not mitoyen[voisin]:
 					f.batch.box("trim", exf, Vector3(s * (l / 2.0 - 0.1), (haut - y_mur) / 2.0, 0.015), Vector3(0.2, haut - y_mur - 0.1, 0.04), lumiere)
 		var p_porte := clampi(porte * travees / 3, 0, travees - 1)
+		if colombages:
+			_colombages(f, exf, l, travees, pas, niveaux, haut - y_mur)
+		if k == fa and not annexe and rue[k] < 0.8 and travees >= 2 and f.rng.randf() < 0.45:
+			# Des pots de fleurs au pied de la façade, entre les travées, comme rue des Cavaliers.
+			for t in range(1, travees):
+				if f.rng.randf() < 0.6:
+					_pot(f, exf, -l / 2.0 + 0.1 + pas * t + f.rng.randf_range(-0.06, 0.06))
 		for e in niveaux:
 			var y: float = 0.42 if e == 0 else e * f.FLOOR_H + 0.32
 			if y + 0.84 > haut - y_mur:
@@ -1951,6 +1965,57 @@ func _maison_emprise(f, b: Dictionary, i: int) -> void:
 			f.batch.box("trim", cxf, Vector3(0, 0.57, 0), Vector3(0.42, 0.07, 0.38), lumiere)
 	else:
 		_toit_croupes(f, poly, ns, eave, toit)
+
+
+## Un pot de fleurs posé contre le mur : la terre cuite, le feuillage, quelques fleurs.
+func _pot(f, exf: Transform3D, x: float) -> void:
+	var r: float = f.rng.randf_range(0.11, 0.16)
+	f.batch.box("trim", exf, Vector3(x, r * 0.5, 0.12), Vector3(r, r, r), Color(0.72, 0.42, 0.3))
+	var feuil := Color(0.28, 0.45, 0.22).lerp(Color(0.4, 0.55, 0.28), f.rng.randf())
+	f.batch.box("trim", exf, Vector3(x, r + 0.09, 0.12), Vector3(r * 1.5, 0.2, r * 1.4), feuil)
+	var fleur: Color = [Color(0.92, 0.35, 0.55), Color(0.95, 0.95, 0.92), Color(0.85, 0.2, 0.25), Color(0.95, 0.6, 0.75)][f.rng.randi() % 4]
+	for i in 3:
+		f.batch.box("trim", exf, Vector3(x + (i - 1) * r * 0.45, r + 0.2 + f.rng.randf() * 0.04, 0.12 + (i % 2) * 0.05), Vector3(0.06, 0.05, 0.06), fleur)
+
+
+## Les maisons à pans de bois : un point dans leur emprise. Le 20 rue des Cavaliers, côté porte de la
+## Rivière, et la maison d'en face, comme sur la photo prise devant le 20.
+const COLOMBAGES := [[67.7, 7.2], [60.4, 5.3], [62.4, 2.7], [68.9, 4.3], [64.6, -0.35]]
+const BOIS := Color(0.24, 0.22, 0.21)
+const TORCHIS := Color(0.9, 0.89, 0.86)
+
+
+## Les pans de bois d'un mur, au-dessus du rez-de-chaussée de pierre : le crépi blanc, les sablières
+## à chaque plancher (la première plus forte, comme un encorbellement), les poteaux entre les
+## travées et une croix de Saint-André sous chaque fenêtre.
+func _colombages(f, exf: Transform3D, l: float, travees: int, pas: float, niveaux: int, haut: float) -> void:
+	var y0: float = f.FLOOR_H
+	if haut - y0 < 0.6:
+		return
+	f.batch.box("wall", exf, Vector3(0, (y0 + haut) / 2.0, 0.004), Vector3(l - 0.02, haut - y0, 0.008), TORCHIS)
+	f.batch.box("trim", exf, Vector3(0, y0, 0.05), Vector3(l, 0.12, 0.1), BOIS)
+	for e in range(2, niveaux + 1):
+		var y: float = e * f.FLOOR_H
+		if y < haut - 0.1:
+			f.batch.box("trim", exf, Vector3(0, y, 0.025), Vector3(l, 0.07, 0.05), BOIS)
+	f.batch.box("trim", exf, Vector3(0, haut - 0.04, 0.025), Vector3(l, 0.07, 0.05), BOIS)
+	for t in travees + 1:
+		var x := -l / 2.0 + 0.1 + pas * t
+		x = clampf(x, -l / 2.0 + 0.04, l / 2.0 - 0.04)
+		f.batch.box("trim", exf, Vector3(x, (y0 + haut) / 2.0, 0.025), Vector3(0.07, haut - y0, 0.05), BOIS)
+	for e in range(1, niveaux):
+		var bas: float = e * f.FLOOR_H + 0.06
+		var hau: float = e * f.FLOOR_H + 0.27
+		if hau > haut - 0.3:
+			break
+		for t in travees:
+			var x := -l / 2.0 + 0.1 + pas * (t + 0.5)
+			var w := minf(0.5, pas - 0.2)
+			var ang := atan2(hau - bas, w)
+			var long := Vector2(w, hau - bas).length()
+			for sg in [1.0, -1.0]:
+				var bxf: Transform3D = exf * Transform3D(Basis(Vector3.BACK, sg * ang), Vector3(x, (bas + hau) / 2.0, 0.025))
+				f.batch.box("trim", bxf, Vector3.ZERO, Vector3(long, 0.05, 0.04), BOIS)
 
 
 ## Une fenêtre du vieux bourg : celle des maisons de Smarves (facades.gd, _window), avec une
