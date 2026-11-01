@@ -24,7 +24,7 @@ func _init() -> void:
 	communes.dossier_greffes = TMP
 	var pk := PCKPacker.new()
 	pk.pck_start(TMP + "availles_limouzine.pck")
-	for f in ["commune.json", "commune.tscn", "availles.gd", "remarquables.gd", "eglise.gd", "abords.gd", "bourg.json", "zones.json", "sol.png.import"]:
+	for f in ["commune.json", "commune.tscn", "availles.gd", "remarquables.gd", "eglise.gd", "abords.gd", "jardin.gd", "bourg.json", "zones.json", "sol.png.import"]:
 		pk.add_file("res://communes/availles_limouzine/" + f, SOURCE + f)
 	var imp := ConfigFile.new()
 	imp.load(SOURCE + "sol.png.import")

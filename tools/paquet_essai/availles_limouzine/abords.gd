@@ -25,7 +25,7 @@ static func construire(c: Node3D) -> void:
 	var f = FACADES.new(noeud, Polices.texte(), 860150)
 	# Chaque lieu a ses maillages, que la caméra écarte quand il est hors champ ; les arbres, les
 	# moellons et le petit mobilier s'effacent au-delà de PORTEE unités.
-	var lieux := [["Eglise", _place_eglise], ["Lavoir", _lavoir], ["AdrienBernard", _place_adrien_bernard]]
+	var lieux := [["Eglise", _place_eglise], ["Lavoir", _lavoir], ["AdrienBernard", _place_adrien_bernard], ["Jardin10", _jardin_10]]
 	for l in lieux:
 		var sous := Node3D.new()
 		sous.name = l[0]
@@ -38,6 +38,11 @@ static func construire(c: Node3D) -> void:
 				(g as GeometryInstance3D).visibility_range_end = PORTEE
 				(g as GeometryInstance3D).visibility_range_end_margin = 10.0
 				(g as GeometryInstance3D).visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+
+
+## Le jardin du 10 place Adrien-Bernard, dessiné dans jardin.gd.
+static func _jardin_10(c: Node3D, f, parent: Node3D) -> void:
+	load("res://communes/availles_limouzine/jardin.gd").construire(c, f, parent)
 
 
 ## Un tilleul de la bibliothèque, taillé en tête de chat comme ceux des places du Poitou, pied en (x, z).
