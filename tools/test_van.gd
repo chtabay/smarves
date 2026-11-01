@@ -1,7 +1,8 @@
 extends SceneTree
 ## Le van des chasseurs de pépites et l'atelier des véhicules : godot --headless --path . -s tools/test_van.gd
 ## La caisse galbée a ses deux flancs (le profil rentré se triangule), la camionnette reste bleue sous le
-## seuil, et passé le seuil la livrée remplace le Car Kit sans toucher à sa boîte de collision.
+## seuil, et passé le seuil la livrée remplace le Car Kit sans toucher à sa boîte de collision. Le taxi du
+## bourg (scripts/socle/taxi.gd) remplace la voiture du kit et porte son lumineux.
 
 var fails := 0
 
@@ -58,5 +59,14 @@ func _init() -> void:
 	# La livrée tient dans la boîte de la camionnette (à la galerie près).
 	var b: AABB = pepites._local_aabb(car)
 	check(b.size.z < 3.1 and b.size.x < 1.8 and b.size.y < 1.8, "la livrée garde la taille de la camionnette (%s)" % b.size)
+	# Le taxi du bourg : la berline remplace la voiture du kit, le lumineux « TAXI » est sur le toit.
+	var kit: Node3D = load("res://assets/kaykit/city/car_taxi.gltf").instantiate()
+	root.add_child(kit)
+	var taxi := Taxi.habiller(kit, "Smarves")
+	var kit_caches := kit.find_children("*", "MeshInstance3D", true, false).filter(func(mi): return not taxi.is_ancestor_of(mi) and (mi as MeshInstance3D).visible)
+	check(kit_caches.is_empty(), "le taxi du kit s'efface")
+	var lumineux := taxi.get_node_or_null("Lumineux")
+	var txt := taxi.find_children("*", "Label3D", true, false).map(func(l): return (l as Label3D).text)
+	check(lumineux != null and "TAXI" in txt and "TAXI · SMARVES" in txt, "le lumineux et le nom de la commune")
 	print("%d échec(s)" % fails)
 	quit(1 if fails > 0 else 0)
