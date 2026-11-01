@@ -490,7 +490,7 @@ static func feuilles(f, xf: Transform3D, r: Vector3, n: int, col: Color, taille:
 		if fl:
 			c = (fleurs[0] as Color).lerp(Color.WHITE, f.rng.randf() * 0.15)
 		else:
-			c = col.lerp(col.lightened(0.3), f.rng.randf() * variation * 2.0).darkened((1.0 - u) * 0.4 + f.rng.randf() * variation * 0.4)
+			c = col.lerp(col.lightened(0.3), f.rng.randf() * variation * 2.0).darkened((1.0 - u) * 0.18 + f.rng.randf() * variation * 0.3)
 			c = c.lightened(maxf(nn.y, 0.0) * 0.1)
 		c.a = clampf(u, 0.2, 1.0)
 		var s: float = taille * TAILLE_CARTE * f.rng.randf_range(0.75, 1.25) * (0.8 + 0.3 * u)
@@ -614,7 +614,7 @@ static func epicea(c: Node3D, f, p: Vector2, h: float) -> void:
 			var o := pied + Vector3(0, yy, 0)
 			if rr > 0.5:
 				bois(f, o, o + dir * rr * 0.9, h * 0.006, h * 0.002, Color(0.32, 0.26, 0.2), 4)
-			var col = Color(0.12, 0.25, 0.13).lerp(Color(0.18, 0.33, 0.17), f.rng.randf())
+			var col = Color(0.2, 0.36, 0.2).lerp(Color(0.27, 0.45, 0.25), f.rng.randf())
 			var nxf := repere(dir, o + dir * rr * 0.55 + Vector3(0, -rr * 0.08, 0))
 			feuilles(f, nxf, Vector3(rr * 0.55, rr * 0.16, rr * 0.3), int(14 + 40 * rr / (h * 0.22)), col, h * 0.016, 0.2, [], 2)
 	feuilles(f, Transform3D(Basis(), pied + Vector3(0, h * 0.97, 0)), Vector3(0.08, h * 0.05, 0.08), 12, Color(0.2, 0.36, 0.2), h * 0.012, 0.25, [], 2)
@@ -653,11 +653,11 @@ static func cedre_bleu(c: Node3D, f, p: Vector2, h: float, rayon: float) -> void
 		var dir := Vector3(cos(az), -0.12, sin(az))
 		var col = bleu.lerp(Color(0.56, 0.68, 0.68), f.rng.randf() * 0.7).darkened(f.rng.randf() * 0.12)
 		var nxf := repere(dir, centre)
-		feuilles(f, nxf, Vector3(rr, rr * 0.2, rr * 0.8), int(240 * rr / (rayon * 0.33)), col, rayon * 0.032, 0.22, [], 3)
+		feuilles(f, nxf, Vector3(rr, rr * 0.2, rr * 0.8), int(240 * rr / (rayon * 0.33)), col, rayon * 0.032, 0.22, [], 2)
 		# Le bout de la nappe qui retombe.
-		feuilles(f, repere(Vector3(cos(az), -0.5, sin(az)), centre + Vector3(cos(az), -0.3, sin(az)) * rr * 0.9), Vector3(rr * 0.35, rr * 0.12, rr * 0.5), int(64 * rr / (rayon * 0.33)), col.darkened(0.06), rayon * 0.03, 0.2, [], 3)
+		feuilles(f, repere(Vector3(cos(az), -0.5, sin(az)), centre + Vector3(cos(az), -0.3, sin(az)) * rr * 0.9), Vector3(rr * 0.35, rr * 0.12, rr * 0.5), int(64 * rr / (rayon * 0.33)), col.darkened(0.06), rayon * 0.03, 0.2, [], 2)
 	for tete in fleches:
-		feuilles(f, Transform3D(Basis(), tete), Vector3(rayon * 0.16, h * 0.05, rayon * 0.16), 110, bleu.lightened(0.08), rayon * 0.03, 0.25, [], 3)
+		feuilles(f, Transform3D(Basis(), tete), Vector3(rayon * 0.16, h * 0.05, rayon * 0.16), 110, bleu.lightened(0.08), rayon * 0.03, 0.25, [], 2)
 	_solide(f, Transform3D.IDENTITY, pied + Vector3(0, h * 0.15, 0), Vector3(rayon * 0.32, h * 0.3, rayon * 0.32))
 
 
@@ -667,12 +667,16 @@ static func sequoia(c: Node3D, f, p: Vector2, h: float) -> void:
 	p = loin_des_murs(p, 1.7)
 	var y: float = c.sol(p.x, p.y)
 	var pied := Vector3(p.x, y - 0.05, p.y)
-	var roux := Color(0.55, 0.3, 0.2)
-	bois(f, pied, pied + Vector3(0, 0.6, 0), 0.55, 0.4, roux.darkened(0.15), 12)
+	var roux := Color(0.47, 0.24, 0.14)
+	bois(f, pied, pied + Vector3(0, 0.7, 0), 0.77, 0.4, roux.darkened(0.15), 14)
 	bois(f, pied + Vector3(0, 0.5, 0), pied + Vector3(0, h * 0.98, 0), 0.4, 0.05, roux, 11)
-	for k in 10:
-		var a: float = TAU * k / 10.0
-		bois(f, pied + Vector3(cos(a) * 0.4, 0, sin(a) * 0.4), pied + Vector3(cos(a) * 0.34, h * 0.2, sin(a) * 0.34), 0.04, 0.025, roux.darkened(0.25), 4)
+	# L'écorce fibreuse en bandes verticales, claires et sombres, qui montent loin dans le fût.
+	for k in 22:
+		var a: float = TAU * k / 22.0 + f.rng.randf() * 0.1
+		var hb: float = h * f.rng.randf_range(0.25, 0.6)
+		var rb: float = 0.4 * (1.0 - hb / h * 0.9)
+		var teinte: Color = roux.darkened(0.3) if k % 2 == 0 else roux.lightened(0.12)
+		bois(f, pied + Vector3(cos(a) * 0.41, 0.3, sin(a) * 0.41), pied + Vector3(cos(a) * rb, hb, sin(a) * rb), 0.035, 0.015, teinte, 4)
 	var nappes := 200
 	for i in nappes:
 		var t: float = f.rng.randf()
@@ -722,7 +726,7 @@ static func if_(c: Node3D, f, p: Vector2, h: float) -> void:
 		var t: float = k / 5.0
 		var r: float = h * (0.3 - 0.2 * t)
 		var o = pied + Vector3(f.rng.randf_range(-0.1, 0.1) * h, h * (0.3 + 0.55 * t), f.rng.randf_range(-0.1, 0.1) * h)
-		feuilles(f, Transform3D(Basis(Vector3.UP, k), o), Vector3(r, r * 0.8, r), int(160 * r / (h * 0.3)), Color(0.12, 0.22, 0.12), h * 0.03, 0.18, [], 2)
+		feuilles(f, Transform3D(Basis(Vector3.UP, k), o), Vector3(r, r * 0.8, r), int(160 * r / (h * 0.3)), Color(0.2, 0.32, 0.18), h * 0.03, 0.18, [], 2)
 	_solide(f, Transform3D.IDENTITY, pied + Vector3(0, h * 0.2, 0), Vector3(h * 0.1, h * 0.4, h * 0.1))
 
 
@@ -735,7 +739,7 @@ static func cypres(c: Node3D, f, p: Vector2, h: float) -> void:
 	for k in 7:
 		var t: float = k / 6.0
 		var r: float = h * 0.11 * (1.0 - 0.7 * t * t)
-		feuilles(f, Transform3D(Basis(Vector3.UP, k), pied + Vector3(0, h * (0.15 + 0.75 * t), 0)), Vector3(r, h * 0.12, r), int(70 * r / (h * 0.11)) + 10, Color(0.14, 0.27, 0.15), h * 0.02, 0.18, [], 2)
+		feuilles(f, Transform3D(Basis(Vector3.UP, k), pied + Vector3(0, h * (0.15 + 0.75 * t), 0)), Vector3(r, h * 0.12, r), int(70 * r / (h * 0.11)) + 10, Color(0.22, 0.38, 0.22), h * 0.02, 0.18, [], 2)
 	_solide(f, Transform3D.IDENTITY, pied + Vector3(0, h * 0.2, 0), Vector3(h * 0.08, h * 0.4, h * 0.08))
 
 
@@ -822,9 +826,9 @@ static func _sous_bois(c: Node3D, f, parent: Node3D) -> void:
 		elif genre == 8:
 			# Un arbuste bas d'un mètre et demi : houx aux baies rouges, noisetier.
 			if n % 20 == 8:
-				arbuste(c, f, p, 0.4, Color(0.12, 0.26, 0.12), [Color(0.75, 0.08, 0.08), 0.05], 3)
+				arbuste(c, f, p, 0.4, Color(0.2, 0.36, 0.18), [Color(0.75, 0.08, 0.08), 0.05], 3)
 			else:
-				arbuste(c, f, p, 0.45, Color(0.26, 0.42, 0.18), [], 3)
+				arbuste(c, f, p, 0.45, Color(0.26, 0.42, 0.18), [], 2)
 		else:
 			# Des copeaux et des brindilles.
 			for k in 4:
@@ -986,7 +990,7 @@ static func _massifs(c: Node3D, f, parent: Node3D) -> void:
 		rosier(c, f, p, [Color("d04a8a"), Color("e0605a"), Color("f4f0e6"), Color("e8823a")][i])
 	for a in [Vector2(1.6, 1.7), Vector2(2.6, 0.7), Vector2(2.9, -0.6)]:
 		rosier(c, f, BASSIN + a, Color("e0605a"), true)
-	arbuste(c, f, BASSIN + Vector2(2.6, -2.4), 0.5, Color(0.42, 0.14, 0.18), [], 3)
+	arbuste(c, f, BASSIN + Vector2(2.6, -2.4), 0.5, Color(0.42, 0.14, 0.18), [], 2)
 
 
 ## Une touffe de vivaces : un coussin de feuilles et une pluie de petites fleurs d'une couleur.

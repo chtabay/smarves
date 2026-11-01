@@ -113,7 +113,10 @@ void fragment() {
  base *= mix(1., .8, smoothstep(-.1, 0., dedans));
  base = mix(base, base * 1.18, nervure * .5);
  base = mix(base, vec3(.85, .62, .08), coeur);
- ALBEDO = base;
+ // Le feuillage s'éclaire de lui-même un peu : la lumière du ciel qui traverse et rebondit dans la couronne, que
+ // l'ombre propre des cartes éteindrait, sinon, en noir au cœur des arbres.
+ ALBEDO = min(base * 1.15, vec3(1.));
  ROUGHNESS = .9;
- BACKLIGHT = ALBEDO * .75;
+ BACKLIGHT = ALBEDO * .8;
+ EMISSION = ALBEDO * .6;
 }
