@@ -63,6 +63,8 @@ func _ready() -> void:
 	_h = PackedFloat32Array(r.h)
 	_charger_zones()
 	_niveler()
+	_index_batiments()
+	_caler_rues()
 	for p in data.places:
 		if p.nom == ARRIVEE_NOM:
 			_arrivee = Vector2(p.x, p.z)
@@ -553,6 +555,19 @@ func _sols_materiaux() -> void:
 	herbe.roughness = 1.0
 	herbe.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_mats.herbe = herbe
+	# Le pavé des rues du vieux bourg : un granit gris beige, pommelé de pierres plus sombres et plus
+	# claires, pour qu'on ne le prenne pas pour un enrobé lissé.
+	var pave := StandardMaterial3D.new()
+	pave.albedo_color = Color(0.66, 0.63, 0.58)
+	var grain_pave := _grain(0.09, Color(0.4, 0.38, 0.35))
+	(grain_pave.noise as FastNoiseLite).fractal_octaves = 3
+	pave.albedo_texture = grain_pave
+	pave.uv1_triplanar = true
+	pave.uv1_scale = Vector3(1.3, 1.3, 1.3)
+	pave.roughness = 0.9
+	pave.vertex_color_use_as_albedo = true
+	pave.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_mats.pave = pave
 	var marque := StandardMaterial3D.new()
 	marque.albedo_color = Color(0.86, 0.86, 0.8)
 	marque.roughness = 0.7
@@ -574,10 +589,12 @@ func _densifier(pts: Array, pas: float) -> PackedVector2Array:
 
 
 ## Un ruban posé sur le relief, le long d'une ligne de points [x, z] ; rend le nombre de points.
-func _ruban(st: SurfaceTool, pts: Array, largeur: float, dessus: float, c: Color) -> int:
+func _ruban(st: SurfaceTool, pts: Array, largeur: float, dessus: float, c: Color, lg := PackedFloat32Array(), ld := PackedFloat32Array()) -> int:
 	var ligne := _densifier(pts, 0.8)
 	if ligne.size() < 2:
 		return 0
+	# Une rue calée entre les façades (_caler_rues) a sa largeur point par point, de chaque côté.
+	var calee := lg.size() == ligne.size() and ld.size() == ligne.size()
 	st.set_color(c)
 	var g: Array[Vector3] = []
 	var d: Array[Vector3] = []
@@ -586,9 +603,9 @@ func _ruban(st: SurfaceTool, pts: Array, largeur: float, dessus: float, c: Color
 		var avant := ligne[maxi(k - 1, 0)]
 		var apres := ligne[mini(k + 1, ligne.size() - 1)]
 		var dir := (apres - avant).normalized()
-		var perp := Vector2(-dir.y, dir.x) * largeur / 2.0
-		var pg := ligne[k] + perp
-		var pd := ligne[k] - perp
+		var perp := Vector2(-dir.y, dir.x)
+		var pg := ligne[k] + perp * (lg[k] if calee else largeur / 2.0)
+		var pd := ligne[k] - perp * (ld[k] if calee else largeur / 2.0)
 		g.append(Vector3(pg.x, hauteur(pg.x, pg.y) + dessus, pg.y))
 		d.append(Vector3(pd.x, hauteur(pd.x, pd.y) + dessus, pd.y))
 		dehors.append(0 if _dans_zone(ligne[k]) else 1)
@@ -613,16 +630,33 @@ func _routes() -> void:
 			_pont(r)
 			continue
 		var t: Array = REVETEMENTS.get(r.k, REVETEMENTS.residential)
-		if not sts.has(t[0]):
+		var m: String = "pave" if r.get("vieille", false) else t[0]
+		if not sts.has(m):
 			var st := SurfaceTool.new()
 			st.begin(Mesh.PRIMITIVE_TRIANGLES)
-			sts[t[0]] = st
-		_ruban(sts[t[0]], r.p, r.l, t[2], Color(t[1], t[1], t[1]))
+			sts[m] = st
+		_ruban(sts[m], r.p, r.l, t[2], Color(t[1], t[1], t[1]) if m != "pave" else Color(1, 1, 1), r.get("lg", PackedFloat32Array()), r.get("ld", PackedFloat32Array()))
+		if m == "pave":
+			# Le caniveau au milieu de la chaussée : une rigole de pierres plus sombres, de 30 cm.
+			# Il suit le milieu de la chaussée, lissé sur quelques mètres pour rester droit.
+			var cg := PackedFloat32Array()
+			var cd := PackedFloat32Array()
+			var nk: int = r.lg.size()
+			for k in nk:
+				var somme := 0.0
+				var nb := 0
+				for j in range(maxi(0, k - 5), mini(nk, k + 6)):
+					somme += (float(r.lg[j]) - float(r.ld[j])) / 2.0
+					nb += 1
+				var milieu := clampf(somme / nb, -float(r.ld[k]) + 0.15, float(r.lg[k]) - 0.15)
+				cg.append(milieu + 0.065)
+				cd.append(-milieu + 0.065)
+			_ruban(sts[m], r.p, 0.13, t[2] + 0.07, Color(0.68, 0.67, 0.64), cg, cd)
 	for m in sts:
 		var st: SurfaceTool = sts[m]
 		st.generate_normals()
 		var mi := MeshInstance3D.new()
-		mi.name = "Rues" if m == "bitume" else "Chemins"
+		mi.name = {"bitume": "Rues", "pave": "Paves"}.get(m, "Chemins")
 		mi.mesh = st.commit()
 		mi.material_override = _mats[m]
 		add_child(mi)
@@ -635,7 +669,10 @@ func _pointilles() -> void:
 	for r in data.routes:
 		if r.get("pont", false) or not r.k in AVEC_POINTILLES:
 			continue
-		var ligne := _densifier(r.p, 0.5)
+		# Une rue calée entre les façades : le trait suit le milieu de la chaussée, et disparaît où elle
+		# est trop étroite pour deux voies.
+		var calee: bool = r.has("lg")
+		var ligne := _densifier(r.p, 0.8 if calee else 0.5)
 		var depuis := 1.0
 		for k in ligne.size() - 1:
 			var a := ligne[k]
@@ -649,6 +686,12 @@ func _pointilles() -> void:
 				continue
 			var m := (a + b) / 2.0
 			var dir := (b - a) / l
+			if calee and k + 1 < r.lg.size():
+				var g: float = (r.lg[k] + r.lg[k + 1]) / 2.0
+				var dd: float = (r.ld[k] + r.ld[k + 1]) / 2.0
+				if g + dd < 2.2:
+					continue
+				m += Vector2(-dir.y, dir.x) * (g - dd) / 2.0
 			xfs.append(Transform3D(Basis(Vector3.UP, -atan2(dir.y, dir.x)), Vector3(m.x, hauteur(m.x, m.y) + 0.062, m.y)))
 	if xfs.is_empty():
 		return
@@ -969,16 +1012,19 @@ func _trottoirs() -> void:
 	sb.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for ri in data.routes.size():
 		var r: Dictionary = data.routes[ri]
-		if r.get("pont", false) or not r.k in AVEC_TROTTOIRS:
+		if r.get("pont", false) or not r.k in AVEC_TROTTOIRS or r.get("vieille", false):
 			continue
 		var ligne: PackedVector2Array = lignes[ri]
 		if ligne.size() < 3:
 			continue
-		var demi: float = r.l / 2.0
+		var calee: bool = r.has("lg") and r.lg.size() == ligne.size()
 		for cote in [1.0, -1.0]:
 			# Pour chaque point de l'axe : la largeur du trottoir de ce côté, 0 s'il n'y en a pas.
 			var larg := PackedFloat32Array()
 			larg.resize(ligne.size())
+			# Le bord de la chaussée de ce côté : la demi-largeur, ou celle de la rue calée entre les façades.
+			var demis := PackedFloat32Array()
+			demis.resize(ligne.size())
 			var perps: Array[Vector2] = []
 			for k in ligne.size():
 				var avant := ligne[maxi(k - 1, 0)]
@@ -986,6 +1032,14 @@ func _trottoirs() -> void:
 				var dir := (apres - avant).normalized()
 				var perp: Vector2 = Vector2(-dir.y, dir.x) * cote
 				perps.append(perp)
+				var demi: float = r.l / 2.0
+				if calee:
+					demi = float(r.lg[k] if cote > 0.0 else r.ld[k])
+				demis[k] = demi
+				# Là où la rue a été resserrée entre les maisons, pas de place pour un trottoir.
+				if calee and demi < r.l / 2.0 - 0.05:
+					larg[k] = 0.0
+					continue
 				var p := ligne[k]
 				var ecart := INF
 				var cx := int(floor(p.x / 2.0))
@@ -1001,6 +1055,11 @@ func _trottoirs() -> void:
 					larg[k] = 0.0
 					continue
 				var w := clampf(ecart, 0.14, 1.4)
+				# Pas de trottoir plaqué sur un talus.
+				var pt_in: Vector2 = p + perp * demi
+				var pt_out: Vector2 = p + perp * (demi + w)
+				if absf(hauteur(pt_out.x, pt_out.y) - hauteur(pt_in.x, pt_in.y)) > TALUS:
+					w = 0.0
 				# Pas de trottoir dans l'emprise d'une autre voie (un carrefour, une impasse qui débouche),
 				# ni dans une zone travaillée à la main.
 				var c: Vector2 = p + perp * (demi + w / 2.0)
@@ -1047,7 +1106,7 @@ func _trottoirs() -> void:
 							for j in range(maxi(k, i - 2), mini(fin, i + 3)):
 								w = minf(w, larg[j])
 							lisse.append(w)
-						_trottoir(st, sb, ligne, perps, demi, lisse, k, fin)
+						_trottoir(st, sb, ligne, perps, demis, lisse, k, fin)
 					k = fin
 				else:
 					k += 1
@@ -1068,13 +1127,14 @@ func _trottoirs() -> void:
 ## Une bande de trottoir, des points k0 à k1 (exclu) de l'axe : le dessus en pavés, la bordure
 ## côté chaussée, la face extérieure et les deux bouts en pierre claire. Les faces sont dessinées
 ## des deux côtés.
-func _trottoir(st: SurfaceTool, sb: SurfaceTool, ligne: PackedVector2Array, perps: Array[Vector2], demi: float, larg: PackedFloat32Array, k0: int, k1: int) -> void:
+func _trottoir(st: SurfaceTool, sb: SurfaceTool, ligne: PackedVector2Array, perps: Array[Vector2], demis: PackedFloat32Array, larg: PackedFloat32Array, k0: int, k1: int) -> void:
 	var dedans: Array[Vector3] = []
 	var dehors: Array[Vector3] = []
 	var bas_in: Array[Vector3] = []
 	var bas_out: Array[Vector3] = []
 	for k in range(k0, k1):
 		var w: float = larg[k - k0]
+		var demi: float = demis[k]
 		var pi: Vector2 = ligne[k] + perps[k] * (demi - 0.02)
 		var pe: Vector2 = ligne[k] + perps[k] * (demi + w)
 		var yi := hauteur(pi.x, pi.y)
@@ -1312,6 +1372,157 @@ func _interagir(cible: Node) -> void:
 
 # --- Les bâtiments ---------------------------------------------------------------------------------
 
+## Les emprises des bâtiments, rangées par case de GRILLE unités : pour savoir vite si un point est
+## dans une maison (les rues s'écartent des façades, les murs mitoyens restent aveugles).
+const GRILLE := 4.0
+## Les lieux que la rue traverse sous une voûte : leur emprise ne la resserre pas.
+const PORTES := ["porte_cavaliers", "porte_riviere"]
+var _bpolys: Array[PackedVector2Array] = []
+var _bgrille := {}
+var _sous_voute := {}
+
+
+func _index_batiments() -> void:
+	for r in data.remarquables:
+		if r.has("batiment") and r.id in PORTES:
+			_sous_voute[int(r.batiment)] = true
+	for i in data.batiments.size():
+		var poly := PackedVector2Array()
+		var bas := Vector2(INF, INF)
+		var haut := Vector2(-INF, -INF)
+		for q in data.batiments[i].p:
+			var v := Vector2(q[0], q[1])
+			poly.append(v)
+			bas = Vector2(minf(bas.x, v.x), minf(bas.y, v.y))
+			haut = Vector2(maxf(haut.x, v.x), maxf(haut.y, v.y))
+		_bpolys.append(poly)
+		for cx in range(int(floor(bas.x / GRILLE)), int(floor(haut.x / GRILLE)) + 1):
+			for cz in range(int(floor(bas.y / GRILLE)), int(floor(haut.y / GRILLE)) + 1):
+				var cle := Vector2i(cx, cz)
+				if not _bgrille.has(cle):
+					_bgrille[cle] = []
+				_bgrille[cle].append(i)
+
+
+## Le bâtiment qui contient `p` (autre que `sauf`), -1 s'il n'y en a pas. Les portes à voûte ne
+## comptent que si `voutes` est vrai.
+func _bati_en(p: Vector2, sauf := -1, voutes := true) -> int:
+	for i in _bgrille.get(Vector2i(int(floor(p.x / GRILLE)), int(floor(p.y / GRILLE))), []):
+		if i == sauf or (not voutes and _sous_voute.has(i)):
+			continue
+		if Geometry2D.is_point_in_polygon(p, _bpolys[i]):
+			return i
+	return -1
+
+
+## Les voies d'OpenStreetMap et les emprises de l'IGN ne tombent pas juste : dans le vieux bourg,
+## l'axe d'une rue passe souvent à un mètre d'une façade, et son ruban de cinq mètres entre dans les
+## maisons. Chaque rue est calée sur les façades : point par point, on cherche de part et d'autre de
+## l'axe l'espace libre entre les emprises, et la chaussée s'y loge (elle s'y décale, ou s'y resserre
+## jusqu'à la largeur d'une ruelle). Les maisons restent sur leur emprise ; c'est la rue qui cède.
+const CALE_PAS := 0.1
+const CALE_MARGE := 0.03
+const RUE_MIN := 1.3
+## La différence de hauteur entre l'axe et le bord au-delà de laquelle la chaussée s'arrête au pied du talus.
+const TALUS := 0.22
+func _caler_rues() -> void:
+	# Le passage de la porte de la Rivière : le pavé de la rue des Cavaliers continue sous la voûte,
+	# dans l'axe de l'arc, jusqu'au quai du lavoir.
+	var axe: Vector2 = REMARQUABLES.RIVIERE_A.normalized()
+	var voute: Vector2 = REMARQUABLES.RIVIERE_C
+	var depuis_rue: Vector2 = voute - axe * 1.8
+	var au_quai: Vector2 = voute + axe * 1.9
+	data.routes.append({"p": [[depuis_rue.x, depuis_rue.y], [voute.x, voute.y], [au_quai.x, au_quai.y]], "l": 1.3, "k": "service", "osm": "porte_riviere"})
+	for r in data.routes:
+		if r.get("pont", false) or r.k in ["footway", "path", "steps", "track", "cycleway"]:
+			continue
+		var ligne := _densifier(r.p, 0.8)
+		if ligne.size() < 2:
+			continue
+		var demi: float = r.l / 2.0
+		var ext := demi + 1.2
+		var n := int(ext / CALE_PAS)
+		var lg := PackedFloat32Array()
+		var ld := PackedFloat32Array()
+		var touche := 0
+		for k in ligne.size():
+			var avant := ligne[maxi(k - 1, 0)]
+			var apres := ligne[mini(k + 1, ligne.size() - 1)]
+			var perp := Vector2(-(apres - avant).normalized().y, (apres - avant).normalized().x)
+			var libre := func(t: float) -> bool:
+				return _bati_en(ligne[k] + perp * t, -1, false) < 0
+			# Le point libre le plus proche de l'axe, à moins d'une demi-largeur.
+			var c0 := INF
+			for i in int(demi / CALE_PAS) + 1:
+				var t := i * CALE_PAS
+				if libre.call(t):
+					c0 = t
+					break
+				if libre.call(-t):
+					c0 = -t
+					break
+			if c0 == INF:
+				# L'axe est enfoui dans une maison sur toute la largeur : on ne sait pas où passe la rue.
+				lg.append(demi)
+				ld.append(demi)
+				continue
+			var a := c0
+			var b := c0
+			while b + CALE_PAS <= ext and libre.call(b + CALE_PAS):
+				b += CALE_PAS
+			while a - CALE_PAS >= -ext and libre.call(a - CALE_PAS):
+				a -= CALE_PAS
+			var hi := minf(b - CALE_MARGE, demi)
+			var lo := maxf(a + CALE_MARGE, -demi)
+			if hi - lo < RUE_MIN:
+				# Trop étroit : la chaussée prend la ruelle entière, jusqu'à RUE_MIN, centrée sur l'espace libre.
+				var w := minf(RUE_MIN, (b - a) - 2.0 * CALE_MARGE)
+				var m := clampf((lo + hi) / 2.0, a + CALE_MARGE + w / 2.0, b - CALE_MARGE - w / 2.0)
+				lo = m - w / 2.0
+				hi = m + w / 2.0
+			if hi < demi - 0.01 or lo > -demi + 0.01:
+				touche += 1
+			# Une façade à moins d'une unité du bord : la rue est pavée jusqu'au mur.
+			if b < ext - CALE_PAS / 2.0:
+				hi = maxf(hi, b - CALE_MARGE)
+			if a > -ext + CALE_PAS / 2.0:
+				lo = minf(lo, a + CALE_MARGE)
+			# Un talus au bord, sans maison (la place de l'Église, nivelée, au-dessus de sa rue) : la
+			# chaussée ne grimpe pas dessus, elle s'arrête au pied et laisse l'herbe.
+			var y0 := hauteur(ligne[k].x, ligne[k].y)
+			var raide := false
+			while b >= ext - CALE_PAS / 2.0 and hi > 0.5 and absf(hauteur(ligne[k].x + perp.x * hi, ligne[k].y + perp.y * hi) - y0) > TALUS:
+				hi -= CALE_PAS
+				raide = true
+			while a <= -ext + CALE_PAS / 2.0 and lo < -0.5 and absf(hauteur(ligne[k].x + perp.x * lo, ligne[k].y + perp.y * lo) - y0) > TALUS:
+				lo += CALE_PAS
+				raide = true
+			if raide:
+				touche += 1
+			lg.append(hi)
+			ld.append(-lo)
+		# Seules les rues du vieux bourg, resserrées par les maisons sur une bonne part de leur longueur,
+		# sont calées : de façade à façade, sans trottoir. Les autres gardent leur ruban et leurs trottoirs.
+		if touche < maxi(2, int(ligne.size() * 0.25)):
+			continue
+		r["vieille"] = true
+		# Une façade peut avancer entre deux points de l'axe : chaque bord prend le plus étroit de ses voisins.
+		var lg2 := PackedFloat32Array(lg)
+		var ld2 := PackedFloat32Array(ld)
+		for k in range(1, ligne.size() - 1):
+			var g := minf(lg[k], minf(lg[k - 1], lg[k + 1]))
+			var d := minf(ld[k], minf(ld[k - 1], ld[k + 1]))
+			if g + d >= 0.8:
+				lg2[k] = g
+				ld2[k] = d
+		var pts: Array = []
+		for q in ligne:
+			pts.append([q.x, q.y])
+		r.p = pts
+		r["lg"] = lg2
+		r["ld"] = ld2
+
+
 ## La taille d'une tuile de maisons, et la distance au-delà de laquelle leurs détails s'effacent.
 const TUILE := 32.0
 const DETAIL := 55.0
@@ -1389,7 +1600,7 @@ func _batiments() -> void:
 			_lot_maisons(f, tuile)
 			dans_tuile = 0
 		tuile = t
-		_maison(f, b, {})
+		_maison_emprise(f, b, i)
 		dans_tuile += 1
 	_lot_maisons(f, tuile)
 	var c := ConcavePolygonShape3D.new()
@@ -1554,6 +1765,308 @@ func _maison(f, b: Dictionary, rem: Dictionary) -> void:
 			var q := [pts[tri[t]], pts[tri[t + 1]], pts[tri[t + 2]]]
 			f.batch.tri("roof", Transform3D.IDENTITY, Vector3(q[0].x, y, q[0].y), Vector3(q[1].x, y, q[1].y),
 				Vector3(q[2].x, y, q[2].y), Vector3.UP, toit, [q[0] - pts[0], q[1] - pts[0], q[2] - pts[0]])
+
+
+## Les axes des rues, par case de GRILLE unités, pour trouver de quel côté une maison regarde la rue.
+var _segs := {}
+
+
+func _dist_rue(p: Vector2) -> float:
+	if _segs.is_empty():
+		for r in data.routes:
+			if r.get("pont", false) or r.k in ["footway", "path", "steps", "track"]:
+				continue
+			for k in r.p.size() - 1:
+				var a := Vector2(r.p[k][0], r.p[k][1])
+				var c := Vector2(r.p[k + 1][0], r.p[k + 1][1])
+				for cx in range(int(floor(minf(a.x, c.x) / GRILLE)), int(floor(maxf(a.x, c.x) / GRILLE)) + 1):
+					for cz in range(int(floor(minf(a.y, c.y) / GRILLE)), int(floor(maxf(a.y, c.y) / GRILLE)) + 1):
+						var cle := Vector2i(cx, cz)
+						if not _segs.has(cle):
+							_segs[cle] = []
+						_segs[cle].append([a, c, r.l / 2.0])
+	var best := 99.0
+	var c0 := Vector2i(int(floor(p.x / GRILLE)), int(floor(p.y / GRILLE)))
+	for cx in range(c0.x - 2, c0.x + 3):
+		for cz in range(c0.y - 2, c0.y + 3):
+			for sg in _segs.get(Vector2i(cx, cz), []):
+				best = minf(best, p.distance_to(Geometry2D.get_closest_point_to_segment(p, sg[0], sg[1])) - sg[2])
+	return best
+
+
+## La distance à la rue droit devant un mur, le long de sa normale : la rue que la façade regarde,
+## pas celle qui passe en biais près d'un angle. Sans rue devant, la distance à la plus proche, comptée
+## double.
+func _rue_devant(m: Vector2, n: Vector2) -> float:
+	if _segs.is_empty():
+		_dist_rue(m)
+	var t := 0.2
+	while t <= 6.0:
+		var q := m + n * t
+		var c := Vector2i(int(floor(q.x / GRILLE)), int(floor(q.y / GRILLE)))
+		for sg in _segs.get(c, []):
+			if q.distance_to(Geometry2D.get_closest_point_to_segment(q, sg[0], sg[1])) <= sg[2]:
+				return t
+		t += 0.2
+	return 6.0 + 2.0 * maxf(0.0, _dist_rue(m + n * 0.3))
+
+
+## Une maison posée exactement sur son emprise de l'IGN, comme dans la rue : ses murs suivent le
+## pourtour, ceux qui touchent une autre maison sont aveugles (mitoyens), la façade, celle des murs
+## libres qui regarde la rue la plus proche, porte la porte et les travées de fenêtres ; les autres
+## murs libres ont leurs fenêtres. Le toit couvre l'emprise et rien de plus : à deux pans sur une
+## emprise à quatre côtés (le faîtage dans le sens de la longueur), en croupes sur les autres.
+func _maison_emprise(f, b: Dictionary, i: int) -> void:
+	var poly: PackedVector2Array = _bpolys[i]
+	var nb := poly.size()
+	if nb < 3:
+		return
+	var r: Array = b.rect
+	var etages := clampi(int(round((b.h - 0.15) / f.FLOOR_H)), 1, 4)
+	var annexe: bool = b.get("annexe", false) or (b.h < 1.5 and etages == 1 and r[2] * r[3] < 10.0)
+	if annexe:
+		etages = 1
+	var teinte: Color = {"pierre": Color(0.9, 0.82, 0.66), "brique": Color(0.86, 0.6, 0.48), "bois": Color(0.7, 0.56, 0.42)}.get(b.mur, f.pick(f.STONES))
+	var toit: Color = f.pick(f.ROOFS)
+	if b.toit == "ardoise":
+		toit = Color(0.36, 0.39, 0.45)
+	elif b.toit == "zinc":
+		toit = Color(0.6, 0.62, 0.66)
+	var volets: Color = f.pick(f.SHUTTERS)
+	var lumiere: Color = teinte.lightened(0.12)
+	var lit := 0.0 if annexe else 0.22
+	# Chaque mur : sa normale vers l'extérieur, sa longueur, mitoyen ou non, sa distance à la rue.
+	var ns: Array[Vector2] = []
+	var ls := PackedFloat32Array()
+	var mitoyen: Array[bool] = []
+	var rue := PackedFloat32Array()
+	for k in nb:
+		var a := poly[k]
+		var d := poly[(k + 1) % nb]
+		var l := a.distance_to(d)
+		var dir := (d - a) / maxf(l, 0.001)
+		var n := Vector2(dir.y, -dir.x)
+		var m := (a + d) / 2.0
+		if Geometry2D.is_point_in_polygon(m + n * 0.05, poly):
+			n = -n
+		ns.append(n)
+		ls.append(l)
+		var contre := 0
+		for t in [0.2, 0.5, 0.8]:
+			if _bati_en(a.lerp(d, t) + n * 0.3, i) >= 0:
+				contre += 1
+		mitoyen.append(contre >= 2)
+		rue.append(_rue_devant(m, n))
+	var fa := -1
+	for k in nb:
+		if ls[k] >= 0.9 and not mitoyen[k] and (fa < 0 or rue[k] < rue[fa]):
+			fa = k
+	if fa < 0:
+		for k in nb:
+			if fa < 0 or rue[k] < rue[fa]:
+				fa = k
+	var bas: float = b.sol
+	var mf := (poly[fa] + poly[(fa + 1) % nb]) / 2.0
+	var y_face: float = maxf(bas, sol(mf.x + ns[fa].x * 0.6, mf.y + ns[fa].y * 0.6) - 0.04)
+	var h: float = etages * f.FLOOR_H + 0.15
+	var haut := y_face + h
+	var porte: int = f.rng.randi() % 3
+	for k in nb:
+		var a := poly[k]
+		var d := poly[(k + 1) % nb]
+		var l := ls[k]
+		if l < 0.02:
+			continue
+		var n := ns[k]
+		var m := (a + d) / 2.0
+		var mxf := Transform3D(Basis(Vector3.UP, atan2(n.x, n.y)), Vector3(m.x, bas, m.y))
+		f.batch.box("wall", mxf, Vector3(0, (haut - bas) / 2.0, -0.05), Vector3(l, haut - bas, 0.1), teinte)
+		if mitoyen[k]:
+			continue
+		# Le soubassement (il descend avec la pente), la corniche sous le toit.
+		var y_mur: float = maxf(bas, sol(m.x + n.x * 0.6, m.y + n.y * 0.6) - 0.04)
+		f.batch.box("trim", mxf, Vector3(0, (y_mur + f.BASE_H - bas) / 2.0, 0.0), Vector3(l, y_mur + f.BASE_H - bas, 0.14), teinte.darkened(0.25))
+		f.batch.box("trim", mxf, Vector3(0, haut - bas + 0.05, 0.0), Vector3(l + 0.1, 0.1, 0.16), lumiere)
+		if l < 0.9 or annexe and k != fa:
+			continue
+		var exf := Transform3D(mxf.basis, Vector3(m.x, y_mur, m.y))
+		var niveaux := clampi(int(round((haut - y_mur - 0.15) / f.FLOOR_H)), 1, 5)
+		var travees := maxi(1, int((l - 0.3) / 0.9))
+		var pas := (l - 0.2) / travees
+		if k == fa:
+			# Les chaînes d'angle de la façade, là où le mur voisin est libre.
+			for s in [-1.0, 1.0]:
+				var voisin := (k + 1) % nb if s > 0.0 else (k - 1 + nb) % nb
+				if not mitoyen[voisin]:
+					f.batch.box("trim", exf, Vector3(s * (l / 2.0 - 0.1), (haut - y_mur) / 2.0, 0.015), Vector3(0.2, haut - y_mur - 0.1, 0.04), lumiere)
+		var p_porte := clampi(porte * travees / 3, 0, travees - 1)
+		for e in niveaux:
+			var y: float = 0.42 if e == 0 else e * f.FLOOR_H + 0.32
+			if y + 0.84 > haut - y_mur:
+				break
+			for t in travees:
+				var x := -l / 2.0 + 0.1 + pas * (t + 0.5)
+				if k == fa and e == 0 and t == p_porte:
+					f._door(exf, x, volets, lumiere, f.rng.randf() < lit)
+				elif annexe:
+					continue
+				elif k == fa or f.rng.randf() < 0.7:
+					_fenetre(f, exf, Vector3(x, y, 0), Vector2(0.48, 0.7 if e == 0 else 0.74), volets, lumiere, lit)
+	var eave := haut + 0.1
+	if nb == 4 and _convexe(poly):
+		# Deux pans : les égouts sur la paire de côtés opposés la plus longue, les pignons sur l'autre.
+		var k0 := 0 if ls[0] + ls[2] >= ls[1] + ls[3] else 1
+		var faite: Array = _toit_deux_pans(f, poly, ns, k0, eave, toit, teinte)
+		if not annexe and f.rng.randf() < 0.55:
+			# La cheminée sur le faîtage, vers un pignon.
+			var r0: Vector2 = faite[0]
+			var r1: Vector2 = faite[1]
+			var cc: Vector2 = r0.lerp(r1, 0.2 if f.rng.randf() < 0.5 else 0.8)
+			var axe := r1 - r0
+			var cxf := Transform3D(Basis(Vector3.UP, -atan2(axe.y, axe.x)), Vector3(cc.x, float(faite[2]), cc.y))
+			f.batch.box("wall", cxf, Vector3(0, 0.1, 0), Vector3(0.34, 0.9, 0.3), teinte.darkened(0.05))
+			f.batch.box("trim", cxf, Vector3(0, 0.57, 0), Vector3(0.42, 0.07, 0.38), lumiere)
+	else:
+		_toit_croupes(f, poly, ns, eave, toit)
+
+
+## Une fenêtre du vieux bourg : celle des maisons de Smarves (facades.gd, _window), avec une
+## jardinière à l'échelle d'une rue étroite, un bac de 80 cm sur 20 qui ne déborde pas sur la chaussée.
+func _fenetre(f, xf: Transform3D, at: Vector3, size: Vector2, shutter: Color, light: Color, lit: float) -> void:
+	var c := at + Vector3(0, size.y / 2.0, 0)
+	f.batch.box("trim", xf, c + Vector3(0, -size.y / 2.0 - 0.03, 0.03), Vector3(size.x + 0.12, 0.05, 0.07), light)
+	f.batch.box("trim", xf, c + Vector3(0, size.y / 2.0 + 0.05, 0.02), Vector3(size.x + 0.16, 0.1, 0.05), light)
+	for sd in [-1.0, 1.0]:
+		f.batch.box("trim", xf, c + Vector3(sd * (size.x / 2.0 + 0.035), 0, 0.02), Vector3(0.07, size.y, 0.05), light)
+	if f.rng.randf() < 0.18:
+		f.batch.box("trim", xf, c + Vector3(0, 0, 0.012), Vector3(size.x, size.y, 0.03), shutter)
+		for yy in [-0.3, 0.0, 0.3]:
+			f.batch.box("trim", xf, c + Vector3(0, yy * size.y, 0.03), Vector3(size.x * 0.96, 0.03, 0.01), shutter.darkened(0.2))
+		return
+	for sd in [-1.0, 1.0]:
+		f.batch.box("trim", xf, c + Vector3(sd * (size.x * 0.75 + 0.08), 0, 0.02), Vector3(size.x / 2.0, size.y, 0.025), shutter)
+		for yy in [-0.3, 0.3]:
+			f.batch.box("trim", xf, c + Vector3(sd * (size.x * 0.75 + 0.08), yy * size.y, 0.035), Vector3(size.x / 2.0 - 0.02, 0.025, 0.01), shutter.darkened(0.2))
+	f._glass(xf, c + Vector3(0, 0, 0.006), size, 0, f.rng.randf() < lit, Color(1.0, 0.72, 0.38).lerp(Color(1.0, 0.85, 0.6), f.rng.randf()))
+	if at.y > 0.5 and f.rng.randf() < 0.25:
+		# La jardinière, à l'étage seulement : 0,33 × 0,08 × 0,08 unité, posée sur l'appui.
+		f.batch.box("trim", xf, c + Vector3(0, -size.y / 2.0 + 0.01, 0.07), Vector3(0.33, 0.08, 0.08), Color(0.55, 0.32, 0.2))
+		for i in 3:
+			f.batch.box("trim", xf, c + Vector3((i - 1) * 0.1, -size.y / 2.0 + 0.07, 0.07), Vector3(0.07, 0.05, 0.06), [Color(0.95, 0.2, 0.25), Color(0.98, 0.45, 0.55), Color(0.3, 0.55, 0.25)][i])
+
+
+func _convexe(poly: PackedVector2Array) -> bool:
+	var signe := 0.0
+	for k in poly.size():
+		var a := poly[k]
+		var b := poly[(k + 1) % poly.size()]
+		var c := poly[(k + 2) % poly.size()]
+		var x := (b - a).cross(c - b)
+		if absf(x) < 1e-4:
+			continue
+		if signe == 0.0:
+			signe = signf(x)
+		elif signf(x) != signe:
+			return false
+	return true
+
+
+## Un pan de toit, tourné vers le haut, ses UV en unités le long de l'égout et dans la pente.
+func _pan(f, pts: Array, toit: Color) -> void:
+	var n: Vector3 = (pts[1] - pts[0]).cross(pts[pts.size() - 1] - pts[0]).normalized()
+	if n.y < 0.0:
+		n = -n
+	var e: Vector3 = (pts[1] - pts[0]).normalized()
+	var uvs: Array = []
+	for q in pts:
+		var v: Vector3 = q - pts[0]
+		uvs.append(Vector2(v.dot(e), (v - e * v.dot(e)).length()))
+	if pts.size() == 4:
+		f.batch.quad("roof", Transform3D.IDENTITY, pts, n, toit, uvs)
+	else:
+		f.batch.tri("roof", Transform3D.IDENTITY, pts[0], pts[1], pts[2], n, toit, uvs)
+
+
+## Le toit à deux pans d'une emprise à quatre côtés : les égouts sur les côtés k0 et k0 + 2, qui
+## débordent un peu, le faîtage entre les milieux des deux autres, les pignons de pierre.
+func _toit_deux_pans(f, poly: PackedVector2Array, ns: Array[Vector2], k0: int, eave: float, toit: Color, mur: Color) -> Array:
+	var ov := 0.16
+	var pente := tan(deg_to_rad(28.0))
+	var a := poly[k0]
+	var b := poly[(k0 + 1) % 4]
+	var c := poly[(k0 + 2) % 4]
+	var d := poly[(k0 + 3) % 4]
+	var r0 := (d + a) / 2.0
+	var r1 := (b + c) / 2.0
+	var prof := ((a + b) / 2.0).distance_to((c + d) / 2.0)
+	var faite := eave + (prof / 2.0 + ov) * pente
+	var n1: Vector2 = ns[k0] * ov
+	var n2: Vector2 = ns[(k0 + 2) % 4] * ov
+	var v3 := func(p: Vector2, y: float) -> Vector3:
+		return Vector3(p.x, y, p.y)
+	_pan(f, [v3.call(a + n1, eave), v3.call(b + n1, eave), v3.call(r1, faite), v3.call(r0, faite)], toit)
+	_pan(f, [v3.call(c + n2, eave), v3.call(d + n2, eave), v3.call(r0, faite), v3.call(r1, faite)], toit)
+	var y_pignon := eave + (prof / 2.0) * pente
+	f.batch.tri("wall", Transform3D.IDENTITY, v3.call(d, eave), v3.call(a, eave), v3.call(r0, y_pignon), Vector3(ns[(k0 + 3) % 4].x, 0, ns[(k0 + 3) % 4].y), mur)
+	f.batch.tri("wall", Transform3D.IDENTITY, v3.call(b, eave), v3.call(c, eave), v3.call(r1, y_pignon), Vector3(ns[(k0 + 1) % 4].x, 0, ns[(k0 + 1) % 4].y), mur)
+	var axe := r1 - r0
+	var fxf := Transform3D(Basis(Vector3.UP, -atan2(axe.y, axe.x)), v3.call((r0 + r1) / 2.0, faite + 0.03))
+	f.batch.box("trim", fxf, Vector3.ZERO, Vector3(axe.length() + 0.04, 0.08, 0.12), toit.darkened(0.15))
+	return [r0, r1, faite]
+
+
+## Le toit en croupes d'une emprise quelconque : chaque mur porte un pan qui monte vers le pourtour
+## rentré d'autant qu'on peut (un faîtage sur une emprise étroite), le dessus en terrasse de tuiles.
+func _toit_croupes(f, poly: PackedVector2Array, ns: Array[Vector2], eave: float, toit: Color) -> void:
+	var pente := tan(deg_to_rad(28.0))
+	var lo := 0.0
+	var hi := 3.0
+	var meilleur := PackedVector2Array()
+	for it in 10:
+		var s := (lo + hi) / 2.0
+		var dedans := _rentre(poly, ns, s)
+		if dedans.is_empty():
+			hi = s
+		else:
+			lo = s
+			meilleur = dedans
+	if meilleur.is_empty() or lo < 0.05:
+		var tri := Geometry2D.triangulate_polygon(poly)
+		for t in range(0, tri.size(), 3):
+			_pan(f, [Vector3(poly[tri[t]].x, eave, poly[tri[t]].y), Vector3(poly[tri[t + 1]].x, eave, poly[tri[t + 1]].y), Vector3(poly[tri[t + 2]].x, eave, poly[tri[t + 2]].y)], toit)
+		return
+	var s := lo * 0.97
+	var dedans := _rentre(poly, ns, s)
+	if dedans.is_empty():
+		dedans = meilleur
+		s = lo
+	var y := eave + s * pente
+	var nb := poly.size()
+	for k in nb:
+		var k1 := (k + 1) % nb
+		_pan(f, [Vector3(poly[k].x, eave, poly[k].y), Vector3(poly[k1].x, eave, poly[k1].y), Vector3(dedans[k1].x, y, dedans[k1].y), Vector3(dedans[k].x, y, dedans[k].y)], toit)
+	var tri := Geometry2D.triangulate_polygon(dedans)
+	for t in range(0, tri.size(), 3):
+		_pan(f, [Vector3(dedans[tri[t]].x, y, dedans[tri[t]].y), Vector3(dedans[tri[t + 1]].x, y, dedans[tri[t + 1]].y), Vector3(dedans[tri[t + 2]].x, y, dedans[tri[t + 2]].y)], toit)
+
+
+## Le pourtour rentré de `s` (chaque sommet poussé sur sa bissectrice), vide s'il se retourne.
+func _rentre(poly: PackedVector2Array, ns: Array[Vector2], s: float) -> PackedVector2Array:
+	var nb := poly.size()
+	var out := PackedVector2Array()
+	for k in nb:
+		var n1: Vector2 = -ns[(k - 1 + nb) % nb]
+		var n2: Vector2 = -ns[k]
+		var den := 1.0 + n1.dot(n2)
+		if den < 0.05:
+			return PackedVector2Array()
+		out.append(poly[k] + (n1 + n2) / den * s)
+	for k in nb:
+		if (out[(k + 1) % nb] - out[k]).dot(poly[(k + 1) % nb] - poly[k]) <= 0.0:
+			return PackedVector2Array()
+	if Geometry2D.triangulate_polygon(out).is_empty():
+		return PackedVector2Array()
+	return out
 
 
 ## Le bâtiment dont le centre est le plus proche de `p`, à moins de deux unités ; -1 sinon.
@@ -1817,6 +2330,10 @@ func _process(_delta: float) -> void:
 func _capturer() -> void:
 	for k in 90:
 		await get_tree().process_frame
+	# La photo du bourg seul : sans le titre, l'aide ni les invites du jeu.
+	for n in get_tree().root.find_children("*", "CanvasLayer", true, false):
+		(n as CanvasLayer).visible = false
+	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(_capture)
 	get_tree().quit()
