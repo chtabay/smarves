@@ -1932,10 +1932,10 @@ func _maison_emprise(f, b: Dictionary, i: int) -> void:
 		var p_porte := clampi(porte * travees / 3, 0, travees - 1)
 		if colombages:
 			_colombages(f, exf, l, travees, pas, niveaux, haut - y_mur)
-		if k == fa and not annexe and rue[k] < 0.8 and travees >= 2 and f.rng.randf() < 0.45:
+		if k == fa and not annexe and rue[k] < 0.8 and travees >= 2 and f.rng.randf() < 0.8:
 			# Des pots de fleurs au pied de la façade, entre les travées, comme rue des Cavaliers.
 			for t in range(1, travees):
-				if f.rng.randf() < 0.6:
+				if f.rng.randf() < 0.75:
 					_pot(f, exf, -l / 2.0 + 0.1 + pas * t + f.rng.randf_range(-0.06, 0.06))
 		for e in niveaux:
 			var y: float = 0.42 if e == 0 else e * f.FLOOR_H + 0.32
