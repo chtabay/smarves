@@ -934,11 +934,34 @@ func _mobilier(parent: Node3D, m: Dictionary) -> void:
 	if str(m.m).begins_with("voiture"):
 		# Les roues des voitures KayKit descendent sous leur origine : on pose le bas des pneus sur
 		# l'enrobé (le niveau des marquages), sinon elles s'enfoncent.
-		var bas := 0.0
+		# On mesure la caisse (dans le repère du modèle, sans le parent) puis on pose les quatre roues :
+		# le sol est pris aux quatre coins, la voiture suit la pente, et elle repose au-dessus de ce qui
+		# est le plus haut à cet endroit, l'enrobé ou le dallage d'une place.
+		var boite := AABB()
+		var premier := true
 		for mi in n.find_children("*", "MeshInstance3D", true, false):
-			var t: Transform3D = n.global_transform.affine_inverse() * (mi as MeshInstance3D).global_transform
-			bas = minf(bas, (t * (mi as MeshInstance3D).get_aabb()).position.y)
-		n.position.y = hauteur(p.x, p.y) + float(m.get("y", ROUTE_DESSUS)) - bas * n.scale.y
+			var t := Transform3D()
+			var nd: Node = mi
+			while nd != n:
+				t = (nd as Node3D).transform * t
+				nd = nd.get_parent()
+			var bb: AABB = t * (mi as MeshInstance3D).get_aabb()
+			boite = bb if premier else boite.merge(bb)
+			premier = false
+		var bas := boite.position.y
+		var rb := Basis(Vector3.UP, deg_to_rad(float(m.get("rot", 0.0))))
+		var ex: Vector3 = rb.x * (boite.size.x * 0.42 * n.scale.x)
+		var ez: Vector3 = rb.z * (boite.size.z * 0.42 * n.scale.z)
+		var hav := (hauteur(p.x + ez.x + ex.x, p.y + ez.z + ex.z) + hauteur(p.x + ez.x - ex.x, p.y + ez.z - ex.z)) / 2.0
+		var har := (hauteur(p.x - ez.x + ex.x, p.y - ez.z + ex.z) + hauteur(p.x - ez.x - ex.x, p.y - ez.z - ex.z)) / 2.0
+		var hg := (hauteur(p.x + ex.x + ez.x, p.y + ex.z + ez.z) + hauteur(p.x + ex.x - ez.x, p.y + ex.z - ez.z)) / 2.0
+		var hd := (hauteur(p.x - ex.x + ez.x, p.y - ex.z + ez.z) + hauteur(p.x - ex.x - ez.x, p.y - ex.z - ez.z)) / 2.0
+		var tangage := atan2(hav - har, 2.0 * ez.length())
+		var roulis := atan2(hg - hd, 2.0 * ex.length())
+		n.basis = rb * Basis(Vector3.RIGHT, -tangage) * Basis(Vector3.BACK, roulis)
+		n.scale = Vector3.ONE * float(fiche[1])
+		var dessus := maxf(float(m.get("y", ROUTE_DESSUS)), PIETON_H) + 0.012
+		n.position.y = (hav + har) / 2.0 + dessus - bas * n.scale.y
 	if bool(fiche[2]):
 		_solidifier(n)
 
