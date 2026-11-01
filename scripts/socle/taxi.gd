@@ -12,7 +12,9 @@ const LONG := 4.6
 const LARGE := 1.84
 const ROUE_Z := 1.42
 const ROUE_R := 0.33
-const BLEU_NUIT := Color(0.12, 0.18, 0.4)
+const BLEU_NUIT := Color(0.11, 0.21, 0.64)
+const PLAQUE := "TX-086-SM"
+const ARRONDI := 0.1
 const ARGENT := Color(0.86, 0.87, 0.9)
 
 
@@ -25,8 +27,11 @@ static func habiller(modele: Node3D, commune := "", police: Font = null) -> Node
 
 static func batir(c: Node3D, commune := "", police: Font = null) -> void:
 	var w := LARGE / 2.0
-	var laque := Carrosserie.laque(BLEU_NUIT, Color(0.6, 0.4, 0.75), 0.35, Color(0.03, 0.03, 0.04), 0.3)
-	laque.set_shader_parameter("rugosite", 0.2)
+	var laque := Carrosserie.laque(BLEU_NUIT, Color(0.62, 0.45, 0.85), 0.45, Color(0.03, 0.03, 0.04), 0.3)
+	# Une laque claire et très vernie : les lampes de la placette et la rue courent sur les flancs.
+	laque.set_shader_parameter("rugosite", 0.14)
+	laque.set_shader_parameter("vernis", 2.4)
+	laque.set_shader_parameter("chatoiement", 0.6)
 	var chrome := Carrosserie.chrome()
 	var verre := Carrosserie.verre()
 	verre.set_shader_parameter("vernis", 1.0)
@@ -34,49 +39,50 @@ static func batir(c: Node3D, commune := "", police: Font = null) -> void:
 	noir.set_shader_parameter("vernis", 0.4)
 	var mat_noir := Carrosserie.mat(Color(0.015, 0.015, 0.018), 0.7)
 	# La caisse, de profil : malle courte, lunette couchée, pavillon bas, long pare-brise, capot plongeant.
-	var p := PackedVector2Array([Vector2(-2.3, 0.32), Vector2(-2.24, 0.2)])
+	var p := PackedVector2Array([Vector2(-2.3, 0.36), Vector2(-2.24, 0.22)])
 	for z: float in [-ROUE_Z, ROUE_Z]:
 		p.append_array(Carrosserie.arc(Vector2(z, ROUE_R), 0.41, 208.0, -28.0, 12))
-	p.append_array([Vector2(2.22, 0.2), Vector2(2.32, 0.34)])
+	p.append_array([Vector2(2.22, 0.22), Vector2(2.32, 0.36)])
 	p.append_array(Carrosserie.arc(Vector2(2.08, 0.52), 0.25, -15.0, 75.0, 5))
 	p.append_array([Vector2(1.2, 0.92), Vector2(0.3, 1.4)])
 	p.append_array(Carrosserie.arc(Vector2(-0.15, 0.95), 0.5, 65.0, 105.0, 4))
 	p.append_array([Vector2(-1.55, 0.98), Vector2(-2.12, 0.93)])
 	p.append_array(Carrosserie.arc(Vector2(-2.08, 0.72), 0.22, 95.0, 180.0, 4))
-	c.add_child(_mi(Carrosserie.galbe(p, LARGE, 0.26), laque))
+	c.add_child(_mi(Carrosserie.galbe(p, LARGE, ARRONDI), laque))
 	# Les vitres : pare-brise, lunette, et sur chaque flanc les deux glaces séparées par le montant.
-	var pb := [Vector3(-w + 0.28, 0.96, 1.16), Vector3(w - 0.28, 0.96, 1.16), Vector3(w - 0.32, 1.36, 0.36), Vector3(-w + 0.32, 1.36, 0.36)]
+	var pb := [Vector3(-w + 0.28, 0.95, 1.16), Vector3(w - 0.28, 0.95, 1.16), Vector3(w - 0.32, 1.36, 0.36), Vector3(-w + 0.32, 1.36, 0.36)]
 	Carrosserie.plaque(c, pb, verre, Vector3(0, 1, 1), 0.008)
 	Carrosserie.cadre(c, pb, 0.012, noir, Vector3(0, 0.01, 0.006))
-	var lu := [Vector3(-w + 0.3, 1.0, -1.52), Vector3(w - 0.3, 1.0, -1.52), Vector3(w - 0.32, 1.38, -0.78), Vector3(-w + 0.32, 1.38, -0.78)]
+	var lu := [Vector3(-w + 0.3, 1.0, -1.52), Vector3(w - 0.3, 1.0, -1.52), Vector3(w - 0.32, 1.345, -0.5), Vector3(-w + 0.32, 1.345, -0.5)]
 	Carrosserie.plaque(c, lu, verre, Vector3(0, 1, -1), 0.008)
 	for s: float in [-1.0, 1.0]:
 		var x := (w + 0.003) * s
-		var avant := [Vector3(x, 0.96, -0.05), Vector3(x, 0.96, 1.1), Vector3(x, 1.33, 0.36), Vector3(x, 1.36, -0.05)]
-		var arriere := [Vector3(x, 0.96, -1.45), Vector3(x, 0.96, -0.15), Vector3(x, 1.36, -0.15), Vector3(x, 1.36, -0.75)]
+		# Les glaces suivent le flanc rentré de l'arrondi : rien ne dépasse du pavillon ni des montants.
+		var avant := [Vector3(x, 0.96, -0.05), Vector3(x, 0.96, 0.9), Vector3(x, 1.24, 0.38), Vector3(x, 1.27, -0.05)]
+		var arriere := [Vector3(x, 0.96, -1.3), Vector3(x, 0.96, -0.15), Vector3(x, 1.27, -0.15), Vector3(x, 1.27, -0.42)]
 		for v: Array in [avant, arriere]:
 			Carrosserie.plaque(c, v, verre, Vector3(s, 0, 0))
 			Carrosserie.cadre(c, v, 0.012, noir, Vector3(0.004 * s, 0, 0))
 		# Le jonc chromé sous les glaces, d'un bout à l'autre ; les poignées ; les rétroviseurs.
-		Carrosserie.jonc(c, Vector3(x + 0.008 * s, 0.94, -1.45), Vector3(x + 0.008 * s, 0.94, 1.08), 0.011, chrome)
-		Carrosserie.jonc(c, Vector3(x + 0.008 * s, 1.37, -0.75), Vector3(x + 0.008 * s, 1.37, 0.36), 0.009, chrome)
+		Carrosserie.jonc(c, Vector3(x + 0.008 * s, 0.94, -1.3), Vector3(x + 0.008 * s, 0.94, 0.9), 0.011, chrome)
+		Carrosserie.jonc(c, Vector3(x + 0.008 * s, 1.285, -0.42), Vector3(x + 0.008 * s, 1.285, 0.36), 0.009, chrome)
 		for z: float in [0.25, -0.95]:
 			Carrosserie.boite(c, Vector3(0.02, 0.025, 0.13), Vector3(x + 0.008 * s, 0.82, z), chrome)
-		Carrosserie.boite(c, Vector3(0.1, 0.03, 0.04), Vector3(x + 0.04 * s, 0.98, 1.0), mat_noir)
-		Carrosserie.boite(c, Vector3(0.06, 0.11, 0.16), Vector3(x + 0.1 * s, 1.0, 0.98), laque)
+		Carrosserie.boite(c, Vector3(0.1, 0.03, 0.04), Vector3(x + 0.04 * s, 0.98, 0.86), mat_noir)
+		Carrosserie.boite(c, Vector3(0.06, 0.11, 0.16), Vector3(x + 0.1 * s, 1.0, 0.84), laque)
 		# Le bas de caisse noir et son liseré d'argent.
 		Carrosserie.boite(c, Vector3(0.02, 0.05, 2.0), Vector3(x + 0.005 * s, 0.27, 0.0), mat_noir)
 		Carrosserie.boite(c, Vector3(0.012, 0.012, 2.0), Vector3(x + 0.012 * s, 0.31, 0.0), chrome)
 		for z: float in [-ROUE_Z, ROUE_Z]:
 			_roue(c, Vector3((w - 0.14) * s, ROUE_R, z), s, chrome)
-		# L'avant : phares effilés qui filent vers l'aile, le feu de jour dessous.
+		# L'avant : les projecteurs en lames de 50 × 8 cm, couchés dans la pente de l'aile, le feu de jour dessous.
 		var phare := Node3D.new()
-		phare.position = Vector3(0.62 * s, 0.66, 2.24)
-		phare.rotation_degrees = Vector3(-28, -24 * s, 4 * s)
+		phare.position = Vector3(0.56 * s, 0.6, 2.3)
+		phare.rotation_degrees = Vector3(-22, -10 * s, 0)
 		c.add_child(phare)
-		Carrosserie.boite(phare, Vector3(0.42, 0.11, 0.016), Vector3.ZERO, noir)
-		Carrosserie.boite(phare, Vector3(0.3, 0.05, 0.012), Vector3(-0.03 * s, 0.0, 0.006), Carrosserie.feu(Color(0.92, 0.95, 1.0), 1.0))
-		Carrosserie.boite(c, Vector3(0.22, 0.014, 0.012), Vector3(0.62 * s, 0.38, 2.31), Carrosserie.feu(Color(0.95, 0.97, 1.0), 1.3))
+		Carrosserie.boite(phare, Vector3(0.5, 0.08, 0.016), Vector3.ZERO, noir)
+		Carrosserie.boite(phare, Vector3(0.44, 0.04, 0.012), Vector3(0.0, 0.0, 0.006), Carrosserie.feu(Color(0.92, 0.95, 1.0), 1.0))
+		Carrosserie.boite(c, Vector3(0.22, 0.014, 0.012), Vector3(0.62 * s, 0.4, 2.31), Carrosserie.feu(Color(0.95, 0.97, 1.0), 1.3))
 		# Les plaques de la commune sur les portières arrière, en lettres d'argent.
 		if commune != "":
 			Carrosserie.inscription(c, "TAXI · " + commune.to_upper(), Vector3(x + 0.006 * s, 0.66, -0.75), 90.0 if s > 0.0 else -90.0, 0.075, ARGENT, police)
@@ -86,14 +92,14 @@ static func batir(c: Node3D, commune := "", police: Font = null) -> void:
 	Carrosserie.cadre(c, gr, 0.012, chrome, Vector3(0, 0, 0.016))
 	for i in 3:
 		Carrosserie.boite(c, Vector3(0.86, 0.01, 0.012), Vector3(0, 0.41 + i * 0.05, 2.325 - i * 0.012), chrome)
-	Carrosserie.boite(c, Vector3(0.52, 0.11, 0.012), Vector3(0, 0.25, 2.3), Carrosserie.mat(Color(0.93, 0.93, 0.9), 0.5))
-	Carrosserie.boite(c, Vector3(LARGE - 0.2, 0.12, 0.04), Vector3(0, 0.22, 2.24), mat_noir)
+	Carrosserie.boite(c, Vector3(LARGE - 0.2, 0.1, 0.04), Vector3(0, 0.25, 2.24), mat_noir)
+	_plaque(c, Vector3(0, 0.29, 2.3), 0.0, Color(0.95, 0.95, 0.93), police)
 	# L'arrière : le bandeau rouge des feux d'un bord à l'autre de la malle, la plaque.
 	Carrosserie.boite(c, Vector3(LARGE - 0.3, 0.06, 0.02), Vector3(0, 0.8, -2.25), Carrosserie.feu(Color(0.85, 0.05, 0.04), 0.8))
 	for s: float in [-1.0, 1.0]:
 		Carrosserie.boite(c, Vector3(0.3, 0.12, 0.02), Vector3(0.68 * s, 0.76, -2.23), Carrosserie.feu(Color(0.85, 0.05, 0.04), 0.9))
-	Carrosserie.boite(c, Vector3(0.52, 0.11, 0.012), Vector3(0, 0.55, -2.31), Carrosserie.mat(Color(0.93, 0.93, 0.9), 0.5))
-	Carrosserie.boite(c, Vector3(LARGE - 0.2, 0.14, 0.04), Vector3(0, 0.26, -2.25), mat_noir)
+	_plaque(c, Vector3(0, 0.55, -2.31), 180.0, Color(0.96, 0.8, 0.18), police)
+	Carrosserie.boite(c, Vector3(LARGE - 0.2, 0.12, 0.04), Vector3(0, 0.27, -2.25), mat_noir)
 	# Sur le pavillon, le lumineux « TAXI » : blanc éclairé, lettres noires devant et derrière,
 	# les quatre petites lampes de tarif sur sa face avant.
 	var lum := Node3D.new()
@@ -106,6 +112,16 @@ static func batir(c: Node3D, commune := "", police: Font = null) -> void:
 		Carrosserie.inscription(lum, "TAXI", Vector3(0, 0.1, 0.092 * float(f[1])), f[0], 0.11, Color(0.04, 0.04, 0.05), police)
 	for i in 4:
 		Carrosserie.disque(lum, 0.014, 0.01, Vector3(-0.21 + i * 0.14, 0.02, 0.112), Carrosserie.feu([Color(0.2, 0.9, 0.3), Color(0.95, 0.2, 0.1)][i % 2], 0.6), true)
+
+
+## Une plaque d'immatriculation : fond `fond`, numéro noir, tournée de `lacet` degrés.
+static func _plaque(c: Node3D, at: Vector3, lacet: float, fond: Color, police: Font) -> void:
+	var n := Node3D.new()
+	n.position = at
+	n.rotation_degrees.y = lacet
+	c.add_child(n)
+	Carrosserie.boite(n, Vector3(0.52, 0.11, 0.012), Vector3.ZERO, Carrosserie.mat(fond, 0.5))
+	Carrosserie.inscription(n, PLAQUE, Vector3(0, 0, 0.008), 0.0, 0.075, Color(0.03, 0.03, 0.035), police)
 
 
 static func _mi(mesh: Mesh, mat: Material) -> MeshInstance3D:
