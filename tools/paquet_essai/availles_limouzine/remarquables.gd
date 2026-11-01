@@ -30,6 +30,9 @@ static func construire(id: String, f, b: Dictionary, hauteur: Callable) -> bool:
 		"adrien_bernard":
 			_adrien_bernard(f, b, hauteur)
 			return true
+		"dos_10":
+			_dos_10(f, b, hauteur)
+			return true
 		"maison_8":
 			_maison_8(f, b, hauteur)
 			return true
@@ -205,6 +208,13 @@ static func _adrien_bernard(f, b: Dictionary, hauteur: Callable) -> void:
 		f.batch.box("trim", mxf, Vector3(x, 2.4, 0.05), Vector3(0.1, 0.12, 0.06), blanc)
 	f.batch.box("trim", mxf, Vector3(0, 2.5, 0.05), Vector3(1.4, 0.06, 0.1), blanc)
 	f.batch.box("trim", mxf, Vector3(0, 2.44, 0.04), Vector3(1.28, 0.06, 0.06), blanc.darkened(0.04))
+	# Au dos, côté jardin, la même ordonnance que sur la place : deux fenêtres à chaque niveau, volets
+	# blancs ouverts, sous la corniche.
+	var dos := mxf * Transform3D(Basis(Vector3.UP, PI), Vector3(0, 0, -dm - 0.004))
+	_chaines(f, dos, wm + 0.02, hm, blanc)
+	for x in [-0.62, 0.62]:
+		f._window(dos, Vector3(x, 0.42, 0), Vector2(0.48, 0.7), blanc, beige.lightened(0.12), 0.0, false)
+		f._window(dos, Vector3(x, 1.62, 0), Vector2(0.48, 0.74), blanc, beige.lightened(0.12), 0.0, false)
 	# L'épi de faîtage, au sommet de la pyramide d'ardoise.
 	var top := hm + 0.1 + (dm / 2.0 + 0.16) * tan(deg_to_rad(28.0))
 	f.batch.box("trim", mxf, Vector3(0, top + 0.22, -dm / 2.0), Vector3(0.05, 0.44, 0.05), Color(0.2, 0.2, 0.22))
@@ -234,8 +244,50 @@ static func _adrien_bernard(f, b: Dictionary, hauteur: Callable) -> void:
 			for i in 7:
 				f.batch.box("trim", xf, Vector3(px + nord * (0.22 + i * 0.11), 0.48, 0.1), Vector3(0.05, 0.5, 0.03), blanc)
 			f.batch.box("trim", xf, Vector3(px + nord * 0.55, 0.62, 0.1), Vector3(0.8, 0.04, 0.03), blanc)
-	f.garden_wall(xf * Vector3(x0 + nord * 2.4, 0, 0.1), xf * Vector3(x0 + nord * 5.5, 0, 0.1), 0.55, Color(0.8, 0.78, 0.72))
+	# Le mur du jardin qui suit, jusqu'à l'angle nord-ouest et son portillon, est dans jardin.gd.
 	_lampadaire(f, xf, Vector3(x0 + nord * 1.0, 0, 0.9))
+
+
+## L'aile arrière du 10, sur le jardin : celle qui porte la terrasse. Le même enduit beige, les mêmes
+## chaînes de pierre blanche et les volets blancs que la façade sur la place ; en bas une porte-fenêtre
+## qui ouvre sur la terrasse et une fenêtre, à l'étage deux fenêtres ; un toit de tuiles à quatre pans.
+static func _dos_10(f, b: Dictionary, hauteur: Callable) -> void:
+	var fa := _facade(b, Vector2(-12.4, -27.5), hauteur)
+	var xf: Transform3D = fa.xf
+	var w: float = clampf(fa.w, 2.4, 3.2)
+	var d: float = clampf(fa.d, 2.0, 2.8)
+	var beige := Color(0.87, 0.8, 0.68)
+	var blanc := Color(0.95, 0.95, 0.93)
+	var tuile := Color(0.72, 0.4, 0.28)
+	var hm := 2.4
+	_socle(f, xf, w, d, fa.socle, beige.darkened(0.3))
+	f.batch.box("wall", xf, Vector3(0, hm / 2.0, -d / 2.0), Vector3(w, hm, d), beige)
+	f.batch.box("trim", xf, Vector3(0, BASE_H / 2.0, -d / 2.0), Vector3(w + 0.05, BASE_H, d + 0.05), beige.darkened(0.25))
+	f.batch.box("trim", xf, Vector3(0, hm + 0.05, -d / 2.0), Vector3(w + 0.12, 0.1, d + 0.12), beige.lightened(0.12))
+	f._roof(xf, w, d, hm, tuile, beige, "hip")
+	_chaines(f, xf * Transform3D(Basis(), Vector3(0, 0, 0.012)), w + 0.02, hm, blanc)
+	# La porte-fenêtre sur la terrasse : deux vantaux vitrés, petits bois blancs, volets ouverts.
+	var px := -0.55
+	var dw := 0.62
+	var dh := 0.98
+	f.batch.box("trim", xf, Vector3(px, BASE_H + dh / 2.0, 0.006), Vector3(dw, dh, 0.02), Color(0.24, 0.3, 0.32))
+	for i in 3:
+		f.batch.box("trim", xf, Vector3(px + (i - 1) * dw / 2.0, BASE_H + dh / 2.0, 0.02), Vector3(0.04, dh, 0.02), blanc)
+	for k in 4:
+		f.batch.box("trim", xf, Vector3(px, BASE_H + k * dh / 3.0, 0.02), Vector3(dw, 0.035, 0.02), blanc)
+	f.batch.box("trim", xf, Vector3(px, BASE_H + dh + 0.06, 0.02), Vector3(dw + 0.16, 0.1, 0.05), blanc.darkened(0.03))
+	for s2 in [-1.0, 1.0]:
+		f.batch.box("trim", xf, Vector3(px + s2 * (dw / 2.0 + 0.2), BASE_H + dh / 2.0, 0.02), Vector3(0.32, dh, 0.025), blanc)
+		f.batch.box("trim", xf, Vector3(px + s2 * (dw / 2.0 + 0.04), BASE_H + dh / 2.0, 0.015), Vector3(0.07, dh, 0.04), beige.lightened(0.12))
+	f._window(xf, Vector3(0.75, 0.42, 0), Vector2(0.48, 0.7), blanc, beige.lightened(0.12), 0.0, false)
+	for x in [-0.55, 0.75]:
+		f._window(xf, Vector3(x, 1.5, 0), Vector2(0.48, 0.66), blanc, beige.lightened(0.12), 0.0, false)
+	# Une glycine qui monte au coin et passe sous la corniche.
+	for i in 10:
+		var gx: float = w / 2.0 - 0.18 + f.rng.randf_range(-0.1, 0.1)
+		f.batch.box("trim", xf, Vector3(gx - (0.0 if i < 7 else (i - 6) * 0.25), 0.2 + minf(i, 7) * 0.3, 0.05), Vector3(0.22, 0.2, 0.08), Color(0.32, 0.46, 0.22).lerp(Color(0.48, 0.56, 0.26), f.rng.randf()))
+		if i % 2 == 0:
+			f.batch.box("trim", xf, Vector3(gx - (0.0 if i < 7 else (i - 6) * 0.25), 0.12 + minf(i, 7) * 0.3, 0.1), Vector3(0.06, 0.14, 0.06), Color(0.66, 0.56, 0.86))
 
 
 # --- Le 8 place Adrien-Bernard ----------------------------------------------------------------------

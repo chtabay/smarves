@@ -24,7 +24,7 @@ const EMPRISE := [
 	Vector2(-11.0, -24.2), Vector2(-13.9, -24.6), Vector2(-15.4, -25.4),
 ]
 ## Les côtés de l'emprise qui ont un mur de pierre (index du premier point) : la ruelle et les voisins.
-const MURS := [1, 2, 3, 4, 5, 6, 7, 8, 9]
+const MURS := [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 ## La terrasse au dos de la maison : son origine au pied du mur, +X le long de la maison, +Z vers le jardin.
 const TERRASSE_O := Vector2(-12.6, -24.75)
@@ -39,6 +39,9 @@ const BASSIN_ROT := 0.45
 ## L'allée tondue, de l'escalier de la terrasse au sous-bois.
 const ALLEE := [Vector2(-9.9, -25.9), Vector2(-7.0, -30.6), Vector2(-4.6, -33.6), Vector2(-2.6, -37.0), Vector2(-1.0, -40.4)]
 
+## La lisière du sous-bois : de la rue à l'angle nord-ouest, puis le long de la ruelle.
+const SOUS_BOIS := [Vector2(-18.3, -28.2), Vector2(-19.1, -31.8), Vector2(-13.8, -35.0), Vector2(-9.6, -37.7), Vector2(0.5, -43.3), Vector2(5.1, -45.9)]
+
 const PELOUSE := Color(0.55, 0.68, 0.16)
 const CIMENT := Color(0.76, 0.72, 0.62)
 const PIERRE := Color(0.62, 0.56, 0.47)
@@ -49,6 +52,7 @@ static func construire(c: Node3D, f, parent: Node3D) -> void:
 	_terrasse(c, f, parent)
 	_bassin(c, f, parent)
 	_murs(c, f)
+	_sous_bois(c, f, parent)
 	_arbres(c, f, parent)
 	_massifs(c, f, parent)
 	_portique(c, f, Vector2(-15.6, -30.9), 0.35)
@@ -108,7 +112,7 @@ static func _dans_terrasse(p: Vector2, marge: float) -> bool:
 static func _sol(c: Node3D, f) -> void:
 	var pas = 0.6
 	var bassin = contour_bassin()
-	var fond = [EMPRISE[1], EMPRISE[2], EMPRISE[3], EMPRISE[4], EMPRISE[5]]
+	var fond = SOUS_BOIS
 	var x = -19.5
 	while x < 8.6:
 		var z = -46.2
@@ -117,8 +121,10 @@ static func _sol(c: Node3D, f) -> void:
 			if dedans(m, EMPRISE) and not _dans_terrasse(m, -0.05) and not (dedans(m, bassin)):
 				var col = PELOUSE.lerp(Color(0.64, 0.72, 0.2), f.rng.randf() * 0.5)
 				var df = _dist_ligne(m, fond)
-				if df < 3.2:
-					col = col.lerp(Color(0.24, 0.33, 0.16), (1.0 - df / 3.2) * 0.85)
+				if df < 4.4:
+					# Sous les arbres : l'herbe rare, la litière de feuilles et la mousse.
+					var litiere = Color(0.3, 0.27, 0.16).lerp(Color(0.24, 0.3, 0.14), f.rng.randf())
+					col = col.lerp(litiere, clampf((1.0 - df / 4.4) * 1.6, 0.0, 0.97))
 				var da = _dist_ligne(m, ALLEE)
 				if da < 0.42:
 					col = Color(0.62, 0.66, 0.36).lerp(Color(0.72, 0.66, 0.42), f.rng.randf() * 0.6)
@@ -299,23 +305,159 @@ static func _murs(c: Node3D, f) -> void:
 		var b: Vector2 = EMPRISE[(k + 1) % EMPRISE.size()]
 		var h = 0.75 if k <= 4 else 0.55
 		var l = a.distance_to(b)
-		var np = maxi(1, int(ceil(l / 1.2)))
 		var d = (b - a) / l
-		for j in np:
-			var m: Vector2 = a + d * (l * (j + 0.5) / np)
-			var y: float = c.sol(m.x, m.y)
-			var xf = Transform3D(Basis(Vector3.UP, atan2(d.x, d.y) - PI / 2.0), Vector3(m.x, y, m.y))
-			var lp = l / np + 0.02
-			f.batch.box("wall", xf, Vector3(0, (h - 0.2) / 2.0, 0), Vector3(lp, h + 0.2, 0.22), PIERRE.darkened(0.08))
-			f.batch.box("trim", xf, Vector3(0, h + 0.03, 0), Vector3(lp, 0.07, 0.26), Color(0.52, 0.52, 0.42).lerp(Color(0.4, 0.5, 0.3), f.rng.randf() * 0.6))
-			for s in [-1.0, 1.0]:
-				for i in int(lp * h * 14.0):
-					var px: float = f.rng.randf_range(-lp / 2.0 + 0.05, lp / 2.0 - 0.05)
-					var py: float = f.rng.randf_range(0.05, h - 0.05)
-					var sx: float = f.rng.randf_range(0.05, 0.12)
-					var sy: float = f.rng.randf_range(0.03, 0.06)
-					var fz = s * 0.112
-					f.batch.quad("trim", xf, [Vector3(px - sx, py - sy, fz), Vector3(px + sx, py - sy, fz), Vector3(px + sx, py + sy, fz), Vector3(px - sx, py + sy, fz)], Vector3(0, 0, s), Color(0.7, 0.63, 0.5).lerp(Color(0.48, 0.43, 0.36), f.rng.randf()))
+		# Côté ouest, le mur part du dernier pilier de la palissade blanche ; le portillon s'ouvre près
+		# de l'angle nord-ouest, sur le chemin.
+		var t0 = 2.45 if k == 0 else 0.0
+		var trous = [[l - 0.95, l - 0.42]] if k == 0 else []
+		var t = t0
+		while t < l - 0.001:
+			var t1 = minf(t + 0.6, l)
+			var dans_trou = false
+			for tr in trous:
+				if t1 > tr[0] and t < tr[1]:
+					dans_trou = true
+			if dans_trou:
+				t = t1
+				continue
+			_pan_de_mur(c, f, a + d * t, a + d * t1, h)
+			t = t1
+		# Un pilier à chaque angle, qui lie les deux pans.
+		_pilier(c, f, b, h + 0.08, 0.3)
+	_portillon(c, f)
+
+
+## Un pan de mur de pierre sèche entre p et q : sa fondation descend sous le point le plus bas du terrain,
+## son chaperon suit la pente, son pied est mangé de mousse et d'herbe.
+static func _pan_de_mur(c: Node3D, f, p: Vector2, q: Vector2, h: float) -> void:
+	var d: Vector2 = (q - p).normalized()
+	var l: float = p.distance_to(q) + 0.04
+	var m: Vector2 = (p + q) / 2.0
+	var yp: float = c.sol(p.x, p.y)
+	var yq: float = c.sol(q.x, q.y)
+	var ym: float = c.sol(m.x, m.y)
+	var bas: float = minf(minf(yp, yq), ym) - 0.35
+	var haut: float = maxf(maxf(yp, yq), ym) + h
+	var xf = Transform3D(Basis(Vector3.UP, atan2(d.x, d.y) - PI / 2.0), Vector3(m.x, 0, m.y))
+	f.batch.box("wall", xf, Vector3(0, (bas + haut) / 2.0, 0), Vector3(l, haut - bas, 0.22), PIERRE.darkened(0.08))
+	f.batch.box("trim", xf, Vector3(0, haut + 0.03, 0), Vector3(l, 0.07, 0.27), Color(0.52, 0.52, 0.42).lerp(Color(0.4, 0.5, 0.3), f.rng.randf() * 0.6))
+	var sol_bas: float = minf(yp, yq)
+	for s in [-1.0, 1.0]:
+		var fz = s * 0.112
+		for i in int(l * h * 16.0):
+			var px: float = f.rng.randf_range(-l / 2.0 + 0.04, l / 2.0 - 0.04)
+			var py: float = f.rng.randf_range(sol_bas + 0.04, haut - 0.05)
+			var sx: float = f.rng.randf_range(0.05, 0.12)
+			var sy: float = f.rng.randf_range(0.03, 0.06)
+			f.batch.quad("trim", xf, [Vector3(px - sx, py - sy, fz), Vector3(px + sx, py - sy, fz), Vector3(px + sx, py + sy, fz), Vector3(px - sx, py + sy, fz)], Vector3(0, 0, s), Color(0.7, 0.63, 0.5).lerp(Color(0.48, 0.43, 0.36), f.rng.randf()))
+		# Le pied du mur : une bande de mousse et de terre qui suit le sol, puis des touffes d'herbe.
+		f.batch.quad("trim", xf, [Vector3(-l / 2.0, yp - 0.05, fz * 1.06), Vector3(l / 2.0, yq - 0.05, fz * 1.06), Vector3(l / 2.0, yq + 0.1, fz * 1.06), Vector3(-l / 2.0, yp + 0.1, fz * 1.06)], Vector3(0, 0, s), Color(0.34, 0.38, 0.22).lerp(Color(0.3, 0.26, 0.18), f.rng.randf() * 0.5))
+		for i in 3:
+			var tx: float = f.rng.randf_range(-l / 2.0, l / 2.0)
+			var ty: float = lerpf(yp, yq, (tx + l / 2.0) / l)
+			f.batch.box("trim", xf, Vector3(tx, ty + 0.05, s * 0.15), Vector3(0.12, 0.1, 0.06), Color(0.36, 0.5, 0.2).lerp(Color(0.5, 0.58, 0.26), f.rng.randf()))
+
+
+static func _pilier(c: Node3D, f, p: Vector2, h: float, l: float) -> void:
+	var y: float = c.sol(p.x, p.y)
+	f.batch.box("wall", Transform3D.IDENTITY, Vector3(p.x, y + (h - 0.35) / 2.0, p.y), Vector3(l, h + 0.35, l), PIERRE.darkened(0.12))
+	f.batch.box("trim", Transform3D.IDENTITY, Vector3(p.x, y + h + 0.04, p.y), Vector3(l + 0.06, 0.08, l + 0.06), Color(0.6, 0.58, 0.5))
+
+
+## Le petit portillon de l'angle nord-ouest, sous les arbres : deux piliers de pierre, une porte de bois
+## gris à claire-voie, entrouverte sur le chemin.
+static func _portillon(c: Node3D, f) -> void:
+	var a: Vector2 = EMPRISE[0]
+	var b: Vector2 = EMPRISE[1]
+	var l = a.distance_to(b)
+	var d = (b - a) / l
+	var p: Vector2 = a + d * (l - 0.95)
+	var q: Vector2 = a + d * (l - 0.42)
+	_pilier(c, f, p, 0.9, 0.24)
+	_pilier(c, f, q, 0.9, 0.24)
+	var y: float = c.sol(p.x, p.y)
+	var bois = Color(0.5, 0.5, 0.44)
+	# Le vantail pivote sur le pilier sud et s'ouvre de 30° vers le jardin.
+	var ang = atan2(d.x, d.y) - PI / 2.0
+	var gxf = Transform3D(Basis(Vector3.UP, ang + 0.5), Vector3(p.x, y, p.y)) * Transform3D(Basis(), Vector3(0.14, 0, 0))
+	var lg = q.distance_to(p) - 0.26
+	for yy in [0.12, 0.62]:
+		f.batch.box("trim", gxf, Vector3(lg / 2.0, yy, 0), Vector3(lg, 0.05, 0.035), bois.darkened(0.1))
+	for i in 6:
+		f.batch.box("trim", gxf, Vector3(0.03 + i * (lg - 0.06) / 5.0, 0.38, 0), Vector3(0.035, 0.66, 0.03), bois.lerp(Color(0.6, 0.6, 0.54), f.rng.randf() * 0.4))
+	f.batch.box_tilted("trim", gxf, Vector3(lg / 2.0, 0.37, 0.02), Vector3(lg * 1.1, 0.04, 0.03), 0.0, bois.darkened(0.15))
+	f.batch.box("trim", gxf, Vector3(lg - 0.04, 0.45, 0.03), Vector3(0.03, 0.06, 0.03), Color(0.2, 0.2, 0.2))
+	# Le seuil de terre battue qui sort vers le chemin.
+	var m: Vector2 = (p + q) / 2.0
+	f.batch.box("trim", Transform3D(Basis(Vector3.UP, ang), Vector3(m.x, c.sol(m.x, m.y) + 0.02, m.y)), Vector3.ZERO, Vector3(0.5, 0.03, 0.9), Color(0.46, 0.38, 0.28))
+
+
+# --- Le sous-bois ---------------------------------------------------------------------------------
+
+## Sous les arbres du fond et à l'angle nord-ouest : fougères, lierre au sol et sur le mur, houx, une
+## branche morte, des pierres moussues ; et des arbres de plus qui ferment la voûte au-dessus du
+## portillon.
+static func _sous_bois(c: Node3D, f, parent: Node3D) -> void:
+	for a in [[BUGEY, "chene", Vector2(-16.6, -32.4), 14, 14.0], [PLACE, "if", Vector2(-18.0, -29.6), 5, 6.5],
+			[BUGEY, "charme", Vector2(-11.8, -36.6), 3, 10.0], [BUGEY, "haie", Vector2(-17.6, -30.4), 2, 2.2]]:
+		_plante(c, parent, a[0], a[1], a[2], a[3], {"hauteur": a[4]})
+	var n = 0
+	var essais = 0
+	while n < 70 and essais < 600:
+		essais += 1
+		var p = Vector2(f.rng.randf_range(-19.0, 5.0), f.rng.randf_range(-45.8, -27.0))
+		var dl: float = _dist_ligne(p, SOUS_BOIS)
+		if not dedans(p, EMPRISE) or dl > 3.0 or dl < 0.3:
+			continue
+		n += 1
+		var genre: int = n % 5
+		if genre < 3:
+			fougere(c, f, p)
+		elif genre == 3:
+			_lierre_sol(c, f, p)
+		else:
+			var y: float = c.sol(p.x, p.y)
+			boule(f, Vector3(p.x, y + 0.32, p.y), Vector3(0.4, 0.36, 0.4), Color(0.14, 0.26, 0.12).lerp(Color(0.22, 0.32, 0.14), f.rng.randf()), 7, 4)
+	# Une branche morte en travers, des pierres moussues au pied du mur.
+	var br = Vector2(-15.2, -32.6)
+	var yb: float = c.sol(br.x, br.y)
+	f.batch.box("trim", Transform3D(Basis(Vector3.UP, 0.7), Vector3(br.x, yb + 0.07, br.y)), Vector3.ZERO, Vector3(1.6, 0.12, 0.12), Color(0.36, 0.3, 0.24))
+	for k in 6:
+		var q: Vector2 = EMPRISE[1].lerp(EMPRISE[2], 0.1 + k * 0.12) + Vector2(0.25, 0.35)
+		f.batch.box("trim", Transform3D(Basis(Vector3.UP, f.rng.randf() * TAU), Vector3(q.x, c.sol(q.x, q.y) + 0.05, q.y)), Vector3.ZERO, Vector3(0.22, 0.12, 0.16), Color(0.42, 0.46, 0.3).lerp(Color(0.5, 0.48, 0.4), f.rng.randf()))
+	# Le lierre qui grimpe sur le mur, autour de l'angle nord-ouest, côté jardin.
+	for k in 40:
+		var e0: Vector2 = EMPRISE[1]
+		var e1: Vector2 = EMPRISE[0] if k % 2 == 0 else EMPRISE[2]
+		var t: float = f.rng.randf_range(0.15, 3.5)
+		var dn: Vector2 = (e1 - e0).normalized()
+		var q: Vector2 = e0 + dn * t
+		var vers_jardin = Vector2(-dn.y, dn.x)
+		if not dedans(q + vers_jardin * 0.5, EMPRISE):
+			vers_jardin = -vers_jardin
+		var y: float = c.sol(q.x, q.y)
+		var hh: float = f.rng.randf_range(0.05, 0.7)
+		var lxf = Transform3D(Basis(Vector3.UP, atan2(dn.x, dn.y)), Vector3(q.x + vers_jardin.x * 0.125, y + hh, q.y + vers_jardin.y * 0.125))
+		f.batch.box("trim", lxf, Vector3.ZERO, Vector3(0.03, f.rng.randf_range(0.12, 0.22), f.rng.randf_range(0.14, 0.26)), Color(0.14, 0.3, 0.12).lerp(Color(0.24, 0.38, 0.16), f.rng.randf()))
+
+
+## Une fougère : une couronne de frondes arquées vert tendre.
+static func fougere(c: Node3D, f, p: Vector2) -> void:
+	var y: float = c.sol(p.x, p.y)
+	var col = Color(0.3, 0.5, 0.16).lerp(Color(0.42, 0.58, 0.2), f.rng.randf())
+	var l: float = f.rng.randf_range(0.28, 0.42)
+	for i in 7:
+		var a: float = TAU * i / 7.0 + f.rng.randf_range(-0.2, 0.2)
+		var xf = Transform3D(Basis(Vector3.UP, a), Vector3(p.x, y, p.y))
+		f.batch.box_tilted("trim", xf, Vector3(0, 0.12, l * 0.35), Vector3(0.09, 0.012, l * 0.7), -0.7, col)
+		f.batch.box_tilted("trim", xf, Vector3(0, 0.2, l * 0.85), Vector3(0.08, 0.012, l * 0.45), 0.35, col.darkened(0.08))
+
+
+## Une nappe de lierre au sol : des feuilles sombres posées à plat.
+static func _lierre_sol(c: Node3D, f, p: Vector2) -> void:
+	for i in 8:
+		var q = p + Vector2(f.rng.randf_range(-0.35, 0.35), f.rng.randf_range(-0.35, 0.35))
+		f.batch.box("trim", Transform3D(Basis(Vector3.UP, f.rng.randf() * TAU), Vector3(q.x, c.sol(q.x, q.y) + 0.045, q.y)), Vector3.ZERO, Vector3(0.12, 0.02, 0.1), Color(0.12, 0.26, 0.1).lerp(Color(0.2, 0.34, 0.14), f.rng.randf()))
 
 
 # --- Les arbres -----------------------------------------------------------------------------------
