@@ -257,8 +257,9 @@ func _ciel() -> void:
 	var sm := ProceduralSkyMaterial.new()
 	sm.sky_top_color = Color(0.32, 0.46, 0.7)
 	sm.sky_horizon_color = Color(0.86, 0.74, 0.6)
-	sm.ground_horizon_color = Color(0.5, 0.45, 0.38)
-	sm.ground_bottom_color = Color(0.18, 0.16, 0.14)
+	# Le bas du ciel éclaire le dessous des houppiers et des avant-toits : un sol clair, pas un noir.
+	sm.ground_horizon_color = Color(0.58, 0.54, 0.46)
+	sm.ground_bottom_color = Color(0.44, 0.42, 0.34)
 	sky.sky_material = sm
 	env.sky = sky
 	env.background_mode = Environment.BG_SKY
