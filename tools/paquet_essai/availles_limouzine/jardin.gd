@@ -39,7 +39,7 @@ const BASSIN_ROT := 0.45
 ## L'allée tondue, de l'escalier de la terrasse au sous-bois.
 const ALLEE := [Vector2(-9.9, -25.9), Vector2(-7.0, -30.6), Vector2(-4.6, -33.6), Vector2(-2.6, -37.0), Vector2(-1.0, -40.4)]
 
-const PELOUSE := Color(0.4, 0.6, 0.26)
+const PELOUSE := Color(0.55, 0.68, 0.16)
 const CIMENT := Color(0.76, 0.72, 0.62)
 const PIERRE := Color(0.62, 0.56, 0.47)
 
@@ -52,7 +52,8 @@ static func construire(c: Node3D, f, parent: Node3D) -> void:
 	_arbres(c, f, parent)
 	_massifs(c, f, parent)
 	_portique(c, f, Vector2(-15.6, -30.9), 0.35)
-	_roue(c, f, BASSIN + Vector2(-2.3, 0.4))
+	var pr: Vector2 = contour_bassin()[9]
+	_roue(c, f, pr + (pr - BASSIN).normalized() * 0.22)
 
 
 static func TERRASSE_N() -> Vector2:
@@ -114,7 +115,7 @@ static func _sol(c: Node3D, f) -> void:
 		while z < -22.3:
 			var m = Vector2(x + pas / 2.0, z + pas / 2.0)
 			if dedans(m, EMPRISE) and not _dans_terrasse(m, -0.05) and not (dedans(m, bassin)):
-				var col = PELOUSE.lerp(Color(0.5, 0.66, 0.3), f.rng.randf() * 0.5)
+				var col = PELOUSE.lerp(Color(0.64, 0.72, 0.2), f.rng.randf() * 0.5)
 				var df = _dist_ligne(m, fond)
 				if df < 3.2:
 					col = col.lerp(Color(0.24, 0.33, 0.16), (1.0 - df / 3.2) * 0.85)
@@ -210,17 +211,17 @@ static func _bassin(c: Node3D, f, parent: Node3D) -> void:
 	for i in pts.size():
 		var a: Vector2 = pts[i]
 		var b: Vector2 = pts[(i + 1) % pts.size()]
-		for q in [BASSIN, b, a]:
+		for q in [BASSIN, a, b]:
 			st.set_normal(Vector3.UP)
 			st.add_vertex(Vector3(q.x, eau, q.y))
 	var mi = MeshInstance3D.new()
 	mi.name = "Bassin_eau"
 	mi.mesh = st.commit()
 	var mat = StandardMaterial3D.new()
-	mat.albedo_color = Color(0.2, 0.3, 0.26)
-	mat.metallic = 0.25
-	mat.roughness = 0.12
-	mat.metallic_specular = 0.6
+	mat.albedo_color = Color(0.3, 0.42, 0.22)
+	mat.metallic = 0.1
+	mat.roughness = 0.35
+	mat.metallic_specular = 0.4
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	mi.material_override = mat
 	parent.add_child(mi)
@@ -433,10 +434,10 @@ static func cedre_bleu(c: Node3D, f, p: Vector2, h: float, rayon: float) -> void
 		var bxf = xf * Transform3D(Basis(Vector3.UP, -a) * Basis(Vector3.RIGHT, 0.3), Vector3(0, h * 0.34, 0))
 		f.batch.cylinder("trim", bxf, Vector3.ZERO, rayon * 0.07, h * 0.5, ecorce.lightened(0.05), 7)
 	var bleu = Color(0.46, 0.6, 0.62)
-	var etages = 6
+	var etages = 8
 	for e in etages:
 		var t: float = float(e) / (etages - 1)
-		var yy: float = h * (0.3 + 0.62 * t)
+		var yy: float = h * (0.42 + 0.52 * t)
 		var r: float = rayon * lerpf(1.0, 0.45, t)
 		var nb: int = 5 if t < 0.5 else (4 if t < 0.8 else 3)
 		for s2 in nb:
@@ -446,9 +447,9 @@ static func cedre_bleu(c: Node3D, f, p: Vector2, h: float, rayon: float) -> void
 			var cc = xf * Vector3(cos(a) * d, yy + f.rng.randf_range(-0.4, 0.4), sin(a) * d)
 			var rr: float = r * f.rng.randf_range(0.4, 0.58)
 			# La nappe : un disque plat, son dessous plus sombre, son bord qui retombe.
-			disque(f, Transform3D(Basis(Vector3.UP, a), cc), rr, h * 0.035, col, col.darkened(0.25), 9)
-			disque(f, Transform3D(Basis(Vector3.UP, a + 0.3), cc - Vector3(0, h * 0.035, 0)), rr * 1.1, h * 0.03, col.darkened(0.08), col.darkened(0.3), 9)
-			disque(f, Transform3D(Basis(Vector3.UP, a), cc + Vector3(0, h * 0.035, 0)), rr * 0.65, h * 0.03, col.lightened(0.06), col, 8)
+			disque(f, Transform3D(Basis(Vector3.UP, a), cc), rr, h * 0.018, col, col.darkened(0.25), 9)
+			disque(f, Transform3D(Basis(Vector3.UP, a + 0.3), cc - Vector3(0, h * 0.018, 0)), rr * 1.1, h * 0.015, col.darkened(0.08), col.darkened(0.3), 9)
+			disque(f, Transform3D(Basis(Vector3.UP, a), cc + Vector3(0, h * 0.018, 0)), rr * 0.65, h * 0.015, col.lightened(0.06), col, 8)
 	boule(f, xf * Vector3(0, h, 0), Vector3(rayon * 0.2, h * 0.06, rayon * 0.2), bleu.lightened(0.1), 6, 3)
 
 
@@ -516,9 +517,9 @@ static func _massifs(c: Node3D, f, parent: Node3D) -> void:
 	# La ceinture fleurie du bassin, comme sur la photo de juin : achillées blanches, ancolies roses,
 	# géraniums vivaces bleus, quelques coquelicots, entre les touffes d'iris.
 	var pts = contour_bassin()
-	var fleurs = [Color(0.97, 0.96, 0.9), Color(0.94, 0.56, 0.72), Color(0.5, 0.52, 0.86), Color(0.97, 0.96, 0.9), Color(0.9, 0.22, 0.18), Color(0.96, 0.84, 0.3)]
+	var fleurs = [Color(0.95, 0.93, 0.82), Color(0.94, 0.56, 0.72), Color(0.5, 0.52, 0.86), Color(0.86, 0.4, 0.62), Color(0.9, 0.22, 0.18), Color(0.96, 0.84, 0.3)]
 	for k in pts.size():
-		if k in [2, 4, 5, 7, 24, 26, 14, 20]:
+		if k in [2, 4, 5, 7, 9, 24, 26, 14, 20]:
 			continue
 		var p: Vector2 = pts[k]
 		var o2: Vector2 = p + (p - BASSIN).normalized() * f.rng.randf_range(0.3, 0.55)
@@ -534,6 +535,12 @@ static func _massifs(c: Node3D, f, parent: Node3D) -> void:
 	for i in 4:
 		var p: Vector2 = ALLEE[1].lerp(ALLEE[3], i / 3.0) + Vector2(0.7, 0.3)
 		_plante(c, parent, BUGEY, "arbuste_fleuri", p, 40 + i, {"hauteur": 1.2, "fleurs": ["d04a8a", "e0605a", "f4f0e6", "e8823a"][i]})
+	for a in [Vector2(1.6, 1.7), Vector2(2.6, 0.7), Vector2(2.9, -0.6)]:
+		var ab: Vector2 = BASSIN + a
+		var ya: float = c.sol(ab.x, ab.y)
+		f.batch.cylinder("trim", Transform3D.IDENTITY, Vector3(ab.x, ya, ab.y), 0.05, 0.4, Color(0.36, 0.3, 0.24), 6)
+		for k in 3:
+			boule(f, Vector3(ab.x + f.rng.randf_range(-0.25, 0.25), ya + 0.65 + k * 0.22, ab.y + f.rng.randf_range(-0.25, 0.25)), Vector3(0.5, 0.42, 0.5), Color(0.3, 0.5, 0.18).lerp(Color(0.46, 0.62, 0.22), f.rng.randf()), 7, 4)
 	var ev: Vector2 = BASSIN + Vector2(2.6, -2.4)
 	boule(f, Vector3(ev.x, c.sol(ev.x, ev.y) + 0.4, ev.y), Vector3(0.55, 0.4, 0.55), Color(0.42, 0.16, 0.2), 7, 4)
 
@@ -544,7 +551,7 @@ static func touffe(c: Node3D, f, p: Vector2, col: Color) -> void:
 	var r: float = f.rng.randf_range(0.18, 0.28)
 	boule(f, Vector3(p.x, y + r * 0.6, p.y), Vector3(r, r * 0.75, r), Color(0.3, 0.48, 0.2).lerp(Color(0.44, 0.58, 0.28), f.rng.randf()), 6, 3)
 	for i in 10:
-		var q = Vector3(p.x + f.rng.randf_range(-r, r), y + r * 1.2 + f.rng.randf_range(0.0, 0.18), p.y + f.rng.randf_range(-r, r))
+		var q = Vector3(p.x + f.rng.randf_range(-r, r) * 0.7, y + r * 1.15 + f.rng.randf_range(0.0, 0.08), p.y + f.rng.randf_range(-r, r) * 0.7)
 		f.batch.box("trim", Transform3D.IDENTITY, q, Vector3(0.05, 0.035, 0.05), col.lerp(Color.WHITE, f.rng.randf() * 0.15))
 
 
@@ -587,9 +594,9 @@ static func _roue(c: Node3D, f, p: Vector2) -> void:
 	var y: float = c.sol(p.x, p.y)
 	var xf = Transform3D(Basis(Vector3.UP, 0.6), Vector3(p.x, y, p.y))
 	var fer = Color(0.38, 0.22, 0.14)
-	f.batch.box("trim", xf, Vector3(0, 0.35, 0), Vector3(0.05, 0.7, 0.05), fer)
+	f.batch.box("trim", xf, Vector3(0, 0.25, 0), Vector3(0.06, 0.5, 0.06), fer)
 	var r = 0.3
-	var cy = 0.78
+	var cy = 0.5
 	for i in 16:
 		var a = TAU * i / 16.0
 		f.batch.box("trim", xf * Transform3D(Basis(Vector3.BACK, a), Vector3(cos(a) * r, cy + sin(a) * r, 0)), Vector3.ZERO, Vector3(0.025, 0.125, 0.025), fer)
