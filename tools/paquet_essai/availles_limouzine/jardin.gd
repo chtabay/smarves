@@ -337,8 +337,8 @@ static func _plante(c: Node3D, parent: Node3D, scene: String, nom: String, p: Ve
 static func _arbres(c: Node3D, f, parent: Node3D) -> void:
 	# Les trois grands : le séquoia au fond, le cèdre bleu à droite, le second cèdre à gauche.
 	sequoia(c, f, Vector2(-1.6, -40.6), 12.5)
-	cedre_bleu(c, f, Vector2(-3.8, -29.9), 8.4, 4.2)
-	cedre_bleu(c, f, Vector2(-8.4, -35.0), 6.8, 2.0)
+	cedre_bleu(c, f, Vector2(-3.8, -29.9), 6.0, 2.6)
+	cedre_bleu(c, f, Vector2(-8.4, -35.0), 5.0, 1.6)
 	# L'épicéa sombre à gauche, et un second plus loin le long de la ruelle.
 	_plante(c, parent, BUGEY, "cedre", Vector2(-12.2, -35.6), 3, {"hauteur": 19.0})
 	_plante(c, parent, BUGEY, "cedre", Vector2(2.6, -42.4), 8, {"hauteur": 16.0})
@@ -413,7 +413,7 @@ static func sequoia(c: Node3D, f, p: Vector2, h: float) -> void:
 	for e in etages:
 		var t = float(e) / (etages - 1)
 		var yy = h * (0.2 + 0.8 * t)
-		var r = lerpf(2.0, 0.25, pow(t, 0.9))
+		var r = lerpf(2.4, 0.3, pow(t, 0.9))
 		var col = Color(0.2, 0.32, 0.17).lerp(Color(0.3, 0.42, 0.22), f.rng.randf() * 0.5)
 		for s in 5:
 			var a = TAU * s / 5.0 + e * 0.7
