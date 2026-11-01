@@ -232,6 +232,40 @@ static func _adrien_bernard(f, b: Dictionary, hauteur: Callable) -> void:
 	var pente := atan2(0.55, 2.5)
 	f.batch.box_tilted("roof", axf, Vector3(0, ha + 0.3, -1.15), Vector3(wa + 0.2, 0.06, 2.75), pente, ardoise)
 	f._door(axf, -nord * 0.15, Color(0.55, 0.5, 0.45), blanc, false)
+	# Au dos de la dépendance, l'aile nord d'un seul niveau, sur la terrasse : la porte vitrée de la
+	# cuisine, six carreaux au-dessus d'un soubassement plein, et la large fenêtre de la cuisine.
+	var dxf := axf * Transform3D(Basis(Vector3.UP, PI), Vector3(0, 0, -2.4 - 0.004))
+	var qx := 0.06
+	var qw := 0.42
+	var qh := 0.92
+	var huis := Color(0.93, 0.93, 0.9)
+	f.batch.box("trim", dxf, Vector3(qx, BASE_H + qh / 2.0 + 0.02, 0.0), Vector3(qw + 0.14, qh + 0.08, 0.03), beige.lightened(0.12))
+	f.batch.box("trim", dxf, Vector3(qx, BASE_H + qh * 0.25, 0.02), Vector3(qw, qh * 0.5, 0.03), huis)
+	f.batch.box("trim", dxf, Vector3(qx, BASE_H + qh * 0.25, 0.037), Vector3(qw - 0.12, qh * 0.5 - 0.12, 0.01), huis.darkened(0.07))
+	f._glass(dxf, Vector3(qx, BASE_H + qh * 0.75, 0.014), Vector2(qw - 0.06, qh * 0.5 - 0.06), 0, false, Color(1.0, 0.8, 0.52))
+	for sx in [-1.0, 1.0]:
+		f.batch.box("trim", dxf, Vector3(qx + sx * (qw / 2.0 - 0.015), BASE_H + qh * 0.75, 0.02), Vector3(0.03, qh * 0.5, 0.03), huis)
+	f.batch.box("trim", dxf, Vector3(qx, BASE_H + qh - 0.015, 0.02), Vector3(qw, 0.03, 0.03), huis)
+	f.batch.box("trim", dxf, Vector3(qx, BASE_H + qh * 0.75, 0.024), Vector3(0.02, qh * 0.5, 0.02), huis)
+	for k in 2:
+		f.batch.box("trim", dxf, Vector3(qx, BASE_H + qh * 0.5 + (k + 1) * qh * 0.5 / 3.0, 0.024), Vector3(qw, 0.02, 0.02), huis)
+	f.batch.box("trim", dxf, Vector3(qx + qw / 2.0 - 0.06, BASE_H + qh * 0.5, 0.045), Vector3(0.05, 0.02, 0.02), Color(0.7, 0.62, 0.3))
+	f.batch.box("trim", dxf, Vector3(qx, BASE_H - 0.02, 0.05), Vector3(qw + 0.16, 0.05, 0.12), beige.lightened(0.08))
+	var fx := 0.72
+	var fw := 0.66
+	var fh := 0.5
+	var fy := 0.46
+	f.batch.box("trim", dxf, Vector3(fx, fy - 0.03, 0.04), Vector3(fw + 0.14, 0.06, 0.1), beige.lightened(0.12))
+	f.batch.box("trim", dxf, Vector3(fx, fy + fh + 0.05, 0.02), Vector3(fw + 0.16, 0.1, 0.05), beige.lightened(0.12))
+	for sx in [-1.0, 1.0]:
+		f.batch.box("trim", dxf, Vector3(fx + sx * (fw / 2.0 + 0.035), fy + fh / 2.0, 0.02), Vector3(0.07, fh, 0.05), beige.lightened(0.12))
+	f._glass(dxf, Vector3(fx, fy + fh / 2.0, 0.006), Vector2(fw, fh), 0, false, Color(1.0, 0.8, 0.52))
+	f.batch.box("trim", dxf, Vector3(fx, fy + fh / 2.0, 0.018), Vector3(0.04, fh, 0.025), huis)
+	for sx in [-1.0, 1.0]:
+		f.batch.box("trim", dxf, Vector3(fx + sx * fw / 4.0, fy + fh / 2.0, 0.016), Vector3(0.015, fh, 0.015), huis)
+	f.batch.box("trim", dxf, Vector3(fx, fy + fh / 2.0, 0.016), Vector3(fw, 0.015, 0.015), huis)
+	f.batch.box("trim", dxf, Vector3(fx, fy + 0.02, 0.016), Vector3(fw, 0.03, 0.02), huis)
+	f.batch.box("trim", dxf, Vector3(fx, fy + fh - 0.02, 0.016), Vector3(fw, 0.03, 0.02), huis)
 	for i in 7:
 		var vx: float = nord * (wa / 2.0 - 0.15) + f.rng.randf_range(-0.12, 0.12)
 		f.batch.box("trim", axf, Vector3(vx, 0.25 + i * 0.18, 0.025), Vector3(0.12 + f.rng.randf() * 0.14, 0.14 + f.rng.randf() * 0.1, 0.05), Color(0.26, 0.42, 0.2).lerp(Color(0.45, 0.52, 0.22), f.rng.randf()))
@@ -274,8 +308,8 @@ static func _adrien_bernard(f, b: Dictionary, hauteur: Callable) -> void:
 
 
 ## L'aile arrière du 10, sur le jardin : celle qui porte la terrasse. Le même enduit beige, les mêmes
-## chaînes de pierre blanche et les volets blancs que la façade sur la place ; en bas une porte-fenêtre
-## qui ouvre sur la terrasse et une fenêtre, à l'étage deux fenêtres ; un toit de tuiles à quatre pans.
+## chaînes de pierre blanche et les volets blancs que la façade sur la place ; en bas une fenêtre, à
+## l'étage deux fenêtres ; un toit de tuiles à quatre pans.
 static func _dos_10(f, b: Dictionary, hauteur: Callable) -> void:
 	var fa := _facade(b, Vector2(-12.4, -27.5), hauteur)
 	var xf: Transform3D = fa.xf
@@ -291,19 +325,7 @@ static func _dos_10(f, b: Dictionary, hauteur: Callable) -> void:
 	f.batch.box("trim", xf, Vector3(0, hm + 0.05, -d / 2.0), Vector3(w + 0.12, 0.1, d + 0.12), beige.lightened(0.12))
 	f._roof(xf, w, d, hm, tuile, beige, "hip")
 	_chaines(f, xf * Transform3D(Basis(), Vector3(0, 0, 0.012)), w + 0.02, hm, blanc)
-	# La porte-fenêtre sur la terrasse : deux vantaux vitrés, petits bois blancs, volets ouverts.
-	var px := -0.55
-	var dw := 0.62
-	var dh := 0.98
-	f.batch.box("trim", xf, Vector3(px, BASE_H + dh / 2.0, 0.006), Vector3(dw, dh, 0.02), Color(0.24, 0.3, 0.32))
-	for i in 3:
-		f.batch.box("trim", xf, Vector3(px + (i - 1) * dw / 2.0, BASE_H + dh / 2.0, 0.02), Vector3(0.04, dh, 0.02), blanc)
-	for k in 4:
-		f.batch.box("trim", xf, Vector3(px, BASE_H + k * dh / 3.0, 0.02), Vector3(dw, 0.035, 0.02), blanc)
-	f.batch.box("trim", xf, Vector3(px, BASE_H + dh + 0.06, 0.02), Vector3(dw + 0.16, 0.1, 0.05), blanc.darkened(0.03))
-	for s2 in [-1.0, 1.0]:
-		f.batch.box("trim", xf, Vector3(px + s2 * (dw / 2.0 + 0.2), BASE_H + dh / 2.0, 0.02), Vector3(0.32, dh, 0.025), blanc)
-		f.batch.box("trim", xf, Vector3(px + s2 * (dw / 2.0 + 0.04), BASE_H + dh / 2.0, 0.015), Vector3(0.07, dh, 0.04), beige.lightened(0.12))
+	# En bas une fenêtre ; les ouvertures sur la terrasse sont au dos de la dépendance, l'aile nord.
 	f._window(xf, Vector3(0.75, 0.42, 0), Vector2(0.48, 0.7), blanc, beige.lightened(0.12), 0.0, false)
 	for x in [-0.55, 0.75]:
 		f._window(xf, Vector3(x, 1.5, 0), Vector2(0.48, 0.66), blanc, beige.lightened(0.12), 0.0, false)
