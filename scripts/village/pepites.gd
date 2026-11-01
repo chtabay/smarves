@@ -132,16 +132,24 @@ func _build(c: Node3D) -> void:
 	for i in 5:
 		var y := 0.4 + i * 0.04
 		_box(c, Vector3(0.68 - i * 0.012, 0.008, 0.01), Vector3(0, y, 1.452 - (y - 0.37) * 0.214), Carrosserie.mat(Color(0.12, 0.12, 0.13), 0.4))
-	_rond(c, Vector3(0, 0.49, 1.437), 0.04, 0.012, chrome)
+	var embleme := MeshInstance3D.new()
+	var em := BoxMesh.new()
+	em.size = Vector3(0.06, 0.06, 0.012)
+	embleme.mesh = em
+	embleme.material_override = chrome
+	embleme.position = Vector3(0, 0.49, 1.44)
+	embleme.rotation_degrees = Vector3(-12, 0, 45)
+	c.add_child(embleme)
 	for s: float in [-1.0, 1.0]:
 		# Le phare : un boîtier noir, sa lentille claire, qui remonte vers l'aile.
 		var phare := Node3D.new()
-		phare.position = Vector3(0.5 * s, 0.6, 1.39)
-		phare.rotation_degrees = Vector3(-38, -22 * s, 10 * s)
+		# Affleurant dans la pente du capot, allongé jusqu'à l'arête de l'aile.
+		phare.position = Vector3(0.49 * s, 0.6, 1.383)
+		phare.rotation_degrees = Vector3(-39, -14 * s, 8 * s)
 		c.add_child(phare)
-		_box(phare, Vector3(0.32, 0.12, 0.03), Vector3.ZERO, noir)
-		_box(phare, Vector3(0.18, 0.07, 0.02), Vector3(-0.05 * s, 0.0, 0.012), Carrosserie.feu(Color(0.92, 0.95, 1.0), 1.1))
-		_rond(phare, Vector3(0.1 * s, 0.0, 0.014), 0.04, 0.014, chrome)
+		_box(phare, Vector3(0.36, 0.14, 0.016), Vector3.ZERO, noir)
+		_box(phare, Vector3(0.22, 0.075, 0.012), Vector3(-0.05 * s, 0.0, 0.006), Carrosserie.feu(Color(0.92, 0.95, 1.0), 1.0))
+		_box(phare, Vector3(0.07, 0.05, 0.012), Vector3(0.11 * s, 0.0, 0.006), chrome)
 		# Dans l'angle du bouclier : le feu de jour LED, l'antibrouillard dessous.
 		_box(c, Vector3(0.13, 0.012, 0.012), Vector3(0.52 * s, 0.27, 1.452), Carrosserie.feu(Color(0.95, 0.97, 1.0), 1.4))
 		_rond(c, Vector3(0.52 * s, 0.18, 1.445), 0.025, 0.02, Carrosserie.feu(Color(0.9, 0.9, 0.85), 0.15))
@@ -149,8 +157,12 @@ func _build(c: Node3D) -> void:
 		_box(c, Vector3(0.08, 0.24, 0.03), Vector3(0.6 * s, 0.76, -1.405), Carrosserie.feu(Color(0.85, 0.04, 0.03), 0.7))
 	# Le bouclier : couleur caisse en haut, noir en bas, la grille basse à lames et la plaque.
 	_box(c, Vector3(LARGE - 0.1, 0.2, 0.04), Vector3(0, 0.22, 1.425), noir)
-	_box(c, Vector3(0.44, 0.1, 0.012), Vector3(0, 0.235, 1.451), Carrosserie.mat(Color(0.93, 0.93, 0.9), 0.5))
-	_letters(c, PLAQUE, Vector3(0, 0.235, 1.459), 0.0, 0.38, 0.0, Color(0.08, 0.08, 0.1), false)
+	_box(c, Vector3(0.44, 0.09, 0.012), Vector3(0, 0.275, 1.451), Carrosserie.mat(Color(0.93, 0.93, 0.9), 0.5))
+	_letters(c, PLAQUE, Vector3(0, 0.275, 1.459), 0.0, 0.36, 0.0, Color(0.08, 0.08, 0.1), false)
+	# La bouche du bouclier sous la plaque : une large maille noire mate et ses trois lames claires.
+	_box(c, Vector3(0.82, 0.09, 0.012), Vector3(0, 0.175, 1.448), Carrosserie.mat(Color(0.01, 0.01, 0.012), 0.9))
+	for i in 3:
+		_box(c, Vector3(0.78, 0.008, 0.01), Vector3(0, 0.15 + i * 0.025, 1.455), Carrosserie.mat(Color(0.35, 0.36, 0.38), 0.5))
 	_box(c, Vector3(LARGE - 0.04, 0.16, 0.05), Vector3(0, 0.24, -1.39), laque)
 	# L'arrière : deux battants à la lunette teintée, le jonc qui les sépare, la plaque.
 	var lunette := [Vector3(w - 0.22, 0.78, -1.405), Vector3(-w + 0.22, 0.78, -1.405), Vector3(-w + 0.22, 1.08, -1.405), Vector3(w - 0.22, 1.08, -1.405)]
