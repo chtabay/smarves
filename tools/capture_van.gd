@@ -1,8 +1,8 @@
 extends SceneTree
 ## Le van des chasseurs de pépites (scripts/village/pepites.gd) sur la placette de la rue du Clain, en jeu :
 ## xvfb-run godot --path . --rendering-driver opengl3 -s tools/capture_van.gd -- --sortie=dossier/ [--won=0]
-## Cinq vues à la même lumière que le jeu : trois-quarts avant, flanc, trois-quarts arrière, à hauteur d'homme
-## et au cran le plus proche de la vue de dessus ; l'interface est masquée. --won=0 montre la camionnette bleue d'avant le seuil.
+## Six vues à la même lumière que le jeu : trois-quarts avant, flanc, trois-quarts arrière, à hauteur d'homme
+## au cran le plus proche de la vue de dessus et de face ; l'interface est masquée. --won=0 montre la camionnette bleue d'avant le seuil.
 
 const VUES := {
 	"1-trois-quarts-avant": [Vector3(1.55, 0.95, 2.25), Vector3(0.0, 0.32, 0.25)],
@@ -10,6 +10,7 @@ const VUES := {
 	"3-trois-quarts-arriere": [Vector3(-1.5, 1.0, -2.3), Vector3(0.0, 0.3, -0.2)],
 	"4-a-hauteur-d-homme": [Vector3(2.2, 1.55, 3.4), Vector3(0.0, 0.35, 0.0)],
 	# Le cran le plus proche de la vue de dessus du jeu (Village.CAMERA_NOTCHES) : 7 m, 42° de tangage.
+	"6-face": [Vector3(0.35, 0.55, 2.6), Vector3(0.0, 0.32, 0.6)],
 	"5-vue-de-dessus": [Vector3(0.0, 4.68, 5.2), Vector3(0.0, 0.0, 0.0), 34.0],
 }
 
