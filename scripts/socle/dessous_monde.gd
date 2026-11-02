@@ -32,6 +32,9 @@ const CARAPACE := Vector3(55.0, 22.0, 62.0)
 ## Les éléphants, à cette distance du centre, sous le disque.
 const ELEPHANTS_R := 16.0
 const ELEPHANTS := [["Airâvata", 90.0], ["Vâmana", 180.0], ["Anjana", 270.0], ["Sârvabhauma", 0.0]]
+## La brique de la bibliothèque qui donne le disque, les éléphants et Akoupara (bibliotheque/monde-secret/1/).
+## Sans elle (un socle qui ne l'aurait pas), le monde se bâtit en formes simples (_disque, _elephant, _tortue).
+const BRIQUE := "monde-secret@1"
 ## La Lanterne : le centre de sa course, son rayon, sa période (secondes), l'angle de départ.
 const LANTERNE_CENTRE := Vector3(0.0, -20.0, 0.0)
 const LANTERNE_R := 120.0
@@ -76,12 +79,15 @@ func _ready() -> void:
 			_figee = float(a.trim_prefix("--plan="))
 	_lieu = str(Dessous.origine.get("lieu", "")) if Dessous.origine.has("lieu") else ""
 	_ciel()
-	_disque()
+	if Bibliotheque.scene(BRIQUE, "decor") != "":
+		_monde_de_la_bibliotheque()
+	else:
+		_disque()
+		for e in ELEPHANTS:
+			_elephant(e[0], e[1])
+		_tortue()
 	_ile()
 	_porte()
-	for e in ELEPHANTS:
-		_elephant(e[0], e[1])
-	_tortue()
 	_lanterne()
 	_interface()
 	_joueur()
@@ -357,7 +363,46 @@ void fragment() {
 	p.add_child(porte)
 
 
-# --- Les éléphants -------------------------------------------------------------------------------------------
+## Le disque, les quatre éléphants et Akoupara, modules de la brique monde-secret@1, assemblés comme sa
+## planche de référence (tools/planche_lyon.gd, vue « monde ») : la tortue centrée en CARAPACE_Y, les éléphants
+## aux diagonales à ELEPHANTS_R du centre, tête vers l'extérieur, les pieds un peu enfoncés dans la carapace,
+## le dos sous le disque, et le disque à l'origine. La collision de l'île reste celle du socle.
+func _monde_de_la_bibliotheque() -> void:
+	var tortue := _module("tortue", Vector3(0, CARAPACE_Y, 0), 1, {"demi_axes": [CARAPACE.x, CARAPACE.y, CARAPACE.z]})
+	tortue.name = "Akoupara"
+	var hauteur_a: Callable = tortue.get_meta("hauteur_a")
+	var pieds := CARAPACE_Y + float(hauteur_a.call(ELEPHANTS_R)) - 0.6
+	var disque := _module("disque", Vector3.ZERO, 1, {"rayon": DISQUE, "ile": ILE, "epaisseur": 4.0})
+	disque.name = "Disque"
+	for i in ELEPHANTS.size():
+		var a := TAU * i / ELEPHANTS.size() + PI * 0.25
+		var e := _module("elephant", Vector3(cos(a) * ELEPHANTS_R, pieds, sin(a) * ELEPHANTS_R), i + 1,
+			{"hauteur": -float(disque.get_meta("epaisseur", 4.0)) - pieds}, atan2(cos(a), sin(a)))
+		e.name = str(ELEPHANTS[i][0]).replace("â", "a")
+	var sol := StaticBody3D.new()
+	sol.name = "Sol"
+	var forme := CollisionShape3D.new()
+	var cyl := CylinderShape3D.new()
+	cyl.radius = ILE
+	cyl.height = 3.0
+	forme.shape = cyl
+	forme.position.y = -1.5
+	sol.add_child(forme)
+	disque.add_child(sol)
+
+
+func _module(nom: String, p: Vector3, graine: int, options: Dictionary, lacet := 0.0) -> Node3D:
+	var b: Node3D = load(Bibliotheque.scene(BRIQUE, "decor")).instantiate()
+	b.set("module", nom)
+	b.set("graine", graine)
+	b.set("options", options)
+	b.position = p
+	b.rotation.y = lacet
+	add_child(b)
+	return b
+
+
+# --- Les éléphants (formes simples, sans la brique) -------------------------------------------------------------------------------------------
 
 ## Un des quatre éléphants, debout sur la carapace, le dos sous le disque, la tête vers son point cardinal.
 ## Bâti en unités d'éléphant (le garrot à 1,0), puis mis à l'échelle pour toucher le disque.
