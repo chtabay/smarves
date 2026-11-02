@@ -46,6 +46,7 @@ Mobylettes="*res://scripts/socle/mobylettes.gd"
 Carte="*res://scripts/carte.gd"
 Chargement="*res://scripts/socle/chargement.gd"
 Pilote="*res://scripts/socle/pilote.gd"
+Dessous="*res://scripts/socle/dessous.gd"
 
 [display]
 
