@@ -54,12 +54,19 @@ func _init() -> void:
 	await attendre(20)
 	check(current_scene == s, "un saut de quelques images sous le sol ne fait pas passer au Dessous")
 
-	# La vraie chute : le sol s'ouvre sous l'habitant (sa collision coupée), il tombe.
+	# La vraie chute : le sol s'ouvre sous l'habitant (sa collision coupée), il tombe. Trente secondes dans le
+	# jeu ; le test raccourcit l'attente à trois, et vérifie qu'à deux on tombe encore.
+	check(is_equal_approx(dessous.duree_de_chute, 30.0), "on passe au bout de trente secondes de chute (%.0f s)" % dessous.duree_de_chute)
+	dessous.duree_de_chute = 3.0
 	await attendre(40)
 	var ferme: Vector3 = dessous.sol_ferme().origin
 	p.collision_mask = 0
 	var t := 0
-	while current_scene == s and t < 600:
+	while dessous.temps_de_chute < 2.0 and t < 400:
+		await attendre(1)
+		t += 1
+	check(current_scene == s and dessous.visible, "à deux secondes de trois, on tombe encore, le noir monte")
+	while current_scene == s and t < 900:
 		await attendre(1)
 		t += 1
 	await attendre(10)
@@ -67,6 +74,7 @@ func _init() -> void:
 	check(dessous.origine.get("lieu", "") == "Ligugé", "le Dessous sait d'où l'on vient (%s)" % dessous.origine.get("lieu", ""))
 	check(is_instance_valid(s) and not s.is_inside_tree() or not s.visible, "Ligugé est gardée, cachée")
 	p.collision_mask = 1
+	dessous.duree_de_chute = 30.0
 	var monde: Node3D = current_scene
 	check(monde.player != null and monde.player.frozen, "l'arrivée est mise en scène, l'habitant attend")
 	check(monde.get_node_or_null("Akoupara") != null and monde.get_node_or_null("Lanterne") != null, "Akoupara et la Lanterne sont là")

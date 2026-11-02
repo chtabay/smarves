@@ -1,10 +1,12 @@
 extends SceneTree
 ## Le Dessous en images (scenes/dessous.tscn, scripts/socle/dessous_monde.gd) :
 ## xvfb-run godot --path . --rendering-driver opengl3 -s tools/capture_dessous.gd -- --sortie=dossier/
-## L'arrivée figée à quatre instants (de loin, la descente, l'étoile, la main rendue), puis trois vues libres :
+## L'arrivée figée à sept instants (de loin, le flanc d'Akoupara, sous l'éléphant, la remontée, l'étoile, l'impact,
+## la main rendue), puis trois vues libres :
 ## sous le disque (les éléphants sur la carapace), la Porte des Joints de près, et le monde de nuit.
 
-const PLANS := {"1-de-loin": 1.6, "2-la-descente": 5.2, "3-l-etoile-tombe": 6.4, "4-a-l-arrivee": 9.0}
+const PLANS := {"1-de-loin": 1.8, "2-le-flanc-d-akoupara": 4.5, "3-sous-l-elephant": 5.3, "4-la-remontee": 6.1,
+	"5-l-etoile-tombe": 6.6, "6-l-impact": 6.95, "7-a-l-arrivee": 9.0}
 
 
 func _init() -> void:
@@ -34,9 +36,9 @@ func _init() -> void:
 	root.add_child(cam)
 	cam.make_current()
 	var vues := {
-		"5-sous-le-disque": [Vector3(70, -18, 55), Vector3(0, -14, 0), 50.0, 0.0],
-		"6-la-porte-des-joints": [Vector3(1.6, 1.4, 1.2), Vector3(0, 1.0, -4.0), 50.0, 0.0],
-		"7-de-nuit": [Vector3(-180, 40, 160), Vector3(0, -24, 0), 45.0, 170.0],
+		"8-sous-le-disque": [Vector3(70, -18, 55), Vector3(0, -14, 0), 50.0, 0.0],
+		"9-la-porte-et-la-stele": [Vector3(2.2, 1.5, 4.6), Vector3(0.6, 0.8, -1.5), 50.0, 0.0],
+		"10-de-nuit": [Vector3(-180, 40, 160), Vector3(0, -24, 0), 45.0, 170.0],
 	}
 	for nom: String in vues:
 		var v: Array = vues[nom]

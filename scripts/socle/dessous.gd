@@ -9,19 +9,23 @@ extends CanvasLayer
 ##
 ## Le paquet d'une commune n'a rien à coder : le socle suit le corps qu'on dirige (`player` de la scène,
 ## sinon le groupe « player » de scripts/fp_player.gd), retient où il a eu les pieds sur un sol, et quand il
-## tombe très loin sous ce sol (PROFONDEUR fois sa taille, au moins PROFONDEUR_MIN), il passe au Dessous.
+## tombe sans rien toucher pendant DUREE_DE_CHUTE (30 secondes ; Guillaume, 2 novembre 2026 : « tout cela ne se
+## déclenche qu'au bout de 30 sec de chute »), il passe au Dessous. Les dernières secondes, le noir monte.
 ## La scène quittée est gardée (Chargement.garder) : au retour, elle reprend telle qu'on l'a laissée.
 ## Une scène qui a de vrais précipices (un puits de mine, une falaise) peut s'en retirer : la méta
 ## « sans_dessous » sur sa racine, ou `var dessous := false`.
 
 const SCENE := "res://scenes/dessous.tscn"
-## Sous le dernier sol touché, en tailles d'habitant : un homme de 1,70 m passe au bout de 60 m de chute,
-## un petit Smarvois de 0,7 au bout de PROFONDEUR_MIN (25 unités, deux secondes et quelque).
+## Et il faut être bien sous le dernier sol touché, en tailles d'habitant (au moins PROFONDEUR_MIN) : après
+## trente secondes de chute libre, on l'est de plusieurs kilomètres.
 const PROFONDEUR := 35.0
 const PROFONDEUR_MIN := 25.0
-## Les images de chute d'affilée sous le seuil avant de passer : un habitant qu'on déplace d'un coup plus
-## bas (un test, une capture, un voyage) retrouve un sol tout de suite et ne passe pas.
-const IMAGES_DE_CHUTE := 12
+## La durée de chute sans toucher de sol avant le passage. Un habitant qu'on déplace d'un coup plus bas (un
+## test, une capture, un voyage) retrouve un sol tout de suite et ne passe pas ; un saut, une chute d'un toit,
+## durent bien moins.
+const DUREE_DE_CHUTE := 30.0
+## Les dernières secondes de chute, l'écran s'assombrit peu à peu avant le passage.
+const ASSOMBRI := 4.0
 ## Le sol ferme se relève toutes les DEMI secondes ; au retour, on reprend l'avant-dernier relevé, pris au
 ## moins une demi-seconde avant la chute, loin du bord du trou par où l'on est passé.
 const DEMI := 0.5
@@ -30,6 +34,10 @@ const OR := Color(0.96, 0.8, 0.45)
 
 ## Le passage est-il permis (les outils de mesure peuvent le couper) ?
 var permis := true
+## La durée de chute qui fait passer (DUREE_DE_CHUTE ; un test la raccourcit).
+var duree_de_chute := DUREE_DE_CHUTE
+## Depuis combien de temps l'habitant tombe sans rien toucher.
+var temps_de_chute := 0.0
 ## D'où l'on est tombé : chemin de la scène, corps, sol ferme, nom du lieu, musique, coin des communes.
 ## Vide quand on n'est pas au Dessous.
 var origine := {}
@@ -43,7 +51,6 @@ var _sol_recent := Transform3D()
 var _sol_ancien := Transform3D()
 var _a_un_sol := false
 var _horloge := 0.0
-var _chute := 0
 var _en_cours := false
 
 var _voile: ColorRect
@@ -114,15 +121,28 @@ func _physics_process(delta: float) -> void:
 			_sol_ancien = _sol_recent if _a_un_sol else p.global_transform
 			_sol_recent = p.global_transform
 			_a_un_sol = true
-		_chute = 0
+		_finir_chute()
 		return
+	if p.velocity.y >= 0.0:
+		_finir_chute()
+		return
+	temps_de_chute += delta
+	# Les dernières secondes, le noir monte : on comprend qu'on ne touchera plus le sol.
+	var reste := duree_de_chute - temps_de_chute
+	if reste < ASSOMBRI:
+		_voile.modulate.a = clampf(1.0 - reste / ASSOMBRI, 0.0, 1.0) * 0.85
+		_texte.text = ""
+		visible = true
 	var taille := float(p.get("body_height")) if p.get("body_height") != null else 1.7
-	if p.global_position.y < _ref_y - maxf(PROFONDEUR_MIN, PROFONDEUR * taille) and p.velocity.y < 0.0:
-		_chute += 1
-		if _chute >= IMAGES_DE_CHUTE:
-			tomber()
-	else:
-		_chute = 0
+	if temps_de_chute >= duree_de_chute and p.global_position.y < _ref_y - maxf(PROFONDEUR_MIN, PROFONDEUR * taille):
+		tomber()
+
+
+func _finir_chute() -> void:
+	if temps_de_chute > 0.0 and visible and not _en_cours:
+		visible = false
+		_voile.modulate.a = 0.0
+	temps_de_chute = 0.0
 
 
 func _oublier() -> void:
@@ -130,7 +150,7 @@ func _oublier() -> void:
 	_ref_y = INF
 	_a_un_sol = false
 	_horloge = 0.0
-	_chute = 0
+	_finir_chute()
 
 
 ## Le corps qu'on dirige dans la scène `s` : son `player`, sinon le premier du groupe « player » sous elle.
@@ -181,7 +201,7 @@ func tomber() -> void:
 		p.velocity = Vector3.ZERO
 		if "frozen" in p:
 			p.frozen = true
-	await _voiler(1.0, 0.8, "Le sol cède…\nvous tombez à travers %s." % origine.lieu)
+	await _voiler(1.0, 0.8, "Trente secondes de chute…\nvous êtes passé à travers %s." % origine.lieu)
 	if p != null and is_instance_valid(p):
 		p.global_transform = xf
 		p.velocity = Vector3.ZERO
@@ -241,7 +261,8 @@ func remonter() -> void:
 func _voiler(alpha: float, duree: float, texte := "") -> void:
 	if alpha > 0.0:
 		_texte.text = texte
-		_voile.modulate.a = 0.0 if not visible else _voile.modulate.a
+		if not visible:
+			_voile.modulate.a = 0.0
 		visible = true
 	var tw := create_tween()
 	tw.tween_property(_voile, "modulate:a", alpha, duree)

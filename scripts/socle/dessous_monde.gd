@@ -45,6 +45,9 @@ const T_LOIN := 3.6
 const T_DESCENTE := 7.0
 const T_ETOILE := 4.6
 const T_FIN := 7.6
+## Le titre du jeu qui commence ici, un autre jeu que Smarves (Guillaume, 2 novembre 2026 : « on suggérera que
+## l'arrivée sur le disque monde amène dans le nouveau jeu » ; dépôt chtabay/reve_hindoue).
+const REVE := "Le Rêve hindou"
 
 const OR := Color(0.96, 0.8, 0.45)
 
@@ -71,6 +74,14 @@ var _passer: Label
 var _nageoires: Array = []
 var _oreilles: Array = []
 var _lieu := ""
+var _couronne: Node3D
+var _matieres_nuages: Array = []
+var _bandes: Array = []
+var _onde: MeshInstance3D
+var _poussiere: CPUParticles3D
+var _etincelles: CPUParticles3D
+var _espacement: FontVariation
+var _posee := false
 
 
 func _ready() -> void:
@@ -88,10 +99,12 @@ func _ready() -> void:
 		_tortue()
 	_ile()
 	_porte()
+	_stele()
 	_lanterne()
+	_nuages()
 	_interface()
 	_joueur()
-	Sfx.musique("grands_espaces")
+	Sfx.musique("titre")
 	_poser_plan(_figee if _figee >= 0.0 else 0.0)
 
 
@@ -100,52 +113,264 @@ func _ready() -> void:
 func _ciel() -> void:
 	var sh := Shader.new()
 	sh.code = """shader_type sky;
-// Les étoiles du Dessous : une poussière fixe, une bande laiteuse, et le ciel qui tourne lentement,
-// comme si Akoupara nageait.
+// Le ciel du Dessous : un fond d'encre, deux nébuleuses (violette et bleu canard), la bande laiteuse et ses
+// lanes de poussière, trois couches d'étoiles qui scintillent, plus denses dans la bande. Il tourne
+// lentement, comme si Akoupara nageait.
+float h31(vec3 p) {
+	p = fract(p * 0.3183099 + 0.1);
+	p *= 17.0;
+	return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+}
+float bruit(vec3 x) {
+	vec3 i = floor(x);
+	vec3 f = fract(x);
+	f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(mix(h31(i), h31(i + vec3(1, 0, 0)), f.x), mix(h31(i + vec3(0, 1, 0)), h31(i + vec3(1, 1, 0)), f.x), f.y),
+		mix(mix(h31(i + vec3(0, 0, 1)), h31(i + vec3(1, 0, 1)), f.x), mix(h31(i + vec3(0, 1, 1)), h31(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+}
+float fbm(vec3 p) {
+	float v = 0.0;
+	float a = 0.5;
+	for (int i = 0; i < 5; i++) {
+		v += a * bruit(p);
+		p = p * 2.03 + vec3(1.7, 9.2, 3.1);
+		a *= 0.5;
+	}
+	return v;
+}
 void sky() {
-	float a = TIME * 0.004;
-	vec3 d = vec3(EYEDIR.x * cos(a) - EYEDIR.z * sin(a), EYEDIR.y, EYEDIR.x * sin(a) + EYEDIR.z * cos(a));
-	vec3 col = mix(vec3(0.006, 0.008, 0.022), vec3(0.03, 0.025, 0.07), 0.5 + 0.5 * d.y);
-	float bande = exp(-pow(dot(d, normalize(vec3(0.35, 1.0, 0.25))) * 3.2, 2.0));
-	col += vec3(0.06, 0.045, 0.1) * bande;
-	for (int k = 0; k < 2; k++) {
-		vec3 p = d * (170.0 + float(k) * 90.0);
+	float r = TIME * 0.004;
+	vec3 d = vec3(EYEDIR.x * cos(r) - EYEDIR.z * sin(r), EYEDIR.y, EYEDIR.x * sin(r) + EYEDIR.z * cos(r));
+	vec3 col = mix(vec3(0.004, 0.005, 0.016), vec3(0.018, 0.016, 0.05), 0.5 + 0.5 * d.y);
+	float n1 = fbm(d * 2.1 + vec3(3.1, 0.0, 0.0));
+	float n2 = fbm(d * 2.9 + vec3(0.0, 7.3, 1.2));
+	col += vec3(0.30, 0.08, 0.36) * smoothstep(0.5, 0.86, n1) * 0.6;
+	col += vec3(0.04, 0.20, 0.32) * smoothstep(0.52, 0.9, n2) * 0.55;
+	col += vec3(0.5, 0.25, 0.15) * pow(smoothstep(0.62, 0.95, n1 * n2 * 1.9), 2.0) * 0.4;
+	float b = dot(d, normalize(vec3(0.35, 1.0, 0.25)));
+	float bande = exp(-b * b * 8.0);
+	float poussiere = fbm(d * 7.0);
+	col += vec3(0.17, 0.14, 0.21) * bande * (0.35 + 0.9 * poussiere);
+	col *= 1.0 - 0.6 * bande * smoothstep(0.52, 0.68, fbm(d * 11.0 + 4.0));
+	for (int k = 0; k < 3; k++) {
+		vec3 p = d * (150.0 + float(k) * 110.0);
 		vec3 c = floor(p);
-		float h = fract(sin(dot(c, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
-		if (h > 0.982) {
+		float h = h31(c + float(k) * 13.0);
+		float seuil = 0.975 - bande * 0.03 + float(k) * 0.006;
+		if (h > seuil) {
 			vec3 f = fract(p) - 0.5;
-			float s = 1.0 - smoothstep(0.0, 0.22, length(f));
+			float s = 1.0 - smoothstep(0.0, 0.2 - float(k) * 0.04, length(f));
 			float teinte = fract(h * 91.7);
-			col += s * (h - 0.982) * 55.0 * mix(vec3(1.0, 0.85, 0.7), vec3(0.75, 0.85, 1.0), teinte);
+			float scint = 0.75 + 0.25 * sin(TIME * (1.5 + teinte * 3.0) + h * 400.0);
+			col += s * scint * (h - seuil) * 70.0 * mix(vec3(1.0, 0.82, 0.62), vec3(0.7, 0.82, 1.0), teinte);
 		}
 	}
-	COLOR = col;
+	COLOR = max(col, vec3(0.0));
 }
 """
 	var mat := ShaderMaterial.new()
 	mat.shader = sh
 	var sky := Sky.new()
 	sky.sky_material = mat
+	sky.radiance_size = Sky.RADIANCE_SIZE_32
 	var env := Environment.new()
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.42, 0.45, 0.62)
-	env.ambient_light_energy = 0.55
-	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.ambient_light_color = Color(0.4, 0.43, 0.66)
+	env.ambient_light_energy = 0.5
+	env.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED
+	env.tonemap_mode = Environment.TONE_MAPPER_ACES
+	env.tonemap_exposure = 0.92
+	env.tonemap_white = 6.0
 	env.glow_enabled = true
-	env.glow_intensity = 0.9
-	env.glow_bloom = 0.08
+	env.glow_intensity = 0.85
+	env.glow_strength = 1.1
+	env.glow_bloom = 0.06
+	env.glow_hdr_threshold = 0.9
+	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SCREEN
+	for i in 7:
+		env.set_glow_level(i, 1.0 if i in [2, 3, 4, 5] else 0.0)
+	env.ssao_enabled = true
+	env.ssao_radius = 2.0
+	env.ssao_intensity = 1.6
+	# La perspective aérienne : de loin, Akoupara se fond un peu dans le bleu de la nuit.
+	env.fog_enabled = true
+	env.fog_light_color = Color(0.1, 0.12, 0.26)
+	env.fog_density = 0.0007
+	env.fog_sky_affect = 0.0
+	env.adjustment_enabled = true
+	env.adjustment_contrast = 1.08
+	env.adjustment_saturation = 1.0
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
 	soleil = DirectionalLight3D.new()
 	soleil.name = "Soleil"
-	soleil.light_color = Color(1.0, 0.9, 0.75)
+	soleil.light_color = Color(1.0, 0.88, 0.7)
 	soleil.light_energy = 1.25
 	soleil.shadow_enabled = true
+	soleil.shadow_blur = 1.5
 	soleil.directional_shadow_max_distance = 260.0
 	add_child(soleil)
+	# Une lumière de lune, bleue et faible, d'en face : les ombres ne sont jamais tout à fait noires.
+	var contre := DirectionalLight3D.new()
+	contre.name = "Contre"
+	contre.light_color = Color(0.45, 0.55, 1.0)
+	contre.light_energy = 0.22
+	contre.rotation = Vector3(deg_to_rad(-35.0), deg_to_rad(200.0), 0.0)
+	add_child(contre)
+
+
+## Un matériau de nuage ou de brume : une boule de bruit douce, en face de la caméra, éclairée du côté de la
+## Lanterne. `jour` (0 à 1) assombrit les nuages la nuit.
+func _matiere_nuage(teinte: Color, opacite: float) -> ShaderMaterial:
+	var sh := Shader.new()
+	sh.code = """shader_type spatial;
+render_mode unshaded, depth_draw_never, cull_disabled, blend_mix;
+uniform vec4 teinte : source_color = vec4(1.0);
+uniform float opacite = 0.5;
+uniform float jour = 1.0;
+uniform float graine = 0.0;
+float h(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float b(vec2 p) {
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), f.x), f.y);
+}
+float fbm(vec2 p) {
+	float v = 0.0;
+	float a = 0.5;
+	for (int i = 0; i < 4; i++) { v += a * b(p); p *= 2.1; a *= 0.5; }
+	return v;
+}
+void vertex() {
+	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(INV_VIEW_MATRIX[0], INV_VIEW_MATRIX[1], INV_VIEW_MATRIX[2], MODEL_MATRIX[3]);
+	MODELVIEW_MATRIX = MODELVIEW_MATRIX * mat4(vec4(length(MODEL_MATRIX[0].xyz), 0, 0, 0), vec4(0, length(MODEL_MATRIX[1].xyz), 0, 0), vec4(0, 0, length(MODEL_MATRIX[2].xyz), 0), vec4(0, 0, 0, 1));
+}
+void fragment() {
+	vec2 q = UV * 2.0 - 1.0;
+	float r = length(q);
+	float n = fbm(UV * 3.0 + graine + TIME * 0.01);
+	float a = smoothstep(1.0, 0.25, r + (n - 0.5) * 0.7);
+	float haut = clamp(0.5 - q.y * 0.5, 0.0, 1.0);
+	vec3 c = teinte.rgb * mix(0.55, 1.0, haut) * mix(0.3, 1.0, jour);
+	ALBEDO = c;
+	ALPHA = a * opacite;
+}
+"""
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	m.set_shader_parameter("teinte", teinte)
+	m.set_shader_parameter("opacite", opacite)
+	return m
+
+
+## Les nuages : une mer de cumulus sur le dos d'Akoupara, où les éléphants ont de la brume jusqu'aux genoux,
+## et des bancs plus loin sous la carapace. Ils dérivent lentement autour du monde.
+func _nuages() -> void:
+	_couronne = Node3D.new()
+	_couronne.name = "Nuages"
+	add_child(_couronne)
+	var g := RandomNumberGenerator.new()
+	g.seed = 31
+	var quad := QuadMesh.new()
+	quad.size = Vector2(1, 1)
+	for i in 40:
+		var a := TAU * i / 40.0 + g.randf_range(-0.05, 0.05)
+		var r := g.randf_range(24.0, 46.0)
+		var m := _matiere_nuage(Color(0.95, 0.93, 1.0), g.randf_range(0.25, 0.45))
+		m.set_shader_parameter("graine", g.randf() * 50.0)
+		_matieres_nuages.append(m)
+		var mi := _piece(_couronne, quad, m, Vector3(cos(a) * r, g.randf_range(-27.0, -19.0), sin(a) * r), Vector3.ZERO, Vector3.ONE * g.randf_range(9.0, 15.0))
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for i in 34:
+		var a := g.randf() * TAU
+		var r := g.randf_range(70.0, 160.0)
+		var m := _matiere_nuage(Color(0.62, 0.66, 0.95), g.randf_range(0.15, 0.3))
+		m.set_shader_parameter("graine", g.randf() * 50.0)
+		_matieres_nuages.append(m)
+		var mi := _piece(_couronne, quad, m, Vector3(cos(a) * r, g.randf_range(-75.0, -55.0), sin(a) * r), Vector3.ZERO, Vector3.ONE * g.randf_range(40.0, 80.0))
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# La brume de la cascade, tout autour du bord, et des lucioles d'or sur l'île.
+	var brume := CPUParticles3D.new()
+	brume.name = "Brume"
+	brume.amount = 260
+	brume.lifetime = 5.0
+	brume.preprocess = 5.0
+	brume.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
+	brume.emission_ring_axis = Vector3.UP
+	brume.emission_ring_radius = DISQUE + 1.2
+	brume.emission_ring_inner_radius = DISQUE + 0.2
+	brume.emission_ring_height = 1.0
+	brume.position.y = -4.0
+	brume.direction = Vector3(0, -1, 0)
+	brume.spread = 25.0
+	brume.gravity = Vector3(0, -0.6, 0)
+	brume.initial_velocity_min = 0.3
+	brume.initial_velocity_max = 1.2
+	brume.scale_amount_min = 2.0
+	brume.scale_amount_max = 4.5
+	var courbe := Curve.new()
+	courbe.add_point(Vector2(0, 0.3))
+	courbe.add_point(Vector2(0.4, 1.0))
+	courbe.add_point(Vector2(1, 1.4))
+	brume.scale_amount_curve = courbe
+	var rampe := Gradient.new()
+	rampe.set_color(0, Color(1, 1, 1, 0.0))
+	rampe.add_point(0.25, Color(0.92, 0.96, 1.0, 0.35))
+	rampe.set_color(rampe.get_point_count() - 1, Color(0.85, 0.9, 1.0, 0.0))
+	brume.color_ramp = rampe
+	brume.mesh = _quad_doux(Color(1, 1, 1, 1))
+	add_child(brume)
+	var lucioles := CPUParticles3D.new()
+	lucioles.name = "Lucioles"
+	lucioles.amount = 70
+	lucioles.lifetime = 6.0
+	lucioles.preprocess = 6.0
+	lucioles.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	lucioles.emission_box_extents = Vector3(9.0, 0.6, 9.0)
+	lucioles.position = ARRIVEE + Vector3(0, 0.8, -3.0)
+	lucioles.gravity = Vector3(0, 0.03, 0)
+	lucioles.initial_velocity_min = 0.02
+	lucioles.initial_velocity_max = 0.12
+	lucioles.spread = 180.0
+	lucioles.scale_amount_min = 0.06
+	lucioles.scale_amount_max = 0.12
+	var feu := Gradient.new()
+	feu.set_color(0, Color(1.0, 0.8, 0.4, 0.0))
+	feu.add_point(0.5, Color(1.0, 0.85, 0.45, 1.0))
+	feu.set_color(feu.get_point_count() - 1, Color(1.0, 0.7, 0.3, 0.0))
+	lucioles.color_ramp = feu
+	lucioles.mesh = _quad_doux(Color(1, 1, 1, 1), true)
+	add_child(lucioles)
+
+
+## Un petit carré qui se tourne vers la caméra, au bord flou : brume, poussière, étincelles.
+func _quad_doux(c: Color, lumineux := false) -> QuadMesh:
+	var q := QuadMesh.new()
+	q.size = Vector2(1, 1)
+	var sh := Shader.new()
+	sh.code = """shader_type spatial;
+render_mode unshaded, depth_draw_never, cull_disabled, %s;
+uniform vec4 c : source_color = vec4(1.0);
+void vertex() {
+	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(INV_VIEW_MATRIX[0], INV_VIEW_MATRIX[1], INV_VIEW_MATRIX[2], MODEL_MATRIX[3]);
+	MODELVIEW_MATRIX = MODELVIEW_MATRIX * mat4(vec4(length(MODEL_MATRIX[0].xyz), 0, 0, 0), vec4(0, length(MODEL_MATRIX[1].xyz), 0, 0), vec4(0, 0, length(MODEL_MATRIX[2].xyz), 0), vec4(0, 0, 0, 1));
+}
+void fragment() {
+	float r = length(UV * 2.0 - 1.0);
+	float a = smoothstep(1.0, 0.0, r);
+	ALBEDO = c.rgb * COLOR.rgb * %s;
+	ALPHA = a * a * c.a * COLOR.a;
+}
+""" % ["blend_add" if lumineux else "blend_mix", "3.0" if lumineux else "1.0"]
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	m.set_shader_parameter("c", c)
+	q.material = m
+	return q
 
 
 # --- Le disque -------------------------------------------------------------------------------------------
@@ -294,6 +519,47 @@ func _banc(parent: Node3D, pos: Vector3, cap: float) -> void:
 	pied.size = Vector3(0.05, 0.26, 0.36)
 	for x in [-0.5, 0.5]:
 		_piece(b, pied, fer, Vector3(x, 0.13, 0))
+
+
+## La stèle du Rêve hindou, à côté de l'arrivée : ce monde est l'entrée d'un autre jeu, qui viendra.
+func _stele() -> void:
+	var st := Node3D.new()
+	st.name = "Stele"
+	st.position = ARRIVEE + Vector3(2.4, 0, -0.6)
+	st.rotation.y = deg_to_rad(-20.0)
+	add_child(st)
+	var pierre := _mat(Color(0.5, 0.47, 0.44))
+	var dalle := BoxMesh.new()
+	dalle.size = Vector3(0.95, 1.35, 0.16)
+	_piece(st, dalle, pierre, Vector3(0, 0.67, 0))
+	var socle_ := BoxMesh.new()
+	socle_.size = Vector3(1.15, 0.12, 0.4)
+	_piece(st, socle_, pierre, Vector3(0, 0.06, 0))
+	var corps := StaticBody3D.new()
+	var f := CollisionShape3D.new()
+	var b := BoxShape3D.new()
+	b.size = Vector3(1.0, 1.4, 0.3)
+	f.shape = b
+	f.position.y = 0.7
+	corps.add_child(f)
+	st.add_child(corps)
+	for ligne in [[REVE.to_upper(), 0.95, 46, Polices.titre()], ["Un autre monde\ncommence ici.", 0.62, 30, Polices.texte()]]:
+		var l := Label3D.new()
+		l.text = ligne[0]
+		l.font = ligne[3]
+		l.font_size = ligne[2]
+		l.pixel_size = 0.0045
+		l.modulate = OR if ligne[1] > 0.8 else Color(0.95, 0.9, 0.8)
+		l.outline_size = 6
+		l.outline_modulate = Color(0.15, 0.1, 0.05, 0.8)
+		l.position = Vector3(0, ligne[1], 0.085)
+		st.add_child(l)
+	var lueur := OmniLight3D.new()
+	lueur.light_color = Color(1.0, 0.8, 0.5)
+	lueur.light_energy = 0.6
+	lueur.omni_range = 2.0
+	lueur.position = Vector3(0, 0.9, 0.6)
+	st.add_child(lueur)
 
 
 ## La Porte des Joints : deux piliers de pierre, un linteau, et entre eux un tourbillon d'or et de violet.
@@ -554,6 +820,29 @@ func _lanterne() -> void:
 	halo.cull_mode = BaseMaterial3D.CULL_DISABLED
 	mi = _piece(lanterne, _boule(9.0), halo, Vector3.ZERO)
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# La couronne : des rayons qui tournent lentement autour du cœur, toujours face à la caméra.
+	var sh := Shader.new()
+	sh.code = """shader_type spatial;
+render_mode unshaded, depth_draw_never, cull_disabled, blend_add;
+void vertex() {
+	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(INV_VIEW_MATRIX[0], INV_VIEW_MATRIX[1], INV_VIEW_MATRIX[2], MODEL_MATRIX[3]);
+	MODELVIEW_MATRIX = MODELVIEW_MATRIX * mat4(vec4(length(MODEL_MATRIX[0].xyz), 0, 0, 0), vec4(0, length(MODEL_MATRIX[1].xyz), 0, 0), vec4(0, 0, length(MODEL_MATRIX[2].xyz), 0), vec4(0, 0, 0, 1));
+}
+void fragment() {
+	vec2 q = UV * 2.0 - 1.0;
+	float r = length(q);
+	float a = atan(q.y, q.x);
+	float rayons = pow(abs(sin(a * 7.0 + TIME * 0.15)), 18.0) * 0.6 + pow(abs(sin(a * 11.0 - TIME * 0.1)), 30.0) * 0.4;
+	float halo = exp(-r * 4.5) * 1.4 + rayons * exp(-r * 2.6) * 0.9;
+	ALBEDO = vec3(1.0, 0.72, 0.38) * halo * smoothstep(1.0, 0.7, r);
+}
+"""
+	var couronne := ShaderMaterial.new()
+	couronne.shader = sh
+	var q := QuadMesh.new()
+	q.size = Vector2(70, 70)
+	mi = _piece(lanterne, q, couronne, Vector3.ZERO)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var o := OmniLight3D.new()
 	o.light_color = Color(1.0, 0.75, 0.45)
 	o.light_energy = 3.0
@@ -571,7 +860,12 @@ func _poser_lanterne(t: float) -> void:
 	if not p.is_equal_approx(Vector3.ZERO):
 		soleil.look_at_from_position(p, Vector3.ZERO, Vector3.UP if absf(p.normalized().y) < 0.98 else Vector3.FORWARD)
 	# Le jour sur l'île quand elle est au-dessus, une lueur dessous.
-	soleil.light_energy = lerpf(0.25, 1.3, smoothstep(-0.15, 0.25, p.normalized().y))
+	var jour := smoothstep(-0.15, 0.25, p.normalized().y)
+	soleil.light_energy = lerpf(0.25, 1.3, jour)
+	# Au ras de l'horizon, la lumière se dore ; en plein jour, elle blanchit.
+	soleil.light_color = Color(1.0, 0.62, 0.38).lerp(Color(1.0, 0.92, 0.8), smoothstep(0.1, 0.6, p.normalized().y))
+	for m in _matieres_nuages:
+		m.set_shader_parameter("jour", jour)
 
 
 # --- L'habitant, la caméra, l'interface -----------------------------------------------------------------
@@ -627,9 +921,69 @@ func _joueur() -> void:
 	traine.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	traine.albedo_color = Color(1.0, 0.75, 0.4, 0.45)
 	_piece(_etoile, _cylindre(0.22, 0.0, 6.0, 12), traine, Vector3(0, 3.0, 0))
+	_etincelles = CPUParticles3D.new()
+	_etincelles.name = "Etincelles"
+	_etincelles.amount = 90
+	_etincelles.lifetime = 0.9
+	_etincelles.local_coords = false
+	_etincelles.emitting = false
+	_etincelles.direction = Vector3(0, 1, 0)
+	_etincelles.spread = 40.0
+	_etincelles.gravity = Vector3(0, -2.0, 0)
+	_etincelles.initial_velocity_min = 0.5
+	_etincelles.initial_velocity_max = 2.0
+	_etincelles.scale_amount_min = 0.12
+	_etincelles.scale_amount_max = 0.3
+	var or_pale := Gradient.new()
+	or_pale.set_color(0, Color(1.0, 0.95, 0.8, 1.0))
+	or_pale.set_color(or_pale.get_point_count() - 1, Color(1.0, 0.5, 0.2, 0.0))
+	_etincelles.color_ramp = or_pale
+	_etincelles.mesh = _quad_doux(Color(1, 1, 1, 1), true)
+	_etoile.add_child(_etincelles)
+	# L'impact : une onde dorée qui s'étale sur l'herbe, une gerbe de poussière et de lumière.
+	var sh := Shader.new()
+	sh.code = """shader_type spatial;
+render_mode unshaded, depth_draw_never, cull_disabled, blend_add;
+uniform float force = 1.0;
+void fragment() {
+	float r = length(UV * 2.0 - 1.0);
+	float anneau = smoothstep(0.7, 0.93, r) * smoothstep(1.0, 0.94, r);
+	ALBEDO = vec3(1.0, 0.8, 0.45) * (anneau * 2.0 + smoothstep(0.9, 0.0, r) * 0.25) * force;
+}
+"""
+	var mo := ShaderMaterial.new()
+	mo.shader = sh
+	var plan := PlaneMesh.new()
+	plan.size = Vector2(1, 1)
+	_onde = _piece(self, plan, mo, ARRIVEE + Vector3(0, 0.03, 0))
+	_onde.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_onde.visible = false
+	_poussiere = CPUParticles3D.new()
+	_poussiere.name = "Poussiere"
+	_poussiere.amount = 120
+	_poussiere.lifetime = 1.6
+	_poussiere.one_shot = true
+	_poussiere.explosiveness = 0.95
+	_poussiere.emitting = false
+	_poussiere.position = ARRIVEE + Vector3(0, 0.1, 0)
+	_poussiere.direction = Vector3(0, 1, 0)
+	_poussiere.spread = 80.0
+	_poussiere.gravity = Vector3(0, -1.5, 0)
+	_poussiere.initial_velocity_min = 1.0
+	_poussiere.initial_velocity_max = 3.5
+	_poussiere.damping_min = 1.5
+	_poussiere.damping_max = 3.0
+	_poussiere.scale_amount_min = 0.15
+	_poussiere.scale_amount_max = 0.45
+	var gerbe := Gradient.new()
+	gerbe.set_color(0, Color(1.0, 0.9, 0.65, 0.9))
+	gerbe.set_color(gerbe.get_point_count() - 1, Color(0.8, 0.75, 0.6, 0.0))
+	_poussiere.color_ramp = gerbe
+	_poussiere.mesh = _quad_doux(Color(1, 1, 1, 1), true)
+	add_child(_poussiere)
 	_eclat = OmniLight3D.new()
 	_eclat.light_color = Color(1.0, 0.85, 0.6)
-	_eclat.omni_range = 6.0
+	_eclat.omni_range = 9.0
 	_eclat.light_energy = 0.0
 	_eclat.position = ARRIVEE + Vector3(0, 0.6, 0)
 	add_child(_eclat)
@@ -639,25 +993,43 @@ func _interface() -> void:
 	var ui := CanvasLayer.new()
 	ui.name = "Interface"
 	add_child(ui)
+	# Les bandes noires du cinéma, en haut et en bas, le temps de la mise en scène.
+	for haut in [true, false]:
+		var bande := ColorRect.new()
+		bande.color = Color(0, 0, 0)
+		bande.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		bande.set_anchors_preset(Control.PRESET_TOP_WIDE if haut else Control.PRESET_BOTTOM_WIDE)
+		ui.add_child(bande)
+		_bandes.append([bande, haut])
 	var boite := VBoxContainer.new()
 	boite.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	boite.offset_top = 70
+	boite.offset_top = 130
 	boite.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	boite.add_theme_constant_override("separation", 8)
 	ui.add_child(boite)
-	_titre = _mot(54, OR, Polices.titre())
+	_titre = _mot(60, OR, Polices.titre())
+	_espacement = FontVariation.new()
+	_espacement.base_font = Polices.titre()
+	_titre.add_theme_font_override("font", _espacement)
+	_titre.add_theme_color_override("font_shadow_color", Color(1.0, 0.55, 0.2, 0.45))
+	_titre.add_theme_constant_override("shadow_offset_x", 0)
+	_titre.add_theme_constant_override("shadow_offset_y", 0)
+	_titre.add_theme_constant_override("shadow_outline_size", 18)
 	_titre.text = "LE DESSOUS"
 	boite.add_child(_titre)
 	_sous_titre = _mot(19, Color(0.82, 0.84, 0.92), Polices.texte())
 	_sous_titre.text = "Sous toutes les cartes, Akoupara nage dans les étoiles."
 	boite.add_child(_sous_titre)
-	_bandeau = _mot(18, Color(0.95, 0.93, 0.88), Polices.texte())
+	_bandeau = _mot(22, Color(0.95, 0.93, 0.88), Polices.texte())
 	_bandeau.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	_bandeau.offset_top = -150
 	_bandeau.offset_bottom = -80
 	_bandeau.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_bandeau.text = ("Vous êtes tombé à travers %s. Quatre éléphants portent ce monde ;\nla Porte des Joints vous y ramènera." % _lieu) if _lieu != "" \
-		else "Quatre éléphants portent ce monde ;\nla Porte des Joints vous ramènera à la surface."
+	_bandeau.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
+	_bandeau.add_theme_constant_override("outline_size", 6)
+	_bandeau.text = (("Vous êtes tombé à travers %s. Quatre éléphants portent ce monde ; ici commence %s.\n" % [_lieu, REVE])
+		if _lieu != "" else "Quatre éléphants portent ce monde ; ici commence %s.\n" % REVE) \
+		+ "La Porte des Joints vous ramènera à la surface."
 	_bandeau.modulate.a = 0.0
 	ui.add_child(_bandeau)
 	_passer = _mot(14, Color(0.7, 0.72, 0.8), Polices.texte())
@@ -697,39 +1069,81 @@ func _mot(taille: int, couleur: Color, police: Font) -> Label:
 
 ## La mise en scène de l'arrivée au temps `t` (voir l'en-tête) : la caméra, l'étoile, les textes.
 func _poser_plan(t: float) -> void:
+	var avant := _arrivee
 	_arrivee = t
 	var centre := Vector3(0, -24, 0)
 	var vise := ARRIVEE + Vector3(0, 0.3, 0)
 	var fin := vise + Vector3(0, sin(deg_to_rad(51.0)), cos(deg_to_rad(51.0))) * 18.0
-	# De loin : un lent tour autour du monde entier.
-	var tour := deg_to_rad(28.0) + t * 0.06
-	var loin := centre + Vector3(sin(tour) * 250.0, 45.0, cos(tour) * 250.0)
+	var impact := T_DESCENTE - 0.2
+	# De loin : le monde entier, la caméra qui tourne lentement en s'approchant, comme portée à l'épaule.
+	var tour := deg_to_rad(28.0) + minf(t, T_LOIN) * 0.06
+	var loin := centre + Vector3(sin(tour), 0.0, cos(tour)) * (250.0 - minf(t, T_LOIN) * 7.0) + Vector3(0, 45.0, 0)
+	var pos: Vector3
+	var cible: Vector3
 	if t < T_LOIN:
-		_plan.look_at_from_position(loin, centre)
+		pos = loin
+		cible = centre + Vector3(sin(t * 0.7) * 1.5, sin(t * 0.53) * 1.0, 0)
+		_plan.fov = 42.0
 	else:
+		# La plongée : le long du flanc d'Akoupara, sous le ventre d'un éléphant, devant la cascade, puis on
+		# remonte par-dessus le bord jusqu'à l'île. Une courbe de Catmull-Rom par cinq points.
 		var u := smoothstep(0.0, 1.0, clampf((t - T_LOIN) / (T_DESCENTE - T_LOIN), 0.0, 1.0))
-		# Une courbe qui passe au-dessus du bord du disque plutôt qu'à travers lui.
-		var milieu := Vector3(loin.x * 0.35, 60.0, loin.z * 0.35)
-		var p := loin.lerp(milieu, u).lerp(milieu.lerp(fin, u), u)
-		_plan.look_at_from_position(p, centre.lerp(vise, smoothstep(0.0, 1.0, u * 1.3)))
-		_plan.fov = lerpf(42.0, 30.0, u)
-	# Les textes : le titre de loin, le bandeau à l'arrivée.
-	_titre.modulate.a = clampf(t / 0.8, 0.0, 1.0) * clampf((T_DESCENTE - 1.0 - t) / 1.0, 0.0, 1.0)
-	_sous_titre.modulate.a = clampf((t - 0.8) / 0.8, 0.0, 1.0) * clampf((T_DESCENTE - 1.0 - t) / 1.0, 0.0, 1.0)
+		var e := Vector3(cos(PI * 0.25), 0, sin(PI * 0.25)) * ELEPHANTS_R
+		var points := [loin, Vector3(70, -14, 80), Vector3(e.x * 2.6, -7.0, e.z * 2.6 + 4.0), Vector3(e.x * 1.1, 7.0, 26.0), fin]
+		var cibles := [centre, e + Vector3(0, -12, 0), e + Vector3(0, -5, 0), vise + Vector3(0, 0, -3), vise]
+		pos = _catmull(points, u)
+		cible = _catmull(cibles, u)
+		_plan.fov = lerpf(42.0, 30.0, smoothstep(0.6, 1.0, u))
+	_plan.look_at_from_position(pos, cible)
+	# Le choc de l'arrivée secoue un instant l'image.
+	if t > impact and t < impact + 0.55:
+		var k := 1.0 - (t - impact) / 0.55
+		var amp := 0.22 * k * k
+		_plan.position += _plan.basis * Vector3(sin(t * 91.0) * amp, sin(t * 73.0 + 1.3) * amp, 0)
+	# Les bandes du cinéma, le titre qui se resserre, le bandeau à l'arrivée.
+	var haut := get_viewport().get_visible_rect().size.y * 0.11 * clampf(t / 0.8, 0.0, 1.0) * clampf((T_FIN - t) / 0.6, 0.0, 1.0)
+	for b in _bandes:
+		if b[1]:
+			b[0].offset_bottom = haut
+		else:
+			b[0].offset_top = -haut
+	_espacement.spacing_glyph = int(lerpf(30.0, 6.0, ease(clampf(t / 3.0, 0.0, 1.0), 0.4)))
+	_titre.modulate.a = clampf(t / 1.0, 0.0, 1.0) * clampf((T_DESCENTE - 1.4 - t) / 1.0, 0.0, 1.0)
+	_sous_titre.modulate.a = clampf((t - 1.0) / 0.8, 0.0, 1.0) * clampf((T_DESCENTE - 1.4 - t) / 1.0, 0.0, 1.0)
 	_bandeau.modulate.a = clampf((t - T_FIN + 0.4) / 0.6, 0.0, 1.0) * clampf((T_FIN + 9.0 - t) / 1.2, 0.0, 1.0)
 	_passer.visible = t < T_FIN
-	# L'étoile qui tombe, l'éclat à l'arrivée, puis l'habitant.
-	var v := clampf((t - T_ETOILE) / (T_DESCENTE - 0.2 - T_ETOILE), 0.0, 1.0)
+	# L'étoile qui tombe en semant des étincelles, l'onde et la gerbe à l'arrivée, puis l'habitant.
+	var v := clampf((t - T_ETOILE) / (impact - T_ETOILE), 0.0, 1.0)
 	_etoile.visible = t > T_ETOILE and v < 1.0
-	var haut := ARRIVEE + Vector3(4.0, 42.0, -8.0)
-	_etoile.position = haut.lerp(ARRIVEE + Vector3(0, 0.3, 0), v * v)
-	var sens := (haut - ARRIVEE).normalized()
-	_etoile.basis = Basis(Quaternion(Vector3.UP, sens))
-	var e := clampf((t - (T_DESCENTE - 0.2)) / 1.4, 0.0, 1.0)
-	_eclat.light_energy = 6.0 * (1.0 - e) * (1.0 if t > T_DESCENTE - 0.2 else 0.0)
-	player.visible = t >= T_DESCENTE - 0.2
+	_etincelles.emitting = _etoile.visible
+	var depart := ARRIVEE + Vector3(4.0, 42.0, -8.0)
+	_etoile.position = depart.lerp(ARRIVEE + Vector3(0, 0.3, 0), v * v)
+	_etoile.basis = Basis(Quaternion(Vector3.UP, (depart - ARRIVEE).normalized()))
+	var o := clampf((t - impact) / 1.3, 0.0, 1.0)
+	_onde.visible = t > impact and o < 1.0
+	_onde.scale = Vector3.ONE * lerpf(0.4, 9.0, ease(o, 0.35))
+	(_onde.material_override as ShaderMaterial).set_shader_parameter("force", (1.0 - o) * (1.0 - o))
+	if t > impact and (avant <= impact or not _posee):
+		_posee = true
+		_poussiere.restart()
+	var e2 := clampf((t - impact) / 1.4, 0.0, 1.0)
+	_eclat.light_energy = 9.0 * (1.0 - e2) * (1.0 - e2) * (1.0 if t > impact else 0.0)
+	player.visible = t >= impact
 	player.frozen = t < T_FIN
 	_poser_lanterne(_t)
+
+
+## Un point de la courbe de Catmull-Rom qui passe par `pts`, à `u` de 0 (le premier) à 1 (le dernier).
+static func _catmull(pts: Array, u: float) -> Vector3:
+	var n := pts.size() - 1
+	var x := clampf(u, 0.0, 1.0) * n
+	var i := mini(int(x), n - 1)
+	var f := x - i
+	var p0: Vector3 = pts[maxi(i - 1, 0)]
+	var p1: Vector3 = pts[i]
+	var p2: Vector3 = pts[i + 1]
+	var p3: Vector3 = pts[mini(i + 2, n)]
+	return 0.5 * ((2.0 * p1) + (-p0 + p2) * f + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * f * f + (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * f * f * f)
 
 
 ## Passe la mise en scène : la main est à l'habitant, la caméra à crans le suit.
@@ -772,6 +1186,8 @@ func _process(delta: float) -> void:
 		_poser_lanterne(_t)
 		# Le bandeau d'arrivée s'efface tout seul.
 		_bandeau.modulate.a = clampf((T_FIN + 9.0 - _arrivee) / 1.2, 0.0, 1.0)
+	if _couronne != null:
+		_couronne.rotation.y = _t * 0.004
 	for n in _nageoires:
 		(n[0] as Node3D).rotation.z = n[1] * sin(_t * 0.7 + n[2]) * 0.22
 	for o in _oreilles:
