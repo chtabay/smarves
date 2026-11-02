@@ -343,6 +343,46 @@ func _init() -> void:
 	var corps8: MeshInstance3D = l8.find_child("Corps", true, false)
 	var loin8: MeshInstance3D = l8.find_child("Lointain", true, false)
 	check(corps8 != null and loin8 != null and corps8.visibility_range_end == 0.0 and corps8.has_meta("sans_lointain") and loin8.visibility_range_begin >= 100000.0 and loin8.has_meta("corps_lointain"), "lod « loin » du façadier lyonnais bâtit les deux corps sans bascule en jeu : le corps de près marqué sans_lointain, le corps lointain hors de vue")
+	# le monde secret sous les cartes (Guillaume, 2 novembre 2026) : trois modules en unités du jeu, chacun un
+	# maillage ; le disque a son dessus plat à y = 0 sur le rayon de l'île, l'éléphant livre son point d'appui, la
+	# tortue la hauteur de sa carapace à toute distance du centre (pour y poser les éléphants)
+	var sc_ms := Bibliotheque.scene("monde-secret@1", "decor")
+	check(sc_ms != "" and ResourceLoader.exists(sc_ms), "la bibliothèque a monde-secret@1, un décor")
+	if sc_ms != "":
+		var paquet_ms: PackedScene = load(sc_ms)
+		var ms := Node3D.new()
+		root.add_child(ms)
+		var modules_ms: Array = paquet_ms.instantiate().noms()
+		var rates_ms := []
+		var metas_ms := {}
+		for nom in modules_ms:
+			var d: Node3D = paquet_ms.instantiate()
+			d.module = nom
+			d.graine = 3
+			ms.add_child(d)
+			metas_ms[nom] = d
+			if d.get_meta("module", "") != nom or d.find_children("*", "MeshInstance3D", true, false).size() != 1:
+				rates_ms.append(nom)
+		check(modules_ms.size() == 3 and rates_ms.is_empty(), "monde-secret@1 : les %d modules se bâtissent, un maillage chacun %s" % [modules_ms.size(), str(rates_ms)])
+		var disque: Node3D = metas_ms["disque"]
+		var y_max := -1000.0
+		var dessus_plat := 0
+		var mi_d: MeshInstance3D = disque.find_children("*", "MeshInstance3D", true, false)[0]
+		for v in mi_d.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]:
+			y_max = maxf(y_max, v.y)
+			if absf(v.y) < 0.001 and Vector2(v.x, v.z).length() <= float(disque.get_meta("ile")) + 0.01:
+				dessus_plat += 1
+		check(absf(float(disque.get_meta("rayon")) - 30.0) < 0.01 and absf(float(disque.get_meta("ile")) - 22.0) < 0.01 and dessus_plat >= 64 and y_max < 1.0, "le disque du monde secret a son dessus plat à y = 0 sur le rayon de l'île (rayon %.0f, île %.0f, %d sommets à plat, rien au-dessus de 1)" % [float(disque.get_meta("rayon")), float(disque.get_meta("ile")), dessus_plat])
+		var elephant: Node3D = metas_ms["elephant"]
+		var dos: Vector3 = elephant.get_meta("dos")
+		var y_el := -1000.0
+		for v in (elephant.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]:
+			y_el = maxf(y_el, v.y)
+		check(absf(dos.y - 19.0) < 0.01 and absf(y_el - 19.0) < 0.6, "l'éléphant du monde secret porte son dos à 19 (méta dos %.1f, sommet du maillage %.1f)" % [dos.y, y_el])
+		var tortue: Node3D = metas_ms["tortue"]
+		var ha: Callable = tortue.get_meta("hauteur_a")
+		check(absf(float(tortue.get_meta("dessus")) - 22.0) < 0.01 and absf(float(ha.call(0.0)) - 22.0) < 0.01 and absf(float(ha.call(16.0)) - 21.06) < 0.1 and float(ha.call(60.0)) == 0.0, "la tortue du monde secret donne la hauteur de sa carapace à toute distance du centre (22 au sommet, %.2f à 16)" % float(ha.call(16.0)))
+		ms.free()  # ses collisions (la carapace, le plateau) couvrent l'origine : rien ne doit en rester pour la suite
 	var quai: Node3D = load(Bibliotheque.scene("quais-lyonnais@1", "decor")).instantiate()
 	quai.module = "escalier_haut"
 	lyon.add_child(quai)
