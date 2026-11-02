@@ -58,6 +58,8 @@ func _demarrer() -> void:
 		get_tree().quit(0)
 		return
 	Game.saving_enabled = false
+	# Ses biens, eux, se gardent dans son dossier de partie : le serveur ne les tient pas (R-018).
+	Biens.garder_au_pilote = true
 	Game.welcomed = true
 	Game.credits = int(e.get("solde", 0))
 	Game.won = maxi(int(e.get("gagne", 0)), 0)
