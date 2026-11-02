@@ -13,6 +13,15 @@ static func available(config: ConfigFile) -> bool:
 	var executable := str(config.get_value("installation", "executable", ""))
 	return executable.is_absolute_path() and FileAccess.file_exists(executable)
 
+static func human_arguments(config: ConfigFile, path: String) -> PackedStringArray:
+	var args: PackedStringArray = ["--", "--passage-file=" + path]
+	var server_url := str(config.get_value("installation", "server_url", ""))
+	if server_url.begins_with("wss://"):
+		args.append("--join=" + server_url)
+		var ca := str(config.get_value("installation", "tls_ca", ""))
+		if not ca.is_empty(): args.append("--tls-ca=" + ca)
+	return args
+
 static func launch(subject: String, appearance: Dictionary, pensionnaire := "") -> bool:
 	var config := ConfigFile.new()
 	if config.load(CONFIG) != OK or not available(config):
@@ -35,7 +44,7 @@ static func launch(subject: String, appearance: Dictionary, pensionnaire := "") 
 		# Le pilote prend le relais à la frontière de son prochain geste, sans deux lecteurs de commandes.
 		(Engine.get_main_loop() as SceneTree).root.set_meta("reve_pilot_handoff", {"executable":executable,"path":ProjectSettings.globalize_path(filename),"server_url":server_url,"ca":str(config.get_value("installation","tls_ca",""))})
 		return true
-	var args: PackedStringArray = ["--", "--passage-file=" + ProjectSettings.globalize_path(filename)]
+	var args := human_arguments(config, ProjectSettings.globalize_path(filename))
 	var pid := OS.create_process(executable, args)
 	if pid < 0:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(filename))
