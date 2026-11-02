@@ -1,15 +1,30 @@
 extends SceneTree
 const Passage = preload("res://scripts/socle/reve_passage.gd")
 func _init() -> void:
+	call_deferred("run")
+func run() -> void:
 	var config := ConfigFile.new()
 	assert(not Passage.available(config))
 	config.set_value("installation", "executable", "missing")
 	assert(not Passage.available(config))
-	var value := Passage.descriptor("u_1", {"skin": "#bb8866"}, "p_1")
+	var value: Dictionary = Passage.descriptor("u_1", {"skin": "#bb8866"}, "p_1")
 	assert(value.version == 1 and value.origin == "smarves")
 	assert(value.expected_subject == "u_1" and value.pensionnaire == "p_1")
 	assert(not value.has("token") and not value.has("access_token"))
 	assert(value.nonce.length() == 48)
 	assert(value.nonce != Passage.descriptor("u_1", {}).nonce)
+	var owner := Node.new()
+	root.add_child(owner)
+	assert(not (await Passage.transfer_pilot(owner)))
+	if OS.get_name() == "Linux":
+		var path := ProjectSettings.globalize_path("user://reve_passage_test_failure.json")
+		var file := FileAccess.open(path,FileAccess.WRITE)
+		file.store_string("{}")
+		file.close()
+		root.set_meta("reve_pilot_handoff",{"executable":"/bin/false","path":path,"server_url":"wss://127.0.0.1:27841","ca":""})
+		assert(not (await Passage.transfer_pilot(owner)))
+		assert(not root.has_meta("reve_pilot_handoff") and not FileAccess.file_exists(path))
+	owner.queue_free()
 	print("Passage : disponibilité, identité indicative, absence de secret — OK")
 	quit()
+

@@ -83,6 +83,9 @@ func _demarrer() -> void:
 func _boucle() -> void:
 	var rates := 0
 	while true:
+		if await load("res://scripts/socle/reve_passage.gd").transfer_pilot(self):
+			get_tree().quit(0)
+			return
 		var demande := {"n": _dernier}
 		demande.merge(_ou())
 		var r := await _appeler("pilote_attendre", demande)
@@ -231,3 +234,4 @@ func _appeler(action: String, args: Dictionary) -> Dictionary:
 	if rep[1] == 401:
 		lu["fin"] = true
 	return lu
+
