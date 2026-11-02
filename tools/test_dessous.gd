@@ -54,12 +54,19 @@ func _init() -> void:
 	await attendre(20)
 	check(current_scene == s, "un saut de quelques images sous le sol ne fait pas passer au Dessous")
 
-	# La vraie chute : le sol s'ouvre sous l'habitant (sa collision coupée), il tombe.
+	# La vraie chute : le sol s'ouvre sous l'habitant (sa collision coupée), il tombe. Trente secondes dans le
+	# jeu ; le test raccourcit l'attente à trois, et vérifie qu'à deux on tombe encore.
+	check(is_equal_approx(dessous.duree_de_chute, 30.0), "on passe au bout de trente secondes de chute (%.0f s)" % dessous.duree_de_chute)
+	dessous.duree_de_chute = 3.0
 	await attendre(40)
 	var ferme: Vector3 = dessous.sol_ferme().origin
 	p.collision_mask = 0
 	var t := 0
-	while current_scene == s and t < 600:
+	while dessous.temps_de_chute < 2.0 and t < 400:
+		await attendre(1)
+		t += 1
+	check(current_scene == s and dessous.visible, "à deux secondes de trois, on tombe encore, le noir monte")
+	while current_scene == s and t < 900:
 		await attendre(1)
 		t += 1
 	await attendre(10)
@@ -67,6 +74,7 @@ func _init() -> void:
 	check(dessous.origine.get("lieu", "") == "Ligugé", "le Dessous sait d'où l'on vient (%s)" % dessous.origine.get("lieu", ""))
 	check(is_instance_valid(s) and not s.is_inside_tree() or not s.visible, "Ligugé est gardée, cachée")
 	p.collision_mask = 1
+	dessous.duree_de_chute = 30.0
 	var monde: Node3D = current_scene
 	check(monde.player != null and monde.player.frozen, "l'arrivée est mise en scène, l'habitant attend")
 	check(monde.get_node_or_null("Akoupara") != null and monde.get_node_or_null("Lanterne") != null, "Akoupara et la Lanterne sont là")
@@ -75,6 +83,21 @@ func _init() -> void:
 		if monde.get_node_or_null(e) != null:
 			n += 1
 	check(n == 4, "les quatre éléphants portent le disque (%d)" % n)
+	# Le pays : la clairière à plat, le Meru au milieu, la mer vers le bord ; et pas un mot pendant l'arrivée.
+	check(absf(monde.hauteur(monde.CLAIRIERE.x, monde.CLAIRIERE.y) - monde.SOL_CLAIRIERE) < 0.1, "la clairière est à plat")
+	check(monde.hauteur(0.0, 0.0) > 80.0, "le Meru se dresse au milieu (%.0f)" % monde.hauteur(0.0, 0.0))
+	var mer := 0
+	for i in 36:
+		if monde.hauteur(cos(TAU * i / 36.0) * monde.DISQUE * 0.95, sin(TAU * i / 36.0) * monde.DISQUE * 0.95) < 0.0:
+			mer += 1
+	check(mer > 12 and mer < 36, "la mer touche le bord, quelques caps aussi (%d sur 36)" % mer)
+	var mots := 0
+	for l in monde.find_children("*", "Label", true, false):
+		if (l as Label).is_visible_in_tree() and (l as Label).text != "":
+			mots += 1
+	for l in monde.find_children("*", "Label3D", true, false):
+		mots += 1
+	check(mots == 0 and not dessous._voile.get_children().any(func(c): return c is Label), "l'arrivée se fait sans un mot")
 	monde.call("_finir_arrivee")
 	await attendre(30)
 	check(not monde.player.frozen and monde.player.is_on_floor(), "l'habitant a la main, posé sur l'île")
