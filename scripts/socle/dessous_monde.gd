@@ -1527,6 +1527,11 @@ static func _catmull(pts: Array, u: float) -> Vector3:
 func _finir_arrivee() -> void:
 	if not _en_arrivee:
 		return
+	# Easter egg facultatif : seulement après la cinématique, au noir de l’arrivée.
+	# Sans installation locale, le Dessous et sa Porte restent strictement inchangés.
+	var passage = load("res://scripts/socle/reve_passage.gd")
+	if passage != null:
+		passage.launch(str(Compte.joueur_id), Cast.moi())
 	_en_arrivee = false
 	_arrivee = maxf(_arrivee, T_FIN)
 	for b in _bandes:

@@ -1,0 +1,15 @@
+extends SceneTree
+const Passage = preload("res://scripts/socle/reve_passage.gd")
+func _init() -> void:
+	var config := ConfigFile.new()
+	assert(not Passage.available(config))
+	config.set_value("installation", "executable", "missing")
+	assert(not Passage.available(config))
+	var value := Passage.descriptor("u_1", {"skin": "#bb8866"}, "p_1")
+	assert(value.version == 1 and value.origin == "smarves")
+	assert(value.expected_subject == "u_1" and value.pensionnaire == "p_1")
+	assert(not value.has("token") and not value.has("access_token"))
+	assert(value.nonce.length() == 48)
+	assert(value.nonce != Passage.descriptor("u_1", {}).nonce)
+	print("Passage : disponibilité, identité indicative, absence de secret — OK")
+	quit()
