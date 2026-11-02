@@ -11,7 +11,8 @@ extends CanvasLayer
 ## sinon le groupe « player » de scripts/fp_player.gd), retient où il a eu les pieds sur un sol, et quand il
 ## tombe sans rien toucher pendant DUREE_DE_CHUTE (30 secondes ; Guillaume, 2 novembre 2026 : « tout cela ne se
 ## déclenche qu'au bout de 30 sec de chute »), il passe au Dessous. Les dernières secondes, le noir monte.
-## La scène quittée est gardée (Chargement.garder) : au retour, elle reprend telle qu'on l'a laissée.
+## Le passage se fait au noir, sans un mot (Guillaume : « pas de texte »). La scène quittée est gardée
+## (Chargement.garder) : au retour, elle reprend telle qu'on l'a laissée.
 ## Une scène qui a de vrais précipices (un puits de mine, une falaise) peut s'en retirer : la méta
 ## « sans_dessous » sur sa racine, ou `var dessous := false`.
 
@@ -30,7 +31,6 @@ const ASSOMBRI := 4.0
 ## moins une demi-seconde avant la chute, loin du bord du trou par où l'on est passé.
 const DEMI := 0.5
 const NUIT := Color(0.02, 0.02, 0.05)
-const OR := Color(0.96, 0.8, 0.45)
 
 ## Le passage est-il permis (les outils de mesure peuvent le couper) ?
 var permis := true
@@ -54,7 +54,6 @@ var _horloge := 0.0
 var _en_cours := false
 
 var _voile: ColorRect
-var _texte: Label
 
 
 func _ready() -> void:
@@ -66,16 +65,6 @@ func _ready() -> void:
 	_voile.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_voile.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(_voile)
-	_texte = Label.new()
-	_texte.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_texte.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_texte.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_texte.add_theme_font_size_override("font_size", 26)
-	_texte.add_theme_color_override("font_color", OR)
-	var police := Polices.titre()
-	if police:
-		_texte.add_theme_font_override("font", police)
-	_voile.add_child(_texte)
 
 
 ## Est-on au Dessous ?
@@ -131,7 +120,6 @@ func _physics_process(delta: float) -> void:
 	var reste := duree_de_chute - temps_de_chute
 	if reste < ASSOMBRI:
 		_voile.modulate.a = clampf(1.0 - reste / ASSOMBRI, 0.0, 1.0) * 0.85
-		_texte.text = ""
 		visible = true
 	var taille := float(p.get("body_height")) if p.get("body_height") != null else 1.7
 	if temps_de_chute >= duree_de_chute and p.global_position.y < _ref_y - maxf(PROFONDEUR_MIN, PROFONDEUR * taille):
@@ -169,7 +157,7 @@ func sol_ferme() -> Transform3D:
 	return _sol_ancien if _a_un_sol else _sol_recent
 
 
-## Le nom du lieu d'où l'on vient, pour les textes du Dessous.
+## Le nom du lieu d'où l'on vient (Dessous.origine.lieu, pour les contenus à venir).
 func nom_du_lieu(chemin: String) -> String:
 	if chemin.begins_with("res://communes/"):
 		var c: Commune = Communes.commune(chemin.trim_prefix("res://communes/").get_slice("/", 0))
@@ -201,7 +189,7 @@ func tomber() -> void:
 		p.velocity = Vector3.ZERO
 		if "frozen" in p:
 			p.frozen = true
-	await _voiler(1.0, 0.8, "Trente secondes de chute…\nvous êtes passé à travers %s." % origine.lieu)
+	await _voiler(1.0, 0.8)
 	if p != null and is_instance_valid(p):
 		p.global_transform = xf
 		p.velocity = Vector3.ZERO
@@ -232,7 +220,7 @@ func remonter() -> void:
 	if chemin == "":
 		var c: Commune = Communes.origine()
 		chemin = str(c.data.scene) if c != null else "res://scenes/main.tscn"
-	await _voiler(1.0, 0.7, "Vous remontez vers %s…" % str(o.get("lieu", nom_du_lieu(chemin))))
+	await _voiler(1.0, 0.7)
 	Chargement.changer(chemin)
 	await tree.process_frame
 	await tree.process_frame
@@ -258,9 +246,8 @@ func remonter() -> void:
 	_en_cours = false
 
 
-func _voiler(alpha: float, duree: float, texte := "") -> void:
+func _voiler(alpha: float, duree: float) -> void:
 	if alpha > 0.0:
-		_texte.text = texte
 		if not visible:
 			_voile.modulate.a = 0.0
 		visible = true

@@ -83,6 +83,21 @@ func _init() -> void:
 		if monde.get_node_or_null(e) != null:
 			n += 1
 	check(n == 4, "les quatre éléphants portent le disque (%d)" % n)
+	# Le pays : la clairière à plat, le Meru au milieu, la mer vers le bord ; et pas un mot pendant l'arrivée.
+	check(absf(monde.hauteur(monde.CLAIRIERE.x, monde.CLAIRIERE.y) - monde.SOL_CLAIRIERE) < 0.1, "la clairière est à plat")
+	check(monde.hauteur(0.0, 0.0) > 80.0, "le Meru se dresse au milieu (%.0f)" % monde.hauteur(0.0, 0.0))
+	var mer := 0
+	for i in 36:
+		if monde.hauteur(cos(TAU * i / 36.0) * monde.DISQUE * 0.95, sin(TAU * i / 36.0) * monde.DISQUE * 0.95) < 0.0:
+			mer += 1
+	check(mer > 12 and mer < 36, "la mer touche le bord, quelques caps aussi (%d sur 36)" % mer)
+	var mots := 0
+	for l in monde.find_children("*", "Label", true, false):
+		if (l as Label).is_visible_in_tree() and (l as Label).text != "":
+			mots += 1
+	for l in monde.find_children("*", "Label3D", true, false):
+		mots += 1
+	check(mots == 0 and not dessous._voile.get_children().any(func(c): return c is Label), "l'arrivée se fait sans un mot")
 	monde.call("_finir_arrivee")
 	await attendre(30)
 	check(not monde.player.frozen and monde.player.is_on_floor(), "l'habitant a la main, posé sur l'île")
