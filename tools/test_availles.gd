@@ -24,7 +24,7 @@ func _init() -> void:
 	communes.dossier_greffes = TMP
 	var pk := PCKPacker.new()
 	pk.pck_start(TMP + "availles_limouzine.pck")
-	for f in ["commune.json", "commune.tscn", "availles.gd", "remarquables.gd", "bourg.json", "zones.json", "sol.png.import"]:
+	for f in ["commune.json", "commune.tscn", "availles.gd", "remarquables.gd", "eglise.gd", "abords.gd", "jardin.gd", "feuillage.gdshader", "bourg.json", "zones.json", "sol.png.import"]:
 		pk.add_file("res://communes/availles_limouzine/" + f, SOURCE + f)
 	var imp := ConfigFile.new()
 	imp.load(SOURCE + "sol.png.import")
@@ -166,6 +166,43 @@ func _init() -> void:
 			var avance: float = (Vector2(p.global_position.x, p.global_position.z) - rive).dot(d3)
 			check(avance > 5.0 and p.global_position.y > float(data.niveau_eau) + 1.0, "l'habitant monte sur le pont %s (%.1f unités, y %.2f)" % [sens[2], avance, p.global_position.y])
 		vue.basculer(s)
+
+	# La porte de la Rivière, au bout de la rue des Cavaliers : on la passe à pied, de la rue au quai du lavoir.
+	vue.basculer(s)
+	var axe := Vector2(0.32, -0.95).normalized()  # remarquables.gd, RIVIERE_A : de la rue vers la rivière
+	var voute := Vector2(69.05, -3.75)  # RIVIERE_C, le milieu de l'arc
+	var dans_la_rue := voute - axe * 2.5
+	p.global_position = Vector3(dans_la_rue.x, s.sol(dans_la_rue.x, dans_la_rue.y) + 0.3, dans_la_rue.y)
+	p.velocity = Vector3.ZERO
+	p.rotation.y = atan2(-axe.x, -axe.y)
+	await _attendre(0.5)
+	p.auto_move = Vector3(0, 0, -1)
+	await _attendre(3.0)
+	p.auto_move = Vector3.ZERO
+	var passe: float = (Vector2(p.global_position.x, p.global_position.z) - voute).dot(axe)
+	check(passe > 1.2, "on passe la porte de la Rivière, de la rue des Cavaliers au quai (%.1f unités au-delà de l'arc)" % passe)
+	vue.basculer(s)
+
+	# Les rues du vieux bourg sont calées entre les façades : la chaussée n'entre dans aucune maison.
+	var dans_maison := 0
+	var calees := 0
+	for r in data.routes:
+		if not r.get("vieille", false):
+			continue
+		calees += 1
+		for k in range(1, r.p.size() - 1):
+			var q := Vector2(r.p[k][0], r.p[k][1])
+			var d := (Vector2(r.p[k + 1][0], r.p[k + 1][1]) - Vector2(r.p[k - 1][0], r.p[k - 1][1])).normalized()
+			var perp := Vector2(-d.y, d.x)
+			for bord in [q + perp * (float(r.lg[k]) - 0.05), q - perp * (float(r.ld[k]) - 0.05)]:
+				if s._bati_en(bord, -1, false) >= 0:
+					dans_maison += 1
+	check(calees >= 5 and dans_maison < 10, "les rues du vieux bourg sont calées entre les façades (%d rues, %d bords dans une maison)" % [calees, dans_maison])
+	var cav_calee := false
+	for r in data.routes:
+		if str(r.get("nom", "")) == "Rue des Cavaliers" and r.get("vieille", false):
+			cav_calee = true
+	check(cav_calee, "dont la rue des Cavaliers")
 
 	# Le stade municipal, rive gauche : le nœud de la structure, et son entrée qui ouvre le stade du socle.
 	var terrain := s.find_child("Stade", false, false)

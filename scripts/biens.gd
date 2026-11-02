@@ -993,8 +993,13 @@ func _maybe_reprise() -> String:
 
 # --- Sauvegarde : un fichier à part, qui ne touche pas à celui de la partie ---------------------
 
+## Le pilote des pensionnaires (scripts/socle/pilote_reseau.gd) ne sauvegarde pas la partie (son argent est au
+## serveur), mais ses biens si : sans eux, un redémarrage du jeu effaçait la maison payée (remontée R-018).
+var garder_au_pilote := false
+
+
 func _can_save() -> bool:
-	return Game.saving_enabled and get_tree().get_script() == null and not "--capture" in " ".join(OS.get_cmdline_user_args())
+	return (Game.saving_enabled or garder_au_pilote) and get_tree().get_script() == null and not "--capture" in " ".join(OS.get_cmdline_user_args())
 
 
 func _save() -> void:

@@ -53,15 +53,65 @@ func _lancer() -> void:
 	var club := "smarves"
 
 	# ---- sans club suivi : « Mes clubs » n'a que le calendrier
-	check(carnet.pages_clubs().map(func(p): return p[0]) == ["calendrier"], "sans part, Mes clubs n'a que le calendrier")
+	check(carnet.pages_clubs().map(func(p): return p[0]) == ["tous", "comment", "calendrier"], "sans part, Mes clubs a « Tous les clubs », « Comment ça marche » et le calendrier")
 	carnet.ouvrir_sur("clubs")
 	await process_frame
 	check(_textes(carnet.get("_left")).contains("Le football") and _textes(carnet.get("_right")).contains("Le basket"), "et il montre les deux championnats")
+	check(carnet.get("_club_vu") == "tous" and carnet.get("_left").find_child("Club_football_" + club, true, false) != null, "« Tous les clubs » d'abord : l'Étoile y a sa ligne")
+	# ---- comment ça marche : la règle des clubs, toujours là
+	carnet.ouvrir_club("comment")
+	await process_frame
+	var regle := _textes(carnet.get("_left")) + _textes(carnet.get("_right"))
+	check(regle.contains("SUIVRE UN CLUB") and regle.contains("LES PARTS") and regle.contains("QUI DIRIGE") and regle.contains("lundi à midi") and regle.contains("LA TACTIQUE (FOOTBALL)"),
+		"« Comment ça marche » : suivre, les parts, qui dirige, la relève, la tactique")
+	# ---- supporter : on ouvre l'Étoile depuis « Tous les clubs », on la suit sans part
+	carnet.ouvrir_club("tous")
+	await process_frame
+	(carnet.get("_left").find_child("Club_football_" + club, true, false) as Button).pressed.emit()
+	await process_frame
+	check(carnet.get("_club_vu") == club and carnet.pages_clubs().map(func(p): return p[0]) == [club, "tous", "comment", "calendrier"], "un clic ouvre sa page, le temps de la lire")
+	var tf := _textes(carnet.get("_left"))
+	check(tf.contains("vous ne le suivez pas") and carnet.get("_left").find_child("Tactique_club", true, false) != null, "sa page dit qu'on ne le suit pas, et montre sa tactique")
+	check(tf.contains("4-4-2") and tf.contains("mentalité équilibrée") and tf.contains("Gardien") and tf.contains("Attaque") and tf.contains("l'adjoint aligne l'équipe type"),
+		"la tactique se lit : formation, mentalité, le onze ligne par ligne, qui l'a posée")
+	(carnet.get("_left").find_child("Suivre", true, false) as Button).pressed.emit()
+	await process_frame
+	check(avis.suit("football", club) and _textes(carnet.get("_left")).contains("vous le suivez") and (carnet.get("_left").find_child("Suivre", true, false) as Button).text == "Ne plus suivre",
+		"« Suivre ce club » : on le suit, sans part")
+	var ardoise: Node = load("res://scripts/socle/foot_tableau.gd").new()
+	var q: Array = foot.place_de(club)
+	check(ardoise.call("division_suivie") == [q[0], q[1]] and (ardoise.call("clubs_suivis") as Array).has(club), "le tableau du café met à la craie la division du club suivi")
+	ardoise.free()
+	# Ses nouvelles : les buteurs du match, le rendez-vous de la veille, le président qui change.
+	var courrier: GDScript = load("res://scripts/socle/foot_courrier.gd")
+	var m1: Dictionary = courrier.match_de(foot, club, 1, 1)
+	var buts: String = courrier.buts(foot, club, 1, 1, m1)
+	var score: Array = m1.score
+	check((int(score[0]) + int(score[1]) == 0 and buts == "") or (buts.contains("'") and (buts.begins_with("Buts : ") or buts.begins_with("En face : "))), "les buteurs d'un match joué : %s" % buts)
+	var t0 := t
+	t = foot.coup_envoi(1, 6) - 3 * 3600
+	check(avis.call("_veille", foot, club) and avis.liste.any(func(x): return str(x.id).begins_with("veille/1/6/" + club) and str(x.lien.vers) == "stade"), "la veille du match, le rendez-vous au stade")
+	t = t0
+	check(avis.call("_president", foot, club), "la première lecture note le président")
+	foot.forcer_porteurs("Lucien:5", club)
+	avis.call("_president", foot, club)
+	check(avis.liste.any(func(x): return str(x.titre).begins_with("Lucien dirige désormais")), "un nouveau président : la nouvelle arrive au supporter")
+	carnet.ouvrir_club(club)
+	await process_frame
+	var lf: Node = carnet.get("_left")
+	check(lf.find_child("Action_Statistiques", true, false) != null and lf.find_child("Action_Voir_bureau", true, false) != null and lf.find_child("Action_Entrainement", true, false) == null
+		and lf.find_child("Action_Mercato", true, false) == null, "le supporter a ses boutons : statistiques, voir le bureau, stade, notaire ; pas ceux du dirigeant")
+	foot.forcer_porteurs("", club)
+	carnet.ouvrir_club("tous")
+	await process_frame
+	check(carnet.pages_clubs().map(func(p): return p[0]) == [club, "tous", "comment", "calendrier"], "suivi, il reste dans Mes clubs")
+	avis.suivre("football", club, false)
+	check(carnet.pages_clubs().map(func(p): return p[0]) == ["tous", "comment", "calendrier"], "« Ne plus suivre » : il en sort")
 	carnet.toggle()
 
 	# ---- une part de l'Étoile : sa page
 	foot.forcer_porteurs("vous:2", club)
-	check(carnet.pages_clubs().map(func(p): return p[0]) == [club, "calendrier"], "une page pour l'Étoile, puis le calendrier")
+	check(carnet.pages_clubs().map(func(p): return p[0]) == [club, "tous", "comment", "calendrier"], "une page pour l'Étoile, puis tous les clubs, la règle, le calendrier")
 	carnet.ouvrir_club(club)
 	await process_frame
 	var g: Node = carnet.get("_left")
@@ -88,6 +138,8 @@ func _lancer() -> void:
 	var d := _textes(carnet.get("_right"))
 	check(carnet.get("_right").find_child("Effectif", true, false) != null and d.contains("Note") and d.contains("Moral"), "en face, l'effectif")
 	check(d.contains("Vous en tenez 1, "), "les parts qu'on tient, en une ligne")
+	check(tg.contains("vous dirigez") and g.find_child("Regler_tactique", true, false) != null and g.find_child("Suivre", true, false) == null,
+		"on dirige : « Régler la tactique », et pas de « Suivre » (les parts suffisent)")
 	# ---- Gérer : le bureau s'ouvre par-dessus le carnet, sur sa page ; Échap ramène au carnet.
 	(actions.find_child("Action_Tactique", true, false) as Button).pressed.emit()
 	await process_frame

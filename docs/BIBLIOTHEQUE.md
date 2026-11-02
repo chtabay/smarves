@@ -289,6 +289,17 @@ Des voitures garées comme dans une rue des années 1980, demandées par la cart
 
 La grand-rue d'un bourg du Bugey, ses voitures garées et la suiveuse devant la ligne : `godot --path . -s tools/planche_voitures.gd -- --vue=rue --capture=planche.png` ; `--nom=bas` la montre depuis le trottoir, `--vue=garage` montre les six voitures.
 
+### Les taxis
+
+Demandés par Guillaume le 1er novembre 2026 : le taxi de Smarves, refait par l'atelier des véhicules (`scripts/socle/taxi.gd`, `scripts/socle/carrosserie.gd`), entre à la bibliothèque, avec un taxi jaune de la même facture.
+
+- **`taxis@1`** (`livree`, `options`) : le centre de la voiture à l'origine, les roues sur y = 0, l'avant vers +Z ; 4,6 m.
+  - Les livrées : `bleu-nuit` (la laque bleu nuit qui chatoie, le taxi de Smarves) et `jaune` (jaune d'or laqué, damier noir et blanc sous les glaces, lettres noires).
+  - Une berline basse : joncs chromés, jantes argent à dix branches, projecteurs en lames, bandeau rouge des feux arrière, et sur le pavillon le lumineux blanc « TAXI » et ses lampes de tarif.
+  - Options : `commune` (« TAXI · <COMMUNE> » sur les portières arrière), `plaque` (le numéro). Métadonnées : `livree`, `emprise`, `longueur`.
+
+Les deux livrées côte à côte : `godot --path . -s tools/planche_taxis.gd -- --capture=planche.png` ; le taxi de Smarves dans une autre livrée, sur la placette du jeu : `tools/capture_taxi.gd -- --livree=jaune`.
+
 ## Proposer une brique
 
 Une ville qui a fait un décor réutilisable le range, dans son propre paquet, sous `res://communes/<id>/bibliotheque/<id de la brique>/` avec une fiche `brique.json` :
@@ -364,6 +375,7 @@ Chacune est utile seule, et rien ne change dans la première salle.
 | 15 | Les fleuves, demandés par la carte de Belley : `fleuves@1` (fleuve, berges, digue, lône, île, ponton, barque), `arbres-des-rives@1` (peupliers, saule), leur planche et l'ambiance du Rhône (`tools/planche_fleuve.gd`) | smarves | **fait** |
 | 16 | Le matériel de course cycliste, demandé par la carte de Belley : `course-cycliste@1` (arche, flamme rouge, banderole, fanions, ligne, barrières, podium, estrade, vélo, râtelier, panneau des kilomètres) et sa planche d'arrivée d'étape (`tools/planche_course.gd`) | smarves | **fait** |
 | 17 | Les voitures des années 1980, demandées par la carte de Belley : `voitures-des-annees-80@1` (citadine, compacte, berline, break, fourgonnette, suiveuse) et sa planche de rue (`tools/planche_voitures.gd`) | smarves | **fait** |
+| 18 | Les taxis, demandés par Guillaume : `taxis@1` (bleu nuit, le taxi de Smarves, et jaune au damier) et sa planche (`tools/planche_taxis.gd`) | smarves | **fait** |
 | 6 | Les auteurs reconstruisent leurs paquets : pour Minuit, le bol de la Fortune par ses ancres, le Dôme une salle, les matières passent à la bibliothèque, les textures et les données se compressent | paquets | Minuit : fait, sauf le Dôme (0.10.5, 23 octobre 2026) ; L'Isle-Jourdain 0.2.3 dans les seuils |
 
 Il ne reste que l'étape 6, par les auteurs. Le 23 octobre 2026, Minuit passe le stade de la Fortune par ses ancres (0.10.5, socle 1.20 : le bol pourra devenir une brique, `stade-fortune@1`, une fois qu'il ne connaîtra plus le stade) et L'Isle-Jourdain repasse sous les seuils (0.2.3, [`docs/LENTEUR.md`](LENTEUR.md)). Le format des paquets est arrêté avec l'étape 3 et le budget par lieu avec la 7 : Civaux, Minuit, L'Isle-Jourdain et Cloué sont repris une fois, avec le SDK à jour, et l'emballeur dit à chaque auteur ce que ses lieux ont à alléger.

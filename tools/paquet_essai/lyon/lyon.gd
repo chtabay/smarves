@@ -48,12 +48,29 @@ const RESERVES := {
 	# la rue Terme, ses deux rives, et tout ce qui est à l'est, au sud de la rue Sainte-Catherine
 	"terreaux": [[Vector2(104, 124), Vector2(480, 124), Vector2(480, 424), Vector2(104, 424)]],
 	# la rive droite de la Saône au sud de la rive (le quai Pierre-Scize, à l'est de x = -147, reste à Sathonay),
-	# et tout ce qui est au sud de z = 280
+	# et le cadre du quartier au sud de z = 280 : son relevé va de x -584 à -57 (le quai) et jusqu'à z 609.
+	# Pas plus : au-delà (Saint-Jean, la Presqu'île au sud des Terreaux), la ville en volumes ferme les rues ;
+	# une réserve jusqu'à z 3000 laissait une plaine vide au bout des rues de Saint-Paul (juge, maquette 3).
 	"saint_paul": [[Vector2(-900, 188), Vector2(-432, 188), Vector2(-351, 188), Vector2(-314, 186),
 			Vector2(-302, 187), Vector2(-250, 202), Vector2(-200, 227), Vector2(-147, 280),
 			Vector2(-900, 280)],
-		[Vector2(-2000, 280), Vector2(2000, 280), Vector2(2000, 3000), Vector2(-2000, 3000)]],
+		[Vector2(-620, 280), Vector2(-50, 280), Vector2(-50, 625), Vector2(-620, 625)]],
 }
+
+## Le sol fin des quartiers hors du relevé : un quartier posé ne fait pas son sol (saint_paul.gd), le relevé de
+## Sathonay s'arrête à z = 279 m et le terrain lâche de la ville n'a ni grain ni collision. Dans ces cadres (en
+## mètres), lyon.gd pave et rend praticable chaque case du terrain lâche qui est hors de l'eau ; volumes.gd omet
+## les mêmes cases (sol_fin). Saint-Paul : son rayon de 220 m autour de (-230, 420), jusqu'au sas Saint-Jean.
+const SOL_QUARTIERS := {"saint_paul": Rect2(-480, 180, 480, 480)}
+## Le pas du sol fin, en mètres.
+const SOL_PAS := 5.0
+## Les replats hors du relevé : sous l'emprise d'un édifice de quartier, le relief de la ville est mis à une seule
+## altitude, celle de hauteur() au point de référence, avec un raccord en pente douce sur REPLAT_MARGE m autour
+## (juge, Saint-Paul maquette 4 : la cour Bullioud sur un terrain qui montait de 2 m). En mètres : le rectangle de
+## l'emprise, puis le point de référence.
+const REPLATS := {"bullioud": [Rect2(-268.0, 406.0, 38.5, 32.0), Vector2(-231.5, 422.5)]}
+const REPLAT_MARGE := 16.0
+
 
 ## Les lieux de la scène, en mètres (x vers l'est, z vers le sud), relevés sur le plan réel.
 const CENTRE_PLACE := Vector2(10.0, 18.0)
@@ -124,6 +141,9 @@ func _ready() -> void:
 	ville.name = "Ville"
 	ville.scale = Vector3.ONE / U
 	add_child(ville)
+	_bati = Node3D.new()
+	_bati.name = "Bati"
+	ville.add_child(_bati)
 	# les quartiers bâtissent en mètres, comme la ville : même repère, même réduction
 	$Quartiers.scale = Vector3.ONE / U
 	_niveler()
@@ -139,6 +159,7 @@ func _ready() -> void:
 	# au-delà du cadre, la ville en volumes (quartiers/_ville, tenue par la maquette des quartiers)
 	if ResourceLoader.exists(DOSSIER + "quartiers/_ville/volumes.gd"):
 		load(DOSSIER + "quartiers/_ville/volumes.gd").call("batir", $Quartiers)
+		_sol_quartiers()
 	_place()
 	_escalier()
 	_arbres()
@@ -151,13 +172,31 @@ func _ready() -> void:
 	_relief_de_pres()
 	_reperes()
 	_joueur()
+	_veille()
+	_imposteurs()
+	for k in MOBYLETTES.size():
+		add_child(MOBYLETTE.new(self, MOBYLETTES[k][0], MOBYLETTES[k][1], "Mobylette%d" % (k + 1)))
 
 
 # --- Le relief ------------------------------------------------------------------------------------
 
 ## L'altitude du sol en (x, z), en mètres, sur les mêmes triangles que le terrain dessiné.
-## Hors du relevé, le relief de la ville s'il est là, sinon l'altitude du bord.
+## Hors du relevé, le relief de la ville s'il est là, sinon l'altitude du bord ; sous un replat (REPLATS), une
+## seule altitude, raccordée en douceur au terrain alentour.
 func hauteur(x: float, z: float) -> float:
+	var h := _hauteur_terrain(x, z)
+	for nom in REPLATS:
+		var emprise: Rect2 = REPLATS[nom][0]
+		# la distance au rectangle (0 dedans) : du point à son plus proche point de l'emprise
+		var d := Vector2(x, z).distance_to(Vector2(clampf(x, emprise.position.x, emprise.end.x), clampf(z, emprise.position.y, emprise.end.y)))
+		if d < REPLAT_MARGE:
+			var ref: Vector2 = REPLATS[nom][1]
+			h = lerpf(_hauteur_terrain(ref.x, ref.y), h, smoothstep(0.0, REPLAT_MARGE, d))
+	return h
+
+
+## Le relief tel qu'il est relevé ou tenu par la ville, sans les replats.
+func _hauteur_terrain(x: float, z: float) -> float:
 	if _relief_ville != null and (x < _x0 or z < _z0 or x > _x0 + (_nx - 1) * _pas or z > _z0 + (_nz - 1) * _pas):
 		return _relief_ville.call("hauteur", x, z)
 	var fx := clampf((x - _x0) / _pas, 0.0, _nx - 1.001)
@@ -182,6 +221,85 @@ func _reserve(p: Vector2) -> bool:
 		if Geometry2D.is_point_in_polygon(p, poly):
 			return true
 	return false
+
+
+## Vrai si la case (en mètres) du terrain lâche de la ville se pave ici : dans le cadre d'un quartier présent
+## (SOL_QUARTIERS), pas entièrement dans le relevé, et ses quatre coins hors de l'eau. Appelé par volumes.gd.
+static func sol_fin(case: Rect2) -> bool:
+	var dedans := false
+	for nom in SOL_QUARTIERS:
+		if (SOL_QUARTIERS[nom] as Rect2).encloses(case) and ResourceLoader.exists(DOSSIER + "quartiers/%s/%s.gd" % [nom, nom]):
+			dedans = true
+			break
+	if not dedans:
+		return false
+	var relief: Script = load(DOSSIER + "quartiers/_ville/relief.gd")
+	if relief == null:
+		return false
+	for c in [case.position, case.position + Vector2(case.size.x, 0), case.position + Vector2(0, case.size.y), case.end]:
+		if float(relief.call("hauteur", c.x, c.y)) < 0.6:
+			return false
+	return true
+
+
+## Le sol fin (SOL_QUARTIERS) : sur les cases que sol_fin retient, une grille de SOL_PAS m sur hauteur(), la même
+## altitude que les pieds des immeubles du quartier, pavée comme la ville et praticable.
+func _sol_quartiers() -> void:
+	if _relief_ville == null:
+		return
+	var vol: Script = load(DOSSIER + "quartiers/_ville/volumes.gd")
+	var cadre: Array = _relief_ville.call("cadre")
+	if vol == null or cadre.is_empty():
+		return
+	var pas_case: float = vol.get("PAS_TERRAIN") if vol.get("PAS_TERRAIN") != null else 20.0
+	var releve := Rect2(_x0, _z0, (_nx - 1) * _pas, (_nz - 1) * _pas)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var faces := PackedVector3Array()
+	var n_sous := maxi(1, int(round(pas_case / SOL_PAS)))
+	var sp := pas_case / n_sous
+	var sommet := func(x: float, z: float) -> Vector3:
+		return Vector3(x, hauteur(x, z), z)
+	for nom in SOL_QUARTIERS:
+		var r: Rect2 = SOL_QUARTIERS[nom]
+		var i0 := int(floor((r.position.x - float(cadre[0])) / pas_case))
+		var i1 := int(ceil((r.end.x - float(cadre[0])) / pas_case))
+		var j0 := int(floor((r.position.y - float(cadre[1])) / pas_case))
+		var j1 := int(ceil((r.end.y - float(cadre[1])) / pas_case))
+		for j in range(j0, j1):
+			for i in range(i0, i1):
+				var case := Rect2(float(cadre[0]) + i * pas_case, float(cadre[1]) + j * pas_case, pas_case, pas_case)
+				if releve.encloses(case) or not sol_fin(case):
+					continue
+				for b in n_sous:
+					for a in n_sous:
+						var x := case.position.x + a * sp
+						var z := case.position.y + b * sp
+						if releve.encloses(Rect2(x, z, sp, sp)):
+							continue
+						var v: Array = [sommet.call(x, z), sommet.call(x + sp, z), sommet.call(x, z + sp), sommet.call(x + sp, z + sp)]
+						for k in [0, 1, 2, 1, 3, 2]:
+							var q: Vector3 = v[k]
+							var bruit := _rng.randf_range(-0.025, 0.025)
+							st.set_color(Color(PAVE.r + bruit, PAVE.g + bruit, PAVE.b + bruit))
+							st.set_uv(Vector2(q.x, q.z) / 4.0)
+							st.add_vertex(q)
+							faces.append(q)
+	if faces.is_empty():
+		return
+	st.generate_normals()
+	var mi := MeshInstance3D.new()
+	mi.name = "SolQuartiers"
+	mi.mesh = st.commit()
+	mi.material_override = materiau_paves()
+	ville.add_child(mi)
+	var corps := StaticBody3D.new()
+	var forme := CollisionShape3D.new()
+	var cs := ConcavePolygonShape3D.new()
+	cs.set_faces(faces)
+	forme.shape = cs
+	corps.add_child(forme)
+	mi.add_child(corps)
 
 
 ## La place est une terrasse plate : le seul replat d'un quartier en pente (le parti pris de la note).
@@ -296,7 +414,7 @@ func _ciel() -> void:
 	e.sky.sky_material = ciel
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	e.ambient_light_color = Color("#c8bda6")
-	e.ambient_light_energy = 0.55
+	e.ambient_light_energy = 0.70
 	e.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	e.tonemap_exposure = 0.74
@@ -448,7 +566,16 @@ const QUAI_VUE := Vector2(-138.0, 177.0)
 const RELIEF_PORTEE := 70.0
 ## Les sas de la veille vers les quartiers voisins, en mètres (VILLE.md, section 4) : le même point chez le voisin.
 const SAS := {"terreaux": Vector2(133.0, 118.0), "saint_paul": Vector2(-199.0, 236.0)}
+## À moins de cette distance d'un sas vers Sathonay (en mètres), la place revient entière avant qu'on y arrive.
+const SAS_PORTEE := 30.0
 var _modules_ville: Array[Node3D] = []
+## Le bâti de la place qui a une version lointaine (Bati), cette version (Bati_loin), et la veille qui dit où est
+## le joueur ; _sathonay_loin : la place est en imposteurs.
+var _bati: Node3D
+var _bati_loin: Node3D
+var _veille_noeud: Node
+var _sathonay_loin := false
+var _loin_horloge := 0.0
 ## Le parcours à pied par les rues (parcours_commune --reperes=Pas) : du quai au belvédère par la Martinière,
 ## Rambaud, Louis-Vitet et la place, puis redescendu jusqu'au sas des Terreaux. Chaque repère est un coude de rue,
 ## pour que la marche en ligne droite d'un repère au suivant reste sur la chaussée. En mètres.
@@ -583,7 +710,7 @@ func _quais() -> void:
 				if pa.distance_to(QUAI_VUE) < 9.0:
 					loin = false
 				if loin:
-					_pose(OMBRIERE, "arbre", "platane", Vector3(pa.x, y, pa.y), 700 + k, {"hauteur": alea.randf_range(12.5, 14.5), "vent": 0.3, "densite": 0.85})
+					_pose(OMBRIERE, "arbre", "platane", Vector3(pa.x, y, pa.y), 700 + k, {"hauteur": alea.randf_range(12.5, 14.5), "vent": 0.3, "densite": 0.85, "lod": "loin"})
 	var mt := MeshInstance3D.new()
 	mt.name = "TrottoirsDesQuais"
 	mt.mesh = trottoir.commit()
@@ -715,6 +842,22 @@ func _passerelle() -> void:
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	mi.material_override = mat
 	ville.add_child(mi)
+	# on marche dessus : le platelage seul porte l'habitant, et deux murs invisibles à la place des garde-corps
+	# le retiennent (les barreaux et les câbles ne sont pas des obstacles)
+	var marche := SurfaceTool.new()
+	marche.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in n:
+		var p0: Vector3 = tablier.call(float(i) / n)
+		var p1: Vector3 = tablier.call(float(i + 1) / n)
+		_poutre_st(marche, p0, p1, largeur, 0.08, planches)
+		for s in [-1.0, 1.0]:
+			var o: Vector3 = Vector3(cote.x, 0, cote.y) * s * (largeur * 0.5 + 0.06)
+			_poutre_st(marche, p0 + o + Vector3(0, 0.6, 0), p1 + o + Vector3(0, 0.6, 0), 0.08, 1.2, fer)
+	var corps := StaticBody3D.new()
+	var forme := CollisionShape3D.new()
+	forme.shape = marche.commit().create_trimesh_shape()
+	corps.add_child(forme)
+	mi.add_child(corps)
 
 
 ## Les rues en rubans posés sur le relief : la chaussée d'enrobé, les rues piétonnes et les montées pavées.
@@ -821,6 +964,21 @@ func _pres_rive(p: Vector2, d: float) -> bool:
 	return false
 
 
+## Le point est-il sur la chaussée d'un autre tronçon que c, à « marge » près (la grille de 20 m de _rues) ?
+## Sans les voisins, les tronçons qui touchent un bout de c (la suite de la même rue, à un coude) ne comptent pas.
+func _sur_autre_chaussee(q: Vector2, c: int, cases: Dictionary, voisins := true, marge := 0.1) -> bool:
+	var sc: Array = _chaussees[c]
+	for o in cases.get(Vector2i(floori(q.x / 20.0), floori(q.y / 20.0)), []):
+		if o == c:
+			continue
+		var sg: Array = _chaussees[o]
+		if not voisins and (sg[0].distance_to(sc[0]) < 0.5 or sg[0].distance_to(sc[1]) < 0.5 or sg[1].distance_to(sc[0]) < 0.5 or sg[1].distance_to(sc[1]) < 0.5):
+			continue
+		if Geometry2D.get_closest_point_to_segment(q, sg[0], sg[1]).distance_to(q) < sg[2] + marge:
+			return true
+	return false
+
+
 func _rues() -> void:
 	var enrobe := SurfaceTool.new()
 	enrobe.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -848,14 +1006,40 @@ func _rues() -> void:
 			if st == pietons and (_pres_rive(a, 8.0) or _pres_rive(b, 8.0) or _pres_rive((a + b) * 0.5, 8.0)):
 				continue
 			var n := (b - a).orthogonal().normalized() * l
-			var pa := [a - n, a + n, b + n, b - n]
-			var v := []
-			for p in pa:
-				v.append(Vector3(p.x, hauteur(p.x, p.y) + 0.06, p.y))
-			for idx in [0, 1, 2, 0, 2, 3]:
-				st.set_color(Color("#86827c") if st == enrobe else Color("#b3ab9d"))
-				st.set_normal(Vector3.UP)
-				st.add_vertex(v[idx])
+			# les chemins sous le dessus des trottoirs (+0,10) : ceux qui aboutissent à une rue la traversaient en
+			# bande de petits pavés par-dessus les dalles (verdict du paquet 0.2.2, au pied de la passerelle)
+			var dessus := 0.06 if st == enrobe else 0.02
+			# par pas de 2 m, pour suivre la pente : d'un bout à l'autre en ligne droite, le sol d'une rue en
+			# pente (la rue Terme) perçait la chaussée en échardes (verdict du paquet 0.2.7)
+			var pas := maxi(1, ceili(a.distance_to(b) / 2.0))
+			for m in pas:
+				var a2: Vector2 = a.lerp(b, float(m) / pas)
+				var b2: Vector2 = a.lerp(b, float(m + 1) / pas)
+				var pa := [a2 - n, a2 + n, b2 + n, b2 - n]
+				var v := []
+				for p in pa:
+					v.append(Vector3(p.x, hauteur(p.x, p.y) + dessus, p.y))
+				for idx in [0, 1, 2, 0, 2, 3]:
+					st.set_color(Color("#86827c") if st == enrobe else Color("#b3ab9d"))
+					st.set_normal(Vector3.UP)
+					st.add_vertex(v[idx])
+			# les bouts de chaussée arrondis : aux coudes et aux carrefours, deux rectangles qui se croisent
+			# laissaient un coin de sol entre eux (verdict du paquet 0.2.7, carrefour Martinière / Terme)
+			if st == enrobe:
+				for o in [a, b]:
+					if PLACE.has_point(o):
+						continue
+					var h0 := hauteur(o.x, o.y) + dessus - 0.005
+					for m in 12:
+						var u0 := Vector2.from_angle(TAU * m / 12.0) * l
+						var u1 := Vector2.from_angle(TAU * (m + 1) / 12.0) * l
+						var w0 := Vector3(o.x, h0, o.y)
+						var w1 := Vector3(o.x + u1.x, hauteur(o.x + u1.x, o.y + u1.y) + dessus - 0.005, o.y + u1.y)
+						var w2 := Vector3(o.x + u0.x, hauteur(o.x + u0.x, o.y + u0.y) + dessus - 0.005, o.y + u0.y)
+						for w in [w0, w1, w2, w0, w2, w1]:
+							st.set_color(Color("#86827c"))
+							st.set_normal(Vector3.UP)
+							st.add_vertex(w)
 			if st == enrobe and a.distance_to(CENTRE_PLACE) < 320.0:
 				chaussees.append([a, b, l])
 				var bo := Rect2(a, Vector2.ZERO).expand(b).grow(l + 1.0)
@@ -897,21 +1081,65 @@ func _rues() -> void:
 				var q: Vector2 = a + t * long * (j + 0.5) / nb + n * s * (l + 0.12)
 				if PLACE.has_point(q):
 					continue
-				var dans := false
-				for o in cases.get(Vector2i(floori(q.x / 20.0), floori(q.y / 20.0)), []):
-					if o == c:
-						continue
-					var sg: Array = chaussees[o]
-					if Geometry2D.get_closest_point_to_segment(q, sg[0], sg[1]).distance_to(q) < sg[2] + 0.1:
-						dans = true
-						break
-				if not dans:
-					# granit gris comme le parapet du quai, 13 cm de vue au-dessus de la chaussée
-					_boite_st(bordures, Vector3(q.x, hauteur(q.x, q.y) + 0.09, q.y), Vector3(long / nb + 0.02, 0.2, 0.2), ang, Color("#8e8f94"))
-					# le trottoir en dalles de granit, derrière la bordure, jusqu'aux façades
-					var tq: Vector2 = q + n * s * 1.63
-					if not PLACE.has_point(tq):
-						_boite_st(dalles, Vector3(tq.x, hauteur(tq.x, tq.y) + 0.04, tq.y), Vector3(long / nb + 0.02, 0.12, 3.0), ang, Color.WHITE)
+				# aux carrefours, une bordure dont un bout mordait sur une autre chaussée la traversait, et une dalle
+				# posée sur une autre rue la couvrait (verdict du paquet 0.2.7, carrefour Martinière / Terme)
+				var demi := t * (long / nb + 0.02) * 0.5
+				if _sur_autre_chaussee(q, c, cases) or _sur_autre_chaussee(q - demi, c, cases, false) or _sur_autre_chaussee(q + demi, c, cases, false):
+					continue
+				# granit gris comme le parapet du quai, 13 cm de vue au-dessus de la chaussée
+				_boite_st(bordures, Vector3(q.x, hauteur(q.x, q.y) + 0.09, q.y), Vector3(long / nb + 0.02, 0.2, 0.2), ang, Color("#8e8f94"))
+				# le trottoir en dalles de granit, derrière la bordure, jusqu'aux façades
+				var tq: Vector2 = q + n * s * 1.63
+				if PLACE.has_point(tq) or _sur_autre_chaussee(tq, c, cases, false) or _sur_autre_chaussee(tq + n * s * 1.4, c, cases, false):
+					continue
+				_boite_st(dalles, Vector3(tq.x, hauteur(tq.x, tq.y) + 0.04, tq.y), Vector3(long / nb + 0.02, 0.12, 3.0), ang, Color.WHITE)
+				# entre deux rues proches (un îlot de carrefour), un second rang de dalles referme le sol resté nu
+				var tq2: Vector2 = tq + n * s * 3.0
+				if not PLACE.has_point(tq2) and _sur_autre_chaussee(tq2, c, cases, false, 4.5) and not _sur_autre_chaussee(tq2, c, cases, true, 1.6):
+					_boite_st(dalles, Vector3(tq2.x, hauteur(tq2.x, tq2.y) + 0.04, tq2.y), Vector3(long / nb + 0.02, 0.12, 3.0), ang, Color.WHITE)
+	# aux coudes d'une rue, les trottoirs des deux tronçons s'arrêtaient chacun à son bout : côté extérieur, un coin
+	# de sol restait entre eux. Une dalle sur la bissectrice le referme.
+	var bouts := {}
+	for c in chaussees.size():
+		for k in 2:
+			var cle := Vector2i((chaussees[c][k] as Vector2).round())
+			if not bouts.has(cle):
+				bouts[cle] = []
+			bouts[cle].append([c, k])
+	for cle in bouts:
+		var ici: Array = bouts[cle]
+		if ici.size() != 2:
+			continue
+		# deux tronçons seulement à ce bout : un coude, pas un carrefour. a → b → e, dans le sens de la marche
+		var c1: Array = chaussees[ici[0][0]]
+		var c2: Array = chaussees[ici[1][0]]
+		var b: Vector2 = c1[ici[0][1]]
+		var a: Vector2 = c1[1 - ici[0][1]]
+		var e: Vector2 = c2[1 - ici[1][1]]
+		var c := ici[0][0] as int
+		var c_suivant := ici[1][0] as int
+		var t1 := (b - a).normalized()
+		var t2 := (e - b).normalized()
+		var tour := absf(t1.angle_to(t2))
+		if tour < deg_to_rad(0.3) or tour > deg_to_rad(80.0):
+			continue
+		var l: float = minf(chaussees[c][2], chaussees[c_suivant][2])
+		var tb := (t1 + t2).normalized()
+		var nb := tb.orthogonal()
+		for s in [-1.0, 1.0]:
+			var q: Vector2 = b + nb * s * (l + 0.12 + 1.63) / cos(tour * 0.5)
+			if PLACE.has_point(q):
+				continue
+			var sur_une_rue := false
+			for o in cases.get(Vector2i(floori(q.x / 20.0), floori(q.y / 20.0)), []):
+				var sg: Array = chaussees[o]
+				if Geometry2D.get_closest_point_to_segment(q, sg[0], sg[1]).distance_to(q) < sg[2] + 0.1:
+					sur_une_rue = true
+					break
+			if sur_une_rue:
+				continue
+			var long := 2.0 * (l + 3.2) * tan(tour * 0.5) + 0.6
+			_boite_st(dalles, Vector3(q.x, hauteur(q.x, q.y) + 0.04, q.y), Vector3(long, 0.12, 3.0), atan2(tb.y, tb.x), Color.WHITE)
 	var mb := MeshInstance3D.new()
 	mb.name = "Bordures"
 	mb.mesh = bordures.commit()
@@ -1351,7 +1579,7 @@ func _reliefs(i: int, b: Dictionary, poly: PackedVector2Array) -> Array:
 		for j in nb:
 			var q := a + u * w * (j + 0.5) + n * 0.02
 			var type: String = "etroite" if w < 6.5 else ["immeuble", "classique", "traboule", "immeuble", "classique"][(i * 5 + k * 3 + j) % 5]
-			var opt := {"w": w - 0.04, "d": 3.0, "niveaux": niveaux, "tuile": TUILES[(i + j) % TUILES.size()], "pente": 29.0, "grain": 1.0, "chassis": 1 + (i + j) % 2, "souches": "grosses", "toile": TOILES[(i * 5 + k * 3 + j) % TOILES.size()], "store": (i + k + j) % 2 == 0}
+			var opt := {"w": w - 0.04, "d": 3.0, "niveaux": niveaux, "tuile": TUILES[(i + j) % TUILES.size()], "pente": 29.0, "grain": 1.0, "chassis": 1 + (i + j) % 2, "souches": "grosses", "toile": TOILES[(i * 5 + k * 3 + j) % TOILES.size()], "store": (i + k + j) % 2 == 0, "lod": "loin"}
 			opt["enduit"] = (ENDUITS_PENTES if pentes else ENDUITS_PLACE)[(i + k + j) % 5]
 			if pentes:
 				opt["fleurs"] = false
@@ -1796,10 +2024,10 @@ func _heros_poser(i: int, b: Dictionary) -> void:
 		var x := -lu * 0.5 + w * (k + 0.5)
 		var p := front + u * x
 		var type := "classique"
-		var opt := {"w": w - 0.05, "d": lv, "niveaux": niveaux, "tuile": TUILES[(i + k) % TUILES.size()], "pente": 29.0, "grain": 1.0, "chassis": 2, "souches": "grosses", "toile": TOILES[(i * 3 + k) % TOILES.size()], "store": (i + k) % 2 == 0}
+		var opt := {"w": w - 0.05, "d": lv, "niveaux": niveaux, "tuile": TUILES[(i + k) % TUILES.size()], "pente": 29.0, "grain": 1.0, "chassis": 2, "souches": "grosses", "toile": TOILES[(i * 3 + k) % TOILES.size()], "store": (i + k) % 2 == 0, "lod": "loin"}
 		if est_mairie:
 			type = "hotel"
-			opt.merge({"enduit": "c6bca3", "persiennes": false, "fleurs": false, "niveaux": 3, "rdc": "pierre"}, true)
+			opt.merge({"enduit": "c6bca3", "persiennes": false, "fleurs": false, "niveaux": 3, "rdc": "pierre", "cote_fenetre": "arriere"}, true)
 		else:
 			var pentes := p.y < -45.0
 			var r := (i * 13 + k * 7) % 10
@@ -1922,7 +2150,7 @@ func _place() -> void:
 		troncs.remove_at(proche)
 	for k in troncs.size():
 		var p: Vector2 = troncs[k]
-		var arbre := _pose(OMBRIERE, "arbre", "marronnier", Vector3(p.x, y, p.y), 400 + k, {"hauteur": graines.randf_range(12.0, 16.0), "vent": 0.4, "densite": graines.randf_range(0.75, 0.95), "contre_jour": 0.6, "jour": 0.6, "ajour": 0.55, "teinte": PALETTES_MARRONNIER[k % PALETTES_MARRONNIER.size()]})
+		var arbre := _pose(OMBRIERE, "arbre", "marronnier", Vector3(p.x, y, p.y), 400 + k, {"hauteur": graines.randf_range(12.0, 16.0), "vent": 0.4, "densite": graines.randf_range(0.75, 0.95), "contre_jour": 0.6, "jour": 0.6, "ajour": 0.55, "teinte": PALETTES_MARRONNIER[k % PALETTES_MARRONNIER.size()], "lod": "loin"})
 		# des couronnes resserrées d'un huitième, que le sable et leur ombre séparent comme sur la planche
 		arbre.scale = Vector3(0.88, 1.0, 0.88)
 	var massifs := 0
@@ -2172,6 +2400,10 @@ func _escalier() -> void:
 
 var _sculptures := {}
 const Sculpture := preload("res://communes/lyon/sculptures/sculpture.gd")
+const MOBYLETTE := preload("res://communes/lyon/places/mobylette.gd")
+## Les Mobylettes bleues garées dans la ville (places/mobylette.gd), en mètres (x, z) et cap : la première près de
+## l'arrivée (INF), puis au coin de la place, au débouché des Terreaux et sur la place Saint-Paul.
+const MOBYLETTES := [[Vector2.INF, 0.0], [Vector2(-10.0, 48.0), 1.2], [Vector2(118.0, 112.0), -0.6], [Vector2(-232.0, 345.0), 2.4]]
 
 
 ## Une sculpture modelée à part (sculptures/sculpter.py), lue une fois.
@@ -2500,7 +2732,7 @@ func _arbres() -> void:
 		if p.y < -60.0 and k % 3 == 0:
 			arbre = "micocoulier"
 			haut = _rng.randf_range(9.0, 11.0)
-		_pose(OMBRIERE, "arbre", arbre, _sur(p.x, p.y), 500 + k, {"hauteur": haut, "vent": 0.3})
+		_pose(OMBRIERE, "arbre", arbre, _sur(p.x, p.y), 500 + k, {"hauteur": haut, "vent": 0.3, "lod": "loin"})
 
 
 ## La vie du parcours, du quai à la place : des passants sur les deux trottoirs de la rue de la Martinière et de
@@ -3166,7 +3398,6 @@ func _joueur() -> void:
 	camera.target = player.global_position + Vector3(0, 0.3, 0)
 	camera.set("_target_goal", camera.target)
 	camera.use_notches(CRANS, 1)
-	_veille()
 
 
 ## La veille des sas (socle 1.29, cartes/lyon/VILLE.md § 4) : les quartiers que le paquet déclare se posent
@@ -3194,8 +3425,83 @@ func _veille() -> void:
 	veille.ajouter_sas(ville)
 
 
+## Sathonay au loin (VILLE.md § 1 : pas de niveau de détail en marchant ; des imposteurs au loin, oui). Quand le
+## joueur est dans un quartier déclaré, le bâti de la place (façades du façadier, arbres, mobilier, plantes,
+## voitures, lions, monuments, toits et bordures) laisse place à sa version légère, fondue par le socle comme
+## celle d'un quartier : les corps lointains du façadier et des arbres (option « lod » : « loin »), les toits et
+## la halle simplifiés, le reste effacé (sans_lointain : ce qui ne se voit pas d'un autre quartier). La place
+## revient entière dès que le joueur quitte le quartier ou s'approche d'un sas vers Sathonay (SAS_PORTEE). Les
+## figurants se cachent avec elle. Sans veille (pas de quartier déclaré), rien ne change.
+func _imposteurs() -> void:
+	_veille_noeud = $Quartiers.get_node_or_null("Veille")
+	if _veille_noeud == null:
+		return
+	var facadier := FACADIER.get_slice("@", 0)
+	var ombriere := OMBRIERE.get_slice("@", 0)
+	for n in ville.get_children():
+		if not n is Node3D or n == _bati:
+			continue
+		var chemin: String = n.scene_file_path
+		var brique := chemin.begins_with("res://bibliotheque/")
+		var nom := String(n.name)
+		if not (brique or nom.begins_with("Lion") or nom.begins_with("Remarquable_") or nom in ["HalleMartiniere", "Toits", "Bordures"]):
+			continue
+		if brique and (chemin.contains(facadier) or chemin.contains(ombriere)):
+			# une façade ou un arbre : son corps lointain seul ; ses souches, stores, balcons, feuilles s'effacent
+			for mi: MeshInstance3D in n.find_children("*", "MeshInstance3D", true, false):
+				if not mi.has_meta("corps_lointain") and mi.visibility_range_begin <= 0.0:
+					mi.set_meta("sans_lointain", true)
+		elif brique or nom.begins_with("Lion") or nom == "Remarquable_blandan":
+			# le mobilier, les plantes, les voitures, les bornes des quais, les lions et le sergent : rien à voir
+			# d'un autre quartier
+			n.set_meta("sans_lointain", true)
+		n.reparent(_bati, false)
+	var t0 := Time.get_ticks_msec()
+	_bati_loin = Quartiers.fondre(_bati)
+	if _bati_loin == null:
+		return
+	_bati_loin.name = "Bati_loin"
+	_bati_loin.visible = false
+	ville.add_child(_bati_loin)
+	print_verbose("Lyon : Sathonay au loin, %d maillages fondus en %d ms" % [_bati_loin.get_child_count(), Time.get_ticks_msec() - t0])
+
+
+## Vrai si le joueur est à moins de SAS_PORTEE d'un sas vers Sathonay (en mètres, dans le repère de la ville).
+func _pres_dun_sas() -> bool:
+	if player == null:
+		return false
+	var p := ville.to_local(player.global_position)
+	for nom in SAS:
+		if Vector2(p.x, p.z).distance_to(SAS[nom]) < SAS_PORTEE:
+			return true
+	return false
+
+
+## La place en imposteurs ou entière, selon la veille : à regarder quelques fois par seconde, pas à chaque image.
+func _veiller_sathonay(delta: float) -> void:
+	_loin_horloge += delta
+	if _loin_horloge < 0.4:
+		return
+	_loin_horloge = 0.0
+	# « sathonay » est le départ de la veille, pas un quartier déclaré : la place reste entière tant que le joueur y
+	# est (le paquet 0.2.4 la montrait en imposteurs dès l'arrivée, sur la place même)
+	var courant: String = _veille_noeud.courant
+	var loin: bool = courant != "" and courant != "sathonay" and not _pres_dun_sas()
+	if loin == _sathonay_loin:
+		return
+	_sathonay_loin = loin
+	_bati.visible = not loin
+	_bati_loin.visible = loin
+	for g in ["Habitants", "Passants", "PassantsDuQuai"]:
+		var n := get_node_or_null(g)
+		if n is Node3D:
+			n.visible = not loin
+
+
 ## La caméra de dessus suit l'habitant (Guillaume, 30 octobre : en marchant vers le haut de l'écran, il en
 ## sortait, la vue restait fixe). En vue à pied (Vue, Tab), l'habitant n'a plus de caméra à suivre.
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if player != null and player.follow_camera == camera:
 		camera.set("_target_goal", player.global_position + Vector3(0, 0.3, 0))
+	if _bati_loin != null and _veille_noeud != null and is_instance_valid(_veille_noeud):
+		_veiller_sathonay(delta)

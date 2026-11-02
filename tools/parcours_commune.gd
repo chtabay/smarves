@@ -26,8 +26,9 @@ extends SceneTree
 ## Les quatre regards du retour de l'auteur de Chauvigny : à pied, de dessus, libre, tel qu'en jeu.
 ##
 ## Les repères se posent dans la scène de la commune : un Marker3D par point de vue, son -Z tourné vers
-## ce que le joueur doit voir. Deux repères qui se suivent doivent se rejoindre à pied presque en ligne
-## droite : pour un détour (un escalier, un pont, une porte), posez un repère au coude (Vue2b_Escalier).
+## ce que le joueur doit voir ; s'il est incliné (rotation.x), la capture à pied prend ce tangage. Deux repères
+## qui se suivent doivent se rejoindre à pied presque en ligne droite : pour un détour (un escalier, un pont,
+## une porte), posez un repère au coude (Vue2b_Escalier).
 ## Un repère pèse quelques octets dans le paquet ; on peut aussi les garder dans une scène de travail.
 
 const TMP := "user://parcours_commune/"
@@ -171,9 +172,12 @@ func _init() -> void:
 			await _capturer("%02d-%s-1-dessus" % [i + 1, r.name])
 			await _vue(s, vue, true)
 			p.rotation.y = r.global_rotation.y
-			p.set("_pitch", 0.0)
+			# le tangage du repère (un Marker3D qui regarde un peu vers le haut : le ciel d'une cour, le haut
+			# d'une tour) ; à plat, le regard est à l'horizontale comme avant
+			var tangage := clampf(r.global_rotation.x, deg_to_rad(-70), deg_to_rad(60))
+			p.set("_pitch", tangage)
 			if p.camera:
-				p.camera.rotation.x = 0.0
+				p.camera.rotation.x = tangage
 			await create_timer(0.5, true).timeout
 			await _capturer("%02d-%s-2-a-pied" % [i + 1, r.name])
 			p.rotation.y = r.global_rotation.y + PI
@@ -225,6 +229,12 @@ func _poser(p: CharacterBody3D, r: Marker3D) -> void:
 	p.global_position = r.global_position + Vector3(0, 0.05, 0)
 	p.rotation.y = r.global_rotation.y
 	await create_timer(1.0, true).timeout
+	# posé d'un peu haut (un --point au-dessus du sol), l'habitant tombe encore : attendre qu'il touche
+	# le sol avant de juger, quatre secondes au plus
+	var t := 0.0
+	while not p.is_on_floor() and t < 4.0:
+		await physics_frame
+		t += 1.0 / Engine.physics_ticks_per_second
 
 
 ## La vue de dessus ou à pied, par la bascule du socle (la touche Tab du joueur).

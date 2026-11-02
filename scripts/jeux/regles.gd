@@ -138,7 +138,7 @@ static func texte(jeu: String, p: Object = null) -> String:
 		"loto":
 			return _bloc([
 				["Le tirage", "Cochez jusqu'à 5 numéros sur 30, choisissez la mise, puis lancez le tirage (Espace) : 10 numéros sortent. Le gain dépend des numéros trouvés."],
-				[[["2 numéros", "mise rendue"], ["3 numéros", "4 fois la mise"], ["4 numéros", "20 fois"], ["5 numéros", "120 fois"]]],
+				[[["2 numéros", "mise rendue"], ["3 numéros", "2 fois la mise"], ["4 numéros", "6 fois"], ["5 numéros", "50 fois"]]],
 			])
 		"echecs":
 			return _bloc([

@@ -98,7 +98,7 @@ func _lancer() -> void:
 	var d := _textes(carnet.get("_right"))
 	check(carnet.get("_right").find_child("Basket_" + club, true, false) != null and d.contains("Basket · ") and d.contains("Consigne : rotation"), "la boîte : la carte des Hérons, avec sa consigne")
 	carnet.toggle()
-	check(carnet.pages_clubs().map(func(p): return p[0]) == ["basket:" + club, "calendrier"], "Mes clubs : une page pour les Hérons, puis le calendrier")
+	check(carnet.pages_clubs().map(func(p): return p[0]) == ["basket:" + club, "tous", "comment", "calendrier"], "Mes clubs : une page pour les Hérons, puis le calendrier")
 	carnet.ouvrir_club("basket:" + club)
 	await process_frame
 	var g := _textes(carnet.get("_left"))

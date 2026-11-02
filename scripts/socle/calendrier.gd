@@ -44,7 +44,8 @@ static func page(moteur: Node, sport: String) -> Dictionary:
 		lignes.append(["L'intersaison", "maintenant, jusqu'au %s" % DIRIGER.date(int(inter[1]))])
 	else:
 		lignes.append(["L'intersaison", "du %s au %s" % [DIRIGER.date(int(inter[0])), DIRIGER.date(int(inter[1]))]])
-	lignes.append(["", "les parts ne se prennent qu'à l'intersaison ; on change aussi de club dirigé"])
+	lignes.append(["La relève", "le %s" % DIRIGER.date(DIRIGER.releve_suivante(t))])
+	lignes.append(["", "chaque lundi à midi, la direction des clubs change de main ; les parts se prennent toute l'année"])
 	if sport == "football":
 		var m: int = moteur.prochain_mercato()
 		var ouvert: bool = moteur.periode() == "mercato"

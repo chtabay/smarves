@@ -171,10 +171,12 @@ jeu lui-même.
   nord, le nord vers les z négatifs comme sur les plans) et vers où il regarde ; et vers chaque point
   cardinal jusqu'où le regard porte avant une paroi, ce qui suffit à lire des couloirs et des chambres. Seul se voit ce qu'aucune
   paroi ne cache : une zone de l'autre côté d'un mur, ou d'un autre lieu bâti dans la même scène (la loge du
-  Colaby vue depuis ses galeries), n'est pas montrée. Et il voit l'écran lui-même : chaque vue porte une
-  image JPEG de 768 pixels de large, que le connecteur joint à sa réponse (un plan dessiné, des chiffres
-  gravés, un décor). La tâche lance le jeu sous un écran virtuel (`xvfb-run`, rendu logiciel OpenGL) ; il ne
-  se dessine que pour l'image, le temps de deux images, pour que la marche et les jeux gardent leur allure.
+  Colaby vue depuis ses galeries), n'est pas montrée. Et il voit l'écran lui-même quand il regarde : la vue
+  d'un « regarder » porte une image JPEG de 768 pixels de large, que le connecteur joint à sa réponse (un plan
+  dessiné, des chiffres gravés, un décor) ; les autres gestes rendent la vue en mots (31/10 : une image à chaque
+  geste coûtait une à deux secondes de rendu et d'envoi à chaque pas). La tâche lance le jeu sous un écran
+  virtuel (`xvfb-run`, rendu logiciel OpenGL) ; il ne se dessine que pour l'image, le temps de deux images,
+  pour que la marche et les jeux gardent leur allure.
   Sans écran (`--headless`, les essais), pas d'image. Le regard essaie les yeux et un pas de chaque côté, et ne
   bute ni sur ce qu'il frôle ni sur le bâtiment dont la zone est la porte.
 - **Ce qu'il fait.** Les gestes d'un joueur : aller devant une zone (il marche, contourne ce qui le bute, monte et descend les escaliers d'un étage à l'autre,
@@ -206,13 +208,26 @@ jeu lui-même.
 
 Les essais : `godot --headless --path . -s tools/test_pilote.gd [-- --bavard]` (sans réseau : de la place au
 casino, la roulette, puis se relever).
-`tools/test_pilote_echecs.gd` : devant un échiquier.
+`tools/test_pilote_echecs.gd` : devant un échiquier, et assis au Cercle (la vue allégée, le coup en un geste). `tools/test_pilote_cercle.gd` : du hall du casino au Cercle Philidor (le panneau « À l'étage » au pied de l'escalier le nomme ; rien de l'étage ne se voit d'en bas).
 
 Les plateaux dessinés à l'écran (l'échiquier du Cercle Philidor) se lisent comme un tapis : un contrôle
 visible qui a `pilote_cases()` (le nom de chaque case et son rectangle) donne ses cases à la vue, et
 `pilote_texte()` décrit la position (pièces, qui a le trait, échec, dernier coup, coups permis). Le pilote
 clique la case de départ puis celle d'arrivée (« c:e2 » puis « c:e4 », ou « e2 » tout court) ; à la
 promotion, les quatre pièces sont des cases (« c:promotion-dame »…).
+
+Pour un pensionnaire, une partie d'échecs coûtait cher : deux gestes par coup, et à chaque vue les 64
+cases et tous les boutons de l'écran. Trois choses la rendent jouable (retours des pensionnaires, 31/10) :
+
+- **un coup en un geste** : cliquer « e2-e4 » (ou « e2e4 » ; la promotion « e7-e8=D », D, T, F ou C). Un
+  plateau qui le sait (`pilote_coup(texte)`) le joue comme un clic de joueur ; le pilote attend ensuite la
+  réponse de l'adversaire, dix secondes au plus (`pilote_en_attente()` du panneau), et la vue qui suit
+  montre déjà le coup du robot ;
+- **une vue allégée** : assis à une table qui se résume elle-même (`pilote_resume()`, le panneau des
+  échecs), la vue n'est que ce résumé (l'adversaire, l'état, les deux pendules, la mise, la position, le
+  dernier coup, les coups permis) et les boutons de la table : un millier de caractères, sans image ;
+- **une cadence par coup** : « 3 min par coup » (serveur, `smarves-plateaux.js`), proposée d'office quand
+  un pensionnaire s'assied ; chaque coup a ses trois minutes, qui ne s'additionnent pas.
 
 La marche cherche son chemin sur une grille où le corps tient debout (une recherche A* faite de tests
 physiques, sans plan propre au lieu), puis, devant la zone, tourne le regard jusqu'à voir son invite.
@@ -250,10 +265,12 @@ capture d'écran : `smarves.pensionnaire_position(id)` donne sa position (x, z, 
 village) seulement quand il est dehors (`main`) ; dans une salle, rien de plus que le lieu. Essai :
 `supabase/tests/20261101100000_pensionnaire_position.sql`.
 
-Enfin, ses **dernières vues du jeu** (décision du 29/10) : l'image que le jeu du pilote produit déjà à chaque
-geste pour l'assistant, sans en fabriquer une de plus. `smarves.doublure_vues` garde la dernière de chaque
-sorte (`oeil` à pied dehors, `dessus` la caméra qui le suit, `dedans` dans un lieu), écrasée à chaque
-nouvelle image, effacée au bout de trente jours. On y voit ce qu'il voit, autres joueurs et bulles compris :
+Enfin, ses **dernières vues du jeu** (décision du 29/10) : l'image d'un « regarder », et sinon une image que
+le jeu prend après avoir répondu au geste, pendant que l'assistant réfléchit (`pilote_image`), à chaque
+changement de lieu ou de caméra et au plus toutes les trente secondes (les pages qui les montrent se relisent
+toutes les trente). `smarves.doublure_vues` garde la dernière de chaque sorte (`oeil` à pied dehors, `dessus`
+la caméra qui le suit, `dedans` dans un lieu), remplacée au plus toutes les vingt secondes sauf changement de
+lieu, effacée au bout de trente jours. On y voit ce qu'il voit, autres joueurs et bulles compris :
 elles ne sortent que vers son créateur, après un accord qui le dit (Lasso). Lecture :
 `smarves.pensionnaire_vues(id)`, aux mêmes conditions. Essai : `supabase/tests/20261101110000_pensionnaire_vues.sql`.
 

@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dg2j32j5uyhb6"
-path="res://.godot/imported/pente_crete.png-25afca60eb77054055b663411a778ca5.ctex"
+path="res://.godot/imported/pente_crete.png-68be83f3012ffc55114522b74e477232.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://communes/belley/relief/pente_crete.png"
-dest_files=["res://.godot/imported/pente_crete.png-25afca60eb77054055b663411a778ca5.ctex"]
+source_file="res://tools/paquet_essai/belley/relief/pente_crete.png"
+dest_files=["res://.godot/imported/pente_crete.png-68be83f3012ffc55114522b74e477232.ctex"]
 
 [params]
 

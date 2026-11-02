@@ -75,6 +75,9 @@ var _chip_row: HBoxContainer
 
 
 func _ready() -> void:
+	# Le pilote d'un pensionnaire ne porte une mise au serveur qu'une fois la main jouée (mise_engagee) :
+	# une coupure du jeu en pleine main la lui rend, au lieu de la perdre.
+	add_to_group("mises_engagees")
 	_symbol_font = Polices.texte()
 	if embedded:
 		_build_bar()
@@ -185,6 +188,11 @@ func _build_bar() -> void:
 
 
 ## Le partage et l'assurance sont-ils ouverts (seuil passé) ?
+## Ce qui est sur le tapis pour la main en cours (mises, doubles, partages, assurance), 0 hors d'une main.
+func mise_engagee() -> int:
+	return bet + assurance if in_hand else 0
+
+
 static func regles_ouvertes() -> bool:
 	return Game.won >= SEUIL_REGLES
 

@@ -120,12 +120,14 @@ func _lancer() -> void:
 	check(carnet.get("_onglet") == "cartes", "rien n'attend : le carnet se rouvre là où on l'a laissé")
 	carnet.toggle()
 
-	# ---- l'intersaison : un club suivi qu'on ne dirige pas
-	foot.forcer_porteurs("vous:1,Lucien:9", club)
-	t = foot.coup_envoi(1, 14) + 4 * 3600
+	# ---- la relève : un club suivi que Lucien dirige, où l'on a mis plus que lui
+	foot.forcer_porteurs("vous:9,Lucien:1", club)
+	foot.appliquer_directions([{"club": club, "par": "Lucien", "moi": false, "division": "0"}])
+	t = foot.coup_envoi(1, 5)
 	liste = carnet.a_faire()
-	check(liste.size() == 1 and liste[0].genre == "diriger" and str(liste[0].texte).contains("Il vous manque"), "à l'intersaison, on ne dirige pas l'Étoile : %s" % (str(liste[0].texte) if not liste.is_empty() else "rien"))
-	check(int(liste[0].quand) == foot.coup_envoi(2, 1) and str(liste[0].lien.vers) == "notaire", "jusqu'au premier coup d'envoi de la saison 2, vers le notaire")
+	check(liste.size() == 1 and liste[0].genre == "diriger" and str(liste[0].texte).contains("elle vous revient à la relève"), "on peut prendre la direction de l'Étoile : %s" % (str(liste[0].texte) if not liste.is_empty() else "rien"))
+	check(not liste.is_empty() and int(liste[0].quand) == load("res://scripts/socle/diriger.gd").prochaine_releve(foot) and str(liste[0].lien.vers) == "notaire", "pour la relève du lundi, vers le notaire")
+	foot.appliquer_directions([])
 
 	avis.effacer()
 	foot.effacer()

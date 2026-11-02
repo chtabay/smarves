@@ -1,0 +1,40 @@
+name: Vérifier Belley
+
+# La carte de Belley (tools/paquet_essai/belley) : le paquet se greffe et s'ouvre comme chez un joueur, l'habitant
+# marche (tools/test_commune.gd), et un pensionnaire y trouve son chemin : le plan à l'arrivée, les poteaux du bourg,
+# le chevalet du Grand Prix et les poteaux jaunes de la route de la course (tools/test_pilote_belley.gd).
+on:
+  pull_request:
+    paths:
+      - 'tools/paquet_essai/belley/**'
+      - 'tools/test_pilote_belley.gd'
+      - 'tools/carrefours_parcours.py'
+      - 'scripts/socle/pilote.gd'
+      - '.github/workflows/verifier-belley.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  belley:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - name: Installer Godot 4.7.2
+        run: |
+          curl -fsSL -o godot.zip "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"
+          unzip -q godot.zip
+          mv Godot_v4.7.2-stable_linux.x86_64 godot
+          chmod +x godot
+      - name: Importer les ressources
+        run: ./godot --headless --path . --import || true
+      - name: Les carrefours de la course sont à jour
+        run: |
+          python3 tools/carrefours_parcours.py belley --troncons="Au Replat,Relais des Lônes" --retour="Belley, centre" --avant-retour=600 --apres-fin=90,0
+          git diff --exit-code tools/paquet_essai/belley/relief/carrefours.json
+      - name: Le paquet se greffe, s'ouvre et l'habitant marche
+        run: ./godot --headless --path . -s tools/test_commune.gd -- belley --depuis=res://tools/paquet_essai/belley/
+      - name: Un pensionnaire trouve son chemin
+        run: ./godot --headless --path . -s tools/test_pilote_belley.gd

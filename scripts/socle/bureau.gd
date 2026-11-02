@@ -23,6 +23,8 @@ signal obligations
 
 ## Le marché, pour ses fonctions sans état (la valeur d'un joueur, le cran d'une compétence).
 const MERCATO := preload("res://scripts/socle/mercato/mercato.gd")
+const DIRIGER := preload("res://scripts/socle/diriger.gd")
+const AUJOURDHUI := preload("res://scripts/socle/aujourdhui.gd")
 const PAGES := [["accueil", "Accueil"], ["effectif", "Effectif"], ["tactique", "Tactique"], ["adversaire", "Adversaire"],
 	["entrainement", "Entraînement"], ["agenda", "Agenda"], ["championnat", "Championnat"], ["recherche", "Recherche de joueurs"],
 	["offres", "Offres en cours"]]
@@ -49,6 +51,10 @@ const TRIS_EFFECTIF := {"poste": "Poste", "nom": "Nom", "age": "Âge", "note": "
 
 var club := ""
 var page := "accueil"
+## La tactique se lit sans se régler : on ne dirige pas le club (ou la saison n'est pas tirée).
+var _lecture := false
+## La composition a changé à l'écran depuis la dernière validation (ou le chargement).
+var modifie := false
 var onglet_championnat := "classement"
 var tri_effectif := "poste"
 ## La fiche d'un joueur du cru ouverte dans l'effectif (son id), ou "".
@@ -407,7 +413,17 @@ func _phrase_prochain_match() -> String:
 	if r.is_empty():
 		return "Pas de match avant la saison qui vient."
 	var adv: String = r.ext if r.dom == club else r.dom
-	return "Prochain match : %s à %d h, %s %s" % [date(r.quand), f.HEURE_COUP_ENVOI, "contre" if r.dom == club else "chez", str(f.clubs.get(adv, {}).get("nom", adv))]
+	var phrase := "Prochain match : %s à %d h, %s %s" % [date(r.quand), f.HEURE_COUP_ENVOI, "contre" if r.dom == club else "chez", str(f.clubs.get(adv, {}).get("nom", adv))]
+	# Ce qui presse, en bout de ligne (demande de Guillaume du 31 octobre 2026) : le compte à rebours, et pour
+	# le dirigeant si la composition est posée ; pour les autres, que le bureau se lit seulement.
+	phrase += "  ·  dans %s" % AUJOURDHUI.dans(int(r.quand), int(f.maintenant())).trim_prefix("dans ")
+	if not f.peut_decider(club):
+		phrase += "  ·  lecture seule"
+	elif FootDilemmes.tactique_posee(f, club, int(r.s), int(r.j)):
+		phrase += "  ·  composition posée ✓"
+	else:
+		phrase += "  ·  composition à poser"
+	return phrase
 
 
 # ---------------------------------------------------------------- l'accueil
@@ -420,7 +436,14 @@ func _accueil(col: VBoxContainer) -> void:
 	col.add_child(rangee)
 	var l_courrier := largeur if etroit else floorf(largeur * 0.56)
 	var l_cartes := largeur if etroit else largeur - l_courrier - 16.0
-	_courrier(_carte(rangee, "Le courrier du club", l_courrier), l_courrier - 30.0)
+	var gauche := VBoxContainer.new()
+	gauche.add_theme_constant_override("separation", 16)
+	gauche.custom_minimum_size.x = l_courrier
+	rangee.add_child(gauche)
+	var faire := a_faire()
+	if not faire.is_empty():
+		_carte_a_faire(_carte(gauche, "À faire avant le coup d'envoi", l_courrier), faire, l_courrier - 30.0)
+	_courrier(_carte(gauche, "Le courrier du club", l_courrier), l_courrier - 30.0)
 	var droite := VBoxContainer.new()
 	droite.add_theme_constant_override("separation", 16)
 	droite.custom_minimum_size.x = l_cartes
@@ -439,6 +462,54 @@ func _accueil(col: VBoxContainer) -> void:
 		b4.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		carte4.add_child(b4)
 	_carte_marche(_carte(droite, "Le marché"), w)
+
+
+## Ce que le dirigeant a à faire avant le prochain coup d'envoi, fait ou pas : [{cle, titre, fait, page,
+## bouton}] ; [] pour qui ne dirige pas, ou entre deux saisons. La composition, le programme de la semaine,
+## et la décision de la semaine quand elle attend (elle se tranche dans les messages du carnet).
+func a_faire() -> Array:
+	var f := foot()
+	var r: Dictionary = f.prochain_match(club)
+	if r.is_empty() or not f.peut_decider(club):
+		return []
+	var c: Dictionary = f.consigne_de(r.s, r.j, club)
+	var out: Array = [
+		{"cle": "composition", "titre": "Poser la composition (formation, onze, consignes)", "fait": FootDilemmes.tactique_posee(f, club, int(r.s), int(r.j)),
+			"page": "tactique", "bouton": "La tactique"},
+		{"cle": "entrainement", "titre": "Choisir le programme d'entraînement de la semaine", "fait": (c.consigne as Dictionary).has("entrainement"),
+			"page": "entrainement", "bouton": "L'entraînement"},
+	]
+	var avis: Node = (Engine.get_main_loop() as SceneTree).root.get_node_or_null("Avis")
+	if avis != null:
+		for a in avis.liste:
+			if str(a.get("genre", "")) != "dilemme" or str((a.get("dilemme", {}) as Dictionary).get("club", "")) != club:
+				continue
+			var ch: Array = avis.choix_de(a)
+			if ch.is_empty() or not ch[0].ouvert:
+				continue
+			out.append({"cle": "dilemme", "titre": "Trancher la décision de la semaine : %s" % str(a.titre), "fait": ch.any(func(x): return x.fait),
+				"page": "", "bouton": ""})
+	return out
+
+
+func _carte_a_faire(c: VBoxContainer, faire: Array, w: float) -> void:
+	c.get_parent().name = "AFaire"
+	for x in faire:
+		var ligne := HBoxContainer.new()
+		ligne.add_theme_constant_override("separation", 10)
+		ligne.name = "AFaire_" + str(x.cle)
+		c.add_child(ligne)
+		var m := _mot(("✓  " if x.fait else "○  ") + str(x.titre), 15, DOUX if x.fait else CRAIE, null if x.fait else Polices.gras(), true)
+		m.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		m.custom_minimum_size.x = maxf(120.0, w - 170.0)
+		ligne.add_child(m)
+		if str(x.page) != "" and not bool(x.fait):
+			var cible := str(x.page)
+			ligne.add_child(_bouton(str(x.bouton), func(): aller(cible), 14))
+	if faire.all(func(x): return bool(x.fait)):
+		_texte(c, "Tout est prêt pour dimanche.", w, 14, VERT)
+	elif faire.any(func(x): return x.cle == "dilemme" and not x.fait):
+		_texte(c, "La décision de la semaine se tranche dans les messages du carnet.", w, 13, DOUX)
 
 
 ## Un texte replié à la largeur donnée.
@@ -777,6 +848,9 @@ func _effectif(col: VBoxContainer) -> void:
 					grille.add_child(_mot(str(int(stats[id].get(k, 0))) if avec_stats else "–", 15, CRAIE))
 				"valeur":
 					grille.add_child(_mot("%s cr." % Game.fmt(MERCATO.valeur_de(int(j.note), int(j.age))), 14, DOUX))
+	var legende := _mot("Compétences, les deux qui comptent le plus à son poste : Gar gardien, Déf défense, Cons construction du jeu, Ail aile, Pas passe, But finition, CPA coups de pied arrêtés. Le chiffre (de 0 à 20) et sa couleur, du rouge au vert, disent s’il est faible ou fort. Un poste en or : un joueur acheté au marché.", 13, DOUX, null, true)
+	legende.name = "Legende"
+	col.add_child(legende)
 	if not avec_stats:
 		col.add_child(_mot("Les buts et les passes de la saison arrivent avec les statistiques du championnat.", 13, DOUX, null, true))
 	var m := _mercato_noeud()
@@ -905,6 +979,7 @@ func _charger_compo() -> void:
 		if not banc.is_empty():
 			compo.banc = banc
 		compo.ordres = (d.get("roles", {}) as Dictionary).duplicate()
+	modifie = false
 
 
 ## L'équipe type de l'adjoint : le meilleur onze de la formation, et les sept meilleurs restants sur le banc.
@@ -930,7 +1005,19 @@ func _tactique(col: VBoxContainer) -> void:
 	if compo.is_empty():
 		_charger_compo()
 	var decide: bool = f.peut_decider(club) and not r.is_empty()
+	# Qui ne dirige pas lit la tactique posée sans pouvoir la changer (demande de Guillaume du 31 octobre
+	# 2026) : les listes et le terrain ne bougent plus, et un bandeau dit qui la règle.
+	_lecture = not decide
 	var etroit := _etroit()
+	if _lecture and not r.is_empty():
+		var dg: Dictionary = DIRIGER.dirigeant(f, club)
+		var pose: Dictionary = f.consigne_de(r.s, r.j, club)
+		var de := "l'équipe type de l'adjoint" if str(pose.etat) == "aucune" else ("la tactique posée par %s" % str(pose.par) if str(pose.par) != "" else "la tactique posée")
+		var qui := str(dg.get("nom", "")) if not dg.is_empty() else ""
+		var bandeau := _mot("Lecture seule : voici %s pour dimanche. %s Pour diriger, il faut avoir mis le plus dans le club, chez le notaire (la règle : carnet, Mes clubs, « Comment ça marche »)." % [
+			de, ("%s dirige le club : lui seul la change." % qui) if qui != "" else "Seul celui qui dirige le club la change."], 14, DOUX, null, true)
+		bandeau.name = "Lecture"
+		col.add_child(bandeau)
 	# En haut : la formation, la mentalité, le pressing, et les deux boutons.
 	var haut := HFlowContainer.new()
 	haut.add_theme_constant_override("h_separation", 10)
@@ -940,22 +1027,34 @@ func _tactique(col: VBoxContainer) -> void:
 	haut.add_child(_liste("Formation", formations.map(func(k): return str(k)), formations.find(compo.formation), func(i):
 		compo.formation = formations[i]
 		_equipe_type()
+		modifie = true
 		_dessiner()))
 	var mentalites: Array = FootMatch.MENTALITES.keys()
 	haut.add_child(_liste("Mentalite", mentalites.map(func(k): return "Mentalité : " + str(FootMatch.MENTALITES[k].nom).to_lower()), mentalites.find(compo.mentalite), func(i):
-		compo.mentalite = mentalites[i]))
+		compo.mentalite = mentalites[i]
+		modifie = true
+		_dessiner()))
 	var pressings: Array = FootMatch.PRESSINGS.keys()
 	haut.add_child(_liste("Pressing", pressings.map(func(k): return "Pressing " + str(FootMatch.PRESSINGS[k].nom).to_lower()), pressings.find(compo.pressing), func(i):
-		compo.pressing = pressings[i]))
+		compo.pressing = pressings[i]
+		modifie = true
+		_dessiner()))
 	var b1 := _bouton("Équipe type", func():
 		_equipe_type()
+		modifie = true
 		_dessiner(), 14)
 	b1.name = "EquipeType"
+	b1.disabled = _lecture
 	haut.add_child(b1)
 	var b2 := _bouton("Valider la composition", func(): valider(), 14)
 	b2.name = "Valider"
 	b2.disabled = not decide
 	haut.add_child(b2)
+	if modifie and decide:
+		var m := _mot("Modifiée, pas encore validée", 14, ROUGE, Polices.gras())
+		m.name = "NonValidee"
+		m.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		haut.add_child(m)
 	var b3 := _bouton("Répétition", func(): repeter(), 14)
 	b3.name = "Repeter"
 	b3.tooltip_text = "Vingt matchs d'opposition contre l'adversaire de dimanche, avec cette tactique."
@@ -1002,7 +1101,7 @@ func _tactique(col: VBoxContainer) -> void:
 	if r.is_empty():
 		etat = "La saison qui vient n'est pas encore tirée : la composition attend le calendrier."
 	elif not f.peut_decider(club):
-		etat = "Seul celui qui dirige le club compose l'équipe. Maître Garnier cède les obligations du club à l'étude."
+		etat = ""
 	elif _message != "":
 		etat = _message
 	else:
@@ -1026,6 +1125,7 @@ func _liste(nom: String, libelles: Array, choisi: int, action: Callable) -> Opti
 		o.add_item(str(x))
 	o.select(clampi(choisi, 0, libelles.size() - 1))
 	o.item_selected.connect(func(i): action.call(i))
+	o.disabled = _lecture
 	return o
 
 
@@ -1112,7 +1212,8 @@ func _banc() -> Control:
 ## Le poste choisi : qui l'occupe, et sa consigne individuelle.
 func _panneau_case(col: VBoxContainer) -> void:
 	if case_choisie < 0 or case_choisie >= 100:
-		var aide := _mot("Choisissez un poste sur le terrain, puis le joueur qui le prend dans la liste (ou l'inverse). Le chiffre est la note du joueur à ce poste.", 14, DOUX, null, true)
+		var aide := _mot("Touchez un poste du terrain pour voir son joueur. Le chiffre est la note du joueur à ce poste." if _lecture \
+			else "Choisissez un poste sur le terrain, puis le joueur qui le prend dans la liste (ou l'inverse). Le chiffre est la note du joueur à ce poste.", 14, DOUX, null, true)
 		aide.custom_minimum_size.x = _largeur_liste
 		col.add_child(aide)
 		return
@@ -1136,6 +1237,7 @@ func _panneau_case(col: VBoxContainer) -> void:
 			compo.ordres.erase(id)
 		else:
 			compo.ordres[id] = cles[i]
+		modifie = true
 		_dessiner()))
 	col.add_child(ligne)
 
@@ -1184,6 +1286,12 @@ func _liste_joueurs(liste: VBoxContainer) -> void:
 
 ## Un clic sur un poste : avec un joueur choisi, il y va ; sinon le poste est choisi (ou ne l'est plus).
 func _cliquer_case(i: int) -> void:
+	if _lecture:
+		# En lecture, un poste se regarde (son joueur, sa consigne) sans changer de main.
+		case_choisie = -1 if case_choisie == i or i >= 100 else i
+		joueur_choisi = ""
+		_dessiner()
+		return
 	if joueur_choisi != "":
 		placer(joueur_choisi, i)
 		joueur_choisi = ""
@@ -1194,6 +1302,8 @@ func _cliquer_case(i: int) -> void:
 
 
 func _cliquer_joueur(id: String) -> void:
+	if _lecture:
+		return
 	if case_choisie >= 0:
 		placer(id, case_choisie)
 		joueur_choisi = ""
@@ -1234,6 +1344,7 @@ func placer(id: String, i: int) -> void:
 	compo.banc = banc.filter(func(x): return x != null)
 	_message = ""
 	repetition = {}
+	modifie = true
 
 
 ## Envoie la composition au championnat (Football.decider), comme la causerie le fait de la consigne.
@@ -1249,6 +1360,8 @@ func valider() -> void:
 	if pose.has("entrainement"):
 		d["entrainement"] = pose.entrainement
 	var ok: bool = f.decider(r.s, r.j, club, d)
+	if ok:
+		modifie = false
 	_message = ("Composition enregistrée. " + _etat_consigne(f.consigne_de(r.s, r.j, club))) if ok else "Le match est joué ou se joue : la composition attendra le suivant."
 	_dessiner()
 
@@ -1331,7 +1444,7 @@ func _adversaire(col: VBoxContainer) -> void:
 	_texte(col, "%s Son meilleur joueur : %s %s, %s, note %d." % ["Au dernier match, il jouait en %s." % rap.formation if str(rap.formation) != "" else "On ne l'a pas encore vu jouer : l'adjoint le suppose en 4-4-2.",
 		m.get("prenom", ""), m.get("nom", ""), FootMatch.POSTES.get(str(m.get("poste", "")), "").to_lower(), int(m.get("note", 0))], w, 15, CRAIE)
 	col.add_child(_filet())
-	_texte(col, "Les duels du match, avec la tactique que vous préparez (%s, %s) :" % [compo.formation, FootMatch.MENTALITES[compo.mentalite].nom.to_lower()], w, 14, DOUX)
+	_texte(col, "Les duels du match, avec la tactique que vous préparez (%s, %s) : en or, nous ; en gris, eux." % [compo.formation, FootMatch.MENTALITES[compo.mentalite].nom.to_lower()], w, 14, DOUX)
 	var grille := GridContainer.new()
 	grille.name = "Duels"
 	grille.columns = 4

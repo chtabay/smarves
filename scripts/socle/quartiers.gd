@@ -151,6 +151,11 @@ static func lire(chemin: String) -> PackedScene:
 ## Enregistre un quartier bâti (le nœud et tout ce qu'il porte) en scène .scn compressée. Les scènes posées
 ## dedans (une brique de la bibliothèque, un modèle) restent des liens vers leur fichier.
 static func enregistrer(racine: Node, chemin: String) -> Error:
+	# La racine d'un quartier garde l'échelle 1 : c'est le parent où on le pose qui réduit (une ville bâtie
+	# en mètres sous un nœud à 1/U). Une racine réduite serait réduite une seconde fois à la pose (Lyon
+	# 0.2.0 : Saint-Paul enregistré à 1/U², ses immeubles tirés vers l'origine et en l'air).
+	if not _echelle_une(racine):
+		return ERR_INVALID_DATA
 	_adopter(racine, racine)
 	var ps := PackedScene.new()
 	var e := ps.pack(racine)
@@ -158,6 +163,13 @@ static func enregistrer(racine: Node, chemin: String) -> Error:
 		return e
 	DirAccess.make_dir_recursive_absolute(chemin.get_base_dir())
 	return ResourceSaver.save(ps, chemin, ResourceSaver.FLAG_COMPRESS)
+
+
+static func _echelle_une(racine: Node) -> bool:
+	if racine is Node3D and not (racine as Node3D).scale.is_equal_approx(Vector3.ONE):
+		push_error("Quartiers.enregistrer : la racine « %s » est à l'échelle %s ; un quartier bâtit dans le repère de son parent et ne réduit pas sa racine" % [racine.name, str((racine as Node3D).scale)])
+		return false
+	return true
 
 
 static func _adopter(n: Node, racine: Node) -> void:
@@ -227,6 +239,8 @@ static func fondre(plein: Node3D) -> Node3D:
 ## Enregistre la version lointaine d'un quartier bâti (dans l'arbre) : son nœud fondu, rangé en .scn
 ## compressée. Les maillages d'origine gardent leur place dans `plein`. ERR_SKIP si rien à fondre.
 static func enregistrer_lointain(plein: Node3D, chemin: String) -> Error:
+	if not _echelle_une(plein):
+		return ERR_INVALID_DATA
 	var n := fondre(plein)
 	if n == null:
 		return ERR_SKIP

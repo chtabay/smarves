@@ -794,6 +794,16 @@ func _choisir() -> Dictionary:
 	var joues: int = Football.journee_jouee()
 	var j: int = joues if joues > 0 else 1
 	var matchs: Array = Football.journee(s, d[0], d[1], j, joues)
+	# Le club de la commune ne joue pas cette journée-là (exempt, ou un club arrivé en cours de saison) : son
+	# dernier match joué, sinon son prochain, plutôt que « pas de match cette saison » (remontée R-021).
+	if _club != "" and not matchs.any(func(m): return m.dom == _club or m.ext == _club):
+		var ordre: Array = range(j, 0, -1) + range(j + 1, Football.JOURNEES + 1)
+		for k in ordre:
+			var autres: Array = Football.journee(s, d[0], d[1], k, joues)
+			if autres.any(func(m): return m.dom == _club or m.ext == _club):
+				j = k
+				matchs = autres
+				break
 	if matchs.is_empty():
 		# Un club seul dans sa division : pas de match, le championnat attend un deuxième club.
 		return {}
@@ -801,7 +811,7 @@ func _choisir() -> Dictionary:
 	for m in matchs:
 		if _club != "" and (m.dom == _club or m.ext == _club):
 			choisi = m
-	return {"s": s, "j": j, "dom": choisi.dom, "ext": choisi.ext, "joue": joues > 0, "coup_envoi": Football.coup_envoi(s, j)}
+	return {"s": s, "j": j, "dom": choisi.dom, "ext": choisi.ext, "joue": j <= joues, "coup_envoi": Football.coup_envoi(s, j)}
 
 
 ## Les vingt-deux sur la pelouse, le tableau, et le match remis à l'heure réelle : en cours, il reprend

@@ -55,6 +55,10 @@ var _goal_since_best := 0.0
 var _hints: Array[Node] = []
 var _hints_scene: Node = null
 var _hints_wait := 0.0
+## Les Mobylettes des paquets d'avant le socle 1.31 (Lyon), relues chaque seconde : voir _invite().
+var _anciennes: Array[Node] = []
+var _anciennes_scene: Node = null
+var _anciennes_attente := 0.0
 
 
 func _ready() -> void:
@@ -292,7 +296,7 @@ func _fit_carnet() -> void:
 ## L'invite « E : … » de la scène devient un bouton posé dessus, avec le même texte sans le « E : ».
 func _update_act(p: CharacterBody3D, walking: bool) -> void:
 	var s := _scene()
-	var prompt = s.get("_prompt") if s != null else null
+	var prompt = _invite(s)
 	var show := walking and prompt is Label and (prompt as Label).visible
 	# « V : descendre de la 2 CV » : en roulant, sans rien à portée (scripts/village/conduite.gd).
 	_act_v = show and p.focus_target == null and (prompt as Label).text.begins_with("V : ")
@@ -317,6 +321,38 @@ func _update_act(p: CharacterBody3D, walking: bool) -> void:
 			var vp := get_viewport().get_visible_rect().size
 			_act.position = Vector2(vp.x / 2.0, vp.y - 75.0) - _act.size / 2.0
 	_act.visible = show
+
+
+## L'invite à jouer au doigt : celle de la scène, sinon celle d'une Mobylette (la Mobylette du socle,
+## scripts/socle/mobylette.gd, est du groupe « invites » ; celles des paquets d'avant, comme à Lyon, sont des
+## enfants de la scène qui ont leur propre `_prompt`).
+func _invite(s: Node) -> Label:
+	if s == null:
+		return null
+	var propre = s.get("_prompt")
+	if propre is Label and is_instance_valid(propre) and (propre as Label).visible:
+		return propre
+	for n in get_tree().get_nodes_in_group("invites"):
+		var l = n.get("_prompt")
+		if l is Label and is_instance_valid(l) and (l as Label).visible and s.is_ancestor_of(n):
+			return l
+	if s != _anciennes_scene:
+		_anciennes_scene = s
+		_anciennes.clear()
+		_anciennes_attente = 0.0
+	if _anciennes_attente <= 0.0:
+		_anciennes_attente = 1.0
+		_anciennes.clear()
+		for n in s.get_children():
+			if n != null and n.name.begins_with("Mobylette") and not n.is_in_group("invites") and n.get("_prompt") is Label:
+				_anciennes.append(n)
+	_anciennes_attente -= get_process_delta_time()
+	for n in _anciennes:
+		if is_instance_valid(n):
+			var l = n.get("_prompt")
+			if l is Label and is_instance_valid(l) and (l as Label).visible:
+				return l
+	return propre if propre is Label and is_instance_valid(propre) else null
 
 
 func _on_act() -> void:

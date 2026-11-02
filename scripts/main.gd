@@ -587,6 +587,9 @@ func _build_trees_and_lights() -> void:
 	# Les voitures qui passent sur la route, phares allumés.
 	for k in 2:
 		var car := _place(KK + "city/%s.gltf" % ["car_taxi", "car_stationwagon"][k], Vector3(-11.0 + k * 12.0, 0, 6.0 if k == 0 else 6.9), 1.9, 90.0 if k == 0 else -90.0)
+		if k == 0:
+			# Le taxi du bourg : la berline bleu nuit de l'atelier des véhicules (scripts/socle/taxi.gd).
+			Taxi.habiller(car, "Smarves", Polices.texte())
 		for side in [-0.12, 0.12]:
 			var beam := SpotLight3D.new()
 			beam.light_color = Color(1.0, 0.92, 0.75)

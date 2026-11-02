@@ -209,6 +209,10 @@ func _paris() -> void:
 				var aller: Callable = p.ailleurs[0][1]
 				p.closed.emit()
 				await process_frame
+				# Le programme n'a ses 24 cotes qu'avant le départ : on fige l'horloge un samedi matin, la veille
+				# de la course du dimanche, pour que l'essai ne dépende pas du jour où il tourne.
+				var foot: Node = root.get_node("Football")
+				foot.regler_horloge(func(): return int(Time.get_unix_time_from_datetime_dict({"year": 2026, "month": 10, "day": 31, "hour": 10, "minute": 0, "second": 0})))
 				aller.call()
 				await process_frame
 				var c: Node = s._game
@@ -217,6 +221,7 @@ func _paris() -> void:
 				if c:
 					c.closed.emit()
 					await process_frame
+				foot.regler_horloge(Callable())
 			elif p:
 				p.closed.emit()
 				await process_frame

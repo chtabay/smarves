@@ -69,6 +69,7 @@ static func _terrain(racine: Node3D, relief: Script, cadre: Array, sans: Rect2) 
 	var z0 := float(cadre[1])
 	var nx := int((float(cadre[2]) - x0) / PAS_TERRAIN) + 1
 	var nz := int((float(cadre[3]) - z0) / PAS_TERRAIN) + 1
+	var lyon: Script = load(DOSSIER + "lyon.gd")
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var sommet := func(i: int, j: int) -> void:
@@ -88,6 +89,9 @@ static func _terrain(racine: Node3D, relief: Script, cadre: Array, sans: Rect2) 
 		for i in nx - 1:
 			var case := Rect2(x0 + i * PAS_TERRAIN, z0 + j * PAS_TERRAIN, PAS_TERRAIN, PAS_TERRAIN)
 			if sans.encloses(case):
+				continue
+			# les cases que lyon.gd pave sous un quartier présent (son sol fin, praticable)
+			if lyon != null and lyon.call("sol_fin", case):
 				continue
 			sommet.call(i, j)
 			sommet.call(i, j + 1)
