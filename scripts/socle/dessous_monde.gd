@@ -1611,4 +1611,3 @@ func _physics_process(_delta: float) -> void:
 	if player.global_position.y < -6.0:
 		player.global_position = ARRIVEE
 		player.velocity = Vector3.ZERO
-
