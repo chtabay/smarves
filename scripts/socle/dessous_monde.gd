@@ -86,6 +86,7 @@ var _matieres_nuages: Array = []
 var _bandes: Array = []
 var _noir: ColorRect
 var _bruits := {}
+var _nageoires: Array = []
 var _jour := 1.0
 
 
@@ -786,19 +787,200 @@ void fragment() {
 
 # --- Les porteurs : les quatre éléphants et Akoupara --------------------------------------------------------
 
-## Les éléphants et Akoupara, modules de la brique monde-secret@1, assemblés comme sa planche de référence
-## (tools/planche_lyon.gd, vue « monde »), à l'échelle du pays : la tortue sous le disque, les éléphants aux
-## diagonales, tête vers le dehors, les pieds un peu enfoncés dans la carapace, le dos sous la roche du disque.
+## Les éléphants, modules de la brique monde-secret@1, et Akoupara (_tortue), à l'échelle du pays : la tortue
+## sous le disque, les éléphants aux diagonales, tête vers le dehors, les pieds un peu enfoncés dans la
+## carapace, le dos sous la roche du disque.
 func _porteurs() -> void:
-	var tortue := _module("tortue", CENTRE + Vector3(0, CARAPACE_Y, 0), 1, {"demi_axes": [CARAPACE.x, CARAPACE.y, CARAPACE.z]})
-	tortue.name = "Akoupara"
-	var hauteur_a: Callable = tortue.get_meta("hauteur_a")
-	var pieds := CARAPACE_Y + float(hauteur_a.call(ELEPHANTS_R)) - 10.0
+	_tortue()
 	for i in ELEPHANTS.size():
 		var a := TAU * i / ELEPHANTS.size() + PI * 0.25
+		var pieds := _carapace_y(cos(a) * ELEPHANTS_R, sin(a) * ELEPHANTS_R) - 10.0
 		var e := _module("elephant", CENTRE + Vector3(cos(a) * ELEPHANTS_R, pieds, sin(a) * ELEPHANTS_R), i + 1,
 			{"hauteur": -EPAISSEUR - 26.0 - pieds}, atan2(cos(a), sin(a)))
 		e.name = str(ELEPHANTS[i]).replace("â", "a")
+
+
+## Le dessus de la carapace en (x, z) depuis le centre du disque (hauteur depuis le centre du disque).
+func _carapace_y(x: float, z: float) -> float:
+	var k := 1.0 - pow(x / CARAPACE.x, 2.0) - pow(z / CARAPACE.z, 2.0)
+	return CARAPACE_Y + CARAPACE.y * sqrt(maxf(k, 0.0))
+
+
+## Akoupara, la tortue qui nage dans les étoiles, la tête vers +Z. La carapace est un dôme d'écailles : une
+## rangée d'écailles du dos sur la crête, quatre de chaque côté, la couronne des marginales au bord, chacune
+## un peu bombée, cernée d'un sillon sombre, striée de ses cernes de croissance, de l'olive au brun et à
+## l'ambre. Dessous, le plastron clair. La peau est grenue d'écailles fines, plus claire au ventre. Les
+## nageoires de devant, longues comme des ailes, rament lentement ; celles de derrière gouvernent.
+func _tortue() -> void:
+	var A := CARAPACE
+	var t := Node3D.new()
+	t.name = "Akoupara"
+	t.position = CENTRE + Vector3(0, CARAPACE_Y, 0)
+	add_child(t)
+	# La carapace : une demi-sphère unité, mise à l'échelle des demi-axes, sculptée par son shader.
+	var dome := SphereMesh.new()
+	dome.radius = 1.0
+	dome.height = 1.0
+	dome.is_hemisphere = true
+	dome.radial_segments = 160
+	dome.rings = 64
+	var sh := Shader.new()
+	sh.code = """shader_type spatial;
+// Les écailles de la carapace, vues de dessus : un diagramme de Voronoï sur des centres posés comme sur une
+// vraie tortue (cinq vertébrales, quatre costales de chaque côté), et la couronne des marginales au bord.
+const vec2 C[13] = { vec2(0.0, -0.66), vec2(0.0, -0.33), vec2(0.0, 0.0), vec2(0.0, 0.33), vec2(0.0, 0.64),
+	vec2(-0.47, -0.5), vec2(-0.5, -0.17), vec2(-0.5, 0.17), vec2(-0.46, 0.5),
+	vec2(0.47, -0.5), vec2(0.5, -0.17), vec2(0.5, 0.17), vec2(0.46, 0.5) };
+varying vec3 dir;
+float h11(float x) { return fract(sin(x * 127.1) * 43758.5453); }
+// x : la distance au centre de l'écaille, y : la distance au sillon, z : l'identifiant de l'écaille.
+vec3 ecaille(vec3 d) {
+	vec2 p = d.xz;
+	if (d.y < 0.24) {
+		float n = 28.0;
+		float a = atan(d.z, d.x) / 6.2831853 * n;
+		float f = fract(a);
+		float bord = min(min(f, 1.0 - f) * 0.9, (0.24 - d.y) * 3.0);
+		return vec3(abs(f - 0.5), min(bord, max(d.y, 0.0) * 4.0 + 0.02), 20.0 + floor(a));
+	}
+	float f1 = 9.0;
+	float f2 = 9.0;
+	float id = 0.0;
+	for (int i = 0; i < 13; i++) {
+		float l = length(p - C[i]);
+		if (l < f1) { f2 = f1; f1 = l; id = float(i); }
+		else if (l < f2) { f2 = l; }
+	}
+	float sillon = min((f2 - f1) * 0.5, (d.y - 0.24) * 2.5);
+	return vec3(f1, sillon, id);
+}
+void vertex() {
+	dir = normalize(VERTEX);
+	vec3 e = ecaille(dir);
+	// Chaque écaille est un peu bombée, le sillon creusé ; la crête du dos se relève à peine.
+	float bombe = smoothstep(0.0, 0.1, e.y) * 0.022 - 0.012 + 0.012 * exp(-dir.x * dir.x * 40.0) * dir.y;
+	VERTEX += dir * bombe;
+}
+void fragment() {
+	vec3 e = ecaille(dir);
+	float t = h11(e.z + 3.0);
+	vec3 olive = vec3(0.33, 0.36, 0.17);
+	vec3 brun = vec3(0.4, 0.3, 0.15);
+	vec3 ambre = vec3(0.7, 0.52, 0.22);
+	vec3 c = mix(olive, brun, t);
+	// L'ambre rayonne du centre de chaque écaille, en flammèches.
+	float a = atan(dir.z, dir.x);
+	float flamme = smoothstep(0.55, 1.0, sin(a * 23.0 + e.z * 5.0) * 0.5 + 0.5) * smoothstep(0.25, 0.02, e.x);
+	c = mix(c, ambre, 0.35 * smoothstep(0.22, 0.0, e.x) + 0.3 * flamme);
+	// Les cernes de croissance, parallèles au sillon.
+	float cerne = smoothstep(0.8, 1.0, sin(e.y * 110.0) * 0.5 + 0.5) * smoothstep(0.02, 0.05, e.y);
+	c *= 1.0 - 0.12 * cerne;
+	// Le sillon, sombre.
+	c = mix(vec3(0.05, 0.04, 0.025), c, smoothstep(0.008, 0.03, e.y));
+	// Le bord de chaque écaille s'assombrit un peu avant le sillon.
+	c *= 0.8 + 0.2 * smoothstep(0.03, 0.09, e.y);
+	ALBEDO = pow(c, vec3(1.4));
+	ROUGHNESS = mix(0.4, 0.75, smoothstep(0.008, 0.04, e.y));
+	SPECULAR = 0.4;
+}
+"""
+	var ecailles := ShaderMaterial.new()
+	ecailles.shader = sh
+	_piece(t, dome, ecailles, Vector3.ZERO, Vector3.ZERO, A)
+	# Le plastron, clair et plat, sous la carapace.
+	var plastron := _mat(Color(0.5, 0.44, 0.3), 0.8)
+	_piece(t, _boule(1.0), plastron, Vector3(0, -A.y * 0.04, 0), Vector3.ZERO, Vector3(A.x * 0.93, A.y * 0.24, A.z * 0.93))
+	var peau := _matiere_peau()
+	# Le cou et la tête, tendus vers l'avant, un peu levés vers les étoiles ; le bec de corne, les yeux.
+	var cou := Node3D.new()
+	cou.position = Vector3(0, -A.y * 0.08, A.z * 0.86)
+	t.add_child(cou)
+	_nageoires.append([cou, 0.0, 0.0, "tete"])
+	_piece(cou, _boule(1.0), peau, Vector3(0, 0, A.x * 0.12), Vector3(deg_to_rad(-12), 0, 0), Vector3(A.x * 0.15, A.x * 0.12, A.x * 0.24))
+	var tete := Vector3(0, A.x * 0.07, A.x * 0.38)
+	_piece(cou, _boule(1.0), peau, tete, Vector3(deg_to_rad(-8), 0, 0), Vector3(A.x * 0.15, A.x * 0.12, A.x * 0.19))
+	var corne := _mat(Color(0.2, 0.17, 0.12), 0.35)
+	_piece(cou, _boule(1.0), corne, tete + Vector3(0, -A.x * 0.035, A.x * 0.15), Vector3(deg_to_rad(15), 0, 0), Vector3(A.x * 0.08, A.x * 0.05, A.x * 0.07))
+	var oeil := _mat(Color(0.03, 0.025, 0.02), 0.08)
+	var iris := StandardMaterial3D.new()
+	iris.albedo_color = Color(0.85, 0.6, 0.2)
+	iris.emission_enabled = true
+	iris.emission = Color(0.9, 0.55, 0.15)
+	iris.emission_energy_multiplier = 0.6
+	for sx in [-1.0, 1.0]:
+		var o := tete + Vector3(sx * A.x * 0.115, A.x * 0.035, A.x * 0.07)
+		_piece(cou, _boule(1.0), iris, o, Vector3.ZERO, Vector3.ONE * A.x * 0.03)
+		_piece(cou, _boule(1.0), oeil, o + Vector3(sx * A.x * 0.012, 0, A.x * 0.004), Vector3.ZERO, Vector3.ONE * A.x * 0.022)
+		# Le pli de la paupière.
+		_piece(cou, _boule(1.0), peau, o + Vector3(sx * A.x * 0.004, A.x * 0.02, 0), Vector3(0, 0, sx * 0.3), Vector3(A.x * 0.04, A.x * 0.012, A.x * 0.04))
+	# Les nageoires : de longues pales devant, plus courtes derrière, chacune sur son pivot qui rame.
+	for sx in [-1.0, 1.0]:
+		for avant in [true, false]:
+			var pivot := Node3D.new()
+			pivot.position = Vector3(sx * A.x * (0.78 if avant else 0.68), -A.y * 0.12, A.z * (0.48 if avant else -0.66))
+			pivot.rotation.y = sx * (0.5 if avant else 1.2)
+			t.add_child(pivot)
+			var L := A.x * (0.85 if avant else 0.38)
+			var largeur := A.x * (0.22 if avant else 0.18)
+			# La pale s'affine vers le bout : deux masses, l'épaule et la main.
+			_piece(pivot, _boule(1.0), peau, Vector3(sx * L * 0.3, 0, 0), Vector3.ZERO, Vector3(L * 0.36, A.x * 0.05, largeur * 0.9))
+			_piece(pivot, _boule(1.0), peau, Vector3(sx * L * 0.72, -A.x * 0.01, -largeur * 0.12), Vector3(0, sx * 0.12, 0), Vector3(L * 0.34, A.x * 0.03, largeur * 0.62))
+			_nageoires.append([pivot, sx, 0.0 if avant else PI * 0.6, "avant" if avant else "arriere"])
+	# La queue, courte et pointue.
+	var queue := _cylindre_plein(A.x * 0.06, A.x * 0.005, A.x * 0.22)
+	_piece(t, queue, peau, Vector3(0, -A.y * 0.12, -A.z * 1.02), Vector3(deg_to_rad(-100), 0, 0))
+
+
+## La peau d'Akoupara : un grain d'écailles fines (un Voronoï), olive et gris, plus claire et plus jaune dessous.
+func _matiere_peau() -> ShaderMaterial:
+	var sh := Shader.new()
+	sh.code = """shader_type spatial;
+varying vec3 monde;
+varying vec3 n_monde;
+void vertex() {
+	monde = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	n_monde = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
+}
+vec2 h22(vec2 p) { return fract(sin(vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)))) * 43758.5453); }
+vec2 voronoi(vec2 p) {
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	float f1 = 9.0;
+	float f2 = 9.0;
+	for (int y = -1; y <= 1; y++) {
+		for (int x = -1; x <= 1; x++) {
+			vec2 g = vec2(float(x), float(y));
+			float d = length(g + h22(i + g) - f);
+			if (d < f1) { f2 = f1; f1 = d; } else if (d < f2) { f2 = d; }
+		}
+	}
+	return vec2(f1, f2 - f1);
+}
+void fragment() {
+	vec3 a = abs(n_monde);
+	vec2 p = (a.y > a.x && a.y > a.z) ? monde.xz : (a.x > a.z ? monde.yz : monde.xy);
+	vec2 v = voronoi(p / 9.0);
+	vec3 dessus = vec3(0.3, 0.33, 0.24);
+	vec3 dessous = vec3(0.66, 0.6, 0.4);
+	vec3 c = mix(dessous, dessus, smoothstep(-0.4, 0.3, n_monde.y));
+	c *= 0.85 + 0.25 * v.x;
+	c = mix(c * 0.45, c, smoothstep(0.02, 0.12, v.y));
+	ALBEDO = pow(c, vec3(1.6));
+	ROUGHNESS = 0.7;
+}
+"""
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	return m
+
+
+func _cylindre_plein(r_haut: float, r_bas: float, h: float) -> CylinderMesh:
+	var c := CylinderMesh.new()
+	c.top_radius = r_haut
+	c.bottom_radius = r_bas
+	c.height = h
+	c.radial_segments = 24
+	return c
 
 
 func _module(nom: String, p: Vector3, graine: int, options: Dictionary, lacet := 0.0) -> Node3D:
@@ -1209,6 +1391,18 @@ func _process(delta: float) -> void:
 		_brume()
 	if _couronne != null:
 		_couronne.rotation.y = _t * 0.004
+	# Akoupara rame : les nageoires de devant battent lentement, celles de derrière suivent ; la tête oscille.
+	for n in _nageoires:
+		var pivot: Node3D = n[0]
+		var ph: float = _t * 0.45 + n[2]
+		match n[3]:
+			"avant":
+				pivot.rotation.z = n[1] * (sin(ph) * 0.32 - 0.05)
+				pivot.rotation.x = cos(ph) * 0.18
+			"arriere":
+				pivot.rotation.z = n[1] * sin(ph) * 0.15
+			"tete":
+				pivot.rotation = Vector3(sin(_t * 0.21) * 0.05 - 0.06, sin(_t * 0.13) * 0.08, 0)
 	if player != null and player.follow_camera == camera:
 		camera.set("_target_goal", player.global_position + Vector3(0, 0.3, 0))
 	_prompt.visible = not _en_arrivee and player != null and player.focus_target == porte

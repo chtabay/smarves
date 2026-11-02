@@ -49,6 +49,8 @@ func _init() -> void:
 		"8-la-clairiere-et-le-meru": [Vector3(14, 9, 22), c0 + Vector3(0, 60, 0), 55.0, 0.0],
 		"9-sous-le-disque": [c0 + Vector3(1200, -300, 950), c0 + Vector3(0, -240, 0), 50.0, 0.0],
 		"10-de-nuit": [c0 + Vector3(-3000, 700, 2700), c0 + Vector3(0, -400, 0), 45.0, 170.0],
+		"11-akoupara": [c0 + Vector3(1900, -500, 2300), c0 + Vector3(0, -760, 250), 45.0, 0.0],
+		"12-la-tete": [c0 + Vector3(700, -650, 1900), c0 + Vector3(0, -760, 1250), 45.0, 0.0],
 	}
 	for nom: String in vues:
 		var v: Array = vues[nom]
