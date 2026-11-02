@@ -53,8 +53,6 @@ const CARAPACE := Vector3(935.0, 374.0, 1054.0)
 ## Les éléphants, à cette distance du centre, sous le disque.
 const ELEPHANTS_R := 272.0
 const ELEPHANTS := ["Airâvata", "Vâmana", "Anjana", "Sârvabhauma"]
-## La brique de la bibliothèque qui donne les éléphants et Akoupara (bibliotheque/monde-secret/1/).
-const BRIQUE := "monde-secret@1"
 ## La Lanterne : le centre de sa course (depuis le centre du disque), son rayon, sa période (secondes),
 ## l'angle de départ.
 const LANTERNE_CENTRE := Vector3(0.0, -340.0, 0.0)
@@ -230,7 +228,7 @@ func _brume() -> void:
 	var d := cam.global_position.distance_to(CENTRE)
 	var haut := cam.global_position.y - CENTRE.y
 	var pres := 1.0 - smoothstep(700.0, 2600.0, d)
-	var ras := pres * (1.0 - smoothstep(60.0, 600.0, haut))
+	var ras := pres * (1.0 - smoothstep(60.0, 600.0, haut)) * smoothstep(-30.0, 10.0, haut)
 	_env.fog_density = lerpf(0.00005, 0.0008, ras * 0.8 + 0.2 * pres)
 	# De l'espace, la brume est la nuit bleue ; au ras du pays, un voile clair, doré au couchant.
 	var clair := Color(0.08, 0.1, 0.2).lerp(Color(0.62, 0.68, 0.8), _jour)
@@ -787,17 +785,206 @@ void fragment() {
 
 # --- Les porteurs : les quatre éléphants et Akoupara --------------------------------------------------------
 
-## Les éléphants, modules de la brique monde-secret@1, et Akoupara (_tortue), à l'échelle du pays : la tortue
-## sous le disque, les éléphants aux diagonales, tête vers le dehors, les pieds un peu enfoncés dans la
-## carapace, le dos sous la roche du disque.
+## Les quatre éléphants (_elephant) et Akoupara (_tortue), à l'échelle du pays : la tortue sous le disque, les
+## éléphants aux diagonales, tête vers le dehors, les pieds un peu enfoncés dans la carapace, la selle d'or
+## sous la roche du disque.
 func _porteurs() -> void:
 	_tortue()
 	for i in ELEPHANTS.size():
 		var a := TAU * i / ELEPHANTS.size() + PI * 0.25
 		var pieds := _carapace_y(cos(a) * ELEPHANTS_R, sin(a) * ELEPHANTS_R) - 10.0
-		var e := _module("elephant", CENTRE + Vector3(cos(a) * ELEPHANTS_R, pieds, sin(a) * ELEPHANTS_R), i + 1,
-			{"hauteur": -EPAISSEUR - 26.0 - pieds}, atan2(cos(a), sin(a)))
-		e.name = str(ELEPHANTS[i]).replace("â", "a")
+		_elephant(i, CENTRE + Vector3(cos(a) * ELEPHANTS_R, pieds, sin(a) * ELEPHANTS_R), atan2(cos(a), sin(a)),
+			-EPAISSEUR - pieds)
+
+
+## Les éléphants des points cardinaux, parés comme pour une fête : Airâvata, l'éléphant blanc, puis Vâmana,
+## Anjana et Sârvabhauma. Leur peau, leur caparaçon et ses broderies, la frontière d'or.
+const PARURES := [
+	[Color(0.86, 0.84, 0.8), Color(0.62, 0.08, 0.1)],
+	[Color(0.47, 0.45, 0.46), Color(0.85, 0.45, 0.08)],
+	[Color(0.42, 0.41, 0.43), Color(0.1, 0.16, 0.5)],
+	[Color(0.5, 0.47, 0.45), Color(0.08, 0.38, 0.22)],
+]
+
+
+## Un éléphant porteur, bâti en unités d'éléphant (le dessus de la selle à 1,0, la tête vers +Z), puis mis à
+## l'échelle `H` : le corps en trois masses (épaules, ventre, croupe), des pattes en colonnes qui se resserrent
+## au genou, des pieds aux ongles d'ivoire, la tête au front bombé, de grandes oreilles qui battent, une
+## trompe articulée qui se balance et s'enroule, des défenses courbes, la queue. Paré d'un caparaçon brodé
+## d'or et frangé, d'un frontal d'or, et d'une selle d'or où repose le disque.
+func _elephant(i: int, pos: Vector3, lacet: float, H: float) -> void:
+	var e := Node3D.new()
+	e.name = str(ELEPHANTS[i]).replace("â", "a")
+	e.position = pos
+	e.rotation.y = lacet
+	e.scale = Vector3.ONE * H
+	add_child(e)
+	var parure: Array = PARURES[i]
+	var peau := _matiere_peau_elephant(parure[0], H)
+	var ivoire := _mat(Color(0.93, 0.88, 0.76), 0.35)
+	var or_ := _mat(Color(0.95, 0.74, 0.32), 0.3)
+	or_.metallic = 0.85
+	var drap := _matiere_caparacon(parure[1])
+	# Le corps : les épaules plus hautes que la croupe, le ventre rond.
+	_piece(e, _boule(1.0), peau, Vector3(0, 0.74, 0.2), Vector3.ZERO, Vector3(0.29, 0.29, 0.27))
+	_piece(e, _boule(1.0), peau, Vector3(0, 0.68, -0.02), Vector3.ZERO, Vector3(0.3, 0.27, 0.36))
+	_piece(e, _boule(1.0), peau, Vector3(0, 0.7, -0.26), Vector3.ZERO, Vector3(0.27, 0.26, 0.24))
+	# Les pattes : la cuisse, la jambe, le pied rond et ses trois ongles.
+	for sx in [-1.0, 1.0]:
+		for sz in [-1.0, 1.0]:
+			var q := Vector3(sx * 0.16, 0, 0.27 if sz > 0.0 else -0.28)
+			_piece(e, _cylindre_plein(0.115, 0.085, 0.32), peau, q + Vector3(0, 0.5, 0))
+			_piece(e, _boule(1.0), peau, q + Vector3(0, 0.33, 0), Vector3.ZERO, Vector3(0.09, 0.06, 0.09))
+			_piece(e, _cylindre_plein(0.082, 0.095, 0.3), peau, q + Vector3(0, 0.17, 0))
+			_piece(e, _cylindre_plein(0.098, 0.105, 0.04), peau, q + Vector3(0, 0.02, 0))
+			for k in 3:
+				var a := (k - 1) * 0.55
+				_piece(e, _boule(1.0), ivoire, q + Vector3(sin(a) * 0.09, 0.022, cos(a) * 0.09), Vector3.ZERO, Vector3(0.026, 0.02, 0.016))
+	# La tête et le front bombé, les yeux.
+	var tete := Vector3(0, 0.84, 0.5)
+	_piece(e, _boule(1.0), peau, tete, Vector3(deg_to_rad(15), 0, 0), Vector3(0.18, 0.21, 0.17))
+	_piece(e, _boule(1.0), peau, tete + Vector3(0, 0.11, 0.03), Vector3.ZERO, Vector3(0.14, 0.09, 0.12))
+	var noir := _mat(Color(0.03, 0.02, 0.02), 0.1)
+	for sx in [-1.0, 1.0]:
+		_piece(e, _boule(1.0), noir, tete + Vector3(sx * 0.13, 0.03, 0.1), Vector3.ZERO, Vector3(0.018, 0.016, 0.016))
+	# Les oreilles : de grands voiles, un peu plus sombres, qui battent.
+	for sx in [-1.0, 1.0]:
+		var o := Node3D.new()
+		o.position = tete + Vector3(sx * 0.15, 0.06, -0.04)
+		e.add_child(o)
+		_piece(o, _boule(1.0), peau, Vector3(sx * 0.06, -0.07, -0.12), Vector3(0, sx * 0.45, 0), Vector3(0.022, 0.25, 0.2))
+		_nageoires.append([o, sx, float(i) * 1.7, "oreille"])
+	# Le frontal d'or, le drap rouge sous lui.
+	_piece(e, _boule(1.0), drap, tete + Vector3(0, 0.08, 0.12), Vector3(deg_to_rad(-25), 0, 0), Vector3(0.08, 0.1, 0.025))
+	_piece(e, _boule(1.0), or_, tete + Vector3(0, 0.1, 0.15), Vector3(deg_to_rad(-25), 0, 0), Vector3(0.06, 0.08, 0.02))
+	# La trompe : neuf anneaux sur des articulations en chaîne, qui pend, se balance et s'enroule au bout.
+	var joint := Node3D.new()
+	joint.position = tete + Vector3(0, -0.06, 0.16)
+	e.add_child(joint)
+	var n := 9
+	for k in n:
+		var r0 := lerpf(0.07, 0.026, float(k) / n)
+		var r1 := lerpf(0.07, 0.026, float(k + 1) / n)
+		_piece(joint, _cylindre_plein(r0, r1, 0.075), peau, Vector3(0, -0.035, 0))
+		_nageoires.append([joint, float(k) / n, float(i) * 2.3, "trompe"])
+		var suivant := Node3D.new()
+		suivant.position = Vector3(0, -0.07, 0)
+		joint.add_child(suivant)
+		joint = suivant
+	# Les défenses : deux arcs d'ivoire qui partent sous les yeux et se relèvent.
+	for sx in [-1.0, 1.0]:
+		var d0 := tete + Vector3(sx * 0.07, -0.1, 0.12)
+		var pts := [d0, d0 + Vector3(sx * 0.015, -0.07, 0.05), d0 + Vector3(sx * 0.025, -0.1, 0.12), d0 + Vector3(sx * 0.03, -0.08, 0.19)]
+		for k in pts.size() - 1:
+			var a: Vector3 = pts[k]
+			var b: Vector3 = pts[k + 1]
+			var seg := _piece(e, _cylindre_plein(lerpf(0.022, 0.008, (k + 1) / 3.0), lerpf(0.022, 0.008, k / 3.0), a.distance_to(b) + 0.01), ivoire, (a + b) * 0.5)
+			seg.basis = Basis(Quaternion(Vector3.UP, (b - a).normalized()))
+		# L'anneau d'or au pied de la défense.
+		_piece(e, _cylindre_plein(0.026, 0.026, 0.015), or_, d0 + Vector3(sx * 0.005, -0.02, 0.02), Vector3(deg_to_rad(-40), 0, 0))
+	# La queue et sa houppe.
+	var queue := Node3D.new()
+	queue.position = Vector3(0, 0.8, -0.48)
+	e.add_child(queue)
+	_piece(queue, _cylindre_plein(0.018, 0.01, 0.3), peau, Vector3(0, -0.15, -0.02))
+	_piece(queue, _boule(1.0), _mat(Color(0.12, 0.1, 0.09)), Vector3(0, -0.31, -0.02), Vector3.ZERO, Vector3(0.022, 0.04, 0.022))
+	_nageoires.append([queue, 1.0, float(i), "queue"])
+	# Le caparaçon : le drap posé sur le dos, qui tombe sur les flancs, frangé de pompons d'or.
+	var capa := CylinderMesh.new()
+	capa.top_radius = 0.33
+	capa.bottom_radius = 0.36
+	capa.height = 0.36
+	capa.radial_segments = 48
+	_piece(e, capa, drap, Vector3(0, 0.8, -0.02), Vector3.ZERO, Vector3(1.0, 1.0, 1.25))
+	for k in 28:
+		var a := TAU * k / 28.0
+		_piece(e, _boule(1.0), or_, Vector3(cos(a) * 0.36, 0.6, sin(a) * 0.45 - 0.02), Vector3.ZERO, Vector3(0.016, 0.026, 0.016))
+	# La selle d'or : un plateau ciselé sur un tambour, où repose le disque.
+	_piece(e, _cylindre_plein(0.3, 0.33, 0.04), or_, Vector3(0, 0.99, -0.02))
+	_piece(e, _cylindre_plein(0.26, 0.3, 0.05), or_, Vector3(0, 0.955, -0.02))
+	_piece(e, _cylindre_plein(0.34, 0.3, 0.02), drap, Vector3(0, 0.925, -0.02))
+
+
+## La peau d'un éléphant : grise (ou d'ivoire pour Airâvata), ridée de plis horizontaux et de craquelures, plus
+## sombre dans les creux. Les rides sont à l'échelle de l'éléphant (`H`), pas du monde.
+func _matiere_peau_elephant(teinte: Color, H: float) -> ShaderMaterial:
+	var sh := Shader.new()
+	sh.code = """shader_type spatial;
+uniform vec3 teinte : source_color;
+uniform float echelle = 1.0;
+varying vec3 p;
+varying vec3 n_monde;
+void vertex() {
+	p = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz / echelle;
+	n_monde = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
+}
+vec2 h22(vec2 q) { return fract(sin(vec2(dot(q, vec2(127.1, 311.7)), dot(q, vec2(269.5, 183.3)))) * 43758.5453); }
+float craquelure(vec2 q) {
+	vec2 i = floor(q);
+	vec2 f = fract(q);
+	float f1 = 9.0;
+	float f2 = 9.0;
+	for (int y = -1; y <= 1; y++) {
+		for (int x = -1; x <= 1; x++) {
+			vec2 g = vec2(float(x), float(y));
+			float d = length(g + h22(i + g) - f);
+			if (d < f1) { f2 = f1; f1 = d; } else if (d < f2) { f2 = d; }
+		}
+	}
+	return f2 - f1;
+}
+void fragment() {
+	vec3 a = abs(n_monde);
+	vec2 q = (a.y > a.x && a.y > a.z) ? p.xz : (a.x > a.z ? p.zy : p.xy);
+	float plis = sin(p.y * 140.0 + sin(q.x * 23.0) * 2.0) * 0.5 + 0.5;
+	plis = mix(plis, sin(p.y * 330.0 + sin(q.x * 51.0) * 2.0) * 0.5 + 0.5, 0.4);
+	float c = craquelure(q * 120.0);
+	vec3 col = teinte * (0.78 + 0.22 * plis);
+	col *= mix(0.8, 1.0, smoothstep(0.02, 0.15, c));
+	col *= mix(0.75, 1.0, smoothstep(-0.6, 0.4, n_monde.y));
+	ALBEDO = col;
+	ROUGHNESS = 0.85;
+}
+"""
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	m.set_shader_parameter("teinte", teinte)
+	m.set_shader_parameter("echelle", H)
+	return m
+
+
+## Le caparaçon : un drap de couleur, deux galons d'or en bas, des losanges brodés d'or entre eux, et des
+## rosaces sur le dos.
+func _matiere_caparacon(teinte: Color) -> ShaderMaterial:
+	var sh := Shader.new()
+	sh.code = """shader_type spatial;
+render_mode cull_disabled;
+uniform vec3 teinte : source_color;
+varying vec3 l;
+void vertex() { l = VERTEX; }
+void fragment() {
+	vec3 col = teinte;
+	float y = l.y;
+	float a = atan(l.z, l.x);
+	float metal = 0.0;
+	// Les galons d'or près du bas, et la frise de losanges entre eux.
+	float galon = step(abs(y + 0.15), 0.012) + step(abs(y + 0.07), 0.008);
+	vec2 q = vec2(a * 6.0, (y + 0.11) * 30.0);
+	float losange = step(abs(fract(q.x) - 0.5) + abs(q.y), 0.42) * step(abs(y + 0.11), 0.03);
+	// Les rosaces sur le dessus.
+	float r = length(l.xz);
+	float rosace = step(0.5, sin(r * 70.0) * 0.5 + 0.5) * step(r, 0.12) * step(0.17, y);
+	float or_ = clamp(galon + losange + rosace, 0.0, 1.0);
+	col = mix(col, vec3(0.95, 0.72, 0.3), or_);
+	ALBEDO = col;
+	METALLIC = or_ * 0.8;
+	ROUGHNESS = mix(0.8, 0.3, or_);
+}
+"""
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	m.set_shader_parameter("teinte", teinte)
+	return m
 
 
 ## Le dessus de la carapace en (x, z) depuis le centre du disque (hauteur depuis le centre du disque).
@@ -982,16 +1169,6 @@ func _cylindre_plein(r_haut: float, r_bas: float, h: float) -> CylinderMesh:
 	c.radial_segments = 24
 	return c
 
-
-func _module(nom: String, p: Vector3, graine: int, options: Dictionary, lacet := 0.0) -> Node3D:
-	var b: Node3D = load(Bibliotheque.scene(BRIQUE, "decor")).instantiate()
-	b.set("module", nom)
-	b.set("graine", graine)
-	b.set("options", options)
-	b.position = p
-	b.rotation.y = lacet
-	add_child(b)
-	return b
 
 
 # --- La clairière ----------------------------------------------------------------------------------------
@@ -1403,6 +1580,15 @@ func _process(delta: float) -> void:
 				pivot.rotation.z = n[1] * sin(ph) * 0.15
 			"tete":
 				pivot.rotation = Vector3(sin(_t * 0.21) * 0.05 - 0.06, sin(_t * 0.13) * 0.08, 0)
+			# Les éléphants : les oreilles battent, la trompe se balance et s'enroule au bout, la queue fouette.
+			"oreille":
+				pivot.rotation.y = n[1] * (0.12 + 0.22 * maxf(sin(_t * 0.9 + n[2]), 0.0))
+			"trompe":
+				var k: float = n[1]
+				pivot.rotation.x = -(0.05 + k * k * (0.55 + 0.25 * sin(_t * 0.5 + n[2])))
+				pivot.rotation.z = sin(_t * 0.35 + n[2] - k * 1.5) * 0.06
+			"queue":
+				pivot.rotation.z = sin(_t * 1.1 + n[2]) * 0.25
 	if player != null and player.follow_camera == camera:
 		camera.set("_target_goal", player.global_position + Vector3(0, 0.3, 0))
 	_prompt.visible = not _en_arrivee and player != null and player.focus_target == porte
