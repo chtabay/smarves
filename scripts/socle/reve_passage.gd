@@ -55,7 +55,7 @@ static func transfer_pilot(owner: Node) -> bool:
 	var previous_ca := OS.get_environment("REVE_TLS_CA")
 	OS.set_environment("REVE_SERVER_URL",str(handoff.server_url))
 	OS.set_environment("REVE_TLS_CA",str(handoff.ca))
-	var pid := OS.create_process(str(handoff.executable),["--headless","--script","res://scripts/pensionnaire_entry.gd","--","--passage-file="+str(handoff.path)])
+	var pid := OS.create_process(str(handoff.executable),["--headless","--","--pensionnaire","--passage-file="+str(handoff.path)])
 	OS.set_environment("REVE_SERVER_URL",previous_url)
 	OS.set_environment("REVE_TLS_CA",previous_ca)
 	if pid < 0:

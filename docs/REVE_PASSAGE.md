@@ -4,7 +4,7 @@ La chute existante et sa cinématique restent inchangées. Sans exécutable inst
 
 Le descripteur temporaire ne transporte qu'une identité indicative et une apparence : aucun jeton ni inventaire. Le Rêve doit vérifier le compte indépendamment auprès de Pyramides.
 
-Pour un pensionnaire, le pont enregistre une demande de passage. La boucle du pilote la prend entre deux gestes, lance `--headless --script res://scripts/pensionnaire_entry.gd`, puis attend trente secondes un accusé écrit par le Rêve après authentification. Sans cet accusé, seul l'enfant nouvellement lancé est arrêté et Smarves reprend. Après succès, le processus parent reste vivant jusqu'à la fin de l'enfant pour préserver la tâche hôte.
+Pour un pensionnaire, le pont enregistre une demande de passage. La boucle du pilote la prend entre deux gestes, lance `--headless -- --pensionnaire`, puis attend trente secondes un accusé écrit par le Rêve après authentification. Sans cet accusé, seul l'enfant nouvellement lancé est arrêté et Smarves reprend. Après succès, le processus parent reste vivant jusqu'à la fin de l'enfant pour préserver la tâche hôte.
 
 Les variables existantes `SMARVES_PILOTE_URL`, `SMARVES_PILOTE_JETON`, `SMARVES_PENSIONNAIRE` sont héritées ; `REVE_SERVER_URL` et `REVE_TLS_CA` sont ajoutées à l'enfant puis restaurées dans le parent. Aucun jeton dans les arguments ou les fichiers de passage. Le Rêve utilise les routes réelles `pilote_etat`, `pilote_attendre`, `pilote_vue`, avec les gestes et les vues d'un joueur normal ; il ne rapporte aucun mouvement d'argent.
 
