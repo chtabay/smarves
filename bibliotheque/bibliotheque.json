@@ -395,6 +395,20 @@
 					"socle": "1.31"
 				}
 			}
+		},
+		"monde-secret": {
+			"genre": "decor",
+			"nom": "Le monde secret sous les cartes",
+			"description": "Ce qu'on découvre en tombant très loin sous n'importe quelle carte, module par module : le disque du monde (l'île d'herbe au milieu, l'eau qui en fait le tour et tombe en cascade sur tout le bord), l'éléphant porteur debout (le dos à hauteur connue, où poser le disque) et la tortue géante (la carapace semée d'écailles, la tête tendue, quatre nageoires). Le socle les assemble et y ajoute la lanterne, le ciel et la chute. Demandé par Guillaume ; en unités du jeu, sans échelle.",
+			"auteur": "Smarves · d'après une inspiration de Guillaume",
+			"licence": "celle du jeu",
+			"versions": {
+				"1": {
+					"scene": "res://bibliotheque/monde-secret/1/module.tscn",
+					"apercu": "res://bibliotheque/monde-secret/1/apercu.png",
+					"socle": "1.25"
+				}
+			}
 		}
 	}
 }

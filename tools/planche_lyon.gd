@@ -100,6 +100,23 @@ func _init() -> void:
 				xs[rangee] += float(m.get_meta("w")) + 0.4
 			cam.fov = 40
 			cam.look_at_from_position(Vector3(-6, 52.0, 46.8 - 13.0), Vector3(-6, 0, -13.0))
+		"monde":
+			# le monde secret sous les cartes, assemblé comme le socle le fera (unités du jeu, mesures du fil du
+			# monde secret) : la tortue centrée en y = -44, quatre éléphants à 16 du centre, les pieds sur la
+			# carapace, le disque sur leurs dos à y = 0 ; --nom=pres pour la tête d'un éléphant et de la tortue
+			monde.scale = Vector3.ONE  # pas d'échelle : la brique est en unités du jeu
+			var Tortue := _pose("monde-secret@1", "module", "tortue", Vector3(0, -44, 0), 1, {})
+			var ha: Callable = Tortue.get_meta("hauteur_a")
+			var pieds := -44.0 + float(ha.call(16.0)) - 0.6  # les pieds un peu enfoncés dans la carapace
+			for i in 4:
+				var a := TAU * i / 4 + PI * 0.25
+				_pose("monde-secret@1", "module", "elephant", Vector3(cos(a) * 16.0, pieds, sin(a) * 16.0), i + 1, {"hauteur": -4.0 - pieds}, atan2(cos(a), sin(a)))
+			_pose("monde-secret@1", "module", "disque", Vector3(0, 0, 0), 1, {})
+			cam.fov = 45
+			if nom == "pres":
+				cam.look_at_from_position(Vector3(-40, -14, 70), Vector3(0, -26, 10))
+			else:
+				cam.look_at_from_position(Vector3(-150, -10, 170), Vector3(0, -30, 0))
 		"cote":
 			# le côté fenêtré (verdict n° 47 de Sathonay) : une maison de cinq niveaux vue de trois quarts, son côté -X
 			# vers la caméra ; --nom=sans pour l'avant (le côté aveugle), --nom=face pour le côté droit devant
