@@ -106,7 +106,8 @@ jobs:
               n=$(echo -n "$p" | sha1sum | cut -c1-8)
               echo "Lancer le jeu de $n"
               # Chaque pensionnaire a son propre dossier de partie (user://).
-              XDG_DATA_HOME="$RUNNER_TEMP/parties/partie-$n" SMARVES_PENSIONNAIRE="$p" \
+              # L'heure de Paris, comme chez un joueur du village : la machine est à l'heure UTC (R-020).
+              TZ=Europe/Paris XDG_DATA_HOME="$RUNNER_TEMP/parties/partie-$n" SMARVES_PENSIONNAIRE="$p" \
                 xvfb-run -a -s "-screen 0 1280x720x24" ./godot --rendering-driver opengl3 --audio-driver Dummy \
                 --resolution 1024x576 --path . -- --pilote > "journaux/$n.log" 2>&1 &
               pid[$p]=$!
