@@ -44,6 +44,7 @@ var _titre := false
 ## « car » à l'arrêt de la place (les lignes vers les communes desservies), « route » au bout d'une
 ## route (la fiche de la voisine dans cette direction), « » sinon.
 var _mode := ""
+var _ou_aller_tout := false  # « et N autres » déplié, jusqu'à la fermeture de la carte
 var _sur_titre: Label
 var _grand_titre: Label
 var _capture := "--capture" in " ".join(OS.get_cmdline_user_args())
@@ -134,6 +135,7 @@ func ouvrir(depuis_titre := false, vers := "", mode := "") -> void:
 		return
 	_titre = depuis_titre
 	_mode = mode
+	_ou_aller_tout = false
 	_mouse_before = Input.mouse_mode
 	_paused_before = get_tree().paused
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -917,6 +919,10 @@ func _remplir_ou_aller() -> void:
 		for i in villes:
 			dist[i] = trajet(i)[0]
 		villes.sort_custom(func(a, b): return dist[a] < dist[b])
+		# Poitiers, dans la brume, n'est pas une ville du jeu mais la gare des vols lointains : un humain
+		# la touche sur la carte ; elle a aussi son lien ici, pour qui ne voit que les boutons (un agent).
+		if _carte.departement == France.VIENNE:
+			rangs.append([Color(0.78, 0.8, 0.84), "Poitiers-Biard", "l'aéroport  ·  vols au loin", _designer.bind(CarteVienne.POITIERS_INSEE)])
 		for i in villes:
 			var etat := "vous êtes ici" if i == _ici() and not _titre and not _loin() else ("%d\u00a0km" % dist[i] if dist[i] > 0 else "")
 			if Communes.par_insee(i) == null and i != CarteVienne.ORIGINE_INSEE:
@@ -937,7 +943,7 @@ func _remplir_ou_aller() -> void:
 		return
 	_ou_aller.add_child(_vide(10))
 	_ou_aller.add_child(_mot(("LES ARRÊTS DU CAR" if _mode == "car" and _carte.niveau == "departement" else "OÙ ALLER"), 12, Color(0.55, 0.75, 0.75), Polices.gras()))
-	var max_rangs := 7
+	var max_rangs := rangs.size() if _ou_aller_tout else 7
 	for k in mini(rangs.size(), max_rangs):
 		var r: Array = rangs[k]
 		var rang := HBoxContainer.new()
@@ -951,8 +957,14 @@ func _remplir_ou_aller() -> void:
 		rang.add_child(_lien(r[1], Color.WHITE, r[3], 16))
 		rang.add_child(_mot(r[2], 14, DOUX))
 		_ou_aller.add_child(rang)
+	# Les suivantes se déplient d'un clic : sur la carte, un humain les voit ; un agent, lui, ne lit que les boutons.
 	if rangs.size() > max_rangs:
-		_ou_aller.add_child(_mot("et %d autres, sur la carte" % (rangs.size() - max_rangs), 14, DOUX))
+		_ou_aller.add_child(_lien("et %d autres" % (rangs.size() - max_rangs), DOUX, _deplier_ou_aller, 14))
+
+
+func _deplier_ou_aller() -> void:
+	_ou_aller_tout = true
+	_remplir_ou_aller()
 
 
 ## Désigne une ville de la liste : la carte s'en approche, sa fiche s'ouvre, le trajet se dessine.
