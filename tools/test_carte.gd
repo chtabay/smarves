@@ -76,6 +76,21 @@ func _init() -> void:
 	carte.aller("86194")
 	await _attendre(0.8)
 	check(carte.is_open() and current_scene.scene_file_path == "res://scenes/main.tscn", "Poitiers reste dans la brume")
+	# R-023 : Poitiers-Biard se touche aussi par un bouton de « Où aller », pour qui ne lit que les boutons (un agent).
+	var biard: Button = null
+	for b in (carte.get("_ou_aller") as Node).find_children("*", "Button", true, false):
+		if (b as Button).text == "Poitiers-Biard":
+			biard = b
+	check(biard != null, "« Où aller » a un lien vers Poitiers-Biard")
+	if biard:
+		biard.pressed.emit()
+		await _attendre(0.8)
+		var fiche := ""
+		for l in (carte.get("_fiche_box") as Node).find_children("*", "Label", true, false):
+			fiche += (l as Label).text + "\n"
+		for l in (carte.get("_fiche_box") as Node).find_children("*", "RichTextLabel", true, false):
+			fiche += (l as RichTextLabel).get_parsed_text() + "\n"
+		check(fiche.contains("Poitiers"), "le lien ouvre la fiche de Poitiers : %s" % fiche.left(120).replace("\n", " / "))
 	carte.fermer()
 	await _attendre(0.8)
 	check(not carte.is_open() and not paused, "Échap ou Revenir rend le village")
