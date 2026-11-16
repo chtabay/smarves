@@ -71,7 +71,12 @@ func paroles() -> Array:
 			var eux: int = dernier.score[1] if dernier.dom == club else dernier.score[0]
 			var adv: String = dernier.ext if dernier.dom == club else dernier.dom
 			var mot := "une belle victoire" if nous > eux else ("un match nul qui laisse des regrets" if nous == eux else "une défaite qui fait mal")
-			out.append("« Dimanche dernier, %d à %d contre %s : %s. »" % [nous, eux, str(f.clubs.get(adv, {}).get("nom", adv)), mot])
+			# Le match du jour est joué dès son coup d'envoi : le président le dit pour ce qu'il est, un score
+			# déjà connu que la pelouse rejoue, et non un pronostic ni « dimanche dernier » (remontée C-013).
+			var depuis: int = f.maintenant() - f.coup_envoi(f.saison, int(dernier.j))
+			var quand := "Cet après-midi" if depuis < 86400 else "Dimanche dernier"
+			var rejeu := " Le match est joué : sur la pelouse, il se rejoue minute par minute." if depuis < f.DUREE_DIRECT else ""
+			out.append("« %s, %d à %d contre %s : %s.%s »" % [quand, nous, eux, str(f.clubs.get(adv, {}).get("nom", adv)), mot, rejeu])
 	else:
 		out.append("« La saison n'a pas commencé : tout reste à écrire. »")
 	if rencontre.is_empty():
@@ -84,11 +89,11 @@ func paroles() -> Array:
 	return out
 
 
-## Le dernier match joué du club : {dom, ext, score}, ou {}.
+## Le dernier match joué du club : {dom, ext, score, j}, ou {}.
 func _dernier(f: Node, joues: int) -> Dictionary:
 	var place: Array = f.place_de(club)
 	for j in range(joues, 0, -1):
 		for m in f.journee(f.saison, place[0], place[1], j, joues):
 			if (m.dom == club or m.ext == club) and not m.score.is_empty():
-				return m
+				return m.merged({"j": j})
 	return {}
