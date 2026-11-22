@@ -223,10 +223,35 @@ func _refresh() -> void:
 		if it.seller != seller or (seller == "commerce" and str(it.get("commerce", "")) != "%s/%s" % [commune, boutique]):
 			continue
 		_card(it)
+	if not _map:
+		_a_revendre()
 	var b := _banque()
 	_status.text = "Vos crédits : %s   ·   Dette %s : %s   ·   Standing : %d" % [Game.fmt(Game.credits),
 		"au Crédit Smarvois" if b.is_empty() else "à %s" % str(b.get("nom", "la banque")),
 		Game.fmt(Game.debt if b.is_empty() else Game.debt_of(str(b.get("preteur", "")))), Biens.standing()]
+
+
+## Ce qu'on a acheté ici et qu'on peut revendre, en fin de liste : un achat n'ajoute plus de bouton entre
+## deux objets, et les boutons des autres objets gardent leur rang d'un achat à l'autre (remontée R-027 :
+## un « Revendre » glissé sous l'objet acheté décalait tout, et un agent a financé la lampe au lieu de
+## payer le lit comptant).
+func _a_revendre() -> void:
+	var miens: Array = []
+	for it in Biens.catalogue():
+		if it.seller != seller or (seller == "commerce" and str(it.get("commerce", "")) != "%s/%s" % [commune, boutique]):
+			continue
+		if Game.won >= it.gate and Biens.count(it.id) > 0:
+			miens.append(it)
+	if miens.is_empty():
+		return
+	_label(_list, "À revendre", 17, INK, true)
+	for it in miens:
+		var nom := str(it.name)
+		if ["Le ", "La ", "Les ", "L'", "L’"].any(func(x): return nom.begins_with(x)):
+			nom = nom.left(1).to_lower() + nom.substr(1)
+		var resell := _button("Revendre %s (%s)" % [nom, Game.fmt(Biens.resale_of(it.id))], _sell.bind(it.id))
+		resell.size_flags_horizontal = Control.SIZE_SHRINK_END
+		_list.add_child(resell)
 
 
 func _card(it: Dictionary) -> void:
@@ -271,10 +296,6 @@ func _card(it: Dictionary) -> void:
 		buttons.add_child(_button("Financer", _buy.bind(it.id, true)))
 	else:
 		_label(right, "complet", 16, INK_LIGHT).horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	if n > 0:
-		var resell := _button("Revendre (%s)" % Game.fmt(Biens.resale_of(it.id)), _sell.bind(it.id))
-		resell.size_flags_horizontal = Control.SIZE_SHRINK_END
-		right.add_child(resell)
 
 
 func _on_quartier(q: String) -> void:

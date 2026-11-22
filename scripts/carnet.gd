@@ -965,7 +965,7 @@ func _fill_resume(t: int) -> void:
 		var en_cours: bool = Agenda.en_cours(rv, t)
 		var couleur := INK_LIGHT if rv.annonce else INK
 		_ligne_grille(g, ["%s, %s" % [_jour_court(int(rv.quand), t), Agenda.heure(rv.quand)],
-			"maintenant" if en_cours else AUJOURDHUI.dans(rv.quand, t), str(rv.titre)], 2, couleur, false)[1].add_theme_color_override("font_color", ACCENT)
+			"maintenant" if en_cours else AUJOURDHUI.dans(rv.quand, t), str(rv.titre) + ("  (annoncé)" if rv.annonce else "")], 2, couleur, false)[1].add_theme_color_override("font_color", ACCENT)
 	_gap(_right, 4)
 	_link(_right, "Toute la semaine", _show_sheet.bind(true, "agenda"), true, "semaine")
 
@@ -2561,7 +2561,9 @@ func _fill_sheet_agenda() -> void:
 			_text(texte, rv.lieu, 16, encre)
 		var mot: String = rv.detail
 		if rv.annonce:
-			mot = "Annoncé. " + mot
+			# « Annoncé » seul se lisait comme « confirmé » : on venait à l'heure dite, et rien ne se passait
+			# (remontée C-014, le grand tirage du loto).
+			mot = "Annoncé, pas encore en jeu : rien ne se passe encore à cette heure-là. " + mot
 		if mot != "":
 			_text(texte, mot, 15, PENCIL)
 	_gap(col, 10)
