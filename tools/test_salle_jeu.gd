@@ -374,7 +374,7 @@ func _commerces(game: Node) -> void:
 		s.open_vitrine()
 		await process_frame
 		var p: Node = s._game
-		check(p != null and p.boutique == "mercerie" and p._list.get_child_count() == 2, "la vitrine montre les deux articles de la mercerie, pas ceux du garage")
+		check(p != null and p.boutique == "mercerie" and p._list.get_children().filter(func(c): return c is HBoxContainer).size() == 2, "la vitrine montre les deux articles de la mercerie, pas ceux du garage")
 		if p:
 			p.closed.emit()
 			await process_frame

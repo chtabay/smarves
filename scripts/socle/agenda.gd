@@ -24,7 +24,7 @@ const HEBDOMADAIRES := [
 	[3, 20, 30, 3, "Le tournoi fermé de poker", "le Fumoir du Casino, à l'étage", "poker",
 		"Sur invitation, six joueurs, une seule table. Les tables à plusieurs ouvrent plus tard."],
 	[6, 20, 30, 3, "Le grand tirage du samedi", "la salle François-Rabelais", "loto",
-		"Le loto de M. Gaudin, tiré pour tout le monde à la même heure. Les cartons de tous les jours restent au comptoir."],
+		"Un jour, le loto de M. Gaudin tiré pour tout le monde à la même heure. En attendant, il tire chaque carton tout de suite, au comptoir, à toute heure."],
 ]
 
 ## Ce qui se joue à toute heure, sans rendez-vous : la feuille de la semaine le rappelle en bas, pour
