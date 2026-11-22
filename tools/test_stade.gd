@@ -100,7 +100,7 @@ func _init() -> void:
 	var causerie: PanelContainer = stade._causerie
 	check(causerie != null and causerie.club == "smarves" and causerie.rencontre.j == 6, "la causerie parle du prochain match de l'Étoile : %s" % str(causerie.rencontre))
 	var paroles: Array = causerie.paroles()
-	check(paroles.size() == 3 and paroles[0].begins_with("« Après 5 journées") and paroles[1].begins_with("« Dimanche dernier") and paroles[2].contains("journée 6"), "le président dit le classement, le dernier match et le prochain : %s" % str(paroles))
+	check(paroles.size() == 3 and paroles[0].begins_with("« Après 5 journées") and paroles[1].begins_with("« Cet après-midi") and paroles[2].contains("journée 6"), "le président dit le classement, le dernier match et le prochain : %s" % str(paroles))
 	check(causerie.find_child("Bureau", true, false) != null and causerie.find_child("Choix_formation_4-3-3", true, false) == null, "il renvoie au bureau et ne pilote plus rien")
 	check(foot.consigne_de(1, 6, "smarves").etat == "aucune", "pas encore de consigne")
 	check(foot.decider(1, 6, "smarves", {"formation": "3-5-2", "mentalite": "offensive", "pressing": "haut"}), "la consigne de la journée 6 se donne au moteur (le bureau)")
@@ -190,6 +190,28 @@ func _init() -> void:
 	await create_timer(1.5).timeout
 	stade = current_scene
 	check(not stade._etat.is_empty() and stade._etat.minute == 11 and not stade._etat.fini, "dix minutes après le coup d'envoi, le match en est à la %d' en direct" % stade._etat.minute)
+	check(stade._speech.text.contains("déjà joué"), "le direct dit que le match est déjà joué et se rejoue : %s" % stade._speech.text)
+	stade.open_causerie()
+	await process_frame
+	var dits: String = " ".join(stade._causerie.paroles())
+	check(dits.contains("Cet après-midi") and dits.contains("se rejoue minute par minute") and not dits.contains("Dimanche dernier"), "pendant le direct, le président dit le score du jour pour ce qu'il est : %s" % dits)
+	stade._causerie.closed.emit()
+	await process_frame
+
+	# On regarde l'entraînement quand le coup d'envoi tombe : le match entre sur la pelouse sans ressortir (C-013).
+	var tav: int = foot.coup_envoi(1, 5) - 30
+	foot.regler_horloge(func(): return tav)
+	change_scene_to_file("res://scenes/stade.tscn")
+	await create_timer(1.5).timeout
+	stade = current_scene
+	check(stade._etat.is_empty() and stade._rencontre.j == 4, "trente secondes avant le coup d'envoi, l'Étoile s'entraîne (la journée 4 au tableau)")
+	var tap: int = foot.coup_envoi(1, 5) + 5
+	foot.regler_horloge(func(): return tap)
+	await process_frame
+	await process_frame
+	check(not stade._etat.is_empty() and stade._rencontre.j == 5 and stade._rencontre.joue and not stade._etat.fini, "au coup d'envoi, le match de la journée 5 commence sous nos yeux : %s" % str(stade._rencontre))
+	await process_frame
+	check(stade._acteurs.size() == 22, "vingt-deux joueurs, ceux du match : %d" % stade._acteurs.size())
 
 	# Avant la première journée : l'entraînement.
 	var t0: int = foot.coup_envoi(1, 1) - 86400

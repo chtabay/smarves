@@ -49,6 +49,9 @@ var _supporters: Array = []
 ## Les minutes déjà jouées depuis le coup d'envoi réel, et le dernier match fini (son état complet).
 var _pas := 0
 var _resultat := {}
+## Le prochain coup d'envoi pendant l'entraînement : à cette heure, le match entre sur la pelouse sans qu'il
+## faille ressortir du stade (remontée C-013). 0 sans match à venir.
+var _prochain_envoi := 0
 const MI_TEMPS := 15 * 60
 const TABLEAU := preload("res://scripts/socle/foot_tableau.gd")
 ## Le président Chauvin, et sa causerie (les consignes du prochain match) quand elle est ouverte.
@@ -842,8 +845,8 @@ func _composer() -> void:
 		_synchroniser(true)
 		if _etat.fini:
 			_terminer()
-		elif not _etat.evenements.is_empty():
-			_dire(_etat.evenements[-1].texte)
+		else:
+			_note(_direct_connu() + ("\n" + str(_etat.evenements[-1].texte) if not _etat.evenements.is_empty() else ""))
 	else:
 		_entrainer()
 		_note("%s s'entraîne sous les projecteurs. %s" % [_nom_club(), _affiche.text])
@@ -896,6 +899,25 @@ func _synchroniser(dun_coup := false) -> void:
 			_placer(true)
 
 
+## Le match de la journée est joué dès son coup d'envoi (son score est déjà au village) ; la pelouse le
+## rejoue minute par minute. Dit en une phrase à qui le regarde (remontée C-013).
+func _direct_connu() -> String:
+	return "En direct : %s – %s. Le match est déjà joué et son score connu au village ; la pelouse le rejoue minute par minute." % [Football.clubs[_rencontre.dom].nom, Football.clubs[_rencontre.ext].nom]
+
+
+## Le coup d'envoi tombe pendant l'entraînement : les joueurs de l'entraînement quittent la pelouse, ceux du
+## match y entrent et le direct commence, sans qu'il faille ressortir et revenir (remontée C-013).
+func _coup_d_envoi() -> void:
+	_prochain_envoi = 0
+	_resultat = {}
+	for id in _acteurs:
+		_acteurs[id].queue_free()
+	_acteurs.clear()
+	_cibles.clear()
+	_rencontre = _choisir()
+	_composer()
+
+
 ## Le match est fini (à l'arrivée ou sous nos yeux) : le tableau garde le score, la feuille se lit au
 ## tableau d'affichage, et l'Étoile revient s'entraîner.
 func _terminer() -> void:
@@ -913,6 +935,7 @@ func _terminer() -> void:
 func _entrainer() -> void:
 	_etat = {}
 	var pce: Array = Football.prochain_coup_envoi(Football.maintenant())
+	_prochain_envoi = int(pce[2]) if not _rencontre.is_empty() else 0
 	var quand := "%s à %d h" % [FootTableau.date(pce[2]), Football.HEURE_COUP_ENVOI]
 	if _resultat.is_empty():
 		_horloge.text = "Entraînement"
@@ -1041,6 +1064,8 @@ func _process(delta: float) -> void:
 		_synchroniser()
 		if _etat.fini:
 			_terminer()
+	if _etat.is_empty() and _prochain_envoi > 0 and Football.maintenant() >= _prochain_envoi:
+		_coup_d_envoi()
 	if _etat.is_empty():
 		# L'entraînement : le ballon se promène, les joueurs le suivent.
 		_chrono += delta

@@ -55,6 +55,9 @@ const NOMS := ["Aubrac", "Barneville", "Belcastel", "Bérard", "Boisseau", "Bré
 ## Le premier dimanche de la première saison, à 15 h locale, et la longueur d'une saison en semaines.
 const EPOQUE := {"year": 2026, "month": 10, "day": 25}
 const HEURE_COUP_ENVOI := 15
+## La durée du direct au stade, au plus : quatre-vingt-dix minutes, six de temps additionnel et le quart
+## d'heure de mi-temps (une minute de jeu par minute réelle).
+const DUREE_DIRECT := (90 + 6 + 15) * 60
 const JOURNEES := 14
 const SEMAINES_PAR_SAISON := 16
 const TAILLE := 8
