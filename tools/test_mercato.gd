@@ -253,10 +253,21 @@ func _fenetre(game: Node) -> void:
 		await process_frame
 		check(fen.find_child("Mise", true, false) != null and fen.find_child("Competences", true, false) != null, "la fiche montre les compétences et la case de la mise")
 		var champ: LineEdit = fen.find_child("Mise", true, false)
+		# « +500 », puis le marché se relit et la fiche se redessine : la mise montée reste dans la case
+		# (remontée R-028 : elle revenait à la mise minimale, et « Enchérir » partait au minimum).
+		var mini := champ.text.to_int()
+		fen._ajouter(500)
+		fen.remplir(fen._colonne)
+		await process_frame
+		champ = fen.find_child("Mise", true, false)
+		check(champ.text.to_int() == mini + 500, "la mise montée de 500 tient quand la fiche se redessine (%s)" % champ.text)
 		champ.text = str(int(ouvert[0].plafond) + 1000)
+		champ.text_changed.emit(champ.text)
 		var avant: int = game.credits
 		await fen.miser(ouvert[0].lot)
 		check(game.credits < avant and m.enchere(ouvert[0].lot).meneur_moi, "la fenêtre enchérit, sans plafond de mise")
+		check(fen.find_child("Encherir", true, false) != null and (fen.find_child("Encherir", true, false) as Button).text == "Relever mon offre",
+			"en tête, le bouton dit « Relever mon offre », et la fiche dit qu'on mène déjà")
 	fen.aller("effectif")
 	await process_frame
 	check(fen.find_child("Onglet_effectif", true, false).disabled, "l'onglet de l'effectif s'ouvre")

@@ -25,6 +25,9 @@ var lot_ouvert := ""
 var joueur_ouvert := ""
 var _ligne_etat: Label
 var _saisie: LineEdit
+## La mise tapée (ou montée par +100, +500…) pour chaque lot, tant qu'on ne l'a pas posée : la page se redessine
+## quand le marché se relit, et la case revenait à la mise minimale (remontée R-028).
+var _mises := {}
 var _message := ""
 var _minuteur: Timer
 ## La page d'où l'on a ouvert la fiche.
@@ -547,15 +550,19 @@ func _fiche(colonne: VBoxContainer) -> void:
 	ligne.add_theme_constant_override("h_separation", 8)
 	ligne.add_theme_constant_override("v_separation", 6)
 	droite.add_child(ligne)
+	if bool(e.get("meneur_moi", false)):
+		droite.add_child(_texte(droite, "Vous menez déjà, avec %s crédits. Une nouvelle offre relève la vôtre : elle n'est utile que si l'on vous dépasse." % Game.fmt(int(e.offres[0].montant)), 14, OR))
 	_saisie = LineEdit.new()
 	_saisie.name = "Mise"
-	_saisie.text = str(int(e.minimum))
+	var lot_mise := str(e.lot)
+	_saisie.text = str(maxi(int(e.minimum), int(_mises.get(lot_mise, 0))))
+	_saisie.text_changed.connect(func(t: String): _mises[lot_mise] = t.to_int())
 	_saisie.custom_minimum_size.x = 140
 	_saisie.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_NUMBER
 	_saisie.add_theme_font_size_override("font_size", 16)
 	_saisie.text_submitted.connect(func(_t): miser(str(e.lot)))
 	ligne.add_child(_saisie)
-	var b := _bouton("Enchérir", func(): miser(str(e.lot)))
+	var b := _bouton("Relever mon offre" if bool(e.get("meneur_moi", false)) else "Enchérir", func(): miser(str(e.lot)))
 	b.name = "Encherir"
 	ligne.add_child(b)
 	var plus := HFlowContainer.new()
@@ -576,6 +583,8 @@ func _texte(_parent: Control, t: String, taille: int, couleur: Color) -> Label:
 func _ajouter(x: int) -> void:
 	if _saisie != null:
 		_saisie.text = str(int(_saisie.text.to_int()) + x)
+		if lot_ouvert != "":
+			_mises[lot_ouvert] = _saisie.text.to_int()
 
 
 ## Une barre de compétence, de la couleur de son cran.
@@ -610,6 +619,7 @@ func miser(lot: String) -> void:
 	var r: Dictionary = await mercato().encherir(lot, club, montant)
 	var e: Dictionary = mercato().enchere(lot)
 	if r.ok:
+		_mises.erase(lot)
 		_message = "Offre posée : vous menez à %s crédits." % Game.fmt(montant) if r.mene else "%s surenchérit aussitôt : %s crédits. Rien n'est retenu de votre poche." % [e.acheteur, Game.fmt(int(r.prix))]
 	else:
 		_message = _raison(str(r.raison), e)
