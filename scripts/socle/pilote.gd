@@ -107,6 +107,13 @@ var _reperes := {}
 ## d'ici, comme un joueur qui se souvient de la bascule dans la chambre d'à côté.
 var _vus := {}
 var _vus_lieu: Node = null
+## Le texte de chaque bouton de la dernière vue (id -> texte), et le panneau où elle s'est limitée : un écran
+## redessiné entre deux gestes (le mercato se relit toutes les trente secondes) refait ses boutons, et
+## « b12 » se retrouve par sa place et son texte (remontée R-028 : un clic sur deux refusé).
+var _textes_reperes := {}
+var _dans_vue: Node = null
+## La liste déroulante qu'on a ouverte d'un clic : ses choix s'ajoutent aux boutons, juste après elle.
+var _liste_ouverte: OptionButton = null
 var _dits := 0
 ## Ce qu'on a entendu autour de soi depuis le dernier geste : [{nom, dit}] ; une bulle ne dure que dix
 ## secondes, et l'assistant réfléchit souvent plus longtemps entre deux gestes.
@@ -174,6 +181,8 @@ func joueur() -> CharacterBody3D:
 
 func vue() -> Dictionary:
 	_reperes.clear()
+	_textes_reperes.clear()
+	_dans_vue = null
 	var s := scene()
 	var v := {"lieu": _nom_du_lieu(s), "credits": Game.credits, "gagne": Game.won}
 	var j := joueur()
@@ -183,6 +192,7 @@ func vue() -> Dictionary:
 	if seul != null:
 		v["assis"] = true
 		_cases()
+		_dans_vue = seul
 		v["boutons"] = _boutons(seul)
 		v["textes"] = [str(seul.pilote_resume()).strip_edges()]
 		return v
@@ -606,14 +616,34 @@ func _boutons(dans: Node = null) -> Array:
 				continue
 			var id := "b%d" % (out.size() + 1)
 			_reperes[id] = bt
+			_textes_reperes[id] = t
 			var e := {"id": id, "texte": t}
-			if bt.toggle_mode and bt.button_pressed:
+			if bt.toggle_mode and bt.button_pressed and not (bt is OptionButton):
 				e["choisi"] = true
 			if bt.has_meta("selected") and bt.get_meta("selected"):
 				e["choisi"] = true
+			if bt is OptionButton:
+				e["liste"] = "un clic montre ses choix" if bt != _liste_ouverte else "ses choix suivent"
 			out.append(e)
 			if out.size() >= BOUTONS_MAX:
 				return out
+			# Une liste déroulante ouverte : ses choix, chacun un bouton (le menu qui s'ouvre est une fenêtre
+			# à part, que l'agent ne voyait pas ; remontée R-028).
+			if bt is OptionButton and bt == _liste_ouverte:
+				var o := bt as OptionButton
+				for i in o.item_count:
+					if o.is_item_disabled(i) or o.is_item_separator(i):
+						continue
+					var oid := "b%d" % (out.size() + 1)
+					var ot := "↳ " + o.get_item_text(i).strip_edges().left(78)
+					_reperes[oid] = {"objet": o, "option": i, "nom": ot}
+					_textes_reperes[oid] = ot
+					var oe := {"id": oid, "texte": ot}
+					if i == o.selected:
+						oe["choisi"] = true
+					out.append(oe)
+					if out.size() >= BOUTONS_MAX:
+						return out
 	return out
 
 
@@ -847,6 +877,10 @@ func _attendre(s: float) -> void:
 func _repere(quoi: String) -> Variant:
 	if _reperes.has(quoi):
 		var n = _reperes[quoi]
+		# Un bouton (ou un choix de liste) que la page a refait depuis la vue : libéré, ou sorti de l'arbre.
+		var noeud = n.objet if n is Dictionary and n.has("option") else n
+		if _textes_reperes.has(quoi) and typeof(noeud) == TYPE_OBJECT and (not is_instance_valid(noeud) or not (noeud as Node).is_inside_tree()):
+			return _retrouver(quoi)
 		if n is Array:
 			return n if is_instance_valid(n[0]) else null
 		if n is Dictionary:
@@ -876,6 +910,22 @@ func _repere(quoi: String) -> Variant:
 		if str(k).begins_with("c:") and str(k).to_lower().contains(cherche):
 			return _repere(k)
 	return null
+
+
+## Un bouton de la dernière vue que l'écran a refait depuis : le bouton qui a pris sa place, s'il porte le même
+## texte, sinon le seul bouton de ce texte à l'écran ; null si l'écran a vraiment changé.
+func _retrouver(quoi: String) -> Variant:
+	var texte := str(_textes_reperes.get(quoi, ""))
+	if texte == "":
+		return null
+	var anciens := _textes_reperes.duplicate()
+	var vus := _boutons(_dans_vue if is_instance_valid(_dans_vue) else null)
+	_textes_reperes = anciens
+	for e in vus:
+		if e.id == quoi and e.texte == texte:
+			return _reperes[quoi]
+	var memes := vus.filter(func(e): return e.texte == texte)
+	return _reperes[memes[0].id] if memes.size() == 1 else null
 
 
 func _aller(vers: String) -> Dictionary:
@@ -1441,6 +1491,34 @@ func _cliquer(quoi: String) -> Dictionary:
 	if r == null:
 		return {"ok": false, "dit": "rien de tel à l'écran : %s" % quoi}
 	var avant := _empreinte()
+	if r is Dictionary and r.has("option"):
+		# Un choix d'une liste déroulante : on le prend, comme au doigt dans le menu.
+		var o: OptionButton = r.objet
+		var i: int = r.option
+		_liste_ouverte = null
+		if o.get_popup().visible:
+			o.get_popup().hide()
+		if o.disabled:
+			return {"ok": false, "dit": "cette liste ne se change pas"}
+		var change := i != o.selected
+		var nom := o.get_item_text(i)
+		o.select(i)
+		if change:
+			# La page se redessine souvent sur ce choix : la liste n'est plus là ensuite.
+			o.item_selected.emit(i)
+		await _poser(avant)
+		return {"ok": true, "dit": "choisi : %s" % nom}
+	if r is OptionButton:
+		# Une liste déroulante : ses choix paraissent dans la vue, juste après elle (le menu qu'elle ouvre
+		# est une fenêtre à part). Un second clic la referme.
+		var o: OptionButton = r
+		if o.disabled or not o.is_visible_in_tree():
+			return {"ok": false, "dit": "cette liste ne se change pas"}
+		_liste_ouverte = null if _liste_ouverte == o else o
+		if o.get_popup().visible:
+			o.get_popup().hide()
+		o.button_pressed = false
+		return {"ok": true, "dit": ("ses choix sont dans les boutons, juste après elle (↳)" if _liste_ouverte == o else "liste refermée")}
 	if r is Array and r[0] is Control:
 		# La case d'un plateau à l'écran : un clic de souris en son milieu, appuyé puis relâché.
 		var c: Control = r[0]
@@ -1475,7 +1553,10 @@ func _cliquer(quoi: String) -> Dictionary:
 		var presse := [false]
 		var vu := func(): presse[0] = true
 		b.pressed.connect(vu)
-		await _clic(b.get_global_rect().get_center())
+		# Le clic ne part que si c'est bien ce bouton qui est sous le doigt : un écran redessiné à l'instant
+		# mettait un autre bouton à sa place (remontée R-028 : « Accepter la séance » ouvrait un message).
+		if _sous_le_doigt(b):
+			await _clic(b.get_global_rect().get_center())
 		if is_instance_valid(b):
 			if not presse[0] and not b.disabled:
 				# Sans écran, le clic ne trouve pas toujours sa cible : on appuie sur le bouton lui-même.
@@ -1506,6 +1587,20 @@ func _poser(avant: String) -> void:
 		if n != vu:
 			vu = n
 			calme = Time.get_ticks_msec()
+
+
+## Le milieu du bouton n'est-il couvert par aucun autre bouton ? (Sans écran, Godot ne suit pas le survol :
+## on regarde les boutons visibles à cet endroit, hors le bouton, ses parents et ses enfants.)
+func _sous_le_doigt(b: Control) -> bool:
+	var at := b.get_global_rect().get_center()
+	for r in _racines():
+		for n in r.find_children("*", "BaseButton", true, false):
+			var o := n as BaseButton
+			if o == b or o.is_ancestor_of(b) or b.is_ancestor_of(o) or not o.is_visible_in_tree():
+				continue
+			if o.mouse_filter != Control.MOUSE_FILTER_IGNORE and o.get_global_rect().has_point(at):
+				return false
+	return true
 
 
 func _clic(at: Vector2) -> void:

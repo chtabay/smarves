@@ -1558,6 +1558,9 @@ func _entrainement(col: VBoxContainer) -> void:
 		var p: Dictionary = FootEntrainement.PROGRAMMES[cle]
 		var b := Button.new()
 		b.name = "Programme_" + cle
+		# Le texte du bouton est dans ses étiquettes : son nom en infobulle, pour qu'un agent le voie aussi
+		# (remontée R-028 : seul « Poser le programme » était un bouton pour lui).
+		b.tooltip_text = str(p.nom) + (" (posé)" if cle == pose and not r.is_empty() else "")
 		b.custom_minimum_size = Vector2(lb, 74)
 		b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		var ouvert: bool = cle == choisi
