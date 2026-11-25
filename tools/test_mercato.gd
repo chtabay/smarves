@@ -97,6 +97,22 @@ func _init() -> void:
 	e = m.enchere(lot)
 	check(r.ok and r.mene and int(e.echeance) == t + m.PROLONGATION, "une offre dans les trois dernières minutes repousse la date limite")
 	check(game.credits == 50000 - reprise, "la nouvelle mise est retenue")
+	# Une lecture où le serveur ne nous reconnaît pas (jeton échu ; au lancement, avant le compte) : nos
+	# offres y sont « pas moi ». La mise en tête, sous notre nom, reste retenue et rien n'est « rendu »
+	# (remontée R-029 : 1 070 annoncés rendus au lancement du pilote, jamais rendus, l'enchère gagnée).
+	var compte: Node = root.get_node("Compte")
+	var nom_avant = compte.get("nom")
+	compte.set("nom", "moi")
+	var qui_avant := moi
+	moi = "personne"
+	var nouvelles_avant: int = m.nouvelles.size()
+	await m.lire()
+	check(game.credits == 50000 - reprise and int(m.retenues.get(lot, 0)) == reprise and m.nouvelles.size() == nouvelles_avant,
+		"lue sans être reconnu, la mise en tête reste retenue, sans fausse « enchère dépassée »")
+	moi = qui_avant
+	compte.set("nom", nom_avant)
+	await m.lire()
+	check(int(m.retenues.get(lot, 0)) == reprise and m.nouvelles.size() == nouvelles_avant, "  et relue en étant reconnu, rien ne bouge")
 
 	# La date limite passe : l'enchère est gagnée, la mise dépensée, le joueur au club.
 	t = int(e.echeance) + 10

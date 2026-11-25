@@ -738,15 +738,29 @@ func appliquer(corps: Dictionary) -> void:
 	change.emit()
 
 
+## La mise retenue mène-t-elle encore ? Notre offre en tête ; ou, si le serveur ne nous a pas reconnu, une
+## offre en tête de ce montant, sous notre nom.
+func _encore_a_nous(e: Dictionary, montant: int) -> bool:
+	if e.offres.is_empty() or int(e.offres[0].montant) != montant:
+		return false
+	if e.meneur_moi:
+		return true
+	var c := _compte()
+	return c != null and "nom" in c and str(c.nom) != "" and str(e.offres[0].get("par", "")) == str(c.nom)
+
+
 ## Règle ce qui peut l'être : une mise dépassée est rendue, une mise gagnante est dépensée, une vente
 ## close rapporte son prix à celui qui l'a posée. Chaque fois, une nouvelle pour la fenêtre.
 func _regler() -> void:
 	var bouge := false
-	for lot in retenues.keys():
+	# Une lecture sans compte (au lancement, avant la connexion ; un jeton échu) ne dit pas quelles offres
+	# sont les nôtres : toutes y sont « pas moi ». Elle ne règle aucune mise retenue (remontée R-029 : une
+	# mise en tête « rendue » au lancement du pilote, puis effacée par le solde du serveur ; 1 070 perdus).
+	for lot in (retenues.keys() if connecte() else []):
 		var e := enchere(lot)
 		var montant := int(retenues[lot])
 		var nom: String = "%s %s" % [e.joueur.prenom, e.joueur.nom] if not e.is_empty() else lot
-		if not e.is_empty() and e.valable and e.meneur_moi and int(e.offres[0].montant) == montant:
+		if not e.is_empty() and e.valable and _encore_a_nous(e, montant):
 			if e.ferme:
 				retenues.erase(lot)
 				reglees[lot] = true
