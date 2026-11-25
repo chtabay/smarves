@@ -1118,7 +1118,8 @@ func envoyer() -> void:
 ## Les mises retenues se règlent : rendue quand une meilleure offre passe devant ou que le joueur va
 ## ailleurs à la clôture ; gardée (le joueur est payé) quand on l'emporte.
 func _regler() -> void:
-	for lot in retenues.keys():
+	# Une lecture sans compte ne dit pas quelles offres sont les nôtres : elle ne règle aucune mise (R-029).
+	for lot in (retenues.keys() if connecte() else []):
 		var morceaux: PackedStringArray = lot.split("/")
 		var s := int(morceaux[0])
 		var j := int(morceaux[1])
